@@ -289,7 +289,6 @@ type neutronFirewaller struct {
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
 func (c *neutronFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineID string) ([]string, error) {
-	logger.Debugf("[neutronFirewaller][ensureGroup] gonna call ensureGroup for model: %s", c.jujuGroupName(controllerUUID))
 	jujuGroup, err := c.ensureGroup(c.jujuGroupName(controllerUUID), true)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -297,10 +296,8 @@ func (c *neutronFirewaller) SetUpGroups(ctx context.ProviderCallContext, control
 	var machineGroup neutron.SecurityGroupV2
 	switch c.environ.Config().FirewallMode() {
 	case config.FwInstance:
-		logger.Debugf("[neutronFirewaller][ensureGroup] gonna call ensureGroup for machine: %s", c.machineGroupName(controllerUUID, machineID))
 		machineGroup, err = c.ensureGroup(c.machineGroupName(controllerUUID, machineID), false)
 	case config.FwGlobal:
-		logger.Debugf("[neutronFirewaller][ensureGroup] gonna call ensureGroup for global: %s", c.globalGroupName(controllerUUID))
 		machineGroup, err = c.ensureGroup(c.globalGroupName(controllerUUID), false)
 	}
 	if err != nil {
@@ -331,17 +328,15 @@ func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool) (neutron
 
 	neutronClient := c.environ.neutron()
 	var group neutron.SecurityGroupV2
-	logger.Debugf("[neutronFirewaller][ensureGroup] starting...")
+
 	// First attempt to look up an existing group by name.
 	groupsFound, err := neutronClient.SecurityGroupByNameV2(name)
-	logger.Debugf("[neutronFirewaller][ensureGroup] groups found, length is: %d, data is: %+v", len(groupsFound), groupsFound)
 	// a list is returned, but there should be only one
 	if err == nil && len(groupsFound) == 1 {
 		group = groupsFound[0]
 	} else if err != nil && strings.Contains(err.Error(), "failed to find security group") {
 		// TODO(hml): We should use a typed error here.  SecurityGroupByNameV2
 		// doesn't currently return one for this case.
-		logger.Debugf("[neutronFirewaller][ensureGroup] sec group not found so creating one now...")
 		g, err := neutronClient.CreateSecurityGroupV2(name, "juju group")
 		if err != nil {
 			return zeroGroup, err
@@ -353,8 +348,6 @@ func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool) (neutron
 	} else {
 		return zeroGroup, err
 	}
-
-	logger.Debugf("[neutronFirewaller][ensureGroup] chosen group is: %+v", group)
 
 	if !isModelGroup {
 		return group, nil
@@ -373,7 +366,6 @@ func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool) (neutron
 		// TODO(hml): Add unit test for this case
 		return zeroGroup, errors.New(fmt.Sprintf("More than one security group named %s was found after group was ensured", name))
 	}
-	logger.Debugf("[neutronFirewaller][ensureGroup] get latest security group: %+v", groupsFound[0])
 	return groupsFound[0], nil
 }
 
@@ -523,7 +515,6 @@ func (c *neutronFirewaller) updateGroupControllerUUID(group *neutron.SecurityGro
 
 // OpenPorts implements Firewaller interface.
 func (c *neutronFirewaller) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	logger.Debugf("[neutronFirewaller][OpenPorts] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model",
 			c.environ.Config().FirewallMode())
@@ -538,7 +529,6 @@ func (c *neutronFirewaller) OpenPorts(ctx context.ProviderCallContext, rules fir
 
 // ClosePorts implements Firewaller interface.
 func (c *neutronFirewaller) ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	logger.Debugf("[neutronFirewaller][ClosePorts] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for closing ports on model",
 			c.environ.Config().FirewallMode())
@@ -553,7 +543,6 @@ func (c *neutronFirewaller) ClosePorts(ctx context.ProviderCallContext, rules fi
 
 // IngressRules implements Firewaller interface.
 func (c *neutronFirewaller) IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
-	logger.Debugf("[neutronFirewaller][IngressRules] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
 		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model",
 			c.environ.Config().FirewallMode())
@@ -568,7 +557,6 @@ func (c *neutronFirewaller) IngressRules(ctx context.ProviderCallContext) (firew
 
 // OpenModelPorts implements Firewaller interface
 func (c *neutronFirewaller) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	logger.Debugf("[neutronFirewaller][OpenModelPorts] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	err := c.openPortsInGroup(ctx, c.jujuGroupName(c.environ.controllerUUID), rules)
 	if errors.IsNotFound(err) && !c.environ.usingSecurityGroups {
 		logger.Warningf("attempted to open %v but network port security is disabled. Already open", rules)
@@ -584,7 +572,6 @@ func (c *neutronFirewaller) OpenModelPorts(ctx context.ProviderCallContext, rule
 
 // CloseModelPorts implements Firewaller interface
 func (c *neutronFirewaller) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	logger.Debugf("[neutronFirewaller][CloseModelPorts] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	if err := c.closePortsInGroup(ctx, c.jujuGroupName(c.environ.controllerUUID), rules); err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
@@ -595,7 +582,6 @@ func (c *neutronFirewaller) CloseModelPorts(ctx context.ProviderCallContext, rul
 
 // ModelIngressRules implements Firewaller interface
 func (c *neutronFirewaller) ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
-	logger.Debugf("[neutronFirewaller][ModelIngressRules] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	rules, err := c.ingressRulesInGroup(ctx, c.jujuGroupName(c.environ.controllerUUID))
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -606,7 +592,6 @@ func (c *neutronFirewaller) ModelIngressRules(ctx context.ProviderCallContext) (
 
 // OpenInstancePorts implements Firewaller interface.
 func (c *neutronFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineID string, ports firewall.IngressRules) error {
-	logger.Debugf("[neutronFirewaller][OpenInstancePorts] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf("invalid firewall mode %q for opening ports on instance",
 			c.environ.Config().FirewallMode())
@@ -628,7 +613,6 @@ func (c *neutronFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, i
 
 // CloseInstancePorts implements Firewaller interface.
 func (c *neutronFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineID string, ports firewall.IngressRules) error {
-	logger.Debugf("[neutronFirewaller][CloseInstancePorts] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf("invalid firewall mode %q for closing ports on instance",
 			c.environ.Config().FirewallMode())
@@ -650,7 +634,6 @@ func (c *neutronFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, 
 
 // InstanceIngressRules implements Firewaller interface.
 func (c *neutronFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineID string) (firewall.IngressRules, error) {
-	logger.Debugf("[neutronFirewaller][InstanceIngressRules] firewall mode is: %s, usingSecurityGroups is: %t", c.environ.Config().FirewallMode(), c.environ.usingSecurityGroups)
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			c.environ.Config().FirewallMode())
