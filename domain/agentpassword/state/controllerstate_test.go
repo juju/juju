@@ -24,7 +24,7 @@ func TestControllerStateSuite(t *testing.T) {
 	tc.Run(t, &controllerModelState{})
 }
 
-func (s *controllerModelState) TestSetControllerModelPassword(c *tc.C) {
+func (s *controllerModelState) TestSetControllerNodePassword(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
 	passwordHash := s.genPasswordHash(c)
@@ -42,7 +42,7 @@ func (s *controllerModelState) TestSetControllerModelPassword(c *tc.C) {
 	c.Assert(hash, tc.Equals, string(passwordHash))
 }
 
-func (s *controllerModelState) TestSetControllerModelPasswordDoesNotExist(c *tc.C) {
+func (s *controllerModelState) TestSetControllerNodePasswordDoesNotExist(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
 	passwordHash := s.genPasswordHash(c)

@@ -7,4 +7,4 @@ CREATE UNIQUE INDEX idx_password_hash_algorithm
 ON password_hash_algorithm (name);
 
 INSERT INTO password_hash_algorithm VALUES
-(0, 'sha256');
+(0, 'sha512');
