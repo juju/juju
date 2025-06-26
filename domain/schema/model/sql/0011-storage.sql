@@ -274,6 +274,17 @@ CREATE TABLE storage_volume_status (
     REFERENCES storage_volume_status_value (id)
 );
 
+CREATE TABLE storage_provision_scope (
+    id INT PRIMARY KEY,
+    scope TEXT NOT NULL UNIQUE,
+    CONSTRAINT chk_storage_provision_scope_scope_not_empty
+    CHECK (scope <> '')
+);
+
+INSERT INTO storage_provision_scope (id, scope) VALUES
+(0, 'model'),
+(1, 'machine');
+
 CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
     volume_id TEXT NOT NULL,
@@ -283,9 +294,15 @@ CREATE TABLE storage_volume (
     hardware_id TEXT,
     wwn TEXT,
     persistent BOOLEAN,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_storage_volume_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE UNIQUE INDEX idx_storage_volume_id
@@ -314,6 +331,9 @@ CREATE TABLE storage_volume_attachment (
     life_id INT NOT NULL,
     block_device_uuid TEXT,
     read_only BOOLEAN,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_volume_attachment_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -325,7 +345,10 @@ CREATE TABLE storage_volume_attachment (
     REFERENCES life (id),
     CONSTRAINT fk_storage_volume_attachment_block
     FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid)
+    REFERENCES block_device (uuid),
+    CONSTRAINT fk_storage_volume_attachment_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE TABLE storage_filesystem_status_value (
@@ -364,9 +387,15 @@ CREATE TABLE storage_filesystem (
     life_id INT NOT NULL,
     provider_id TEXT,
     size_mib INT,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_storage_filesystem_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE UNIQUE INDEX idx_storage_filesystem_id
@@ -395,6 +424,9 @@ CREATE TABLE storage_filesystem_attachment (
     life_id INT NOT NULL,
     mount_point TEXT,
     read_only BOOLEAN,
+    -- TODO: we may change provision_scope_id to NOT NULL in the future.
+    -- We leave it nullable for now to avoid too much code churn.
+    provision_scope_id INT,
     CONSTRAINT fk_storage_filesystem_attachment_fs
     FOREIGN KEY (storage_filesystem_uuid)
     REFERENCES storage_filesystem (uuid),
@@ -403,7 +435,10 @@ CREATE TABLE storage_filesystem_attachment (
     REFERENCES net_node (uuid),
     CONSTRAINT fk_storage_filesystem_attachment_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_storage_filesystem_attachment_provision_scope_id
+    FOREIGN KEY (provision_scope_id)
+    REFERENCES storage_provision_scope (id)
 );
 
 CREATE TABLE storage_volume_device_type (
@@ -450,7 +485,7 @@ CREATE TABLE storage_volume_attachment_plan_attr (
     value TEXT NOT NULL,
     CONSTRAINT fk_storage_vol_attach_plan_attr_plan
     FOREIGN KEY (attachment_plan_uuid)
-    REFERENCES storage_volume_attachment_plan (attachment_plan_uuid)
+    REFERENCES storage_volume_attachment_plan (uuid)
 );
 
 CREATE UNIQUE INDEX idx_storage_vol_attachment_plan_attr
