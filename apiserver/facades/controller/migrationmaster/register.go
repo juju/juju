@@ -108,7 +108,6 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.MultiModelConte
 	}
 
 	return NewAPI(
-		controllerState,
 		backend,
 		modelExporter,
 		ctx.ObjectStore(),
@@ -125,6 +124,7 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.MultiModelConte
 		statusServiceGetter,
 		modelAgentServiceGetter,
 		domainServices.ControllerConfig(),
+		domainServices.ControllerNode(),
 		domainServices.ModelInfo(),
 		domainServices.Model(),
 	)

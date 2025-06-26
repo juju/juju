@@ -512,8 +512,8 @@ func (s *serviceSuite) TestGetAllAPIAddressesForAgentsInPreferredOrder(c *tc.C) 
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	// Arrange
-	args := map[string]controllernode.APIAddresses{
-		"one": {
+	args := []controllernode.APIAddresses{
+		{
 			{
 				Address: "10.0.0.1:17070",
 				Scope:   network.ScopeCloudLocal,
@@ -521,8 +521,7 @@ func (s *serviceSuite) TestGetAllAPIAddressesForAgentsInPreferredOrder(c *tc.C) 
 				Address: "10.0.0.2:17070",
 				Scope:   network.ScopeMachineLocal,
 			},
-		},
-		"two": {
+		}, {
 			{
 				Address: "10.0.0.43:17070",
 				Scope:   network.ScopePublic,
@@ -537,19 +536,9 @@ func (s *serviceSuite) TestGetAllAPIAddressesForAgentsInPreferredOrder(c *tc.C) 
 	// Act
 	apiAddrs, err := svc.GetAllAPIAddressesForAgentsInPreferredOrder(c.Context())
 
-	// Assert: one of the two string arrays has the correct order
-	// depending on the order in which the map is ranged over.
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(apiAddrs, tc.HasLen, 3)
-	expectOne := []string{"10.0.0.1:17070", "10.0.0.7:17070", "10.0.0.43:17070"}
-	expectTwo := []string{"10.0.0.7:17070", "10.0.0.43:17070", "10.0.0.1:17070"}
-	if expectOne[0] == apiAddrs[0] {
-		c.Check(apiAddrs, tc.DeepEquals, expectOne)
-	} else if expectTwo[0] == apiAddrs[0] {
-		c.Check(apiAddrs, tc.DeepEquals, expectTwo)
-	} else {
-		c.Fatalf("Expected %v or %v, got %v", expectOne, expectTwo, apiAddrs)
-	}
+	c.Assert(apiAddrs, tc.DeepEquals, []string{"10.0.0.1:17070", "10.0.0.7:17070", "10.0.0.43:17070"})
 }
 
 func (s *serviceSuite) TestGetAllAPIAddressesForAgentsInPreferredOrderError(c *tc.C) {
@@ -568,8 +557,8 @@ func (s *serviceSuite) TestGetAllNoProxyAPIAddressesForAgents(c *tc.C) {
 
 	// Arrange: out of sorted order ip addresses for no proxy
 	// method.
-	args := map[string]controllernode.APIAddresses{
-		"two": {
+	args := []controllernode.APIAddresses{
+		{
 			{ // This address should be ignored
 				Address: "42.1.2.4:17070",
 				Scope:   network.ScopeMachineLocal,
@@ -577,8 +566,7 @@ func (s *serviceSuite) TestGetAllNoProxyAPIAddressesForAgents(c *tc.C) {
 				Address: "10.0.0.7:17070",
 				Scope:   network.ScopeCloudLocal,
 			},
-		},
-		"one": {
+		}, {
 			{
 				Address: "10.0.0.1:17070",
 				Scope:   network.ScopeCloudLocal,
@@ -605,6 +593,54 @@ func (s *serviceSuite) TestGetAllNoProxyAPIAddressesForAgentsError(c *tc.C) {
 	s.state.EXPECT().GetAllAPIAddressesWithScopeForAgents(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
 
 	_, err := svc.GetAllNoProxyAPIAddressesForAgents(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForClients(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	args := []controllernode.APIAddresses{
+		{
+			{
+				Address: "10.0.0.1:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}, {
+				Address: "10.0.0.2:17070",
+				IsAgent: false,
+				Scope:   network.ScopePublic,
+			},
+		}, {
+			{
+				Address: "10.0.0.34:17070",
+				IsAgent: true,
+				Scope:   network.ScopePublic,
+			}, { // This address shouldn't appear.
+				Address: "10.0.0.9:17070",
+				IsAgent: false,
+				Scope:   network.ScopeMachineLocal,
+			},
+		},
+	}
+	s.state.EXPECT().GetAllAPIAddressesWithScopeForClients(gomock.Any()).Return(args, nil)
+
+	// Act
+	apiAddrs, err := svc.GetAllAPIAddressesForClients(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiAddrs, tc.DeepEquals, []string{"10.0.0.2:17070", "10.0.0.1:17070", "10.0.0.34:17070"})
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForClientsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAllAPIAddressesWithScopeForClients(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetAllAPIAddressesForClients(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 

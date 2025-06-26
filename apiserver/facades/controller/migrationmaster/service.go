@@ -28,6 +28,13 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ControllerNodeService provides access to all known controller API addresses.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForClients returns a string slice of api
+	// addresses available for agents.
+	GetAllAPIAddressesForClients(ctx context.Context) ([]string, error)
+}
+
 // ModelInfoService provides access to information about the model.
 type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in

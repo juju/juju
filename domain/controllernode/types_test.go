@@ -128,3 +128,116 @@ func (s *typesSuite) TestToNoProxyString(c *tc.C) {
 		c.Check(prioritized, tc.DeepEquals, t.expected)
 	}
 }
+
+var selectPublicTests = []selectInternalHostPortsTest{{
+	"no addresses gives empty string result",
+	[]APIAddress{},
+	[]string{},
+}, {
+	"a public IPv4 address is selected",
+	[]APIAddress{
+		{Address: "8.8.8.8:17070", Scope: network.ScopePublic},
+	},
+	[]string{"8.8.8.8:17070"},
+}, {
+	"a public IPv6 address is selected",
+	[]APIAddress{
+		{Address: "[2001:db8::1]:17070", Scope: network.ScopePublic},
+	},
+	[]string{"[2001:db8::1]:17070"},
+}, {
+	"first public address is selected",
+	[]APIAddress{
+		{Address: "8.8.8.8:17070", Scope: network.ScopePublic},
+		{Address: "[2001:db8::1]:17070", Scope: network.ScopePublic},
+	},
+	[]string{"8.8.8.8:17070", "[2001:db8::1]:17070"},
+}, {
+	"the first public address is selected when cloud local fallbacks exist",
+	[]APIAddress{
+		{Address: "172.16.1.1:17070", Scope: network.ScopeCloudLocal},
+		{Address: "8.8.8.8:17070", Scope: network.ScopePublic},
+		{Address: "[fc00:1]:17070", Scope: network.ScopeCloudLocal},
+		{Address: "[2001:db8::1]:17070", Scope: network.ScopePublic},
+	},
+	[]string{"8.8.8.8:17070", "[2001:db8::1]:17070", "172.16.1.1:17070", "[fc00:1]:17070"},
+}, {
+	"the cloud local address is selected when a fan-local fallback exists",
+	[]APIAddress{
+		{Address: "243.1.1.1:17070", Scope: network.ScopeFanLocal},
+		{Address: "172.16.1.1:17070", Scope: network.ScopeCloudLocal},
+	},
+	[]string{"172.16.1.1:17070", "243.1.1.1:17070"},
+}, {
+	"a machine IPv4 local address is not selected",
+	[]APIAddress{
+		{Address: "127.0.0.1:17070", Scope: network.ScopeMachineLocal},
+	},
+	[]string{},
+}, {
+	"a machine IPv6 local address is not selected",
+	[]APIAddress{
+		{Address: "[::1]:17070", Scope: network.ScopeMachineLocal},
+	},
+	[]string{},
+}, {
+	"a link-local IPv4 address is not selected",
+	[]APIAddress{
+		{Address: "169.254.1.1:17070", Scope: network.ScopeLinkLocal},
+	},
+	[]string{},
+}, {
+	"a link-local (multicast or not) IPv6 address is not selected",
+	[]APIAddress{
+		{Address: "[fe80::1]:17070", Scope: network.ScopeLinkLocal},
+		{Address: "[ff01::2]:17070", Scope: network.ScopeLinkLocal},
+		{Address: "[ff02::1:1]:17070", Scope: network.ScopeLinkLocal},
+	},
+	[]string{},
+}, {
+	"a public name is preferred to an unknown or cloud local address",
+	[]APIAddress{
+		{Address: "127.0.0.1:170702", Scope: network.ScopeMachineLocal},
+		{Address: "10.0.0.1:17070", Scope: network.ScopeCloudLocal},
+		{Address: "[fc00::1]:17070", Scope: network.ScopeCloudLocal},
+		{Address: "public.invalid.testing", Scope: network.ScopePublic},
+	},
+	[]string{"public.invalid.testing", "10.0.0.1:17070", "[fc00::1]:17070"},
+}, {
+	"first unknown address selected",
+	[]APIAddress{
+		{Address: "10.0.0.1:17070", Scope: network.ScopeUnknown},
+		{Address: "8.8.8.8:17070", Scope: network.ScopeUnknown},
+	},
+	[]string{"10.0.0.1:17070", "8.8.8.8:17070"},
+}, {
+	"public IP address is picked when both public IPs and public hostnames exist",
+	[]APIAddress{
+		{Address: "10.0.0.1:17070", Scope: network.ScopeCloudLocal},
+		{Address: "example.com", Scope: network.ScopePublic},
+		{Address: "8.8.8.8:17070", Scope: network.ScopePublic},
+	},
+	[]string{"8.8.8.8:17070", "example.com", "10.0.0.1:17070"},
+}, {
+	"hostname is picked over cloud local address",
+	[]APIAddress{
+		{Address: "10.0.0.1:17070", Scope: network.ScopeCloudLocal},
+		{Address: "example.com", Scope: network.ScopePublic},
+	},
+	[]string{"example.com", "10.0.0.1:17070"},
+}, {
+	"IPv4 preferred over IPv6",
+	[]APIAddress{
+		{Address: "[2001:db8::1]:17070", Scope: network.ScopePublic},
+		{Address: "8.8.8.8:17070", Scope: network.ScopePublic},
+	},
+	[]string{"8.8.8.8:17070", "[2001:db8::1]:17070"},
+}}
+
+func (s *typesSuite) TestSelectPublicAddress(c *tc.C) {
+	for i, t := range selectPublicTests {
+		c.Logf("test %d: %s", i, t.about)
+		prioritized := t.addresses.PrioritizedForScope(ScopeMatchPublic)
+		c.Check(prioritized, tc.DeepEquals, t.expected)
+	}
+}

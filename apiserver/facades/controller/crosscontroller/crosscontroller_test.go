@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -120,33 +119,13 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 
 type stubControllerInfoGetter struct{}
 
-func (stubControllerInfoGetter) APIHostPortsForClients(config controller.Config) ([]network.SpaceHostPorts, error) {
-	return []network.SpaceHostPorts{{
-		network.SpaceHostPort{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.1.2.3",
-					Scope: network.ScopeCloudLocal,
-				},
-				SpaceID: "0",
-			},
-			NetPort: 50000,
-		},
-		network.SpaceHostPort{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "host-name",
-					Scope: network.ScopePublic,
-				},
-				SpaceID: "0",
-			},
-			NetPort: 50000,
-		},
-	}}, nil
+func (stubControllerInfoGetter) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
+	return []string{"host-name:50000", "10.1.2.3:50000"}, nil
+
 }
 
 func (s *CrossControllerSuite) TestGetControllerInfo(c *tc.C) {
-	addrs, cert, err := controllerInfo(stubControllerInfoGetter{}, controller.Config{
+	addrs, cert, err := controllerInfo(c.Context(), stubControllerInfoGetter{}, controller.Config{
 		"ca-cert": "ca-cert",
 	})
 	c.Assert(err, tc.ErrorIsNil)

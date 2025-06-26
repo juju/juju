@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/database"
@@ -464,7 +465,7 @@ WHERE is_agent = true
 
 // GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
 // agents.
-func (st *State) GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+func (st *State) GetAllAPIAddressesWithScopeForAgents(ctx context.Context) ([]controllernode.APIAddresses, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -479,7 +480,44 @@ func (st *State) GetAllAPIAddressesWithScopeForAgents(ctx context.Context) (map[
 	}
 
 	return decodeAllScopedAPIAddresses(result), nil
+}
 
+// GetAllAPIAddressesWithScopeForClients returns all APIAddresses available for
+// clients. These are all APIAddresses independent of is_agent value.
+func (st *State) GetAllAPIAddressesWithScopeForClients(ctx context.Context) ([]controllernode.APIAddresses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddress
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result, err = st.getAllAPIAddressesForClients(ctx, tx)
+		return err
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return decodeAllScopedAPIAddresses(result), nil
+}
+
+func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
+	stmt, err := st.Prepare(`
+SELECT &controllerAPIAddress.* 
+FROM controller_api_address
+`, controllerAPIAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddress
+	err = tx.Query(ctx, stmt).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, controllernodeerrors.EmptyAPIAddresses
+	} else if err != nil {
+		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
+	}
+	return result, nil
 }
 
 // GetAPIAddressesForAgents returns the list of API address strings including
@@ -610,23 +648,31 @@ func decodeAllAPIAddresses(addrs []controllerAPIAddress) map[string][]string {
 	return result
 }
 
-func decodeAllScopedAPIAddresses(addrs []controllerAPIAddress) map[string]controllernode.APIAddresses {
-	result := make(map[string]controllernode.APIAddresses, 0)
+func decodeAllScopedAPIAddresses(addrs []controllerAPIAddress) []controllernode.APIAddresses {
+	ids := set.NewStrings()
+	interimResult := make(map[string][]controllernode.APIAddress, 0)
 	for _, addr := range addrs {
 		if addr.Address == "" {
 			continue
 		}
 		controllerID := addr.ControllerID
-		if _, ok := result[controllerID]; !ok {
-			result[controllerID] = controllernode.APIAddresses{}
+		if _, ok := interimResult[controllerID]; !ok {
+			interimResult[controllerID] = controllernode.APIAddresses{}
 		}
 		controllernodeAddr := controllernode.APIAddress{
 			Address: addr.Address,
 			IsAgent: addr.IsAgent,
 			Scope:   network.Scope(addr.Scope),
 		}
-		result[controllerID] = append(result[controllerID], controllernodeAddr)
+		interimResult[controllerID] = append(interimResult[controllerID], controllernodeAddr)
+		ids.Add(controllerID)
 	}
+
+	result := make([]controllernode.APIAddresses, ids.Size())
+	for i, id := range ids.SortedValues() {
+		result[i] = interimResult[id]
+	}
+
 	return result
 }
 

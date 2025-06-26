@@ -663,37 +663,78 @@ func (s *stateSuite) TestGetControllerIDsEmpty(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetAllAPIAddressesWithScopeForAgents(c *tc.C) {
-	// Arrange
-	controllerID := "1"
-
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	// Arrange: 2 controller nodes
+	ctrlID := "1"
+	err := s.state.CurateNodes(c.Context(), []string{ctrlID}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-
-	addrs := controllernode.APIAddresses{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+	addrs1 := []controllernode.APIAddress{
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
 		{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
 		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
 	}
+	err = s.state.SetAPIAddresses(c.Context(), ctrlID, addrs1)
+	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetAPIAddresses(
-		c.Context(),
-		controllerID,
-		addrs,
-	)
+	ctrlID2 := "2"
+	err = s.state.CurateNodes(c.Context(), []string{ctrlID2}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	addrs2 := []controllernode.APIAddress{
+		{Address: "192.168.10.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+		{Address: "10.0.34.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.3:18080", IsAgent: true, Scope: network.ScopePublic},
+	}
+	err = s.state.SetAPIAddresses(c.Context(), ctrlID2, addrs2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
 	result, err := s.state.GetAllAPIAddressesWithScopeForAgents(c.Context())
 
-	// Assertapiserver/facades/client/machinemanager/machinemanager_test.go
+	// Assert: validate order of slice and addresses are only IsAgent true
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.HasLen, 1)
-	c.Assert(result, tc.DeepEquals, map[string]controllernode.APIAddresses{
-		"1": {
-			{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-			{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
-		},
-	})
+	c.Check(result, tc.HasLen, 2)
+	// The order of the addresses coming from the db cannot be guaranteed.
+	// That's okay in this case as the caller will order the addresses as
+	// required.
+	c.Assert(result[0], tc.SameContents, controllernode.APIAddresses(addrs1[:2]))
+	c.Assert(result[1], tc.SameContents, controllernode.APIAddresses(addrs2[1:]))
+}
+
+func (s *stateSuite) TestGetAllAPIAddressesWithScopeForClients(c *tc.C) {
+	// Arrange
+	// Arrange: 2 controller nodes
+	ctrlID := "1"
+	err := s.state.CurateNodes(c.Context(), []string{ctrlID}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	addrs1 := []controllernode.APIAddress{
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
+		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+	}
+	err = s.state.SetAPIAddresses(c.Context(), ctrlID, addrs1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctrlID2 := "2"
+	err = s.state.CurateNodes(c.Context(), []string{ctrlID2}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	addrs2 := []controllernode.APIAddress{
+		{Address: "192.168.10.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+		{Address: "10.0.34.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.3:18080", IsAgent: true, Scope: network.ScopePublic},
+	}
+	err = s.state.SetAPIAddresses(c.Context(), ctrlID2, addrs2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	result, err := s.state.GetAllAPIAddressesWithScopeForClients(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 2)
+	// The order of the addresses coming from the db cannot be guaranteed.
+	// That's okay in this case as the caller will order the addresses as
+	// required.
+	c.Assert(result[0], tc.SameContents, controllernode.APIAddresses(addrs1))
+	c.Assert(result[1], tc.SameContents, controllernode.APIAddresses(addrs2))
 }
 
 func (s *stateSuite) checkControllerAPIAddress(c *tc.C, controllerID string, addrs []controllernode.APIAddress) {

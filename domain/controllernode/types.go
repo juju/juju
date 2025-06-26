@@ -99,6 +99,36 @@ func ScopeMatchCloudLocal(addr APIAddress) ScopeMatch {
 	return invalidScope
 }
 
+// ScopeMatchPublic is an address scope matching function for determining the
+// extent to which the input address' scope satisfies a requirement for public
+// accessibility.
+func ScopeMatchPublic(addr APIAddress) ScopeMatch {
+	scope := addr.Scope
+
+	// If this call fails, we have a hostname, thus safe
+	// to ignore the error.
+	addrPort, _ := netip.ParseAddrPort(addr.Address)
+
+	switch scope {
+	case network.ScopePublic:
+		if addrPort.Addr().Is4() {
+			return exactScopeIPv4
+		}
+		return exactScope
+	case network.ScopeCloudLocal:
+		if addrPort.Addr().Is4() {
+			return firstFallbackScopeIPv4
+		}
+		return firstFallbackScope
+	case network.ScopeFanLocal, network.ScopeUnknown:
+		if addrPort.Addr().Is4() {
+			return secondFallbackScopeIPv4
+		}
+		return secondFallbackScope
+	}
+	return invalidScope
+}
+
 // ScopeMatchFunc is an alias for a function that accepts an Address,
 // and returns what kind of scope match is determined by the body.
 type ScopeMatchFunc = func(addr APIAddress) ScopeMatch

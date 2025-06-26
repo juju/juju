@@ -25,7 +25,6 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -39,17 +38,17 @@ import (
 type Suite struct {
 	coretesting.BaseSuite
 
-	backend           *mocks.MockBackend
-	controllerBackend *mocks.MockControllerState
-	modelExporter     *mocks.MockModelExporter
-	precheckBackend   *mocks.MockPrecheckBackend
-	store             *mocks.MockObjectStore
+	backend         *mocks.MockBackend
+	modelExporter   *mocks.MockModelExporter
+	precheckBackend *mocks.MockPrecheckBackend
+	store           *mocks.MockObjectStore
 
 	agentService            *mocks.MockModelAgentService
 	applicationService      *mocks.MockApplicationService
 	relationService         *mocks.MockRelationService
 	statusService           *mocks.MockStatusService
 	controllerConfigService *mocks.MockControllerConfigService
+	controllerNodeService   *mocks.MockControllerNodeService
 	credentialService       *mocks.MockCredentialService
 	modelInfoService        *mocks.MockModelInfoService
 	modelService            *mocks.MockModelService
@@ -219,13 +218,8 @@ func (s *Suite) TestSourceControllerInfo(c *tc.C) {
 	}
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-	apiAddr := []network.SpaceHostPorts{{{
-		SpaceAddress: network.SpaceAddress{
-			MachineAddress: network.MachineAddress{Value: "10.0.0.1"},
-		},
-		NetPort: 666,
-	}}}
-	s.controllerBackend.EXPECT().APIHostPortsForClients(cfg).Return(apiAddr, nil)
+	apiAddr := []string{"10.0.0.1:666"}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForClients(gomock.Any()).Return(apiAddr, nil)
 
 	info, err := s.mustMakeAPI(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -576,8 +570,8 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 	s.statusService = mocks.NewMockStatusService(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
 	s.credentialService = mocks.NewMockCredentialService(ctrl)
-	s.controllerBackend = mocks.NewMockControllerState(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.controllerNodeService = mocks.NewMockControllerNodeService(ctrl)
 	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
@@ -592,7 +586,6 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 		s.statusService = nil
 		s.backend = nil
 		s.credentialService = nil
-		s.controllerBackend = nil
 		s.controllerConfigService = nil
 		s.modelExporter = nil
 		s.modelInfoService = nil
@@ -612,7 +605,6 @@ func (s *Suite) mustMakeAPI(c *tc.C) *migrationmaster.API {
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 	return migrationmaster.NewAPI(
-		s.controllerBackend,
 		s.backend,
 		s.modelExporter,
 		s.store,
@@ -641,6 +633,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 			return s.agentService, nil
 		},
 		s.controllerConfigService,
+		s.controllerNodeService,
 		s.modelInfoService,
 		s.modelService,
 	)
