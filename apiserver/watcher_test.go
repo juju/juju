@@ -21,7 +21,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -127,7 +126,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *tc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
 	s.authorizer.Tag = names.NewMachineTag("12")
-	apiserver.PatchGetMigrationBackend(s, new(fakeMigrationBackend), new(fakeMigrationBackend))
+	apiserver.PatchGetMigrationBackend(s, c.Context(), new(fakeMigrationBackend), new(fakeMigrationBackend))
 	apiserver.PatchGetControllerCACert(s, "no worries")
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
@@ -150,7 +149,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *tc.C) {
 	id := s.resources.Register(w)
 	s.authorizer.Tag = names.NewMachineTag("12")
 	backend := &fakeMigrationBackend{noMigration: true}
-	apiserver.PatchGetMigrationBackend(s, backend, backend)
+	apiserver.PatchGetMigrationBackend(s, c.Context(), backend, backend)
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), tc.ErrorIsNil)
@@ -208,15 +207,8 @@ func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
 	return new(fakeModelMigration), nil
 }
 
-func (b *fakeMigrationBackend) APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error) {
-	return []network.SpaceHostPorts{
-		{
-			network.SpaceHostPort{SpaceAddress: network.NewSpaceAddress("1.2.3.4"), NetPort: 5},
-			network.SpaceHostPort{SpaceAddress: network.NewSpaceAddress("2.3.4.5"), NetPort: 6},
-		}, {
-			network.SpaceHostPort{SpaceAddress: network.NewSpaceAddress("3.4.5.6"), NetPort: 7},
-		},
-	}, nil
+func (b *fakeMigrationBackend) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
+	return []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"}, nil
 }
 
 func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {

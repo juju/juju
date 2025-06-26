@@ -169,12 +169,12 @@ func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 
 // PatchGetMigrationBackend overrides the getMigrationBackend function
 // to support testing.
-func PatchGetMigrationBackend(p Patcher, ctrlSt controllerBackend, st migrationBackend) {
+func PatchGetMigrationBackend(p Patcher, ctx context.Context, controllerNodeService ControllerNodeService, st migrationBackend) {
 	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
 		return st
 	})
-	p.PatchValue(&getControllerBackend, func(pool *state.StatePool) (controllerBackend, error) {
-		return ctrlSt, nil
+	p.PatchValue(&getAllAPIAddressesForClients, func(context.Context, ControllerNodeService) ([]string, error) {
+		return controllerNodeService.GetAllAPIAddressesForClients(ctx)
 	})
 }
 
