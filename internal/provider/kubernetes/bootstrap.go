@@ -1244,26 +1244,18 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 		Command: []string{
 			"mongo",
 			fmt.Sprintf("--port=%d", c.portMongoDB),
-			"--tls",
-			"--tlsAllowInvalidHostnames",
-			"--tlsAllowInvalidCertificates",
-			fmt.Sprintf("--tlsCertificateKeyFile=%s", tlsPrivateKeyPath),
 			"--eval",
 			"db.adminCommand('ping')",
 		},
 	}
 	args := []string{
 		fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
-		fmt.Sprintf("--tlsCertificateKeyFile=%s", tlsPrivateKeyPath),
-		"--tlsCertificateKeyFilePassword=ignored",
-		"--tlsMode=requireTLS",
 		fmt.Sprintf("--port=%d", c.portMongoDB),
 		"--journal",
 		fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
 		"--quiet",
 		"--oplogSize=1024",
-		"--auth",
-		fmt.Sprintf("--keyFile=%s", c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile)),
+		"--noauth",
 		"--storageEngine=wiredTiger",
 		"--bind_ip_all",
 	}

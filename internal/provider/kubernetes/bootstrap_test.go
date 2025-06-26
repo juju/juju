@@ -636,10 +636,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		Command: []string{
 			"mongo",
 			fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
-			"--tls",
-			"--tlsAllowInvalidHostnames",
-			"--tlsAllowInvalidCertificates",
-			"--tlsCertificateKeyFile=/var/lib/juju/server.pem",
 			"--eval",
 			"db.adminCommand('ping')",
 		},
@@ -734,7 +730,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			},
 			Args: []string{
 				"-c",
-				`printf 'args="--dbpath=/var/lib/juju/db --tlsCertificateKeyFile=/var/lib/juju/server.pem --tlsCertificateKeyFilePassword=ignored --tlsMode=requireTLS --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nSHARED_SECRET_SRC="/var/lib/juju/shared-secret.temp"\nSHARED_SECRET_DST="/var/lib/juju/shared-secret"\nrm "${SHARED_SECRET_DST}" || true\ncp "${SHARED_SECRET_SRC}" "${SHARED_SECRET_DST}"\nchown 170:170 "${SHARED_SECRET_DST}"\nchmod 600 "${SHARED_SECRET_DST}"\nls -lah "${SHARED_SECRET_DST}"\nwhile [ ! -f "/var/lib/juju/server.pem" ]; do\n  echo "Waiting for /var/lib/juju/server.pem to be created..."\n  sleep 1\ndone\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
+				`printf 'args="--dbpath=/var/lib/juju/db --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --noauth --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nSHARED_SECRET_SRC="/var/lib/juju/shared-secret.temp"\nSHARED_SECRET_DST="/var/lib/juju/shared-secret"\nrm "${SHARED_SECRET_DST}" || true\ncp "${SHARED_SECRET_SRC}" "${SHARED_SECRET_DST}"\nchown 170:170 "${SHARED_SECRET_DST}"\nchmod 600 "${SHARED_SECRET_DST}"\nls -lah "${SHARED_SECRET_DST}"\nwhile [ ! -f "/var/lib/juju/server.pem" ]; do\n  echo "Waiting for /var/lib/juju/server.pem to be created..."\n  sleep 1\ndone\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
 			},
 			Ports: []core.ContainerPort{
 				{
