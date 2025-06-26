@@ -799,3 +799,38 @@ func (s *serviceSuite) TestGetMachinePrincipalUnitsError(c *tc.C) {
 		GetMachinePrincipalApplications(c.Context(), machineName)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
+
+func (s *serviceSuite) TestGetMachinePlacement(c *tc.C) {
+	s.setupMocks(c)
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName.String()).Return(ptr("0/lxd/42"), nil)
+
+	placement, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePlacementDirective(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*placement, tc.Equals, "0/lxd/42")
+}
+
+func (s *serviceSuite) TestGetMachinePlacementInvalidMachineName(c *tc.C) {
+	s.setupMocks(c)
+
+	machineName := machine.Name("invalid")
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePlacementDirective(c.Context(), machineName)
+	c.Assert(err, tc.ErrorMatches, `.*validating machine name "invalid".*`)
+}
+
+func (s *serviceSuite) TestGetMachinePlacementNotFound(c *tc.C) {
+	s.setupMocks(c)
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName.String()).Return(nil, machineerrors.MachineNotFound)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePlacementDirective(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}

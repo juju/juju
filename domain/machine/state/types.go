@@ -265,3 +265,7 @@ type acquireParentMachineForContainerArgs struct {
 	platform  deployment.Platform
 	nonce     *string
 }
+
+type placementDirective struct {
+	Directive sql.Null[string] `db:"directive"`
+}

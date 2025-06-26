@@ -1125,3 +1125,25 @@ VALUES (?)`, "app-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	return machineName
 }
+
+func (s *stateSuite) TestGetMachinePlacementDirective(c *tc.C) {
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return insertMachineProviderPlacement(c.Context(), tx, s.state, "deadbeef", "0/lxd/42")
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	placement, err := s.state.GetMachinePlacementDirective(c.Context(), machineName.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(*placement, tc.Equals, "0/lxd/42")
+}
+
+func (s *stateSuite) TestGetMachinePlacementDirectiveNotFound(c *tc.C) {
+	_, err := s.state.GetMachinePlacementDirective(c.Context(), "1")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}

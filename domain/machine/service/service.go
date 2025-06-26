@@ -190,6 +190,13 @@ type State interface {
 	// GetMachinePrincipalApplications returns the names of the principal
 	// (non-subordinate) applications for the specified machine.
 	GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error)
+
+	// GetMachinePlacement returns the placement structure as it was recorded for
+	// the given machine.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	GetMachinePlacementDirective(ctx context.Context, mName string) (*string, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -529,6 +536,22 @@ func (s *Service) GetMachinePrincipalApplications(ctx context.Context, mName mac
 	}
 
 	return s.st.GetMachinePrincipalApplications(ctx, mName)
+}
+
+// GetMachinePlacement returns the placement structure as it was recorded for
+// the given machine.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+func (s *Service) GetMachinePlacementDirective(ctx context.Context, mName machine.Name) (*string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mName.Validate(); err != nil {
+		return nil, errors.Errorf("validating machine name %q: %w", mName, err)
+	}
+
+	return s.st.GetMachinePlacementDirective(ctx, mName.String())
 }
 
 func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusHistory, machineName machine.Name, clock clock.Clock) error {
