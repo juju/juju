@@ -13,7 +13,7 @@ type mockNotifyWatcher struct {
 }
 
 func newMockNotifyWatcher() *mockNotifyWatcher {
-	w := &mockNotifyWatcher{changes: make(chan struct{}, 1)}
+	w := &mockNotifyWatcher{changes: make(chan struct{}, 42)}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
 		return nil
@@ -32,10 +32,6 @@ func (w *mockNotifyWatcher) Wait() error {
 
 func (w *mockNotifyWatcher) Kill() {
 	w.tomb.Kill(nil)
-}
-
-func (w *mockNotifyWatcher) Err() error {
-	return w.tomb.Err()
 }
 
 func (w *mockNotifyWatcher) Changes() <-chan struct{} {

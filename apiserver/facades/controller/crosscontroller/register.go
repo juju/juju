@@ -23,10 +23,9 @@ func Register(registry facade.FacadeRegistry) {
 // newStateCrossControllerAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, error) {
-	st := ctx.State()
 	domainServices := ctx.DomainServices()
 	return NewCrossControllerAPI(
-		ctx.Resources(),
+		ctx.WatcherRegistry(),
 		func(ctx context.Context) ([]string, string, error) {
 			controllerConfig := domainServices.ControllerConfig()
 			config, err := controllerConfig.ControllerConfig(ctx)
@@ -43,7 +42,7 @@ func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, e
 			}
 			return config.PublicDNSAddress(), nil
 		},
-		st.WatchAPIHostPortsForClients,
+		domainServices.ControllerNode().WatchControllerAPIAddresses,
 	)
 }
 
