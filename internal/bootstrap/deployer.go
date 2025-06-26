@@ -134,19 +134,6 @@ type Downloader interface {
 // downloader.
 type CharmDownloaderFunc func(HTTPClient, logger.Logger) Downloader
 
-// Application is the interface that is used to get information about an
-// application.
-type Application interface {
-	Name() string
-}
-
-// Unit is the interface that is used to get information about a
-// controller unit.
-type Unit interface {
-	// UpdateOperation returns a model operation that will update a unit.
-	UpdateOperation(state.UnitUpdateProperties) *state.UpdateUnitOperation
-}
-
 // BaseDeployerConfig holds the configuration for a baseDeployer.
 type BaseDeployerConfig struct {
 	DataDir              string

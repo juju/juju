@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -22,12 +21,10 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
-	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -120,11 +117,6 @@ func (u *Unit) base() Base {
 	return u.doc.Base
 }
 
-// String returns the unit as string.
-func (u *Unit) String() string {
-	return u.doc.Name
-}
-
 // name returns the unit name.
 func (u *Unit) name() string {
 	return u.doc.Name
@@ -154,154 +146,6 @@ func (u *Unit) globalCloudContainerKey() string {
 // life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) life() Life {
 	return u.doc.Life
-}
-
-// UpdateOperation returns a model operation that will update a unit.
-func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation {
-	return &UpdateUnitOperation{
-		unit:  &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		props: props,
-	}
-}
-
-// UpdateUnitOperation is a model operation for updating a unit.
-type UpdateUnitOperation struct {
-	unit  *Unit
-	props UnitUpdateProperties
-
-	setStatusDocs map[string]statusDoc
-}
-
-// Build is part of the ModelOperation interface.
-func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
-	op.setStatusDocs = make(map[string]statusDoc)
-
-	containerInfo, err := op.unit.cloudContainer()
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	if containerInfo == nil {
-		containerInfo = &cloudContainerDoc{
-			Id: op.unit.globalKey(),
-		}
-	}
-	existingContainerInfo := *containerInfo
-
-	var newProviderId string
-	if op.props.ProviderId != nil {
-		newProviderId = *op.props.ProviderId
-	}
-	if containerInfo.ProviderId != "" &&
-		newProviderId != "" &&
-		containerInfo.ProviderId != newProviderId {
-		logger.Debugf(context.TODO(), "unit %q has provider id %q which changed to %q",
-			op.unit.name(), containerInfo.ProviderId, newProviderId)
-	}
-
-	if op.props.ProviderId != nil {
-		containerInfo.ProviderId = newProviderId
-	}
-	if op.props.Address != nil {
-		networkAddr := network.NewSpaceAddress(*op.props.Address, network.WithScope(network.ScopeMachineLocal))
-		addr := fromNetworkAddress(networkAddr, network.OriginProvider)
-		containerInfo.Address = &addr
-	}
-	if op.props.Ports != nil {
-		containerInfo.Ports = *op.props.Ports
-	}
-	// Currently, we only update container attributes but that might change.
-	var ops []txn.Op
-	if !reflect.DeepEqual(*containerInfo, existingContainerInfo) {
-		containerOps, err := op.unit.saveContainerOps(*containerInfo)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, containerOps...)
-	}
-
-	updateStatus := func(key, badge string, status *status.StatusInfo) error {
-		now := op.unit.st.clock().Now()
-		doc := statusDoc{
-			Status:     status.Status,
-			StatusInfo: status.Message,
-			StatusData: mgoutils.EscapeKeys(status.Data),
-			Updated:    now.UnixNano(),
-		}
-		op.setStatusDocs[key] = doc
-		// It's possible we're getting a first status update (i.e. cloud container)
-		_, err = getStatus(op.unit.st.db(), key, badge)
-		if err != nil {
-			if !errors.Is(err, errors.NotFound) {
-				return errors.Trace(err)
-			}
-			statusOps := createStatusOp(op.unit.st, key, doc)
-			ops = append(ops, statusOps)
-		} else {
-			statusOps, err := statusSetOps(op.unit.st.db(), doc, key)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			ops = append(ops, statusOps...)
-		}
-		return nil
-	}
-	if op.props.AgentStatus != nil {
-		if err := updateStatus(op.unit.globalAgentKey(), "agent", op.props.AgentStatus); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	var cloudContainerStatus status.StatusInfo
-	if op.props.CloudContainerStatus != nil {
-		if err := updateStatus(op.unit.globalCloudContainerKey(), "cloud container", op.props.CloudContainerStatus); err != nil {
-			return nil, errors.Trace(err)
-		}
-		cloudContainerStatus = *op.props.CloudContainerStatus
-	}
-	if cloudContainerStatus.Status != "" {
-		// Since we have updated cloud container, that may impact on
-		// the perceived unit status. we'll update status history if the
-		// unit status is different due to having a cloud container status.
-		// This correctly ensures the status history goes from "waiting for
-		// container" to <something else>.
-		unitStatus, err := getStatus(op.unit.st.db(), op.unit.globalKey(), "unit")
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		modifiedStatus := status.UnitDisplayStatus(unitStatus, cloudContainerStatus)
-		now := op.unit.st.clock().Now()
-		doc := statusDoc{
-			Status:     modifiedStatus.Status,
-			StatusInfo: modifiedStatus.Message,
-			StatusData: mgoutils.EscapeKeys(modifiedStatus.Data),
-			Updated:    now.UnixNano(),
-		}
-		op.setStatusDocs[op.unit.globalKey()] = doc
-	}
-	return ops, nil
-}
-
-// Done is part of the ModelOperation interface.
-func (op *UpdateUnitOperation) Done(err error) error {
-	if err != nil {
-		return errors.Annotatef(err, "updating unit %q", op.unit.name())
-	}
-	return nil
-}
-
-// Destroy, when called on a Alive unit, advances its lifecycle as far as
-// possible; it otherwise has no effect. In most situations, the unit's
-// life is just set to Dying; but if a principal unit that is not assigned
-// to a provisioned machine is Destroyed, it will be removed from state
-// directly.
-// NB This is only called from tests.
-func (u *Unit) Destroy(store objectstore.ObjectStore) error {
-	_, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
-	if len(errs) != 0 {
-		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.name(), errs)
-	}
-	return err
 }
 
 // DestroyMaybeRemove destroys a unit and returns if it was also removed.
@@ -867,7 +711,7 @@ func (u *Unit) charm() (CharmRefFull, error) {
 		if err != nil {
 			return nil, err
 		}
-		cURL, _ = app.CharmURL()
+		cURL, _ = app.charmURL()
 	}
 
 	if cURL == nil {
@@ -1333,7 +1177,7 @@ func (u *Unit) constraints() (*constraints.Value, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if origin := app.CharmOrigin(); origin != nil && origin.Platform != nil {
+		if origin := app.charmOrigin(); origin != nil && origin.Platform != nil {
 			if origin.Platform.Architecture != "" {
 				cons.Arch = &origin.Platform.Architecture
 			}

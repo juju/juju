@@ -233,10 +233,9 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockUnit struct {
 	testhelpers.Stub
-	destroyOp           *state.DestroyUnitOperation
-	containerInfo       *mockCloudContainer
-	tag                 names.Tag
-	updateUnitOperation *state.UpdateUnitOperation
+	destroyOp     *state.DestroyUnitOperation
+	containerInfo *mockCloudContainer
+	tag           names.Tag
 }
 
 func (u *mockUnit) Tag() names.Tag {
@@ -256,11 +255,6 @@ func (u *mockUnit) EnsureDead() error {
 func (u *mockUnit) Remove(objectstore.ObjectStore) error {
 	u.MethodCall(u, "Remove")
 	return u.NextErr()
-}
-
-func (u *mockUnit) UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation {
-	u.MethodCall(u, "UpdateOperation", props)
-	return u.updateUnitOperation
 }
 
 type mockCloudContainer struct {
