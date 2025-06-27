@@ -16,7 +16,6 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
-	network0 "github.com/juju/juju/domain/network"
 	containerizer "github.com/juju/juju/internal/network/containerizer"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
@@ -535,45 +534,6 @@ func NewMockBridgePolicy(ctrl *gomock.Controller) *MockBridgePolicy {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBridgePolicy) EXPECT() *MockBridgePolicyMockRecorder {
 	return m.recorder
-}
-
-// FindMissingBridgesForContainer mocks base method.
-func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container, arg2 network.SubnetInfos) ([]network0.DeviceToBridge, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindMissingBridgesForContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]network0.DeviceToBridge)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindMissingBridgesForContainer indicates an expected call of FindMissingBridgesForContainer.
-func (mr *MockBridgePolicyMockRecorder) FindMissingBridgesForContainer(arg0, arg1, arg2 any) *MockBridgePolicyFindMissingBridgesForContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindMissingBridgesForContainer", reflect.TypeOf((*MockBridgePolicy)(nil).FindMissingBridgesForContainer), arg0, arg1, arg2)
-	return &MockBridgePolicyFindMissingBridgesForContainerCall{Call: call}
-}
-
-// MockBridgePolicyFindMissingBridgesForContainerCall wrap *gomock.Call
-type MockBridgePolicyFindMissingBridgesForContainerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBridgePolicyFindMissingBridgesForContainerCall) Return(arg0 []network0.DeviceToBridge, arg1 error) *MockBridgePolicyFindMissingBridgesForContainerCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBridgePolicyFindMissingBridgesForContainerCall) Do(f func(containerizer.Machine, containerizer.Container, network.SubnetInfos) ([]network0.DeviceToBridge, error)) *MockBridgePolicyFindMissingBridgesForContainerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBridgePolicyFindMissingBridgesForContainerCall) DoAndReturn(f func(containerizer.Machine, containerizer.Container, network.SubnetInfos) ([]network0.DeviceToBridge, error)) *MockBridgePolicyFindMissingBridgesForContainerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // PopulateContainerLinkLayerDevices mocks base method.

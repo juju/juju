@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v6"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/network/containerizer"
 )
 
@@ -22,11 +21,6 @@ type Machine interface {
 
 // BridgePolicy is an indirection for containerizer.BridgePolicy.
 type BridgePolicy interface {
-	// FindMissingBridgesForContainer looks at the spaces that the container should
-	// have access to, and returns any host devices need to be bridged for use as
-	// the container network.
-	FindMissingBridgesForContainer(containerizer.Machine, containerizer.Container, corenetwork.SubnetInfos) ([]network.DeviceToBridge, error)
-
 	// PopulateContainerLinkLayerDevices sets the link-layer devices of the input
 	// guest, setting each device to be a child of the corresponding bridge on the
 	// host machine.

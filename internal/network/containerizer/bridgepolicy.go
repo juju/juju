@@ -6,7 +6,6 @@ package containerizer
 import (
 	"context"
 	"fmt"
-	"hash/crc32"
 	"slices"
 	"strings"
 
@@ -15,7 +14,6 @@ import (
 
 	"github.com/juju/juju/core/containermanager"
 	corenetwork "github.com/juju/juju/core/network"
-	domainnetwork "github.com/juju/juju/domain/network"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/state"
@@ -73,97 +71,6 @@ func NewBridgePolicy(ctx context.Context,
 		containerNetworkingMethod: containerNetworkingMethod,
 		networkService:            networkService,
 	}, nil
-}
-
-// FindMissingBridgesForContainer looks at the spaces that the container should
-// have access to, and returns any host devices need to be bridged for use as
-// the container network.
-// This will return an Error if the container requires a space that the host
-// machine cannot provide.
-func (p *BridgePolicy) FindMissingBridgesForContainer(
-	host Machine, guest Container, allSubnets corenetwork.SubnetInfos,
-) ([]domainnetwork.DeviceToBridge, error) {
-	guestSpaceInfos, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(context.TODO(), host, guest)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	logger.Debugf(context.TODO(), "FindMissingBridgesForContainer(%q) spaces %s devices %v",
-		guest.Id(), guestSpaceInfos, formatDeviceMap(devicesPerSpace))
-
-	spacesFound := make(corenetwork.SpaceInfos, 0)
-	for spaceID, devices := range devicesPerSpace {
-		for _, device := range devices {
-			if device.Type() == corenetwork.BridgeDevice {
-				if p.containerNetworkingMethod != containermanager.NetworkingMethodLocal && skippedDeviceNames.Contains(device.Name()) {
-					continue
-				}
-				addInfo := p.allSpaces.GetByID(spaceID)
-				spacesFound = append(spacesFound, *addInfo)
-			}
-		}
-	}
-
-	notFound := guestSpaceInfos.Minus(spacesFound)
-
-	if len(notFound) == 0 {
-		// Nothing to do; just return success.
-		return nil, nil
-	}
-
-	hostDeviceNamesToBridge := make([]string, 0)
-	hostDeviceByName := make(map[string]LinkLayerDevice, 0)
-	for _, spaceInfo := range notFound {
-		hostDeviceNames := make([]string, 0)
-		for _, hostDevice := range devicesPerSpace[spaceInfo.ID] {
-			possible, err := possibleBridgeTarget(hostDevice)
-			if err != nil {
-				return nil, err
-			}
-			if !possible {
-				continue
-			}
-			hostDeviceNames = append(hostDeviceNames, hostDevice.Name())
-			hostDeviceByName[hostDevice.Name()] = hostDevice
-			spacesFound = append(spacesFound, spaceInfo)
-		}
-		if len(hostDeviceNames) > 0 {
-			if spaceInfo.ID == corenetwork.AlphaSpaceId {
-				// When we are bridging unknown space devices, we bridge all
-				// of them. Both because this is a fallback, and because we
-				// don't know what the exact spaces are going to be.
-				hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames...)
-			} else {
-				// This should already be sorted from
-				// LinkLayerDevicesForSpaces but sorting to be sure we stably
-				// pick the host device
-				hostDeviceNames = network.NaturallySortDeviceNames(hostDeviceNames...)
-				hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames[0])
-			}
-		}
-	}
-	notFound = notFound.Minus(spacesFound)
-	if len(notFound) != 0 {
-		hostSpaces, err := host.AllSpaces(allSubnets)
-		if err != nil {
-			// log it, but we're returning another error right now
-			logger.Warningf(context.TODO(), "got error looking for spaces for host machine %q: %v", host.Id(), err)
-		}
-		notFoundNames := notFound.String()
-		logger.Warningf(context.TODO(), "container %q wants spaces %s, but host machine %q has %s missing %s",
-			guest.Id(), guestSpaceInfos,
-			host.Id(), p.spaceNamesForPrinting(hostSpaces), notFoundNames)
-		return nil, errors.Errorf("host machine %q has no available device in space(s) %s", host.Id(), notFoundNames)
-	}
-
-	hostToBridge := make([]domainnetwork.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
-	for _, hostName := range network.NaturallySortDeviceNames(hostDeviceNamesToBridge...) {
-		hostToBridge = append(hostToBridge, domainnetwork.DeviceToBridge{
-			DeviceName: hostName,
-			BridgeName: BridgeNameForDevice(hostName),
-			MACAddress: hostDeviceByName[hostName].MACAddress(),
-		})
-	}
-	return hostToBridge, nil
 }
 
 // findSpacesAndDevicesForContainer looks up what spaces the container wants
@@ -402,65 +309,6 @@ func (p *BridgePolicy) inferContainerSpaces(ctx context.Context, host Machine, c
 	}
 	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %s",
 		containerId, namesHostSpaces)
-}
-
-func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
-	// LoopbackDevices can never be bridged
-	if dev.Type() == corenetwork.LoopbackDevice || dev.Type() == corenetwork.BridgeDevice {
-		return false, nil
-	}
-	// Devices that have no parent entry are direct host devices that can be
-	// bridged.
-	if dev.ParentName() == "" {
-		return true, nil
-	}
-	// TODO(jam): 2016-12-22 This feels dirty, but it falls out of how we are
-	// currently modeling VLAN objects.  see bug https://pad.lv/1652049
-	if dev.Type() != corenetwork.VLAN8021QDevice {
-		// Only VLAN8021QDevice have parents that still allow us to
-		// bridge them.
-		// When anything else has a parent set, it shouldn't be used.
-		return false, nil
-	}
-	parentDevice, err := dev.ParentDevice()
-	if err != nil {
-		// If we got an error here, we have some sort of
-		// database inconsistency error.
-		return false, err
-	}
-	if parentDevice.Type() == corenetwork.EthernetDevice || parentDevice.Type() == corenetwork.BondDevice {
-		// A plain VLAN device with a direct parent
-		// of its underlying ethernet device.
-		return true, nil
-	}
-	return false, nil
-}
-
-// BridgeNameForDevice returns a name to use for a new device that bridges the
-// device with the input name. The policy is to:
-//  1. Add br- to device name (to keep current behaviour),
-//     if it does not fit in 15 characters then:
-//  2. Add b- to device name, if it doesn't fit in 15 characters then:
-//
-// 3a. For devices starting in 'en' remove 'en' and add 'b-'
-// 3b. For all other devices
-//
-//		'b-' + 6-char hash of name + '-' + last 6 chars of name
-//	 4. If using the device name directly always replace '.' with '-'
-//	    to make sure that bridges from VLANs won't break
-func BridgeNameForDevice(device string) string {
-	device = strings.Replace(device, ".", "-", -1)
-	switch {
-	case len(device) < 13:
-		return fmt.Sprintf("br-%s", device)
-	case len(device) == 13:
-		return fmt.Sprintf("b-%s", device)
-	case device[:2] == "en":
-		return fmt.Sprintf("b-%s", device[2:])
-	default:
-		hash := crc32.Checksum([]byte(device), crc32.IEEETable) & 0xffffff
-		return fmt.Sprintf("b-%0.6x-%s", hash, device[len(device)-6:])
-	}
 }
 
 // PopulateContainerLinkLayerDevices generates and returns link-layer devices
