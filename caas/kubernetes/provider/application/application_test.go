@@ -2935,6 +2935,51 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 	)
 }
 
+func (s *applicationSuite) TestEnsureUpdatedConstraints(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000"), true, true, "3.6.8", func() {
+			ps := getPodSpec368()
+			charmResourceMemRequest := corev1.ResourceList{
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemRequestMiB))}
+			charmResourceMemLimit := corev1.ResourceList{
+				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemLimitMiB))}
+			workloadResourceRequests := corev1.ResourceList{
+				corev1.ResourceCPU:    k8sresource.MustParse("500m"),
+				corev1.ResourceMemory: k8sresource.MustParse("512Mi"),
+			}
+			workloadResourceLimits := corev1.ResourceList{
+				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
+				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
+			}
+
+			for i, container := range ps.Containers {
+				if container.Name == constants.ApplicationCharmContainer {
+					continue
+				}
+				ps.Containers[i].Resources.Requests = workloadResourceRequests
+				ps.Containers[i].Resources.Limits = workloadResourceLimits
+			}
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			for _, ctr := range ss.Spec.Template.Spec.Containers {
+				if ctr.Name == constants.ApplicationCharmContainer {
+					c.Assert(ctr.Resources.Requests, gc.DeepEquals, charmResourceMemRequest)
+					c.Assert(ctr.Resources.Limits, gc.DeepEquals, charmResourceMemLimit)
+					continue
+				}
+
+				workloadReq := corev1.ResourceList{
+					corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(500, k8sresource.DecimalSI),
+					corev1.ResourceMemory: *k8sresource.NewQuantity(512*1024*1024, k8sresource.BinarySI),
+				}
+				c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadReq.Cpu()), jc.IsTrue)
+				c.Check(ctr.Resources.Requests.Memory().Equal(*workloadReq.Memory()), jc.IsTrue)
+			}
+		},
+	)
+}
+
 func int64Ptr(a int64) *int64 {
 	return &a
 }

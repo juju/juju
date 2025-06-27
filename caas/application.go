@@ -123,7 +123,7 @@ type ApplicationConfig struct {
 	ResourceTags map[string]string
 
 	// Constraints is a set of constraints on
-	// the pod to create.
+	// the workload containers.
 	Constraints constraints.Value
 
 	// Filesystems is a set of parameters for filesystems that should be created.
@@ -179,3 +179,10 @@ const (
 	RunAsSudoer  RunAs = "sudoer"
 	RunAsNonRoot RunAs = "non-root"
 )
+
+// CharmContainerResourceRequirements defines the memory resource constraints
+// for the workload pod's charm container.
+type CharmContainerResourceRequirements struct {
+	MemRequestMib uint64
+	MemLimitMib   uint64
+}
