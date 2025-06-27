@@ -1796,11 +1796,11 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			return nil, errors.Annotate(err, "processing workload container constraints")
 		}
 		charmConstraints := caas.CharmContainerResourceRequirements{
-			MemRequest: constants.CharmMemRequestMiB,
-			MemLimit:   constants.CharmMemLimitMiB,
+			MemRequestMib: constants.CharmMemRequestMiB,
+			MemLimitMib:   constants.CharmMemLimitMiB,
 		}
 		if config.Constraints.Mem != nil {
-			charmConstraints.MemLimit = *config.Constraints.Mem
+			charmConstraints.MemLimitMib = *config.Constraints.Mem
 		}
 
 		if err := ApplyCharmConstraints(spec, a.name, charmConstraints); err != nil {

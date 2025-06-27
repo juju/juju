@@ -183,6 +183,6 @@ const (
 // CharmContainerResourceRequirements defines the memory resource constraints
 // for the workload pod's charm container.
 type CharmContainerResourceRequirements struct {
-	MemRequest uint64
-	MemLimit   uint64
+	MemRequestMib uint64
+	MemLimitMib   uint64
 }
