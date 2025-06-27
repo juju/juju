@@ -400,7 +400,12 @@ SET    password_hash = $modelPasswordHash.password_hash,
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var outcome sqlair.Outcome
-		tx.Query(ctx, updateModelPassword, passwordHashInput).Get(&outcome)
+		err := tx.Query(ctx, updateModelPassword, passwordHashInput).Get(
+			&outcome,
+		)
+		if err != nil {
+			return err
+		}
 
 		result := outcome.Result()
 		if err != nil {
