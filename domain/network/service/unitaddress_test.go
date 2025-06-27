@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -463,7 +464,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddresses(c *tc.C) {
 		},
 	}
 
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return("foo", nil)
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName).Return("foo", nil)
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
 
 	// Act
@@ -480,7 +481,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesNoAddresses(c *tc.C) {
 
 	// Arrange
 	unitName := unit.Name("foo/0")
-	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
 
 	// Act
@@ -488,6 +489,20 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesNoAddresses(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
+}
+
+func (s *unitAddressSuite) TestGetControllerAPIAddressesUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := unit.Name("foo/0")
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), applicationerrors.UnitNotFound)
+
+	// Act
+	_, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitAddressSuite) TestGetPrivateAddressUnitNotFound(c *tc.C) {

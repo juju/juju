@@ -104,7 +104,7 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 //     not a controller application unit
 //   - [network.NoAddressError] if the unit has no api address associated
 func (s *Service) GetControllerAPIAddresses(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error) {
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	unitUUID, err := s.st.GetControllerUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
