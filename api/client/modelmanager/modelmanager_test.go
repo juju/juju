@@ -326,7 +326,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
-	client := common.NewModelStatusAPI(mockFacadeCaller)
+	client := common.NewModelStatusAPI(mockFacadeCaller, false)
 
 	results, err := client.ModelStatus(c.Context(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, tc.ErrorIsNil)
@@ -355,7 +355,7 @@ func (s *modelmanagerSuite) TestModelStatusEmpty(c *tc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
-	client := common.NewModelStatusAPI(mockFacadeCaller)
+	client := common.NewModelStatusAPI(mockFacadeCaller, false)
 
 	results, err := client.ModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -377,7 +377,7 @@ func (s *modelmanagerSuite) TestModelStatusError(c *tc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).Return(errors.New("model error"))
-	client := common.NewModelStatusAPI(mockFacadeCaller)
+	client := common.NewModelStatusAPI(mockFacadeCaller, false)
 	out, err := client.ModelStatus(c.Context(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, tc.ErrorMatches, "model error")
 	c.Assert(out, tc.IsNil)
@@ -478,8 +478,8 @@ func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *tc.C) {
 	results, err := client.ListModelSummaries(c.Context(), "commander", true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 2)
-	c.Assert(results[0].Error, tc.ErrorMatches, `while parsing model cloud tag: "not-cloud" is not a valid tag`)
-	c.Assert(results[1].Error, tc.ErrorMatches, `while parsing model cloud credential tag: "not-credential" is not a valid tag`)
+	c.Assert(results[0].Error, tc.ErrorMatches, `parsing model cloud tag: "not-cloud" is not a valid tag`)
+	c.Assert(results[1].Error, tc.ErrorMatches, `parsing model cloud credential tag: "not-credential" is not a valid tag`)
 }
 
 func (s *modelmanagerSuite) TestListModelSummariesInvalidUserIn(c *tc.C) {

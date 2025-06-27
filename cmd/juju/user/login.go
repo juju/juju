@@ -28,9 +28,9 @@ import (
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/loginprovider"
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
@@ -591,17 +591,17 @@ There are %d models available. Use "juju switch" to select
 one of them:
 `, len(models))
 	user := names.NewUserTag(userName)
-	ownerModelNames := make(set.Strings)
+	userModelNames := make(set.Strings)
 	otherModelNames := make(set.Strings)
 	for _, model := range models {
-		if model.Qualifier.String() == userName {
-			ownerModelNames.Add(model.Name)
+		if model.Qualifier == coremodel.QualifierFromUserTag(user) {
+			userModelNames.Add(model.Name)
 			continue
 		}
-		modelName := common.OwnerQualifiedModelName(model.Name, model.Qualifier.String(), user)
+		modelName := jujuclient.QualifyModelName(model.Qualifier.String(), model.Name)
 		otherModelNames.Add(modelName)
 	}
-	for _, modelName := range ownerModelNames.SortedValues() {
+	for _, modelName := range userModelNames.SortedValues() {
 		fmt.Fprintf(ctx.Stderr, "  - juju switch %s\n", modelName)
 	}
 	for _, modelName := range otherModelNames.SortedValues() {
