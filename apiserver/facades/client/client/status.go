@@ -5,7 +5,6 @@ package client
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
 	"strings"
 	"time"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -139,11 +139,28 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		)
 	}
 
+	machineJobFetcher := func(context.Context, machine.Name) []model.MachineJob {
+		return []model.MachineJob{model.JobHostUnits}
+	}
+	if c.isControllerModel {
+		machineJobFetcher = func(ctx context.Context, name machine.Name) []model.MachineJob {
+			jobs := []model.MachineJob{model.JobHostUnits}
+			if isController, err := c.machineService.IsMachineController(ctx, name); err != nil && !internalerrors.Is(err, machineerrors.MachineNotFound) {
+				logger.Errorf(ctx, "error checking if machine %q is controller: %v", name, err)
+			} else if isController {
+				jobs = append(jobs, model.JobManageModel)
+			}
+			return jobs
+		}
+	}
+
 	var noStatus params.FullStatus
 	context := statusContext{
 		applicationService: c.applicationService,
 		statusService:      c.statusService,
 		machineService:     c.machineService,
+
+		machineJobFetcher: machineJobFetcher,
 	}
 
 	var err error
@@ -369,10 +386,15 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 	return eps, nil
 }
 
+// MachineJobFetcherFunc is a function that fetches jobs for a given machine.
+type MachineJobFetcherFunc func(context.Context, machine.Name) []model.MachineJob
+
 type statusContext struct {
 	applicationService ApplicationService
 	statusService      StatusService
 	machineService     MachineService
+
+	machineJobFetcher MachineJobFetcherFunc
 
 	providerType string
 	model        model.ModelInfo
@@ -381,10 +403,10 @@ type statusContext struct {
 
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
-	machines map[string][]*state.Machine
+	machines map[machine.Name][]machine.UUID
 	// allMachines: machine id -> machine
 	// The machine in this map is the same machine in the machines map.
-	allMachines        map[string]*state.Machine
+	allMachines        map[machine.Name]machine.UUID
 	machineConstraints *state.MachineConstraints
 
 	// ipAddresses: machine id -> list of ip.addresses
@@ -427,10 +449,11 @@ func (c *statusContext) fetchMachines(st Backend) error {
 	if c.model.Type == model.CAAS {
 		return nil
 	}
+
 	c.machines = make(map[string][]*state.Machine)
 	c.allMachines = make(map[string]*state.Machine)
 
-	machines, err := st.AllMachines()
+	machines, err := c.status.GetAllMachineStatuses()
 	if err != nil {
 		return err
 	}
@@ -652,16 +675,15 @@ func (c *statusContext) processMachines(ctx context.Context) map[string]params.M
 	machinesMap := make(map[string]params.MachineStatus)
 	aCache := make(map[string]params.MachineStatus)
 	for id, machines := range c.machines {
-
-		if len(machines) <= 0 {
+		if len(machines) == 0 {
 			continue
 		}
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
 		hostStatus := c.makeMachineStatus(ctx, tlMachine, c.allAppsUnitsCharmBindings)
-		machinesMap[id] = hostStatus
-		aCache[id] = hostStatus
+		machinesMap[id.String()] = hostStatus
+		aCache[id.String()] = hostStatus
 
 		for _, machine := range machines[1:] {
 			parent, ok := aCache[container.ParentId(machine.Id())]
@@ -685,6 +707,7 @@ func (c *statusContext) makeMachineStatus(
 	appStatusInfo applicationStatusInfo,
 ) (status params.MachineStatus) {
 	machineID := machine.Id()
+	machineName := coremachine.Name(machineID)
 
 	var err error
 	status.Id = machineID
@@ -694,13 +717,7 @@ func (c *statusContext) makeMachineStatus(
 	mBase := machine.Base()
 	status.Base = params.Base{Name: mBase.OS, Channel: mBase.Channel}
 
-	jobs := []model.MachineJob{model.JobHostUnits}
-	if isController, err := c.machineService.IsMachineController(ctx, coremachine.Name(machineID)); err != nil && !stderrors.Is(err, machineerrors.MachineNotFound) {
-		logger.Errorf(ctx, "error checking if machine %q is controller: %v", machineID, err)
-	} else if isController {
-		jobs = append(jobs, model.JobManageModel)
-	}
-	status.Jobs = jobs
+	status.Jobs = c.machineJobFetcher(ctx, machineName)
 
 	// Fetch the machine instance status information
 	sInstInfo, err := c.status.MachineInstance(machineID)
@@ -714,7 +731,7 @@ func (c *statusContext) makeMachineStatus(
 		instid      instance.Id
 		displayName string
 	)
-	machineUUID, err := c.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+	machineUUID, err := c.machineService.GetMachineUUID(ctx, machineName)
 	if err != nil {
 		logger.Debugf(ctx, "error retrieving uuid for machine: %q, %w", machineID, err)
 	} else {
@@ -1058,7 +1075,7 @@ func (c *statusContext) unitMachineID(unit statusservice.Unit) coremachine.Name 
 }
 
 func (c *statusContext) unitPublicAddress(unit statusservice.Unit) string {
-	machine := c.allMachines[c.unitMachineID(unit).String()]
+	machine := c.allMachines[c.unitMachineID(unit)]
 	if machine == nil {
 		return ""
 	}

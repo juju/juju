@@ -13,7 +13,9 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
@@ -752,8 +754,8 @@ func (st *ModelState) GetUnitAgentStatusesForApplication(
 	return unitAgentStatuses, nil
 }
 
-// GetAllFullUnitStatusesForApplication returns the workload, agent and container
-// statuses for all units of the specified application, returning:
+// GetAllFullUnitStatusesForApplication returns the workload, agent and
+// container statuses for all units of the specified application, returning:
 //   - an error satisfying [statuserrors.ApplicationNotFound] if the application
 //     doesn't exist or;
 //   - an error satisfying [statuserrors.ApplicationIsDead] if the application
@@ -1829,22 +1831,65 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 
 // GetAllMachineStatuses returns all the machine statuses for the model, indexed
 // by machine name.
-func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error) {
+func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]status.Machine, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &machineNameStatus.*
-FROM v_machine_status AS ms
-JOIN machine AS m ON ms.machine_uuid = m.uuid
-	`, machineNameStatus{})
+SELECT
+  m.name AS &machineStatusDetails.name,
+  m.uuid AS &machineStatusDetails.uuid,
+  m.life_id AS &machineStatusDetails.life_id,
+  mci.instance_id AS &machineStatusDetails.instance_id,
+  mci.display_name AS &machineStatusDetails.display_name,
+  mci.arch AS &machineStatusDetails.instance_arch,
+  mci.cpu_cores AS &machineStatusDetails.instance_cpu_cores, 
+  mci.cpu_power AS &machineStatusDetails.instance_cpu_power,
+  mci.mem AS &machineStatusDetails.instance_mem,
+  mci.root_disk AS &machineStatusDetails.instance_root_disk,
+  mci.root_disk_source AS &machineStatusDetails.instance_root_disk_source,
+  mci.virt_type AS &machineStatusDetails.instance_virt_type,
+  az.name AS &machineStatusDetails.availability_zone_name, 
+  p.os_id AS &machineStatusDetails.platform_os_id,
+  p.channel AS &machineStatusDetails.platform_channel,
+  p.architecture_id AS &machineStatusDetails.platform_architecture_id,
+  ms.status_id AS &machineStatusDetails.machine_status_id,
+  ms.message AS &machineStatusDetails.machine_message,
+  ms.data AS &machineStatusDetails.machine_data,
+  ms.updated_at AS &machineStatusDetails.machine_updated_at,
+  mcis.status_id AS &machineStatusDetails.instance_status_id,
+  mcis.message AS &machineStatusDetails.instance_message,
+  mcis.data AS &machineStatusDetails.instance_data,
+  mcis.updated_at AS &machineStatusDetails.instance_updated_at,
+  c.arch AS &machineStatusDetails.constraint_arch,
+  c.cpu_cores AS &machineStatusDetails.constraint_cpu_cores,
+  c.cpu_power AS &machineStatusDetails.constraint_cpu_power,
+  c.mem AS &machineStatusDetails.constraint_mem,
+  c.root_disk AS &machineStatusDetails.constraint_root_disk,
+  c.root_disk_source AS &machineStatusDetails.constraint_root_disk_source,
+  c.instance_role AS &machineStatusDetails.constraint_instance_role,
+  c.instance_type AS &machineStatusDetails.constraint_instance_type,
+  ct.value AS &machineStatusDetails.constraint_container_type,
+  c.virt_type AS &machineStatusDetails.constraint_virt_type,
+  c.allocate_public_ip AS &machineStatusDetails.constraint_allocate_public_ip,
+  c.image_id AS &machineStatusDetails.constraint_image_id
+FROM machine AS m
+LEFT JOIN machine_status AS ms ON ms.machine_uuid = m.uuid
+LEFT JOIN machine_platform AS p ON p.machine_uuid = m.uuid
+LEFT JOIN machine_cloud_instance AS mci ON mci.machine_uuid = m.uuid
+LEFT JOIN machine_cloud_instance_status mcis ON mcis.machine_uuid = m.uuid
+LEFT JOIN availability_zone AS az ON az.uuid = mci.availability_zone_uuid
+LEFT JOIN machine_constraint AS mc ON mc.machine_uuid = m.uuid
+LEFT JOIN "constraint" AS c ON c.uuid = mc.constraint_uuid
+LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
+`, machineStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var res []machineNameStatus
+	var res []machineStatusDetails
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&res)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -1855,27 +1900,57 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 		return nil, errors.Capture(err)
 	}
 
-	result := make(map[string]status.StatusInfo[status.MachineStatusType])
-	for _, mStatus := range res {
-		// Convert the internal status id from the (machine_status_value table)
-		// into the core status.Status type.
-		machineStatus, err := status.DecodeMachineStatus(mStatus.Status)
+	result := make(map[machine.Name]status.Machine)
+	for _, s := range res {
+		instanceID := instance.UnknownId
+		if s.InstanceID.Valid {
+			instanceID = instance.Id(s.InstanceID.V)
+		}
+
+		var displayName string
+		if s.DisplayName.Valid {
+			displayName = s.DisplayName.V
+		}
+
+		platform, err := decodePlatform(s.PlatformChannel, s.PlatformOSID, s.PlatformArchitectureID)
 		if err != nil {
-			return nil, errors.Errorf("decoding machine status for machine %q: %w", mStatus.Name, err)
+			return nil, errors.Errorf("decoding platform: %w", err)
 		}
-		var since *time.Time
-		if mStatus.Updated.Valid {
-			since = &mStatus.Updated.V
-		}
-		var data []byte
-		if len(mStatus.Data) > 0 {
-			data = mStatus.Data
-		}
-		result[mStatus.Name] = status.StatusInfo[status.MachineStatusType]{
-			Status:  machineStatus,
-			Message: mStatus.Message,
-			Since:   since,
-			Data:    data,
+
+		hwc := decodeHardwareCharacteristics(
+			s.InstanceArch, s.InstanceCPUCores, s.InstanceCPUPower,
+			s.InstanceMem, s.InstanceRootDisk, s.InstanceRootDiskSource,
+			s.InstanceVirtType, s.InstanceAvailabilityZone,
+		)
+
+		cons := decodeConstraints(
+			s.ConstraintArch, s.ConstraintCPUCores, s.ConstraintCPUPower,
+			s.ConstraintMem, s.ConstraintRootDisk, s.ConstraintRootDiskSource,
+			s.ConstraintVirtType, s.ConstraintInstanceRole,
+			s.ConstraintInstanceType, s.ConstraintContainerType,
+			s.ConstraintAllocatePublicIP, s.ConstraintImageID,
+		)
+
+		result[s.Name] = status.Machine{
+			UUID:        s.UUID,
+			Life:        s.LifeID,
+			InstanceID:  instanceID,
+			DisplayName: displayName,
+			Platform:    platform,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status:  s.MachineStatusID,
+				Message: s.MachineMessage,
+				Data:    s.MachineData,
+				Since:   s.MachineUpdatedAt,
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status:  s.InstanceStatusID,
+				Message: s.InstanceMessage,
+				Data:    s.InstanceData,
+				Since:   s.InstanceUpdatedAt,
+			},
+			HardwareCharacteristics: hwc,
+			Constraints:             cons,
 		}
 	}
 	return result, nil
@@ -2154,4 +2229,8 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 	}
 
 	return result.ID, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

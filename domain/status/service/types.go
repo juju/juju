@@ -6,6 +6,8 @@ package service
 import (
 	"time"
 
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/relation"
@@ -50,6 +52,19 @@ type Unit struct {
 	AgentVersion     string
 	WorkloadVersion  *string
 	K8sProviderID    *string
+}
+
+// Machine represents the status of a machine.
+type Machine struct {
+	DisplayName             string
+	InstanceID              instance.Id
+	Life                    life.Value
+	MachineStatus           status.StatusInfo
+	InstanceStatus          status.StatusInfo
+	Platform                deployment.Platform
+	Constraints             constraints.Value
+	HardwareCharacteristics instance.HardwareCharacteristics
+	LXDProfiles             []string
 }
 
 // StatusHistoryFilter holds the parameters to filter a status history query.

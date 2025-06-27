@@ -42,12 +42,12 @@ func decodeCharmSource(source int) (charm.CharmSource, error) {
 	}
 }
 
-func decodeArchitecture(arch sql.NullInt64) (architecture.Architecture, error) {
+func decodeArchitecture(arch sql.Null[int64]) (architecture.Architecture, error) {
 	if !arch.Valid {
 		return architecture.Unknown, nil
 	}
 
-	switch arch.Int64 {
+	switch arch.V {
 	case 0:
 		return architecture.AMD64, nil
 	case 1:
@@ -59,11 +59,11 @@ func decodeArchitecture(arch sql.NullInt64) (architecture.Architecture, error) {
 	case 4:
 		return architecture.RISCV64, nil
 	default:
-		return -1, errors.Errorf("unsupported architecture: %d", arch.Int64)
+		return -1, errors.Errorf("unsupported architecture: %d", arch.V)
 	}
 }
 
-func decodePlatform(channel string, os, arch sql.NullInt64) (deployment.Platform, error) {
+func decodePlatform(channel string, os, arch sql.Null[int64]) (deployment.Platform, error) {
 	osType, err := decodeOSType(os)
 	if err != nil {
 		return deployment.Platform{}, errors.Errorf("decoding os type: %w", err)
@@ -113,12 +113,12 @@ func decodeRisk(risk string) (deployment.ChannelRisk, error) {
 	}
 }
 
-func decodeOSType(osType sql.NullInt64) (deployment.OSType, error) {
+func decodeOSType(osType sql.Null[int64]) (deployment.OSType, error) {
 	if !osType.Valid {
-		return 0, errors.Errorf("os type is null")
+		return -1, nil
 	}
 
-	switch osType.Int64 {
+	switch osType.V {
 	case 0:
 		return deployment.Ubuntu, nil
 	default:
