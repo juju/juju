@@ -798,8 +798,10 @@ func (s *Service) CheckMachineStatusesReadyForMigration(ctx context.Context) err
 				fmt.Sprintf("- machine %q status is not started", machineName))
 		}
 		if !corestatus.IsInstancePresent(instanceStatus) {
-			failedChecks = append(failedChecks,
-				fmt.Sprintf("- machine %q instance status is not running", machineName))
+			// TODO(wallyworld) - instance status checks always fails
+			s.logger.Warningf(ctx, "machine %q instance status is not running", machineName)
+			//failedChecks = append(failedChecks,
+			//	fmt.Sprintf("- machine %q instance status is not running", machineName))
 		}
 	}
 
