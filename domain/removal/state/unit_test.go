@@ -393,6 +393,34 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	s.checkCharmsCount(c, 1)
 }
 
+func (s *unitSuite) TestDeleteSubordinateUnit(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID1 := s.createIAASApplication(c, svc, "foo", applicationservice.AddIAASUnitArg{})
+	appUUID2 := s.createIAASSubordinateApplication(c, svc, "baz", applicationservice.AddIAASUnitArg{})
+
+	// Force the second application to be a subordinate of the first.
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	subUnitUUIDs := s.getAllUnitUUIDs(c, appUUID2)
+	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
+	subUnitUUID := subUnitUUIDs[0]
+
+	s.advanceUnitLife(c, subUnitUUID, life.Dying)
+
+	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
+		subUnitUUID.String(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteUnit(c.Context(), subUnitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
