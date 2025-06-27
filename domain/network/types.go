@@ -95,11 +95,11 @@ const (
 	OpenVswitchVirtualPortType
 )
 
-// Info represents network relationship details for a specific endpoint.
-type Info struct {
+// UnitNetwork represents network relationship details for a specific endpoint.
+type UnitNetwork struct {
 
 	// EndpointName specifies the name of the network endpoint associated with
-	// the current Info instance.
+	// the current UnitNetwork instance.
 	EndpointName string
 
 	// DeviceInfos is a collection of device-specific information

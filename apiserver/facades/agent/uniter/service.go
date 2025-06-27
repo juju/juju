@@ -253,18 +253,18 @@ type NetworkService interface {
 	// - [network.NoAddressError] if the unit has no private address associated
 	GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error)
 
-	// GetUnitRelationInfos retrieves network relation information for a given unit and specified endpoints.
+	// GetUnitEndpointNetworks retrieves network relation information for a given unit and specified endpoints.
 	// It returns exactly one info for each endpoint names passed in argument,
 	// but doesn't enforce the order. Each info has an endpoint name that should match
 	// one of the endpoint names, one info for each endpoint names.
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist
-	GetUnitRelationInfos(ctx context.Context, unitName coreunit.Name, endpointNames []string) ([]domainnetwork.Info, error)
+	GetUnitEndpointNetworks(ctx context.Context, unitName coreunit.Name, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
 
-	// UpdateUnitRelationInfos updates the relation network information for
+	// SetUnitRelationNetworks updates the relation network information for
 	// the specified unit.
-	UpdateUnitRelationInfos(context context.Context, name coreunit.Name) error
+	SetUnitRelationNetworks(context context.Context, name coreunit.Name) error
 }
 
 type ResolveService interface {

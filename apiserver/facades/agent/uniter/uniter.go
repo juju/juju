@@ -1532,7 +1532,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return apiservererrors.ErrPerm
 	}
 
-	infos, err := u.networkService.GetUnitRelationInfos(ctx, unitName, []string{endpoint})
+	infos, err := u.networkService.GetUnitEndpointNetworks(ctx, unitName, []string{endpoint})
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return errors.NotFoundf("unit %q", unitTag.Id())
 	} else if err != nil {
@@ -1540,9 +1540,9 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 	}
 	if len(infos) != 1 {
 		// Should not happen unless the interface contract for
-		// GetUnitRelationInfos is broken.
+		// GetUnitEndpointNetworks is broken.
 		// If not broken, providing exactly one endpoint as a parameter for
-		// GetUnitRelationInfos should return exactly one info.
+		// GetUnitEndpointNetworks should return exactly one info.
 		return errors.NotValidf("expected 1 NetworkInfo for unit %q on endpoint %q, got %d", unitName, endpoint,
 			len(infos))
 	}
@@ -2188,7 +2188,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	infos, err := u.networkService.GetUnitRelationInfos(ctx, coreunit.Name(unitTag.Id()), args.Endpoints)
+	infos, err := u.networkService.GetUnitEndpointNetworks(ctx, coreunit.Name(unitTag.Id()), args.Endpoints)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return params.NetworkInfoResults{}, errors.NotFoundf("unit %q", unitTag.Id())
 	} else if err != nil {
@@ -2642,7 +2642,7 @@ func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities)
 			continue
 		}
 
-		if err = u.networkService.UpdateUnitRelationInfos(ctx, coreunit.Name(unitTag.Id())); err != nil {
+		if err = u.networkService.SetUnitRelationNetworks(ctx, coreunit.Name(unitTag.Id())); err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -2695,7 +2695,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	var modelOps []state.ModelOperation
 
 	if changes.UpdateNetworkInfo {
-		err := u.networkService.UpdateUnitRelationInfos(ctx, coreunit.Name(unitTag.Id()))
+		err := u.networkService.SetUnitRelationNetworks(ctx, coreunit.Name(unitTag.Id()))
 		if err != nil {
 			return internalerrors.Errorf("updating network info: %w", err)
 		}

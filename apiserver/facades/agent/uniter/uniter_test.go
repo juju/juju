@@ -801,7 +801,7 @@ func (s *uniterSuite) TestNetworkInfoErrorFromDomain(c *tc.C) {
 	}
 	boom := internalerrors.New("boom")
 
-	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), coreunit.Name("foo/42"),
+	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), coreunit.Name("foo/42"),
 		args.Endpoints).Return(nil, boom)
 
 	_, err := s.uniter.NetworkInfo(c.Context(), args)
@@ -817,8 +817,8 @@ func (s *uniterSuite) TestNetworkInfo(c *tc.C) {
 	}
 	addr := "192.168.0.1"
 
-	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), coreunit.Name("foo/42"),
-		args.Endpoints).Return([]domainnetwork.Info{{
+	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), coreunit.Name("foo/42"),
+		args.Endpoints).Return([]domainnetwork.UnitNetwork{{
 		EndpointName:     "endpoint-0",
 		IngressAddresses: []string{addr},
 	}, {
@@ -1665,8 +1665,8 @@ func (s *uniterRelationSuite) TestEnterScope(c *tc.C) {
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings, nil)
 
-	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), unitName,
-		[]string{"mysql"}).Return([]domainnetwork.Info{{
+	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitName,
+		[]string{"mysql"}).Return([]domainnetwork.UnitNetwork{{
 		EndpointName:     "mysql",
 		IngressAddresses: []string{addr},
 	}}, nil)
@@ -1697,8 +1697,8 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings,
 		relationerrors.PotentialRelationUnitNotValid)
-	s.networkService.EXPECT().GetUnitRelationInfos(gomock.Any(), unitName,
-		[]string{"mysql"}).Return([]domainnetwork.Info{{
+	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitName,
+		[]string{"mysql"}).Return([]domainnetwork.UnitNetwork{{
 		EndpointName:     "mysql",
 		IngressAddresses: []string{addr},
 	}}, nil)

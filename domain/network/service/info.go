@@ -14,7 +14,7 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
-// GetUnitRelationInfos retrieves network relation information for a given unit
+// GetUnitEndpointNetworks retrieves network relation information for a given unit
 // and specified endpoints.
 // It returns exactly one info for each endpoint names passed in argument,
 // but doesn't enforce the order. Each info has an endpoint name that should match
@@ -22,11 +22,11 @@ import (
 //
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist
-func (s *Service) GetUnitRelationInfos(
+func (s *Service) GetUnitEndpointNetworks(
 	ctx context.Context,
 	unitName coreunit.Name,
 	endpointNames []string,
-) ([]network.Info, error) {
+) ([]network.UnitNetwork, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -37,16 +37,16 @@ func (s *Service) GetUnitRelationInfos(
 		return nil, internalerrors.Errorf("getting unit public address: %w", err)
 	}
 
-	return transform.Slice(endpointNames, func(endpoint string) network.Info {
-		return network.Info{
+	return transform.Slice(endpointNames, func(endpoint string) network.UnitNetwork {
+		return network.UnitNetwork{
 			EndpointName:     endpoint,
 			IngressAddresses: []string{addr.IP().String()},
 		}
 	}), nil
 }
 
-// UpdateUnitRelationInfos updates the relation network information for
+// SetUnitRelationNetworks updates the relation network information for
 // the specified unit.
-func (s *Service) UpdateUnitRelationInfos(context context.Context, name coreunit.Name) error {
+func (s *Service) SetUnitRelationNetworks(context context.Context, name coreunit.Name) error {
 	return nil // To be implemented
 }
