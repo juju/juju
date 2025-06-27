@@ -56,7 +56,6 @@ type ProvisionerAPI struct {
 	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsGetter
-	*commonnetwork.NetworkConfigAPI
 
 	networkService            NetworkService
 	st                        *state.State
@@ -178,12 +177,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	storageProviderRegistry := provider.NewStorageProviderRegistry(env)
 
-	netConfigAPI, err := commonnetwork.NewNetworkConfigAPI(
-		stdCtx, st, domainServices.ModelInfo(), domainServices.Network(), getCanModify)
-	if err != nil {
-		return nil, errors.Annotate(err, "instantiating network config API")
-	}
-
 	controllerNodeServices := domainServices.ControllerNode()
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), controllerNodeServices)
 
@@ -205,7 +198,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 			controllerNodeServices,
 			externalControllerService,
 		),
-		NetworkConfigAPI:          netConfigAPI,
 		networkService:            networkService,
 		st:                        st,
 		controllerConfigService:   controllerConfigService,
@@ -1537,7 +1529,34 @@ func (api *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess
 }
 
 func (api *ProvisionerAPI) SetHostMachineNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
-	return api.SetObservedNetworkConfig(ctx, args)
+	canModify, err := api.getCanModify(ctx)
+	if err != nil {
+		return err
+	}
+
+	mTag, err := names.ParseMachineTag(args.Tag)
+	if err != nil {
+		return apiservererrors.ErrPerm
+	}
+
+	if !canModify(mTag) {
+		return apiservererrors.ErrPerm
+	}
+
+	mUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
+	if err != nil {
+		return apiservererrors.ServerError(err)
+	}
+
+	nics, err := commonnetwork.ParamsNetworkConfigToDomain(ctx, args.Config, network.OriginMachine)
+	if err != nil {
+		return apiservererrors.ServerError(err)
+	}
+
+	if err := api.networkService.SetMachineNetConfig(ctx, mUUID, nics); err != nil {
+		return apiservererrors.ServerError(err)
+	}
+	return nil
 }
 
 // CACert returns the certificate used to validate the state connection.

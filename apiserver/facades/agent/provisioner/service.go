@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/cloudimagemetadata"
+	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -144,6 +145,9 @@ type NetworkService interface {
 	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	// SetMachineNetConfig updates the detected network configuration for
+	// the machine with the input UUID.
+	SetMachineNetConfig(ctx context.Context, mUUID coremachine.UUID, nics []domainnetwork.NetInterface) error
 }
 
 // KeyUpdaterService provides access to authorised keys in a model.

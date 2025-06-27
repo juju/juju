@@ -118,7 +118,6 @@ type MachinerAPI struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
-	*commonnetwork.NetworkConfigAPI
 
 	networkService          NetworkService
 	machineService          MachineService
@@ -138,12 +137,10 @@ type MachinerAPIv5 struct {
 
 // NewMachinerAPIForState creates a new instance of the Machiner API.
 func NewMachinerAPIForState(
-	ctx context.Context,
 	st *state.State,
 	clock clock.Clock,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
-	modelInfoService ModelInfoService,
 	networkService NetworkService,
 	applicationService ApplicationService,
 	machineService MachineService,
@@ -160,17 +157,11 @@ func NewMachinerAPIForState(
 		return authorizer.AuthOwner, nil
 	}
 
-	netConfigAPI, err := commonnetwork.NewNetworkConfigAPI(ctx, st, modelInfoService, networkService, getCanAccess)
-	if err != nil {
-		return nil, errors.Annotate(err, "instantiating network config API")
-	}
-
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(applicationService, machineService, st, getCanAccess, logger),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
-		NetworkConfigAPI:        netConfigAPI,
 		networkService:          networkService,
 		machineService:          machineService,
 		statusService:           statusService,
@@ -186,17 +177,17 @@ func NewMachinerAPIForState(
 // SetObservedNetworkConfig updates network interfaces
 // and IP addresses for a single machine.
 func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
-	// TODO (manadart 2025-05-27): Remove this once bridgepolicy and IP address
-	// handling is wholly handled by Dqlite.
-	// The corresponding types and logic in common/network go be removed at the
-	// same time.
-	err := api.NetworkConfigAPI.SetObservedNetworkConfig(ctx, args)
+	canModify, err := api.getCanModify(ctx)
 	if err != nil {
 		return err
 	}
 
 	mTag, err := names.ParseMachineTag(args.Tag)
 	if err != nil {
+		return apiservererrors.ErrPerm
+	}
+
+	if !canModify(mTag) {
 		return apiservererrors.ErrPerm
 	}
 
