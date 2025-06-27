@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
@@ -78,56 +77,6 @@ func (c *cloudContainer) Ports() []string {
 // cloud container status key for this unit.
 func globalCloudContainerKey(name string) string {
 	return unitGlobalKey(name) + "#container"
-}
-
-func (u *Unit) cloudContainer() (*cloudContainerDoc, error) {
-	coll, closer := u.st.db().GetCollection(cloudContainersC)
-	defer closer()
-
-	var doc cloudContainerDoc
-	err := coll.FindId(u.globalKey()).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("cloud container for unit %v", u.name())
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &doc, nil
-}
-
-func (u *Unit) saveContainerOps(doc cloudContainerDoc) ([]txn.Op, error) {
-	existing, err := u.cloudContainer()
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	if err != nil {
-		return []txn.Op{{
-			C:      cloudContainersC,
-			Id:     doc.Id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		}}, nil
-	}
-	var asserts bson.D
-	providerValueAssert := bson.DocElem{"provider-id", existing.ProviderId}
-	if existing.ProviderId != "" {
-		asserts = bson.D{providerValueAssert}
-	} else {
-		asserts = bson.D{{"$or",
-			[]bson.D{{providerValueAssert}, {{"provider-id", bson.D{{"$exists", false}}}}}}}
-	}
-	return []txn.Op{{
-		C:      cloudContainersC,
-		Id:     existing.Id,
-		Assert: asserts,
-		Update: bson.D{
-			{"$set",
-				bson.D{{"provider-id", doc.ProviderId},
-					{"ports", doc.Ports},
-					{"address", doc.Address}},
-			},
-		},
-	}}, nil
 }
 
 func (u *Unit) removeCloudContainerOps() []txn.Op {

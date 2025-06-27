@@ -79,8 +79,8 @@ func newApplication(st *State, doc *applicationDoc) *Application {
 	return app
 }
 
-// Name returns the application name.
-func (a *Application) Name() string {
+// name returns the application name.
+func (a *Application) name() string {
 	return a.doc.Name
 }
 
@@ -88,7 +88,7 @@ func (a *Application) Name() string {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (a *Application) Tag() names.Tag {
-	return names.NewApplicationTag(a.Name())
+	return names.NewApplicationTag(a.name())
 }
 
 // applicationGlobalKey returns the global database key for the application
@@ -139,13 +139,8 @@ func (a *Application) storageConstraintsKey() string {
 	return applicationStorageConstraintsKey(a.doc.Name, a.doc.CharmURL)
 }
 
-// Base returns the specified base for this charm.
-func (a *Application) Base() Base {
-	return Base{OS: a.doc.CharmOrigin.Platform.OS, Channel: a.doc.CharmOrigin.Platform.Channel}
-}
-
 // Life returns whether the application is Alive, Dying or Dead.
-func (a *Application) Life() Life {
+func (a *Application) life() Life {
 	return a.doc.Life
 }
 
@@ -330,7 +325,7 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 }
 
 func (a *Application) removeUnitAssignmentsOps() (ops []txn.Op, err error) {
-	pattern := fmt.Sprintf("^%s:%s/[0-9]+$", a.st.ModelUUID(), a.Name())
+	pattern := fmt.Sprintf("^%s:%s/[0-9]+$", a.st.ModelUUID(), a.name())
 	unitAssignments, err := a.st.unitAssignments(bson.D{{
 		Name: "_id", Value: bson.D{
 			{Name: "$regex", Value: pattern},
@@ -417,7 +412,7 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 func (a *Application) cancelScheduledCleanupOps() ([]txn.Op, error) {
 	appOrUnitPattern := bson.DocElem{
 		Name: "prefix", Value: bson.D{
-			{Name: "$regex", Value: fmt.Sprintf("^%s(/[0-9]+)*$", a.Name())},
+			{Name: "$regex", Value: fmt.Sprintf("^%s(/[0-9]+)*$", a.name())},
 		},
 	}
 	// No unit and app exists now, so cancel the below scheduled cleanup docs to avoid new resources of later deployment
@@ -452,21 +447,15 @@ func (a *Application) charm() (CharmRefFull, bool, error) {
 	return ch, a.doc.ForceCharm, nil
 }
 
-// CharmOrigin returns the origin of a charm associated with a application.
-func (a *Application) CharmOrigin() *CharmOrigin {
+// charmOrigin returns the origin of a charm associated with a application.
+func (a *Application) charmOrigin() *CharmOrigin {
 	return &a.doc.CharmOrigin
 }
 
-// CharmModifiedVersion increases whenever the application's charm is changed in any
-// way.
-func (a *Application) CharmModifiedVersion() int {
-	return a.doc.CharmModifiedVersion
-}
-
-// CharmURL returns a string version of the application's charm URL, and
+// charmURL returns a string version of the application's charm URL, and
 // whether units should upgrade to the charm with that URL even if they are
 // in an error state.
-func (a *Application) CharmURL() (*string, bool) {
+func (a *Application) charmURL() (*string, bool) {
 	return a.doc.CharmURL, a.doc.ForceCharm
 }
 
@@ -612,7 +601,7 @@ func (a *Application) changeCharmOps(
 	// changes to units during the upgrade, e.g. add storage
 	// to existing units, or remove optional storage so long as
 	// it is unreferenced.
-	units, err := a.AllUnits()
+	units, err := a.allUnits()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -895,7 +884,7 @@ func (a *Application) SetCharm(
 		// upgrades should still be allowed to apply to dying
 		// applications and units, so that bugs in departed/broken
 		// hooks can be addressed at runtime.
-		if a.Life() == Dead {
+		if a.life() == Dead {
 			return nil, stateerrors.ErrDead
 		}
 
@@ -982,11 +971,6 @@ func unitAppName(unitName string) string {
 	return unitParts[0]
 }
 
-// String returns the application name.
-func (a *Application) String() string {
-	return a.doc.Name
-}
-
 // refresh refreshes the contents of the Application from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
@@ -1029,7 +1013,7 @@ func (a *Application) addUnitOps(
 	if !a.doc.Subordinate {
 		scons, err := a.constraints()
 		if errors.Is(err, errors.NotFound) {
-			return "", nil, errors.NotFoundf("application %q", a.Name())
+			return "", nil, errors.NotFoundf("application %q", a.name())
 		}
 		if err != nil {
 			return "", nil, errors.Trace(err)
@@ -1132,7 +1116,7 @@ func (a *Application) addUnitOpsWithCons(
 	docID := a.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
-	platform := a.CharmOrigin().Platform
+	platform := a.charmOrigin().Platform
 	base := Base{OS: platform.OS, Channel: platform.Channel}.Normalise()
 	udoc := &unitDoc{
 		DocID:                  docID,
@@ -1259,7 +1243,7 @@ func (a *Application) addUnitStorageOps(
 		}
 		machineAssignable = pu
 	}
-	platform := a.CharmOrigin().Platform
+	platform := a.charmOrigin().Platform
 	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
 		a.st,
 		sb,
@@ -1479,8 +1463,8 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 	return ops, nil
 }
 
-// AllUnits returns all units of the application.
-func (a *Application) AllUnits() (units []*Unit, err error) {
+// allUnits returns all units of the application.
+func (a *Application) allUnits() (units []*Unit, err error) {
 	return allUnits(a.st, a.doc.Name)
 }
 
@@ -1541,22 +1525,6 @@ func (a *Application) updateMasterConfig(current *Settings, validChanges charm.S
 	return errors.Trace(err)
 }
 
-// ApplicationConfig returns the configuration for the application itself.
-func (a *Application) ApplicationConfig() (config.ConfigAttributes, error) {
-	cfg, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return config.ConfigAttributes{}, nil
-		}
-		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
-	}
-
-	if len(cfg.Keys()) == 0 {
-		return config.ConfigAttributes{}, nil
-	}
-	return cfg.Map(), nil
-}
-
 // UpdateApplicationConfig changes an application's config settings.
 // Unknown and invalid values will return an error.
 func (a *Application) UpdateApplicationConfig(
@@ -1612,7 +1580,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	unsupported, err := a.st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(context.TODO(),
-			"setting constraints on application %q: unsupported constraints: %v", a.Name(), strings.Join(unsupported, ","))
+			"setting constraints on application %q: unsupported constraints: %v", a.name(), strings.Join(unsupported, ","))
 	} else if err != nil {
 		return err
 	}
@@ -1729,7 +1697,7 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
 		createSettingsOp(settingsC, applicationConfigKey, args.applicationConfig),
 		createStatusOp(mb, globalKey, args.statusDoc),
-		addModelApplicationRefOp(mb, app.Name()),
+		addModelApplicationRefOp(mb, app.name()),
 	}
 	m, err := app.st.Model()
 	if err != nil {
@@ -1740,12 +1708,12 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		if args.operatorStatus != nil {
 			operatorStatusDoc = *args.operatorStatus
 		}
-		ops = append(ops, createStatusOp(mb, applicationGlobalOperatorKey(app.Name()), operatorStatusDoc))
+		ops = append(ops, createStatusOp(mb, applicationGlobalOperatorKey(app.name()), operatorStatusDoc))
 	}
 
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
-		Id:     app.Name(),
+		Id:     app.name(),
 		Assert: txn.DocMissing,
 		Insert: args.applicationDoc,
 	})
@@ -1762,60 +1730,6 @@ type UnitUpdateProperties struct {
 	AgentStatus          *status.StatusInfo
 	UnitStatus           *status.StatusInfo
 	CloudContainerStatus *status.StatusInfo
-}
-
-// UpdateUnitsOperation is a model operation for updating
-// some units of an application.
-type UpdateUnitsOperation struct {
-	Adds    []*AddUnitOperation
-	Deletes []*DestroyUnitOperation
-	Updates []*UpdateUnitOperation
-}
-
-func (op *UpdateUnitsOperation) allOps() []ModelOperation {
-	var all []ModelOperation
-	for _, mop := range op.Adds {
-		all = append(all, mop)
-	}
-	for _, mop := range op.Updates {
-		all = append(all, mop)
-	}
-	for _, mop := range op.Deletes {
-		all = append(all, mop)
-	}
-	return all
-}
-
-// Build is part of the ModelOperation interface.
-func (op *UpdateUnitsOperation) Build(attempt int) ([]txn.Op, error) {
-	var ops []txn.Op
-
-	all := op.allOps()
-	for _, txnOp := range all {
-		switch nextOps, err := txnOp.Build(attempt); err {
-		case jujutxn.ErrNoOperations:
-			continue
-		case nil:
-			ops = append(ops, nextOps...)
-		default:
-			return nil, errors.Trace(err)
-		}
-	}
-	return ops, nil
-}
-
-// Done is part of the ModelOperation interface.
-func (op *UpdateUnitsOperation) Done(err error) error {
-	if err != nil {
-		return errors.Annotate(err, "updating units")
-	}
-	all := op.allOps()
-	for _, op := range all {
-		if err := op.Done(nil); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 // AddUnitOperation is a model operation that will add a unit.
@@ -1869,7 +1783,7 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *AddUnitOperation) Done(err error) error {
 	if err != nil {
-		return errors.Annotatef(err, "adding unit to %q", op.application.Name())
+		return errors.Annotatef(err, "adding unit to %q", op.application.name())
 	}
 	if op.props.AgentStatus == nil && op.props.CloudContainerStatus == nil {
 		return nil

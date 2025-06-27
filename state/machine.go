@@ -580,7 +580,7 @@ func (m *Machine) assessCanDieUnit(principalUnit string) (bool, error) {
 	if err != nil {
 		return false, errors.Annotatef(err, "reading machine %s principal unit application %v", m, u.doc.Application)
 	}
-	if u.life() == Alive && app.Life() == Alive {
+	if u.life() == Alive && app.life() == Alive {
 		canDie = false
 	}
 	return canDie, nil

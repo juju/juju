@@ -605,7 +605,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if app.Life() != Alive {
+		if app.life() != Alive {
 			return nil, nil
 		}
 		ch, _, err := app.charm()
@@ -615,7 +615,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 		charmMeta = ch.Meta()
 		ops = append(ops, txn.Op{
 			C:  applicationsC,
-			Id: app.Name(),
+			Id: app.name(),
 			Assert: bson.D{
 				{"life", Alive},
 				{"charmurl", ch.URL()},
