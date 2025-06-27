@@ -46,14 +46,14 @@ func (s *agentEntityWatcherSuite) TestWatch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			u("x/0"): &fakeAgentEntityWatcher{fetchError: "x0 fails"},
-			u("x/1"): &fakeAgentEntityWatcher{},
-			u("x/2"): &fakeAgentEntityWatcher{},
+			fs("0"): &fakeAgentEntityWatcher{fetchError: "fs0 fails"},
+			fs("1"): &fakeAgentEntityWatcher{},
+			fs("2"): &fakeAgentEntityWatcher{},
 		},
 	}
 	getCanWatch := func(ctx context.Context) (common.AuthFunc, error) {
-		x0 := u("x/0")
-		x1 := u("x/1")
+		x0 := fs("0")
+		x1 := fs("1")
 		return func(tag names.Tag) bool {
 			return tag == x0 || tag == x1
 		}, nil
@@ -62,13 +62,13 @@ func (s *agentEntityWatcherSuite) TestWatch(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.AssignableToTypeOf(&apiservertesting.FakeNotifyWatcher{})).Return("1", nil)
 	a := common.NewAgentEntityWatcher(st, s.watcherRegistry, getCanWatch)
 	entities := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"},
+		{Tag: "filesystem-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-2"}, {Tag: "filesystem-3"},
 	}}
 	result, err := a.Watch(c.Context(), entities)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
-			{Error: &params.Error{Message: "x0 fails"}},
+			{Error: &params.Error{Message: "fs0 fails"}},
 			{NotifyWatcherId: "1", Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -85,7 +85,7 @@ func (*agentEntityWatcherSuite) TestWatchError(c *tc.C) {
 		nil,
 		getCanWatch,
 	)
-	_, err := a.Watch(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
+	_, err := a.Watch(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "fs0"}}})
 	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
@@ -102,3 +102,5 @@ func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
 }
+
+func fs(fs string) names.Tag { return names.NewFilesystemTag(fs) }

@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
-	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -165,10 +164,6 @@ func (s *serviceSuite) TestWatch(c *tc.C) {
 	q := "the query does not matter"
 	s.state.EXPECT().AllKeysQuery().Return(q)
 
-	s.PatchValue(&InitialNamespaceChanges, func(selectAll string) eventsource.NamespaceQuery {
-		c.Assert(selectAll, tc.Equals, q)
-		return nil
-	})
 	s.state.EXPECT().NamespaceForWatchControllerConfig().Return("controller_config")
 	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(s.stringsWatcher, nil)
 
