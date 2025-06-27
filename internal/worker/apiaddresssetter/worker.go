@@ -87,10 +87,10 @@ type apiAddressSetterWorker struct {
 
 	config Config
 
-	// controllerNodeChanges is a channel that is used to signal back to the
-	// main worker that the controller node addresses have changed.
-	controllerNodeChanges chan struct{}
-	runner                *worker.Runner
+	// controllerNodeAddressChanges is a channel that is used to signal back
+	// to the main worker that the controller node addresses have changed.
+	controllerNodeAddressChanges chan struct{}
+	runner                       *worker.Runner
 }
 
 // Config holds the configuration for the api address setter worker.
@@ -142,9 +142,9 @@ func New(config Config) (worker.Worker, error) {
 		return nil, errors.Capture(err)
 	}
 	w := &apiAddressSetterWorker{
-		config:                config,
-		controllerNodeChanges: make(chan struct{}),
-		runner:                runner,
+		config:                       config,
+		controllerNodeAddressChanges: make(chan struct{}),
+		runner:                       runner,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "apiaddresssetter",
@@ -188,7 +188,7 @@ func (w *apiAddressSetterWorker) loop() error {
 
 		case <-controllerNodeChanges:
 			// A controller was added or removed.
-			w.config.Logger.Tracef(ctx, "<-controllerNodeChanges")
+			w.config.Logger.Tracef(ctx, "<-controllerNodeAddressChanges")
 			changed, err := w.updateControllerNodes(ctx)
 			if err != nil {
 				return errors.Capture(err)
@@ -198,9 +198,9 @@ func (w *apiAddressSetterWorker) loop() error {
 			}
 			w.config.Logger.Tracef(ctx, "controller node added or removed")
 
-		case <-w.controllerNodeChanges:
-			// One of the controller nodes changed.
-			w.config.Logger.Tracef(ctx, "<-w.controllerNodeChanges")
+		case <-w.controllerNodeAddressChanges:
+			// One of the controller nodes addresses have changed.
+			w.config.Logger.Tracef(ctx, "<-w.controllerNodeAddressChanges")
 
 		case <-configChanges:
 			// Controller config has changed.
@@ -287,7 +287,7 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 			if err != nil {
 				return nil, errors.Errorf("invalid unit name for controller %q: %w", controllerID, err)
 			}
-			tracker, err := newControllerTracker(unitName, w.config.ApplicationService, w.controllerNodeChanges, w.config.Logger.Child("controllertracker"))
+			tracker, err := newControllerTracker(unitName, w.config.ApplicationService, w.controllerNodeAddressChanges, w.config.Logger.Child("controllertracker"))
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
