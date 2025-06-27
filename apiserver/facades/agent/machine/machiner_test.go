@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facades/agent/machine"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
@@ -242,15 +244,24 @@ func (s *machinerSuite) TestWatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeAPI(c)
 
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	defer workertest.CleanKill(c, watcher)
+
+	s.machineService.EXPECT().WatchMachineLife(gomock.Any(), coremachine.Name("1")).Return(watcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-1"},
-		{Tag: "machine-0"},
-		{Tag: "machine-42"},
-	}}
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-1"},
+			{Tag: "machine-0"},
+			{Tag: "machine-42"},
+		},
+	}
 	result, err := s.machiner.Watch(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
+
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},

@@ -28,6 +28,9 @@ type StatusSetter struct {
 // NewStatusSetter returns a new StatusSetter. The GetAuthFunc will be
 // used on each invocation of SetStatus to determine current
 // permissions.
+//
+// Deprecated: Implement SetStatus on the facade using the exact supported
+// entity types, rather than using this common implementation.
 func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc, clock clock.Clock) *StatusSetter {
 	return &StatusSetter{
 		st:           st,
