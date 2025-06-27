@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	context "context"
+	"context"
 	"testing"
 	"time"
 
@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
@@ -23,6 +24,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/charm"
@@ -31,43 +33,65 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// TODO(jam): 2017-02-15 We seem to be lacking most of direct unit tests around ProcessOneContainer
-// Some of the use cases we need to be testing are:
-// 1) Provider can allocate addresses, should result in a container with
-//    addresses requested from the provider, and 'static' configuration on those
-//    devices.
-// 2) Provider cannot allocate addresses, currently this should make us use
-//    'lxdbr0' and DHCP allocated addresses.
-// 3) Provider could allocate DHCP based addresses on the host device, which would let us
-//    use a bridge on the device and DHCP. (Currently not supported, but desirable for
-//    vSphere and Manual and probably LXD providers.)
-// Addition (manadart 2018-10-09): To begin accommodating the deficiencies noted
-// above, the new suite below uses mocks for tests ill-suited to the dummy
-// provider. We could reasonably re-write the tests above over time to use the
-// new suite.
-// Addition (tlm 2024-08-27): The old "integration" tests using apiserver suite
-// have been put into their own file. New tests should be added here using
-// mocks.
-
 type provisionerMockSuite struct {
 	coretesting.BaseSuite
 
 	clock              clock.Clock
-	environ            *environtesting.MockNetworkingEnviron
-	policy             *MockBridgePolicy
-	host               *MockMachine
-	container          *MockMachine
 	applicationService *MockApplicationService
 	machineService     *MockMachineService
 	statusService      *MockStatusService
-	device             *MockLinkLayerDevice
-	parentDevice       *MockLinkLayerDevice
+	networkService     *MockNetworkService
+
+	authorizer *facademocks.MockAuthorizer
+
+	// All these need deprecation.
+	environ      *environtesting.MockNetworkingEnviron
+	policy       *MockBridgePolicy
+	host         *MockMachine
+	container    *MockMachine
+	device       *MockLinkLayerDevice
+	parentDevice *MockLinkLayerDevice
 
 	api ProvisionerAPI
 }
 
 func TestProvisionerMockSuite(t *testing.T) {
 	tc.Run(t, &provisionerMockSuite{})
+}
+
+func (s *provisionerMockSuite) TestHostChangesForContainers(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
+
+	expMach := s.machineService.EXPECT()
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("m1-uuid", nil)
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return("m2-uuid", nil)
+
+	s.networkService.EXPECT().DevicesToBridge(
+		gomock.Any(), coremachine.UUID("m1-uuid"), coremachine.UUID("m2-uuid"),
+	).Return([]domainnetwork.DeviceToBridge{{
+		DeviceName: "eth0",
+		BridgeName: "br-eth0",
+		MACAddress: "mac-address",
+	}}, nil)
+
+	res, err := s.api.HostChangesForContainers(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: "machine-0-lxd-0",
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(res, tc.DeepEquals, params.HostNetworkChangeResults{
+		Results: []params.HostNetworkChange{{
+			NewBridges: []params.DeviceBridgeInfo{{
+				HostDeviceName: "eth0",
+				BridgeName:     "br-eth0",
+				MACAddress:     "mac-address",
+			}},
+		}},
+	})
 }
 
 // Even when the provider supports container addresses, manually provisioned
@@ -517,18 +541,23 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.device = NewMockLinkLayerDevice(ctrl)
 	s.parentDevice = NewMockLinkLayerDevice(ctrl)
 	s.clock = testclock.NewClock(time.Now())
+	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
+	s.networkService = NewMockNetworkService(ctrl)
 
 	s.api = ProvisionerAPI{
 		applicationService: s.applicationService,
 		machineService:     s.machineService,
 		statusService:      s.statusService,
+		networkService:     s.networkService,
 
 		clock:  s.clock,
 		logger: loggertesting.WrapCheckLog(c),
+
+		authorizer: s.authorizer,
 		getAuthFunc: func(context.Context) (common.AuthFunc, error) {
 			return func(tag names.Tag) bool {
 				return true
@@ -544,6 +573,8 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		s.applicationService = nil
 		s.machineService = nil
 		s.statusService = nil
+		s.networkService = nil
+		s.authorizer = nil
 	})
 
 	return ctrl
