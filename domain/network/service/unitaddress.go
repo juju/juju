@@ -95,14 +95,15 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 	return matchedAddrs, nil
 }
 
-// GetUnitAddressesForAPI returns all addresses which can be used for
+// GetControllerAPIAddresses returns all addresses which can be used for
 // API addresses for the specified unit. local-machine scoped addresses
 // will not be returned.
 //
 // The following errors may be returned:
-// - [applicationerrors.UnitNotFound] if the unit does not exist
-// - [network.NoAddressError] if the unit has no api address associated
-func (s *Service) GetUnitAddressesForAPI(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error) {
+//   - [applicationerrors.UnitNotFound] if the unit does not exist or is
+//     not a controller application unit
+//   - [network.NoAddressError] if the unit has no api address associated
+func (s *Service) GetControllerAPIAddresses(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error) {
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return nil, errors.Capture(err)

@@ -419,11 +419,11 @@ func (s *unitAddressSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
 }
 
-func (s *unitAddressSuite) TestGetUnitAddressesForAPI(c *tc.C) {
+func (s *unitAddressSuite) TestGetControllerAPIAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// Arrange
 	unitName := unit.Name("foo/0")
-
 	unitAddresses := network.SpaceAddresses{
 		{
 			SpaceID: network.AlphaSpaceId,
@@ -466,21 +466,27 @@ func (s *unitAddressSuite) TestGetUnitAddressesForAPI(c *tc.C) {
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return("foo", nil)
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
 
-	addrs, err := s.service(c).GetUnitAddressesForAPI(c.Context(), unitName)
+	// Act
+	addrs, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName)
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	// The three addresses should be returned.
 	c.Check(addrs, tc.DeepEquals, append(unitAddresses[:2], unitAddresses[3:]...))
 }
 
-func (s *unitAddressSuite) TestGetUnitAddressesForAPINoAddresses(c *tc.C) {
+func (s *unitAddressSuite) TestGetControllerAPIAddressesNoAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// Arrange
 	unitName := unit.Name("foo/0")
-
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
 	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
 
-	_, err := s.service(c).GetUnitAddressesForAPI(c.Context(), unitName)
+	// Act
+	_, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName)
+
+	// Assert
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
 }
 

@@ -347,41 +347,41 @@ func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
 }
 
-// GetUnitAddressesForAPI mocks base method.
-func (m *MockNetworkService) GetUnitAddressesForAPI(arg0 context.Context, arg1 unit.Name) (network.SpaceAddresses, error) {
+// GetControllerAPIAddresses mocks base method.
+func (m *MockNetworkService) GetControllerAPIAddresses(arg0 context.Context, arg1 unit.Name) (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitAddressesForAPI", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetControllerAPIAddresses", arg0, arg1)
 	ret0, _ := ret[0].(network.SpaceAddresses)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUnitAddressesForAPI indicates an expected call of GetUnitAddressesForAPI.
-func (mr *MockNetworkServiceMockRecorder) GetUnitAddressesForAPI(arg0, arg1 any) *MockNetworkServiceGetUnitAddressesForAPICall {
+// GetControllerAPIAddresses indicates an expected call of GetControllerAPIAddresses.
+func (mr *MockNetworkServiceMockRecorder) GetControllerAPIAddresses(arg0, arg1 any) *MockNetworkServiceGetControllerAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAddressesForAPI", reflect.TypeOf((*MockNetworkService)(nil).GetUnitAddressesForAPI), arg0, arg1)
-	return &MockNetworkServiceGetUnitAddressesForAPICall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerAPIAddresses", reflect.TypeOf((*MockNetworkService)(nil).GetControllerAPIAddresses), arg0, arg1)
+	return &MockNetworkServiceGetControllerAPIAddressesCall{Call: call}
 }
 
-// MockNetworkServiceGetUnitAddressesForAPICall wrap *gomock.Call
-type MockNetworkServiceGetUnitAddressesForAPICall struct {
+// MockNetworkServiceGetControllerAPIAddressesCall wrap *gomock.Call
+type MockNetworkServiceGetControllerAPIAddressesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockNetworkServiceGetUnitAddressesForAPICall) Return(arg0 network.SpaceAddresses, arg1 error) *MockNetworkServiceGetUnitAddressesForAPICall {
+func (c *MockNetworkServiceGetControllerAPIAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockNetworkServiceGetControllerAPIAddressesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceGetUnitAddressesForAPICall) Do(f func(context.Context, unit.Name) (network.SpaceAddresses, error)) *MockNetworkServiceGetUnitAddressesForAPICall {
+func (c *MockNetworkServiceGetControllerAPIAddressesCall) Do(f func(context.Context, unit.Name) (network.SpaceAddresses, error)) *MockNetworkServiceGetControllerAPIAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceGetUnitAddressesForAPICall) DoAndReturn(f func(context.Context, unit.Name) (network.SpaceAddresses, error)) *MockNetworkServiceGetUnitAddressesForAPICall {
+func (c *MockNetworkServiceGetControllerAPIAddressesCall) DoAndReturn(f func(context.Context, unit.Name) (network.SpaceAddresses, error)) *MockNetworkServiceGetControllerAPIAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
