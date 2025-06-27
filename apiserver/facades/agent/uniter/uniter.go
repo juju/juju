@@ -1520,34 +1520,18 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
-	var endpoint string
-	for _, epIdentifier := range relKey.EndpointIdentifiers() {
-		if strings.HasPrefix(unitName.String(), epIdentifier.ApplicationName) {
-			endpoint = epIdentifier.EndpointName
-			break
-		}
-	}
-	if endpoint == "" {
-		u.logger.Errorf(ctx, "could not find endpoint for unit %s in the relation %+v", unitName, relKey)
-		return apiservererrors.ErrPerm
-	}
-
-	infos, err := u.networkService.GetUnitEndpointNetworks(ctx, unitName, []string{endpoint})
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return errors.NotFoundf("unit %q", unitTag.Id())
-	} else if err != nil {
+	info, err := u.networkService.GetUnitRelationNetwork(ctx, unitName, relKey)
+	switch {
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return errors.NotFoundf("unit %s", unitTag)
+	case errors.Is(err, relationerrors.RelationNotFound):
+		return errors.NotFoundf("relation %s", relTagStr)
+	case err != nil:
 		return internalerrors.Capture(err)
 	}
-	if len(infos) != 1 {
-		// Should not happen unless the interface contract for
-		// GetUnitEndpointNetworks is broken.
-		// If not broken, providing exactly one endpoint as a parameter for
-		// GetUnitEndpointNetworks should return exactly one info.
-		return errors.NotValidf("expected 1 NetworkInfo for unit %q on endpoint %q, got %d", unitName, endpoint,
-			len(infos))
-	}
-	ingressAddresses := infos[0].IngressAddresses
-	egressSubnets := infos[0].EgressSubnets
+
+	ingressAddresses := info.IngressAddresses
+	egressSubnets := info.EgressSubnets
 	settings := map[string]string{}
 	if len(ingressAddresses) > 0 {
 		// ingress-address is the preferred settings attribute name as it more accurately

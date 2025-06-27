@@ -1659,17 +1659,17 @@ func (s *uniterRelationSuite) TestEnterScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	addr := "x.x.x.x"
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings, nil)
 
-	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitName,
-		[]string{"mysql"}).Return([]domainnetwork.UnitNetwork{{
+	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, relKey).Return(domainnetwork.UnitNetwork{
 		EndpointName:     "mysql",
 		IngressAddresses: []string{addr},
-	}}, nil)
+	}, nil)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -1691,17 +1691,17 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	addr := "x.x.x.x"
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings,
 		relationerrors.PotentialRelationUnitNotValid)
-	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitName,
-		[]string{"mysql"}).Return([]domainnetwork.UnitNetwork{{
+	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, relKey).Return(domainnetwork.UnitNetwork{
 		EndpointName:     "mysql",
 		IngressAddresses: []string{addr},
-	}}, nil)
+	}, nil)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
