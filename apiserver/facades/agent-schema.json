@@ -4751,14 +4751,6 @@
                         }
                     }
                 },
-                "SetObservedNetworkConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetMachineNetworkConfig"
-                        }
-                    }
-                },
                 "SetPasswords": {
                     "type": "object",
                     "properties": {
