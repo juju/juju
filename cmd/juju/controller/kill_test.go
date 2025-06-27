@@ -159,7 +159,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *tc.C) {
 
 func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *tc.C) {
 	s.api.allModels = nil
-	s.api.envStatus = map[string]base.ModelStatus{}
+	s.api.modelStatus = map[string]base.ModelStatus{}
 	s.addModel("controller", base.ModelStatus{
 		UUID:               test1UUID,
 		Life:               life.Alive,
@@ -313,7 +313,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *tc.C) {
 
 func (s *KillSuite) resetAPIModels(c *tc.C) {
 	s.api.allModels = nil
-	s.api.envStatus = map[string]base.ModelStatus{}
+	s.api.modelStatus = map[string]base.ModelStatus{}
 	s.addModel("controller", base.ModelStatus{
 		UUID:              test1UUID,
 		Life:              life.Alive,
@@ -328,11 +328,11 @@ func (s *KillSuite) addModel(name string, status base.ModelStatus) {
 		UUID:      status.UUID,
 		Qualifier: status.Qualifier,
 	})
-	s.api.envStatus[status.UUID] = status
+	s.api.modelStatus[status.UUID] = status
 }
 
 func (s *KillSuite) setModelStatus(status base.ModelStatus) {
-	s.api.envStatus[status.UUID] = status
+	s.api.modelStatus[status.UUID] = status
 }
 
 func (s *KillSuite) removeModel(uuid string) {
@@ -342,7 +342,7 @@ func (s *KillSuite) removeModel(uuid string) {
 			break
 		}
 	}
-	delete(s.api.envStatus, uuid)
+	delete(s.api.modelStatus, uuid)
 }
 
 func (s *KillSuite) syncClockAlarm(c *tc.C) {
@@ -497,9 +497,9 @@ func (s *KillSuite) TestControllerStatus(c *tc.C) {
 		},
 	}
 
-	s.api.envStatus = make(map[string]base.ModelStatus)
+	s.api.modelStatus = make(map[string]base.ModelStatus)
 	for _, env := range s.api.allModels {
-		s.api.envStatus[env.UUID] = base.ModelStatus{
+		s.api.modelStatus[env.UUID] = base.ModelStatus{
 			UUID:               env.UUID,
 			Life:               life.Dying,
 			HostedMachineCount: 2,

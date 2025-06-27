@@ -239,12 +239,13 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 	return output
 }
 
-// OwnerQualifiedModelName returns the model name qualified with the
-// model qualifier if the qualifier is not the same as the given canonical
-// user name.
-func OwnerQualifiedModelName(modelName, qualifier string, user names.UserTag) string {
-	if qualifier == user.Id() {
-		return modelName
+// UserModelName returns the model name with any qualifier
+// removed if the qualifier matches the given canonical username.
+func UserModelName(modelName, userName string) string {
+	if unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName); err == nil {
+		if qualifier == model.QualifierFromUserTag(names.NewUserTag(userName)).String() {
+			return unqualifiedModelName
+		}
 	}
-	return jujuclient.QualifyModelName(qualifier, modelName)
+	return modelName
 }
