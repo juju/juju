@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -378,20 +377,14 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 	return st
 }
 
-var getControllerBackend = func(pool *state.StatePool) (controllerBackend, error) {
-	return pool.SystemState()
+var getAllAPIAddressesForClients = func(ctx context.Context, controllerNodeService ControllerNodeService) ([]string, error) {
+	return controllerNodeService.GetAllAPIAddressesForClients(ctx)
 }
 
 // migrationBackend defines model State functionality required by the
 // migration watchers.
 type migrationBackend interface {
 	LatestMigration() (state.ModelMigration, error)
-}
-
-// migrationBackend defines controller State functionality required by the
-// migration watchers.
-type controllerBackend interface {
-	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 func newMigrationStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
@@ -408,18 +401,13 @@ func newMigrationStatusWatcher(_ context.Context, context facade.ModelContext) (
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
 	var (
-		st   = context.State()
-		pool = context.StatePool()
+		st = context.State()
 	)
-	controllerBackend, err := getControllerBackend(pool)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &srvMigrationStatusWatcher{
 		watcherCommon:           newWatcherCommon(context),
 		watcher:                 watcher,
 		st:                      getMigrationBackend(st),
-		ctrlSt:                  controllerBackend,
+		controllerNodeService:   context.DomainServices().ControllerNode(),
 		controllerConfigService: context.DomainServices().ControllerConfig(),
 	}, nil
 }
@@ -428,7 +416,7 @@ type srvMigrationStatusWatcher struct {
 	watcherCommon
 	watcher                 corewatcher.NotifyWatcher
 	st                      migrationBackend
-	ctrlSt                  controllerBackend
+	controllerNodeService   ControllerNodeService
 	controllerConfigService ControllerConfigService
 }
 
@@ -455,15 +443,15 @@ func (w *srvMigrationStatusWatcher) Next(ctx context.Context) (params.MigrationS
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving migration phase")
 	}
 
-	cfg, err := w.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "retrieving controller config")
-	}
-	sourceAddrs, err := w.getLocalHostPorts(cfg)
+	sourceAddrs, err := getAllAPIAddressesForClients(ctx, w.controllerNodeService)
 	if err != nil {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source addresses")
 	}
 
+	cfg, err := w.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return params.MigrationStatus{}, errors.Annotate(err, "retrieving controller config")
+	}
 	sourceCACert, err := getControllerCACert(cfg)
 	if err != nil {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source CA cert")
@@ -483,20 +471,6 @@ func (w *srvMigrationStatusWatcher) Next(ctx context.Context) (params.MigrationS
 		TargetAPIAddrs: target.Addrs,
 		TargetCACert:   target.CACert,
 	}, nil
-}
-
-func (w *srvMigrationStatusWatcher) getLocalHostPorts(cfg controller.Config) ([]string, error) {
-	hostports, err := w.ctrlSt.APIHostPortsForClients(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var out []string
-	for _, section := range hostports {
-		for _, hostport := range section {
-			out = append(out, hostport.String())
-		}
-	}
-	return out, nil
 }
 
 // This is a shim to avoid the need to use a working State into the
