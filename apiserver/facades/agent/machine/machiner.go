@@ -196,7 +196,12 @@ func (api *MachinerAPI) SetObservedNetworkConfig(ctx context.Context, args param
 	}
 
 	mUUID, err := api.machineService.GetMachineUUID(ctx, machine.Name(mTag.Id()))
-	if err != nil {
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		// For some reason we return ErrPerm here rather than NotFound.
+		// This is likely a historical artifact, but we should keep it for
+		// compatibility.
+		return apiservererrors.ServerError(apiservererrors.ErrPerm)
+	} else if err != nil {
 		return apiservererrors.ServerError(err)
 	}
 
