@@ -1,0 +1,73 @@
+name: "Smoke"
+on:
+  push:
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: PostgreSQL K8s
+    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
+    timeout-minutes: 60
+    if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        cloud: ["microk8s"]
+    steps:
+
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "/snap/bin" >> $GITHUB_PATH
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Mirror
+        shell: bash
+        run: |
+          (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["https://docker-cache.us-west-2.aws.jujuqa.com:443"]' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker system info
+
+      - name: Setup MicroK8s
+        if: matrix.cloud == 'microk8s'
+        uses: balchua/microk8s-actions@13f73436011eb4925c22526f64fb3ecdd81289a9
+        with:
+          channel: "1.30-strict/stable"
+          addons: '["dns", "hostpath-storage", "rbac"]'
+          launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Install local Juju
+        shell: bash
+        run: |
+          make go-install
+
+      - name: Update microk8s operator image
+        if: matrix.cloud == 'microk8s'
+        run: |
+          # TODO: use temporary Docker account (set DOCKER_USERNAME env var)
+          sg snap_microk8s 'make microk8s-operator-update'
+
+      - name: PostgreSQL in K8s
+        if: matrix.cloud == 'microk8s'
+        shell: bash
+        run: |
+          cd tests
+          export MODEL_ARCH=$(go env GOARCH)
+
+          # Skip destroy to keep the environment up.
+          export SKIP_DESTROY=true
+
+          sg snap_microk8s './main.sh -c microk8s -v smoke_k8s_psql'
