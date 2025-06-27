@@ -67,12 +67,10 @@ func (s *machinerSuite) makeAPI(c *tc.C) {
 	st := s.ControllerModel(c).State()
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPIForState(
-		c.Context(),
 		st,
 		s.clock,
 		s.ControllerDomainServices(c).ControllerConfig(),
 		s.ControllerDomainServices(c).ControllerNode(),
-		s.ControllerDomainServices(c).ModelInfo(),
 		s.networkService,
 		s.applicationService,
 		s.machineService,
@@ -92,11 +90,9 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	st := s.ControllerModel(c).State()
 	aMachiner, err := machine.NewMachinerAPIForState(
-		c.Context(),
 		st,
 		clock.WallClock,
 		s.ControllerDomainServices(c).ControllerConfig(),
-		nil,
 		nil,
 		s.networkService,
 		s.applicationService,
