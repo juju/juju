@@ -69,7 +69,3 @@ type machinePassword struct {
 type modelPasswordHash struct {
 	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
 }
-
-type modelUUID struct {
-	UUID string `db:"uuid"`
-}
