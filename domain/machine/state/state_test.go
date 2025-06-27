@@ -12,11 +12,14 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -1293,5 +1296,33 @@ func (s *stateSuite) TestConstraintEmpty(c *tc.C) {
 
 func (s *stateSuite) TestConstraintsApplicationNotFound(c *tc.C) {
 	_, err := s.state.GetMachineConstraints(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestGetMachineBase(c *tc.C) {
+	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "deadbeef",
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Channel:      "22.04/stable",
+			Architecture: architecture.AMD64,
+		},
+	})
+
+	s.DumpTable(c, "machine_platform", "machine")
+
+	base, err := s.state.GetMachineBase(c.Context(), machineName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base, tc.DeepEquals, corebase.Base{
+		OS: "ubuntu",
+		Channel: corebase.Channel{
+			Track: "22.04",
+			Risk:  "stable",
+		},
+	})
+}
+
+func (s *stateSuite) TestGetMachineBaseNotFound(c *tc.C) {
+	_, err := s.state.GetMachineBase(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }

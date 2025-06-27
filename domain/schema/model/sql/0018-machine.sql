@@ -303,3 +303,13 @@ LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id
 LEFT JOIN constraint_tag AS ctag ON c.uuid = ctag.constraint_uuid
 LEFT JOIN constraint_space AS cspace ON c.uuid = cspace.constraint_uuid
 LEFT JOIN constraint_zone AS czone ON c.uuid = czone.constraint_uuid;
+
+CREATE VIEW v_machine_platform AS
+SELECT
+    mp.machine_uuid AS machine_uuid,
+    os.name AS os_name,
+    mp.channel,
+    a.name AS architecture
+FROM machine_platform AS mp
+JOIN os ON mp.os_id = os.id
+JOIN architecture AS a ON mp.architecture_id = a.id;

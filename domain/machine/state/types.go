@@ -294,3 +294,9 @@ type machineConstraint struct {
 }
 
 type machineConstraints []machineConstraint
+
+type machinePlatform struct {
+	OSName       string `db:"os_name"`
+	Channel      string `db:"channel"`
+	Architecture string `db:"architecture"`
+}

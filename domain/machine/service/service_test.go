@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -898,5 +899,36 @@ func (s *serviceSuite) TestGetMachineConstraintsMachineNotFound(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineConstraints(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestGetMachineBase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+	base := base.Base{
+		OS: "ubuntu",
+		Channel: base.Channel{
+			Track: "22.04",
+			Risk:  "stable",
+		},
+	}
+	s.state.EXPECT().GetMachineBase(gomock.Any(), machineName.String()).Return(base, nil)
+
+	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineBase(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, base)
+}
+
+func (s *serviceSuite) TestGetMachineBaseNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachineBase(gomock.Any(), machineName.String()).Return(base.Base{}, machineerrors.MachineNotFound)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineBase(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }

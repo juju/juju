@@ -11,6 +11,7 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
@@ -207,6 +208,14 @@ type State interface {
 	// The following errors may be returned:
 	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	GetMachineConstraints(ctx context.Context, mName string) (constraints.Constraints, error)
+
+	// GetMachineBase returns the base for the given machine.
+	// Since the machine_platform table is populated when creating a machine, there
+	// should always be a base for a machine.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	GetMachineBase(ctx context.Context, mName string) (base.Base, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -580,6 +589,21 @@ func (s *Service) GetMachineConstraints(ctx context.Context, mName machine.Name)
 
 	cons, err := s.st.GetMachineConstraints(ctx, mName.String())
 	return constraints.EncodeConstraints(cons), errors.Capture(err)
+}
+
+// GetMachineBase returns the base for the given machine.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+func (s *Service) GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mName.Validate(); err != nil {
+		return base.Base{}, errors.Errorf("validating machine name %q: %w", mName, err)
+	}
+
+	return s.st.GetMachineBase(ctx, mName.String())
 }
 
 func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusHistory, machineName machine.Name, clock clock.Clock) error {
