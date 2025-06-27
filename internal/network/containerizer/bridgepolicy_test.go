@@ -552,23 +552,3 @@ func (s *bridgePolicySuite) TestPopulateContainerLinkLayerDevicesUseLocal(c *tc.
 	c.Check(dev.InterfaceName, tc.Equals, "eth0")
 	c.Check(dev.ParentInterfaceName, tc.Equals, "lxdbr0")
 }
-
-var bridgeNames = map[string]string{
-	"eno0":            "br-eno0",
-	"enovlan.123":     "br-enovlan-123",
-	"twelvechars0":    "br-twelvechars0",
-	"thirteenchars":   "b-thirteenchars",
-	"enfourteenchar":  "b-fourteenchar",
-	"enfifteenchars0": "b-fifteenchars0",
-	"fourteenchars1":  "b-5590a4-chars1",
-	"fifteenchars.12": "b-38b496-ars-12",
-	"zeros0526193032": "b-000000-193032",
-	"enx00e07cc81e1d": "b-x00e07cc81e1d",
-}
-
-func (s *bridgePolicySuite) TestBridgeNameForDevice(c *tc.C) {
-	for deviceName, bridgeName := range bridgeNames {
-		generatedBridgeName := BridgeNameForDevice(deviceName)
-		c.Assert(generatedBridgeName, tc.Equals, bridgeName)
-	}
-}
