@@ -35,19 +35,9 @@ func (st *State) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreuni
 	var address []spaceAddress
 	ident := entityUUID{UUID: uuid.String()}
 	queryUnitPublicAddressesStmt, err := st.Prepare(`
-SELECT    &spaceAddress.*
-FROM (
-    SELECT s.net_node_uuid, u.uuid
-    FROM unit u
-    JOIN application AS a on a.uuid = u.application_uuid
-    JOIN k8s_service AS s on s.application_uuid = a.uuid
-    UNION
-    SELECT net_node_uuid, uuid FROM unit
-) AS n
-JOIN      link_layer_device AS lld ON n.net_node_uuid = lld.net_node_uuid
-JOIN      v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
-LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
-WHERE     n.uuid = $entityUUID.uuid
+SELECT &spaceAddress.*
+FROM v_all_unit_addresses AS ua
+WHERE     ua.unit_uuid = $entityUUID.uuid
 `, spaceAddress{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)

@@ -404,4 +404,42 @@ LEFT JOIN link_layer_device_dns_domain AS dnsd ON d.uuid = dnsd.device_uuid
 LEFT JOIN ip_address AS a ON d.uuid = a.device_uuid
 LEFT JOIN provider_ip_address AS pa ON a.uuid = pa.address_uuid
 LEFT JOIN subnet AS s ON a.subnet_uuid = s.uuid
-LEFT JOIN provider_subnet AS ps ON a.subnet_uuid = ps.subnet_uuid
+LEFT JOIN provider_subnet AS ps ON a.subnet_uuid = ps.subnet_uuid;
+
+
+-- This view allows to retrieves any address belonging to a unit.
+-- It is useful when we have a unit UUID and we want all addresses relative to this unit,
+-- without caring if we are in a k8s provider or a machine provider.
+-- This add addresses belonging to the k8s service of the unit application
+-- alongside those belonging directly to the unit
+CREATE VIEW v_all_unit_addresses AS
+SELECT
+    n.uuid AS unit_uuid,
+    ipa.address_value,
+    ipa.config_type_name,
+    ipa.type_name,
+    ipa.origin_name,
+    ipa.scope_name,
+    ipa.device_uuid,
+    sn.space_uuid,
+    sn.cidr
+FROM (
+    SELECT s.net_node_uuid, u.uuid
+    FROM unit u
+    JOIN application AS a on a.uuid = u.application_uuid
+    JOIN k8s_service AS s on s.application_uuid = a.uuid
+    UNION
+    SELECT net_node_uuid, uuid FROM unit
+) AS n
+JOIN      link_layer_device AS lld ON n.net_node_uuid = lld.net_node_uuid
+JOIN      v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
+LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+
+
+
+
+
+
+
+
+
