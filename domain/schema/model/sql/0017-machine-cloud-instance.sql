@@ -5,13 +5,15 @@ CREATE TABLE machine_cloud_instance (
     -- to track the status of the instance creation process.
     instance_id TEXT,
     display_name TEXT,
+    -- The data that is reported here is the cloud specific instance 
+    -- information.
     arch TEXT,
+    availability_zone_uuid TEXT,
+    cpu_cores INT,
+    cpu_power INT,
     mem INT,
     root_disk INT,
     root_disk_source TEXT,
-    cpu_cores INT,
-    cpu_power INT,
-    availability_zone_uuid TEXT,
     virt_type TEXT,
     CONSTRAINT fk_machine_machine_uuid
     FOREIGN KEY (machine_uuid)
