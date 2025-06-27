@@ -112,7 +112,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	c.runVars = modelsRunValues{
-		currentUser:    names.NewUserTag(c.user),
+		currentUser:    c.user,
 		controllerName: controllerName,
 	}
 	// TODO(perrito666) 2016-05-02 lp:1558657
@@ -142,13 +142,8 @@ func (c *modelsCommand) currentModelName() (qualified, name string) {
 	if err == nil {
 		qualified, name = current, current
 		if c.user != "" {
-			unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(current)
-			if err == nil {
-				// If current model's qualifier is this user, un-qualify model name.
-				name = common.OwnerQualifiedModelName(
-					unqualifiedModelName, qualifier, c.runVars.currentUser,
-				)
-			}
+			// If current model's qualifier is this user, un-qualify model name.
+			name = common.UserModelName(current, c.runVars.currentUser)
 		}
 	}
 	return
@@ -337,7 +332,7 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 
 // These values are specific to an individual Run() of the model command.
 type modelsRunValues struct {
-	currentUser      names.UserTag
+	currentUser      string
 	controllerName   string
 	hasMachinesCount bool
 	hasCoresCount    bool
@@ -410,11 +405,7 @@ func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummary
 
 	for _, m := range modelSet.Models {
 		cloudRegion := strings.Trim(m.Cloud+"/"+m.CloudRegion, "/")
-		name := m.Name
-		if model.QualifierFromUserTag(c.runVars.currentUser).String() == m.Qualifier {
-			// No need to display fully qualified model name if it matches the user.
-			name = m.ShortName
-		}
+		name := common.UserModelName(m.Name, c.runVars.currentUser)
 		if m.Name == modelSet.CurrentModelQualified {
 			name += "*"
 			w.PrintColor(output.CurrentHighlight, name)

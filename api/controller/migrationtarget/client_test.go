@@ -48,7 +48,7 @@ func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *testhelpers.
 	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("boom")
-	}), BestVersion: 2}
+	}), BestVersion: 6}
 	client := migrationtarget.NewClient(apiCaller)
 	return client, &stub
 }

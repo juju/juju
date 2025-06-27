@@ -9,6 +9,18 @@ import (
 
 func NewClientFromCaller(caller base.FacadeCaller) *Client {
 	return &Client{
-		facade: caller,
+		facade:       caller,
+		ClientFacade: &mockClient{},
 	}
+}
+
+type mockClient struct {
+}
+
+func (m *mockClient) BestAPIVersion() int {
+	return 11
+}
+
+func (*mockClient) Close() error {
+	return nil
 }
