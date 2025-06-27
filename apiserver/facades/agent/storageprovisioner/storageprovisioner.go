@@ -5,7 +5,6 @@ package storageprovisioner
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -1713,22 +1712,13 @@ func (s *StorageProvisionerAPIv4) SetStatus(ctx context.Context, args params.Set
 		var statusErr error
 		switch tag := tag.(type) {
 		case names.FilesystemTag:
-			filesystemId := idFromTag(tag.Id())
-			statusErr = s.storageStatusService.SetVolumeStatus(ctx, filesystemId, sInfo)
+			statusErr = s.storageStatusService.SetVolumeStatus(ctx, tag.Id(), sInfo)
 		case names.VolumeTag:
-			volId := idFromTag(tag.Id())
-			statusErr = s.storageStatusService.SetVolumeStatus(ctx, volId, sInfo)
+			statusErr = s.storageStatusService.SetVolumeStatus(ctx, tag.Id(), sInfo)
 		default:
 			statusErr = apiservererrors.ErrPerm
 		}
 		result.Results[i].Error = apiservererrors.ServerError(statusErr)
 	}
 	return result, nil
-}
-
-func idFromTag(tag string) string {
-	// filesystem or volume tags always end with "/N"
-	// where N is the filesystem or volume id that we want.
-	pos := strings.LastIndex(tag, "/")
-	return tag[pos:]
 }
