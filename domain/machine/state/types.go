@@ -269,3 +269,28 @@ type acquireParentMachineForContainerArgs struct {
 type placementDirective struct {
 	Directive sql.Null[string] `db:"directive"`
 }
+
+// machineConstraint represents a single returned row when joining the
+// constraint table with the constraint_space, constraint_tag and
+// constraint_zone.
+type machineConstraint struct {
+	MachineUUID      string          `db:"machine_uuid"`
+	Arch             sql.NullString  `db:"arch"`
+	CPUCores         sql.Null[int64] `db:"cpu_cores"`
+	CPUPower         sql.Null[int64] `db:"cpu_power"`
+	Mem              sql.Null[int64] `db:"mem"`
+	RootDisk         sql.Null[int64] `db:"root_disk"`
+	RootDiskSource   sql.NullString  `db:"root_disk_source"`
+	InstanceRole     sql.NullString  `db:"instance_role"`
+	InstanceType     sql.NullString  `db:"instance_type"`
+	ContainerType    sql.NullString  `db:"container_type"`
+	VirtType         sql.NullString  `db:"virt_type"`
+	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
+	ImageID          sql.NullString  `db:"image_id"`
+	SpaceName        sql.NullString  `db:"space_name"`
+	SpaceExclude     sql.NullBool    `db:"space_exclude"`
+	Tag              sql.NullString  `db:"tag"`
+	Zone             sql.NullString  `db:"zone"`
+}
+
+type machineConstraints []machineConstraint

@@ -7,18 +7,23 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coredb "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -1307,6 +1312,45 @@ WHERE machine_uuid = $machineUUID.uuid
 	return nil, nil
 }
 
+// GetMachineConstraints returns the constraints for the given machine.
+// Empty constraints are returned if no constraints exist for the given
+// machine.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+func (st *State) GetMachineConstraints(ctx context.Context, mName string) (constraints.Constraints, error) {
+	db, err := st.DB()
+	if err != nil {
+		return constraints.Constraints{}, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &machineConstraint.*
+FROM v_machine_constraint
+WHERE machine_uuid = $machineUUID.uuid;
+`, machineConstraint{}, machineUUID{})
+	if err != nil {
+		return constraints.Constraints{}, errors.Capture(err)
+	}
+	var result machineConstraints
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		machineUUID, err := st.getMachineUUIDFromName(ctx, tx, machine.Name(mName))
+		if err != nil {
+			return err
+		}
+		err = tx.Query(ctx, stmt, machineUUID).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return constraints.Constraints{}, errors.Errorf("getting constraints for machine %q: %w", mName, err)
+	}
+
+	return decodeConstraints(result), nil
+}
+
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {
@@ -1370,6 +1414,101 @@ func encodeLife(v life.Life) (int64, error) {
 	default:
 		return 0, errors.Errorf("encoding life status: %v", v)
 	}
+}
+
+// decodeConstraints flattens and maps the list of rows of machine_constraint
+// to get a single constraints.Constraints. The flattening is needed because of
+// the spaces, tags and zones constraints which are slices. We can safely assume
+// that the non-slice values are repeated on every row so we can safely
+// overwrite the previous value on each iteration.
+func decodeConstraints(cons machineConstraints) constraints.Constraints {
+	var res constraints.Constraints
+
+	// Empty constraints is not an error case, so return early the empty
+	// result.
+	if len(cons) == 0 {
+		return res
+	}
+
+	// Unique spaces, tags and zones:
+	spaces := make(map[string]constraints.SpaceConstraint)
+	tags := set.NewStrings()
+	zones := set.NewStrings()
+
+	for _, row := range cons {
+		if row.Arch.Valid {
+			res.Arch = &row.Arch.String
+		}
+		if row.CPUCores.Valid {
+			cpuCores := uint64(row.CPUCores.V)
+			res.CpuCores = &cpuCores
+		}
+		if row.CPUPower.Valid {
+			cpuPower := uint64(row.CPUPower.V)
+			res.CpuPower = &cpuPower
+		}
+		if row.Mem.Valid {
+			mem := uint64(row.Mem.V)
+			res.Mem = &mem
+		}
+		if row.RootDisk.Valid {
+			rootDisk := uint64(row.RootDisk.V)
+			res.RootDisk = &rootDisk
+		}
+		if row.RootDiskSource.Valid {
+			res.RootDiskSource = &row.RootDiskSource.String
+		}
+		if row.InstanceRole.Valid {
+			res.InstanceRole = &row.InstanceRole.String
+		}
+		if row.InstanceType.Valid {
+			res.InstanceType = &row.InstanceType.String
+		}
+		if row.ContainerType.Valid {
+			containerType := instance.ContainerType(row.ContainerType.String)
+			res.Container = &containerType
+		}
+		if row.VirtType.Valid {
+			res.VirtType = &row.VirtType.String
+		}
+		if row.AllocatePublicIP.Valid {
+			res.AllocatePublicIP = &row.AllocatePublicIP.Bool
+		}
+		if row.ImageID.Valid {
+			res.ImageID = &row.ImageID.String
+		}
+		if row.SpaceName.Valid {
+			var exclude bool
+			if row.SpaceExclude.Valid {
+				exclude = row.SpaceExclude.Bool
+			}
+			spaces[row.SpaceName.String] = constraints.SpaceConstraint{
+				SpaceName: row.SpaceName.String,
+				Exclude:   exclude,
+			}
+		}
+		if row.Tag.Valid {
+			tags.Add(row.Tag.String)
+		}
+		if row.Zone.Valid {
+			zones.Add(row.Zone.String)
+		}
+	}
+
+	// Add the unique spaces, tags and zones to the result:
+	if len(spaces) > 0 {
+		res.Spaces = ptr(slices.Collect(maps.Values(spaces)))
+	}
+	if len(tags) > 0 {
+		tagsSlice := tags.SortedValues()
+		res.Tags = &tagsSlice
+	}
+	if len(zones) > 0 {
+		zonesSlice := zones.SortedValues()
+		res.Zones = &zonesSlice
+	}
+
+	return res
 }
 
 func ptr[T any](v T) *T {

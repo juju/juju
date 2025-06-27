@@ -11,12 +11,14 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -197,6 +199,14 @@ type State interface {
 	// The following errors may be returned:
 	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	GetMachinePlacementDirective(ctx context.Context, mName string) (*string, error)
+
+	// GetMachineConstraints returns the constraints for the given machine.
+	// Empty constraints are returned if no constraints exist for the given
+	// machine.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	GetMachineConstraints(ctx context.Context, mName string) (constraints.Constraints, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -552,6 +562,24 @@ func (s *Service) GetMachinePlacementDirective(ctx context.Context, mName machin
 	}
 
 	return s.st.GetMachinePlacementDirective(ctx, mName.String())
+}
+
+// GetMachineConstraints returns the constraints for the given machine.
+// Empty constraints are returned if no constraints exist for the given
+// machine.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+func (s *Service) GetMachineConstraints(ctx context.Context, mName machine.Name) (coreconstraints.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mName.Validate(); err != nil {
+		return coreconstraints.Value{}, errors.Errorf("validating machine name %q: %w", mName, err)
+	}
+
+	cons, err := s.st.GetMachineConstraints(ctx, mName.String())
+	return constraints.EncodeConstraints(cons), errors.Capture(err)
 }
 
 func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusHistory, machineName machine.Name, clock clock.Clock) error {

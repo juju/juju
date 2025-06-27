@@ -17,6 +17,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
 	status "github.com/juju/juju/core/status"
+	constraints "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
 	machine0 "github.com/juju/juju/domain/machine"
 	statushistory "github.com/juju/juju/internal/statushistory"
@@ -547,6 +548,45 @@ func (c *MockStateGetInstanceIDAndNameCall) Do(f func(context.Context, string) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetInstanceIDAndNameCall) DoAndReturn(f func(context.Context, string) (string, string, error)) *MockStateGetInstanceIDAndNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineConstraints mocks base method.
+func (m *MockState) GetMachineConstraints(ctx context.Context, mName string) (constraints.Constraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineConstraints", ctx, mName)
+	ret0, _ := ret[0].(constraints.Constraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineConstraints indicates an expected call of GetMachineConstraints.
+func (mr *MockStateMockRecorder) GetMachineConstraints(ctx, mName any) *MockStateGetMachineConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineConstraints", reflect.TypeOf((*MockState)(nil).GetMachineConstraints), ctx, mName)
+	return &MockStateGetMachineConstraintsCall{Call: call}
+}
+
+// MockStateGetMachineConstraintsCall wrap *gomock.Call
+type MockStateGetMachineConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineConstraintsCall) Return(arg0 constraints.Constraints, arg1 error) *MockStateGetMachineConstraintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineConstraintsCall) Do(f func(context.Context, string) (constraints.Constraints, error)) *MockStateGetMachineConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineConstraintsCall) DoAndReturn(f func(context.Context, string) (constraints.Constraints, error)) *MockStateGetMachineConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
