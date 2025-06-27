@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	agentbinary "github.com/juju/juju/core/agentbinary"
+	base "github.com/juju/juju/core/base"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
 	status "github.com/juju/juju/core/status"
@@ -548,6 +549,45 @@ func (c *MockStateGetInstanceIDAndNameCall) Do(f func(context.Context, string) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetInstanceIDAndNameCall) DoAndReturn(f func(context.Context, string) (string, string, error)) *MockStateGetInstanceIDAndNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineBase mocks base method.
+func (m *MockState) GetMachineBase(ctx context.Context, mName string) (base.Base, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineBase", ctx, mName)
+	ret0, _ := ret[0].(base.Base)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineBase indicates an expected call of GetMachineBase.
+func (mr *MockStateMockRecorder) GetMachineBase(ctx, mName any) *MockStateGetMachineBaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineBase", reflect.TypeOf((*MockState)(nil).GetMachineBase), ctx, mName)
+	return &MockStateGetMachineBaseCall{Call: call}
+}
+
+// MockStateGetMachineBaseCall wrap *gomock.Call
+type MockStateGetMachineBaseCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineBaseCall) Return(arg0 base.Base, arg1 error) *MockStateGetMachineBaseCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineBaseCall) Do(f func(context.Context, string) (base.Base, error)) *MockStateGetMachineBaseCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineBaseCall) DoAndReturn(f func(context.Context, string) (base.Base, error)) *MockStateGetMachineBaseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

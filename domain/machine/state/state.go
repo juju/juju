@@ -16,6 +16,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/base"
 	coredb "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -1349,6 +1350,42 @@ WHERE machine_uuid = $machineUUID.uuid;
 	}
 
 	return decodeConstraints(result), nil
+}
+
+// GetMachineBase returns the base for the given machine.
+// Since the machine_platform table is populated when creating a machine, there
+// should always be a base for a machine.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+func (st *State) GetMachineBase(ctx context.Context, mName string) (base.Base, error) {
+	db, err := st.DB()
+	if err != nil {
+		return base.Base{}, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &machinePlatform.*
+FROM v_machine_platform
+WHERE machine_uuid = $machineUUID.uuid
+`, machinePlatform{}, machineUUID{})
+	if err != nil {
+		return base.Base{}, errors.Capture(err)
+	}
+
+	var result machinePlatform
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		machineUUID, err := st.getMachineUUIDFromName(ctx, tx, machine.Name(mName))
+		if err != nil {
+			return err
+		}
+		return tx.Query(ctx, stmt, machineUUID).Get(&result)
+	})
+	if err != nil {
+		return base.Base{}, errors.Errorf("querying machine base for machine %q: %w", mName, err)
+	}
+
+	return base.ParseBase(result.OSName, result.Channel)
 }
 
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
