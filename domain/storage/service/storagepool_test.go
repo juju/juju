@@ -154,10 +154,13 @@ func (s *storagePoolServiceSuite) TestReplaceStoragePoolExistingProvider(c *tc.C
 			"foo": "foo val",
 		},
 	}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs-fast").Return(sp, nil)
+	spUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "ebs-fast").Return(spUUID, nil)
+	s.state.EXPECT().GetStoragePool(gomock.Any(), spUUID).Return(sp, nil)
 	s.state.EXPECT().ReplaceStoragePool(gomock.Any(), sp).Return(nil)
 
-	err := s.service(c).ReplaceStoragePool(c.Context(), "ebs-fast", "", PoolAttrs{"foo": "foo val"})
+	err = s.service(c).ReplaceStoragePool(c.Context(), "ebs-fast", "", PoolAttrs{"foo": "foo val"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -225,16 +228,14 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProviders(c *tc.
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersEmptyArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	got, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.HasLen, 0)
+	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{}, domainstorage.Providers{})
+	c.Assert(err, tc.ErrorMatches, "at least one name and one provider must be specified, got names: .*")
 }
 
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalidNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"666invalid"}, nil)
+	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"666invalid"}, domainstorage.Providers{"ebs"})
 	c.Assert(err, tc.ErrorIs, storageerrors.InvalidPoolNameError)
 	c.Assert(err, tc.ErrorMatches, `pool name "666invalid" not valid`)
 }
@@ -242,7 +243,7 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalid
 func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalidProviders(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), nil, domainstorage.Providers{"invalid"})
+	_, err := s.service(c).ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"loop"}, domainstorage.Providers{"invalid"})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 	c.Assert(err, tc.ErrorMatches, `storage provider "invalid" not found`)
 }
@@ -273,9 +274,42 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolByName(c *tc.C) {
 			"foo": "foo val",
 		},
 	}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs-fast").Return(sp, nil)
+	spUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "ebs-fast").Return(spUUID, nil)
+	s.state.EXPECT().GetStoragePool(gomock.Any(), spUUID).Return(sp, nil)
 
 	got, err := s.service(c).GetStoragePoolByName(c.Context(), "ebs-fast")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, sp)
+}
+
+func (s *storagePoolServiceSuite) TestGetStoragePoolByNameNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "ebs-fast").Return("", storageerrors.PoolNotFoundError)
+
+	_, err := s.service(c).GetStoragePoolByName(c.Context(), "ebs-fast")
+	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+}
+
+func (s *storagePoolServiceSuite) TestGetStoragePoolUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "ebs-fast").Return(spUUID, nil)
+
+	got, err := s.service(c).GetStoragePoolUUID(c.Context(), "ebs-fast")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, spUUID)
+}
+
+func (s *storagePoolServiceSuite) TestGetStoragePoolUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "ebs-fast").Return("", storageerrors.PoolNotFoundError)
+
+	_, err := s.service(c).GetStoragePoolUUID(c.Context(), "ebs-fast")
+	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
