@@ -81,6 +81,17 @@ type applicationScale struct {
 	ScaleTarget   int                `db:"scale_target"`
 }
 
+// applicationStorageDirective is used to represent the values held in the
+// application_storage_directive table representing the storage directives of
+// an application.
+type applicationStorageDirective struct {
+	Count           uint32           `db:"count"`
+	SizeMiB         uint64           `db:"size_mib"`
+	StorageName     string           `db:"storage_name"`
+	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
+	StorageType     sql.Null[string] `db:"storage_type"`
+}
+
 type architectureMap struct {
 	ID   int    `db:"id"`
 	Name string `db:"name"`
@@ -698,14 +709,14 @@ type storagePool struct {
 	Name string `db:"name"`
 }
 
-type storageToAdd struct {
-	ApplicationUUID string       `db:"application_uuid"`
-	CharmUUID       corecharm.ID `db:"charm_uuid"`
-	StorageName     string       `db:"storage_name"`
-	StoragePoolUUID *string      `db:"storage_pool_uuid"`
-	StorageType     *string      `db:"storage_type"`
-	Size            uint         `db:"size_mib"`
-	Count           uint         `db:"count"`
+// storagePoolType is used to represent the type value of a storage pool record.
+type storagePoolType struct {
+	Type string `db:"type"`
+}
+
+// storagePoolUUID is used to represent the UUID of a storage pool record.
+type storagePoolUUID struct {
+	UUID string `db:"uuid"`
 }
 
 type linkResourceApplication struct {
@@ -1299,4 +1310,58 @@ type getUnitMachine struct {
 type controllerApplication struct {
 	ApplicationID coreapplication.ID `db:"application_uuid"`
 	IsController  bool               `db:"is_controller"`
+}
+
+// insertApplicationStorageDirective represents the set of values required for
+// inserting a new application storage directive on behalf of an application.
+type insertApplicationStorageDirective struct {
+	ApplicationUUID string `db:"application_uuid"`
+	CharmUUID       string `db:"charm_uuid"`
+	Count           uint32 `db:"count"`
+	// Size is the number of MiB requested for the storage.
+	Size                uint64           `db:"size_mib"`
+	StorageName         string           `db:"storage_name"`
+	StoragePoolUUID     sql.Null[string] `db:"storage_pool_uuid"`
+	StorageProviderType sql.Null[string] `db:"storage_type"`
+}
+
+// insertStorageAttachment represents the set of values required for
+// inserting a new storage unit attachment record.
+type insertStorageAttachment struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	LifeID              int    `db:"life_id"`
+	UnitUUID            string `db:"unit_uuid"`
+}
+
+// insertStorageInstance represents the set of values required for inserting a
+// new storage instance into the model.
+type insertStorageInstance struct {
+	CharmUUID       string           `db:"charm_uuid"`
+	LifeID          int              `db:"life_id"`
+	RequestSizeMiB  uint64           `db:"requested_size_mib"`
+	StorageID       string           `db:"storage_id"`
+	StorageName     string           `db:"storage_name"`
+	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
+	StorageType     sql.Null[string] `db:"storage_type"`
+	UUID            string           `db:"uuid"`
+}
+
+// insertStorageUnitOwner represents the set of values required for creating a
+// new storage_unit_owner record.
+type insertStorageUnitOwner struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	UnitUUID            string `db:"unit_uuid"`
+}
+
+// insertUnitStorageDirective represents the set of values required for
+// inserting a new unit storage directive.
+type insertUnitStorageDirective struct {
+	CharmUUID string `db:"charm_uuid"`
+	Count     uint32 `db:"count"`
+	// Size is the number of MiB requested for the storage.
+	Size            uint64           `db:"size_mib"`
+	StorageName     string           `db:"storage_name"`
+	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
+	StorageType     sql.Null[string] `db:"storage_type"`
+	UnitUUID        string           `db:"unit_uuid"`
 }

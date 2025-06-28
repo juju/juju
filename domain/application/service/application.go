@@ -20,11 +20,9 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -40,7 +38,13 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
+)
+
+const (
+	// defaultStorageDirectiveSize is the default size used for application
+	// storage directives when no other size value can be used. This value
+	// is in MiB.
+	defaultStorageDirectiveSize = 1024 // 1 GiB
 )
 
 // ApplicationState describes retrieval and persistence methods for
@@ -71,22 +75,6 @@ type ApplicationState interface {
 	// [applicationerrors.CharmNotFound] if the charm for the application is not
 	// found.
 	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
-
-	// GetModelType returns the model type for the underlying model. If the
-	// model does not exist then an error satisfying [modelerrors.NotFound] will
-	// be returned.
-	// Deprecated: This method will be removed, as there should be no need to
-	// determine the model type from the state or service. That's an artifact of
-	// the caller to call the correct methods.
-	GetModelType(context.Context) (coremodel.ModelType, error)
-
-	// StorageDefaults returns the default storage sources for a model.
-	StorageDefaults(context.Context) (domainstorage.StorageDefaults, error)
-
-	// GetStoragePoolByName returns the storage pool with the specified name,
-	// returning an error satisfying [storageerrors.PoolNotFoundError] if it
-	// doesn't exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 
 	// UpsertCloudService updates the cloud service for the specified application.
 	// The following errors may be returned:
@@ -452,6 +440,126 @@ type ApplicationState interface {
 	IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error)
 }
 
+// validateApplicationStorageDirectiveOverrides checks a set of storage
+// directive overrides to make sure they are valid with respect to the charms
+// storage definitions.
+func validateApplicationStorageDirectiveOverrides(
+	ctx context.Context,
+	charmStorageDefs map[string]internalcharm.Storage,
+	overrides map[string]ApplicationStorageDirectiveOverride,
+	providerValidator StorageProviderValidator,
+) error {
+	for name, override := range overrides {
+		storageDef, exists := charmStorageDefs[name]
+		if !exists {
+			return errors.Errorf(
+				"storage directive %q does not exist in the charm", name,
+			)
+		}
+
+		err := validateApplicationStorageDirectiveOverride(
+			ctx, storageDef, override, providerValidator,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	return nil
+}
+
+// validateApplicationStorageDirectiveOverride checks a set of storage directive
+// override values to make sure they are valid with respect to the charm
+// storage.
+func validateApplicationStorageDirectiveOverride(
+	ctx context.Context,
+	charmStorageDef internalcharm.Storage,
+	override ApplicationStorageDirectiveOverride,
+	providerValidator StorageProviderValidator,
+) error {
+	if override.Count != nil {
+		minCount := uint32(0)
+		if charmStorageDef.CountMin > 0 {
+			minCount = uint32(charmStorageDef.CountMin)
+		}
+		maxCount := uint32(0)
+		if charmStorageDef.CountMax > 0 {
+			maxCount = uint32(charmStorageDef.CountMax)
+		}
+
+		if *override.Count < minCount {
+			return errors.Errorf(
+				"storage directive count %d is less than the charm minimum of %d",
+				*override.Count, minCount,
+			)
+		}
+		if *override.Count > maxCount {
+			return errors.Errorf(
+				"storage directive count %d is greater than the charm maximum of %d",
+				*override.Count, maxCount,
+			)
+		}
+	}
+
+	// If the override has changed storage and the charm storage definition
+	// expects a minimum size (not zero), then we check that override size is
+	// less then the minimum size.
+	if override.Size != nil &&
+		charmStorageDef.MinimumSize != 0 &&
+		*override.Size < charmStorageDef.MinimumSize {
+		return errors.Errorf(
+			"storage directive size %d is less than the charm minimum requirement of %d",
+			*override.Size, charmStorageDef.MinimumSize,
+		)
+	}
+
+	if override.PoolUUID != nil && override.ProviderType != nil {
+		return errors.New(
+			"storage directive can only use either a pool or a provider type",
+		)
+	}
+
+	if override.PoolUUID != nil {
+		supports, err := providerValidator.CheckPoolSupportsCharmStorage(
+			ctx, *override.PoolUUID, charmStorageDef.Type,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage directive pool %q supports charm storage %q",
+				*override.PoolUUID, charmStorageDef.Type,
+			)
+		}
+
+		if !supports {
+			return errors.Errorf(
+				"storage directive pool %q does not support charm storage %q",
+				*override.PoolUUID, charmStorageDef.Type,
+			)
+		}
+	}
+
+	if override.ProviderType != nil {
+		supports, err := providerValidator.CheckProviderTypeSupportsCharmStorage(
+			ctx, *override.ProviderType, charmStorageDef.Type,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage directive provider type %q supports charm storage %q",
+				*override.ProviderType, charmStorageDef.Type,
+			)
+		}
+
+		if !supports {
+			return errors.Errorf(
+				"storage directive provider type %q does not support charm storage %q",
+				*override.ProviderType, charmStorageDef.Type,
+			)
+		}
+	}
+
+	return nil
+}
+
 func validateCharmAndApplicationParams(
 	name, referenceName string,
 	charm internalcharm.Charm,
@@ -475,6 +583,10 @@ func validateCharmAndApplicationParams(
 		return applicationerrors.CharmManifestNotValid
 	}
 
+	if err := validateCharmStorage(charm.Meta().Storage); err != nil {
+		return errors.Capture(err)
+	}
+
 	// If the reference name is provided, it must be valid.
 	if !isValidReferenceName(referenceName) {
 		return errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
@@ -485,6 +597,26 @@ func validateCharmAndApplicationParams(
 		return errors.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
 
+	return nil
+}
+
+// validateCharmStorage is responsible for looking over the storage requirements
+// defined by a charm and making sure that it is able to be provisioned with the
+// current model.
+//
+// The checks performed are:
+// - Checks to see if the charm requires shared storage and if so is the min
+// count greater than 0. While we might not support shared storage we can
+// support it if we don't have to provision it.
+func validateCharmStorage(charmStorage map[string]internalcharm.Storage) error {
+	for name, storage := range charmStorage {
+		if storage.Shared && storage.CountMin > 0 {
+			return errors.Errorf(
+				"charm storage %q requires shared storage which is not implemented",
+				name,
+			)
+		}
+	}
 	return nil
 }
 
@@ -630,18 +762,124 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 	return result
 }
 
-// makeStorageArgs creates a slice of ApplicationStorageArg from a map of storage directives.
-func makeStorageArgs(storage map[string]storage.Directive) []application.ApplicationStorageArg {
-	var result []application.ApplicationStorageArg
-	for name, stor := range storage {
-		result = append(result, application.ApplicationStorageArg{
-			Name:           corestorage.Name(name),
-			PoolNameOrType: stor.Pool,
-			Size:           stor.Size,
-			Count:          stor.Count,
-		})
+// makeApplicationStorageDirectiveArgs creates a slice of
+// [application.ApplicationStorageDirectiveArg] from a set of overrides and the
+// charm storage information. The resultant directives are a merging of all the
+// data sources to form an approximation of what the storage directives for an
+// application should be.
+//
+// The directives should still be validated.
+func makeApplicationStorageDirectiveArgs(
+	directiveOverrides map[string]ApplicationStorageDirectiveOverride,
+	charmMetaStorage map[string]internalcharm.Storage,
+	defaultProvisioners application.DefaultStorageProvisioners,
+) []application.ApplicationStorageDirectiveArg {
+	if len(charmMetaStorage) == 0 {
+		return nil
 	}
-	return result
+
+	rval := make([]application.ApplicationStorageDirectiveArg, 0, len(charmMetaStorage))
+	for charmStorageName, charmStorageDef := range charmMetaStorage {
+		// We don't support shared storage. If the charm has a shared storage
+		// definition we ignore it.
+		if charmStorageDef.Shared {
+			continue
+		}
+
+		arg := makeApplicationStorageDirectiveArg(
+			domainstorage.Name(charmStorageName),
+			directiveOverrides[charmStorageName],
+			charmStorageDef,
+			defaultProvisioners,
+		)
+		rval = append(rval, arg)
+	}
+	return rval
+}
+
+// makeApplicationStorageDirectiveArg creates a
+// [application.ApplicationStorageDirectiveArgs] based on the overrides supplied
+// by the caller, the information contained within the charm and the default
+// provisioners supplied.
+//
+// The resultant directive argument is not garuranteed to be valid and should
+// still be checked. This function just offers a merge of all the information
+// sources to create the best approximation at an application storage directive.
+func makeApplicationStorageDirectiveArg(
+	name domainstorage.Name,
+	directiveOverride ApplicationStorageDirectiveOverride,
+	charmStorageDef internalcharm.Storage,
+	defaultProvisioners application.DefaultStorageProvisioners,
+) application.ApplicationStorageDirectiveArg {
+	rval := application.ApplicationStorageDirectiveArg{
+		Name: name,
+	}
+
+	rval.Count = 0
+	// If the charm storage definition has a negative min count we maintain zero
+	// as the directive value. Defensive programming against a bad cast that
+	// would produce an incorrect value for an already incorrect value.
+	if charmStorageDef.CountMin > 0 {
+		rval.Count = uint32(charmStorageDef.CountMin)
+	}
+	if directiveOverride.Count != nil {
+		rval.Count = *directiveOverride.Count
+	}
+
+	rval.Size = defaultStorageDirectiveSize
+	if charmStorageDef.MinimumSize > 0 {
+		rval.Size = charmStorageDef.MinimumSize
+	}
+	if directiveOverride.Size != nil {
+		rval.Size = *directiveOverride.Size
+	}
+
+	// Set the pool uuid to the value supplied by the override.
+	if rval.PoolUUID == nil && directiveOverride.PoolUUID != nil {
+		poolUUIDCopy := *directiveOverride.PoolUUID
+		rval.PoolUUID = &poolUUIDCopy
+	}
+	// Set the pool uuid if the charm storage is block and a block pool
+	// provisioner exists.
+	if rval.PoolUUID == nil &&
+		defaultProvisioners.BlockdevicePoolUUID != nil &&
+		charmStorageDef.Type == internalcharm.StorageBlock {
+		poolUUIDCopy := *defaultProvisioners.BlockdevicePoolUUID
+		rval.PoolUUID = &poolUUIDCopy
+	}
+	// Set the pool uuid if the charm storage is filesystem and a filesystem
+	// pool provisioner exists.
+	if rval.PoolUUID == nil &&
+		defaultProvisioners.FilesystemPoolUUID != nil &&
+		charmStorageDef.Type == internalcharm.StorageFilesystem {
+		poolUUIDCopy := *defaultProvisioners.FilesystemPoolUUID
+		rval.PoolUUID = &poolUUIDCopy
+	}
+
+	// There is no need to set a provider type on the directive if a pool uuid
+	// has been set. We can exit early as everything else has been set.
+	if rval.PoolUUID != nil {
+		return rval
+	}
+
+	if rval.ProviderType == nil && directiveOverride.ProviderType != nil {
+		providerTypeCopy := *directiveOverride.ProviderType
+		rval.ProviderType = &providerTypeCopy
+	}
+	if rval.ProviderType == nil &&
+		defaultProvisioners.BlockdeviceProviderType != nil &&
+		charmStorageDef.Type == internalcharm.StorageBlock {
+		providerTypeCopy := *defaultProvisioners.BlockdeviceProviderType
+		rval.ProviderType = &providerTypeCopy
+	}
+	if rval.ProviderType == nil &&
+		defaultProvisioners.FilesystemProviderType != nil &&
+		charmStorageDef.Type == internalcharm.StorageFilesystem {
+		providerTypeCopy := *defaultProvisioners.FilesystemProviderType
+		rval.ProviderType = &providerTypeCopy
+	}
+
+	return rval
 }
 
 // DeleteApplication deletes the specified application, returning an error

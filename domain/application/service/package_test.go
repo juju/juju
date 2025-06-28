@@ -14,15 +14,9 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -33,11 +27,11 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageProviderRegistry,StorageProviderState
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -mock_names=Provider=MockStorageProvider -destination internal_storage_mock_test.go github.com/juju/juju/internal/storage Provider
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
-
-	modelID model.UUID
 
 	state              *MockState
 	charm              *MockCharm
@@ -48,8 +42,7 @@ type baseSuite struct {
 	leadership         *MockEnsurer
 	validator          *MockValidator
 
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	clock                 *testclock.Clock
+	clock *testclock.Clock
 
 	service *ProviderService
 }
@@ -69,8 +62,6 @@ func (s *baseSuite) setupMocksWithProvider(
 ) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.modelID = modeltesting.GenModelUUID(c)
-
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 	s.caasProvider = NewMockCAASProvider(ctrl)
@@ -81,19 +72,10 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.charmStore = NewMockCharmStore(ctrl)
 	s.validator = NewMockValidator(ctrl)
 
-	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return storage.ChainedProviderRegistry{
-			dummystorage.StorageProviders(),
-			provider.CommonStorageProviders(),
-		}
-	})
-
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
 		s.leadership,
-		s.storageRegistryGetter,
-		s.modelID,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
 			if err := providerGetterError(); err != nil {
@@ -126,8 +108,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Controller) StatusHistory) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.modelID = modeltesting.GenModelUUID(c)
-
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 	s.caasProvider = NewMockCAASProvider(ctrl)
@@ -138,19 +118,10 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 	s.charmStore = NewMockCharmStore(ctrl)
 	s.validator = NewMockValidator(ctrl)
 
-	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return storage.ChainedProviderRegistry{
-			dummystorage.StorageProviders(),
-			provider.CommonStorageProviders(),
-		}
-	})
-
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
 		s.leadership,
-		s.storageRegistryGetter,
-		s.modelID,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil

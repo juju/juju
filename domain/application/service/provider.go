@@ -19,7 +19,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
@@ -31,12 +30,10 @@ import (
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Provider defines the interface for interacting with the underlying model
@@ -58,7 +55,6 @@ type CAASProvider interface {
 type ProviderService struct {
 	*Service
 
-	modelID                 coremodel.UUID
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
@@ -68,8 +64,6 @@ type ProviderService struct {
 func NewProviderService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
@@ -82,13 +76,11 @@ func NewProviderService(
 		Service: NewService(
 			st,
 			leaderEnsurer,
-			storageRegistryGetter,
 			charmStore,
 			statusHistory,
 			clock,
 			logger,
 		),
-		modelID:                 modelID,
 		agentVersionGetter:      agentVersionGetter,
 		provider:                provider,
 		caasApplicationProvider: caasApplicationProvider,
@@ -256,11 +248,7 @@ func (s *ProviderService) makeApplicationArg(
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("validating device constraints: %w", err)
 	}
 
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("getting model type: %w", err)
-	}
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
+	appArg, err := makeCreateApplicationArgs(ctx, s.st, charm, origin, args)
 	if err != nil {
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
 	}
@@ -272,56 +260,29 @@ func (s *ProviderService) makeApplicationArg(
 		// charm name.
 		name = appArg.Charm.Metadata.Name
 	}
-
-	// Adding units with storage needs to know the kind of storage supported
-	// by the underlying provider so gather that here as it needs to be
-	// done outside a transaction.
-	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return "", application.BaseAddApplicationArg{}, err
-	}
-
-	if len(appArg.Storage) > 0 {
-		appArg.StoragePoolKind = make(map[string]storage.StorageKind)
-	}
-	for _, arg := range appArg.Storage {
-		p, err := s.poolStorageProvider(ctx, registry, arg.PoolNameOrType)
-		if err != nil {
-			return "", application.BaseAddApplicationArg{}, err
-		}
-		if p.Supports(storage.StorageKindFilesystem) {
-			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindFilesystem
-		}
-		if p.Supports(storage.StorageKindBlock) {
-			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindBlock
-		}
-	}
 	return name, appArg, nil
 }
 
 func makeCreateApplicationArgs(
 	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelType coremodel.ModelType,
+	storageSt StorageState,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 ) (application.BaseAddApplicationArg, error) {
-	storageDirectives := make(map[string]storage.Directive)
-	for n, sc := range args.Storage {
-		storageDirectives[n] = sc
-	}
-
 	meta := charm.Meta()
 
-	var err error
-	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
+	defaultStorageProviders, err := storageSt.GetDefaultStorageProvisioners(ctx)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf(
+			"getting default storage provisioners for model: %w", err,
+		)
 	}
-	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
-	}
+	storageDirectiveArgs := makeApplicationStorageDirectiveArgs(
+		args.StorageDirectiveOverrides,
+		meta.Storage,
+		defaultStorageProviders,
+	)
 
 	// When encoding the charm, this will also validate the charm metadata,
 	// when parsing it.
@@ -377,7 +338,7 @@ func makeCreateApplicationArgs(
 		EndpointBindings:  args.EndpointBindings,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
 		PendingResources:  args.PendingResources,
-		Storage:           makeStorageArgs(storageDirectives),
+		StorageDirectives: storageDirectiveArgs,
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
@@ -792,32 +753,4 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 	}
 
 	return nil
-}
-
-func (s *Service) poolStorageProvider(
-	ctx context.Context,
-	registry storage.ProviderRegistry,
-	poolNameOrType string,
-) (storage.Provider, error) {
-	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
-	if errors.Is(err, storageerrors.PoolNotFoundError) {
-		// If there's no pool called poolNameOrType, maybe a provider type
-		// has been specified directly.
-		providerType := storage.ProviderType(poolNameOrType)
-		aProvider, registryErr := registry.StorageProvider(providerType)
-		if registryErr != nil {
-			// The name can't be resolved as a storage provider type,
-			// so return the original "pool not found" error.
-			return nil, errors.Capture(err)
-		}
-		return aProvider, nil
-	} else if err != nil {
-		return nil, errors.Capture(err)
-	}
-	providerType := storage.ProviderType(pool.Provider)
-	aProvider, err := registry.StorageProvider(providerType)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return aProvider, nil
 }

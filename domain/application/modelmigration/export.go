@@ -42,9 +42,8 @@ func RegisterExport(
 	logger logger.Logger,
 ) {
 	coordinator.Add(&exportOperation{
-		registry: registry,
-		clock:    clock,
-		logger:   logger,
+		clock:  clock,
+		logger: logger,
 	})
 }
 
@@ -126,9 +125,8 @@ type exportOperation struct {
 
 	service ExportService
 
-	registry corestorage.ModelStorageRegistryGetter
-	clock    clock.Clock
-	logger   logger.Logger
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -141,7 +139,6 @@ func (e *exportOperation) Name() string {
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewMigrationService(
 		state.NewState(scope.ModelDB(), e.clock, e.logger),
-		e.registry,
 		e.clock,
 		e.logger,
 	)

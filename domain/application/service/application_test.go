@@ -23,11 +23,9 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -36,13 +34,12 @@ import (
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
+	domainstorage "github.com/juju/juju/domain/storage"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/testcharms"
 )
@@ -51,8 +48,19 @@ type applicationServiceSuite struct {
 	baseSuite
 }
 
+// applicationStorageSuite is a suite for testing internal logic around
+// establishing storage information for new applications being deployed.
+// Specifically this suite is focusing on internal testing to ensure foundation
+// logic is correct.
+type applicationStorageSuite struct {
+}
+
 func TestApplicationServiceSuite(t *testing.T) {
 	tc.Run(t, &applicationServiceSuite{})
+}
+
+func TestApplicationStorageSuite(t *testing.T) {
+	tc.Run(t, &applicationStorageSuite{})
 }
 
 func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *tc.C) {
@@ -1472,21 +1480,10 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 	s.charm = NewMockCharm(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
-	registry := corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return storage.ChainedProviderRegistry{
-			dummystorage.StorageProviders(),
-			provider.CommonStorageProviders(),
-		}
-	})
-
-	modelUUID := modeltesting.GenModelUUID(c)
-
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewWatchableService(
 		s.state,
 		domaintesting.NoopLeaderEnsurer(),
-		registry,
-		modelUUID,
 		s.watcherFactory,
 		nil,
 		nil,
@@ -1499,4 +1496,153 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 	s.service.clock = s.clock
 
 	return ctrl
+}
+
+// TestMakeApplicationStorageDirectiveArgs tests the expected merges performed
+// by [makeApplicationStorageDirectiveArgs].
+func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
+	// Set of fake values to reference in the sub tests.
+	fakeFilesytemPoolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	fakeBlockdevicePoolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	fakeFilesystemProviderType := "provider1"
+	fakeBlockdeviceProviderType := "provider2"
+
+	tests := []struct {
+		Name                string
+		DefaultProvisioners application.DefaultStorageProvisioners
+		CharmMetaStorage    map[string]internalcharm.Storage
+		Overrides           map[string]ApplicationStorageDirectiveOverride
+
+		Expected []application.ApplicationStorageDirectiveArg
+	}{
+		{
+			Name:             "no overrides, no charm meta storage, no default provisioners",
+			CharmMetaStorage: map[string]internalcharm.Storage{},
+			Overrides:        map[string]ApplicationStorageDirectiveOverride{},
+			Expected:         []application.ApplicationStorageDirectiveArg{},
+		},
+		{
+			// Check to see that the correct provisioner is chosen (filesystem)
+			// and pool is picked before provider type.
+			Name: "sets default filesystem pool provisioner",
+			CharmMetaStorage: map[string]internalcharm.Storage{
+				"foo": {
+					Name:        "foo",
+					Type:        internalcharm.StorageFilesystem,
+					CountMin:    2,
+					CountMax:    10,
+					MinimumSize: 256,
+				},
+			},
+			DefaultProvisioners: application.DefaultStorageProvisioners{
+				FilesystemPoolUUID:     &fakeFilesytemPoolUUID,
+				FilesystemProviderType: &fakeFilesystemProviderType,
+				BlockdevicePoolUUID:    &fakeBlockdevicePoolUUID,
+			},
+
+			Expected: []application.ApplicationStorageDirectiveArg{
+				{
+					Count:    2,
+					Name:     domainstorage.Name("foo"),
+					PoolUUID: &fakeFilesytemPoolUUID,
+					Size:     256,
+				},
+			},
+		},
+		{
+			// Check to see that the correct provisioner is chosen (filesystem)
+			// and provider type is used.
+			Name: "sets default filesystem provider provisioner",
+			CharmMetaStorage: map[string]internalcharm.Storage{
+				"foo": {
+					Name:        "foo",
+					Type:        internalcharm.StorageFilesystem,
+					CountMin:    2,
+					CountMax:    10,
+					MinimumSize: 256,
+				},
+			},
+			DefaultProvisioners: application.DefaultStorageProvisioners{
+				FilesystemProviderType:  &fakeFilesystemProviderType,
+				BlockdevicePoolUUID:     &fakeBlockdevicePoolUUID,
+				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
+			},
+
+			Expected: []application.ApplicationStorageDirectiveArg{
+				{
+					Count:        2,
+					Name:         domainstorage.Name("foo"),
+					ProviderType: &fakeFilesystemProviderType,
+					Size:         256,
+				},
+			},
+		},
+		{
+			// Check to see that the correct provisioner is chosen (blockdevice)
+			// and pool is picked before provider type.
+			Name: "sets default blockdevice pool provisioner",
+			CharmMetaStorage: map[string]internalcharm.Storage{
+				"foo": {
+					Name:        "foo",
+					Type:        internalcharm.StorageBlock,
+					CountMin:    2,
+					CountMax:    10,
+					MinimumSize: 256,
+				},
+			},
+			DefaultProvisioners: application.DefaultStorageProvisioners{
+				FilesystemPoolUUID:      &fakeFilesytemPoolUUID,
+				FilesystemProviderType:  &fakeFilesystemProviderType,
+				BlockdevicePoolUUID:     &fakeBlockdevicePoolUUID,
+				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
+			},
+
+			Expected: []application.ApplicationStorageDirectiveArg{
+				{
+					Count:    2,
+					Name:     domainstorage.Name("foo"),
+					PoolUUID: &fakeBlockdevicePoolUUID,
+					Size:     256,
+				},
+			},
+		},
+		{
+			// Check to see that the correct provisioner is chosen (blockdevice)
+			// and provider type is used.
+			Name: "sets default blockdevice provider provisioner",
+			CharmMetaStorage: map[string]internalcharm.Storage{
+				"foo": {
+					Name:        "foo",
+					Type:        internalcharm.StorageBlock,
+					CountMin:    2,
+					CountMax:    10,
+					MinimumSize: 256,
+				},
+			},
+			DefaultProvisioners: application.DefaultStorageProvisioners{
+				FilesystemProviderType:  &fakeFilesystemProviderType,
+				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
+			},
+
+			Expected: []application.ApplicationStorageDirectiveArg{
+				{
+					Count:        2,
+					Name:         domainstorage.Name("foo"),
+					ProviderType: &fakeBlockdeviceProviderType,
+					Size:         256,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		c.Run(test.Name, func(t *testing.T) {
+			args := makeApplicationStorageDirectiveArgs(
+				test.Overrides, test.CharmMetaStorage, test.DefaultProvisioners,
+			)
+			tc.Check(t, args, tc.DeepEquals, test.Expected)
+		})
+	}
 }

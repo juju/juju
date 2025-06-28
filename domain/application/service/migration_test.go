@@ -690,7 +690,6 @@ func (s *migrationServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.service = NewMigrationService(
 		s.state,
-		s.storageRegistryGetter,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
