@@ -1298,13 +1298,13 @@ WHERE machine_uuid = $machineUUID.uuid
 			return err
 		}
 		err = tx.Query(ctx, stmt, machineUUID).Get(&placementDirective)
-		if err != nil {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf("querying placement for machine %q: %w", mName, err)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Errorf("querying placement for machine %q: %w", mName, err)
+		return nil, errors.Capture(err)
 	}
 
 	if placementDirective.Directive.Valid {
