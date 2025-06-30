@@ -21,11 +21,9 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
@@ -48,7 +46,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/password"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
@@ -68,16 +65,6 @@ type DqliteInitializerFunc func(
 
 // ProviderFunc is a function that returns an EnvironProvider.
 type ProviderFunc func(string) (environs.EnvironProvider, error)
-
-type bootstrapController interface {
-	Id() string
-	SetMongoPassword(password string) error
-}
-
-type bootstrapControllerCAAS interface {
-	state.Authenticator
-	bootstrapController
-}
 
 // CheckJWKSReachable checks if the given JWKS URL is reachable.
 func CheckJWKSReachable(url string) error {
@@ -208,7 +195,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Errorf("state info not available")
 	}
 	info.Tag = nil
-	info.Password = agentConfig.OldPassword()
 
 	stateParams := b.stateInitializationParams
 
@@ -231,7 +217,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(
 		user.NameFromTag(b.adminUser),
-		auth.NewPassword(info.Password),
+		auth.NewPassword(agentConfig.OldPassword()),
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
@@ -326,13 +312,13 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	session, err := b.initMongo(info.Info, b.mongoDialOpts, info.Password)
+	session, err := b.initMongo(info.Info, b.mongoDialOpts)
 	if err != nil {
 		return errors.Annotate(err, "failed to initialize mongo")
 	}
 	defer session.Close()
 
-	b.logger.Debugf(context.TODO(), "initializing address %v", info.Addrs)
+	b.logger.Debugf(ctx, "initializing address %v", info.Addrs)
 
 	ctrl, err := state.Initialize(state.InitializeParams{
 		SSHServerHostKey: stateParams.SSHServerHostKey,
@@ -352,21 +338,17 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		ControllerInheritedConfig: stateParams.ControllerInheritedConfig,
 		RegionInheritedConfig:     stateParams.RegionInheritedConfig,
 		MongoSession:              session,
-		AdminPassword:             info.Password,
 		NewPolicy:                 b.stateNewPolicy,
 	})
 	if err != nil {
 		return errors.Errorf("failed to initialize state: %v", err)
 	}
-	b.logger.Debugf(context.TODO(), "connected to initial state")
+	b.logger.Debugf(ctx, "connected to initial state")
 	defer func() {
 		_ = ctrl.Close()
 	}()
 	servingInfo.SharedSecret = b.sharedSecret
 	b.agentConfig.SetStateServingInfo(servingInfo)
-
-	// Filter out any LXC or LXD bridge addresses from the machine addresses.
-	filteredBootstrapMachineAddresses := network.FilterBridgeAddresses(ctx, b.bootstrapMachineAddresses)
 
 	st, err := ctrl.SystemState()
 	if err != nil {
@@ -392,45 +374,19 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Annotate(err, "getting environ provider")
 	}
 
-	// Create a new password. It is used down below to set the mongo password,
-	// the agent's initial API password in agent config and on CAAS, the
-	// controller node's initial API password.
+	if isCAAS {
+		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
+			return errors.Annotate(err, "cannot initialize cloud service")
+		}
+	}
+
+	// Create a new password. It is used down below to set  the agent's initial
+	// API password in agent config.
 	newPassword, err := password.RandomPassword()
 	if err != nil {
 		return err
 	}
 
-	var controllerNode bootstrapController
-	if isCAAS {
-		controllerNodeCAAS, err := b.initBootstrapNode(st)
-		if err != nil {
-			return errors.Annotate(err, "cannot initialize bootstrap controller")
-		}
-		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
-			return errors.Annotate(err, "cannot initialize cloud service")
-		}
-		if err := controllerNodeCAAS.SetPassword(newPassword); err != nil {
-			return err
-		}
-		controllerNode = controllerNodeCAAS
-	} else {
-		if controllerNode, err = b.initBootstrapMachine(st, filteredBootstrapMachineAddresses); err != nil {
-			return errors.Annotate(err, "cannot initialize bootstrap machine")
-		}
-	}
-
-	// Sanity check.
-	if controllerNode.Id() != agent.BootstrapControllerId {
-		return errors.Errorf("bootstrap controller expected id 0, got %q", controllerNode.Id())
-	}
-
-	// Read the machine agent's password and change it to
-	// a new password (other agents will change their password
-	// via the API connection).
-	b.logger.Debugf(context.TODO(), "create new random password for controller %v", controllerNode.Id())
-	if err := controllerNode.SetMongoPassword(newPassword); err != nil {
-		return err
-	}
 	b.agentConfig.SetPassword(newPassword)
 
 	return nil
@@ -476,54 +432,12 @@ func (b *AgentBootstrap) getEnviron(
 
 // initMongo dials the initial MongoDB connection, setting a
 // password for the admin user, and returning the session.
-func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.Session, error) {
+func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*mgo.Session, error) {
 	session, err := mongo.DialWithInfo(mongo.MongoInfo{Info: info}, dialOpts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := mongo.SetAdminMongoPassword(session, mongo.AdminUser, password); err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
-	if err := mongo.Login(session, mongo.AdminUser, password); err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
 	return session, nil
-}
-
-// initBootstrapMachine initializes the initial bootstrap machine in state.
-func (b *AgentBootstrap) initBootstrapMachine(
-	st *state.State,
-	bootstrapMachineAddresses corenetwork.ProviderAddresses,
-) (bootstrapController, error) {
-	stateParams := b.stateInitializationParams
-	b.logger.Infof(context.TODO(), "initialising bootstrap machine with config: %+v", stateParams)
-
-	var hardware instance.HardwareCharacteristics
-	if stateParams.BootstrapMachineHardwareCharacteristics != nil {
-		hardware = *stateParams.BootstrapMachineHardwareCharacteristics
-	}
-
-	base, err := coreos.HostBase()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO: move this call to the bootstrap worker
-	m, err := st.AddOneMachine(
-		state.MachineTemplate{
-			Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
-			Constraints:             stateParams.BootstrapMachineConstraints,
-			InstanceId:              stateParams.BootstrapMachineInstanceId,
-			HardwareCharacteristics: hardware,
-			DisplayName:             stateParams.BootstrapMachineDisplayName,
-		},
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
-	}
-	return m, nil
 }
 
 // initControllerCloudService creates cloud service for controller service.
@@ -557,13 +471,13 @@ func (b *AgentBootstrap) initControllerCloudService(
 	addrs := b.getAlphaSpaceAddresses(svc.Addresses)
 
 	svcId := controllerUUID
-	b.logger.Infof(context.TODO(), "creating cloud service for k8s controller %q", svcId)
+	b.logger.Infof(ctx, "creating cloud service for k8s controller %q", svcId)
 	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         svcId,
 		ProviderId: svc.Id,
 		Addresses:  addrs,
 	})
-	b.logger.Debugf(context.TODO(), "created cloud service %v for controller", cloudSvc)
+	b.logger.Debugf(ctx, "created cloud service %v for controller", cloudSvc)
 	return errors.Trace(err)
 }
 
@@ -579,17 +493,4 @@ func (b *AgentBootstrap) getAlphaSpaceAddresses(providerAddresses corenetwork.Pr
 		}
 	}
 	return sas
-}
-
-// initBootstrapNode initializes the initial caas bootstrap controller in state.
-func (b *AgentBootstrap) initBootstrapNode(
-	st *state.State,
-) (bootstrapControllerCAAS, error) {
-	b.logger.Debugf(context.TODO(), "initialising bootstrap node for with config: %+v", b.stateInitializationParams)
-
-	node, err := st.AddControllerNode()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create bootstrap controller in state")
-	}
-	return node, nil
 }

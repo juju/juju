@@ -34,6 +34,21 @@ func (*machineSuite) TestNameValidate(c *tc.C) {
 		{
 			name: "40",
 		},
+		{
+			name: "0/lxd/0",
+		},
+		{
+			name: "0/lxd/0/lxd/0",
+			err:  coreerrors.NotValid,
+		},
+		{
+			name: "0/lxd/0/",
+			err:  coreerrors.NotValid,
+		},
+		{
+			name: "0//0",
+			err:  coreerrors.NotValid,
+		},
 	}
 
 	for i, test := range tests {
@@ -89,9 +104,55 @@ func (*machineSuite) TestNamedChild(c *tc.C) {
 		name, err := test.name.NamedChild(test.scope, test.childName)
 		if test.err != nil {
 			c.Assert(err, tc.ErrorIs, test.err)
-		} else {
-			c.Assert(err, tc.ErrorIsNil)
+			continue
 		}
+
+		c.Assert(err, tc.ErrorIsNil)
 		c.Check(test.output, tc.Equals, name)
+
+		parent := name.Parent()
+		c.Check(parent, tc.Equals, test.name)
+
+		child := name.Child()
+		c.Check(child, tc.Equals, Name(test.childName))
+	}
+}
+
+func (*machineSuite) TestNamedParentRelationship(c *tc.C) {
+	tests := []struct {
+		name        Name
+		parent      Name
+		child       Name
+		isContainer bool
+	}{
+		{
+			name:        Name("0/lxd/1"),
+			parent:      Name("0"),
+			child:       Name("1"),
+			isContainer: true,
+		},
+		{
+			name: func() Name {
+				n, _ := Name("0").NamedChild("lxd", "2")
+				return n
+			}(),
+			parent:      Name("0"),
+			child:       Name("2"),
+			isContainer: true,
+		},
+		{
+			name:        "foo",
+			parent:      "foo",
+			child:       "foo",
+			isContainer: false,
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.name)
+		c.Check(test.name.IsContainer(), tc.Equals, test.isContainer)
+
+		c.Check(test.name.Parent(), tc.Equals, test.parent)
+		c.Check(test.name.Child(), tc.Equals, test.child)
 	}
 }

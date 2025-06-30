@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -280,13 +279,6 @@ func (m *Machine) setAgentVersionOps(v semversion.Binary) ([]txn.Op, *tools.Tool
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
 	return ops, tools, nil
-}
-
-// SetMongoPassword sets the password the agent responsible for the machine
-// should use to communicate with the controllers.  Previous passwords
-// are invalidated.
-func (m *Machine) SetMongoPassword(password string) error {
-	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
 }
 
 func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
@@ -727,7 +719,6 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ops = append(ops, removeControllerNodeOp(m.st, m.Id()))
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
@@ -1223,175 +1214,9 @@ func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 	return ops, nil
 }
 
-// Status returns the status of the machine.
-func (m *Machine) status() (status.StatusInfo, error) {
-	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
-	if err != nil {
-		return mStatus, err
-	}
-	return mStatus, nil
-}
-
-// SetStatus sets the status of the machine.
-func (m *Machine) setStatus(statusInfo status.StatusInfo) error {
-	switch statusInfo.Status {
-	case status.Started, status.Stopped:
-	case status.Error:
-		if statusInfo.Message == "" {
-			return errors.Errorf("cannot set status %q without message", statusInfo.Status)
-		}
-	case status.Pending:
-		// If a machine is not yet provisioned, we allow its status
-		// to be set back to pending (when a retry is to occur).
-
-		// TODO(nvinuesa): we need to add back the check for provisioned and
-		// if it's not then the machine goes right to status.DOWN:
-		// _, err := m.InstanceId()
-		// allowPending := errors.Is(err, errors.NotProvisioned)
-		// if allowPending {
-		// 	break
-		// }
-		// fallthrough
-	case status.Down:
-		return errors.Errorf("cannot set status %q", statusInfo.Status)
-	default:
-		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
-	}
-	return setStatus(m.st.db(), setStatusParams{
-		badge:      "machine",
-		statusKind: m.Kind(),
-		statusId:   m.doc.Id,
-		globalKey:  m.globalKey(),
-		status:     statusInfo.Status,
-		message:    statusInfo.Message,
-		rawData:    statusInfo.Data,
-		updated:    timeOrNow(statusInfo.Since, m.st.clock()),
-	})
-}
-
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
 	return m.doc.Clean
-}
-
-// SupportedContainers returns any containers this machine is capable of hosting, and a bool
-// indicating if the supported containers have been determined or not.
-func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
-	return m.doc.SupportedContainers, m.doc.SupportedContainersKnown
-}
-
-// SupportsNoContainers records the fact that this machine doesn't support any containers.
-func (m *Machine) SupportsNoContainers() (err error) {
-	if err = m.updateSupportedContainers([]instance.ContainerType{}); err != nil {
-		return err
-	}
-	return m.markInvalidContainers()
-}
-
-// SetSupportedContainers sets the list of containers supported by this machine.
-func (m *Machine) SetSupportedContainers(containers []instance.ContainerType) (err error) {
-	if len(containers) == 0 {
-		return fmt.Errorf("at least one valid container type is required")
-	}
-	for _, container := range containers {
-		if container == instance.NONE {
-			return fmt.Errorf("%q is not a valid container type", container)
-		}
-	}
-	if err = m.updateSupportedContainers(containers); err != nil {
-		return err
-	}
-	return m.markInvalidContainers()
-}
-
-func isSupportedContainer(container instance.ContainerType, supportedContainers []instance.ContainerType) bool {
-	for _, supportedContainer := range supportedContainers {
-		if supportedContainer == container {
-			return true
-		}
-	}
-	return false
-}
-
-// updateSupportedContainers sets the supported containers on this host machine.
-func (m *Machine) updateSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
-	if m.doc.SupportedContainersKnown {
-		if len(m.doc.SupportedContainers) == len(supportedContainers) {
-			equal := true
-			types := make(map[instance.ContainerType]struct{}, len(m.doc.SupportedContainers))
-			for _, v := range m.doc.SupportedContainers {
-				types[v] = struct{}{}
-			}
-			for _, v := range supportedContainers {
-				if _, ok := types[v]; !ok {
-					equal = false
-					break
-				}
-			}
-			if equal {
-				return nil
-			}
-		}
-	}
-	ops := []txn.Op{
-		{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: notDeadDoc,
-			Update: bson.D{
-				{"$set", bson.D{
-					{"supportedcontainers", supportedContainers},
-					{"supportedcontainersknown", true},
-				}}},
-		},
-	}
-	if err = m.st.db().RunTransaction(ops); err != nil {
-		err = onAbort(err, stateerrors.ErrDead)
-		logger.Errorf(context.TODO(), "cannot update supported containers of machine %v: %v", m, err)
-		return err
-	}
-	m.doc.SupportedContainers = supportedContainers
-	m.doc.SupportedContainersKnown = true
-	return nil
-}
-
-// markInvalidContainers sets the status of any container belonging to this machine
-// as being in error if the container type is not supported.
-func (m *Machine) markInvalidContainers() error {
-	currentContainers, err := m.Containers()
-	if err != nil {
-		return err
-	}
-	for _, containerId := range currentContainers {
-		if !isSupportedContainer(corecontainer.ContainerTypeFromId(containerId), m.doc.SupportedContainers) {
-			container, err := m.st.Machine(containerId)
-			if err != nil {
-				logger.Errorf(context.TODO(), "loading container %v to mark as invalid: %v", containerId, err)
-				continue
-			}
-			// There should never be a circumstance where an unsupported container is started.
-			// Nonetheless, we check and log an error if such a situation arises.
-			statusInfo, err := container.status()
-			if err != nil {
-				logger.Errorf(context.TODO(), "finding status of container %v to mark as invalid: %v", containerId, err)
-				continue
-			}
-			if statusInfo.Status == status.Pending {
-				containerType := corecontainer.ContainerTypeFromId(containerId)
-				now := m.st.clock().Now()
-				s := status.StatusInfo{
-					Status:  status.Error,
-					Message: "unsupported container",
-					Data:    map[string]interface{}{"type": containerType},
-					Since:   &now,
-				}
-				_ = container.setStatus(s)
-			} else {
-				logger.Errorf(context.TODO(), "unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
-			}
-		}
-	}
-	return nil
 }
 
 // VolumeAttachments returns the machine's volume attachments.

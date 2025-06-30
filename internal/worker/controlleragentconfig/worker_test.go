@@ -201,13 +201,22 @@ func (s *workerSuite) TestWatchAfterUnsubscribe(c *tc.C) {
 
 	watcher.Unsubscribe()
 
+	// We can't guarantee that unsubscribe will complete immediately,
+	// so we wait for the watcher to finish.
+	select {
+	case <-watcher.Done():
+		time.Sleep(testhelpers.ShortWait)
+	case <-c.Context().Done():
+		c.Fatalf("waiting for watcher to finish")
+	}
+
 	changes := watcher.Changes()
 
 	// The channel should be closed.
 	select {
 	case _, ok := <-changes:
 		c.Assert(ok, tc.IsFalse)
-	case <-time.After(testhelpers.ShortWait * 10):
+	case <-c.Context().Done():
 	}
 
 	ensureDone(c, watcher)

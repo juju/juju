@@ -5,7 +5,6 @@
 package agent_test
 
 import (
-	"fmt"
 	"path/filepath"
 	stdtesting "testing"
 	"time"
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -567,31 +565,13 @@ func (*suite) TestSetPassword(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
 
-	addr := fmt.Sprintf("localhost:%d", servingInfo.StatePort)
-	expectStateInfo := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{addr},
-			CACert: attrParams.CACert,
-		},
-		Tag:      attrParams.Tag,
-		Password: "",
-	}
-	info, ok := conf.MongoInfo()
-	c.Assert(ok, tc.IsTrue)
-	c.Assert(info, tc.DeepEquals, expectStateInfo)
-
 	conf.SetPassword("newpassword")
 
 	expectAPIInfo.Password = "newpassword"
-	expectStateInfo.Password = "newpassword"
 
 	apiInfo, ok = conf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
-
-	info, ok = conf.MongoInfo()
-	c.Assert(ok, tc.IsTrue)
-	c.Assert(info, tc.DeepEquals, expectStateInfo)
 }
 
 func (*suite) TestSetOldPassword(c *tc.C) {

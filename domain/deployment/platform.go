@@ -29,7 +29,8 @@ const (
 type OSType int
 
 const (
-	Ubuntu OSType = iota
+	Unknown OSType = iota - 1
+	Ubuntu
 )
 
 // Platform contains parameters for an application's platform.

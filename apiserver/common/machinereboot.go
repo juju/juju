@@ -48,7 +48,6 @@ func NewRebootRequester(machineService MachineRebootService, auth GetAuthFunc) *
 }
 
 func (r *RebootRequester) oneRequest(ctx context.Context, tag names.Tag) error {
-	// TODO: ask to simon or joe if we should introduce a kind of function GetMachineUUIDFromTag in domain to avoid the check below
 	if tag.Kind() != names.MachineTagKind {
 		return errors.Errorf("%q should be a %s", tag, names.MachineTagKind)
 	}
@@ -102,7 +101,6 @@ func NewRebootActionGetter(machineService MachineRebootService, auth GetAuthFunc
 }
 
 func (r *RebootActionGetter) getOneAction(ctx context.Context, tag names.Tag) (params.RebootAction, error) {
-	// TODO: ask to simon or joe if we should introduce a kind of function GetMachineUUIDFromTag in domain to avoid the check below
 	if tag.Kind() != names.MachineTagKind {
 		return "", errors.Errorf("%q should be a %s", tag, names.MachineTagKind)
 	}
@@ -161,7 +159,6 @@ func NewRebootFlagClearer(machineService MachineRebootService, auth GetAuthFunc)
 }
 
 func (r *RebootFlagClearer) clearOneFlag(ctx context.Context, tag names.Tag) error {
-	// TODO: ask to simon or joe if we should introduce a kind of function GetMachineUUIDFromTag in domain to avoid the check below
 	if tag.Kind() != names.MachineTagKind {
 		return errors.Errorf("%q should be a %s", tag, names.MachineTagKind)
 	}

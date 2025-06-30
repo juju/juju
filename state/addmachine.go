@@ -158,7 +158,6 @@ func (st *State) AddMachines(
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
 	var ops []txn.Op
-	var controllerIds []string
 	for _, template := range templates {
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
@@ -167,11 +166,6 @@ func (st *State) AddMachines(
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
 	}
-	ssOps, err := st.maintainControllersOps(controllerIds, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, ssOps...)
 	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 	if err := st.db().RunTransaction(ops); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
@@ -258,25 +252,6 @@ func (st *State) addMachineOps(
 	return mdoc, append(prereqOps, machineOp), nil
 }
 
-// supportsContainerType reports whether the machine supports the given
-// container type. If the machine's supportedContainers attribute is
-// set, this decision can be made right here, otherwise we assume that
-// everything will be ok and later on put the container into an error
-// state if necessary.
-func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
-	supportedContainers, ok := m.SupportedContainers()
-	if !ok {
-		// We don't know yet, so we report that we support the container.
-		return true
-	}
-	for _, ct := range supportedContainers {
-		if ct == ctype {
-			return true
-		}
-	}
-	return false
-}
-
 // addMachineInsideMachineOps returns operations to add a machine inside
 // a container of the given type on an existing machine.
 func (st *State) addMachineInsideMachineOps(
@@ -293,16 +268,6 @@ func (st *State) addMachineInsideMachineOps(
 	}
 	if containerType == "" {
 		return nil, nil, errors.New("no container type specified")
-	}
-
-	// If a parent machine is specified, make sure it exists
-	// and can support the requested container type.
-	parent, err := st.Machine(parentId)
-	if err != nil {
-		return nil, nil, err
-	}
-	if !parent.supportsContainerType(containerType) {
-		return nil, nil, errors.Errorf("machine %s cannot host %s containers", parentId, containerType)
 	}
 
 	newId, err := st.newContainerId(parentId, containerType)

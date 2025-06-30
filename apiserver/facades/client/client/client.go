@@ -41,6 +41,8 @@ type Client struct {
 	networkService     NetworkService
 	portService        PortService
 	relationService    RelationService
+
+	isControllerModel bool
 }
 
 func (c *Client) checkCanRead(ctx context.Context) error {

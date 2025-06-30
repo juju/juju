@@ -14,7 +14,6 @@ import (
 	time "time"
 
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -197,45 +196,6 @@ func (c *MockBackendAllStatusCall) DoAndReturn(f func() (*state.AllStatus, error
 	return c
 }
 
-// ControllerNodes mocks base method.
-func (m *MockBackend) ControllerNodes() ([]state.ControllerNode, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerNodes")
-	ret0, _ := ret[0].([]state.ControllerNode)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerNodes indicates an expected call of ControllerNodes.
-func (mr *MockBackendMockRecorder) ControllerNodes() *MockBackendControllerNodesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerNodes", reflect.TypeOf((*MockBackend)(nil).ControllerNodes))
-	return &MockBackendControllerNodesCall{Call: call}
-}
-
-// MockBackendControllerNodesCall wrap *gomock.Call
-type MockBackendControllerNodesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendControllerNodesCall) Return(arg0 []state.ControllerNode, arg1 error) *MockBackendControllerNodesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendControllerNodesCall) Do(f func() ([]state.ControllerNode, error)) *MockBackendControllerNodesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendControllerNodesCall) DoAndReturn(f func() ([]state.ControllerNode, error)) *MockBackendControllerNodesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ControllerTimestamp mocks base method.
 func (m *MockBackend) ControllerTimestamp() (*time.Time, error) {
 	m.ctrl.T.Helper()
@@ -271,45 +231,6 @@ func (c *MockBackendControllerTimestampCall) Do(f func() (*time.Time, error)) *M
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendControllerTimestampCall) DoAndReturn(f func() (*time.Time, error)) *MockBackendControllerTimestampCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// HAPrimaryMachine mocks base method.
-func (m *MockBackend) HAPrimaryMachine() (names.MachineTag, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HAPrimaryMachine")
-	ret0, _ := ret[0].(names.MachineTag)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HAPrimaryMachine indicates an expected call of HAPrimaryMachine.
-func (mr *MockBackendMockRecorder) HAPrimaryMachine() *MockBackendHAPrimaryMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HAPrimaryMachine", reflect.TypeOf((*MockBackend)(nil).HAPrimaryMachine))
-	return &MockBackendHAPrimaryMachineCall{Call: call}
-}
-
-// MockBackendHAPrimaryMachineCall wrap *gomock.Call
-type MockBackendHAPrimaryMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendHAPrimaryMachineCall) Return(arg0 names.MachineTag, arg1 error) *MockBackendHAPrimaryMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendHAPrimaryMachineCall) Do(f func() (names.MachineTag, error)) *MockBackendHAPrimaryMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendHAPrimaryMachineCall) DoAndReturn(f func() (names.MachineTag, error)) *MockBackendHAPrimaryMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

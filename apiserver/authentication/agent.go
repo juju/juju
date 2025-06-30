@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/state"
 )
@@ -29,6 +30,11 @@ type AgentPasswordService interface {
 	// MatchesMachinePasswordHashWithNonce checks if the password with a nonce
 	// is valid or not.
 	MatchesMachinePasswordHashWithNonce(context.Context, machine.Name, string, string) (bool, error)
+
+	// MatchesControllerNodePasswordHash checks if the password is valid or
+	// not against the password hash stored in the database for the controller
+	// node.
+	MatchesControllerNodePasswordHash(context.Context, string, string) (bool, error)
 
 	// IsMachineController checks if the machine is a controller.
 	IsMachineController(context.Context, machine.Name) (bool, error)
@@ -93,6 +99,9 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 	case names.MachineTagKind:
 		return a.authenticateMachine(ctx, authParams.AuthTag.(names.MachineTag), authParams.Credentials, authParams.Nonce)
 
+	case names.ControllerAgentTagKind:
+		return a.authenticateControllerAgent(ctx, authParams.AuthTag.(names.ControllerAgentTag), authParams.Credentials)
+
 	default:
 		entity, err := a.fallbackAuth(ctx, authParams)
 		return entity, err
@@ -134,8 +143,6 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 	//   (incorrect payload).
 	// - If the password is invalid, then we consider that unauthorized.
 	// - If the machine is not found, then we consider that unauthorized.
-	//   Prevent the knowing about which machine the password didn't match
-	//   (rainbow attack).
 	// - If the password isn't valid for the machine, then we consider that
 	//   unauthorized.
 	// - If the machine is not provisioned, then we consider that the machine
@@ -150,6 +157,30 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if errors.Is(err, machineerrors.NotProvisioned) {
 		return nil, errors.NotProvisionedf("machine %v", tag.Id())
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if !valid {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	}
+
+	return TagToEntity(tag), nil
+}
+
+func (a *agentAuthenticator) authenticateControllerAgent(ctx context.Context, tag names.ControllerAgentTag, credentials string) (state.Entity, error) {
+	// Check if the password is correct.
+	// - If the password is empty, then we consider that a bad request
+	//   (incorrect payload).
+	// - If the password is invalid, then we consider that unauthorized.
+	// - If the controller node is not found, then we consider that unauthorized.
+	// - If the password isn't valid for the controller node, then we consider
+	//   that unauthorized.
+	// - Any other error, is considered an internal server error.
+
+	valid, err := a.agentPasswordService.MatchesControllerNodePasswordHash(ctx, tag.Id(), credentials)
+	if errors.Is(err, agentpassworderrors.EmptyPassword) {
+		return nil, errors.Trace(fmt.Errorf("controller node authentication: %w", apiservererrors.ErrBadRequest))
+	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, controllernodeerrors.NotFound) {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else if !valid {

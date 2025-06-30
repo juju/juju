@@ -1485,38 +1485,71 @@ func (s *serviceSuite) TestGetMachineStatusError(c *tc.C) {
 func (s *serviceSuite) TestGetAllMachineStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expectedStatuses := map[machine.Name]corestatus.StatusInfo{
+	expectedStatuses := map[machine.Name]Machine{
 		"666": {
-			Status: corestatus.Started,
-			Data: map[string]interface{}{
-				"foo": "bar",
+			Life: corelife.Alive,
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Started,
+				Data: map[string]interface{}{
+					"foo": "bar",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Running,
 			},
 		},
 		"777": {
-			Status: corestatus.Pending,
-			Data: map[string]interface{}{
-				"foo": "baz",
+			Life: corelife.Dying,
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Pending,
+				Data: map[string]interface{}{
+					"foo": "baz",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Allocating,
 			},
 		},
 		"888": {
-			Status: corestatus.Stopped,
-			Data: map[string]interface{}{
-				"foo": "qux",
+			Life: corelife.Dead,
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Stopped,
+				Data: map[string]interface{}{
+					"foo": "qux",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Unset,
 			},
 		},
 	}
-	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
 		"666": {
-			Status: status.MachineStatusStarted,
-			Data:   []byte(`{"foo": "bar"}`),
+			Life: life.Alive,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "bar"}`),
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusRunning,
+			},
 		},
 		"777": {
-			Status: status.MachineStatusPending,
-			Data:   []byte(`{"foo": "baz"}`),
+			Life: life.Dying,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusPending,
+				Data:   []byte(`{"foo": "baz"}`),
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusAllocating,
+			},
 		},
 		"888": {
-			Status: status.MachineStatusStopped,
-			Data:   []byte(`{"foo": "qux"}`),
+			Life: life.Dead,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStopped,
+				Data:   []byte(`{"foo": "qux"}`),
+			},
 		},
 	}, nil)
 
@@ -1650,7 +1683,7 @@ func (s *serviceSuite) TestSetInstanceStatusInvalid(c *tc.C) {
 func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationEmptyModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{}, nil)
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{}, nil)
 	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.InstanceStatusType]{}, nil)
 
 	err := s.modelService.CheckMachineStatusesReadyForMigration(c.Context())
@@ -1660,12 +1693,18 @@ func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationEmptyModel(c *tc
 func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
 		"666": {
-			Status: status.MachineStatusStarted,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "bar"}`),
+			},
 		},
 		"777": {
-			Status: status.MachineStatusStarted,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "baz"}`),
+			},
 		},
 	}, nil)
 
@@ -1685,12 +1724,18 @@ func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationSuccess(c *tc.C)
 func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationMissingInstanceStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
 		"666": {
-			Status: status.MachineStatusStarted,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "bar"}`),
+			},
 		},
 		"777": {
-			Status: status.MachineStatusStarted,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "baz"}`),
+			},
 		},
 	}, nil)
 
@@ -1707,12 +1752,18 @@ func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationMissingInstanceS
 func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationStatusMismatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
 		"666": {
-			Status: status.MachineStatusStarted,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "bar"}`),
+			},
 		},
 		"777": {
-			Status: status.MachineStatusStarted,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "baz"}`),
+			},
 		},
 	}, nil)
 
@@ -1732,15 +1783,21 @@ func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationStatusMismatch(c
 func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationBadMachineStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
 		"650": {
-			Status: status.MachineStatusStarted,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+			},
 		},
 		"667": {
-			Status: status.MachineStatusError,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusError,
+			},
 		},
 		"668": {
-			Status: status.MachineStatusPending,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusPending,
+			},
 		},
 	}, nil)
 	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.InstanceStatusType]{

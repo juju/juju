@@ -41,7 +41,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			return newWorker(agent, apiCaller)
+			return newWorker(ctx, agent, apiCaller)
 		},
 	}
 }
@@ -51,7 +51,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // TODO(waigani) This function is currently covered by functional tests
 // under the machine agent. Add unit tests once infrastructure to do so is
 // in place.
-func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func newWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
 
 	// TODO(fwereade): this functionality should be on the
@@ -64,7 +64,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelConfig, err := agentFacade.ModelConfig(context.TODO())
+	modelConfig, err := agentFacade.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Errorf("cannot read environment config: %v", err)
 	}

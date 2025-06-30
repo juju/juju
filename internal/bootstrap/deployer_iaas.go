@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -18,11 +17,14 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// HostBaseFunc is a function type that returns a corebase.Base and an error.
+type HostBaseFunc func() (corebase.Base, error)
+
 // IAASDeployerConfig holds the configuration for a IAASDeployer.
 type IAASDeployerConfig struct {
 	BaseDeployerConfig
 	ApplicationService IAASApplicationService
-	MachineGetter      MachineGetter
+	HostBaseFn         HostBaseFunc
 }
 
 // Validate validates the configuration.
@@ -33,8 +35,8 @@ func (c IAASDeployerConfig) Validate() error {
 	if c.ApplicationService == nil {
 		return jujuerrors.NotValidf("ApplicationService")
 	}
-	if c.MachineGetter == nil {
-		return jujuerrors.NotValidf("MachineGetter")
+	if c.HostBaseFn == nil {
+		return jujuerrors.NotValidf("HostBaseFn")
 	}
 	return nil
 }
@@ -44,7 +46,7 @@ func (c IAASDeployerConfig) Validate() error {
 type IAASDeployer struct {
 	baseDeployer
 	applicationService IAASApplicationService
-	machineGetter      MachineGetter
+	hostBaseFn         HostBaseFunc
 }
 
 // NewIAASDeployer returns a new ControllerCharmDeployer for IAAS workloads.
@@ -55,53 +57,30 @@ func NewIAASDeployer(config IAASDeployerConfig) (*IAASDeployer, error) {
 	return &IAASDeployer{
 		baseDeployer:       makeBaseDeployer(config.BaseDeployerConfig),
 		applicationService: config.ApplicationService,
-		machineGetter:      config.MachineGetter,
+		hostBaseFn:         config.HostBaseFn,
 	}, nil
-}
-
-// ControllerAddress returns the address of the controller that should be
-// used.
-// This address is retrieved from the database, since the machine information
-// is available already.
-func (d *IAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
-	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	pa, err := m.PublicAddress()
-	if err != nil && !network.IsNoAddressError(err) {
-		return "", errors.Capture(err)
-	}
-	var controllerAddress string
-	if err == nil {
-		controllerAddress = pa.Value
-	}
-	d.logger.Debugf(ctx, "IAAS controller address %v", controllerAddress)
-	return controllerAddress, nil
 }
 
 // ControllerCharmBase returns the base used for deploying the controller
 // charm.
 func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
-	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
+	base, err := d.hostBaseFn()
 	if err != nil {
-		return corebase.Base{}, errors.Capture(err)
+		return corebase.Base{}, errors.Errorf("getting host base: %w", err)
 	}
 
-	machineBase := m.Base()
-	return corebase.ParseBase(machineBase.OS, machineBase.Channel)
+	return corebase.ParseBase(base.OS, base.Channel.String())
 }
 
 // AddIAASControllerApplication adds the IAAS controller application.
-func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
+func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	if err := info.Validate(); err != nil {
 		return errors.Capture(err)
 	}
 
 	origin := *info.Origin
 
-	cfg, err := b.createCharmSettings(controllerAddress)
+	cfg, err := b.createCharmSettings()
 	if err != nil {
 		return errors.Errorf("creating charm settings: %w", err)
 	}

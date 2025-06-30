@@ -6,7 +6,6 @@ package client
 import (
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 
@@ -21,9 +20,7 @@ type Backend interface {
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllStatus() (*state.AllStatus, error)
-	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTimestamp() (*time.Time, error)
-	HAPrimaryMachine() (names.MachineTag, error)
 	MachineConstraints() (*state.MachineConstraints, error)
 }
 
@@ -34,18 +31,6 @@ type MongoSession interface {
 
 type stateShim struct {
 	*state.State
-}
-
-func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
-	nodes, err := s.State.ControllerNodes()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]state.ControllerNode, len(nodes))
-	for i, n := range nodes {
-		result[i] = n
-	}
-	return result, nil
 }
 
 type StorageInterface interface {

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
@@ -76,6 +77,7 @@ type ProvisionerAPI struct {
 	getAuthFunc               common.GetAuthFunc
 	getCanModify              common.GetAuthFunc
 	toolsFinder               common.ToolsFinder
+	watcherRegistry           facade.WatcherRegistry
 	logger                    logger.Logger
 	clock                     clock.Clock
 
@@ -217,6 +219,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
 		controllerUUID:            ctx.ControllerUUID(),
+		watcherRegistry:           watcherRegistry,
 		logger:                    ctx.Logger().Child("provisioner"),
 		clock:                     ctx.Clock(),
 	}
@@ -247,7 +250,7 @@ func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.Machi
 	}
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "finding machine %q", tag.Id())
 	}
 	// The authorization function guarantees that the tag represents a
 	// machine.
@@ -279,24 +282,33 @@ func (api *ProvisionerAPI) watchOneMachineContainers(ctx context.Context, arg pa
 	if !canAccess(tag) {
 		return nothing, apiservererrors.ErrPerm
 	}
-	machine, err := api.st.Machine(tag.Id())
-	if err != nil {
-		return nothing, err
-	}
-	var watch state.StringsWatcher
+
+	// If we're watching all the machine containers, ensure that the container
+	// type is supported. It should be noted, that as of today, we only support
+	// LXD.
 	if arg.ContainerType != "" {
-		watch = machine.WatchContainers(instance.ContainerType(arg.ContainerType))
-	} else {
-		watch = machine.WatchAllContainers()
+		if _, err := instance.ParseContainerType(arg.ContainerType); err != nil {
+			return nothing, apiservererrors.ServerError(
+				errors.NotSupportedf("container type %q is not supported", arg.ContainerType),
+			)
+		}
 	}
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: api.resources.Register(watch),
-			Changes:          changes,
-		}, nil
+
+	watcher, err := api.machineService.WatchMachineContainerLife(ctx, coremachine.Name(tag.Id()))
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nothing, apiservererrors.ServerError(errors.NotFoundf("machine %q", tag.Id()))
+	} else if err != nil {
+		return nothing, apiservererrors.ServerError(err)
 	}
-	return nothing, watcher.EnsureErr(watch)
+
+	watcherID, changes, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watcher)
+	if err != nil {
+		return nothing, apiservererrors.ServerError(errors.Annotatef(err, "registering watcher for machine %q", tag.Id()))
+	}
+	return params.StringsWatchResult{
+		StringsWatcherId: watcherID,
+		Changes:          changes,
+	}, nil
 }
 
 // WatchContainers starts a StringsWatcher to watch containers deployed to
@@ -580,45 +592,11 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 		}
 
 		machineName := coremachine.Name(tag.Id())
-		isController, err := api.machineService.IsMachineController(ctx, machineName)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 
-		// If the machine is a controller, return controller instances.
-		// Otherwise, return instances with services in common with the machine
-		// being provisioned.
-		if isController {
-			result.Results[i].Result, err = api.controllerInstances(ctx)
-		} else {
-			result.Results[i].Result, err = api.commonServiceInstances(ctx, machineName)
-		}
+		result.Results[i].Result, err = api.commonServiceInstances(ctx, machineName)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// controllerInstances returns all environ manager instances.
-func (api *ProvisionerAPI) controllerInstances(ctx context.Context) ([]instance.Id, error) {
-	controllerIds, err := api.st.ControllerIds()
-	if err != nil {
-		return nil, err
-	}
-	instances := make([]instance.Id, 0, len(controllerIds))
-	for _, id := range controllerIds {
-		instanceId, err := api.getInstanceID(ctx, id)
-		if errors.Is(err, machineerrors.NotProvisioned) {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		instances = append(instances, instanceId)
-	}
-	return instances, nil
 }
 
 // commonServiceInstances returns instances with
@@ -687,37 +665,10 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 		}
 
 		machineName := coremachine.Name(tag.Id())
-		isController, err := api.machineService.IsMachineController(ctx, machineName)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// If the machine is a controller, return controller instances.
-		// Otherwise, return instances with services in common with the machine
-		// being provisioned.
-		if isController {
-			result.Results[i].Result, err = controllerMachineIds(api.st, machineName)
-		} else {
-			result.Results[i].Result, err = api.commonApplicationMachineId(ctx, api.st, machineName)
-		}
+		result.Results[i].Result, err = api.commonApplicationMachineId(ctx, api.st, machineName)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// controllerMachineIds returns a slice of all other environ manager machine.Ids.
-func controllerMachineIds(st *state.State, mName coremachine.Name) ([]string, error) {
-	ids, err := st.ControllerIds()
-	if err != nil {
-		return nil, err
-	}
-	result := set.NewStrings(ids...)
-	result.Remove(mName.String())
-	return result.SortedValues(), nil
 }
 
 // commonApplicationMachineId returns a slice of machine.Ids with

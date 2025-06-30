@@ -925,7 +925,7 @@ func openStatePool(
 	}
 	session, err := mongo.DialWithInfo(*info, dialOpts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "open state pool")
 	}
 	defer session.Close()
 
@@ -968,33 +968,8 @@ func openStatePool(
 		CharmServiceGetter: charmServiceGetter,
 	})
 	if err != nil {
+		pool.Close()
 		return nil, err
-	}
-	defer func() {
-		if err != nil {
-			pool.Close()
-		}
-	}()
-	st, err := pool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controller, err := st.FindEntity(agentConfig.Tag())
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			err = internalworker.ErrTerminateAgent
-		}
-		return nil, err
-	}
-
-	// Only machines (not controller agents) need to be provisioned.
-	// TODO(controlleragent) - this needs to be reworked
-	m, ok := controller.(*state.Machine)
-	if !ok {
-		return pool, err
-	}
-	if m.Life() == state.Dead {
-		return nil, internalworker.ErrTerminateAgent
 	}
 	return pool, nil
 }

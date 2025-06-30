@@ -161,14 +161,14 @@ func (w *NamespaceWatcher) scopedContext() (context.Context, context.CancelFunc)
 
 // InitialNamespaceChanges retrieves the current state of the world from the
 // database, as it concerns this watcher.
-func InitialNamespaceChanges(selectAll string) NamespaceQuery {
+func InitialNamespaceChanges(selectAll string, args ...any) NamespaceQuery {
 	return func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
 		var keys []string
 		err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			rows, err := tx.QueryContext(ctx, selectAll)
+			rows, err := tx.QueryContext(ctx, selectAll, args...)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return nil

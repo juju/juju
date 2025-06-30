@@ -18,22 +18,22 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// State defines the access mechanism for interacting with passwords in the
+// ModelState defines the access mechanism for interacting with passwords in the
 // context of the model database.
-type State struct {
+type ModelState struct {
 	*domain.StateBase
 }
 
-// NewState constructs a new state for interacting with the underlying passwords
+// NewModelState constructs a new state for interacting with the underlying passwords
 // of a model.
-func NewState(factory database.TxnRunnerFactory) *State {
-	return &State{
+func NewModelState(factory database.TxnRunnerFactory) *ModelState {
+	return &ModelState{
 		StateBase: domain.NewStateBase(factory),
 	}
 }
 
 // SetUnitPasswordHash sets the password hash for the given unit.
-func (s *State) SetUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash agentpassword.PasswordHash) error {
+func (s *ModelState) SetUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash agentpassword.PasswordHash) error {
 	db, err := s.DB()
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ WHERE  uuid = $entityPasswordHash.uuid;
 
 // MatchesUnitPasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
-func (s *State) MatchesUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash agentpassword.PasswordHash) (bool, error) {
+func (s *ModelState) MatchesUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash agentpassword.PasswordHash) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, err
@@ -109,14 +109,14 @@ AND    password_hash = $validatePasswordHash.password_hash;
 }
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (agentpassword.UnitPasswordHashes, error) {
-	db, err := st.DB()
+func (s *ModelState) GetAllUnitPasswordHashes(ctx context.Context) (agentpassword.UnitPasswordHashes, error) {
+	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	query := `SELECT &unitPasswordHashes.* FROM v_unit_password_hash`
-	stmt, err := st.Prepare(query, unitPasswordHashes{})
+	stmt, err := s.Prepare(query, unitPasswordHashes{})
 	if err != nil {
 		return nil, errors.Errorf("preparing statement to get all unit password hashes: %w", err)
 	}
@@ -138,8 +138,8 @@ func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (agentpassword.Un
 
 // GetUnitUUID returns the UUID of the unit with the given name, returning an
 // error satisfying [applicationerrors.UnitNotFound] if the unit does not exist.
-func (st *State) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error) {
-	db, err := st.DB()
+func (s *ModelState) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error) {
+	db, err := s.DB()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -147,16 +147,16 @@ func (st *State) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID
 	var unitUUID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		unitUUID, err = st.getUnitUUID(ctx, tx, unitName.String())
+		unitUUID, err = s.getUnitUUID(ctx, tx, unitName.String())
 		return errors.Capture(err)
 	})
 	return unit.UUID(unitUUID), errors.Capture(err)
 }
 
-func (st *State) getUnitUUID(ctx context.Context, tx *sqlair.TX, name string) (string, error) {
+func (s *ModelState) getUnitUUID(ctx context.Context, tx *sqlair.TX, name string) (string, error) {
 	u := entityName{Name: name}
 
-	stmt, err := st.Prepare(`
+	stmt, err := s.Prepare(`
 SELECT &entityName.uuid
 FROM   unit
 WHERE  name=$entityName.name`, u)
@@ -174,7 +174,7 @@ WHERE  name=$entityName.name`, u)
 }
 
 // SetMachinePasswordHash sets the password hash for the given machine.
-func (s *State) SetMachinePasswordHash(ctx context.Context, machineUUID machine.UUID, passwordHash agentpassword.PasswordHash) error {
+func (s *ModelState) SetMachinePasswordHash(ctx context.Context, machineUUID machine.UUID, passwordHash agentpassword.PasswordHash) error {
 	db, err := s.DB()
 	if err != nil {
 		return err
@@ -219,7 +219,7 @@ WHERE  uuid = $entityPasswordHash.uuid;
 // valid or not against the password hash stored in the database. The machine
 // must be provisioned for the password to match. It returns an error if the
 // machine is not provisioned.
-func (s *State) MatchesMachinePasswordHashWithNonce(
+func (s *ModelState) MatchesMachinePasswordHashWithNonce(
 	ctx context.Context,
 	machineUUID machine.UUID,
 	passwordHash agentpassword.PasswordHash,
@@ -278,14 +278,14 @@ AND       m.nonce = $validatePasswordHashWithNonce.nonce;
 }
 
 // GetAllMachinePasswordHashes returns a map of machine names to password hashes.
-func (st *State) GetAllMachinePasswordHashes(ctx context.Context) (agentpassword.MachinePasswordHashes, error) {
-	db, err := st.DB()
+func (s *ModelState) GetAllMachinePasswordHashes(ctx context.Context) (agentpassword.MachinePasswordHashes, error) {
+	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	query := `SELECT &entityNamePasswordHashes.* FROM machine`
-	stmt, err := st.Prepare(query, entityNamePasswordHashes{})
+	stmt, err := s.Prepare(query, entityNamePasswordHashes{})
 	if err != nil {
 		return nil, errors.Errorf("preparing statement to get all machine password hashes: %w", err)
 	}
@@ -308,8 +308,8 @@ func (st *State) GetAllMachinePasswordHashes(ctx context.Context) (agentpassword
 // GetMachineUUID returns the UUID of the machine with the given name, returning
 // an error satisfying [machineerrors.MachineNotFound] if the machine does not
 // exist.
-func (st *State) GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error) {
-	db, err := st.DB()
+func (s *ModelState) GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error) {
+	db, err := s.DB()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -317,16 +317,16 @@ func (st *State) GetMachineUUID(ctx context.Context, machineName machine.Name) (
 	var machineUUID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		machineUUID, err = st.getMachineUUID(ctx, tx, machineName.String())
+		machineUUID, err = s.getMachineUUID(ctx, tx, machineName.String())
 		return errors.Capture(err)
 	})
 	return machine.UUID(machineUUID), errors.Capture(err)
 }
 
-func (st *State) getMachineUUID(ctx context.Context, tx *sqlair.TX, name string) (string, error) {
+func (s *ModelState) getMachineUUID(ctx context.Context, tx *sqlair.TX, name string) (string, error) {
 	u := entityName{Name: name}
 
-	stmt, err := st.Prepare(`
+	stmt, err := s.Prepare(`
 SELECT &entityName.uuid
 FROM   machine
 WHERE  name=$entityName.name`, u)
@@ -345,8 +345,8 @@ WHERE  name=$entityName.name`, u)
 
 // IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
-	db, err := st.DB()
+func (s *ModelState) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
+	db, err := s.DB()
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -357,13 +357,13 @@ SELECT &count.*
 FROM   v_machine_is_controller
 WHERE  machine_uuid = $machineUUID.uuid
 `
-	queryStmt, err := st.Prepare(query, machineUUID{}, result)
+	queryStmt, err := s.Prepare(query, machineUUID{}, result)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		mUUID, err := st.getMachineUUIDFromName(ctx, tx, mName)
+		mUUID, err := s.getMachineUUIDFromName(ctx, tx, mName)
 		if err != nil {
 			return err
 		}
@@ -383,11 +383,11 @@ WHERE  machine_uuid = $machineUUID.uuid
 	return result.Count == 1, nil
 }
 
-func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (machineUUID, error) {
+func (s *ModelState) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (machineUUID, error) {
 	machineNameParam := machineName{Name: mName}
 	machineUUIDoutput := machineUUID{}
 	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
-	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDoutput)
+	queryStmt, err := s.Prepare(query, machineNameParam, machineUUIDoutput)
 	if err != nil {
 		return machineUUID{}, errors.Capture(err)
 	}

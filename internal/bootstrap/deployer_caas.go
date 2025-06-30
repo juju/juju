@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
@@ -19,7 +18,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // ServiceManager provides the API to manipulate services.
@@ -73,39 +71,6 @@ func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
 	}, nil
 }
 
-// ControllerAddress returns the address of the controller that should be
-// used.
-func (d *CAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
-	addrs, err := d.getK8sServiceAddresses(ctx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var controllerAddress string
-	if addr, ok := addrs.OneMatchingScope(network.ScopeMatchCloudLocal); ok {
-		controllerAddress = addr.Value
-	}
-
-	d.logger.Debugf(ctx, "CAAS controller address %v", controllerAddress)
-	return controllerAddress, nil
-}
-
-// getK8sServiceAddresses returns the addresses of the k8s service from the k8s
-// broker.
-func (d *CAASDeployer) getK8sServiceAddresses(ctx context.Context) (network.ProviderAddresses, error) {
-	// Retrieve the k8s service from the k8s broker.
-	svc, err := d.serviceManager.GetService(ctx, k8sconstants.JujuControllerStackName, true)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	if len(svc.Addresses) == 0 {
-		// this should never happen because we have already checked in k8s controller bootstrap stacker.
-		return nil, jujuerrors.NotProvisionedf("k8s controller service %q address", svc.Id)
-	}
-
-	return svc.Addresses, nil
-}
-
 // ControllerCharmBase returns the base used for deploying the controller
 // charm.
 func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
@@ -113,14 +78,14 @@ func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 }
 
 // AddCAASControllerApplication adds the CAAS controller application.
-func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
+func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	if err := info.Validate(); err != nil {
 		return errors.Capture(err)
 	}
 
 	origin := *info.Origin
 
-	cfg, err := b.createCharmSettings(controllerAddress)
+	cfg, err := b.createCharmSettings()
 	if err != nil {
 		return errors.Errorf("creating charm settings: %w", err)
 	}
@@ -178,16 +143,12 @@ func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
 	}
 
 	// Insert the k8s service with its addresses.
-	addrs, err := d.getK8sServiceAddresses(ctx)
+	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", providerID)
+	err = d.applicationService.UpdateCloudService(ctx, bootstrap.ControllerApplicationName, providerID, d.bootstrapAddresses)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", controllerProviderID(controllerUnit))
-	err = d.applicationService.UpdateCloudService(ctx, bootstrap.ControllerApplicationName, controllerProviderID(controllerUnit), addrs)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	d.logger.Debugf(ctx, "created cloud service with addresses %v for controller", addrs)
+	d.logger.Debugf(ctx, "created cloud service with addresses %v for controller", d.bootstrapAddresses)
 
 	return nil
 }

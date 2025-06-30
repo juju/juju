@@ -69,6 +69,6 @@ func (mrw *MachineWatcher) WatchForRebootEvent(ctx context.Context) (params.Noti
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](ctx, mrw.watcherRegistry, notifyWatcher)
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, mrw.watcherRegistry, notifyWatcher)
 	return result, err
 }
