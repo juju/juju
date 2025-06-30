@@ -184,7 +184,6 @@ func (c *neutronFirewaller) deleteSecurityGroupsMatchingName(
 		handleCredentialError(err, ctx)
 		return errors.Annotate(err, "cannot list security groups")
 	}
-	return deleteSecurityGroups(ctx, match)
 	return deleteSecurityGroups(ctx, securityGroups, match)
 }
 
@@ -437,7 +436,6 @@ func (c *neutronFirewaller) deleteSecurityGroups(ctx context.ProviderCallContext
 
 // DeleteGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteGroups(ctx context.ProviderCallContext, names ...string) error {
-	return deleteSecurityGroupsOneOfNames(ctx, c.deleteSecurityGroups, names...)
 	var groupsToDelete []neutron.SecurityGroupV2
 	for _, name := range names {
 		group, err := c.getSecurityGroupByName(ctx, name)
@@ -456,7 +454,6 @@ func (c *neutronFirewaller) DeleteGroups(ctx context.ProviderCallContext, names 
 
 // DeleteAllControllerGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallContext, controllerUUID string) error {
-	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.jujuControllerGroupPrefix(controllerUUID))
 	controllerGroupPrefix := c.jujuControllerGroupPrefix(controllerUUID)
 	re, err := regexp.Compile("^" + controllerGroupPrefix)
 	if err != nil {
@@ -468,7 +465,6 @@ func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallCo
 
 // DeleteAllModelGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext) error {
-	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.jujuGroupPrefixRegexp())
 	jujuGroupPrefixRegex := c.jujuGroupPrefixRegexp()
 	re, err := regexp.Compile("^" + jujuGroupPrefixRegex)
 	if err != nil {
@@ -479,11 +475,9 @@ func (c *neutronFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext
 }
 
 func (c *neutronFirewaller) DeleteMachineGroup(ctx context.ProviderCallContext, machineID string) error {
-	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.machineGroupRegexp(machineID))
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return nil
 	}
-
 
 	group, err := c.getSecurityGroupByName(ctx, c.machineGroupName(c.environ.controllerUUID, machineID))
 	if err != nil {
