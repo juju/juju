@@ -68,10 +68,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 			continue
 		}
 		machineName := coremachine.Name(tag.Id())
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, machine, env, allSpaces)
-		}
+		result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, nil, env, allSpaces)
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -234,10 +231,15 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
-	volumeAttachments, err := m.VolumeAttachments()
-	if err != nil {
-		return nil, nil, errors.Capture(err)
-	}
+
+	// TODO(storage): We need to wire this from dqlite, since the machine is no
+	// longer inserted into the legacy state.
+	//
+	// volumeAttachments, err := m.VolumeAttachments()
+	// if err != nil {
+	// 	return nil, nil, errors.Capture(err)
+	// }
+	volumeAttachments := []state.VolumeAttachment{}
 	if len(volumeAttachments) == 0 {
 		return nil, nil, nil
 	}

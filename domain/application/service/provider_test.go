@@ -12,6 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -1723,6 +1724,12 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	returnedCharm := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Subordinate: false,
+		},
+	}
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.expectEmptyUnitConstraints(c, appUUID)
 
 	var received []application.AddUnitArg
@@ -1781,6 +1788,12 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	returnedCharm := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Subordinate: false,
+		},
+	}
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.expectAppConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
@@ -1838,6 +1851,12 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	returnedCharm := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Subordinate: false,
+		},
+	}
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.expectModelConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
@@ -1879,6 +1898,12 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	returnedCharm := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Subordinate: false,
+		},
+	}
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
@@ -1932,6 +1957,12 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	returnedCharm := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Subordinate: false,
+		},
+	}
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	placement := &instance.Placement{
@@ -1972,6 +2003,12 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	}).Return(nil)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	returnedCharm := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Subordinate: false,
+		},
+	}
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	s.state.EXPECT().AddIAASUnits(gomock.Any(), appUUID, gomock.Any()).Return([]coreunit.Name{"foo/0"}, nil, nil)
@@ -1995,7 +2032,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSupport
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, errors.Errorf("not supported %w", coreerrors.NotSupported))
 
-	_, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{})
+	_, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{}, false)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -2004,7 +2041,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidat
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 
-	cons, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{})
+	cons, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{}, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, coreconstraints.Value{})
 }
@@ -2022,8 +2059,98 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraint
 		constraints.EncodeConstraints(constraints.Constraints{})).
 		Return(coreconstraints.Value{}, nil)
 
-	_, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{})
+	_, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{}, false)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordinateWithArch(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, modelerrors.ConstraintsNotFound)
+
+	s.validator.EXPECT().Merge(
+		constraints.EncodeConstraints(constraints.Constraints{
+			Arch: ptr(arch.AMD64),
+		}),
+		constraints.EncodeConstraints(constraints.Constraints{})).
+		Return(coreconstraints.Value{
+			Arch: ptr(arch.AMD64),
+		}, nil)
+
+	merged, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{
+		Arch: ptr(arch.AMD64),
+	}, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
+}
+
+func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsSubordinateWithArch(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		RootDiskSource: ptr("source-disk"),
+		Mem:            ptr(uint64(42)),
+	}, modelerrors.ConstraintsNotFound)
+
+	s.validator.EXPECT().Merge(
+		constraints.EncodeConstraints(constraints.Constraints{
+			Arch: ptr(arch.AMD64),
+		}),
+		constraints.EncodeConstraints(constraints.Constraints{
+			RootDiskSource: ptr("source-disk"),
+			Mem:            ptr(uint64(42)),
+		})).
+		Return(coreconstraints.Value{
+			Arch:           ptr(arch.AMD64),
+			RootDiskSource: ptr("source-disk"),
+			Mem:            ptr(uint64(42)),
+		}, nil)
+
+	merged, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{
+		Arch: ptr(arch.AMD64),
+	}, true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
+	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")
+	c.Check(*merged.Mem, tc.Equals, uint64(42))
+}
+
+func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordinateWithoutArch(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		Mem: ptr(uint64(42)),
+	}, modelerrors.ConstraintsNotFound)
+
+	s.validator.EXPECT().Merge(
+		constraints.EncodeConstraints(constraints.Constraints{
+			RootDiskSource: ptr("source-disk"),
+		}),
+		constraints.EncodeConstraints(constraints.Constraints{
+			Mem: ptr(uint64(42)),
+		})).
+		Return(coreconstraints.Value{
+			RootDiskSource: ptr("source-disk"),
+			Mem:            ptr(uint64(42)),
+		}, nil)
+
+	merged, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{
+		RootDiskSource: ptr("source-disk"),
+	}, false)
+	c.Assert(err, tc.ErrorIsNil)
+	// Default arch should be added in this case.
+	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
+	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")
+	c.Check(*merged.Mem, tc.Equals, uint64(42))
 }
 
 func (s *providerServiceSuite) expectEmptyUnitConstraints(c *tc.C, appUUID coreapplication.ID) {

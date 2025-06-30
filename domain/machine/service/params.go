@@ -3,9 +3,15 @@
 
 package service
 
+import (
+	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
+)
+
 // CreateMachineArgs contains arguments for creating a machine.
 type CreateMachineArgs struct {
-
-	// Nonce is the nonce to use for the machine.
-	Nonce *string
+	Constraints constraints.Constraints
+	Directive   deployment.Placement
+	Platform    deployment.Platform
+	Nonce       *string
 }

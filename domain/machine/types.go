@@ -5,6 +5,7 @@ package machine
 
 import (
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 )
 
@@ -21,13 +22,16 @@ type ExportMachine struct {
 // CreateMachineArgs contains arguments for creating a machine.
 type CreateMachineArgs struct {
 	MachineUUID machine.UUID
+	Constraints constraints.Constraints
+	Directive   deployment.Placement
 	Platform    deployment.Platform
 	Nonce       *string
 }
 
 // PlaceMachineArgs contains arguments for placing a machine.
 type PlaceMachineArgs struct {
-	Directive deployment.Placement
-	Platform  deployment.Platform
-	Nonce     *string
+	Constraints constraints.Constraints
+	Directive   deployment.Placement
+	Platform    deployment.Platform
+	Nonce       *string
 }

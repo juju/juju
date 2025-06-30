@@ -161,6 +161,9 @@ func (s *ProviderService) makeCreateMachineArgs(args CreateMachineArgs, machineU
 	return domainmachine.CreateMachineArgs{
 		Nonce:       args.Nonce,
 		MachineUUID: machineUUID,
+		Platform:    args.Platform,
+		Directive:   args.Directive,
+		Constraints: args.Constraints,
 	}, nil
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 )
@@ -249,6 +250,7 @@ type insertMachineAndNetNodeArgs struct {
 	machineUUID string
 	platform    deployment.Platform
 	nonce       *string
+	constraints constraints.Constraints
 }
 
 type insertChildMachineForContainerPlacementArgs struct {
@@ -258,12 +260,14 @@ type insertChildMachineForContainerPlacementArgs struct {
 	scope       string
 	platform    deployment.Platform
 	nonce       *string
+	constraints constraints.Constraints
 }
 
 type acquireParentMachineForContainerArgs struct {
-	directive string
-	platform  deployment.Platform
-	nonce     *string
+	directive   string
+	platform    deployment.Platform
+	nonce       *string
+	constraints constraints.Constraints
 }
 
 type placementDirective struct {
@@ -299,4 +303,57 @@ type machinePlatform struct {
 	OSName       string `db:"os_name"`
 	Channel      string `db:"channel"`
 	Architecture string `db:"architecture"`
+}
+
+type setMachineConstraint struct {
+	MachineUUID    string `db:"machine_uuid"`
+	ConstraintUUID string `db:"constraint_uuid"`
+}
+
+type setConstraint struct {
+	UUID             string  `db:"uuid"`
+	Arch             *string `db:"arch"`
+	CPUCores         *uint64 `db:"cpu_cores"`
+	CPUPower         *uint64 `db:"cpu_power"`
+	Mem              *uint64 `db:"mem"`
+	RootDisk         *uint64 `db:"root_disk"`
+	RootDiskSource   *string `db:"root_disk_source"`
+	InstanceRole     *string `db:"instance_role"`
+	InstanceType     *string `db:"instance_type"`
+	ContainerTypeID  *uint64 `db:"container_type_id"`
+	VirtType         *string `db:"virt_type"`
+	AllocatePublicIP *bool   `db:"allocate_public_ip"`
+	ImageID          *string `db:"image_id"`
+}
+
+type setConstraintTag struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Tag            string `db:"tag"`
+}
+
+type setConstraintSpace struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Space          string `db:"space"`
+	Exclude        bool   `db:"exclude"`
+}
+
+type setConstraintZone struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Zone           string `db:"zone"`
+}
+
+type containerTypeID struct {
+	ID uint64 `db:"id"`
+}
+
+type containerTypeVal struct {
+	Value string `db:"value"`
+}
+
+type spaceUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type spaceName struct {
+	Name string `db:"name"`
 }

@@ -268,6 +268,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 			Ephemeral:    ephemeral,
 		},
 	}
+	logger.Criticalf(context.TODO(), "*** *** creating instance from image %+v, req %+v", spec.Image.Image.Filename, req)
 	op, err := s.CreateInstanceFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
 	if err != nil {
 		return s.handleAlreadyExistsError(err, spec, ephemeral)

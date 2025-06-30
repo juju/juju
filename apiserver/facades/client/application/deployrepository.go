@@ -180,6 +180,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		ApplicationSettings: application.ApplicationSettings{
 			Trust: trust,
 		},
+		Constraints: dt.constraints,
 	}
 
 	if api.modelType == model.IAAS {
