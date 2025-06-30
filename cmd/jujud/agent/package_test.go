@@ -14,7 +14,7 @@ import (
 
 func TestMain(m *testing.M) {
 	os.Exit(func() int {
-		defer coretesting.MgoSSLTestMain()()
+		defer coretesting.MgoTestMain()()
 		return m.Run()
 	}())
 }
