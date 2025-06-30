@@ -777,7 +777,7 @@ func DeriveAddressType(value string) AddressType {
 
 // ScopeMatchPublic is an address scope matching function for determining the
 // extent to which the input address' scope satisfies a requirement for public
-// accessibility.
+// accessibility. Prefers IPv4 over IPv6.
 func ScopeMatchPublic(addr Address) ScopeMatch {
 	switch addr.AddressScope() {
 	case ScopePublic:
@@ -795,6 +795,21 @@ func ScopeMatchPublic(addr Address) ScopeMatch {
 			return secondFallbackScopeIPv4
 		}
 		return secondFallbackScope
+	}
+	return invalidScope
+}
+
+// ScopeMatchAllPublic is an address scope matching function for determining the
+// extent to which the input address' scope satisfies a requirement for public
+// accessibility. IPv4 or IPv6 addresses are weighted the same in matching.
+func ScopeMatchAllPublic(addr Address) ScopeMatch {
+	switch addr.AddressScope() {
+	case ScopePublic:
+		return exactScopeIPv4
+	case ScopeCloudLocal:
+		return firstFallbackScopeIPv4
+	case ScopeFanLocal, ScopeUnknown:
+		return secondFallbackScopeIPv4
 	}
 	return invalidScope
 }
