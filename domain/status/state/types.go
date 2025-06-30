@@ -307,6 +307,7 @@ type machineStatusDetails struct {
 	Name                       coremachine.Name          `db:"name"`
 	UUID                       coremachine.UUID          `db:"uuid"`
 	LifeID                     domainlife.Life           `db:"life_id"`
+	Hostname                   sql.Null[string]          `db:"hostname"`
 	InstanceID                 sql.Null[string]          `db:"instance_id"`
 	DisplayName                sql.Null[string]          `db:"display_name"`
 	PlatformOSID               sql.Null[int64]           `db:"platform_os_id"`

@@ -183,14 +183,18 @@ type ModelState interface {
 	// - [statuserrors.MachineStatusNotFound] if the status is not set.
 	GetMachineStatus(ctx context.Context, machineName string) (status.StatusInfo[status.MachineStatusType], error)
 
-	// GetAllMachineStatuses returns all the machine statuses for the model,
-	// indexed by machine name.
-	GetAllMachineStatuses(context.Context) (map[machine.Name]status.Machine, error)
-
 	// SetMachineStatus sets the status of the specified machine.
 	// This method may return the following errors:
 	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	SetMachineStatus(ctx context.Context, machineName string, status status.StatusInfo[status.MachineStatusType]) error
+
+	// GetAllMachineStatuses returns all the machine statuses for the model,
+	// indexed by machine name.
+	GetAllMachineStatuses(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)
+
+	// GetMachineStatuses returns all the machine statuses for the model,
+	// indexed by machine name.
+	GetMachineStatuses(context.Context) (map[machine.Name]status.Machine, error)
 
 	// GetInstanceStatus returns the cloud specific instance status for the
 	// given machine.
@@ -703,11 +707,36 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 
 // GetAllMachineStatuses returns all the machine statuses for the model, indexed
 // by machine name.
-func (s *Service) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]Machine, error) {
+func (s *Service) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	machineStatuses, err := s.modelState.GetAllMachineStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[machine.Name]corestatus.StatusInfo, len(machineStatuses))
+	for name, status := range machineStatuses {
+		machineName := machine.Name(name)
+		if err := machineName.Validate(); err != nil {
+			return nil, errors.Errorf("validating returned machine name %q: %w", name, err)
+		}
+		result[machineName], err = decodeMachineStatus(status)
+		if err != nil {
+			return nil, errors.Errorf("decoding machine status for machine %q: %w", machineName, err)
+		}
+	}
+	return result, nil
+}
+
+// GetMachineStatuses returns all the machine statuses for the model, indexed
+// by machine name.
+func (s *Service) GetMachineStatuses(ctx context.Context) (map[machine.Name]Machine, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineStatuses, err := s.modelState.GetMachineStatuses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -719,7 +748,7 @@ func (s *Service) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]M
 			return nil, errors.Errorf("validating returned machine name %q: %w", name, err)
 		}
 
-		decodedStatus, err := s.decodeMachineStatusDetails(m)
+		decodedStatus, err := s.decodeMachineStatusDetails(machineName, m)
 		if err != nil {
 			return nil, errors.Errorf("decoding machine status for %q: %w", name, err)
 		}
@@ -810,12 +839,12 @@ func (s *Service) CheckMachineStatusesReadyForMigration(ctx context.Context) err
 
 	var failedChecks []string
 	for machineName, mStatus := range machineStatuses {
-		iStatus, ok := instanceStatuses[machineName.String()]
+		iStatus, ok := instanceStatuses[machineName]
 		if !ok {
 			return errors.Errorf("some machines have unset statuses")
 		}
 
-		machineStatus, err := decodeMachineStatus(mStatus.MachineStatus)
+		machineStatus, err := decodeMachineStatus(mStatus)
 		if err != nil {
 			return errors.Errorf("decoding machine status for machine %q: %w", machineName, err)
 		}
@@ -1042,7 +1071,7 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 	}, nil
 }
 
-func (s *Service) decodeMachineStatusDetails(machine status.Machine) (Machine, error) {
+func (s *Service) decodeMachineStatusDetails(machineName machine.Name, machine status.Machine) (Machine, error) {
 	life, err := machine.Life.Value()
 	if err != nil {
 		return Machine{}, errors.Errorf("decoding machine life: %w", err)
@@ -1059,7 +1088,9 @@ func (s *Service) decodeMachineStatusDetails(machine status.Machine) (Machine, e
 	}
 
 	return Machine{
+		Name:                    machineName,
 		Life:                    life,
+		Hostname:                machine.Hostname,
 		DisplayName:             machine.DisplayName,
 		InstanceID:              machine.InstanceID,
 		MachineStatus:           machineStatus,

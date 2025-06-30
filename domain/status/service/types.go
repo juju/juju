@@ -56,6 +56,8 @@ type Unit struct {
 
 // Machine represents the status of a machine.
 type Machine struct {
+	Name                    machine.Name
+	Hostname                string
 	DisplayName             string
 	InstanceID              instance.Id
 	Life                    life.Value

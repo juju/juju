@@ -491,6 +491,45 @@ func (c *MockStatusServiceGetMachineStatusCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetMachineStatuses mocks base method.
+func (m *MockStatusService) GetMachineStatuses(arg0 context.Context) (map[machine.Name]service.Machine, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineStatuses", arg0)
+	ret0, _ := ret[0].(map[machine.Name]service.Machine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineStatuses indicates an expected call of GetMachineStatuses.
+func (mr *MockStatusServiceMockRecorder) GetMachineStatuses(arg0 any) *MockStatusServiceGetMachineStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineStatuses", reflect.TypeOf((*MockStatusService)(nil).GetMachineStatuses), arg0)
+	return &MockStatusServiceGetMachineStatusesCall{Call: call}
+}
+
+// MockStatusServiceGetMachineStatusesCall wrap *gomock.Call
+type MockStatusServiceGetMachineStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceGetMachineStatusesCall) Return(arg0 map[machine.Name]service.Machine, arg1 error) *MockStatusServiceGetMachineStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceGetMachineStatusesCall) Do(f func(context.Context) (map[machine.Name]service.Machine, error)) *MockStatusServiceGetMachineStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceGetMachineStatusesCall) DoAndReturn(f func(context.Context) (map[machine.Name]service.Machine, error)) *MockStatusServiceGetMachineStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelStatus mocks base method.
 func (m *MockStatusService) GetModelStatus(arg0 context.Context) (status.StatusInfo, error) {
 	m.ctrl.T.Helper()

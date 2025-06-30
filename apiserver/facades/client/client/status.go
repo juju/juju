@@ -6,7 +6,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"strings"
+	"sort"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -17,11 +17,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
@@ -186,7 +184,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		logger.Tracef(ctx, "cross model relations are disabled until "+
 			"backend functionality is moved to domain")
 	}
-	if err = context.fetchMachines(c.stateAccessor); err != nil {
+	if err = context.fetchMachines(ctx, c.stateAccessor); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch machines: %w", err)
 	}
 	if err = context.fetchAllOpenPortRanges(ctx, c.portService); err != nil {
@@ -403,10 +401,10 @@ type statusContext struct {
 
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
-	machines map[machine.Name][]machine.UUID
+	machines map[machine.Name][]statusservice.Machine
 	// allMachines: machine id -> machine
 	// The machine in this map is the same machine in the machines map.
-	allMachines        map[machine.Name]machine.UUID
+	allMachines        map[machine.Name]statusservice.Machine
 	machineConstraints *state.MachineConstraints
 
 	// ipAddresses: machine id -> list of ip.addresses
@@ -445,29 +443,45 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func (c *statusContext) fetchMachines(st Backend) error {
+func (c *statusContext) fetchMachines(ctx context.Context, st Backend) error {
 	if c.model.Type == model.CAAS {
 		return nil
 	}
 
-	c.machines = make(map[string][]*state.Machine)
-	c.allMachines = make(map[string]*state.Machine)
+	c.machines = make(map[machine.Name][]statusservice.Machine)
+	c.allMachines = make(map[machine.Name]statusservice.Machine)
 
-	machines, err := c.status.GetAllMachineStatuses()
+	machines, err := c.statusService.GetMachineStatuses(ctx)
 	if err != nil {
 		return err
 	}
-	// AllMachines gives us machines sorted by id.
-	for _, m := range machines {
-		c.allMachines[m.Id()] = m
-		_, ok := m.ParentId()
+
+	nameOrder := make([]machine.Name, 0, len(machines))
+	for name := range machines {
+		nameOrder = append(nameOrder, name)
+	}
+	sort.Slice(nameOrder, func(i, j int) bool {
+		// Sort by machine name, so that the host machines are first.
+		return nameOrder[i].String() < nameOrder[j].String()
+	})
+
+	for _, machineName := range nameOrder {
+		m, ok := machines[machineName]
 		if !ok {
+			// Something went terribly wrong, we should always have a machine
+			// for each name in the map.
+			continue
+		}
+
+		c.allMachines[machineName] = m
+
+		if !machineName.IsContainer() {
 			// Only top level host machines go directly into the machine map.
-			c.machines[m.Id()] = []*state.Machine{m}
+			c.machines[machineName] = []statusservice.Machine{m}
 		} else {
-			topParentId := container.TopParentId(m.Id())
-			machines := c.machines[topParentId]
-			c.machines[topParentId] = append(machines, m)
+			parentID := machineName.Parent()
+			machines := c.machines[parentID]
+			c.machines[parentID] = append(machines, m)
 		}
 	}
 
@@ -673,143 +687,104 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 
 func (c *statusContext) processMachines(ctx context.Context) map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
-	aCache := make(map[string]params.MachineStatus)
-	for id, machines := range c.machines {
+
+	for hostMachineName, machines := range c.machines {
 		if len(machines) == 0 {
 			continue
 		}
 
-		// Element 0 is assumed to be the top-level machine.
-		tlMachine := machines[0]
-		hostStatus := c.makeMachineStatus(ctx, tlMachine, c.allAppsUnitsCharmBindings)
-		machinesMap[id.String()] = hostStatus
-		aCache[id.String()] = hostStatus
+		// Element 0 is assumed to be the top-level (host) machine.
+		hostMachine := machines[0]
+		hostStatus := c.makeMachineStatus(ctx, hostMachine, c.allAppsUnitsCharmBindings)
 
 		for _, machine := range machines[1:] {
-			parent, ok := aCache[container.ParentId(machine.Id())]
-			if !ok {
-				logger.Errorf(ctx, "programmer error, please file a bug, reference this whole log line: %q, %q", id,
-					machine.Id())
+			// It assumed that the first element of the slice is the top-level
+			// machine, and the rest are containers.
+			if !machine.Name.IsContainer() {
+				logger.Warningf(ctx, "expected machine %q to be a container, but it is not", machine.Name)
 				continue
 			}
 
 			aStatus := c.makeMachineStatus(ctx, machine, c.allAppsUnitsCharmBindings)
-			parent.Containers[machine.Id()] = aStatus
-			aCache[machine.Id()] = aStatus
+			hostStatus.Containers[machine.Name.String()] = aStatus
 		}
+
+		machinesMap[hostMachineName.String()] = hostStatus
 	}
 	return machinesMap
 }
 
 func (c *statusContext) makeMachineStatus(
 	ctx context.Context,
-	machine *state.Machine,
+	machine statusservice.Machine,
 	appStatusInfo applicationStatusInfo,
 ) (status params.MachineStatus) {
-	machineID := machine.Id()
-	machineName := coremachine.Name(machineID)
+	machineName := machine.Name
 
-	var err error
-	status.Id = machineID
-	agentStatus := c.processMachine(ctx, machine)
+	status.Id = machineName.String()
+	agentStatus, instanceStatus := c.processMachine(ctx, machine)
 	status.AgentStatus = agentStatus
+	status.InstanceStatus = instanceStatus
+	status.Hostname = machine.Hostname
+	status.DisplayName = machine.DisplayName
 
-	mBase := machine.Base()
-	status.Base = params.Base{Name: mBase.OS, Channel: mBase.Channel}
+	platform := machine.Platform
+	status.Base = params.Base{Name: platform.OSType.String(), Channel: platform.Channel}
+	status.Hardware = machine.HardwareCharacteristics.String()
+	status.Constraints = machine.Constraints.String()
+	status.Containers = make(map[string]params.MachineStatus)
 
 	status.Jobs = c.machineJobFetcher(ctx, machineName)
 
-	// Fetch the machine instance status information
-	sInstInfo, err := c.status.MachineInstance(machineID)
-	populateStatusFromStatusInfoAndErr(&status.InstanceStatus, sInstInfo, err)
+	if instanceID := machine.InstanceID; instanceID != instance.UnknownId {
+		status.InstanceId = instanceID
 
-	// Fetch the machine modification status information
-	sModInfo, err := c.status.MachineModification(machineID)
-	populateStatusFromStatusInfoAndErr(&status.ModificationStatus, sModInfo, err)
+		// TODO (stickupkid): Return the public address of the unit's machine.
+		// addr, err := machine.PublicAddress()
+		// if err != nil {
+		// 	// Usually this indicates that no addresses have been set on the
+		// 	// machine yet.
+		// 	addr = network.SpaceAddress{}
+		// 	logger.Debugf(ctx, "error fetching public address: %q", err)
+		// }
+		// status.DNSName = addr.Value
 
-	var (
-		instid      instance.Id
-		displayName string
-	)
-	machineUUID, err := c.machineService.GetMachineUUID(ctx, machineName)
-	if err != nil {
-		logger.Debugf(ctx, "error retrieving uuid for machine: %q, %w", machineID, err)
-	} else {
-		instid, displayName, err = c.machineService.GetInstanceIDAndName(ctx, machineUUID)
-		if err != nil && !internalerrors.Is(err, machineerrors.NotProvisioned) {
-			logger.Debugf(ctx, "error retrieving instance ID and display name for machine: %q, %w", machineID, err)
-		}
-	}
-	if instid != instance.UnknownId {
-		status.InstanceId = instid
-		status.DisplayName = displayName
-		addr, err := machine.PublicAddress()
-		if err != nil {
-			// Usually this indicates that no addresses have been set on the
-			// machine yet.
-			addr = network.SpaceAddress{}
-			logger.Debugf(ctx, "error fetching public address: %q", err)
-		}
-		status.DNSName = addr.Value
-		status.Hostname = machine.Hostname()
-		for _, mAddr := range c.ipAddresses[coremachine.Name(machineID)] {
-			switch mAddr.Scope {
-			case network.ScopeMachineLocal, network.ScopeLinkLocal:
-				continue
-			}
-			status.IPAddresses = append(status.IPAddresses, mAddr.AddressValue)
-		}
-		if len(status.IPAddresses) == 0 {
-			logger.Debugf(ctx, "no IP addresses fetched for machine %q", instid)
-			// At least give it the newly created DNSName address, if it exists.
-			if addr.Value != "" {
-				status.IPAddresses = append(status.IPAddresses, addr.Value)
-			}
-		}
+		// for _, mAddr := range c.ipAddresses[machineName] {
+		// 	switch mAddr.Scope {
+		// 	case network.ScopeMachineLocal, network.ScopeLinkLocal:
+		// 		continue
+		// 	}
+		// 	status.IPAddresses = append(status.IPAddresses, mAddr.AddressValue)
+		// }
+		// if len(status.IPAddresses) == 0 {
+		// 	logger.Debugf(ctx, "no IP addresses fetched for machine %q", instanceID)
+		// 	// At least give it the newly created DNSName address, if it exists.
+		// 	if addr.Value != "" {
+		// 		status.IPAddresses = append(status.IPAddresses, addr.Value)
+		// 	}
+		// }
 
-		linkLayerDevices := c.linkLayerDevices[coremachine.Name(machineID)]
-		status.NetworkInterfaces = transform.SliceToMap(linkLayerDevices, func(llDev domainnetwork.NetInterface) (string, params.NetworkInterface) {
-			spaces := set.NewStrings()
-			for _, addr := range llDev.Addrs {
-				spaces.Add(addr.Space)
-			}
-			return llDev.Name, params.NetworkInterface{
-				IPAddresses:    transform.Slice(llDev.Addrs, func(net domainnetwork.NetAddr) string { return net.AddressValue }),
-				MACAddress:     unptr(llDev.MACAddress),
-				Gateway:        unptr(llDev.GatewayAddress),
-				DNSNameservers: llDev.DNSAddresses,
-				Space:          strings.Join(spaces.Values(), " "),
-				IsUp:           llDev.IsEnabled}
-		})
-		logger.Tracef(ctx, "NetworkInterfaces: %+v", status.NetworkInterfaces)
+		// linkLayerDevices := c.linkLayerDevices[machineName]
+		// status.NetworkInterfaces = transform.SliceToMap(linkLayerDevices, func(llDev domainnetwork.NetInterface) (string, params.NetworkInterface) {
+		// 	spaces := set.NewStrings()
+		// 	for _, addr := range llDev.Addrs {
+		// 		spaces.Add(addr.Space)
+		// 	}
+		// 	return llDev.Name, params.NetworkInterface{
+		// 		IPAddresses:    transform.Slice(llDev.Addrs, func(net domainnetwork.NetAddr) string { return net.AddressValue }),
+		// 		MACAddress:     unptr(llDev.MACAddress),
+		// 		Gateway:        unptr(llDev.GatewayAddress),
+		// 		DNSNameservers: llDev.DNSAddresses,
+		// 		Space:          strings.Join(spaces.Values(), " "),
+		// 		IsUp:           llDev.IsEnabled}
+		// })
+		// logger.Tracef(ctx, "NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		status.InstanceId = "pending"
 	}
 
-	constraints := c.machineConstraints.Machine(machineID)
-	status.Constraints = constraints.String()
-
-	hc, err := c.machineService.GetHardwareCharacteristics(ctx, machineUUID)
-	if internalerrors.Is(err, machineerrors.NotProvisioned) {
-		logger.Debugf(ctx, "can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
-	}
-	if err != nil {
-		logger.Debugf(ctx, "error fetching hardware characteristics: %v", err)
-	} else if hc != nil {
-		status.Hardware = hc.String()
-	}
-	status.Containers = make(map[string]params.MachineStatus)
-
 	lxdProfiles := make(map[string]params.LXDProfile)
-	charmProfiles, err := c.machineService.AppliedLXDProfileNames(ctx, machineUUID)
-	if internalerrors.Is(err, machineerrors.NotProvisioned) {
-		logger.Debugf(ctx, "can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
-	}
-	if err != nil {
-		logger.Debugf(ctx, "error fetching lxd profiles: %w", err)
-	}
-
-	for _, v := range charmProfiles {
+	for _, v := range machine.LXDProfiles {
 		if profile, ok := appStatusInfo.lxdProfiles[v]; ok {
 			lxdProfiles[v] = params.LXDProfile{
 				Config:      profile.Config,
@@ -818,7 +793,6 @@ func (c *statusContext) makeMachineStatus(
 			}
 		}
 	}
-
 	status.LXDProfiles = lxdProfiles
 
 	return
@@ -1075,13 +1049,15 @@ func (c *statusContext) unitMachineID(unit statusservice.Unit) coremachine.Name 
 }
 
 func (c *statusContext) unitPublicAddress(unit statusservice.Unit) string {
-	machine := c.allMachines[c.unitMachineID(unit)]
-	if machine == nil {
+	_, ok := c.allMachines[c.unitMachineID(unit)]
+	if !ok {
 		return ""
 	}
+	// TODO (stickupkid): Return the public address of the unit's machine.
 	// We don't care if the machine doesn't have an address yet.
-	addr, _ := machine.PublicAddress()
-	return addr.Value
+	// addr, _ := machine.PublicAddress()
+	// return addr.Value
+	return ""
 }
 
 func (c *statusContext) processUnit(ctx context.Context, unitName coreunit.Name, unit statusservice.Unit, applicationCharm string) params.UnitStatus {
@@ -1264,20 +1240,30 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func (c *statusContext) processMachine(ctx context.Context, m *state.Machine) (out params.DetailedStatus) {
-	machineName := coremachine.Name(m.Id())
-	statusInfo, err := c.statusService.GetMachineStatus(ctx, machineName)
-	if internalerrors.Is(err, machineerrors.MachineNotFound) {
-		err = internalerrors.Errorf("machine %q not found", machineName).Add(errors.NotFound)
+func (c *statusContext) processMachine(ctx context.Context, m statusservice.Machine) (params.DetailedStatus, params.DetailedStatus) {
+	agentStatus := params.DetailedStatus{
+		Status: m.MachineStatus.Status.String(),
+		Info:   m.MachineStatus.Message,
+		Data:   filterStatusData(m.MachineStatus.Data),
+		Since:  m.MachineStatus.Since,
+		Life:   m.Life,
 	}
-	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
-	out.Life = processLife(m)
+	// TODO (stickupkid): Get the agent version from the machine service
+	// once the agent tools are available.
+	//if t, err := m.AgentTools(); err == nil {
+	// result.Version = t.Version.Number.String()
+	//}
 
-	if t, err := m.AgentTools(); err == nil {
-		out.Version = t.Version.Number.String()
+	instanceStatus := params.DetailedStatus{
+		Status: m.InstanceStatus.Status.String(),
+		Info:   m.InstanceStatus.Message,
+		Data:   filterStatusData(m.InstanceStatus.Data),
+		Since:  m.InstanceStatus.Since,
+		Life:   m.Life,
 	}
-	return
+
+	return agentStatus, instanceStatus
 }
 
 // filterStatusData limits what agent StatusData data is passed over
@@ -1291,14 +1277,6 @@ func filterStatusData(status map[string]interface{}) map[string]interface{} {
 		}
 	}
 	return out
-}
-
-func processLife(entity lifer) life.Value {
-	if aLife := entity.Life(); aLife != state.Alive {
-		// alive is the usual state so omit it by default.
-		return aLife.Value()
-	}
-	return life.Value("")
 }
 
 func encodePlatform(platform deployment.Platform) (params.Base, error) {

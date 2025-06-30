@@ -33,6 +33,15 @@ const (
 	Ubuntu
 )
 
+func (o OSType) String() string {
+	switch o {
+	case Ubuntu:
+		return "ubuntu"
+	default:
+		return "unknown"
+	}
+}
+
 // Platform contains parameters for an application's platform.
 type Platform struct {
 	Channel      string

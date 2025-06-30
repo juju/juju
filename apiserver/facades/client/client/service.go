@@ -68,6 +68,10 @@ type StatusService interface {
 
 	// GetMachineStatus returns the status of the specified machine.
 	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
+
+	// GetMachineStatuses returns all the machine statuses for the model, indexed
+	// by machine name.
+	GetMachineStatuses(ctx context.Context) (map[machine.Name]statusservice.Machine, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

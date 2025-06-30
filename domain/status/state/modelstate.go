@@ -1831,7 +1831,61 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 
 // GetAllMachineStatuses returns all the machine statuses for the model, indexed
 // by machine name.
-func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]status.Machine, error) {
+func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &machineNameStatus.*
+FROM v_machine_status AS ms
+JOIN machine AS m ON ms.machine_uuid = m.uuid
+	`, machineNameStatus{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var res []machineNameStatus
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&res)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]status.StatusInfo[status.MachineStatusType])
+	for _, mStatus := range res {
+		// Convert the internal status id from the (machine_status_value table)
+		// into the core status.Status type.
+		machineStatus, err := status.DecodeMachineStatus(mStatus.Status)
+		if err != nil {
+			return nil, errors.Errorf("decoding machine status for machine %q: %w", mStatus.Name, err)
+		}
+		var since *time.Time
+		if mStatus.Updated.Valid {
+			since = &mStatus.Updated.V
+		}
+		var data []byte
+		if len(mStatus.Data) > 0 {
+			data = mStatus.Data
+		}
+		result[mStatus.Name] = status.StatusInfo[status.MachineStatusType]{
+			Status:  machineStatus,
+			Message: mStatus.Message,
+			Since:   since,
+			Data:    data,
+		}
+	}
+	return result, nil
+}
+
+// GetMachineStatuses returns all the machine statuses for the model, indexed
+// by machine name.
+func (st *ModelState) GetMachineStatuses(ctx context.Context) (map[machine.Name]status.Machine, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1842,6 +1896,7 @@ SELECT
   m.name AS &machineStatusDetails.name,
   m.uuid AS &machineStatusDetails.uuid,
   m.life_id AS &machineStatusDetails.life_id,
+  m.hostname AS &machineStatusDetails.hostname,
   mci.instance_id AS &machineStatusDetails.instance_id,
   mci.display_name AS &machineStatusDetails.display_name,
   mci.arch AS &machineStatusDetails.instance_arch,
@@ -1912,6 +1967,11 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 			displayName = s.DisplayName.V
 		}
 
+		var hostname string
+		if s.Hostname.Valid {
+			hostname = s.Hostname.V
+		}
+
 		platform, err := decodePlatform(s.PlatformChannel, s.PlatformOSID, s.PlatformArchitectureID)
 		if err != nil {
 			return nil, errors.Errorf("decoding platform: %w", err)
@@ -1934,6 +1994,7 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 		result[s.Name] = status.Machine{
 			UUID:        s.UUID,
 			Life:        s.LifeID,
+			Hostname:    hostname,
 			InstanceID:  instanceID,
 			DisplayName: displayName,
 			Platform:    platform,

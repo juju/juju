@@ -2004,7 +2004,22 @@ func (s *modelStateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
 	c.Check(obtainedStatus.Status, tc.Equals, status.MachineStatusPending)
 }
 
-func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
+// TestGetMachineMachineStatusNotFoundError asserts that a Pending status is
+// returned when creating a machine.
+func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
+	mUUID := s.createMachine(c, "666")
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM machine_status WHERE machine_uuid=?", mUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.state.GetMachineStatus(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
+}
+
+func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 	uuid0 := s.createMachine(c, "666")
 	uuid1 := s.createMachine(c, "777")
 	uuid2 := s.createMachine(c, "888")
@@ -2021,7 +2036,7 @@ func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
 	})
 
 	// Act
-	statuses, err := s.state.GetAllMachineStatuses(c.Context())
+	statuses, err := s.state.GetMachineStatuses(c.Context())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -2127,19 +2142,44 @@ func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
 	})
 }
 
-// TestGetMachineMachineStatusNotFoundError asserts that a Pending status is
-// returned when creating a machine.
-func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
-	mUUID := s.createMachine(c, "666")
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "DELETE FROM machine_status WHERE machine_uuid=?", mUUID)
-		return err
-	})
+func (s *modelStateSuite) TestGetMachineStatusesEmptyModel(c *tc.C) {
+	statuses, err := s.state.GetMachineStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.HasLen, 0)
+}
 
-	_, err = s.state.GetMachineStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
+func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
+	// Arrange: 2 machine with statuses
+	s.createMachine(c, "666")
+	s.createMachine(c, "777")
+
+	s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
+		Message: "it's started",
+		Data:    []byte(`{"foo": "bar"}`),
+	})
+	s.state.SetMachineStatus(c.Context(), "777", status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusPending,
+		Message: "it's pending",
+		Data:    []byte(`{"bar": "foo"}`),
+	})
+
+	// Act
+	statuses, err := s.state.GetAllMachineStatuses(c.Context())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.HasLen, 2)
+	c.Check(statuses["666"], tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
+		Message: "it's started",
+		Data:    []byte(`{"foo": "bar"}`),
+	})
+	c.Check(statuses["777"], tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusPending,
+		Message: "it's pending",
+		Data:    []byte(`{"bar": "foo"}`),
+	})
 }
 
 func (s *modelStateSuite) TestGetAllMachineStatusesEmptyModel(c *tc.C) {
