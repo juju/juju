@@ -411,6 +411,9 @@ func (st *State) importCAASUnit(
 		return nil
 	}
 
+	// TODO: We need to import the storage, filesystem and volume ids.
+	// Currently they are being regenerated, this will break imported units.
+	// TODO: This is completely untested.
 	attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
 	if err != nil {
 		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
@@ -419,7 +422,7 @@ func (st *State) importCAASUnit(
 	if err != nil {
 		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
 	}
-	return nil
+	return errors.New("storage migration is not implemented")
 }
 
 func (st *State) importIAASUnit(
@@ -461,8 +464,16 @@ func (st *State) importIAASUnit(
 		}
 	}
 
+	// If there is no storage, return early.
+	if len(args.Storage) == 0 {
+		return nil
+	}
+
+	// TODO: We need to import the storage, filesystem and volume ids.
+	// Currently they are being regenerated, this will break imported units.
+	// TODO: This is completely untested.
 	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
 		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
 	}
-	return nil
+	return errors.New("storage migration is not implemented")
 }
