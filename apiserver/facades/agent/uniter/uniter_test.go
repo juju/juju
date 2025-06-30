@@ -36,6 +36,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/resolve"
@@ -786,6 +787,7 @@ func (s *uniterSuite) TestNetworkInfoFailCanAccess(c *tc.C) {
 		Unit:      "unit-foo-42",
 		Endpoints: []string{"endpoint-0", "endpoint-1"},
 	}
+
 	_, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
@@ -798,7 +800,9 @@ func (s *uniterSuite) TestNetworkInfoErrorFromDomain(c *tc.C) {
 		Endpoints: []string{"endpoint-0", "endpoint-1"},
 	}
 	boom := internalerrors.New("boom")
-	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(network.SpaceAddress{}, boom)
+
+	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), coreunit.Name("foo/42"),
+		args.Endpoints).Return(nil, boom)
 
 	_, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -811,19 +815,23 @@ func (s *uniterSuite) TestNetworkInfo(c *tc.C) {
 		Unit:      "unit-foo-42",
 		Endpoints: []string{"endpoint-0", "endpoint-1"},
 	}
-	addr := network.SpaceAddress{
-		MachineAddress: network.MachineAddress{
-			Value: "192.168.0.1",
-		},
-	}
-	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), coreunit.Name("foo/42")).Return(addr, nil)
+	addr := "192.168.0.1"
+
+	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), coreunit.Name("foo/42"),
+		args.Endpoints).Return([]domainnetwork.UnitNetwork{{
+		EndpointName:     "endpoint-0",
+		IngressAddresses: []string{addr},
+	}, {
+		EndpointName:     "endpoint-1",
+		IngressAddresses: []string{addr},
+	}}, nil)
 
 	result, err := s.uniter.NetworkInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
-			"endpoint-0": {IngressAddresses: []string{addr.Value}},
-			"endpoint-1": {IngressAddresses: []string{addr.Value}},
+			"endpoint-0": {IngressAddresses: []string{addr}},
+			"endpoint-1": {IngressAddresses: []string{addr}},
 		},
 	})
 }
@@ -1651,12 +1659,17 @@ func (s *uniterRelationSuite) TestEnterScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	addr := "x.x.x.x"
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
-	s.expectUnitPublicAddress(unitName, addr)
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings, nil)
+
+	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, relKey).Return(domainnetwork.UnitNetwork{
+		EndpointName:     "mysql",
+		IngressAddresses: []string{addr},
+	}, nil)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -1678,13 +1691,17 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	addr := "x.x.x.x"
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
-	s.expectUnitPublicAddress(unitName, addr)
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings,
 		relationerrors.PotentialRelationUnitNotValid)
+	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, relKey).Return(domainnetwork.UnitNetwork{
+		EndpointName:     "mysql",
+		IngressAddresses: []string{addr},
+	}, nil)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -1938,14 +1955,6 @@ func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *uniterRelationSuite) expectGetRelationUUIDByKey(key corerelation.Key, relUUID corerelation.UUID, err error) {
 	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), key).Return(relUUID, err)
-}
-
-func (s *uniterRelationSuite) expectUnitPublicAddress(unitName coreunit.Name, addr string) {
-	s.networkService.EXPECT().GetUnitPublicAddress(gomock.Any(), unitName).Return(network.SpaceAddress{
-		MachineAddress: network.MachineAddress{
-			Value: addr,
-		},
-	}, nil)
 }
 
 func (s *uniterRelationSuite) expectGetRelationDetails(c *tc.C, relUUID corerelation.UUID, relID int, relTag names.RelationTag) {

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/resolve"
 	"github.com/juju/juju/domain/unitstate"
@@ -251,6 +252,28 @@ type NetworkService interface {
 	// - [applicationerrors.UnitNotFound] if the unit does not exist
 	// - [network.NoAddressError] if the unit has no private address associated
 	GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error)
+
+	// GetUnitRelationNetwork retrieves network relation information for a given
+	// unit and relation key.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist
+	// - [relationerrors.RelationNotFound] if the relation key doesn't belong to
+	//   the unit.
+	GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name, relKey corerelation.Key) (domainnetwork.UnitNetwork, error)
+
+	// GetUnitEndpointNetworks retrieves network relation information for a given unit and specified endpoints.
+	// It returns exactly one info for each endpoint names passed in argument,
+	// but doesn't enforce the order. Each info has an endpoint name that should match
+	// one of the endpoint names, one info for each endpoint names.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist
+	GetUnitEndpointNetworks(ctx context.Context, unitName coreunit.Name, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
+
+	// SetUnitRelationNetworks updates the relation network information for
+	// the specified unit.
+	SetUnitRelationNetworks(context context.Context, name coreunit.Name) error
 }
 
 type ResolveService interface {
