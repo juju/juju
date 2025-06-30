@@ -49,6 +49,7 @@ func NewWatchableDB(
 
 	mux, err := eventmultiplexer.New(stream, clock, metrics, logger)
 	if err != nil {
+		stream.Kill()
 		return nil, errors.Trace(err)
 	}
 
@@ -100,6 +101,11 @@ func (w *WatchableDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.
 // The subscription is then used to drive watchers.
 func (w *WatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	return w.mux.Subscribe(opts...)
+}
+
+// Report returns the report from the stream muxer.
+func (w *WatchableDB) Report() map[string]any {
+	return w.mux.Report()
 }
 
 func (w *WatchableDB) loop() error {
