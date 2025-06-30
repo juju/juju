@@ -11,9 +11,7 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -42,7 +40,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
 	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
-	s.addk8sService(c, svcNodeUUID, appUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
 
 	// Act
 	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
@@ -116,7 +114,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNoAddresses(c *tc.C)
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
 	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
-	s.addk8sService(c, svcNodeUUID, appUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
 
 	// Act
 	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
@@ -133,7 +131,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
 
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
-	s.addk8sService(c, svcNodeUUID, appUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
 
 	// Act
 	_, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), "foo")
@@ -284,30 +282,10 @@ func (s *unitAddressSuite) addCharm(c *tc.C) string {
 	return charmUUID
 }
 
-func (s *unitAddressSuite) addApplication(c *tc.C, charmUUID, spaceUUID string) string {
-	appUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
-		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
-	return appUUID
-}
-
 func (s *unitAddressSuite) addControllerApplication(c *tc.C, applicationUUID string) {
 	s.query(c, `INSERT INTO application_controller (application_uuid) VALUES ( ?)`,
 		applicationUUID)
 	return
-}
-
-func (s *unitAddressSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
-		unitUUID, unitUUID, life.Alive, appUUID, charmUUID, nodeUUID)
-	return unitUUID
-}
-
-func (s *unitAddressSuite) addk8sService(c *tc.C, nodeUUID, appUUID string) {
-	svcUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`,
-		svcUUID, nodeUUID, appUUID, "provider-id")
 }
 
 func (s *unitAddressSuite) addsubnet(c *tc.C, spaceUUID string) (string, string) {

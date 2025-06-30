@@ -14,6 +14,9 @@ import (
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	corenetwork "github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -54,6 +57,13 @@ func (s *linkLayerBaseSuite) query(c *tc.C, query string, args ...any) {
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v",
 		errors.ErrorStack(err)))
+}
+
+func (s *linkLayerBaseSuite) addApplication(c *tc.C, charmUUID, spaceUUID string) string {
+	appUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
+	return appUUID
 }
 
 func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
@@ -161,6 +171,35 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	return addressUUID
 }
 
+// addIPAddressWithSubnet adds an IP address to the database and returns its UUID.
+func (s *linkLayerBaseSuite) addIPAddressWithSubnet(c *tc.C, deviceUUID, netNodeUUID,
+	subnetUUID, addressValue string) string {
+	addressUUID := "address-" + addressValue + "-uuid"
+
+	s.query(c, `
+		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, subnetUUID, 0, 4, 1, 0,
+		false, false)
+
+	return addressUUID
+}
+
+// addIPAddressWithSubnet adds an IP address to the database and returns its UUID.
+func (s *linkLayerBaseSuite) addIPAddressWithSubnetAndScope(c *tc.C, deviceUUID, netNodeUUID,
+	subnetUUID, addressValue string, scope corenetwork.Scope) string {
+	addressUUID := "address-" + addressValue + "-uuid"
+
+	s.query(c, `
+		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id)
+		SELECT ?, ?, ?, ?, ?, ?, ?, ?, scope.id
+		FROM ip_address_scope AS scope
+		WHERE scope.name = ?
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, subnetUUID, 0, 4, 1, string(scope))
+
+	return addressUUID
+}
+
 // addProviderIPAddress adds a provider IP address to the database.
 func (s *mergeLinkLayerSuite) addProviderIPAddress(
 	c *tc.C, addressUUID, providerID string,
@@ -179,4 +218,20 @@ WHERE uuid = ?
 
 func (s *linkLayerBaseSuite) setLinkLayerDeviceParent(c *tc.C, childUUID string, parentUUID string) {
 	s.query(c, `INSERT INTO link_layer_device_parent (parent_uuid, device_uuid) VALUES (?, ?)`, parentUUID, childUUID)
+}
+
+// addUnit inserts a new unit record into the database and returns the generated unit UUID.
+func (s *linkLayerBaseSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
+		unitUUID, unitUUID, life.Alive, appUUID, charmUUID, nodeUUID)
+	return unitUUID
+}
+
+// addK8sService inserts a new Kubernetes service into the database with the associated node, application, and
+// provider ID.
+func (s *linkLayerBaseSuite) addK8sService(c *tc.C, nodeUUID, appUUID string) {
+	svcUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`,
+		svcUUID, nodeUUID, appUUID, "provider-id")
 }
