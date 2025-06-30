@@ -164,24 +164,6 @@ func networkDeviceToStateArgs(dev network.InterfaceInfo) state.LinkLayerDeviceAr
 	}
 }
 
-// networkAddressStateArgsForDevice accommodates the
-// fact that network configuration is sometimes supplied
-// with a duplicated device for each address.
-// This is a normalisation that returns state args for all
-// addresses of interfaces with the input name.
-func networkAddressStateArgsForDevice(ctx context.Context, devs network.InterfaceInfos, name string) []state.LinkLayerDeviceAddress {
-	var res []state.LinkLayerDeviceAddress
-
-	for _, dev := range devs.GetByName(name) {
-		if dev.PrimaryAddress().Value == "" {
-			continue
-		}
-		res = append(res, networkAddressesToStateArgs(ctx, dev, dev.Addresses)...)
-	}
-
-	return res
-}
-
 func networkAddressesToStateArgs(
 	ctx context.Context,
 	dev network.InterfaceInfo, addrs []network.ProviderAddress,

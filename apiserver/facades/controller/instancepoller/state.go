@@ -4,7 +4,6 @@
 package instancepoller
 
 import (
-	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -13,13 +12,13 @@ import (
 // StateMachine represents a machine from state package.
 type StateMachine interface {
 	state.Entity
-	commonnetwork.LinkLayerMachine
 
 	ProviderAddresses() network.SpaceAddresses
 	SetProviderAddresses(controller.Config, ...network.SpaceAddress) error
 	String() string
 	Refresh() error
 	Life() state.Life
+	Id() string
 }
 
 type StateInterface interface {
@@ -31,34 +30,6 @@ type StateInterface interface {
 
 type machineShim struct {
 	*state.Machine
-}
-
-func (s machineShim) AllLinkLayerDevices() ([]commonnetwork.LinkLayerDevice, error) {
-	devList, err := s.Machine.AllLinkLayerDevices()
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]commonnetwork.LinkLayerDevice, len(devList))
-	for i, dev := range devList {
-		out[i] = dev
-	}
-
-	return out, nil
-}
-
-func (s machineShim) AllDeviceAddresses() ([]commonnetwork.LinkLayerAddress, error) {
-	addrList, err := s.Machine.AllDeviceAddresses()
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]commonnetwork.LinkLayerAddress, len(addrList))
-	for i, addr := range addrList {
-		out[i] = addr
-	}
-
-	return out, nil
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be
