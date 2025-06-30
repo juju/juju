@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -93,6 +94,10 @@ type ControllerNodeService interface {
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
 	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	// GetAPIHostPortsByControllerIDForAgents returns API HostPorts that are available
+	// for agents. The map is keyed by controller ID, and the values are HostPorts
+	// representing the API addresses for each controller node.
+	GetAPIHostPortsByControllerIDForAgents(ctx context.Context) ([]network.HostPorts, error)
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)

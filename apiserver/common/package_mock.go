@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -40,41 +41,41 @@ func (m *MockAPIAddressAccessor) EXPECT() *MockAPIAddressAccessorMockRecorder {
 	return m.recorder
 }
 
-// GetAllAPIAddressesByControllerIDForAgents mocks base method.
-func (m *MockAPIAddressAccessor) GetAllAPIAddressesByControllerIDForAgents(arg0 context.Context) (map[string][]string, error) {
+// GetAPIHostPortsByControllerIDForAgents mocks base method.
+func (m *MockAPIAddressAccessor) GetAPIHostPortsByControllerIDForAgents(arg0 context.Context) ([]network.HostPorts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllAPIAddressesByControllerIDForAgents", arg0)
-	ret0, _ := ret[0].(map[string][]string)
+	ret := m.ctrl.Call(m, "GetAPIHostPortsByControllerIDForAgents", arg0)
+	ret0, _ := ret[0].([]network.HostPorts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAllAPIAddressesByControllerIDForAgents indicates an expected call of GetAllAPIAddressesByControllerIDForAgents.
-func (mr *MockAPIAddressAccessorMockRecorder) GetAllAPIAddressesByControllerIDForAgents(arg0 any) *MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall {
+// GetAPIHostPortsByControllerIDForAgents indicates an expected call of GetAPIHostPortsByControllerIDForAgents.
+func (mr *MockAPIAddressAccessorMockRecorder) GetAPIHostPortsByControllerIDForAgents(arg0 any) *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesByControllerIDForAgents", reflect.TypeOf((*MockAPIAddressAccessor)(nil).GetAllAPIAddressesByControllerIDForAgents), arg0)
-	return &MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIHostPortsByControllerIDForAgents", reflect.TypeOf((*MockAPIAddressAccessor)(nil).GetAPIHostPortsByControllerIDForAgents), arg0)
+	return &MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall{Call: call}
 }
 
-// MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall wrap *gomock.Call
-type MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall struct {
+// MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall wrap *gomock.Call
+type MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall) Return(arg0 map[string][]string, arg1 error) *MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall {
+func (c *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall) Return(arg0 []network.HostPorts, arg1 error) *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall) Do(f func(context.Context) (map[string][]string, error)) *MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall {
+func (c *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall) Do(f func(context.Context) ([]network.HostPorts, error)) *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall) DoAndReturn(f func(context.Context) (map[string][]string, error)) *MockAPIAddressAccessorGetAllAPIAddressesByControllerIDForAgentsCall {
+func (c *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall) DoAndReturn(f func(context.Context) ([]network.HostPorts, error)) *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

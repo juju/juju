@@ -15,6 +15,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	machine "github.com/juju/juju/core/machine"
+	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
@@ -420,6 +421,45 @@ func NewMockControllerNodeService(ctrl *gomock.Controller) *MockControllerNodeSe
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecorder {
 	return m.recorder
+}
+
+// GetAPIHostPortsByControllerIDForAgents mocks base method.
+func (m *MockControllerNodeService) GetAPIHostPortsByControllerIDForAgents(arg0 context.Context) ([]network.HostPorts, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAPIHostPortsByControllerIDForAgents", arg0)
+	ret0, _ := ret[0].([]network.HostPorts)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAPIHostPortsByControllerIDForAgents indicates an expected call of GetAPIHostPortsByControllerIDForAgents.
+func (mr *MockControllerNodeServiceMockRecorder) GetAPIHostPortsByControllerIDForAgents(arg0 any) *MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIHostPortsByControllerIDForAgents", reflect.TypeOf((*MockControllerNodeService)(nil).GetAPIHostPortsByControllerIDForAgents), arg0)
+	return &MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall{Call: call}
+}
+
+// MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall wrap *gomock.Call
+type MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall) Return(arg0 []network.HostPorts, arg1 error) *MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall) Do(f func(context.Context) ([]network.HostPorts, error)) *MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall) DoAndReturn(f func(context.Context) ([]network.HostPorts, error)) *MockControllerNodeServiceGetAPIHostPortsByControllerIDForAgentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetAllAPIAddressesByControllerIDForAgents mocks base method.

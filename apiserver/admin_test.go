@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync/atomic"
 	stdtesting "testing"
@@ -78,6 +77,8 @@ func TestLoginStub(t *stdtesting.T) {
  - Test login during model migration
  - Test login for agents
  - Test login for agents with machine not provisioned
+ - Test login addresses as user
+ - Test login addresses as not user
 	`)
 }
 
@@ -273,39 +274,6 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *tc.C) {
 	c.Check(strings.Contains(err.Error(), `unknown facade type "Client"`), tc.IsTrue)
 }
 
-func (s *loginSuite) setupManagementSpace(c *tc.C) *network.SpaceInfo {
-
-	networkService := s.ControllerDomainServices(c).Network()
-	mgmtSpaceID, err := networkService.AddSpace(c.Context(), network.SpaceInfo{
-		Name: "mgmt01",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	mgmtSpace, err := networkService.Space(c.Context(), mgmtSpaceID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	cfg := map[string]any{
-		corecontroller.JujuManagementSpace: "mgmt01",
-	}
-
-	configService := s.ControllerDomainServices(c).ControllerConfig()
-	err = configService.UpdateControllerConfig(c.Context(), cfg, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.ControllerDomainServices(c).ControllerConfig().UpdateControllerConfig(c.Context(), cfg, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return mgmtSpace
-}
-
-func (s *loginSuite) loginHostPorts(
-	c *tc.C, info *api.Info,
-) (connectedAddr *url.URL, hostPorts []network.MachineHostPorts) {
-	st, err := api.Open(c.Context(), info, fastDialOpts)
-	c.Assert(err, tc.ErrorIsNil)
-	defer st.Close()
-	return st.Addr(), st.APIHostPorts()
-}
-
 /*
 func (s *loginSuite) assertAgentLogin(c *tc.C, info *api.Info, mgmtSpace *network.SpaceInfo) {
 	st := s.ControllerModel(c).State()
@@ -365,101 +333,6 @@ func (s *loginSuite) assertAgentLogin(c *tc.C, info *api.Info, mgmtSpace *networ
 	c.Assert(hostPorts, tc.DeepEquals, expectedAPIHostPorts)
 }
 */
-
-func (s *loginSuite) TestLoginAddressesForClients(c *tc.C) {
-	mgmtSpace := s.setupManagementSpace(c)
-
-	info := s.ControllerModelApiInfo()
-	info = s.infoForNewUser(c, info)
-
-	server1Addresses := network.SpaceAddresses{
-		network.NewSpaceAddress("server-1", network.WithScope(network.ScopePublic)),
-		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
-	}
-	server1Addresses[1].SpaceID = mgmtSpace.ID
-
-	server2Addresses := network.SpaceAddresses{
-		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
-	}
-
-	cfg := coretesting.FakeControllerConfig()
-	st := s.ControllerModel(c).State()
-
-	newAPIHostPorts := []network.SpaceHostPorts{
-		network.SpaceAddressesWithPort(server1Addresses, 123),
-		network.SpaceAddressesWithPort(server2Addresses, 456),
-	}
-	err := st.SetAPIHostPorts(cfg, newAPIHostPorts, newAPIHostPorts)
-	c.Assert(err, tc.ErrorIsNil)
-
-	exp := []network.MachineHostPorts{
-		{
-			{
-				MachineAddress: network.NewMachineAddress("server-1", network.WithScope(network.ScopePublic)),
-				NetPort:        123,
-			},
-			{
-				MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
-				NetPort:        123,
-			},
-		}, {
-			{
-				MachineAddress: network.NewMachineAddress("::1", network.WithScope(network.ScopeMachineLocal)),
-				NetPort:        456,
-			},
-		},
-	}
-
-	_, hostPorts := s.loginHostPorts(c, info)
-	// Ignoring the address used to login, the returned API addresses should not
-	// Have management space filtering applied.
-	c.Check(hostPorts[1:], tc.DeepEquals, exp)
-}
-
-func (s *loginSuite) infoForNewUser(c *tc.C, info *api.Info) *api.Info {
-	// Make a copy
-	newInfo := *info
-
-	userTag := names.NewUserTag("charlie")
-	name := user.NameFromTag(userTag)
-	pass := "shhh..."
-
-	accessService := s.ControllerDomainServices(c).Access()
-
-	// Add a user with permission to log into this controller.
-	_, _, err := accessService.AddUser(c.Context(), accessservice.AddUserArg{
-		Name:        name,
-		DisplayName: "Charlie Brown",
-		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(pass)),
-		Permission: permission.AccessSpec{
-			Access: permission.LoginAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        s.ControllerUUID,
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Grant the user admin access to the model too.
-	accessSpec := permission.AccessSpec{
-		Target: permission.ID{
-			ObjectType: permission.Model,
-			Key:        info.ModelTag.Id(),
-		},
-		Access: permission.AdminAccess,
-	}
-	_, err = accessService.CreatePermission(c.Context(), permission.UserAccessSpec{
-		AccessSpec: accessSpec,
-		User:       name,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	newInfo.Tag = userTag
-	newInfo.Password = pass
-	return &newInfo
-}
 
 func (s *loginSuite) TestNoLoginPermissions(c *tc.C) {
 	info := s.ControllerModelApiInfo()

@@ -109,30 +109,21 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		return fail, errors.Trace(err)
 	}
 
-	controllerConfigService := a.root.DomainServices().ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
-
 	// Fetch the API server addresses from state.
 	// If the login comes from a client, return all available addresses.
 	// Otherwise return the addresses suitable for agent use.
-	ctrlSt, err := a.root.shared.statePool.SystemState()
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
-	getHostPorts := ctrlSt.APIHostPortsForAgents
+	controllerNodeService := a.root.DomainServices().ControllerNode()
+	getHostPorts := controllerNodeService.GetAPIHostPortsByControllerIDForAgents
 	if k, _ := names.TagKind(req.AuthTag); k == names.UserTagKind {
-		getHostPorts = ctrlSt.APIHostPortsForClients
+		getHostPorts = controllerNodeService.GetAPIHostPortsByControllerIDForClients
 	}
-	hostPorts, err := getHostPorts(controllerConfig)
+	hostPorts, err := getHostPorts(ctx)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 	pServers := make([]network.HostPorts, len(hostPorts))
 	for i, hps := range hostPorts {
-		pServers[i] = hps.HostPorts()
+		pServers[i] = hps
 	}
 
 	// apiRoot is the API root exposed to the client after login.
