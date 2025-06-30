@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logger"
 )
 
@@ -45,6 +46,27 @@ func (addrs APIAddresses) PrioritizedForScope(getMatcher ScopeMatchFunc) []strin
 		out[i] = addrs[index].Address
 	}
 	return out
+}
+
+// ToHostPortsNoMachineLocal transforms APIAddresses into network HostPorts,
+// not including machine local scoped.
+func (addrs APIAddresses) ToHostPortsNoMachineLocal() (network.HostPorts, error) {
+	result := make(network.HostPorts, 0, len(addrs))
+	for _, addr := range addrs {
+		if addr.Scope == network.ScopeMachineLocal {
+			continue
+		}
+		ip, err := netip.ParseAddrPort(addr.Address)
+		if err != nil {
+			return nil, errors.Errorf("parsing %q: %w", addr.Address, err)
+		}
+		mAddr := network.NewMachineAddress(ip.Addr().String(), network.WithScope(addr.Scope))
+		result = append(result, network.MachineHostPort{
+			MachineAddress: mAddr,
+			NetPort:        network.NetPort(ip.Port()),
+		})
+	}
+	return result, nil
 }
 
 // indexesByScopeMatch filters address indexes by matching scope,

@@ -259,6 +259,45 @@ func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string,
 	return s.st.GetAPIAddresses(ctx, nodeID)
 }
 
+// GetAPIHostPortsByControllerIDForAgents returns API HostPorts that are available
+// for agents. The map is keyed by controller ID, and the values are HostPorts
+// representing the API addresses for each controller node.
+func (s *Service) GetAPIHostPortsByControllerIDForAgents(ctx context.Context) ([]network.HostPorts, error) {
+	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]network.HostPorts, len(agentAddrs))
+	for i, addr := range agentAddrs {
+		result[i], err = addr.ToHostPortsNoMachineLocal()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+	return result, nil
+}
+
+// GetAPIHostPortsByControllerIDForClients returns API HostPorts that are available
+// for clients. The map is keyed by controller ID, and the values are HostPorts
+// representing the API addresses for each controller node.
+func (s *Service) GetAPIHostPortsByControllerIDForClients(ctx context.Context) ([]network.HostPorts, error) {
+	clientAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]network.HostPorts, len(clientAddrs))
+	for i, addr := range clientAddrs {
+		// todo - skip machine local
+		result[i], err = addr.ToHostPortsNoMachineLocal()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+	return result, nil
+}
+
 // GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
 // addresses that are available for agents. The map is keyed by controller ID,
 // and the values are slices of strings representing the API addresses for each
@@ -300,12 +339,12 @@ func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (strin
 // addresses available for agents ordered to prefer public scoped
 // addresses and IPv4 over IPv6 for each machine.
 func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
-	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
+	clientAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	orderedAddrs := make([]string, 0)
-	for _, addrs := range agentAddrs {
+	for _, addrs := range clientAddrs {
 		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
 	}
 	return orderedAddrs, nil
