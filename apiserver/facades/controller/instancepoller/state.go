@@ -27,9 +27,6 @@ type StateInterface interface {
 	state.EntityFinder
 
 	Machine(id string) (StateMachine, error)
-
-	// ApplyOperation applies a given ModelOperation to the model.
-	ApplyOperation(state.ModelOperation) error
 }
 
 type machineShim struct {
