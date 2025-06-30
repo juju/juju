@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/state"
 )
 
 // DeployCharmResult holds the result of deploying a charm.

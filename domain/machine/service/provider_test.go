@@ -143,7 +143,7 @@ func (s *providerServiceSuite) TestCreateMachineWithParentSuccess(c *tc.C) {
 
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
 
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(false, nil)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(nil)
 
 	s.expectCreateMachineParentStatusHistory(c)
 
@@ -159,7 +159,7 @@ func (s *providerServiceSuite) TestCreateMachineWithParentError(c *tc.C) {
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(false, rErr)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(rErr)
 
 	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("1"), machine.Name("0"))
 	c.Assert(err, tc.ErrorIs, rErr)
@@ -175,7 +175,7 @@ func (s *providerServiceSuite) TestCreateMachineWithParentParentNotFound(c *tc.C
 
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
 
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(false, coreerrors.NotFound)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(coreerrors.NotFound)
 
 	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("1"), machine.Name("0"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
@@ -190,7 +190,7 @@ func (s *providerServiceSuite) TestCreateMachineWithParentMachineAlreadyExists(c
 
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
 
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(false, machineerrors.MachineAlreadyExists)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), machine.Name("0/lxd/1"), gomock.Any(), gomock.Any()).Return(machineerrors.MachineAlreadyExists)
 
 	_, err := s.service.CreateMachineWithParent(c.Context(), machine.Name("1"), machine.Name("0"))
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)

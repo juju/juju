@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -117,10 +116,6 @@ func statusHistoryResultError(err error) params.StatusHistoryResults {
 	return statusHistoryResultsError(err, 1)
 }
 
-type lifer interface {
-	Life() state.Life
-}
-
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (params.FullStatus, error) {
 	if err := c.checkCanRead(ctx); err != nil {
@@ -136,11 +131,11 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		)
 	}
 
-	machineJobFetcher := func(context.Context, machine.Name) []model.MachineJob {
+	machineJobFetcher := func(context.Context, coremachine.Name) []model.MachineJob {
 		return []model.MachineJob{model.JobHostUnits}
 	}
 	if c.isControllerModel {
-		machineJobFetcher = func(ctx context.Context, name machine.Name) []model.MachineJob {
+		machineJobFetcher = func(ctx context.Context, name coremachine.Name) []model.MachineJob {
 			jobs := []model.MachineJob{model.JobHostUnits}
 			if isController, err := c.machineService.IsMachineController(ctx, name); err != nil && !internalerrors.Is(err, machineerrors.MachineNotFound) {
 				logger.Errorf(ctx, "error checking if machine %q is controller: %v", name, err)
@@ -379,7 +374,7 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 }
 
 // MachineJobFetcherFunc is a function that fetches jobs for a given machine.
-type MachineJobFetcherFunc func(context.Context, machine.Name) []model.MachineJob
+type MachineJobFetcherFunc func(context.Context, coremachine.Name) []model.MachineJob
 
 type statusContext struct {
 	applicationService ApplicationService
@@ -391,14 +386,12 @@ type statusContext struct {
 	providerType string
 	model        model.ModelInfo
 
-	status1 *state.AllStatus
-
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
-	machines map[machine.Name][]statusservice.Machine
+	machines map[coremachine.Name][]statusservice.Machine
 	// allMachines: machine id -> machine
 	// The machine in this map is the same machine in the machines map.
-	allMachines map[machine.Name]statusservice.Machine
+	allMachines map[coremachine.Name]statusservice.Machine
 
 	// ipAddresses: machine id -> list of ip.addresses
 	ipAddresses map[coremachine.Name][]domainnetwork.NetAddr
@@ -438,15 +431,15 @@ func (c *statusContext) fetchMachines(ctx context.Context, st Backend) error {
 		return nil
 	}
 
-	c.machines = make(map[machine.Name][]statusservice.Machine)
-	c.allMachines = make(map[machine.Name]statusservice.Machine)
+	c.machines = make(map[coremachine.Name][]statusservice.Machine)
+	c.allMachines = make(map[coremachine.Name]statusservice.Machine)
 
 	machines, err := c.statusService.GetMachineStatuses(ctx)
 	if err != nil {
 		return err
 	}
 
-	nameOrder := make([]machine.Name, 0, len(machines))
+	nameOrder := make([]coremachine.Name, 0, len(machines))
 	for name := range machines {
 		nameOrder = append(nameOrder, name)
 	}
@@ -1288,13 +1281,4 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 	default:
 		return "", internalerrors.Errorf("unknown os type %q", ostype)
 	}
-}
-
-// unptr dereferences a pointer of type T and returns its value.
-// Returns the zero value of T if the pointer is nil.
-func unptr[T any](ptr *T) (v T) {
-	if ptr == nil {
-		return
-	}
-	return *ptr
 }

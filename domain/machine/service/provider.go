@@ -135,7 +135,7 @@ func (s *ProviderService) CreateMachineWithParent(ctx context.Context, machineNa
 	if err != nil {
 		return "", errors.Errorf("creating machine %q: %w", name, err)
 	}
-	_, err = s.st.CreateMachineWithParent(ctx, name, nodeUUID, machineUUID)
+	err = s.st.CreateMachineWithParent(ctx, name, nodeUUID, machineUUID)
 	if err != nil {
 		return machineUUID, errors.Errorf("creating machine %q: %w", name, err)
 	}

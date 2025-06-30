@@ -46,7 +46,7 @@ func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
 func (st *State) CreateMachine(ctx context.Context, machineName machine.Name, nodeUUID string, machineUUID machine.UUID, nonce *string) error {
-	_, err := st.createMachine(ctx, createMachineArgs{
+	err := st.createMachine(ctx, createMachineArgs{
 		name:        machineName,
 		netNodeUUID: nodeUUID,
 		machineUUID: machineUUID,
@@ -62,7 +62,7 @@ func (st *State) CreateMachine(ctx context.Context, machineName machine.Name, no
 // It returns a MachineNotFound error if the parent machine does not exist.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (st *State) CreateMachineWithParent(ctx context.Context, machineName machine.Name, nodeUUID string, machineUUID machine.UUID) (bool, error) {
+func (st *State) CreateMachineWithParent(ctx context.Context, machineName machine.Name, nodeUUID string, machineUUID machine.UUID) error {
 	return st.createMachine(ctx, createMachineArgs{
 		name:        machineName,
 		netNodeUUID: nodeUUID,
@@ -75,10 +75,10 @@ func (st *State) CreateMachineWithParent(ctx context.Context, machineName machin
 // It returns the uuid of the created machine.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (st *State) createMachine(ctx context.Context, args createMachineArgs) (bool, error) {
+func (st *State) createMachine(ctx context.Context, args createMachineArgs) error {
 	db, err := st.DB()
 	if err != nil {
-		return false, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	mName := args.name
@@ -93,7 +93,7 @@ FROM  machine AS m
 WHERE name = $machineName.name;
 `, machineNameParam, machineExistsUUIDout)
 	if err != nil {
-		return false, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	var nonce sql.Null[string]
@@ -106,7 +106,7 @@ WHERE name = $machineName.name;
 
 	lifeID, err := encodeLife(life.Alive)
 	if err != nil {
-		return false, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	// Prepare query for creating machine row.
@@ -123,28 +123,27 @@ VALUES ($createMachine.*)
 `
 	createMachineStmt, err := st.Prepare(createMachineQuery, createParams)
 	if err != nil {
-		return false, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	// Prepare query for creating net node row.
 	createNodeQuery := `INSERT INTO net_node (uuid) VALUES ($createMachine.net_node_uuid)`
 	createNodeStmt, err := st.Prepare(createNodeQuery, createParams)
 	if err != nil {
-		return false, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	now := st.clock.Now()
 
 	instanceStatusInfo, err := status.EncodeCloudInstanceStatus(status.InstanceStatusPending)
 	if err != nil {
-		return false, errors.Capture(err)
+		return errors.Capture(err)
 	}
 	machineStatusInfo, err := status.EncodeMachineStatus(status.MachineStatusPending)
 	if err != nil {
-		return false, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
-	var createdParent bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid. If the machine already exists, return a
 		// MachineAlreadyExists error.
@@ -200,14 +199,12 @@ VALUES ($createMachine.*)
 			return errors.Errorf("creating parent machine for machine %q: %w", mName, err)
 		}
 
-		createdParent = true
-
 		return nil
 	})
 	if err != nil {
-		return false, errors.Errorf("inserting machine %q: %w", mName, err)
+		return errors.Errorf("inserting machine %q: %w", mName, err)
 	}
-	return createdParent, nil
+	return nil
 }
 
 func (st *State) createParentMachineLink(ctx context.Context, tx *sqlair.TX, args createMachineArgs) error {

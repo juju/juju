@@ -239,12 +239,11 @@ func (c *MockStateCreateMachineCall) DoAndReturn(f func(context.Context, machine
 }
 
 // CreateMachineWithParent mocks base method.
-func (m *MockState) CreateMachineWithParent(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID) (bool, error) {
+func (m *MockState) CreateMachineWithParent(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateMachineWithParent", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // CreateMachineWithParent indicates an expected call of CreateMachineWithParent.
@@ -260,19 +259,19 @@ type MockStateCreateMachineWithParentCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCreateMachineWithParentCall) Return(arg0 bool, arg1 error) *MockStateCreateMachineWithParentCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateCreateMachineWithParentCall) Return(arg0 error) *MockStateCreateMachineWithParentCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateMachineWithParentCall) Do(f func(context.Context, machine.Name, string, machine.UUID) (bool, error)) *MockStateCreateMachineWithParentCall {
+func (c *MockStateCreateMachineWithParentCall) Do(f func(context.Context, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateMachineWithParentCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID) (bool, error)) *MockStateCreateMachineWithParentCall {
+func (c *MockStateCreateMachineWithParentCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

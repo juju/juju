@@ -743,16 +743,15 @@ func (s *Service) GetMachineStatuses(ctx context.Context) (map[machine.Name]Mach
 
 	result := make(map[machine.Name]Machine, len(machineStatuses))
 	for name, m := range machineStatuses {
-		machineName := machine.Name(name)
-		if err := machineName.Validate(); err != nil {
+		if err := name.Validate(); err != nil {
 			return nil, errors.Errorf("validating returned machine name %q: %w", name, err)
 		}
 
-		decodedStatus, err := s.decodeMachineStatusDetails(machineName, m)
+		decodedStatus, err := s.decodeMachineStatusDetails(name, m)
 		if err != nil {
 			return nil, errors.Errorf("decoding machine status for %q: %w", name, err)
 		}
-		result[machineName] = decodedStatus
+		result[name] = decodedStatus
 	}
 	return result, nil
 }

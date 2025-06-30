@@ -33,12 +33,12 @@ WHEN
 	(NEW.instance_id != OLD.instance_id OR (NEW.instance_id IS NOT NULL AND OLD.instance_id IS NULL) OR (NEW.instance_id IS NULL AND OLD.instance_id IS NOT NULL)) OR
 	(NEW.display_name != OLD.display_name OR (NEW.display_name IS NOT NULL AND OLD.display_name IS NULL) OR (NEW.display_name IS NULL AND OLD.display_name IS NOT NULL)) OR
 	(NEW.arch != OLD.arch OR (NEW.arch IS NOT NULL AND OLD.arch IS NULL) OR (NEW.arch IS NULL AND OLD.arch IS NOT NULL)) OR
+	(NEW.availability_zone_uuid != OLD.availability_zone_uuid OR (NEW.availability_zone_uuid IS NOT NULL AND OLD.availability_zone_uuid IS NULL) OR (NEW.availability_zone_uuid IS NULL AND OLD.availability_zone_uuid IS NOT NULL)) OR
+	(NEW.cpu_cores != OLD.cpu_cores OR (NEW.cpu_cores IS NOT NULL AND OLD.cpu_cores IS NULL) OR (NEW.cpu_cores IS NULL AND OLD.cpu_cores IS NOT NULL)) OR
+	(NEW.cpu_power != OLD.cpu_power OR (NEW.cpu_power IS NOT NULL AND OLD.cpu_power IS NULL) OR (NEW.cpu_power IS NULL AND OLD.cpu_power IS NOT NULL)) OR
 	(NEW.mem != OLD.mem OR (NEW.mem IS NOT NULL AND OLD.mem IS NULL) OR (NEW.mem IS NULL AND OLD.mem IS NOT NULL)) OR
 	(NEW.root_disk != OLD.root_disk OR (NEW.root_disk IS NOT NULL AND OLD.root_disk IS NULL) OR (NEW.root_disk IS NULL AND OLD.root_disk IS NOT NULL)) OR
 	(NEW.root_disk_source != OLD.root_disk_source OR (NEW.root_disk_source IS NOT NULL AND OLD.root_disk_source IS NULL) OR (NEW.root_disk_source IS NULL AND OLD.root_disk_source IS NOT NULL)) OR
-	(NEW.cpu_cores != OLD.cpu_cores OR (NEW.cpu_cores IS NOT NULL AND OLD.cpu_cores IS NULL) OR (NEW.cpu_cores IS NULL AND OLD.cpu_cores IS NOT NULL)) OR
-	(NEW.cpu_power != OLD.cpu_power OR (NEW.cpu_power IS NOT NULL AND OLD.cpu_power IS NULL) OR (NEW.cpu_power IS NULL AND OLD.cpu_power IS NOT NULL)) OR
-	(NEW.availability_zone_uuid != OLD.availability_zone_uuid OR (NEW.availability_zone_uuid IS NOT NULL AND OLD.availability_zone_uuid IS NULL) OR (NEW.availability_zone_uuid IS NULL AND OLD.availability_zone_uuid IS NOT NULL)) OR
 	(NEW.virt_type != OLD.virt_type OR (NEW.virt_type IS NOT NULL AND OLD.virt_type IS NULL) OR (NEW.virt_type IS NULL AND OLD.virt_type IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)

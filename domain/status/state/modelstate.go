@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
@@ -1885,7 +1884,7 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 
 // GetMachineStatuses returns all the machine statuses for the model, indexed
 // by machine name.
-func (st *ModelState) GetMachineStatuses(ctx context.Context) (map[machine.Name]status.Machine, error) {
+func (st *ModelState) GetMachineStatuses(ctx context.Context) (map[coremachine.Name]status.Machine, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1955,7 +1954,7 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 		return nil, errors.Capture(err)
 	}
 
-	result := make(map[machine.Name]status.Machine)
+	result := make(map[coremachine.Name]status.Machine)
 	for _, s := range res {
 		instanceID := instance.UnknownId
 		if s.InstanceID.Valid {
