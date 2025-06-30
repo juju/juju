@@ -415,11 +415,6 @@ func (c *neutronFirewaller) ensureInternalRules(neutronClient *neutron.Client, g
 
 func (c *neutronFirewaller) deleteSecurityGroups(ctx context.ProviderCallContext, securityGroups []neutron.SecurityGroupV2, match func(name string) bool) error {
 	neutronClient := c.environ.neutron()
-	securityGroups, err := neutronClient.ListSecurityGroupsV2()
-	if err != nil {
-		handleCredentialError(err, ctx)
-		return errors.Annotate(err, "cannot list security groups")
-	}
 	for _, group := range securityGroups {
 		if match(group.Name) {
 			deleteSecurityGroup(
