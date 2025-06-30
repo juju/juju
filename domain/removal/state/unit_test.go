@@ -315,13 +315,17 @@ func (s *unitSuite) TestGetUnitLifeSuccess(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
-	// Set the unit to "dying" manually.
-	_, err := s.DB().Exec("UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	l, err := st.GetUnitLife(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+
+	// Set the unit to "dying" manually.
+	_, err = s.DB().Exec("UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	l, err = st.GetUnitLife(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(l, tc.Equals, life.Dying)
 }

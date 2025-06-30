@@ -80,3 +80,9 @@ type applicationUnitName struct {
 	// UnitName is the name of the unit.
 	UnitName string `db:"unit_name"`
 }
+
+// machineName holds a machine name.
+type machineName struct {
+	// Name is the name of the machine.
+	Name string `db:"name"`
+}

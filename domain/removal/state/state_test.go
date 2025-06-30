@@ -434,6 +434,11 @@ func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Li
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE machine SET life_id = ? WHERE uuid = ?", newLife, machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 type stubCharm struct {
 	name        string
 	subordinate bool

@@ -79,6 +79,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.ApplicationJob:
 		err = s.processApplicationRemovalJob(ctx, job)
 
+	case removal.MachineJob:
+		err = s.processMachineRemovalJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
