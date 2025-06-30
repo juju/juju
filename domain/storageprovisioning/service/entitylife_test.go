@@ -153,6 +153,27 @@ func TestEntityLifeMapper(t *testing.T) {
 				{},
 			},
 		},
+		{
+			// Test that for subsequent calls to the mapper with no observed
+			// life change in the entities the mapper always returns an empty
+			// change set.
+			Name: "no life change over multiple stages",
+			InitialLife: map[string]life.Life{
+				"1": life.Alive,
+			},
+			LifeStages: []map[string]life.Life{
+				{
+					"1": life.Alive,
+				},
+				{
+					"1": life.Alive,
+				},
+			},
+			Expected: [][]string{
+				{},
+				{},
+			},
+		},
 	}
 
 	for _, test := range test {
