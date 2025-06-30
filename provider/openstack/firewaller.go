@@ -439,11 +439,7 @@ func (c *neutronFirewaller) DeleteGroups(ctx context.ProviderCallContext, names 
 		}
 		groupsToDelete = append(groupsToDelete, group)
 	}
-
-	logger.Debugf("[neutronFirewaller][DeleteGroups] groups to delete: %+v", groupsToDelete)
-
 	match := func(string) bool { return true }
-
 	return c.deleteSecurityGroups(ctx, groupsToDelete, match)
 }
 
@@ -691,7 +687,6 @@ func (c *neutronFirewaller) getSecurityGroupByName(ctx context.ProviderCallConte
 
 		numMatching := len(groups)
 		if numMatching == 0 {
-			logger.Errorf("[neutronFirewaller][getSecurityGroupByName] found no matching with name: %s", name)
 			return errors.NotFoundf("security group %q", name)
 		} else if numMatching > 1 {
 			return errors.New(fmt.Sprintf("%d security groups found with name %q, expected 1", numMatching, name))
