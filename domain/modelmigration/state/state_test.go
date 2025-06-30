@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/juju/clock"
@@ -14,6 +15,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
@@ -74,15 +76,17 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	err := machineState.CreateMachine(c.Context(), "666", "0", "deadbeef", nil)
+	_, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a reference AZ.
-	_, err = db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef', 'az-1')")
+	_, err = db.ExecContext(c.Context(), fmt.Sprintf("INSERT INTO availability_zone VALUES(%q, 'az-1')", "uuid0"))
 	c.Assert(err, tc.ErrorIsNil)
 	arch := "arm64"
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
-		"deadbeef",
+		"uuid0",
 		instance.Id("instance-0"),
 		"",
 		"nonce",
@@ -91,11 +95,13 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineState.CreateMachine(c.Context(), "667", "1", "deadbeef-2", nil)
+	_, err = machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
-		"deadbeef-2",
+		"uuid1",
 		instance.Id("instance-1"),
 		"",
 		"nonce",

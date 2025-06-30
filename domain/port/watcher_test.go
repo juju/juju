@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/port/service"
 	"github.com/juju/juju/domain/port/state"
@@ -57,8 +58,8 @@ var (
 )
 
 var (
-	machineUUIDs = []machine.UUID{"machine-0-uuid", "machine-1-uuid"}
-	netNodeUUIDs = []string{"net-node-0-uuid", "net-node-1-uuid"}
+	machineUUIDs []string
+	netNodeUUIDs []string
 	appNames     = []string{"app-zero", "app-one"}
 )
 
@@ -86,10 +87,30 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	err = machineSt.CreateMachine(c.Context(), "0", netNodeUUIDs[0], machineUUIDs[0], nil)
+	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid0",
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = machineSt.CreateMachine(c.Context(), "1", netNodeUUIDs[1], machineUUIDs[1], nil)
+	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		MachineUUID: "uuid1",
+	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUIDs = []string{"uuid0", "uuid1"}
+	netNodeUUIDs = []string{s.getNetNodeUUID(c, "uuid0"), s.getNetNodeUUID(c, "uuid1")}
+}
+
+func (s *watcherSuite) getNetNodeUUID(c *tc.C, mUUID machine.UUID) string {
+	var netNodeUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE uuid = ?", mUUID).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return netNodeUUID
 }
 
 func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.ID {

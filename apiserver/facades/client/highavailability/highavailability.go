@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -40,9 +41,15 @@ type NodeService interface {
 	CurateNodes(context.Context, []string, []string) error
 }
 
-// MachineService instances save a machine to dqlite state.
+// MachineService is the interface that is used to interact with the machine
+// domain.
 type MachineService interface {
-	CreateMachine(context.Context, machine.Name, *string) (machine.UUID, error)
+	// CreateMachine creates the specified machine.
+	//
+	// The following errors may be returned:
+	//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
+	//     already exists.
+	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (machine.UUID, machine.Name, error)
 }
 
 // ApplicationService instances add units to an application in dqlite state.
@@ -192,8 +199,10 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 
 	// Add the dqlite records for new machines.
-	for _, m := range changes.Added {
-		if _, err := api.machineService.CreateMachine(ctx, machine.Name(m), nil); err != nil {
+	for range changes.Added {
+		createMachineArgs := machineservice.CreateMachineArgs{}
+
+		if _, _, err := api.machineService.CreateMachine(ctx, createMachineArgs); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}

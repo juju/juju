@@ -51,7 +51,7 @@ func NewInstancePollerAPI(
 	machineService MachineService,
 	statusService StatusService,
 	m *state.Model,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	clock clock.Clock,
@@ -76,7 +76,8 @@ func NewInstancePollerAPI(
 	// WatchModelMachines() is allowed with unrestricted access.
 	machinesWatcher := commonmodel.NewModelMachinesWatcher(
 		sti,
-		resources,
+		machineService,
+		watcherRegistry,
 		authorizer,
 	)
 	// InstanceId() is supported for machines.

@@ -151,7 +151,7 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid machine.
 }
 
 func (s *WatchableService) machineToCareForReboot(ctx context.Context, uuid machine.UUID) ([]machine.UUID, error) {
-	parentUUID, err := s.st.GetMachineParentUUID(ctx, uuid)
+	parentUUID, err := s.st.GetMachineParentUUID(ctx, uuid.String())
 	if err != nil && !errors.Is(err, machineerrors.MachineHasNoParent) {
 		return nil, errors.Capture(err)
 	}
@@ -183,7 +183,7 @@ func (s *WatchableService) uuidToNameMapper(filter func(string, machine.Name) bo
 
 		var changes []string
 		for uuid, name := range uuidsToName {
-			if filter != nil && filter(uuid, name) {
+			if filter != nil && filter(uuid.String(), name) {
 				continue
 			}
 

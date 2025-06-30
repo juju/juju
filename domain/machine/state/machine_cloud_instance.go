@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -23,7 +22,7 @@ import (
 // data retrieved from the machine cloud instance table.
 func (st *State) GetHardwareCharacteristics(
 	ctx context.Context,
-	machineUUID machine.UUID,
+	machineUUID string,
 ) (*instance.HardwareCharacteristics, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -61,7 +60,7 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 // [machineerrors.AvailabilityZoneNotFound].
 func (st *State) AvailabilityZone(
 	ctx context.Context,
-	machineUUID machine.UUID,
+	machineUUID string,
 ) (string, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -108,7 +107,7 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 //   - machine instance tags.
 func (st *State) SetMachineCloudInstance(
 	ctx context.Context,
-	mUUID machine.UUID,
+	mUUID string,
 	instanceID instance.Id,
 	displayName, nonce string,
 	hardwareCharacteristics *instance.HardwareCharacteristics,
@@ -220,7 +219,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 		}
 
 		if strings.HasPrefix(instanceID.String(), domainmachine.ManualInstancePrefix) {
-			if err := st.insertManualMachine(ctx, tx, mUUID, instanceID); err != nil {
+			if err := st.insertManualMachine(ctx, tx, mUUID); err != nil {
 				return errors.Errorf("inserting manual machine for machine %q: %w", mUUID, err)
 			}
 		}
@@ -254,8 +253,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 func (st *State) insertManualMachine(
 	ctx context.Context,
 	tx *sqlair.TX,
-	mUUID machine.UUID,
-	instanceID instance.Id,
+	mUUID string,
 ) error {
 	setManualStmt, err := st.Prepare(`
 INSERT INTO machine_manual (machine_uuid)
@@ -280,7 +278,7 @@ ON CONFLICT (machine_uuid) DO NOTHING
 // well as any associated status data.
 func (st *State) DeleteMachineCloudInstance(
 	ctx context.Context,
-	mUUID machine.UUID,
+	mUUID string,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -340,7 +338,7 @@ WHERE machine_uuid=$machineUUID.uuid
 // GetInstanceID returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a
 // [machineerrors.NotProvisionedError].
-func (st *State) GetInstanceID(ctx context.Context, mUUID machine.UUID) (string, error) {
+func (st *State) GetInstanceID(ctx context.Context, mUUID string) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -362,7 +360,7 @@ func (st *State) GetInstanceID(ctx context.Context, mUUID machine.UUID) (string,
 	return instanceId, nil
 }
 
-func (st *State) getInstanceID(ctx context.Context, tx *sqlair.TX, mUUID machine.UUID) (string, error) {
+func (st *State) getInstanceID(ctx context.Context, tx *sqlair.TX, mUUID string) (string, error) {
 	mUUIDParam := machineUUID{UUID: mUUID}
 	query := `
 SELECT &instanceID.instance_id
@@ -388,7 +386,7 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 // this machine.
 // If the machine is not provisioned, it returns a
 // [machineerrors.NotProvisionedError].
-func (st *State) GetInstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error) {
+func (st *State) GetInstanceIDAndName(ctx context.Context, mUUID string) (string, string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -411,10 +409,12 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 		var result instanceIDAndDisplayName
 		err := tx.Query(ctx, queryStmt, mUUIDParam).Get(&result)
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
-			}
 			return errors.Errorf("querying display name for machine %q: %w", mUUID, err)
+		}
+		// The instance is not provisioned only if it has an empty instance ID.
+		// We always insert a record when creating the machine.
+		if result.ID == "" {
+			return errors.Errorf("machine: %q: %w", mUUID, machineerrors.NotProvisioned)
 		}
 
 		instanceID = result.ID

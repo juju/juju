@@ -15,13 +15,14 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -35,10 +36,10 @@ import (
 type InstancePollerSuite struct {
 	testhelpers.IsolationSuite
 
-	st         *mockState
-	api        *instancepoller.InstancePollerAPI
-	authoriser apiservertesting.FakeAuthorizer
-	resources  *common.Resources
+	st              *mockState
+	api             *instancepoller.InstancePollerAPI
+	authoriser      apiservertesting.FakeAuthorizer
+	watcherRegistry facade.WatcherRegistry
 
 	controllerConfigService *MockControllerConfigService
 	networkService          *MockNetworkService
@@ -83,7 +84,7 @@ func (s *InstancePollerSuite) setupAPI(c *tc.C) (err error) {
 		s.machineService,
 		s.statusService,
 		nil,
-		s.resources,
+		s.watcherRegistry,
 		s.authoriser,
 		s.controllerConfigService,
 		s.clock,
@@ -98,8 +99,10 @@ func (s *InstancePollerSuite) SetUpTest(c *tc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Controller: true,
 	}
-	s.resources = common.NewResources()
-	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
+	var err error
+	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
 	s.st = NewMockState()
 	instancepoller.PatchState(s, s.st)
@@ -157,7 +160,9 @@ func (s *InstancePollerSuite) TestWatchModelMachinesFailure(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.assertMachineWatcherFails(c, "WatchModelMachines", s.api.WatchModelMachines)
+	s.machineService.EXPECT().WatchModelMachines(gomock.Any()).Return(nil, errors.Errorf("boom"))
+	_, err = s.api.WatchModelMachines(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *tc.C) {
@@ -166,7 +171,16 @@ func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *tc.C) {
 	err := s.setupAPI(c)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.assertMachineWatcherSucceeds(c, "WatchModelMachines", s.api.WatchModelMachines)
+	ch := make(chan []string, 1)
+	w := watchertest.NewMockStringsWatcher(ch)
+	ch <- []string{"foo"}
+	s.machineService.EXPECT().WatchModelMachines(gomock.Any()).Return(w, nil)
+
+	res, err := s.api.WatchModelMachines(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.StringsWatcherId, tc.Equals, "w-1")
+	c.Check(res.Changes, tc.HasLen, 1)
+	c.Check(res.Changes[0], tc.Equals, "foo")
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachineStartTimesFailure(c *tc.C) {
@@ -193,70 +207,11 @@ func (s *InstancePollerSuite) assertMachineWatcherFails(c *tc.C, watchFacadeName
 	s.st.SetErrors(errors.Errorf("boom"))
 
 	result, err := getWatcherFn(c.Context())
-	c.Assert(err, tc.ErrorMatches, "cannot obtain initial model machines: boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{})
 
-	c.Assert(s.resources.Count(), tc.Equals, 0) // no watcher registered
+	c.Assert(s.watcherRegistry.Count(), tc.Equals, 0) // no watcher registered
 	s.st.CheckCallNames(c, watchFacadeName)
-}
-
-func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *tc.C, watchFacadeName string, getWatcherFn func(context.Context) (params.StringsWatchResult, error)) {
-	// Add a couple of machines.
-	s.st.SetMachineInfo(c, machineInfo{id: "2"})
-	s.st.SetMachineInfo(c, machineInfo{id: "1"})
-
-	expectedResult := params.StringsWatchResult{
-		Error:            nil,
-		StringsWatcherId: "1",
-		Changes:          []string{"1", "2"}, // initial event (sorted ids)
-	}
-	result, err := getWatcherFn(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, expectedResult)
-
-	// Verify the watcher resource was registered.
-	c.Assert(s.resources.Count(), tc.Equals, 1)
-	resource1 := s.resources.Get("1")
-	defer func() {
-		if resource1 != nil {
-			workertest.CleanKill(c, resource1)
-		}
-	}()
-
-	// Check that the watcher has consumed the initial event
-	wc1 := watchertest.NewStringsWatcherC(c, resource1.(state.StringsWatcher))
-	wc1.AssertNoChange()
-
-	s.st.CheckCallNames(c, watchFacadeName)
-
-	// Add another watcher to verify events coalescence.
-	result, err = getWatcherFn(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	expectedResult.StringsWatcherId = "2"
-	c.Assert(result, tc.DeepEquals, expectedResult)
-	s.st.CheckCallNames(c, watchFacadeName, watchFacadeName)
-	c.Assert(s.resources.Count(), tc.Equals, 2)
-	resource2 := s.resources.Get("2")
-	defer workertest.CleanKill(c, resource2)
-	wc2 := watchertest.NewStringsWatcherC(c, resource2.(state.StringsWatcher))
-	wc2.AssertNoChange()
-
-	// Remove machine 1, check it's reported.
-	s.st.RemoveMachine(c, "1")
-	wc1.AssertChangeInSingleEvent("1")
-
-	// Make separate changes, check they're combined.
-	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dying})
-	s.st.SetMachineInfo(c, machineInfo{id: "3"})
-	s.st.RemoveMachine(c, "42") // ignored
-	wc1.AssertChangeInSingleEvent("2", "3")
-	wc2.AssertChangeInSingleEvent("1", "2", "3")
-
-	// Stop the first watcher and assert its changes chan is closed.
-	resource1.Kill()
-	c.Assert(resource1.Wait(), tc.ErrorIsNil)
-	wc1.AssertKilled()
-	resource1 = nil
 }
 
 func (s *InstancePollerSuite) TestLifeSuccess(c *tc.C) {
