@@ -43,7 +43,7 @@ type EntityLifeGetter func(context.Context) (map[string]life.Life, error)
 //
 // The returned mapper is not thread safe.
 func EntityLifeMapperFunc(
-	initialLife func(ctx context.Context) (map[string]life.Life, error),
+	initialLife EntityLifeGetter,
 	lifeGetter EntityLifeGetter,
 ) eventsource.Mapper {
 	var haveInitialLife bool
@@ -74,7 +74,11 @@ func EntityLifeMapperFunc(
 			}
 			delete(knownLife, k)
 		}
+		// Append all the entities that have been removed which knownLife now
+		// embodies.
 		changes = slices.AppendSeq(changes, maps.Keys(knownLife))
+
+		// Reset knownLife
 		knownLife = latestLife
 		return changes, nil
 	}
@@ -122,7 +126,12 @@ func MakeEntityLifePrerequisites(
 
 	initialLifeForMapper := func(ctx context.Context) (map[string]life.Life, error) {
 		select {
-		case initialData := <-initial:
+		case initialData, ok := <-initial:
+			if !ok {
+				return nil, errors.New(
+					"initial life can only be called once or initial query failed",
+				)
+			}
 			return initialData, nil
 		case <-ctx.Done():
 			return nil, ctx.Err()

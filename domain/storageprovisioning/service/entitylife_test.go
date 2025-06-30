@@ -37,7 +37,7 @@ func entityLifeGetter(
 // initialEntityLifeQuery is a helper function that returns an eventsource query
 // that will return the data supplied when called.
 func initialEntityLifeQuery(data map[string]life.Life) eventsource.Query[map[string]life.Life] {
-	return func(_ context.Context, _ database.TxnRunner) (map[string]life.Life, error) {
+	return func(context.Context, database.TxnRunner) (map[string]life.Life, error) {
 		return data, nil
 	}
 }
