@@ -274,7 +274,7 @@ func (c *MockStateListStoragePoolsCall) DoAndReturn(f func(context.Context) ([]s
 }
 
 // ListStoragePoolsByNames mocks base method.
-func (m *MockState) ListStoragePoolsByNames(arg0 context.Context, arg1 storage0.Names) ([]storage0.StoragePool, error) {
+func (m *MockState) ListStoragePoolsByNames(arg0 context.Context, arg1 []string) ([]storage0.StoragePool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListStoragePoolsByNames", arg0, arg1)
 	ret0, _ := ret[0].([]storage0.StoragePool)
@@ -301,19 +301,19 @@ func (c *MockStateListStoragePoolsByNamesCall) Return(arg0 []storage0.StoragePoo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListStoragePoolsByNamesCall) Do(f func(context.Context, storage0.Names) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByNamesCall {
+func (c *MockStateListStoragePoolsByNamesCall) Do(f func(context.Context, []string) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByNamesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListStoragePoolsByNamesCall) DoAndReturn(f func(context.Context, storage0.Names) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByNamesCall {
+func (c *MockStateListStoragePoolsByNamesCall) DoAndReturn(f func(context.Context, []string) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByNamesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ListStoragePoolsByNamesAndProviders mocks base method.
-func (m *MockState) ListStoragePoolsByNamesAndProviders(arg0 context.Context, arg1 storage0.Names, arg2 storage0.Providers) ([]storage0.StoragePool, error) {
+func (m *MockState) ListStoragePoolsByNamesAndProviders(arg0 context.Context, arg1, arg2 []string) ([]storage0.StoragePool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListStoragePoolsByNamesAndProviders", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]storage0.StoragePool)
@@ -340,19 +340,19 @@ func (c *MockStateListStoragePoolsByNamesAndProvidersCall) Return(arg0 []storage
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListStoragePoolsByNamesAndProvidersCall) Do(f func(context.Context, storage0.Names, storage0.Providers) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByNamesAndProvidersCall {
+func (c *MockStateListStoragePoolsByNamesAndProvidersCall) Do(f func(context.Context, []string, []string) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByNamesAndProvidersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListStoragePoolsByNamesAndProvidersCall) DoAndReturn(f func(context.Context, storage0.Names, storage0.Providers) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByNamesAndProvidersCall {
+func (c *MockStateListStoragePoolsByNamesAndProvidersCall) DoAndReturn(f func(context.Context, []string, []string) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByNamesAndProvidersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ListStoragePoolsByProviders mocks base method.
-func (m *MockState) ListStoragePoolsByProviders(arg0 context.Context, arg1 storage0.Providers) ([]storage0.StoragePool, error) {
+func (m *MockState) ListStoragePoolsByProviders(arg0 context.Context, arg1 []string) ([]storage0.StoragePool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListStoragePoolsByProviders", arg0, arg1)
 	ret0, _ := ret[0].([]storage0.StoragePool)
@@ -379,13 +379,13 @@ func (c *MockStateListStoragePoolsByProvidersCall) Return(arg0 []storage0.Storag
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListStoragePoolsByProvidersCall) Do(f func(context.Context, storage0.Providers) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByProvidersCall {
+func (c *MockStateListStoragePoolsByProvidersCall) Do(f func(context.Context, []string) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByProvidersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListStoragePoolsByProvidersCall) DoAndReturn(f func(context.Context, storage0.Providers) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByProvidersCall {
+func (c *MockStateListStoragePoolsByProvidersCall) DoAndReturn(f func(context.Context, []string) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsByProvidersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
