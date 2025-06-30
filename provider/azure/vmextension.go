@@ -5,7 +5,7 @@ package azure
 
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/os/ostype"

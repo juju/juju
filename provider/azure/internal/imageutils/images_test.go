@@ -8,7 +8,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

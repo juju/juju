@@ -4,12 +4,15 @@
 package azure
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"os/exec"
 	"path"
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
@@ -403,16 +406,47 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 	return results, nil
 }
 
-const azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
+const (
+	azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
+)
 
 func (v *azureVolumeSource) attachVolume(
 	vm *armcompute.VirtualMachine,
 	p storage.VolumeAttachmentParams,
 ) (_ *storage.VolumeAttachment, updated bool, _ error) {
-
+	logger.Infof("alvin attachVolume called")
 	var dataDisks []*armcompute.DataDisk
-	if vm.Properties != nil && vm.Properties.StorageProfile.DataDisks != nil {
-		dataDisks = vm.Properties.StorageProfile.DataDisks
+	var diskControllerType *armcompute.DiskControllerTypes
+	if vm.Properties != nil {
+		if vm.Properties.StorageProfile != nil {
+			if vm.Properties.StorageProfile.DataDisks != nil {
+				dataDisks = vm.Properties.StorageProfile.DataDisks
+			}
+			if vm.Properties.StorageProfile.DiskControllerType != nil {
+				diskControllerType = vm.Properties.StorageProfile.DiskControllerType
+			}
+		}
+	}
+
+	logger.Tracef(`executing "udevadm control" for alvin`)
+	output, err := exec.Command(
+		"udevadm", "control",
+		"--reload-rules",
+	).CombinedOutput()
+	s := bufio.NewScanner(bytes.NewReader(output))
+	for s.Scan() {
+		line := s.Text()
+		logger.Infof("alvin line: %s", line)
+	}
+
+	if diskControllerType != nil {
+		if *diskControllerType != armcompute.DiskControllerTypesNVMe {
+			logger.Infof("alvin nvme")
+		} else if *diskControllerType == armcompute.DiskControllerTypesNVMe {
+			logger.Infof("alvin scsci")
+		} else {
+			logger.Infof("alvin not sure")
+		}
 	}
 
 	diskName := p.VolumeId
