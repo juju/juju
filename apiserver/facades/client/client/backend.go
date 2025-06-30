@@ -4,10 +4,7 @@
 package client
 
 import (
-	"time"
-
 	"github.com/juju/names/v6"
-	"github.com/juju/replicaset/v3"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/state"
@@ -16,17 +13,8 @@ import (
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
-	AllMachines() ([]*state.Machine, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
-	AllStatus() (*state.AllStatus, error)
-	ControllerTimestamp() (*time.Time, error)
-	MachineConstraints() (*state.MachineConstraints, error)
-}
-
-// MongoSession provides a way to get the status for the mongo replicaset.
-type MongoSession interface {
-	CurrentStatus() (*replicaset.Status, error)
 }
 
 type stateShim struct {

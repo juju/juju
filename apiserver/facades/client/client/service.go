@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -66,9 +65,6 @@ type StatusService interface {
 	// GetModelStatus returns the current status of the model.
 	GetModelStatus(context.Context) (status.StatusInfo, error)
 
-	// GetMachineStatus returns the status of the specified machine.
-	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
-
 	// GetMachineStatuses returns all the machine statuses for the model, indexed
 	// by machine name.
 	GetMachineStatuses(ctx context.Context) (map[machine.Name]statusservice.Machine, error)
@@ -83,18 +79,6 @@ type BlockDeviceService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
-	// GetInstanceID returns the cloud specific instance id for this machine.
-	GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error)
-	// GetInstanceIDAndName returns the cloud specific instance ID and display
-	// name for this machine.
-	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
-	// GetHardwareCharacteristics returns the hardware characteristics of the
-	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
-	// AppliedLXDProfiles returns the names of the LXD profiles on the machine.
-	AppliedLXDProfileNames(ctx context.Context, machineUUID machine.UUID) ([]string, error)
 	// IsMachineController returns true if the machine if the machine is the
 	// controller machine.
 	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)

@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -170,9 +169,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if context.spaceInfos, err = c.networkService.GetAllSpaces(ctx); err != nil {
 		return noStatus, internalerrors.Errorf("cannot obtain space information: %w", err)
 	}
-	if context.status, err = c.stateAccessor.AllStatus(); err != nil {
-		return noStatus, internalerrors.Errorf("could not load model status values: %w", err)
-	}
 	if context.allAppsUnitsCharmBindings, err =
 		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
@@ -207,9 +203,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 			logger.Warningf(ctx, "could not determine application leaders: %v", err)
 			context.leaders = make(map[string]string)
 		}
-	}
-	if context.controllerTimestamp, err = c.stateAccessor.ControllerTimestamp(); err != nil {
-		return noStatus, internalerrors.Errorf("could not fetch controller timestamp: %w", err)
 	}
 
 	if args.IncludeStorage {
@@ -260,13 +253,14 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		}
 	}
 
+	now := c.clock.Now()
 	return params.FullStatus{
 		Model:               modelStatus,
 		Machines:            context.processMachines(ctx),
 		Applications:        context.processApplications(ctx),
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(ctx),
-		ControllerTimestamp: context.controllerTimestamp,
+		ControllerTimestamp: &now,
 		Storage:             storageDetails,
 		Filesystems:         filesystemDetails,
 		Volumes:             volumeDetails,
@@ -397,15 +391,14 @@ type statusContext struct {
 	providerType string
 	model        model.ModelInfo
 
-	status *state.AllStatus
+	status1 *state.AllStatus
 
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[machine.Name][]statusservice.Machine
 	// allMachines: machine id -> machine
 	// The machine in this map is the same machine in the machines map.
-	allMachines        map[machine.Name]statusservice.Machine
-	machineConstraints *state.MachineConstraints
+	allMachines map[machine.Name]statusservice.Machine
 
 	// ipAddresses: machine id -> list of ip.addresses
 	ipAddresses map[coremachine.Name][]domainnetwork.NetAddr
@@ -421,9 +414,6 @@ type statusContext struct {
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
-
-	// controller current timestamp
-	controllerTimestamp *time.Time
 
 	allAppsUnitsCharmBindings applicationStatusInfo
 	relations                 map[string][]relationStatus
@@ -483,11 +473,6 @@ func (c *statusContext) fetchMachines(ctx context.Context, st Backend) error {
 			machines := c.machines[parentID]
 			c.machines[parentID] = append(machines, m)
 		}
-	}
-
-	c.machineConstraints, err = st.MachineConstraints()
-	if err != nil {
-		return err
 	}
 
 	return nil
