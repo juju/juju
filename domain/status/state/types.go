@@ -8,10 +8,13 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/constraints"
 	domainlife "github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 )
 
 type applicationID struct {
@@ -138,19 +141,19 @@ type relationStatus struct {
 // Note: this has to be public because it's embedded and sqlair can't see
 // the private struct because of reflection.
 type CharmLocatorDetails struct {
-	CharmReferenceName  string        `db:"charm_reference_name"`
-	CharmRevision       int           `db:"charm_revision"`
-	CharmSourceID       int           `db:"charm_source_id"`
-	CharmArchitectureID sql.NullInt64 `db:"charm_architecture_id"`
+	CharmReferenceName  string          `db:"charm_reference_name"`
+	CharmRevision       int             `db:"charm_revision"`
+	CharmSourceID       int             `db:"charm_source_id"`
+	CharmArchitectureID sql.Null[int64] `db:"charm_architecture_id"`
 }
 
 type applicationStatusDetails struct {
 	CharmLocatorDetails
 	UUID                   coreapplication.ID `db:"uuid"`
 	Name                   string             `db:"name"`
-	PlatformOSID           sql.NullInt64      `db:"platform_os_id"`
+	PlatformOSID           sql.Null[int64]    `db:"platform_os_id"`
 	PlatformChannel        string             `db:"platform_channel"`
-	PlatformArchitectureID sql.NullInt64      `db:"platform_architecture_id"`
+	PlatformArchitectureID sql.Null[int64]    `db:"platform_architecture_id"`
 	ChannelTrack           string             `db:"channel_track"`
 	ChannelRisk            sql.Null[string]   `db:"channel_risk"`
 	ChannelBranch          string             `db:"channel_branch"`
@@ -298,4 +301,136 @@ type setMachineStatus struct {
 
 type instanceID struct {
 	ID string `db:"instance_id"`
+}
+
+type machineStatusDetails struct {
+	Name                       coremachine.Name          `db:"name"`
+	UUID                       coremachine.UUID          `db:"uuid"`
+	LifeID                     domainlife.Life           `db:"life_id"`
+	Hostname                   sql.Null[string]          `db:"hostname"`
+	InstanceID                 sql.Null[string]          `db:"instance_id"`
+	DisplayName                sql.Null[string]          `db:"display_name"`
+	PlatformOSID               sql.Null[int64]           `db:"platform_os_id"`
+	PlatformChannel            string                    `db:"platform_channel"`
+	PlatformArchitectureID     sql.Null[int64]           `db:"platform_architecture_id"`
+	MachineStatusID            status.MachineStatusType  `db:"machine_status_id"`
+	MachineMessage             string                    `db:"machine_message"`
+	MachineData                []byte                    `db:"machine_data"`
+	MachineUpdatedAt           *time.Time                `db:"machine_updated_at"`
+	InstanceStatusID           status.InstanceStatusType `db:"instance_status_id"`
+	InstanceMessage            string                    `db:"instance_message"`
+	InstanceData               []byte                    `db:"instance_data"`
+	InstanceUpdatedAt          *time.Time                `db:"instance_updated_at"`
+	InstanceArch               sql.Null[string]          `db:"instance_arch"`
+	InstanceCPUCores           sql.Null[uint64]          `db:"instance_cpu_cores"`
+	InstanceCPUPower           sql.Null[uint64]          `db:"instance_cpu_power"`
+	InstanceMem                sql.Null[uint64]          `db:"instance_mem"`
+	InstanceRootDisk           sql.Null[uint64]          `db:"instance_root_disk"`
+	InstanceRootDiskSource     sql.Null[string]          `db:"instance_root_disk_source"`
+	InstanceVirtType           sql.Null[string]          `db:"instance_virt_type"`
+	InstanceAvailabilityZone   sql.Null[string]          `db:"availability_zone_name"`
+	ConstraintArch             sql.Null[string]          `db:"constraint_arch"`
+	ConstraintCPUCores         sql.Null[uint64]          `db:"constraint_cpu_cores"`
+	ConstraintCPUPower         sql.Null[uint64]          `db:"constraint_cpu_power"`
+	ConstraintMem              sql.Null[uint64]          `db:"constraint_mem"`
+	ConstraintRootDisk         sql.Null[uint64]          `db:"constraint_root_disk"`
+	ConstraintRootDiskSource   sql.Null[string]          `db:"constraint_root_disk_source"`
+	ConstraintVirtType         sql.Null[string]          `db:"constraint_virt_type"`
+	ConstraintInstanceRole     sql.Null[string]          `db:"constraint_instance_role"`
+	ConstraintInstanceType     sql.Null[string]          `db:"constraint_instance_type"`
+	ConstraintContainerType    sql.Null[string]          `db:"constraint_container_type"`
+	ConstraintAllocatePublicIP sql.Null[int]             `db:"constraint_allocate_public_ip"`
+	ConstraintImageID          sql.Null[string]          `db:"constraint_image_id"`
+}
+
+func decodeHardwareCharacteristics(
+	arch sql.Null[string],
+	cpuCores sql.Null[uint64],
+	cpuPower sql.Null[uint64],
+	mem sql.Null[uint64],
+	rootDisk sql.Null[uint64],
+	rootDiskSource sql.Null[string],
+	virtType sql.Null[string],
+	availabilityZone sql.Null[string],
+) instance.HardwareCharacteristics {
+	var hwc instance.HardwareCharacteristics
+	if arch.Valid {
+		hwc.Arch = ptr(arch.V)
+	}
+	if cpuCores.Valid {
+		hwc.CpuCores = ptr(cpuCores.V)
+	}
+	if cpuPower.Valid {
+		hwc.CpuPower = ptr(cpuPower.V)
+	}
+	if mem.Valid {
+		hwc.Mem = ptr(mem.V)
+	}
+	if rootDisk.Valid {
+		hwc.RootDisk = ptr(rootDisk.V)
+	}
+	if rootDiskSource.Valid {
+		hwc.RootDiskSource = ptr(rootDiskSource.V)
+	}
+	if virtType.Valid {
+		hwc.VirtType = ptr(virtType.V)
+	}
+	if availabilityZone.Valid {
+		hwc.AvailabilityZone = ptr(availabilityZone.V)
+	}
+	return hwc
+}
+
+func decodeConstraints(
+	arch sql.Null[string],
+	cpuCores sql.Null[uint64],
+	cpuPower sql.Null[uint64],
+	mem sql.Null[uint64],
+	rootDisk sql.Null[uint64],
+	rootDiskSource sql.Null[string],
+	virtType sql.Null[string],
+	instanceRole sql.Null[string],
+	instanceType sql.Null[string],
+	containerType sql.Null[string],
+	allocatePublicIP sql.Null[int],
+	imageID sql.Null[string],
+) constraints.Constraints {
+	var cons constraints.Constraints
+	if arch.Valid {
+		cons.Arch = ptr(arch.V)
+	}
+	if cpuCores.Valid {
+		cons.CpuCores = ptr(cpuCores.V)
+	}
+	if cpuPower.Valid {
+		cons.CpuPower = ptr(cpuPower.V)
+	}
+	if mem.Valid {
+		cons.Mem = ptr(mem.V)
+	}
+	if rootDisk.Valid {
+		cons.RootDisk = ptr(rootDisk.V)
+	}
+	if rootDiskSource.Valid {
+		cons.RootDiskSource = ptr(rootDiskSource.V)
+	}
+	if virtType.Valid {
+		cons.VirtType = ptr(virtType.V)
+	}
+	if instanceRole.Valid {
+		cons.InstanceRole = ptr(instanceRole.V)
+	}
+	if instanceType.Valid {
+		cons.InstanceType = ptr(instanceType.V)
+	}
+	if containerType.Valid {
+		cons.Container = ptr(instance.ContainerType(containerType.V))
+	}
+	if allocatePublicIP.Valid {
+		cons.AllocatePublicIP = ptr(allocatePublicIP.V == 1)
+	}
+	if imageID.Valid {
+		cons.ImageID = ptr(imageID.V)
+	}
+	return cons
 }

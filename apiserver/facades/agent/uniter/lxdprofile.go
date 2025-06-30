@@ -20,15 +20,12 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-type LXDProfileBackend interface {
-	Machine(string) (LXDProfileMachine, error)
-}
 
 // LXDProfileMachine describes machine-receiver state methods
 // for executing a lxd profile upgrade.
@@ -37,7 +34,6 @@ type LXDProfileMachine interface {
 }
 
 type LXDProfileAPI struct {
-	backend         LXDProfileBackend
 	machineService  MachineService
 	watcherRegistry facade.WatcherRegistry
 
@@ -51,7 +47,6 @@ type LXDProfileAPI struct {
 // NewLXDProfileAPI returns a new LXDProfileAPI. Currently both
 // GetAuthFuncs can used to determine current permissions.
 func NewLXDProfileAPI(
-	backend LXDProfileBackend,
 	machineService MachineService,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
@@ -61,7 +56,6 @@ func NewLXDProfileAPI(
 	applicationService ApplicationService,
 ) *LXDProfileAPI {
 	return &LXDProfileAPI{
-		backend:            backend,
 		machineService:     machineService,
 		watcherRegistry:    watcherRegistry,
 		accessUnit:         accessUnit,
@@ -69,21 +63,6 @@ func NewLXDProfileAPI(
 		modelInfoService:   modelInfoService,
 		applicationService: applicationService,
 	}
-}
-
-// LXDProfileState implements the LXDProfileBackend indirection
-// over state.State.
-type LXDProfileState struct {
-	st *state.State
-}
-
-func (s LXDProfileState) Machine(id string) (LXDProfileMachine, error) {
-	m, err := s.st.Machine(id)
-	return &lxdProfileMachine{m}, err
-}
-
-type lxdProfileMachine struct {
-	*state.Machine
 }
 
 // NewExternalLXDProfileAPI can be used for API registration.
@@ -98,7 +77,6 @@ func NewExternalLXDProfileAPI(
 	applicationService ApplicationService,
 ) *LXDProfileAPI {
 	return NewLXDProfileAPI(
-		LXDProfileState{st},
 		machineService,
 		watcherRegistry,
 		authorizer,
@@ -271,10 +249,14 @@ func (u *LXDProfileAPI) getOneCanApplyLXDProfile(ctx context.Context, tag names.
 	}
 
 	machineName, err := u.applicationService.GetUnitMachineName(ctx, unitName)
-	if err != nil {
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return false, errors.NotFoundf("unit %q", unitName)
+	} else if err != nil {
 		return false, internalerrors.Capture(err)
 	}
-	if manual, err := u.machineService.IsMachineManuallyProvisioned(ctx, machineName); err != nil {
+	if manual, err := u.machineService.IsMachineManuallyProvisioned(ctx, machineName); errors.Is(err, machineerrors.MachineNotFound) {
+		return false, errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
 		return false, errors.Trace(err)
 	} else if manual {
 		return false, nil
@@ -284,13 +266,23 @@ func (u *LXDProfileAPI) getOneCanApplyLXDProfile(ctx context.Context, tag names.
 		return true, nil
 	}
 
-	machine, err := u.backend.Machine(machineName.String())
-	if err != nil {
+	machineUUID, err := u.machineService.GetMachineUUID(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return false, errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	containerTypes, err := u.machineService.GetSupportedContainersTypes(ctx, machineUUID)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return false, errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
 		return false, err
 	}
-	switch machine.ContainerType() {
-	case instance.LXD:
-		return true, nil
+	for _, containerType := range containerTypes {
+		if containerType == instance.LXD {
+			return true, nil
+		}
 	}
 	return false, nil
 }

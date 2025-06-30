@@ -69,7 +69,7 @@ type WorkerConfig struct {
 	AgentBinaryUploader        AgentBinaryBootstrapFunc
 	ControllerCharmDeployer    ControllerCharmDeployerFunc
 	PopulateControllerCharm    PopulateControllerCharmFunc
-	SetMachineProvisioned      SetMachineProvisionedFunc
+	AgentFinalizer             AgentFinalizerFunc
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
 	ServiceManagerGetter       ServiceManagerGetterFunc
@@ -145,8 +145,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
-	if c.SetMachineProvisioned == nil {
-		return errors.NotValidf("nil SetMachineProvisioned")
+	if c.AgentFinalizer == nil {
+		return errors.NotValidf("nil AgentFinalizer")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -261,13 +261,13 @@ func (w *bootstrapWorker) loop() error {
 		if !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
-		w.logger.Debugf(ctx, "reload spaces not supported due to a non-networking environement")
+		w.logger.Debugf(ctx, "reload spaces not supported due to a non-networking environment")
 	}
 
 	// Deploy the controller charm after calling reload spaces or
 	// no subnets will be available for the ip address table with
 	// kubernetes.
-	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams); err != nil {
+	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams, bootstrapAddresses); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -275,9 +275,10 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	// Set the bootstrap machine as provisioned.
-	if err := w.cfg.SetMachineProvisioned(ctx, w.cfg.AgentPasswordService, w.cfg.MachineService, bootstrapParams, agentConfig); err != nil {
-		return errors.Annotatef(err, "setting machine as provisioned")
+	// Finialize the agent by either setting the machine as provisioned
+	// or by setting the controller node password.
+	if err := w.cfg.AgentFinalizer(ctx, w.cfg.AgentPasswordService, w.cfg.MachineService, bootstrapParams, agentConfig); err != nil {
+		return errors.Annotatef(err, "finalizing agent")
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance
@@ -522,7 +523,12 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 	return cleanup, nil
 }
 
-func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir string, bootstrapArgs instancecfg.StateInitializationParams) error {
+func (w *bootstrapWorker) seedControllerCharm(
+	ctx context.Context,
+	dataDir string,
+	bootstrapArgs instancecfg.StateInitializationParams,
+	bootstrapAddresses network.ProviderAddresses,
+) error {
 	controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -547,6 +553,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		ControllerConfig:            controllerConfig,
 		DataDir:                     dataDir,
 		BootstrapMachineConstraints: bootstrapArgs.BootstrapMachineConstraints,
+		BootstrapAddresses:          bootstrapAddresses,
 		ControllerCharmName:         bootstrapArgs.ControllerCharmPath,
 		ControllerCharmChannel:      bootstrapArgs.ControllerCharmChannel,
 		CharmhubHTTPClient:          w.cfg.CharmhubHTTPClient,

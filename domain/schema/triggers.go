@@ -89,3 +89,25 @@ CREATE TRIGGER trg_%[1]s_guard_update
 		return schema.MakePatch(stmt)
 	}
 }
+
+func triggerEntityLifecycleByNameForTable(tableName string, namespace int) func() schema.Patch {
+	return func() schema.Patch {
+		stmt := fmt.Sprintf(`
+INSERT INTO change_log_namespace VALUES (%[1]d, '%[2]s_insert_delete', 'Machine insert or delete changes only');
+
+CREATE TRIGGER trg_log_%[2]s_insert_delete_insert
+AFTER INSERT ON %[2]s FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[1]d, NEW.name, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_log_%[2]s_insert_delete_delete
+AFTER DELETE ON %[2]s FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[1]d, OLD.name, DATETIME('now'));
+END;`[1:], namespace, tableName)
+		return schema.MakePatch(stmt)
+	}
+}

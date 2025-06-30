@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/state"
 )
 
 // DeployCharmResult holds the result of deploying a charm.
@@ -75,14 +74,10 @@ type ControllerCharmDeployer interface {
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
 	// AddIAASControllerApplication adds the controller application.
-	AddIAASControllerApplication(context.Context, DeployCharmInfo, string) error
+	AddIAASControllerApplication(context.Context, DeployCharmInfo) error
 
 	// AddCAASControllerApplication adds the controller application.
-	AddCAASControllerApplication(context.Context, DeployCharmInfo, string) error
-
-	// ControllerAddress returns the address of the controller that should be
-	// used.
-	ControllerAddress(context.Context) (string, error)
+	AddCAASControllerApplication(context.Context, DeployCharmInfo) error
 
 	// ControllerCharmBase returns the base used for deploying the controller
 	// charm.
@@ -94,18 +89,6 @@ type ControllerCharmDeployer interface {
 
 	// CompleteCAASProcess is called when the bootstrap process is complete.
 	CompleteCAASProcess(context.Context) error
-}
-
-// Machine is the interface that is used to get information about a machine.
-type Machine interface {
-	Base() state.Base
-	PublicAddress() (network.SpaceAddress, error)
-}
-
-// MachineGetter is the interface that is used to get information about a
-// machine.
-type MachineGetter interface {
-	Machine(string) (Machine, error)
 }
 
 // HTTPClient is the interface that is used to make HTTP requests.
@@ -142,6 +125,7 @@ type BaseDeployerConfig struct {
 	ModelConfigService   ModelConfigService
 	ObjectStore          objectstore.ObjectStore
 	Constraints          constraints.Value
+	BootstrapAddresses   network.ProviderAddresses
 	ControllerConfig     controller.Config
 	NewCharmHubRepo      CharmHubRepoFunc
 	NewCharmDownloader   CharmDownloaderFunc
@@ -165,6 +149,9 @@ func (c BaseDeployerConfig) Validate() error {
 	}
 	if c.ObjectStore == nil {
 		return errors.Errorf("ObjectStore").Add(coreerrors.NotValid)
+	}
+	if c.BootstrapAddresses == nil {
+		return errors.Errorf("BootstrapAddresses").Add(coreerrors.NotValid)
 	}
 	if c.ControllerConfig == nil {
 		return errors.Errorf("ControllerConfig").Add(coreerrors.NotValid)
@@ -193,6 +180,7 @@ type baseDeployer struct {
 	passwordService     AgentPasswordService
 	modelConfigService  ModelConfigService
 	objectStore         objectstore.ObjectStore
+	bootstrapAddresses  network.ProviderAddresses
 	constraints         constraints.Value
 	controllerConfig    controller.Config
 	newCharmHubRepo     CharmHubRepoFunc
@@ -211,6 +199,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		passwordService:     config.AgentPasswordService,
 		modelConfigService:  config.ModelConfigService,
 		objectStore:         config.ObjectStore,
+		bootstrapAddresses:  config.BootstrapAddresses,
 		constraints:         config.Constraints,
 		controllerConfig:    config.ControllerConfig,
 		newCharmHubRepo:     config.NewCharmHubRepo,
@@ -387,14 +376,14 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 }
 
 // AddIAASControllerApplication adds the IAAS controller application.
-func (b *baseDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
+func (b *baseDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	// These are abstract methods that are expected to be implemented by
 	// concrete types.
 	return errors.Errorf("can not add IAAS controller application").Add(coreerrors.NotImplemented)
 }
 
 // AddIAASControllerApplication adds the IAAS controller application.
-func (b *baseDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) error {
+func (b *baseDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	// These are abstract methods that are expected to be implemented by
 	// concrete types.
 	return errors.Errorf("can not add CAAS controller application").Add(coreerrors.NotImplemented)
@@ -427,7 +416,7 @@ func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64
 	return sha256, sha384, nil
 }
 
-func (b *baseDeployer) createCharmSettings(controllerAddress string) (config.ConfigAttributes, error) {
+func (b *baseDeployer) createCharmSettings() (config.ConfigAttributes, error) {
 	cfg := config.ConfigAttributes{
 		"is-juju": true,
 	}
@@ -436,7 +425,9 @@ func (b *baseDeployer) createCharmSettings(controllerAddress string) (config.Con
 	// Attempt to set the controller URL on to the controller charm config.
 	addr := b.controllerConfig.PublicDNSAddress()
 	if addr == "" {
-		addr = controllerAddress
+		if providerAddress, ok := b.bootstrapAddresses.OneMatchingScope(network.ScopeMatchPublic); ok {
+			addr = providerAddress.MachineAddress.Host()
+		}
 	}
 	if addr != "" {
 		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())

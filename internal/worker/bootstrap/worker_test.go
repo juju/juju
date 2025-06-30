@@ -375,7 +375,7 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
 			return nil, nil
 		},
-		SetMachineProvisioned: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
+		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
 			return nil
 		},
 		Clock: clock.WallClock,

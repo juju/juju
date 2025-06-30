@@ -45,9 +45,9 @@ type testMachine struct {
 
 var (
 	// parentTag is used to create a parent machine
-	parentTag = names.NewMachineTag("0/parent/0")
-	// parentTag is used to create a child machine
-	childTag = names.NewMachineTag("0/child/0")
+	parentTag = names.NewMachineTag("0")
+	// childTag is used to create a child machine
+	childTag = names.NewMachineTag("1")
 )
 
 type rebootSuite struct {
@@ -74,7 +74,7 @@ func (s *rebootSuite) createMachineWithParent(c *tc.C, tag names.MachineTag, par
 	uuid, err := s.machineService.CreateMachineWithParent(c.Context(), coremachine.Name(tag.Id()), coremachine.Name(parent.tag.Id()))
 	c.Assert(err, tc.ErrorIsNil)
 
-	return s.setupMachine(c, tag, err, uuid)
+	return s.setupMachine(c, names.NewMachineTag(parent.tag.Id()+"/lxd/"+tag.Id()), err, uuid)
 }
 
 func (s *rebootSuite) setupMachine(c *tc.C, tag names.MachineTag, err error, uuid coremachine.UUID) *testMachine {

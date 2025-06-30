@@ -5,10 +5,12 @@ package status
 
 import (
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 )
@@ -48,4 +50,19 @@ type Unit struct {
 	AgentVersion     string
 	WorkloadVersion  *string
 	K8sProviderID    *string
+}
+
+// Machine represents the status of a machine.
+type Machine struct {
+	UUID                    machine.UUID
+	Hostname                string
+	DisplayName             string
+	InstanceID              instance.Id
+	Life                    life.Life
+	MachineStatus           StatusInfo[MachineStatusType]
+	InstanceStatus          StatusInfo[InstanceStatusType]
+	Platform                deployment.Platform
+	Constraints             constraints.Constraints
+	HardwareCharacteristics instance.HardwareCharacteristics
+	LXDProfiles             []string
 }

@@ -12,6 +12,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
+	network "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,Machine,MachineGetter,ApplicationService,IAASApplicationService,CAASApplicationService,ModelConfigService,Downloader,AgentPasswordService,ServiceManager
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,ApplicationService,IAASApplicationService,CAASApplicationService,ModelConfigService,Downloader,AgentPasswordService,ServiceManager
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
@@ -38,7 +39,6 @@ type baseSuite struct {
 	iaasApplicationService *MockIAASApplicationService
 	caasApplicationService *MockCAASApplicationService
 	modelConfigService     *MockModelConfigService
-	machineGetter          *MockMachineGetter
 	charmDownloader        *MockDownloader
 	charmRepo              *MockRepository
 	charm                  *MockCharm
@@ -60,7 +60,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.iaasApplicationService = NewMockIAASApplicationService(ctrl)
 	s.caasApplicationService = NewMockCAASApplicationService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
-	s.machineGetter = NewMockMachineGetter(ctrl)
 	s.charmDownloader = NewMockDownloader(ctrl)
 	s.charmRepo = NewMockRepository(ctrl)
 	s.charm = NewMockCharm(ctrl)
@@ -85,6 +84,22 @@ func (s *baseSuite) newConfig(c *tc.C) BaseDeployerConfig {
 			controller.IdentityURL:       "https://inferi.com",
 			controller.PublicDNSAddress:  "obscura.com",
 			controller.APIPort:           1234,
+		},
+		BootstrapAddresses: network.ProviderAddresses{
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+					Type:  network.IPv4Address,
+					Scope: network.ScopeMachineLocal,
+				},
+			},
+			{
+				MachineAddress: network.MachineAddress{
+					Value: "203.0.113.1",
+					Type:  network.IPv4Address,
+					Scope: network.ScopePublic,
+				},
+			},
 		},
 		NewCharmHubRepo: func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return s.charmRepo, nil

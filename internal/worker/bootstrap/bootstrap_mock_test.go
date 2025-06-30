@@ -32,7 +32,6 @@ import (
 	controllernode "github.com/juju/juju/domain/controllernode"
 	service1 "github.com/juju/juju/domain/storage/service"
 	config "github.com/juju/juju/environs/config"
-	bootstrap "github.com/juju/juju/internal/bootstrap"
 	charm0 "github.com/juju/juju/internal/charm"
 	storage "github.com/juju/juju/internal/storage"
 	binarystorage "github.com/juju/juju/state/binarystorage"
@@ -345,45 +344,6 @@ func NewMockSystemState(ctrl *gomock.Controller) *MockSystemState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSystemState) EXPECT() *MockSystemStateMockRecorder {
 	return m.recorder
-}
-
-// Machine mocks base method.
-func (m *MockSystemState) Machine(arg0 string) (bootstrap.Machine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Machine", arg0)
-	ret0, _ := ret[0].(bootstrap.Machine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Machine indicates an expected call of Machine.
-func (mr *MockSystemStateMockRecorder) Machine(arg0 any) *MockSystemStateMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockSystemState)(nil).Machine), arg0)
-	return &MockSystemStateMachineCall{Call: call}
-}
-
-// MockSystemStateMachineCall wrap *gomock.Call
-type MockSystemStateMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStateMachineCall) Return(arg0 bootstrap.Machine, arg1 error) *MockSystemStateMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStateMachineCall) Do(f func(string) (bootstrap.Machine, error)) *MockSystemStateMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStateMachineCall) DoAndReturn(f func(string) (bootstrap.Machine, error)) *MockSystemStateMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // SetAPIHostPorts mocks base method.
@@ -1503,6 +1463,44 @@ func NewMockAgentPasswordService(ctrl *gomock.Controller) *MockAgentPasswordServ
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorder {
 	return m.recorder
+}
+
+// SetControllerNodePassword mocks base method.
+func (m *MockAgentPasswordService) SetControllerNodePassword(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetControllerNodePassword", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetControllerNodePassword indicates an expected call of SetControllerNodePassword.
+func (mr *MockAgentPasswordServiceMockRecorder) SetControllerNodePassword(arg0, arg1, arg2 any) *MockAgentPasswordServiceSetControllerNodePasswordCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetControllerNodePassword", reflect.TypeOf((*MockAgentPasswordService)(nil).SetControllerNodePassword), arg0, arg1, arg2)
+	return &MockAgentPasswordServiceSetControllerNodePasswordCall{Call: call}
+}
+
+// MockAgentPasswordServiceSetControllerNodePasswordCall wrap *gomock.Call
+type MockAgentPasswordServiceSetControllerNodePasswordCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAgentPasswordServiceSetControllerNodePasswordCall) Return(arg0 error) *MockAgentPasswordServiceSetControllerNodePasswordCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAgentPasswordServiceSetControllerNodePasswordCall) Do(f func(context.Context, string, string) error) *MockAgentPasswordServiceSetControllerNodePasswordCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAgentPasswordServiceSetControllerNodePasswordCall) DoAndReturn(f func(context.Context, string, string) error) *MockAgentPasswordServiceSetControllerNodePasswordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // SetMachinePassword mocks base method.

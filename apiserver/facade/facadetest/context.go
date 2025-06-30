@@ -24,16 +24,17 @@ import (
 
 // ModelContext implements facade.ModelContext in the simplest possible way.
 type ModelContext struct {
-	Auth_            facade.Authorizer
-	Dispose_         func()
-	Resources_       facade.Resources
-	WatcherRegistry_ facade.WatcherRegistry
-	State_           *state.State
-	StatePool_       *state.StatePool
-	ID_              string
-	ControllerUUID_  string
-	ModelUUID_       model.UUID
-	RequestRecorder_ facade.RequestRecorder
+	Auth_                facade.Authorizer
+	Dispose_             func()
+	Resources_           facade.Resources
+	WatcherRegistry_     facade.WatcherRegistry
+	State_               *state.State
+	StatePool_           *state.StatePool
+	ID_                  string
+	ControllerUUID_      string
+	ControllerModelUUID_ model.UUID
+	ModelUUID_           model.UUID
+	RequestRecorder_     facade.RequestRecorder
 
 	LeadershipClaimer_     leadership.Claimer
 	LeadershipRevoker_     leadership.Revoker
@@ -107,6 +108,18 @@ func (c ModelContext) StatePool() *state.StatePool {
 // ControllerUUID returns the controller unique identifier.
 func (c ModelContext) ControllerUUID() string {
 	return c.ControllerUUID_
+}
+
+// ControllerUUID returns the controller unique identifier.
+func (c ModelContext) ControllerModelUUID() model.UUID {
+	return c.ControllerModelUUID_
+}
+
+// IsControllerModelScoped returns true if the model context is scoped to a
+// controller model. This is used to determine if the model context is
+// scoped to a controller model or a subordinate model.
+func (c ModelContext) IsControllerModelScoped() bool {
+	return c.ControllerModelUUID() == c.ModelUUID()
 }
 
 // ModelUUID returns the model unique identifier.

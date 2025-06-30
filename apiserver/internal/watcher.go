@@ -30,7 +30,7 @@ type WatcherRegistry interface {
 // available and returns them, otherwise it kills the worker and waits
 // for the error and returns it.
 func FirstResult[T any](ctx context.Context, w eventsource.Watcher[T]) (T, error) {
-	t, err := eventsource.ConsumeInitialEvent[T](ctx, w)
+	t, err := eventsource.ConsumeInitialEvent(ctx, w)
 	if err == nil {
 		return t, nil
 	}

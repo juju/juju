@@ -48,7 +48,7 @@ func (i *importOperation) Name() string {
 // Setup creates the service that is used to import password hashes.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewMigrationService(
-		state.NewState(scope.ModelDB()),
+		state.NewModelState(scope.ModelDB()),
 	)
 	return nil
 }

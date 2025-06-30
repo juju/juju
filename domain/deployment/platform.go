@@ -29,8 +29,18 @@ const (
 type OSType int
 
 const (
-	Ubuntu OSType = iota
+	Unknown OSType = iota - 1
+	Ubuntu
 )
+
+func (o OSType) String() string {
+	switch o {
+	case Ubuntu:
+		return "ubuntu"
+	default:
+		return "unknown"
+	}
+}
 
 // Platform contains parameters for an application's platform.
 type Platform struct {

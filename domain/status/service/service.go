@@ -18,6 +18,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -128,10 +129,10 @@ type ModelState interface {
 	// GetAllFullUnitStatusesForApplication returns the workload statuses and
 	// the cloud container statuses for all units of the specified application,
 	// returning:
-	//   - an error satisfying [statuserrors.ApplicationNotFound] if the application
-	//     doesn't exist or;
-	//   - an error satisfying [statuserrors.ApplicationIsDead] if the application
-	//     is dead.
+	//   - an error satisfying [statuserrors.ApplicationNotFound] if the
+	//     application doesn't exist or;
+	//   - an error satisfying [statuserrors.ApplicationIsDead] if the
+	//     application is dead.
 	GetAllFullUnitStatusesForApplication(
 		context.Context, coreapplication.ID,
 	) (status.FullUnitStatuses, error)
@@ -182,24 +183,28 @@ type ModelState interface {
 	// - [statuserrors.MachineStatusNotFound] if the status is not set.
 	GetMachineStatus(ctx context.Context, machineName string) (status.StatusInfo[status.MachineStatusType], error)
 
-	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
-	// by machine name.
-	GetAllMachineStatuses(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)
-
 	// SetMachineStatus sets the status of the specified machine.
 	// This method may return the following errors:
 	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	SetMachineStatus(ctx context.Context, machineName string, status status.StatusInfo[status.MachineStatusType]) error
 
-	// GetInstanceStatus returns the cloud specific instance status for the given
-	// machine.
+	// GetAllMachineStatuses returns all the machine statuses for the model,
+	// indexed by machine name.
+	GetAllMachineStatuses(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)
+
+	// GetMachineStatuses returns all the machine statuses for the model,
+	// indexed by machine name.
+	GetMachineStatuses(context.Context) (map[machine.Name]status.Machine, error)
+
+	// GetInstanceStatus returns the cloud specific instance status for the
+	// given machine.
 	// This method may return the following errors:
 	// - [machineerrors.MachineNotFound] if the machine does not exist or;
 	// - [statuserrors.MachineStatusNotFound] if the status is not set.
 	GetInstanceStatus(ctx context.Context, machineName string) (status.StatusInfo[status.InstanceStatusType], error)
 
-	// GetAllInstanceStatuses returns all the instance statuses for the model, indexed
-	// by machine name.
+	// GetAllInstanceStatuses returns all the instance statuses for the model,
+	// indexed by machine name.
 	GetAllInstanceStatuses(context.Context) (map[string]status.StatusInfo[status.InstanceStatusType], error)
 
 	// SetInstanceStatus sets the cloud specific instance status for this
@@ -725,10 +730,37 @@ func (s *Service) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]c
 	return result, nil
 }
 
+// GetMachineStatuses returns all the machine statuses for the model, indexed
+// by machine name.
+func (s *Service) GetMachineStatuses(ctx context.Context) (map[machine.Name]Machine, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineStatuses, err := s.modelState.GetMachineStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[machine.Name]Machine, len(machineStatuses))
+	for name, m := range machineStatuses {
+		if err := name.Validate(); err != nil {
+			return nil, errors.Errorf("validating returned machine name %q: %w", name, err)
+		}
+
+		decodedStatus, err := s.decodeMachineStatusDetails(name, m)
+		if err != nil {
+			return nil, errors.Errorf("decoding machine status for %q: %w", name, err)
+		}
+		result[name] = decodedStatus
+	}
+	return result, nil
+}
+
 // SetMachineStatus sets the status of the specified machine.
 // This method may return the following errors:
-// - [machineerrors.MachineNotFound] if the machine does not exist.
-// - [statuserrors.InvalidStatus] if the given status is not a known status value.
+//   - [machineerrors.MachineNotFound] if the machine does not exist.
+//   - [statuserrors.InvalidStatus] if the given status is not a known status
+//     value.
 func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, statusInfo corestatus.StatusInfo) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -755,6 +787,33 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name
 	}
 
 	return nil
+}
+
+// GetModelStatusInfo returns information about the current model for the
+// purpose of reporting its status.
+// The following error types can be expected to be returned:
+//   - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no
+//     longer exists.
+func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.modelState.GetModelStatusInfo(ctx)
+}
+
+// GetModelStatus returns the current status of the model.
+//
+// The following error types can be expected to be returned:
+//   - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no
+//     longer exists.
+func (s *Service) GetModelStatus(ctx context.Context) (corestatus.StatusInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	modelState, err := s.controllerState.GetModelStatusContext(ctx)
+	if err != nil {
+		return corestatus.StatusInfo{}, errors.Capture(err)
+	}
+	return s.statusFromModelContext(modelState), nil
 }
 
 // CheckMachineStatusesReadyForMigration returns an error if the statuses of any
@@ -922,7 +981,11 @@ func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status
 	}, nil
 }
 
-func (s *Service) decodeApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID, statusInfo status.StatusInfo[status.WorkloadStatusType]) (corestatus.StatusInfo, error) {
+func (s *Service) decodeApplicationDisplayStatus(
+	ctx context.Context,
+	appID coreapplication.ID,
+	statusInfo status.StatusInfo[status.WorkloadStatusType],
+) (corestatus.StatusInfo, error) {
 	if statusInfo.Status != status.WorkloadStatusUnset {
 		return decodeApplicationStatus(statusInfo)
 	}
@@ -1007,29 +1070,35 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 	}, nil
 }
 
-// GetModelStatusInfo returns information about the current model for the
-// purpose of reporting its status.
-// The following error types can be expected to be returned:
-// / - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no longer exists.
-func (s *Service) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.modelState.GetModelStatusInfo(ctx)
-}
-
-// GetModelStatus returns the current status of the model.
-//
-// The following error types can be expected to be returned:
-// / - [github.com/juju/juju/domain/model/errors.NotFound]: When the model no longer exists.
-func (s *Service) GetModelStatus(ctx context.Context) (corestatus.StatusInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	modelState, err := s.controllerState.GetModelStatusContext(ctx)
+func (s *Service) decodeMachineStatusDetails(machineName machine.Name, machine status.Machine) (Machine, error) {
+	life, err := machine.Life.Value()
 	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
+		return Machine{}, errors.Errorf("decoding machine life: %w", err)
 	}
-	return s.statusFromModelContext(modelState), nil
+
+	machineStatus, err := decodeMachineStatus(machine.MachineStatus)
+	if err != nil {
+		return Machine{}, errors.Errorf("decoding machine status: %w", err)
+	}
+
+	instanceStatus, err := decodeInstanceStatus(machine.InstanceStatus)
+	if err != nil {
+		return Machine{}, errors.Errorf("decoding instance status: %w", err)
+	}
+
+	return Machine{
+		Name:                    machineName,
+		Life:                    life,
+		Hostname:                machine.Hostname,
+		DisplayName:             machine.DisplayName,
+		InstanceID:              machine.InstanceID,
+		MachineStatus:           machineStatus,
+		InstanceStatus:          instanceStatus,
+		Platform:                machine.Platform,
+		Constraints:             constraints.EncodeConstraints(machine.Constraints),
+		HardwareCharacteristics: machine.HardwareCharacteristics,
+		LXDProfiles:             machine.LXDProfiles,
+	}, nil
 }
 
 // statusFromModelContext is responsible for converting a

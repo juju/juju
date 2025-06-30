@@ -12,6 +12,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
@@ -31,6 +32,15 @@ type WatchableService struct {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNamespaceWatcher(
+		initialStateQuery eventsource.NamespaceQuery,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes
 	// from the input base watcher's db/queue. Change-log events will be emitted
 	// only if the filter accepts them, and dispatching the notifications via
@@ -74,6 +84,95 @@ func NewWatchableService(
 		},
 		watcherFactory: watcherFactory,
 	}
+}
+
+// WatchMachineLife returns a watcher that observes the changes to life of one
+// machine.
+func (s *WatchableService) WatchMachineLife(ctx context.Context, machineName machine.Name) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table := s.st.NamespaceForMachineLife()
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			table,
+			changestream.All,
+			eventsource.EqualsPredicate(machineName.String()),
+		),
+	)
+}
+
+// WatchMachineContainerLife returns a watcher that observes machine container
+// life changes.
+func (s *WatchableService) WatchMachineContainerLife(ctx context.Context, parentMachineName machine.Name) (watcher.StringsWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := parentMachineName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// We only support watching containers using the parent machine name.
+	// Watching a container using a container name i.e. "0/lxd/0" is not
+	// supported. We don't support grand parenting.
+	if parentMachineName.IsContainer() {
+		return nil, errors.Errorf("watching a container using %q is not supported", parentMachineName.String())
+	}
+
+	// We only support LXD containers for now, so we need to use this to be
+	// able to filter the changes.
+	containerType, err := s.getContainerTypeOrUseDefault(ctx, parentMachineName, instance.LXD)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	prefix := parentMachineName.Parent().String() + "/" + string(containerType) + "/"
+
+	table, stmt, arg := s.st.InitialMachineContainerLifeStatement()
+	return s.watcherFactory.NewNamespaceWatcher(
+		eventsource.InitialNamespaceChanges(stmt, arg(prefix)),
+		eventsource.PredicateFilter(
+			table,
+			changestream.All,
+			func(changed string) bool {
+				// We only want to watch containers, so we filter out
+				// any changes that are not for containers.
+				if !strings.Contains(changed, "/") {
+					return false
+				}
+
+				// We also filter out any changes that are not for the
+				// parent machine.
+
+				return strings.HasPrefix(changed, prefix)
+			},
+		),
+	)
+}
+
+func (s *WatchableService) getContainerTypeOrUseDefault(
+	ctx context.Context, parentMachineName machine.Name, defaultType instance.ContainerType,
+) (instance.ContainerType, error) {
+	uuid, err := s.st.GetMachineUUID(ctx, parentMachineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return defaultType, nil
+	} else if err != nil {
+		return defaultType, errors.Capture(err)
+	}
+
+	containerTypes, err := s.st.GetSupportedContainersTypes(ctx, uuid)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return defaultType, nil
+	} else if err != nil {
+		return defaultType, errors.Capture(err)
+	} else if len(containerTypes) == 0 {
+		return defaultType, errors.Errorf("no container types supported for machine %q", parentMachineName.String())
+	} else if len(containerTypes) > 1 {
+		return defaultType, errors.Errorf("multiple container types (%v) supported for machine %q",
+			strings.Join(containerTypes, ", "), parentMachineName.String())
+	}
+
+	return instance.ContainerType(containerTypes[0]), nil
 }
 
 // WatchModelMachines watches for additions or updates to non-container

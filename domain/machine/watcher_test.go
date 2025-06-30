@@ -56,7 +56,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	_, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
 
-	_, err = s.svc.CreateMachine(c.Context(), "0/lxd/0", ptr("nonce-123"))
+	_, err = s.svc.CreateMachineWithParent(c.Context(), "0", "0")
 	c.Assert(err, tc.IsNil)
 
 	s.AssertChangeStreamIdle(c)
@@ -86,7 +86,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	// As is a container creation.
-	_, err = s.svc.CreateMachine(c.Context(), "0/lxd/1", ptr("nonce-123"))
+	_, err = s.svc.CreateMachineWithParent(c.Context(), "1", "0")
 	c.Assert(err, tc.IsNil)
 
 	s.AssertChangeStreamIdle(c)
@@ -197,11 +197,11 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 // The tests are run using the watchertest harness.
 func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Create machine hierarchy to reboot from parent, with a child (which will be watched) and a control child
-	parentUUID, err := s.svc.CreateMachine(c.Context(), "parent", ptr("nonce-123"))
+	parentUUID, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
 	c.Assert(err, tc.IsNil)
-	childUUID, err := s.svc.CreateMachineWithParent(c.Context(), "child", "parent")
+	childUUID, err := s.svc.CreateMachineWithParent(c.Context(), "1", "0")
 	c.Assert(err, tc.ErrorIsNil)
-	controlUUID, err := s.svc.CreateMachineWithParent(c.Context(), "control", "parent")
+	controlUUID, err := s.svc.CreateMachineWithParent(c.Context(), "2", "0")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create watcher for child
@@ -259,6 +259,129 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	})
 
 	harness.Run(c, struct{}{})
+}
+
+// TestWatchMachineLife tests the functionality of watching machine lifecycle
+// changes.
+func (s *watcherSuite) TestWatchMachineLife(c *tc.C) {
+	watcher, err := s.svc.WatchMachineLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "2", nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchMachineContainerLifeInit(c *tc.C) {
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-c.Context().Done():
+		c.Fatalf("watcher did not emit initial changes: %v", c.Context().Err())
+	}
+
+	c.Assert(changes, tc.HasLen, 0)
+}
+
+func (s *watcherSuite) TestWatchMachineContainerLifeInitMachine(c *tc.C) {
+	_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-c.Context().Done():
+		c.Fatalf("watcher did not emit initial changes: %v", c.Context().Err())
+	}
+
+	c.Assert(changes, tc.HasLen, 0)
+}
+
+func (s *watcherSuite) TestWatchMachineContainerLifeInitMachineContainer(c *tc.C) {
+	_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.svc.CreateMachineWithParent(c.Context(), "1", "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-c.Context().Done():
+		c.Fatalf("watcher did not emit initial changes: %v", c.Context().Err())
+	}
+
+	c.Assert(changes, tc.HasLen, 1)
+	c.Assert(changes[0], tc.Equals, "1/lxd/1")
+}
+
+func (s *watcherSuite) TestWatchMachineContainerLife(c *tc.C) {
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachineWithParent(c.Context(), "1", "1")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, []string(nil))
+}
+
+func (s *watcherSuite) TestWatchMachineContainerLifeNoDispatch(c *tc.C) {
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "0", nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachineWithParent(c.Context(), "0", "0")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string(nil))
 }
 
 func ptr[T any](u T) *T {

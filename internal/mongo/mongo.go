@@ -226,15 +226,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 	}
 	logVersion(mongoPath)
 
-	oplogSizeMB := args.OplogSize
-	if oplogSizeMB == 0 {
-		oplogSizeMB, err = defaultOplogSize(dbDir(args.MongoDataDir))
-		if err != nil {
-			return errors.Annotatef(err, "unable to calculate default oplog size")
-		}
-	}
-
-	mongoArgs := generateConfig(oplogSizeMB, args)
+	mongoArgs := generateConfig(args)
 
 	// Update snap configuration.
 	// TODO(tsm): refactor out to service.Configure

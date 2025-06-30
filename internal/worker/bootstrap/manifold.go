@@ -54,9 +54,9 @@ type PopulateControllerCharmFunc func(context.Context, bootstrap.ControllerCharm
 // bootstrap address finder.
 type BootstrapAddressFinderGetter func(providerFactory providertracker.ProviderFactory, namespace string) BootstrapAddressFinderFunc
 
-// SetMachineProvisionedFunc is the function that is used to set the
-// machine provisioned.
-type SetMachineProvisionedFunc func(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error
+// AgentFinalizerFunc is the function that is used to finalize the agent
+// during bootstrap.
+type AgentFinalizerFunc func(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error
 
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
@@ -88,7 +88,7 @@ type ManifoldConfig struct {
 	RequiresBootstrap            RequiresBootstrapFunc
 	PopulateControllerCharm      PopulateControllerCharmFunc
 	BootstrapAddressFinderGetter BootstrapAddressFinderGetter
-	SetMachineProvisioned        SetMachineProvisionedFunc
+	AgentFinalizer               AgentFinalizerFunc
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -144,8 +144,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.BootstrapAddressFinderGetter == nil {
 		return errors.NotValidf("nil BootstrapAddressFinderGetter")
 	}
-	if cfg.SetMachineProvisioned == nil {
-		return errors.NotValidf("nil SetMachineProvisioned")
+	if cfg.AgentFinalizer == nil {
+		return errors.NotValidf("nil AgentFinalizer")
 	}
 	return nil
 }
@@ -294,20 +294,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				FlagService:                flagService,
 				NetworkService:             controllerModelDomainServices.Network(),
 				BakeryConfigService:        controllerDomainServices.Macaroon(),
-				SystemState: &stateShim{
-					State: systemState,
-				},
-				BootstrapUnlocker:       bootstrapUnlocker,
-				AgentBinaryUploader:     config.AgentBinaryUploader,
-				ControllerCharmDeployer: config.ControllerCharmDeployer,
-				PopulateControllerCharm: config.PopulateControllerCharm,
-				SetMachineProvisioned:   config.SetMachineProvisioned,
-				CharmhubHTTPClient:      charmhubHTTPClient,
-				UnitPassword:            unitPassword,
-				ServiceManagerGetter:    serviceManagerGetter,
-				BootstrapAddressFinder:  config.BootstrapAddressFinderGetter(providerFactory, controllerModel.UUID.String()),
-				Logger:                  config.Logger,
-				Clock:                   config.Clock,
+				SystemState:                systemState,
+				BootstrapUnlocker:          bootstrapUnlocker,
+				AgentBinaryUploader:        config.AgentBinaryUploader,
+				ControllerCharmDeployer:    config.ControllerCharmDeployer,
+				PopulateControllerCharm:    config.PopulateControllerCharm,
+				AgentFinalizer:             config.AgentFinalizer,
+				CharmhubHTTPClient:         charmhubHTTPClient,
+				UnitPassword:               unitPassword,
+				ServiceManagerGetter:       serviceManagerGetter,
+				BootstrapAddressFinder:     config.BootstrapAddressFinderGetter(providerFactory, controllerModel.UUID.String()),
+				Logger:                     config.Logger,
+				Clock:                      config.Clock,
 			})
 			if err != nil {
 				_ = stTracker.Done()
@@ -343,14 +341,15 @@ func PopulateCAASControllerCharm(ctx context.Context, controllerCharmDeployer bo
 	return bootstrap.PopulateCAASControllerCharm(ctx, controllerCharmDeployer)
 }
 
-// IAASSetMachineProvisioned is the function that is used to set the
-// machine provisioned for IAAS workloads.
-func IAASSetMachineProvisioned(
+// IAASAgentFinalizer is the function that is used to finalize the
+// IAAS agent during bootstrap.
+func IAASAgentFinalizer(
 	ctx context.Context,
 	agentPasswordService AgentPasswordService,
 	machineService MachineService,
 	bootstrapParams instancecfg.StateInitializationParams,
-	agentConfig agent.Config) error {
+	agentConfig agent.Config,
+) error {
 	// Set machine cloud instance data for the bootstrap machine.
 	bootstrapMachineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
 	if err != nil {
@@ -384,8 +383,25 @@ func IAASSetMachineProvisioned(
 	return nil
 }
 
-// CAASSetMachineProvisioned is a no-op function for CAAS workloads, as they
-// don't have machines.
-func CAASSetMachineProvisioned(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error {
+// CAASAgentFinalizer is the function that is used to finalize the
+// CAAS agent during bootstrap.
+func CAASAgentFinalizer(
+	ctx context.Context,
+	agentPasswordService AgentPasswordService,
+	machineService MachineService,
+	bootstrapParams instancecfg.StateInitializationParams,
+	agentConfig agent.Config,
+) error {
+	apiInfo, ok := agentConfig.APIInfo()
+	if !ok {
+		// If this is missing, we cannot set the controller node password.
+		return errors.Errorf("agent config is missing APIInfo for %q", agent.BootstrapControllerId)
+	}
+
+	// Set the controller node password.
+	if err := agentPasswordService.SetControllerNodePassword(ctx, agent.BootstrapControllerId, apiInfo.Password); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }

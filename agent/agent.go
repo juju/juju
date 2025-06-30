@@ -1084,8 +1084,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 			Addrs:  mongoAddrs,
 			CACert: c.caCert,
 		},
-		Password: c.statePassword,
-		Tag:      c.tag,
+		Tag: c.tag,
 	}, true
 }
 

@@ -134,12 +134,12 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 		&instanceData.InstanceID,
 		&instanceData.DisplayName,
 		&instanceData.Arch,
+		&instanceData.AvailabilityZoneUUID,
+		&instanceData.CPUCores,
+		&instanceData.CPUPower,
 		&instanceData.Mem,
 		&instanceData.RootDisk,
 		&instanceData.RootDiskSource,
-		&instanceData.CPUCores,
-		&instanceData.CPUPower,
-		&instanceData.AvailabilityZoneUUID,
 		&instanceData.VirtType,
 	)
 	c.Assert(err, tc.ErrorIsNil)

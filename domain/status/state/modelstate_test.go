@@ -2004,6 +2004,150 @@ func (s *modelStateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
 	c.Check(obtainedStatus.Status, tc.Equals, status.MachineStatusPending)
 }
 
+// TestGetMachineMachineStatusNotFoundError asserts that a Pending status is
+// returned when creating a machine.
+func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
+	mUUID := s.createMachine(c, "666")
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM machine_status WHERE machine_uuid=?", mUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.state.GetMachineStatus(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
+}
+
+func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
+	uuid0 := s.createMachine(c, "666")
+	uuid1 := s.createMachine(c, "777")
+	uuid2 := s.createMachine(c, "888")
+
+	s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
+		Message: "it's started",
+		Data:    []byte(`{"foo": "bar"}`),
+	})
+	s.state.SetMachineStatus(c.Context(), "777", status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusPending,
+		Message: "it's pending",
+		Data:    []byte(`{"bar": "foo"}`),
+	})
+
+	// Act
+	statuses, err := s.state.GetMachineStatuses(c.Context())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(statuses, tc.HasLen, 3)
+	c.Check(statuses["666"].InstanceStatus.Since, tc.NotNil)
+	c.Check(statuses["777"].InstanceStatus.Since, tc.NotNil)
+	c.Check(statuses["888"].InstanceStatus.Since, tc.NotNil)
+
+	// Clear all since values to make the test deterministic.
+	m := statuses["666"]
+	m.MachineStatus.Since = nil
+	m.InstanceStatus.Since = nil
+	statuses["666"] = m
+
+	m = statuses["777"]
+	m.MachineStatus.Since = nil
+	m.InstanceStatus.Since = nil
+	statuses["777"] = m
+
+	m = statuses["888"]
+	m.MachineStatus.Since = nil
+	m.InstanceStatus.Since = nil
+	statuses["888"] = m
+
+	c.Check(statuses, tc.DeepEquals, map[coremachine.Name]status.Machine{
+		"666": {
+			UUID:        uuid0,
+			InstanceID:  "666",
+			DisplayName: "666",
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status:  status.MachineStatusStarted,
+				Message: "it's started",
+				Data:    []byte(`{"foo": "bar"}`),
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusPending,
+			},
+			Platform: deployment.Platform{
+				OSType:       -1,
+				Architecture: -1,
+			},
+			HardwareCharacteristics: instance.HardwareCharacteristics{
+				Arch:           ptr("arm64"),
+				Mem:            ptr[uint64](1024),
+				RootDisk:       ptr[uint64](256),
+				RootDiskSource: ptr("/test"),
+				CpuCores:       ptr[uint64](4),
+				CpuPower:       ptr[uint64](75),
+				VirtType:       ptr("virtual-machine"),
+			},
+		},
+		"777": {
+			UUID:        uuid1,
+			InstanceID:  "777",
+			DisplayName: "777",
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status:  status.MachineStatusPending,
+				Message: "it's pending",
+				Data:    []byte(`{"bar": "foo"}`),
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusPending,
+			},
+			Platform: deployment.Platform{
+				OSType:       -1,
+				Architecture: -1,
+			},
+			HardwareCharacteristics: instance.HardwareCharacteristics{
+				Arch:           ptr("arm64"),
+				Mem:            ptr[uint64](1024),
+				RootDisk:       ptr[uint64](256),
+				RootDiskSource: ptr("/test"),
+				CpuCores:       ptr[uint64](4),
+				CpuPower:       ptr[uint64](75),
+				VirtType:       ptr("virtual-machine"),
+			},
+		},
+		"888": {
+			UUID:        uuid2,
+			InstanceID:  "888",
+			DisplayName: "888",
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusPending,
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusPending,
+			},
+			Platform: deployment.Platform{
+				OSType:       -1,
+				Architecture: -1,
+			},
+			HardwareCharacteristics: instance.HardwareCharacteristics{
+				Arch:           ptr("arm64"),
+				Mem:            ptr[uint64](1024),
+				RootDisk:       ptr[uint64](256),
+				RootDiskSource: ptr("/test"),
+				CpuCores:       ptr[uint64](4),
+				CpuPower:       ptr[uint64](75),
+				VirtType:       ptr("virtual-machine"),
+			},
+		},
+	})
+}
+
+func (s *modelStateSuite) TestGetMachineStatusesEmptyModel(c *tc.C) {
+	statuses, err := s.state.GetMachineStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.HasLen, 0)
+}
+
 func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
 	// Arrange: 2 machine with statuses
 	s.createMachine(c, "666")
@@ -2036,21 +2180,6 @@ func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
 	})
-}
-
-// TestGetMachineMachineStatusNotFoundError asserts that a Pending status is
-// returned when creating a machine.
-func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
-	mUUID := s.createMachine(c, "666")
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "DELETE FROM machine_status WHERE machine_uuid=?", mUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.state.GetMachineStatus(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
 }
 
 func (s *modelStateSuite) TestGetAllMachineStatusesEmptyModel(c *tc.C) {
@@ -2542,8 +2671,4 @@ func assertStatusInfoEqual[T status.StatusID](c *tc.C, got, want status.StatusIn
 	c.Check(got.Message, tc.Equals, want.Message)
 	c.Check(got.Data, tc.DeepEquals, want.Data)
 	c.Check(got.Since.Sub(*want.Since), tc.Equals, time.Duration(0))
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -5,10 +5,7 @@ package mongo
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	stderrors "errors"
-	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -16,9 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
-	"github.com/juju/utils/v4/cert"
-
-	"github.com/juju/juju/internal/http"
 )
 
 // SocketTimeout should be long enough that even a slow mongo server
@@ -109,9 +103,6 @@ type MongoInfo struct {
 	// Tag holds the name of the entity that is connecting.
 	// It should be nil when connecting as an administrator.
 	Tag names.Tag
-
-	// Password holds the password for the connecting entity.
-	Password string
 }
 
 // DialInfo returns information on how to dial
@@ -120,31 +111,6 @@ type MongoInfo struct {
 func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
-	}
-
-	var tlsConfig *tls.Config
-	if !info.DisableTLS {
-		if len(info.CACert) == 0 {
-			return nil, stderrors.New("missing CA certificate")
-		}
-		xcert, err := cert.ParseCert(info.CACert)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
-		}
-		pool := x509.NewCertPool()
-		pool.AddCert(xcert)
-
-		tlsConfig = http.SecureTLSConfig()
-		tlsConfig.RootCAs = pool
-		tlsConfig.ServerName = "juju-mongodb"
-
-		// TODO(natefinch): revisit this when are full-time on mongo 3.
-		// We have to add non-ECDHE suites because mongo doesn't support ECDHE.
-		moreSuites := []uint16{
-			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-		}
-		tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, moreSuites...)
 	}
 
 	dial := func(server *mgo.ServerAddr) (_ net.Conn, err error) {
@@ -162,17 +128,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 			logger.Debugf(context.TODO(), "mongodb connection failed, will retry: %v", err)
 			return nil, err
 		}
-		if tlsConfig != nil {
-			cc := tls.Client(c, tlsConfig)
-			if err := cc.Handshake(); err != nil {
-				logger.Warningf(context.TODO(), "TLS handshake failed: %v", err)
-				if err := c.Close(); err != nil {
-					logger.Warningf(context.TODO(), "failed to close connection: %v", err)
-				}
-				return nil, err
-			}
-			c = cc
-		}
+
 		logger.Debugf(context.TODO(), "dialed mongodb server at %q", addr)
 		return c, nil
 	}
@@ -215,26 +171,7 @@ func DialWithInfo(info MongoInfo, opts DialOpts) (*mgo.Session, error) {
 			return nil, errors.Annotate(err, "PostDial failed")
 		}
 	}
-	if info.Tag != nil || info.Password != "" {
-		user := AdminUser
-		if info.Tag != nil {
-			user = info.Tag.String()
-		}
-		if err := Login(session, user, info.Password); err != nil {
-			session.Close()
-			return nil, errors.Trace(err)
-		}
-	}
 	return session, nil
-}
-
-// Login logs in to the mongodb admin database.
-func Login(session *mgo.Session, user, password string) error {
-	admin := session.DB("admin")
-	if err := admin.Login(user, password); err != nil {
-		return MaybeUnauthorizedf(err, "cannot log in to admin database as %q", user)
-	}
-	return nil
 }
 
 // MaybeUnauthorizedf checks if the cause of the given error is a Mongo

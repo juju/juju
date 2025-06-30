@@ -67,9 +67,6 @@ type InitializeParams struct {
 	// defaults this if 0.
 	WatcherPollInterval time.Duration
 
-	// AdminPassword holds the password for the initial user.
-	AdminPassword string
-
 	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
 	// and should disapear as soon as we migrate units and applications.
 	CharmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
@@ -91,9 +88,6 @@ func (p InitializeParams) Validate() error {
 	}
 	if p.MongoSession == nil {
 		return errors.NotValidf("nil MongoSession")
-	}
-	if p.AdminPassword == "" {
-		return errors.NotValidf("empty AdminPassword")
 	}
 	if p.SSHServerHostKey == "" {
 		return errors.NotValidf("empty SSHServerHostKey")

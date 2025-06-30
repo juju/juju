@@ -21,7 +21,6 @@ import (
 
 type InitializeArgs struct {
 	Owner                     names.UserTag
-	AdminPassword             string
 	InitialConfig             *config.Config
 	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
@@ -37,9 +36,6 @@ type InitializeArgs struct {
 func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 	if args.InitialConfig == nil {
 		args.InitialConfig = testing.ModelConfig(c)
-	}
-	if args.AdminPassword == "" {
-		args.AdminPassword = "admin-secret"
 	}
 
 	session, err := mgotesting.MgoServer.Dial()
@@ -73,7 +69,6 @@ func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 		MongoSession:              session,
 		WatcherPollInterval:       10 * time.Millisecond,
 		NewPolicy:                 args.NewPolicy,
-		AdminPassword:             args.AdminPassword,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return ctlr

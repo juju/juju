@@ -114,7 +114,7 @@ type ConfigArgs struct {
 type configArgsConverter map[string]string
 
 func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
-	pathArgs := set.NewStrings("dbpath", "logpath", "tlsCertificateKeyFile", "keyFile")
+	pathArgs := set.NewStrings("dbpath", "logpath")
 	command := make([]string, 0, len(conf))
 	var keys []string
 	for k := range conf {
@@ -133,9 +133,6 @@ func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
 			value = "true"
 		}
 		line := fmt.Sprintf("%s = %s", key, value)
-		if strings.HasPrefix(key, "tlsCertificateKeyFilePassword") {
-			line = key
-		}
 		command = append(command, line)
 	}
 
@@ -163,31 +160,9 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	if mongoArgs.BindToAllIP {
 		result["bind_ip_all"] = flagMarker
 	}
-	if mongoArgs.TLSMode != "" {
-		result["tlsMode"] = mongoArgs.TLSMode
-	}
-	if mongoArgs.TLSOnNormalPorts {
-		result["tlsOnNormalPorts"] = flagMarker
-	}
 
-	// authn
-	if mongoArgs.PEMKeyFile != "" {
-		result["tlsCertificateKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
-		//--tlsCertificateKeyFilePassword must be concatenated to the equals sign (lp:1581284)
-		pemPassword := mongoArgs.PEMKeyPassword
-		if pemPassword == "" {
-			pemPassword = "ignored"
-		}
-		result["tlsCertificateKeyFilePassword="+pemPassword] = flagMarker
-	}
-
-	if mongoArgs.AuthKeyFile != "" {
-		result["auth"] = flagMarker
-		result["keyFile"] = utils.ShQuote(mongoArgs.AuthKeyFile)
-	} else {
-		logger.Warningf(context.TODO(), "configuring mongod  with --noauth flag enabled")
-		result["noauth"] = flagMarker
-	}
+	logger.Warningf(context.TODO(), "configuring mongod  with --noauth flag enabled")
+	result["noauth"] = flagMarker
 
 	// ops config
 	result["journal"] = flagMarker
@@ -236,28 +211,22 @@ var supportsIPv6 = network.SupportsIPv6
 
 // newMongoDBArgsWithDefaults returns *mongoDbConfigArgs
 // under the assumption that MongoDB 3.4 or later is running.
-func generateConfig(oplogSizeMB int, args EnsureServerParams) *ConfigArgs {
+func generateConfig(args EnsureServerParams) *ConfigArgs {
 	mongoArgs := &ConfigArgs{
-		Clock:       clock.WallClock,
-		DataDir:     args.MongoDataDir,
-		DBDir:       dbDir(args.MongoDataDir),
-		LogPath:     logPath(args.MongoDataDir),
-		Port:        args.StatePort,
-		OplogSizeMB: oplogSizeMB,
-		IPv6:        supportsIPv6(),
+		Clock:   clock.WallClock,
+		DataDir: args.MongoDataDir,
+		DBDir:   dbDir(args.MongoDataDir),
+		LogPath: logPath(args.MongoDataDir),
+		Port:    args.StatePort,
+		IPv6:    supportsIPv6(),
 		// Switch from syslog to appending to dataDir, because snaps don't
 		// have the same permissions.
 		Syslog: false,
 		// SlowMS defaults to 100. This appears to log excessively.
-		SlowMS:           1000,
-		Quiet:            true,
-		ReplicaSet:       ReplicaSetName,
-		AuthKeyFile:      sharedSecretPath(args.MongoDataDir),
-		PEMKeyFile:       sslKeyPath(args.MongoDataDir),
-		PEMKeyPassword:   "ignored", // used as boilerplate later
-		TLSOnNormalPorts: false,
-		TLSMode:          "requireTLS",
-		BindToAllIP:      true, // TODO(tsm): disable when not needed
+		SlowMS:      1000,
+		Quiet:       true,
+		ReplicaSet:  ReplicaSetName,
+		BindToAllIP: true, // TODO(tsm): disable when not needed
 		//BindIP:         "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
 	}
 

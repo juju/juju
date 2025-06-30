@@ -1525,6 +1525,85 @@ func (s *serviceSuite) TestGetAllMachineStatuses(c *tc.C) {
 	c.Check(statuses, tc.DeepEquals, expectedStatuses)
 }
 
+func (s *serviceSuite) TestGetMachineStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatuses := map[machine.Name]Machine{
+		"666": {
+			Name: "666",
+			Life: corelife.Alive,
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Started,
+				Data: map[string]interface{}{
+					"foo": "bar",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Running,
+			},
+		},
+		"777": {
+			Name: "777",
+			Life: corelife.Dying,
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Pending,
+				Data: map[string]interface{}{
+					"foo": "baz",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Allocating,
+			},
+		},
+		"888": {
+			Name: "888",
+			Life: corelife.Dead,
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Stopped,
+				Data: map[string]interface{}{
+					"foo": "qux",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Unset,
+			},
+		},
+	}
+	s.modelState.EXPECT().GetMachineStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
+		"666": {
+			Life: life.Alive,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "bar"}`),
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusRunning,
+			},
+		},
+		"777": {
+			Life: life.Dying,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusPending,
+				Data:   []byte(`{"foo": "baz"}`),
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusAllocating,
+			},
+		},
+		"888": {
+			Life: life.Dead,
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStopped,
+				Data:   []byte(`{"foo": "qux"}`),
+			},
+		},
+	}, nil)
+
+	statuses, err := s.modelService.GetMachineStatuses(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.DeepEquals, expectedStatuses)
+}
+
 // TestSetMachineStatusSuccess asserts the happy path of the SetMachineStatus.
 func (s *serviceSuite) TestSetMachineStatusSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()

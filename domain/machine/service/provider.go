@@ -59,6 +59,12 @@ func (s *ProviderService) CreateMachine(ctx context.Context, machineName machine
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// Machine name must not contain container child names, so they must be
+	// singular machine name.
+	if machineName.IsContainer() {
+		return "", errors.Errorf("machine name %q cannot be a container", machineName)
+	}
+
 	provider, err := s.providerGetter(ctx)
 	if err != nil {
 		return "", errors.Errorf("getting provider for machine %q: %w", machineName, err)
@@ -95,12 +101,31 @@ func (s *ProviderService) CreateMachineWithParent(ctx context.Context, machineNa
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// Machine names must not contain container child names, so they must be
+	// singular machine name.
+	if machineName.IsContainer() {
+		return "", errors.Errorf("machine name %q cannot be a container", machineName)
+	} else if parentName.IsContainer() {
+		return "", errors.Errorf("parent machine name %q cannot be a container", parentName)
+	}
+
+	// The machine name then becomes, the <parent name>/scope/<machine name>.
+	// TODO (stickupkid): Use the placement directive to determine the
+	// the scope.
+	name, err := parentName.NamedChild("lxd", machineName.String())
+	if err != nil {
+		return "", errors.Errorf("creating machine name from parent %q and machine %q: %w", parentName, machineName, err)
+	}
+	if err := name.Validate(); err != nil {
+		return "", errors.Errorf("validating machine name %q: %w", name, err)
+	}
+
 	provider, err := s.providerGetter(ctx)
 	if err != nil {
-		return "", errors.Errorf("getting provider for machine %q: %w", machineName, err)
+		return "", errors.Errorf("getting provider for machine %q: %w", name, err)
 	}
 	if err := provider.PrecheckInstance(ctx, environs.PrecheckInstanceParams{}); err != nil {
-		return "", errors.Errorf("prechecking instance for machine %q: %w", machineName, err)
+		return "", errors.Errorf("prechecking instance for machine %q: %w", name, err)
 	}
 
 	// Make new UUIDs for the net-node and the machine.
@@ -108,14 +133,14 @@ func (s *ProviderService) CreateMachineWithParent(ctx context.Context, machineNa
 	// the state layer we don't keep regenerating.
 	nodeUUID, machineUUID, err := createUUIDs()
 	if err != nil {
-		return "", errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
+		return "", errors.Errorf("creating machine %q: %w", name, err)
 	}
-	err = s.st.CreateMachineWithParent(ctx, machineName, parentName, nodeUUID, machineUUID)
+	err = s.st.CreateMachineWithParent(ctx, name, nodeUUID, machineUUID)
 	if err != nil {
-		return machineUUID, errors.Errorf("creating machine %q with parent %q: %w", machineName, parentName, err)
+		return machineUUID, errors.Errorf("creating machine %q: %w", name, err)
 	}
 
-	if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, machineName, s.clock); err != nil {
+	if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, name, s.clock); err != nil {
 		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
 	}
 

@@ -335,10 +335,10 @@ const (
 type MachineStatusType int
 
 const (
-	MachineStatusStarted MachineStatusType = iota
-	MachineStatusStopped
-	MachineStatusError
+	MachineStatusError MachineStatusType = iota
+	MachineStatusStarted
 	MachineStatusPending
+	MachineStatusStopped
 	MachineStatusDown
 	MachineStatusUnknown
 )

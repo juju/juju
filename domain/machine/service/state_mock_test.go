@@ -239,17 +239,17 @@ func (c *MockStateCreateMachineCall) DoAndReturn(f func(context.Context, machine
 }
 
 // CreateMachineWithParent mocks base method.
-func (m *MockState) CreateMachineWithParent(arg0 context.Context, arg1, arg2 machine.Name, arg3 string, arg4 machine.UUID) error {
+func (m *MockState) CreateMachineWithParent(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateMachineWithParent", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "CreateMachineWithParent", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateMachineWithParent indicates an expected call of CreateMachineWithParent.
-func (mr *MockStateMockRecorder) CreateMachineWithParent(arg0, arg1, arg2, arg3, arg4 any) *MockStateCreateMachineWithParentCall {
+func (mr *MockStateMockRecorder) CreateMachineWithParent(arg0, arg1, arg2, arg3 any) *MockStateCreateMachineWithParentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachineWithParent", reflect.TypeOf((*MockState)(nil).CreateMachineWithParent), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachineWithParent", reflect.TypeOf((*MockState)(nil).CreateMachineWithParent), arg0, arg1, arg2, arg3)
 	return &MockStateCreateMachineWithParentCall{Call: call}
 }
 
@@ -265,13 +265,13 @@ func (c *MockStateCreateMachineWithParentCall) Return(arg0 error) *MockStateCrea
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateMachineWithParentCall) Do(f func(context.Context, machine.Name, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
+func (c *MockStateCreateMachineWithParentCall) Do(f func(context.Context, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateMachineWithParentCall) DoAndReturn(f func(context.Context, machine.Name, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
+func (c *MockStateCreateMachineWithParentCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -782,6 +782,46 @@ func (c *MockStateGetSupportedContainersTypesCall) DoAndReturn(f func(context.Co
 	return c
 }
 
+// InitialMachineContainerLifeStatement mocks base method.
+func (m *MockState) InitialMachineContainerLifeStatement() (string, string, func(string) string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialMachineContainerLifeStatement")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(func(string) string)
+	return ret0, ret1, ret2
+}
+
+// InitialMachineContainerLifeStatement indicates an expected call of InitialMachineContainerLifeStatement.
+func (mr *MockStateMockRecorder) InitialMachineContainerLifeStatement() *MockStateInitialMachineContainerLifeStatementCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialMachineContainerLifeStatement", reflect.TypeOf((*MockState)(nil).InitialMachineContainerLifeStatement))
+	return &MockStateInitialMachineContainerLifeStatementCall{Call: call}
+}
+
+// MockStateInitialMachineContainerLifeStatementCall wrap *gomock.Call
+type MockStateInitialMachineContainerLifeStatementCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialMachineContainerLifeStatementCall) Return(arg0, arg1 string, arg2 func(string) string) *MockStateInitialMachineContainerLifeStatementCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialMachineContainerLifeStatementCall) Do(f func() (string, string, func(string) string)) *MockStateInitialMachineContainerLifeStatementCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialMachineContainerLifeStatementCall) DoAndReturn(f func() (string, string, func(string) string)) *MockStateInitialMachineContainerLifeStatementCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchModelMachinesStatement mocks base method.
 func (m *MockState) InitialWatchModelMachinesStatement() (string, string) {
 	m.ctrl.T.Helper()
@@ -1011,6 +1051,44 @@ func (c *MockStateMarkMachineForRemovalCall) Do(f func(context.Context, machine.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateMarkMachineForRemovalCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockStateMarkMachineForRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForMachineLife mocks base method.
+func (m *MockState) NamespaceForMachineLife() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForMachineLife")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForMachineLife indicates an expected call of NamespaceForMachineLife.
+func (mr *MockStateMockRecorder) NamespaceForMachineLife() *MockStateNamespaceForMachineLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForMachineLife", reflect.TypeOf((*MockState)(nil).NamespaceForMachineLife))
+	return &MockStateNamespaceForMachineLifeCall{Call: call}
+}
+
+// MockStateNamespaceForMachineLifeCall wrap *gomock.Call
+type MockStateNamespaceForMachineLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForMachineLifeCall) Return(arg0 string) *MockStateNamespaceForMachineLifeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForMachineLifeCall) Do(f func() string) *MockStateNamespaceForMachineLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForMachineLifeCall) DoAndReturn(f func() string) *MockStateNamespaceForMachineLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -293,7 +293,6 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		},
 		CloudName:          DefaultCloud.Name,
 		MongoSession:       session,
-		AdminPassword:      AdminSecret,
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(domainServices.Cloud(), domainServices.Credential(), modelConfigServiceGetter, storageServiceGetter),
 		CharmServiceGetter: charmServiceGetter,
 		SSHServerHostKey:   coretesting.SSHServerHostKey,

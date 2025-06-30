@@ -34,6 +34,8 @@ type AgentPasswordService interface {
 	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
 	// SetMachinePassword sets the password for the given machine.
 	SetMachinePassword(ctx context.Context, machineName machine.Name, password string) error
+	// SetControllerNodePassword sets the password for the controller node.
+	SetControllerNodePassword(ctx context.Context, controllerID string, password string) error
 }
 
 // AgentBinaryStore is responsible for persisting agent binary's into a long

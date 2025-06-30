@@ -13,6 +13,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -30,6 +31,10 @@ type AgentPasswordService interface {
 
 	// SetMachinePassword sets the password hash for the given machine.
 	SetMachinePassword(context.Context, coremachine.Name, string) error
+
+	// SetControllerNodePassword sets the password hash for the given
+	// controller node.
+	SetControllerNodePassword(context.Context, string, string) error
 
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
@@ -103,9 +108,17 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 		} else if err != nil {
 			return internalerrors.Errorf("setting password for %q: %w", tag, err)
 		}
+		return nil
 
-		// TODO (stickupkid): This should be removed once we delete mongo.
-		return pc.legacyMachineSetPassword(tag, password)
+	case names.ControllerAgentTagKind:
+		controllerTag := tag.(names.ControllerAgentTag)
+		controllerName := controllerTag.Id()
+		if err := pc.agentPasswordService.SetControllerNodePassword(ctx, controllerName, password); errors.Is(err, controllernodeerrors.NotFound) {
+			return errors.NotFoundf("controller node %q", controllerName)
+		} else if err != nil {
+			return internalerrors.Errorf("setting password for %q: %w", tag, err)
+		}
+		return nil
 
 	// TODO: Handle the following password setting:
 	//  - model
@@ -113,51 +126,6 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 	default:
 		return pc.legacySetPassword(tag, password)
 	}
-}
-
-func (pc *PasswordChanger) legacyMachineSetPassword(tag names.Tag, password string) error {
-	// This is being removed, this is to ensure we just set up the mongo
-	// password. If the state is nil, just ignore the request.
-	if pc.st == nil {
-		return nil
-	}
-
-	isController, err := pc.agentPasswordService.IsMachineController(context.TODO(), coremachine.Name(tag.Id()))
-	if errors.Is(err, machineerrors.MachineNotFound) {
-		return nil
-	} else if err != nil {
-		return internalerrors.Errorf("checking if machine %q is controller: %w", tag.Id(), err)
-	} else if !isController {
-		// If this is not a controller machine, we do not set the mongo
-		// password.
-		return nil
-	}
-
-	entity0, err := pc.st.FindEntity(tag)
-	if err != nil {
-		return err
-	}
-	return pc.setMongoPassword(entity0, password)
-}
-
-// setMongoPassword applies to controller machines.
-func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string) error {
-	type mongoPassworder interface {
-		SetMongoPassword(password string) error
-	}
-	// We set the mongo password first on the grounds that
-	// if it fails, the agent in question should still be able
-	// to authenticate to another API server and ask it to change
-	// its password.
-	if entity0, ok := entity.(mongoPassworder); ok {
-		if err := entity0.SetMongoPassword(password); err != nil {
-			return err
-		}
-		logger.Infof(context.TODO(), "setting mongo password for %q", entity.Tag())
-		return nil
-	}
-	// TODO(dfc) fix
-	return apiservererrors.NotSupportedError(entity.Tag(), "mongo access")
 }
 
 func (pc *PasswordChanger) legacySetPassword(tag names.Tag, password string) error {

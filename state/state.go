@@ -583,6 +583,8 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 	case nil:
 		return mdoc, nil
 	case mgo.ErrNotFound:
+		// Work out what's still calling machine.
+		// debug.PrintStack()
 		return nil, errors.NotFoundf("machine %s", id)
 	default:
 		return nil, errors.Annotatef(err, "cannot get machine %s", id)
@@ -597,8 +599,6 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	id := tag.Id()
 	switch tag := tag.(type) {
-	case names.ControllerAgentTag:
-		return st.ControllerNode(id)
 	case names.MachineTag:
 		return st.Machine(id)
 	case names.UnitTag:
@@ -1419,15 +1419,6 @@ func (st *State) AssignUnit(
 	}
 	defer errors.DeferredAnnotatef(&err, "cannot assign unit %q to machine", u)
 	return errors.Trace(u.assignToNewMachine(""))
-}
-
-// SetAdminMongoPassword sets the administrative password
-// to access the state. If the password is non-empty,
-// all subsequent attempts to access the state must
-// be authorized; otherwise no authorization is required.
-func (st *State) SetAdminMongoPassword(password string) error {
-	err := mongo.SetAdminMongoPassword(st.session, mongo.AdminUser, password)
-	return errors.Trace(err)
 }
 
 func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {

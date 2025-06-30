@@ -27,26 +27,15 @@ type AgentEntityWatcher struct {
 // NewAgentEntityWatcher returns a new AgentEntityWatcher. The
 // GetAuthFunc will be used on each invocation of Watch to determine
 // current permissions.
+//
+// Deprecated: Create the methods directly on the facade instead, for the
+// entities that need to be watched!
 func NewAgentEntityWatcher(st state.EntityFinder, watcherRegistry facade.WatcherRegistry, getCanWatch GetAuthFunc) *AgentEntityWatcher {
 	return &AgentEntityWatcher{
 		st:              st,
 		watcherRegistry: watcherRegistry,
 		getCanWatch:     getCanWatch,
 	}
-}
-
-func (a *AgentEntityWatcher) watchEntity(ctx context.Context, tag names.Tag) (string, error) {
-	entity0, err := a.st.FindEntity(tag)
-	if err != nil {
-		return "", err
-	}
-	entity, ok := entity0.(state.NotifyWatcherFactory)
-	if !ok {
-		return "", apiservererrors.NotSupportedError(tag, "watching")
-	}
-	watch := entity.Watch()
-	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, a.watcherRegistry, watch)
-	return id, err
 }
 
 // Watch starts an NotifyWatcher for each given entity.
@@ -76,4 +65,27 @@ func (a *AgentEntityWatcher) Watch(ctx context.Context, args params.Entities) (p
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+func (a *AgentEntityWatcher) watchEntity(ctx context.Context, tag names.Tag) (string, error) {
+	switch tag.Kind() {
+	case names.UnitTagKind, names.MachineTagKind:
+		return "", errors.NotSupportedf("watching %s", tag.Kind())
+	default:
+		return a.legacyWatchEntity(ctx, tag)
+	}
+}
+
+func (a *AgentEntityWatcher) legacyWatchEntity(ctx context.Context, tag names.Tag) (string, error) {
+	entity0, err := a.st.FindEntity(tag)
+	if err != nil {
+		return "", err
+	}
+	entity, ok := entity0.(state.NotifyWatcherFactory)
+	if !ok {
+		return "", apiservererrors.NotSupportedError(tag, "watching")
+	}
+	watch := entity.Watch()
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, a.watcherRegistry, watch)
+	return id, err
 }

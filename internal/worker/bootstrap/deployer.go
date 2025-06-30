@@ -19,13 +19,13 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charmhub"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
 
@@ -39,8 +39,6 @@ type SystemState interface {
 	// ToolsStorage returns a new binarystorage.StorageCloser that stores tools
 	// metadata in the "juju" database "toolsmetadata" collection.
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-	// Machine returns the machine with the given id.
-	Machine(string) (bootstrap.Machine, error)
 	// SetAPIHostPorts sets the addresses, if changed, of two collections:
 	//   - The list of *all* addresses at which the API is accessible.
 	//   - The list of addresses at which the API can be accessed by agents according
@@ -94,6 +92,7 @@ type ControllerCharmDeployerConfig struct {
 	ObjectStore                 objectstore.ObjectStore
 	ControllerConfig            controller.Config
 	DataDir                     string
+	BootstrapAddresses          network.ProviderAddresses
 	BootstrapMachineConstraints constraints.Value
 	ControllerCharmName         string
 	ControllerCharmChannel      charm.Channel
@@ -165,7 +164,7 @@ func IAASControllerCharmUploader(ctx context.Context, cfg ControllerCharmDeploye
 	return bootstrap.NewIAASDeployer(bootstrap.IAASDeployerConfig{
 		BaseDeployerConfig: makeBaseDeployerConfig(cfg),
 		ApplicationService: cfg.ApplicationService,
-		MachineGetter:      cfg.StateBackend,
+		HostBaseFn:         coreos.HostBase,
 	})
 }
 
@@ -177,6 +176,7 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		AgentPasswordService: cfg.AgentPasswordService,
 		ModelConfigService:   cfg.ModelConfigService,
 		Constraints:          cfg.BootstrapMachineConstraints,
+		BootstrapAddresses:   cfg.BootstrapAddresses,
 		ControllerConfig:     cfg.ControllerConfig,
 		Channel:              cfg.ControllerCharmChannel,
 		CharmhubHTTPClient:   cfg.CharmhubHTTPClient,
@@ -191,20 +191,4 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		Logger: cfg.Logger,
 		Clock:  cfg.Clock,
 	}
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s *stateShim) Machine(name string) (bootstrap.Machine, error) {
-	m, err := s.State.Machine(name)
-	if err != nil {
-		return nil, err
-	}
-	return &machineShim{Machine: m}, nil
-}
-
-type machineShim struct {
-	*state.Machine
 }

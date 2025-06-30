@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -26,24 +28,24 @@ type Backend interface {
 // Facade implements the machineactions interface and is the concrete
 // implementation of the api end point.
 type Facade struct {
-	backend       Backend
-	resources     facade.Resources
-	accessMachine common.AuthFunc
+	backend         Backend
+	watcherRegistry facade.WatcherRegistry
+	accessMachine   common.AuthFunc
 }
 
 // NewFacade creates a new server-side machineactions API end point.
 func NewFacade(
 	backend Backend,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 ) (*Facade, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		backend:       backend,
-		resources:     resources,
-		accessMachine: authorizer.AuthOwner,
+		backend:         backend,
+		watcherRegistry: watcherRegistry,
+		accessMachine:   authorizer.AuthOwner,
 	}, nil
 }
 
@@ -69,43 +71,31 @@ func (f *Facade) FinishActions(ctx context.Context, args params.ActionExecutionR
 // WatchActionNotifications returns a StringsWatcher for observing
 // incoming action calls to a machine.
 func (f *Facade) WatchActionNotifications(ctx context.Context, args params.Entities) params.StringsWatchResults {
-	tagToActionReceiver := f.backend.TagToActionReceiverFn(f.backend.FindEntity)
-	watchOne := common.WatchPendingActionsForReceiver(tagToActionReceiver, f.resources.Register)
-	return common.WatchActionNotifications(args, f.accessMachine, watchOne)
+	results := make([]params.StringsWatchResult, len(args.Entities))
+
+	for i := range args.Entities {
+		result := &results[i]
+
+		// We need a notify watcher for each item, otherwise during a migration
+		// a 3.x agent will bounce and will not be able to continue. By
+		// providing a watcher which does nothing, we can ensure that the 3.x
+		// agent will continue to work.
+		watcher := watcher.TODO[[]string]()
+		id, _, err := internal.EnsureRegisterWatcher(ctx, f.watcherRegistry, watcher)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.StringsWatcherId = id
+	}
+	return params.StringsWatchResults{Results: results}
 }
 
 // RunningActions lists the actions running for the entities passed in.
 // If we end up needing more than ListRunning at some point we could follow/abstract
 // what's done in the client actions package.
 func (f *Facade) RunningActions(ctx context.Context, args params.Entities) params.ActionsByReceivers {
-	canAccess := f.accessMachine
-	tagToActionReceiver := f.backend.TagToActionReceiverFn(f.backend.FindEntity)
-
-	response := params.ActionsByReceivers{
+	return params.ActionsByReceivers{
 		Actions: make([]params.ActionsByReceiver, len(args.Entities)),
 	}
-
-	for i, entity := range args.Entities {
-		currentResult := &response.Actions[i]
-		receiver, err := tagToActionReceiver(entity.Tag)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		currentResult.Receiver = receiver.Tag().String()
-
-		if !canAccess(receiver.Tag()) {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		results, err := f.backend.ConvertActions(receiver, receiver.RunningActions)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
-		}
-		currentResult.Actions = results
-	}
-
-	return response
 }

@@ -36,7 +36,7 @@ type State interface {
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
 	// It returns a MachineNotFound error if the parent machine does not exist.
-	CreateMachineWithParent(context.Context, machine.Name, machine.Name, string, machine.UUID) error
+	CreateMachineWithParent(context.Context, machine.Name, string, machine.UUID) error
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, machine.Name) error
@@ -157,6 +157,14 @@ type State interface {
 	// NamespaceForWatchMachineReboot returns the namespace string used for
 	// tracking machine reboot events in the model.
 	NamespaceForWatchMachineReboot() string
+
+	// NamespaceForMachineLife returns the namespace string used for
+	// tracking machine lifecycle events in the model.
+	NamespaceForMachineLife() string
+
+	// InitialMachineContainerLifeStatement returns the table and the initial
+	// watch statement for watching life changes of container machines.
+	InitialMachineContainerLifeStatement() (string, string, func(string) string)
 
 	// GetNamesForUUIDs returns a map of machine UUIDs to machine Names based
 	// on the given machine UUIDs.

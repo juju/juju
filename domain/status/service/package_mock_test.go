@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	machine "github.com/juju/juju/core/machine"
 	relation "github.com/juju/juju/core/relation"
 	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
@@ -625,6 +626,45 @@ func (c *MockModelStateGetMachineStatusCall) Do(f func(context.Context, string) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetMachineStatusCall) DoAndReturn(f func(context.Context, string) (status.StatusInfo[status.MachineStatusType], error)) *MockModelStateGetMachineStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineStatuses mocks base method.
+func (m *MockModelState) GetMachineStatuses(arg0 context.Context) (map[machine.Name]status.Machine, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineStatuses", arg0)
+	ret0, _ := ret[0].(map[machine.Name]status.Machine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineStatuses indicates an expected call of GetMachineStatuses.
+func (mr *MockModelStateMockRecorder) GetMachineStatuses(arg0 any) *MockModelStateGetMachineStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineStatuses", reflect.TypeOf((*MockModelState)(nil).GetMachineStatuses), arg0)
+	return &MockModelStateGetMachineStatusesCall{Call: call}
+}
+
+// MockModelStateGetMachineStatusesCall wrap *gomock.Call
+type MockModelStateGetMachineStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetMachineStatusesCall) Return(arg0 map[machine.Name]status.Machine, arg1 error) *MockModelStateGetMachineStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetMachineStatusesCall) Do(f func(context.Context) (map[machine.Name]status.Machine, error)) *MockModelStateGetMachineStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetMachineStatusesCall) DoAndReturn(f func(context.Context) (map[machine.Name]status.Machine, error)) *MockModelStateGetMachineStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
