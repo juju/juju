@@ -345,20 +345,6 @@ func (s *watcherSuite) TestWatchMachineContainerLife(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachine(c.Context(), "0", nil)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-
-	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachineWithParent(c.Context(), "1", "0")
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-
-	harness.AddTest(func(c *tc.C) {
 		_, err := s.svc.CreateMachine(c.Context(), "1", nil)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -370,6 +356,29 @@ func (s *watcherSuite) TestWatchMachineContainerLife(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertChange()
+	})
+
+	harness.Run(c, []string(nil))
+}
+
+func (s *watcherSuite) TestWatchMachineContainerLifeNoDispatch(c *tc.C) {
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "0", nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachineWithParent(c.Context(), "0", "0")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
 	})
 
 	harness.Run(c, []string(nil))
