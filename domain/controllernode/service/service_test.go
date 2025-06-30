@@ -194,10 +194,9 @@ func (s *serviceSuite) TestSetAPIAddressesStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	controllerID := "1"
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, gomock.Any()).Return(internalerrors.New("boom"))
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), gomock.Any()).Return(internalerrors.New("boom"))
 
-	err := svc.SetAPIAddresses(c.Context(), controllerID, network.SpaceHostPorts{{}}, &network.SpaceInfo{})
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -206,48 +205,54 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := "1"
-
-	controllerApiAddrs := []controllernode.APIAddress{
-		{
-			Address: "10.0.0.1:17070",
-			IsAgent: true,
-			Scope:   network.ScopePublic,
-		},
-		{
-			Address: "10.0.0.2:17070",
-			IsAgent: false,
-			Scope:   network.ScopePublic,
+	controllerApiAddrs := map[string]controllernode.APIAddresses{
+		controllerID: {
+			{
+				Address: "10.0.0.1:17070",
+				IsAgent: true,
+				Scope:   network.ScopePublic,
+			}, {
+				Address: "10.0.0.2:17070",
+				IsAgent: false,
+				Scope:   network.ScopePublic,
+			},
 		},
 	}
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, controllerApiAddrs).Return(nil)
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
 
-	addrs := network.SpaceHostPorts{
-		{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.1",
-					Scope: network.ScopePublic,
-				},
-				SpaceID: "space0-uuid",
-			},
-			NetPort: network.NetPort(17070),
+	args := controllernode.SetAPIAddressArgs{
+		MgmtSpace: &network.SpaceInfo{
+			ID:   "space0-uuid",
+			Name: "space0",
 		},
-		{
-			// This address is in a different space.
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.2",
-					Scope: network.ScopePublic,
+		APIAddresses: map[string]network.SpaceHostPorts{
+			controllerID: {
+				{
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "10.0.0.1",
+							Scope: network.ScopePublic,
+						},
+						SpaceID: "space0-uuid",
+					},
+					NetPort: network.NetPort(17070),
 				},
-				SpaceID: "space1-uuid",
+				{
+					// This address is in a different space.
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "10.0.0.2",
+							Scope: network.ScopePublic,
+						},
+						SpaceID: "space1-uuid",
+					},
+					NetPort: network.NetPort(17070),
+				},
 			},
-			NetPort: network.NetPort(17070),
 		},
 	}
-	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, &network.SpaceInfo{
-		ID:   "space0-uuid",
-		Name: "space0",
-	})
+
+	err := svc.SetAPIAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -256,45 +261,49 @@ func (s *serviceSuite) TestSetAPIAddressesNilMgmtSpace(c *tc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := "1"
-
-	controllerApiAddrs := []controllernode.APIAddress{
-		{
-			Address: "10.0.0.1:17070",
-			IsAgent: true,
-			Scope:   network.ScopeCloudLocal,
-		},
-		{
-			Address: "10.0.0.2:17070",
-			IsAgent: true,
-			Scope:   network.ScopeCloudLocal,
+	controllerApiAddrs := map[string]controllernode.APIAddresses{
+		controllerID: {
+			{
+				Address: "10.0.0.1:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}, {
+				Address: "10.0.0.2:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			},
 		},
 	}
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, controllerApiAddrs).Return(nil)
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
 
-	addrs := network.SpaceHostPorts{
-		{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.1",
-					Scope: network.ScopeCloudLocal,
+	args := controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			controllerID: {
+				{
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "10.0.0.1",
+							Scope: network.ScopeCloudLocal,
+						},
+						SpaceID: "space0-uuid",
+					},
+					NetPort: network.NetPort(17070),
 				},
-				SpaceID: "space0-uuid",
-			},
-			NetPort: network.NetPort(17070),
-		},
-		{
-			// This address is in a different space.
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.2",
-					Scope: network.ScopeCloudLocal,
+				{
+					// This address is in a different space.
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "10.0.0.2",
+							Scope: network.ScopeCloudLocal,
+						},
+						SpaceID: "space1-uuid",
+					},
+					NetPort: network.NetPort(17070),
 				},
-				SpaceID: "space1-uuid",
 			},
-			NetPort: network.NetPort(17070),
 		},
 	}
-	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, nil)
+	err := svc.SetAPIAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -303,47 +312,52 @@ func (s *serviceSuite) TestSetAPIAddressesAllAddrsFilteredAgents(c *tc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := "1"
-
-	controllerApiAddrs := []controllernode.APIAddress{
-		{
-			Address: "10.0.0.1:17070",
-			IsAgent: true,
-			Scope:   network.ScopeCloudLocal,
-		},
-		{
-			Address: "10.0.0.2:17070",
-			IsAgent: true,
-			Scope:   network.ScopeCloudLocal,
+	controllerApiAddrs := map[string]controllernode.APIAddresses{
+		controllerID: {
+			{
+				Address: "10.0.0.1:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}, {
+				Address: "10.0.0.2:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			},
 		},
 	}
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, controllerApiAddrs).Return(nil)
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
 
-	addrs := network.SpaceHostPorts{
-		{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.1",
-					Scope: network.ScopeCloudLocal,
-				},
-				SpaceID: "space1-uuid",
-			},
-			NetPort: network.NetPort(17070),
+	args := controllernode.SetAPIAddressArgs{
+		MgmtSpace: &network.SpaceInfo{
+			ID: "space0-uuid",
 		},
-		{
-			// This address is in a different space.
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.2",
-					Scope: network.ScopeCloudLocal,
+		APIAddresses: map[string]network.SpaceHostPorts{
+			controllerID: {
+				{
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "10.0.0.1",
+							Scope: network.ScopeCloudLocal,
+						},
+						SpaceID: "space1-uuid",
+					},
+					NetPort: network.NetPort(17070),
 				},
-				SpaceID: "space2-uuid",
+				{
+					// This address is in a different space.
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "10.0.0.2",
+							Scope: network.ScopeCloudLocal,
+						},
+						SpaceID: "space2-uuid",
+					},
+					NetPort: network.NetPort(17070),
+				},
 			},
-			NetPort: network.NetPort(17070),
 		},
 	}
-	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, &network.SpaceInfo{
-		ID: "space0-uuid",
-	})
+	err := svc.SetAPIAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -352,47 +366,53 @@ func (s *serviceSuite) TestSetAPIAddressesNotAllAddrsFilteredAgents(c *tc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	controllerID := "1"
-
-	controllerApiAddrs := []controllernode.APIAddress{
-		{
-			Address: "10.0.0.1:17070",
-			IsAgent: false,
-			Scope:   network.ScopePublic,
-		},
-		{
-			Address: "10.0.0.2:17070",
-			IsAgent: true,
-			Scope:   network.ScopeCloudLocal,
+	controllerApiAddrs := map[string]controllernode.APIAddresses{
+		controllerID: {
+			{
+				Address: "10.0.0.1:17070",
+				IsAgent: false,
+				Scope:   network.ScopePublic,
+			}, {
+				Address: "10.0.0.2:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			},
 		},
 	}
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerID, controllerApiAddrs).Return(nil)
 
-	addrs := network.SpaceHostPorts{
-		{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.1",
-					Scope: network.ScopePublic,
-				},
-				SpaceID: "space1-uuid",
-			},
-			NetPort: network.NetPort(17070),
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
+
+	args := controllernode.SetAPIAddressArgs{
+		MgmtSpace: &network.SpaceInfo{
+			ID: "space0-uuid",
 		},
-		{
-			// This address is in a different space.
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.0.0.2",
-					Scope: network.ScopeCloudLocal,
+		APIAddresses: map[string]network.SpaceHostPorts{
+			controllerID: {
+				{
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "10.0.0.1",
+							Scope: network.ScopePublic,
+						},
+						SpaceID: "space1-uuid",
+					},
+					NetPort: network.NetPort(17070),
 				},
-				SpaceID: "space0-uuid",
+				{
+					// This address is in a different space.
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "10.0.0.2",
+							Scope: network.ScopeCloudLocal,
+						},
+						SpaceID: "space0-uuid",
+					},
+					NetPort: network.NetPort(17070),
+				},
 			},
-			NetPort: network.NetPort(17070),
 		},
 	}
-	err := svc.SetAPIAddresses(c.Context(), controllerID, addrs, &network.SpaceInfo{
-		ID: "space0-uuid",
-	})
+	err := svc.SetAPIAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

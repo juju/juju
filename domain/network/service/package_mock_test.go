@@ -471,6 +471,45 @@ func (c *MockStateGetContainerNetworkingMethodCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// GetControllerUnitUUIDByName mocks base method.
+func (m *MockState) GetControllerUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerUnitUUIDByName", arg0, arg1)
+	ret0, _ := ret[0].(unit.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerUnitUUIDByName indicates an expected call of GetControllerUnitUUIDByName.
+func (mr *MockStateMockRecorder) GetControllerUnitUUIDByName(arg0, arg1 any) *MockStateGetControllerUnitUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerUnitUUIDByName", reflect.TypeOf((*MockState)(nil).GetControllerUnitUUIDByName), arg0, arg1)
+	return &MockStateGetControllerUnitUUIDByNameCall{Call: call}
+}
+
+// MockStateGetControllerUnitUUIDByNameCall wrap *gomock.Call
+type MockStateGetControllerUnitUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetControllerUnitUUIDByNameCall) Return(arg0 unit.UUID, arg1 error) *MockStateGetControllerUnitUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetControllerUnitUUIDByNameCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetControllerUnitUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetControllerUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetControllerUnitUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineAppBindings mocks base method.
 func (m *MockState) GetMachineAppBindings(arg0 context.Context, arg1 string) ([]internal.SpaceName, error) {
 	m.ctrl.T.Helper()

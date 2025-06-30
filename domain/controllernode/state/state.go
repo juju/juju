@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -293,19 +294,17 @@ func (st *State) NamespaceForWatchControllerAPIAddresses() string {
 //
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
-func (st *State) SetAPIAddresses(ctx context.Context, ctrlID string, addrs []controllernode.APIAddress) error {
+func (st *State) SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	ident := controllerID{ID: ctrlID}
-
 	checkControllerExistsStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count 
 FROM controller_node 
-WHERE controller_id = $controllerID.controller_id
-`, countResult{}, ident)
+WHERE controller_id = ($controllerIDs[:])
+`, countResult{}, controllerIDs{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -313,18 +312,18 @@ WHERE controller_id = $controllerID.controller_id
 	getExistingAddressesStmt, err := st.Prepare(`
 SELECT &controllerAPIAddress.* 
 FROM controller_api_address
-WHERE controller_id = $controllerID.controller_id
-`, controllerAPIAddress{}, ident)
+WHERE controller_id = ($controllerIDs[:])
+`, controllerAPIAddress{}, controllerIDs{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	type toRemoveAddresses []string
+	//type toRemoveAddresses []string
 	deleteAddressesStmt, err := st.Prepare(`
 DELETE FROM controller_api_address
-WHERE controller_id = $controllerID.controller_id
-AND address IN ($toRemoveAddresses[:])
-`, ident, toRemoveAddresses{})
+WHERE controller_id = $controllerAPIAddress.controller_id
+AND address = $controllerAPIAddress.address
+`, controllerAPIAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -346,40 +345,41 @@ AND address = $controllerAPIAddress.address
 		return errors.Capture(err)
 	}
 
-	controllerAPIAddresses := encodeAPIAddresses(ctrlID, addrs)
+	controllerAPIAddresses, controllers := encodeAPIAddresses(addresses)
+	nodes := strings.Join(controllers, ", ")
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var countResult countResult
-		if err := tx.Query(ctx, checkControllerExistsStmt, ident).Get(&countResult); err != nil {
-			return errors.Errorf("checking if controller node %q exists: %w", ctrlID, err)
+		if err := tx.Query(ctx, checkControllerExistsStmt, controllers).Get(&countResult); err != nil {
+			return errors.Errorf("checking if controller nodes %q exists: %w", nodes, err)
 		}
 		if countResult.Count == 0 {
-			return errors.Errorf("controller node %q does not exist", ctrlID).Add(controllernodeerrors.NotFound)
+			return errors.Errorf("controller nodes %q do not exist", nodes).Add(controllernodeerrors.NotFound)
 		}
 
 		var existingAddresses []controllerAPIAddress
-		if err := tx.Query(ctx, getExistingAddressesStmt, ident).GetAll(&existingAddresses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("retrieving existing api addresses for controller node %q: %w", ctrlID, err)
+		if err := tx.Query(ctx, getExistingAddressesStmt, controllers).GetAll(&existingAddresses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("retrieving existing api addresses for controller nodes %q: %w", nodes, err)
 		}
 
-		// Determine addresses to add and remove
+		// Determine addresses to add, update or remove.
 		toAdd, toUpdate, toRemove := calculateAddressDeltas(existingAddresses, controllerAPIAddresses)
 
 		if len(toAdd) > 0 {
 			if err := tx.Query(ctx, insertAddressesStmt, toAdd).Run(); err != nil {
-				return errors.Errorf("inserting api address for controller node %q: %w", ctrlID, err)
+				return errors.Errorf("inserting api address for controller nodes %q: %w", nodes, err)
 			}
 		}
 
-		if len(toRemove) > 0 {
-			if err := tx.Query(ctx, deleteAddressesStmt, ident, toRemoveAddresses(toRemove)).Run(); err != nil {
-				return errors.Errorf("deleting api address for controller node %q: %w", ctrlID, err)
+		for _, remove := range toRemove {
+			if err := tx.Query(ctx, deleteAddressesStmt, remove).Run(); err != nil {
+				return errors.Errorf("deleting api address for controller node %q: %w", remove.ControllerID, err)
 
 			}
 		}
 		if len(toUpdate) > 0 {
 			if err := tx.Query(ctx, updateAddressesStmt, toUpdate).Run(); err != nil {
-				return errors.Errorf("updating api address for controller node %q: %w", ctrlID, err)
+				return errors.Errorf("updating api address for controller nodes %q: %w", nodes, err)
 			}
 		}
 
@@ -635,7 +635,7 @@ FROM controller_node
 // update from the controller node table given the existing and new addresses.
 // The updated addresses are the list of addresses for which the IsAgent flag
 // has changed.
-func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []controllerAPIAddress, toUpdate []controllerAPIAddress, toRemove []string) {
+func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []controllerAPIAddress, toUpdate []controllerAPIAddress, toRemove []controllerAPIAddress) {
 	existingMap := make(map[string]controllerAPIAddress)
 	newMap := make(map[string]controllerAPIAddress)
 
@@ -664,7 +664,7 @@ func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []contr
 		if _, found := newMap[key]; !found {
 			// Address exists in current state but not in new set, so it needs
 			// to be removed.
-			toRemove = append(toRemove, addr.Address)
+			toRemove = append(toRemove, addr)
 		}
 	}
 
@@ -723,15 +723,19 @@ func decodeAPIAddresses(addrs []controllerAPIAddressStr) []string {
 	return result
 }
 
-func encodeAPIAddresses(controllerID string, addrs []controllernode.APIAddress) []controllerAPIAddress {
-	result := make([]controllerAPIAddress, 0, len(addrs))
-	for _, addr := range addrs {
-		result = append(result, controllerAPIAddress{
-			ControllerID: controllerID,
-			Address:      addr.Address,
-			IsAgent:      addr.IsAgent,
-			Scope:        string(addr.Scope),
-		})
+func encodeAPIAddresses(controllerAddrs map[string]controllernode.APIAddresses) ([]controllerAPIAddress, controllerIDs) {
+	addresses := make([]controllerAPIAddress, 0)
+	controllers := make(controllerIDs, 0)
+	for controllerID, addrs := range controllerAddrs {
+		controllers = append(controllers, controllerID)
+		for _, addr := range addrs {
+			addresses = append(addresses, controllerAPIAddress{
+				ControllerID: controllerID,
+				Address:      addr.Address,
+				IsAgent:      addr.IsAgent,
+				Scope:        string(addr.Scope),
+			})
+		}
 	}
-	return result
+	return addresses, controllers
 }

@@ -876,7 +876,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:         domainServicesName,
 		})),
 
-		apiAddressSetterName: ifController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
+		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
 			DomainServicesName:          domainServicesName,
 			GetDomainServices:           apiaddresssetter.GetDomainServices,
 			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,

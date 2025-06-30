@@ -328,7 +328,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 
 	// Explicitly guarded by ifController.
 	controllerWorkers := set.NewStrings(
-		"api-address-setter",
 		"api-remote-caller",
 		"certificate-watcher",
 		"controller-agent-config",
@@ -345,6 +344,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 
 	// Explicitly guarded by ifPrimaryController.
 	primaryControllerWorkers := set.NewStrings(
+		"api-address-setter",
 		"change-stream-pruner",
 		"external-controller-updater",
 		"lease-expiry",
@@ -582,6 +582,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"is-controller-flag",
+		"is-primary-controller-flag",
 		"lease-manager",
 		"log-sink",
 		"object-store",
@@ -1637,6 +1638,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"is-controller-flag",
+		"is-primary-controller-flag",
 		"lease-manager",
 		"log-sink",
 		"object-store",

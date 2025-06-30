@@ -29,6 +29,7 @@ import (
 	service "github.com/juju/juju/domain/access/service"
 	application0 "github.com/juju/juju/domain/application"
 	service0 "github.com/juju/juju/domain/application/service"
+	controllernode "github.com/juju/juju/domain/controllernode"
 	service1 "github.com/juju/juju/domain/storage/service"
 	config "github.com/juju/juju/environs/config"
 	bootstrap "github.com/juju/juju/internal/bootstrap"
@@ -1604,17 +1605,17 @@ func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecor
 }
 
 // SetAPIAddresses mocks base method.
-func (m *MockControllerNodeService) SetAPIAddresses(arg0 context.Context, arg1 string, arg2 network.SpaceHostPorts, arg3 *network.SpaceInfo) error {
+func (m *MockControllerNodeService) SetAPIAddresses(arg0 context.Context, arg1 controllernode.SetAPIAddressArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAPIAddresses", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetAPIAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetAPIAddresses indicates an expected call of SetAPIAddresses.
-func (mr *MockControllerNodeServiceMockRecorder) SetAPIAddresses(arg0, arg1, arg2, arg3 any) *MockControllerNodeServiceSetAPIAddressesCall {
+func (mr *MockControllerNodeServiceMockRecorder) SetAPIAddresses(arg0, arg1 any) *MockControllerNodeServiceSetAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIAddresses", reflect.TypeOf((*MockControllerNodeService)(nil).SetAPIAddresses), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIAddresses", reflect.TypeOf((*MockControllerNodeService)(nil).SetAPIAddresses), arg0, arg1)
 	return &MockControllerNodeServiceSetAPIAddressesCall{Call: call}
 }
 
@@ -1630,13 +1631,13 @@ func (c *MockControllerNodeServiceSetAPIAddressesCall) Return(arg0 error) *MockC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerNodeServiceSetAPIAddressesCall) Do(f func(context.Context, string, network.SpaceHostPorts, *network.SpaceInfo) error) *MockControllerNodeServiceSetAPIAddressesCall {
+func (c *MockControllerNodeServiceSetAPIAddressesCall) Do(f func(context.Context, controllernode.SetAPIAddressArgs) error) *MockControllerNodeServiceSetAPIAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerNodeServiceSetAPIAddressesCall) DoAndReturn(f func(context.Context, string, network.SpaceHostPorts, *network.SpaceInfo) error) *MockControllerNodeServiceSetAPIAddressesCall {
+func (c *MockControllerNodeServiceSetAPIAddressesCall) DoAndReturn(f func(context.Context, controllernode.SetAPIAddressArgs) error) *MockControllerNodeServiceSetAPIAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

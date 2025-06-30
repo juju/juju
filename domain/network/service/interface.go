@@ -134,6 +134,14 @@ type NetConfigState interface {
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
+	// GetControllerUnitUUIDByName returns the UUID for the named unit if it
+	// is a unit of the controller application.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist or is not
+	//   a controller application unit.
+	GetControllerUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
+
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
 	// exist.

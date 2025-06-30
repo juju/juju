@@ -63,7 +63,7 @@ type State interface {
 	//
 	// The following errors can be expected: - [controllernodeerrors.NotFound]
 	// if the controller node does not exist.
-	SetAPIAddresses(ctx context.Context, ctrlID string, addrs []controllernode.APIAddress) error
+	SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error
 
 	// GetControllerIDs returns the list of controller IDs from the controller
 	// node records.
@@ -197,16 +197,24 @@ func (s *Service) IsControllerNode(ctx context.Context, nodeID string) (bool, er
 }
 
 // SetAPIAddresses sets the provided addresses associated with the provided
-// controller ID.
+// controller IDs.
 //
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
-func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace *network.SpaceInfo) error {
+func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error {
+	addresses := make(map[string]controllernode.APIAddresses, 0)
+	for controllerID, addrs := range args.APIAddresses {
+		addresses[controllerID] = s.encodeAPIAddresses(ctx, args.MgmtSpace, addrs)
+	}
+	return s.st.SetAPIAddresses(ctx, addresses)
+}
+
+func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) controllernode.APIAddresses {
 	// We map the SpaceHostPorts addresses to controller api addresses by
 	// checking if the address is available for agents (this is the case if the
 	// space ID of the address matches the management space ID), and also by
 	// joining the address host and port to a string "host:port".
-	addresses := make([]controllernode.APIAddress, 0, len(addrs))
+	addresses := make(controllernode.APIAddresses, 0, len(addrs))
 	emptyAgentAddresses := true
 	for _, spHostPort := range addrs {
 		// Check if the address is available for agents. If no management space
@@ -229,8 +237,7 @@ func (s *Service) SetAPIAddresses(ctx context.Context, controllerID string, addr
 		}
 		s.logger.Warningf(ctx, "all provided API addresses were filtered out with regards to the management space, forcing all addresses to be agents to ensure API connectivity")
 	}
-
-	return s.st.SetAPIAddresses(ctx, controllerID, addresses)
+	return addresses
 }
 
 // GetControllerIDs returns the list of controller IDs from the controller node

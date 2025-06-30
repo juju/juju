@@ -509,17 +509,17 @@ func (c *MockStateSelectDatabaseNamespaceCall) DoAndReturn(f func(context.Contex
 }
 
 // SetAPIAddresses mocks base method.
-func (m *MockState) SetAPIAddresses(arg0 context.Context, arg1 string, arg2 []controllernode.APIAddress) error {
+func (m *MockState) SetAPIAddresses(arg0 context.Context, arg1 map[string]controllernode.APIAddresses) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAPIAddresses", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetAPIAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetAPIAddresses indicates an expected call of SetAPIAddresses.
-func (mr *MockStateMockRecorder) SetAPIAddresses(arg0, arg1, arg2 any) *MockStateSetAPIAddressesCall {
+func (mr *MockStateMockRecorder) SetAPIAddresses(arg0, arg1 any) *MockStateSetAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIAddresses", reflect.TypeOf((*MockState)(nil).SetAPIAddresses), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIAddresses", reflect.TypeOf((*MockState)(nil).SetAPIAddresses), arg0, arg1)
 	return &MockStateSetAPIAddressesCall{Call: call}
 }
 
@@ -535,13 +535,13 @@ func (c *MockStateSetAPIAddressesCall) Return(arg0 error) *MockStateSetAPIAddres
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetAPIAddressesCall) Do(f func(context.Context, string, []controllernode.APIAddress) error) *MockStateSetAPIAddressesCall {
+func (c *MockStateSetAPIAddressesCall) Do(f func(context.Context, map[string]controllernode.APIAddresses) error) *MockStateSetAPIAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetAPIAddressesCall) DoAndReturn(f func(context.Context, string, []controllernode.APIAddress) error) *MockStateSetAPIAddressesCall {
+func (c *MockStateSetAPIAddressesCall) DoAndReturn(f func(context.Context, map[string]controllernode.APIAddresses) error) *MockStateSetAPIAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -21,6 +21,7 @@ import (
 	userservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/controllernode"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -95,11 +96,11 @@ type ControllerConfigService interface {
 // ControllerNodeService provides access to controller nodes.
 type ControllerNodeService interface {
 	// SetAPIAddresses sets the provided addresses associated with the provided
-	// controller ID.
+	// controller IDs.
 	//
 	// The following errors can be expected:
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
-	SetAPIAddresses(ctx context.Context, controllerID string, addrs network.SpaceHostPorts, mgmtSpace *network.SpaceInfo) error
+	SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error
 }
 
 // CloudService is the interface that is used to interact with the

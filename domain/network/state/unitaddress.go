@@ -109,6 +109,46 @@ WHERE     u.uuid = $entityUUID.uuid
 	return encodeIpAddresses(address)
 }
 
+// GetControllerUnitUUIDByName returns the UUID for the named unit if it
+// is a unit of the controller application.
+//
+// The following errors may be returned:
+//   - [applicationerrors.UnitNotFound] if the unit does not exist or is not
+//     a controller application unit.
+func (st *State) GetControllerUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	query, err := st.Prepare(`
+SELECT u.uuid AS &entityUUID.*
+FROM   unit AS u
+JOIN   application_controller AS ac ON u.application_uuid = ac.application_uuid
+WHERE  u.name = $unitName.name
+`, entityUUID{}, unitName{})
+	if err != nil {
+		return "", errors.Errorf("preparing query: %w", err)
+	}
+
+	var uuid coreunit.UUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitName := unitName{Name: name}
+		unitUUID := entityUUID{}
+		err = tx.Query(ctx, query, unitName).Get(&unitUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("unit %q not found", name).Add(applicationerrors.UnitNotFound)
+		}
+		uuid = coreunit.UUID(unitUUID.UUID)
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Errorf("querying unit name: %w", err)
+	}
+
+	return uuid, nil
+}
+
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {

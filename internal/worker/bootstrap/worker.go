@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/controllernode"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -435,7 +436,13 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 	}
 
 	// During bootstrap, the controller node will always be "0".
-	if err := w.cfg.ControllerNodeService.SetAPIAddresses(ctx, "0", hostPorts, mgmtSpace); err != nil {
+	args := controllernode.SetAPIAddressArgs{
+		MgmtSpace: mgmtSpace,
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": hostPorts,
+		},
+	}
+	if err := w.cfg.ControllerNodeService.SetAPIAddresses(ctx, args); err != nil {
 		return errors.Trace(err)
 	}
 

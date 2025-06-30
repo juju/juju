@@ -191,6 +191,49 @@ func (s *unitAddressSuite) TestGetUnitAddressesNoAddresses(c *tc.C) {
 	c.Assert(addr, tc.DeepEquals, corenetwork.SpaceAddresses{})
 }
 
+func (s *unitAddressSuite) TestGetControllerUnitUUIDByName(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	s.addControllerApplication(c, appUUID)
+	// The unit uuid and name are the same in addUnit.
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	s.DumpTable(c, "unit", "application", "application_controller")
+
+	// Act:
+	uuid, err := s.state.GetControllerUnitUUIDByName(c.Context(), coreunit.Name(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, unitUUID)
+}
+
+func (s *unitAddressSuite) TestGetControllerUnitUUIDByNameNotFound(c *tc.C) {
+	_, err := s.state.GetControllerUnitUUIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitAddressSuite) TestGetControllerUnitUUIDByNameNotController(c *tc.C) {
+	// Arrange: add a unit but do NOT add application to
+	// application_controller table.
+	nodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	_, err := s.state.GetControllerUnitUUIDByName(c.Context(), "foo")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *unitAddressSuite) TestGetUnitUUIDByName(c *tc.C) {
 	// Arrange
 	nodeUUID := s.addNetNode(c)
@@ -246,6 +289,12 @@ func (s *unitAddressSuite) addApplication(c *tc.C, charmUUID, spaceUUID string) 
 	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
 		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
 	return appUUID
+}
+
+func (s *unitAddressSuite) addControllerApplication(c *tc.C, applicationUUID string) {
+	s.query(c, `INSERT INTO application_controller (application_uuid) VALUES ( ?)`,
+		applicationUUID)
+	return
 }
 
 func (s *unitAddressSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {

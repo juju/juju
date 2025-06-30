@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accessservice "github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/controllernode"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
@@ -481,8 +482,14 @@ func (s *workerSuite) expectSetAPIHostPorts() {
 			},
 		},
 	}
+	args := controllernode.SetAPIAddressArgs{
+		MgmtSpace: mgmtSpace,
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": {},
+		},
+	}
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(mgmtSpace, nil)
-	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), "0", gomock.Any(), mgmtSpace)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.state.EXPECT().SetAPIHostPorts(controller.Config{

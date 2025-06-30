@@ -67,3 +67,5 @@ type controllerAPIAddressStr struct {
 	// Address is the address of the controller node.
 	Address string `db:"address"`
 }
+
+type controllerIDs []string
