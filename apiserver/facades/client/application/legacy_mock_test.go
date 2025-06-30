@@ -201,45 +201,6 @@ func (c *MockBackendMachineCall) DoAndReturn(f func(string) (Machine, error)) *M
 	return c
 }
 
-// Unit mocks base method.
-func (m *MockBackend) Unit(arg0 string) (Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
-	ret0, _ := ret[0].(Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Unit indicates an expected call of Unit.
-func (mr *MockBackendMockRecorder) Unit(arg0 any) *MockBackendUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockBackend)(nil).Unit), arg0)
-	return &MockBackendUnitCall{Call: call}
-}
-
-// MockBackendUnitCall wrap *gomock.Call
-type MockBackendUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendUnitCall) Return(arg0 Unit, arg1 error) *MockBackendUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendUnitCall) Do(f func(string) (Unit, error)) *MockBackendUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendUnitCall) DoAndReturn(f func(string) (Unit, error)) *MockBackendUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockApplication is a mock of Application interface.
 type MockApplication struct {
 	ctrl     *gomock.Controller
@@ -298,44 +259,6 @@ func (c *MockApplicationAddUnitCall) Do(f func(state.AddUnitParams) (Unit, error
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationAddUnitCall) DoAndReturn(f func(state.AddUnitParams) (Unit, error)) *MockApplicationAddUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// DestroyOperation mocks base method.
-func (m *MockApplication) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyApplicationOperation {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyOperation", arg0)
-	ret0, _ := ret[0].(*state.DestroyApplicationOperation)
-	return ret0
-}
-
-// DestroyOperation indicates an expected call of DestroyOperation.
-func (mr *MockApplicationMockRecorder) DestroyOperation(arg0 any) *MockApplicationDestroyOperationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockApplication)(nil).DestroyOperation), arg0)
-	return &MockApplicationDestroyOperationCall{Call: call}
-}
-
-// MockApplicationDestroyOperationCall wrap *gomock.Call
-type MockApplicationDestroyOperationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationDestroyOperationCall) Return(arg0 *state.DestroyApplicationOperation) *MockApplicationDestroyOperationCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationDestroyOperationCall) Do(f func(objectstore.ObjectStore) *state.DestroyApplicationOperation) *MockApplicationDestroyOperationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationDestroyOperationCall) DoAndReturn(f func(objectstore.ObjectStore) *state.DestroyApplicationOperation) *MockApplicationDestroyOperationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

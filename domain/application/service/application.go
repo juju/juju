@@ -128,9 +128,6 @@ type ApplicationState interface {
 	// - [applicationerrors.UnitNotAlive] if any units are not alive.
 	CheckAllApplicationsAndUnitsAreAlive(context.Context) error
 
-	// SetApplicationLife sets the life of the specified application.
-	SetApplicationLife(context.Context, coreapplication.ID, life.Life) error
-
 	// SetApplicationScalingState sets the scaling details for the given caas
 	// application Scale is optional and is only set if not nil.
 	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error
@@ -642,59 +639,6 @@ func makeStorageArgs(storage map[string]storage.Directive) []application.Applica
 		})
 	}
 	return result
-}
-
-// DeleteApplication deletes the specified application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-// If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
-// is returned.
-func (s *Service) DeleteApplication(ctx context.Context, name string) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.st.DeleteApplication(ctx, name); err != nil {
-		return errors.Errorf("deleting application %q: %w", name, err)
-	}
-	return nil
-}
-
-// DestroyApplication prepares an application for removal from the model
-// returning an error  satisfying [applicationerrors.ApplicationNotFoundError]
-// if the application doesn't exist.
-func (s *Service) DestroyApplication(ctx context.Context, appName string) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil
-	} else if err != nil {
-		return errors.Errorf("getting application ID: %w", err)
-	}
-	// For now, all we do is advance the application's life to Dying.
-	err = s.st.SetApplicationLife(ctx, appID, life.Dying)
-	if err != nil {
-		return errors.Errorf("destroying application %q: %w", appName, err)
-	}
-	return nil
-}
-
-// MarkApplicationDead is called by the cleanup worker if a mongo
-// destroy operation sets the application to dead.
-// TODO(units): remove when everything is in dqlite.
-func (s *Service) MarkApplicationDead(ctx context.Context, appName string) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
-	if err != nil {
-		return errors.Errorf("getting application ID: %w", err)
-	}
-	err = s.st.SetApplicationLife(ctx, appID, life.Dead)
-	if err != nil {
-		return errors.Errorf("setting application %q life to Dead: %w", appName, err)
-	}
-	return nil
 }
 
 // SetApplicationCharm sets a new charm for the application, validating that aspects such

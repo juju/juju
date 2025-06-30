@@ -11,7 +11,7 @@ import (
 )
 
 type StateInterface interface {
-	Cleanup(context.Context, objectstore.ObjectStore, state.MachineRemover, state.ApplicationAndUnitRemover) error
+	Cleanup(context.Context, objectstore.ObjectStore, state.MachineRemover) error
 	WatchCleanups() state.NotifyWatcher
 }
 

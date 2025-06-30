@@ -11,7 +11,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -91,8 +90,8 @@ type ApplicationService interface {
 	// indicates if the charm has been uploaded to the controller.
 	// This will return true if the charm is available, and false otherwise.
 	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
-	DestroyUnit(context.Context, unit.Name) error
-	RemoveUnit(context.Context, unit.Name, leadership.Revoker) error
+
+	// UpdateCAASUnit updates the specified CAAS unit
 	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error
 
 	// GetApplicationIDByName returns an application ID by application name. It

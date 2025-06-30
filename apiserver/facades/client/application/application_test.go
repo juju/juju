@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
+	"github.com/juju/juju/environs/bootstrap"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -631,6 +632,82 @@ func (s *applicationSuite) TestCharmRelationsAppNotFound(c *tc.C) {
 		ApplicationName: "doink",
 	})
 	c.Assert(err, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *applicationSuite) TestDestroyUnitIsSubordinate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(true, nil)
+
+	// Act:
+	res, err := s.api.DestroyUnit(c.Context(), params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: names.NewUnitTag("foo/0").String(),
+		}},
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.ErrorMatches, `.*unit "foo/0" is a subordinate.*`)
+}
+
+func (s *applicationSuite) TestDestroyUnitControllerUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+
+	charmLocator := applicationcharm.CharmLocator{
+		Name:     "ctrl",
+		Revision: 42,
+		Source:   applicationcharm.CharmHubSource,
+	}
+	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "ctrl").Return(false, nil)
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "ctrl").Return(charmLocator, nil)
+	s.applicationService.EXPECT().GetCharmMetadataName(gomock.Any(), charmLocator).Return(bootstrap.ControllerCharmName, nil)
+
+	// Act:
+	res, err := s.api.DestroyUnit(c.Context(), params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: names.NewUnitTag("ctrl/0").String(),
+		}},
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotSupported)
+}
+
+func (s *applicationSuite) TestDestroyApplicationController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+
+	charmLocator := applicationcharm.CharmLocator{
+		Name:     "ctrl",
+		Revision: 42,
+		Source:   applicationcharm.CharmHubSource,
+	}
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "ctrl").Return(charmLocator, nil)
+	s.applicationService.EXPECT().GetCharmMetadataName(gomock.Any(), charmLocator).Return(bootstrap.ControllerCharmName, nil)
+
+	// Act:
+	res, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag("ctrl").String(),
+		}},
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotSupported)
 }
 
 func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *tc.C) {

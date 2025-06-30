@@ -26,12 +26,10 @@ func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 	}
 
 	domainServices := ctx.DomainServices()
-	applicationService := domainServices.Application()
 	return &CleanerAPI{
 		st:             getState(ctx.State()),
 		resources:      ctx.Resources(),
 		objectStore:    ctx.ObjectStore(),
 		machineRemover: domainServices.Machine(),
-		appService:     applicationService,
 	}, nil
 }

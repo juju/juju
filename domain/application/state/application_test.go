@@ -561,8 +561,12 @@ func (s *applicationStateSuite) TestCreateApplicationWithResolvedResources(c *tc
 	}
 	ctx := c.Context()
 
-	_, _, err := s.state.CreateIAASApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-		charmResources, addResourcesArgs), nil)
+	_, _, err := s.state.CreateIAASApplication(
+		ctx,
+		"666",
+		s.addApplicationArgForResources(c, "666", charmResources, addResourcesArgs),
+		nil,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 	// Check expected resources are added
 	assertTxn := func(comment string, do func(ctx context.Context, tx *sql.Tx) error) {
@@ -1622,35 +1626,6 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C
 		ScaleTarget: 668,
 		Scaling:     false,
 	})
-}
-
-func (s *applicationStateSuite) TestSetApplicationLife(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive)
-	ctx := c.Context()
-
-	checkResult := func(want life.Life) {
-		var gotLife life.Life
-		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT life_id FROM application WHERE uuid=?", appID).
-				Scan(&gotLife)
-			return err
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(gotLife, tc.DeepEquals, want)
-	}
-
-	err := s.state.SetApplicationLife(ctx, appID, life.Dying)
-	c.Assert(err, tc.ErrorIsNil)
-	checkResult(life.Dying)
-
-	err = s.state.SetApplicationLife(ctx, appID, life.Dead)
-	c.Assert(err, tc.ErrorIsNil)
-	checkResult(life.Dead)
-
-	// Can't go backwards.
-	err = s.state.SetApplicationLife(ctx, appID, life.Dying)
-	c.Assert(err, tc.ErrorIsNil)
-	checkResult(life.Dead)
 }
 
 func (s *applicationStateSuite) TestDeleteApplication(c *tc.C) {

@@ -26,7 +26,6 @@ type Backend interface {
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	Machine(string) (Machine, error)
-	Unit(string) (Unit, error)
 }
 
 // Application defines a subset of the functionality provided by the
@@ -35,7 +34,6 @@ type Backend interface {
 // the same names.
 type Application interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
-	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
 	UpdateCharmConfig(charm.Settings) error
@@ -84,8 +82,6 @@ type Machine interface {
 // details on the methods, see the methods on state.Unit with
 // the same names.
 type Unit interface {
-	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
-
 	AssignUnit() error
 	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
 }

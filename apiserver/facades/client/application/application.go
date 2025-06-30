@@ -1430,7 +1430,6 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return nil, errors.Trace(err)
 		}
 
-		name := unitTag.Id()
 		unitName, err := coreunit.NewName(unitTag.Id())
 		if err != nil {
 			return nil, internalerrors.Errorf("parsing unit name %q: %w", unitName, err)
@@ -1484,30 +1483,21 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return &info, nil
 		}
 
-		if err := api.applicationService.DestroyUnit(ctx, unitName); err != nil {
-			if !errors.Is(err, applicationerrors.UnitNotFound) {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		// TODO(units) - remove dual write to state
-		unit, err := api.backend.Unit(name)
-		if errors.Is(err, errors.NotFound) {
-			return nil, errors.Errorf("unit %q does not exist", name)
+		unitUUID, err := api.applicationService.GetUnitUUID(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, errors.NotFoundf("unit %q", unitName)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		op := unit.DestroyOperation(api.store)
-		op.DestroyStorage = arg.DestroyStorage
-		op.Force = arg.Force
-		if arg.Force {
-			op.MaxWait = common.MaxWait(arg.MaxWait)
+		maxWait := time.Duration(0)
+		if arg.MaxWait != nil {
+			maxWait = *arg.MaxWait
 		}
-		if err := api.backend.ApplyOperation(op); err != nil {
+		_, err = api.removalService.RemoveUnit(ctx, unitUUID, arg.Force, maxWait)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, errors.NotFoundf("unit %q", unitName)
+		} else if err != nil {
 			return nil, errors.Trace(err)
-		}
-		if len(op.Errors) != 0 {
-			api.logger.Warningf(ctx, "operational errors destroying unit %v: %v", unitName, op.Errors)
 		}
 		return &info, nil
 	}
@@ -1607,34 +1597,21 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return &info, nil
 		}
 
-		// Minimally initiate destroy in dqlite.
-		// It's sufficient for now just to advance the life to dying.
-		err = api.applicationService.DestroyApplication(ctx, tag.Id())
+		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return &info, err
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "getting application ID %q", tag.Id())
+		}
+		maxWait := time.Duration(0)
+		if arg.MaxWait != nil {
+			maxWait = *arg.MaxWait
+		}
+		_, err = api.removalService.RemoveApplication(ctx, appID, arg.Force, maxWait)
 		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
-			return nil, errors.Annotatef(err, "destroying application %q", tag.Id())
+			return nil, errors.Annotatef(err, "removing application %q", tag.Id())
 		}
 
-		app, err := api.backend.Application(tag.Id())
-		if err != nil {
-			return nil, err
-		}
-		op := app.DestroyOperation(api.store)
-		op.DestroyStorage = arg.DestroyStorage
-		op.Force = arg.Force
-		if arg.Force {
-			op.MaxWait = common.MaxWait(arg.MaxWait)
-		}
-		if err := api.backend.ApplyOperation(op); err != nil {
-			return nil, err
-		}
-		if len(op.Errors) != 0 {
-			api.logger.Warningf(ctx, "operational errors destroying application %v: %v", tag.Id(), op.Errors)
-		}
-
-		// TODO(units) - remove when destroy is fully implemented.
-		if op.Removed {
-			err = api.applicationService.DeleteApplication(ctx, tag.Id())
-		}
 		return &info, err
 	}
 	results := make([]params.DestroyApplicationResult, len(args.Applications))

@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -26,12 +28,14 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/life"
+	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	"github.com/juju/juju/domain/removal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -184,8 +188,15 @@ func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.Watch
 			Provenance:  charm.ProvenanceDownload,
 			DownloadURL: "http://example.com",
 		},
+		ResolvedResources: applicationservice.ResolvedResources{{
+			Name:     "buzz",
+			Revision: ptr(42),
+			Origin:   charmresource.OriginStore,
+		}},
 	}, units...)
 	c.Assert(err, tc.ErrorIsNil)
+
+	s.setCharmObjectStoreMetadata(c, appID)
 
 	return appID
 }
@@ -205,8 +216,15 @@ func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationse
 			Provenance:  charm.ProvenanceDownload,
 			DownloadURL: "http://example.com",
 		},
+		ResolvedResources: applicationservice.ResolvedResources{{
+			Name:     "buzz",
+			Revision: ptr(42),
+			Origin:   charmresource.OriginStore,
+		}},
 	}, units...)
 	c.Assert(err, tc.ErrorIsNil)
+
+	s.setCharmObjectStoreMetadata(c, appID)
 
 	return appID
 }
@@ -226,6 +244,11 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Watch
 			Provenance:  charm.ProvenanceDownload,
 			DownloadURL: "http://example.com",
 		},
+		ResolvedResources: applicationservice.ResolvedResources{{
+			Name:     "buzz",
+			Revision: ptr(42),
+			Origin:   charmresource.OriginStore,
+		}},
 	}, units...)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -240,7 +263,36 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Watch
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.setCharmObjectStoreMetadata(c, appID)
+
 	return appID
+}
+
+func (s *baseSuite) setCharmObjectStoreMetadata(c *tc.C, appID coreapplication.ID) {
+	modelDB := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+
+	objectStoreUUID, err := objectstorestate.NewState(modelDB).PutMetadata(c.Context(), coreobjectstore.Metadata{
+		SHA256: fmt.Sprintf("%v-sha256", appID),
+		SHA384: fmt.Sprintf("%v-sha384", appID),
+		Path:   fmt.Sprintf("/path/to/%v", appID),
+		Size:   100,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm
+SET object_store_uuid = ?
+WHERE uuid IN (
+	SELECT charm_uuid
+	FROM application
+	WHERE uuid = ?
+)`, objectStoreUUID, appID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UUID {
@@ -395,6 +447,14 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 	return &internalcharm.Meta{
 		Name:        name,
 		Subordinate: s.subordinate,
+		Resources: map[string]charmresource.Meta{
+			"buzz": {
+				Name:        "buzz",
+				Type:        charmresource.TypeFile,
+				Path:        "/path/to/buzz.tgz",
+				Description: "buzz description",
+			},
+		},
 	}
 }
 
@@ -458,4 +518,8 @@ func (caasApplication) Units() ([]caas.Unit, error) {
 	return []caas.Unit{{
 		Id: "some-app-0",
 	}}, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

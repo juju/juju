@@ -7,6 +7,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -87,6 +88,7 @@ type UniterAPI struct {
 	relationService         RelationService
 	secretService           SecretService
 	unitStateService        UnitStateService
+	removalService          RemovalService
 
 	store objectstore.ObjectStore
 
@@ -134,8 +136,31 @@ func (u *UniterAPI) EnsureDead(ctx context.Context, args params.Entities) (param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := u.applicationService.EnsureUnitDead(ctx, unitName, u.leadershipRevoker); err != nil {
+		unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
+			continue
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = u.removalService.MarkUnitAsDead(ctx, unitUUID)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		_, err = u.removalService.RemoveUnit(ctx, unitUUID, false, time.Duration(0))
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 	}
 	return result, nil
@@ -574,8 +599,8 @@ func (u *UniterAPI) GetPrincipal(ctx context.Context, args params.Entities) (par
 	return result, nil
 }
 
-// Destroy advances all given Alive units' lifecycles as far as
-// possible. See state/Unit.Destroy().
+// Destroy advances all given units' lifecycles as far as
+// possible.
 func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -590,34 +615,33 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var (
-				unitName coreunit.Name
-				unit     *state.Unit
-				removed  bool
-			)
-			unitName, err = coreunit.NewName(tag.Id())
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			err = u.applicationService.DestroyUnit(ctx, unitName)
-			if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-
-			// TODO(units) - remove dual write to state
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				removed, err = unit.DestroyMaybeRemove(u.store)
-				if err == nil && removed {
-					err = u.applicationService.DeleteUnit(ctx, unitName)
-				}
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		_, err = u.removalService.RemoveUnit(ctx, unitUUID, false, time.Duration(0))
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return result, nil
 }
@@ -2012,10 +2036,6 @@ func (u *UniterAPI) oneSetRelationStatus(
 	return nil
 }
 
-func (u *UniterAPI) getLegacyUnit(ctx context.Context, tag names.UnitTag) (*state.Unit, error) {
-	return u.st.Unit(tag.Id())
-}
-
 func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.RelationResultV2, error) {
 	nothing := params.RelationResultV2{}
 	relUUID, err := u.relationService.GetRelationUUIDByID(ctx, relID)
@@ -2129,28 +2149,24 @@ func (u *UniterAPI) getOneRelation(
 
 func (u *UniterAPI) destroySubordinates(ctx context.Context, principal coreunit.Name) error {
 	subordinates, err := u.applicationService.GetUnitSubordinates(ctx, principal)
-	if err != nil {
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.NotFoundf("unit %q", principal)
+	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
 	for _, subName := range subordinates {
-		err = u.applicationService.DestroyUnit(ctx, subName)
-		if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+		subUUID, err := u.applicationService.GetUnitUUID(ctx, subName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			continue
+		} else if err != nil {
 			return internalerrors.Capture(err)
 		}
 
-		// TODO(units) - remove dual write to state
-		unit, err := u.getLegacyUnit(ctx, names.NewUnitTag(subName.String()))
-		if err != nil {
-			return err
-		}
-		removed, err := unit.DestroyMaybeRemove(u.store)
-		if err != nil {
-			return err
-		}
-		if removed {
-			if err := u.applicationService.DeleteUnit(ctx, subName); err != nil {
-				return err
-			}
+		_, err = u.removalService.RemoveUnit(ctx, subUUID, false, time.Duration(0))
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return errors.NotFoundf("unit %q", subName)
+		} else if err != nil {
+			return internalerrors.Capture(err)
 		}
 	}
 	return nil

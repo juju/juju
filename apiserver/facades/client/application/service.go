@@ -140,16 +140,6 @@ type ApplicationService interface {
 	// amount, returning the new amount. This is used on CAAS models.
 	ChangeApplicationScale(ctx context.Context, name string, scaleChange int) (int, error)
 
-	// DestroyApplication prepares an application for removal from the model.
-	DestroyApplication(ctx context.Context, name string) error
-
-	// DeleteApplication deletes the specified application,
-	// TODO(units) - remove when destroy is fully implemented.
-	DeleteApplication(ctx context.Context, name string) error
-
-	// DestroyUnit prepares a unit for removal from the model.
-	DestroyUnit(context.Context, unit.Name) error
-
 	// GetApplicationLife looks up the life of the specified application.
 	GetApplicationLife(context.Context, coreapplication.ID) (life.Value, error)
 
@@ -418,6 +408,42 @@ type RelationService interface {
 
 // RemovalService defines operations for removing juju entities.
 type RemovalService interface {
+	// RemoveApplication checks if a application with the input application UUID
+	// exists. If it does, the application is guaranteed after this call to be:
+	//   - No longer alive.
+	//   - Removed or scheduled to be removed with the input force qualification.
+	//   - If the application has units, the units are also guaranteed to be no
+	//     longer alive and scheduled for removal.
+	//
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// application. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveApplication(
+		ctx context.Context,
+		appUUID coreapplication.ID,
+		force bool,
+		wait time.Duration,
+	) (removal.UUID, error)
+
+	// RemoveUnit checks if a unit with the input name exists.
+	// If it does, the unit is guaranteed after this call to be:
+	//   - No longer alive.
+	//   - Removed or scheduled to be removed with the input force qualification.
+	//   - If the unit is the last one on the machine, the machine will also
+	//     guaranteed to be no longer alive and scheduled for removal.
+	//
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// unit. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveUnit(
+		ctx context.Context,
+		unitUUID unit.UUID,
+		force bool,
+		wait time.Duration,
+	) (removal.UUID, error)
+
 	// RemoveRelation checks if a relation with the input UUID exists.
 	// If it does, the relation is guaranteed after this call to be:
 	// - No longer alive.

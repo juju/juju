@@ -41,12 +41,6 @@ type applicationIDAndName struct {
 	Name string             `db:"name"`
 }
 
-// applicationIDAndLife is used to get the ID and life of an application.
-type applicationIDAndLife struct {
-	ID     coreapplication.ID `db:"uuid"`
-	LifeID life.Life          `db:"life_id"`
-}
-
 type applicationChannel struct {
 	ApplicationID coreapplication.ID `db:"application_uuid"`
 	Track         string             `db:"track"`
@@ -132,12 +126,6 @@ type minimalUnit struct {
 	NetNodeID string        `db:"net_node_uuid"`
 	Name      coreunit.Name `db:"name"`
 	LifeID    life.Life     `db:"life_id"`
-}
-
-type unitCount struct {
-	UnitLifeID        life.Life `db:"unit_life_id"`
-	ApplicationLifeID life.Life `db:"app_life_id"`
-	Count             int       `db:"count"`
 }
 
 type unitStatusInfo struct {
