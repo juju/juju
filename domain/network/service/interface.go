@@ -167,10 +167,11 @@ type NetConfigState interface {
 // network relationship details.
 type NetworkInfoState interface {
 
-	// GetUnitRelationInfos retrieves network relationship details for a
+	// GetUnitEndpointNetworks retrieves network relationship details for a
 	// specified unit and its given endpoints.
 	// It returns a list of domainnetwork.Info, one per endpoint name,
 	// with no guaranteed order.
-	// Returns an error if the unit is not found or if retrieval fails.
+	// Returns if retrieval fails, or an empty list if the unit is not found or
+	// endpoints are inconsistent.
 	GetUnitEndpointNetworks(ctx context.Context, unitUUID string, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
 }

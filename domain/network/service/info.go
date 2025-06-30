@@ -7,9 +7,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/collections/transform"
-
-	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"

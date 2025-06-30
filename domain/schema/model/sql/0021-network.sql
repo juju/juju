@@ -422,7 +422,9 @@ SELECT
     ipa.scope_name,
     ipa.device_uuid,
     sn.space_uuid,
-    sn.cidr
+    sn.cidr,
+    lld.name AS device_name,
+    lld.mac_address AS device_mac
 FROM (
     SELECT s.net_node_uuid, u.uuid
     FROM unit u
@@ -433,7 +435,7 @@ FROM (
 ) AS n
 JOIN      link_layer_device AS lld ON n.net_node_uuid = lld.net_node_uuid
 JOIN      v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
-LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid;
 
 
 
