@@ -72,6 +72,8 @@ clouds:
         endpoint: https://ec2.me-central-1.amazonaws.com
       sa-east-1:
         endpoint: https://ec2.sa-east-1.amazonaws.com
+      il-central-1:
+        endpoint: https://ec2.il-central-1.amazonaws.com
   aws-china:
     type: ec2
     description: Amazon China

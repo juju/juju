@@ -2150,6 +2150,7 @@ ap-northeast-3
 me-south-1
 me-central-1
 sa-east-1
+il-central-1
 `[1:])
 }
 
