@@ -412,7 +412,7 @@ LEFT JOIN provider_subnet AS ps ON a.subnet_uuid = ps.subnet_uuid;
 -- without caring if we are in a k8s provider or a machine provider.
 -- This add addresses belonging to the k8s service of the unit application
 -- alongside those belonging directly to the unit
-CREATE VIEW v_all_unit_addresses AS
+CREATE VIEW v_all_unit_address AS
 SELECT
     n.uuid AS unit_uuid,
     ipa.address_value,
@@ -422,26 +422,19 @@ SELECT
     ipa.scope_name,
     ipa.device_uuid,
     sn.space_uuid,
-    sn.cidr,
-    lld.name AS device_name,
-    lld.mac_address AS device_mac
+    sn.cidr
 FROM (
-    SELECT s.net_node_uuid, u.uuid
-    FROM unit u
-    JOIN application AS a on a.uuid = u.application_uuid
-    JOIN k8s_service AS s on s.application_uuid = a.uuid
+    SELECT
+        s.net_node_uuid,
+        u.uuid
+    FROM unit AS u
+    JOIN application AS a ON u.application_uuid = a.uuid
+    JOIN k8s_service AS s ON a.uuid = s.application_uuid
     UNION
-    SELECT net_node_uuid, uuid FROM unit
+    SELECT
+        net_node_uuid,
+        uuid
+    FROM unit
 ) AS n
-JOIN      link_layer_device AS lld ON n.net_node_uuid = lld.net_node_uuid
-JOIN      v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
+JOIN v_ip_address_with_names AS ipa ON n.net_node_uuid = ipa.net_node_uuid
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid;
-
-
-
-
-
-
-
-
-

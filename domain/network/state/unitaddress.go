@@ -36,7 +36,7 @@ func (st *State) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreuni
 	ident := entityUUID{UUID: uuid.String()}
 	queryUnitPublicAddressesStmt, err := st.Prepare(`
 SELECT &spaceAddress.*
-FROM v_all_unit_addresses AS ua
+FROM v_all_unit_address AS ua
 WHERE     ua.unit_uuid = $entityUUID.uuid
 `, spaceAddress{}, entityUUID{})
 	if err != nil {

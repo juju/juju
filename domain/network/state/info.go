@@ -179,15 +179,16 @@ func (st *State) getAllUnitAddressesInSpaces(
 	type InSpaceAddress spaceAddress
 	type spaceAddressWithDevice struct {
 		InSpaceAddress
-		Device string `db:"device_name"`
-		MAC    string `db:"device_mac"`
+		Device string `db:"name"`
+		MAC    string `db:"mac_address"`
 	}
 
 	var address []spaceAddressWithDevice
 	ident := entityUUID{UUID: unitUUID}
 	stmt, err := st.Prepare(`
 SELECT &spaceAddressWithDevice.*
-FROM v_all_unit_addresses AS ua
+FROM v_all_unit_address AS ua
+JOIN link_layer_device AS lld ON ua.device_uuid = lld.uuid
 WHERE     ua.unit_uuid = $entityUUID.uuid
 AND space_uuid IN ($uuids[:])
 `, spaceAddressWithDevice{}, entityUUID{}, uuids{})
