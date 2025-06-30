@@ -140,7 +140,7 @@ type containerShim struct {
 func (s *containerShim) Machines(ctx context.Context, tags ...names.MachineTag) ([]ContainerMachineResult, error) {
 	result, err := s.api.Machines(ctx, tags...)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot load machines %v from state", tags)
+		return nil, errors.Annotatef(err, "loading machines %v from state", tags)
 	}
 	newResult := make([]ContainerMachineResult, len(result))
 	for i, v := range result {
@@ -155,7 +155,7 @@ func (s *containerShim) Machines(ctx context.Context, tags ...names.MachineTag) 
 func (cfg ManifoldConfig) machineSupportsContainers(ctx context.Context, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
 	result, err := pr.Machines(ctx, mTag)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot load machine %s from state", mTag)
+		return nil, errors.Annotatef(err, "loading machine %s from state", mTag)
 	}
 	if errors.Is(err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return nil, dependency.ErrUninstall
