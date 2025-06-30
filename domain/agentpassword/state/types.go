@@ -17,6 +17,11 @@ type entityName struct {
 	Name string `db:"name"`
 }
 
+type validateModelPasswordHash struct {
+	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
+	Count        int                        `db:"count"`
+}
+
 type validatePasswordHash struct {
 	UUID         string                     `db:"uuid"`
 	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
@@ -59,4 +64,8 @@ type machineUUID struct {
 type machinePassword struct {
 	MachineCount int              `db:"machine_count"`
 	InstanceID   sql.Null[string] `db:"instance_id"`
+}
+
+type modelPasswordHash struct {
+	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
 }
