@@ -653,7 +653,7 @@ func (c *neutronFirewaller) InstanceIngressRules(ctx context.ProviderCallContext
 	return rules, err
 }
 
-// getSecurityGroupByName talks to Openstack to get a security group by name.
+// getSecurityGroupByName talks to Openstack Neutron service to get a security group by name.
 // Here, argument name can be a group name for a model, machine or global.
 func (c *neutronFirewaller) getSecurityGroupByName(ctx context.ProviderCallContext, name string) (neutron.SecurityGroupV2, error) {
 	neutronClient := c.environ.neutron()
@@ -677,8 +677,9 @@ func (c *neutronFirewaller) getSecurityGroupByName(ctx context.ProviderCallConte
 		numMatching := len(groups)
 		if numMatching == 0 {
 			return errors.NotFoundf("security groups matching %q", name)
+			return errors.NotFoundf("security group %q", name)
 		} else if numMatching > 1 {
-			return errors.New(fmt.Sprintf("%d security groups found matching %q, expected 1", numMatching, name))
+			return errors.New(fmt.Sprintf("%d security groups found with name %q, expected 1", numMatching, name))
 		}
 		matchingGroup = groups[0]
 		return nil

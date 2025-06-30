@@ -2032,7 +2032,7 @@ func (s *localServerSuite) TestEnsureModelGroup(c *gc.C) {
 	c.Check(stringRules, gc.DeepEquals, expectedRules)
 }
 
-// GetSecurityGroupByName checks that you receive the group you expected.  getSecurityGroupByName()
+// TestGetSecurityGroupByName checks that you receive the group you expected.  getSecurityGroupByName()
 // is used by the firewaller when opening and closing ports.  Unit test in response to bug 1675799.
 func (s *localServerSuite) TestGetSecurityGroupByName(c *gc.C) {
 	err := bootstrapEnv(c, s.env)
@@ -2050,15 +2050,15 @@ func (s *localServerSuite) TestGetSecurityGroupByName(c *gc.C) {
 	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	groupMatched, err := openstack.GetSecurityGroupByName(s.env, s.callCtx, machineName1)
+	groupResult, err := openstack.GetSecurityGroupByName(s.env, s.callCtx, machineName1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(group1.Id, gc.Equals, groupMatched.Id)
+	c.Assert(group1.Id, gc.Equals, groupResult.Id)
 
-	groupMatched, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, machineName2)
+	groupResult, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, machineName2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
+	c.Assert(group2.Id, gc.Equals, groupResult.Id)
 
-	groupMatched, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, "juju-unknown-machine-name")
+	groupResult, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, "juju-unknown-machine-name")
 	c.Assert(err, gc.ErrorMatches, "failed to find security group with name: juju-unknown-machine-name")
 }
 
