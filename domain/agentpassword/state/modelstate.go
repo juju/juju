@@ -238,7 +238,7 @@ func (s *ModelState) MatchesMachinePasswordHashWithNonce(
 
 	var result machinePassword
 	passwordQuery := `
-SELECT 
+SELECT
     COUNT(m.uuid) AS &machinePassword.machine_count,
     mci.instance_id AS &machinePassword.instance_id
 FROM      machine m
@@ -341,6 +341,89 @@ WHERE  name=$entityName.name`, u)
 		return "", errors.Errorf("looking up machine UUID for %q: %w", name, err)
 	}
 	return u.UUID, errors.Capture(err)
+}
+
+// MatchesModelPasswordHash checks if the password is valid or not against the
+// password hash stored for the model's agent.
+func (s *ModelState) MatchesModelPasswordHash(
+	ctx context.Context, passwordHash agentpassword.PasswordHash,
+) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	args := validateModelPasswordHash{PasswordHash: passwordHash}
+	query := `
+SELECT COUNT(*) AS &validateModelPasswordHash.count
+FROM   model_agent
+WHERE  password_hash = $validateModelPasswordHash.password_hash;
+`
+	stmt, err := s.Prepare(query, args)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var count int
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, args).Get(&args); err != nil {
+			return err
+		}
+		count = args.Count
+		return nil
+	})
+	if err != nil {
+		return false, errors.Errorf("checking model password hash: %w", err)
+	}
+
+	return count > 0, nil
+}
+
+// SetModelPasswordHash sets the password hash for the model overriding any
+// previously set value.
+func (s *ModelState) SetModelPasswordHash(ctx context.Context, passwordHash agentpassword.PasswordHash) error {
+	db, err := s.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	passwordHashInput := modelPasswordHash{PasswordHash: passwordHash}
+	updateModelPassword, err := s.Prepare(`
+UPDATE model_agent
+SET    password_hash = $modelPasswordHash.password_hash,
+	   password_hash_algorithm_id = 0
+`,
+		passwordHashInput)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		err := tx.Query(ctx, updateModelPassword, passwordHashInput).Get(
+			&outcome,
+		)
+		if err != nil {
+			return err
+		}
+
+		result := outcome.Result()
+		if err != nil {
+			return errors.Errorf("getting result of setting model password hash: %w", err)
+		} else if affected, err := result.RowsAffected(); err != nil {
+			return errors.Errorf("getting number of affected rows: %w", err)
+		} else if affected == 0 {
+			// Should never happen.
+			return errors.New("no model agent information has been set")
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // IsMachineController returns whether the machine is a controller machine.
