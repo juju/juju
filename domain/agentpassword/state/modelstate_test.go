@@ -23,6 +23,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
@@ -224,6 +225,42 @@ func (s *modelStateSuite) TestMatchesModelPasswordHashInvalidPassword(c *tc.C) {
 	valid, err := st.MatchesModelPasswordHash(c.Context(), passwordHash+"1")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsFalse)
+}
+
+// TestCannotHaveTwoModels asserts that the model table does not allow more
+// than one model record to be created. This is because this state layer assumes
+// that a maximum of only one record can exist in the model_agent table. If this
+// test fails it means the model_agent table can now have more than one record.
+//
+// The assumption is based off of a foreign key to the model table and the model
+// table being restricted to a single row. If this test fails a mistake has been
+// made in the DDL or [State.MatchesModelPasswordHash] needs to be updated to
+// handle this case safely.
+func (s *modelStateSuite) TestCannotHaveTwoModels(c *tc.C) {
+	modelUUID1 := modeltesting.GenModelUUID(c)
+	modelUUID2 := modeltesting.GenModelUUID(c)
+	controllerUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+`,
+		modelUUID1.String(), controllerUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+`,
+		modelUUID2.String(), controllerUUID.String(),
+	)
+	c.Assert(database.IsErrConstraintUnique(err), tc.IsTrue)
 }
 
 func (s *modelStateSuite) TestSetMachinePassword(c *tc.C) {
