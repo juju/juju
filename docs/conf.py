@@ -267,6 +267,7 @@ exclude_patterns = [
 
 html_css_files = [
     "css/pdf.css",
+    "css/crossref.css"
 ]
 
 
