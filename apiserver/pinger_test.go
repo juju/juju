@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/controllernode"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
@@ -31,6 +33,24 @@ func TestPingerSuite(t *testing.T) {
 func (s *pingerSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Millisecond)
 	s.ApiServerSuite.SetUpTest(c)
+
+	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.9.9.32",
+				},
+			},
+			NetPort: 42,
+		},
+	}
+	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": addrs,
+		},
+	})
+	c.Assert(err, tc.IsNil)
 }
 
 func (s *pingerSuite) TestStub(c *tc.C) {

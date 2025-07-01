@@ -6,6 +6,8 @@ package apiserver_test
 import (
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -23,6 +25,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/controllernode"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -71,8 +74,33 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *macaroonLoginSuite) setAPIAddresses(c *tc.C, info *api.Info) {
+	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
+	addrs := make(network.SpaceHostPorts, len(info.Addrs))
+	for i, addr := range info.Addrs {
+		parts := strings.Split(addr, ":")
+		port, _ := strconv.Atoi(parts[1])
+		addrs[i] = network.SpaceHostPort{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: parts[0],
+				},
+			},
+			NetPort: network.NetPort(port),
+		}
+	}
+	c.Logf("heather %+v", addrs)
+	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": addrs,
+		},
+	})
+	c.Assert(err, tc.IsNil)
+}
+
 func (s *macaroonLoginSuite) login(c *tc.C, info *api.Info) (params.LoginResult, error) {
 	cookieJar := jujutesting.NewClearableCookieJar()
+	s.setAPIAddresses(c, info)
 
 	infoSkipLogin := *info
 	infoSkipLogin.SkipLogin = true
@@ -253,6 +281,7 @@ func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *tc.C) {
 	s.DischargerLogin = func() string {
 		return s.remoteUser.Name()
 	}
+	s.setAPIAddresses(c, s.APIInfo(c))
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	client, err := api.Open(c.Context(), s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -274,6 +303,7 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *tc.C) {
 func (s *macaroonLoginSuite) TestConnectStream(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
+	s.setAPIAddresses(c, s.APIInfo(c))
 
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
@@ -304,6 +334,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *tc.C) {
 func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
+	s.setAPIAddresses(c, s.APIInfo(c))
 
 	// This is really a test for ConnectStream, but to test ConnectStream's
 	// discharge failing logic, we need an actual endpoint to test against,
@@ -345,6 +376,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *tc.C) {
 func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *tc.C) {
 	s.AddModelUser(c, s.remoteUser)
 	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
+	s.setAPIAddresses(c, s.APIInfo(c))
 
 	// If the connection was created with already-discharged macaroons
 	// (rather than acquiring them through the discharge dance), they

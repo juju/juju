@@ -9,6 +9,8 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/controller/controller"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/juju/testing"
 )
 
@@ -28,6 +30,24 @@ func TestControllerIntegrationSuite(t *stdtesting.T) {
 }
 func (s *ControllerIntegrationSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
+
+	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.9.9.32",
+				},
+			},
+			NetPort: 42,
+		},
+	}
+	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": addrs,
+		},
+	})
+	c.Assert(err, tc.IsNil)
 
 	api := s.OpenControllerAPI(c)
 	s.client = controller.NewClient(api)

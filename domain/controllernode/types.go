@@ -6,6 +6,7 @@ package controllernode
 import (
 	"context"
 	"net/netip"
+	"strconv"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -56,14 +57,27 @@ func (addrs APIAddresses) ToHostPortsNoMachineLocal() (network.HostPorts, error)
 		if addr.Scope == network.ScopeMachineLocal {
 			continue
 		}
+		var addrValue string
+		var portValue network.NetPort
 		ip, err := netip.ParseAddrPort(addr.Address)
-		if err != nil {
-			return nil, errors.Errorf("parsing %q: %w", addr.Address, err)
+		if err == nil {
+			addrValue = ip.Addr().String()
+			portValue = network.NetPort(ip.Port())
+		} else {
+			parts := strings.Split(addr.Address, ":")
+			addrValue = parts[0]
+			if len(parts) < 2 {
+				break
+			}
+			port, err := strconv.Atoi(parts[1])
+			if err != nil {
+				return nil, errors.Errorf("parsing %q: %w", addr.Address, err)
+			}
+			portValue = network.NetPort(port)
 		}
-		mAddr := network.NewMachineAddress(ip.Addr().String(), network.WithScope(addr.Scope))
 		result = append(result, network.MachineHostPort{
-			MachineAddress: mAddr,
-			NetPort:        network.NetPort(ip.Port()),
+			MachineAddress: network.NewMachineAddress(addrValue, network.WithScope(addr.Scope)),
+			NetPort:        portValue,
 		})
 	}
 	return result, nil

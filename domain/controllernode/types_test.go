@@ -241,3 +241,74 @@ func (s *typesSuite) TestSelectPublicAddress(c *tc.C) {
 		c.Check(prioritized, tc.DeepEquals, t.expected)
 	}
 }
+
+type toHostPortTest struct {
+	about     string
+	addresses APIAddresses
+	expected  []network.MachineHostPort
+}
+
+var toHostPortTests = []toHostPortTest{
+	{
+		about: "no machine local",
+		addresses: []APIAddress{
+			{Address: "127.0.0.1:170702", Scope: network.ScopeMachineLocal},
+			{Address: "10.0.0.1:17070", Scope: network.ScopeCloudLocal},
+		},
+		expected: []network.MachineHostPort{
+			{
+				MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+				NetPort:        17070,
+			},
+		},
+	}, {
+		about: "hostname with port",
+		addresses: []APIAddress{
+			{Address: "localhost:17070", Scope: network.ScopePublic},
+		},
+		expected: []network.MachineHostPort{
+			{
+				MachineAddress: network.NewMachineAddress("localhost", network.WithScope(network.ScopePublic)),
+				NetPort:        17070,
+			},
+		},
+	}, {
+		about: "IPv4 & IPv6",
+		addresses: []APIAddress{
+			{Address: "10.0.0.1:17070", Scope: network.ScopeCloudLocal},
+			{Address: "[2001:db8::1]:17070", Scope: network.ScopeCloudLocal},
+		},
+		expected: []network.MachineHostPort{
+			{
+				MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+				NetPort:        17070,
+			}, {
+				MachineAddress: network.NewMachineAddress("2001:db8::1", network.WithScope(network.ScopeCloudLocal)),
+				NetPort:        17070,
+			},
+		},
+	},
+}
+
+func (s *typesSuite) TestToHostPortsNoMachineLocal(c *tc.C) {
+	for i, t := range toHostPortTests {
+		c.Logf("test %d: %s", i, t.about)
+		expected := make(network.HostPorts, len(t.expected))
+		for i, m := range t.expected {
+			expected[i] = m
+		}
+		obtained, err := t.addresses.ToHostPortsNoMachineLocal()
+		if !c.Check(err, tc.ErrorIsNil) {
+			continue
+		}
+		// Check both ways, HostPort has a string method
+		// which appears to be used in DeepEquals, leading to
+		// incorrect validation.
+		c.Check(obtained, tc.DeepEquals, expected)
+		for i, o := range obtained {
+			c.Check(o.Host(), tc.Equals, expected[i].Host())
+			c.Check(o.Port(), tc.Equals, expected[i].Port())
+			c.Check(o.AddressScope(), tc.DeepEquals, expected[i].AddressScope())
+		}
+	}
+}

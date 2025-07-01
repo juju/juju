@@ -24,7 +24,6 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
-	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/migration"
@@ -37,6 +36,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/internal/auth"
@@ -62,7 +62,6 @@ const (
 
 type baseLoginSuite struct {
 	jujutesting.ApiServerSuite
-	mgmtSpace *network.SpaceInfo
 }
 
 func TestLoginStub(t *stdtesting.T) {
@@ -86,21 +85,23 @@ func (s *baseLoginSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
-	networkService := s.ControllerDomainServices(c).Network()
-	mgmtSpaceID, err := networkService.AddSpace(c.Context(), network.SpaceInfo{
-		Name: "mgmt01",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.mgmtSpace, err = networkService.Space(c.Context(), mgmtSpaceID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	cfg := map[string]any{
-		corecontroller.JujuManagementSpace: "mgmt01",
+	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.9.9.32",
+				},
+			},
+			NetPort: 42,
+		},
 	}
-
-	configService := s.ControllerDomainServices(c).ControllerConfig()
-	err = configService.UpdateControllerConfig(c.Context(), cfg, nil)
-	c.Assert(err, tc.ErrorIsNil)
+	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": addrs,
+		},
+	})
+	c.Assert(err, tc.IsNil)
 }
 
 type loginSuite struct {
@@ -114,6 +115,24 @@ func TestLoginSuite(t *stdtesting.T) {
 func (s *loginSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)
 	s.ApiServerSuite.SetUpTest(c)
+
+	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.9.9.32",
+				},
+			},
+			NetPort: 42,
+		},
+	}
+	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": addrs,
+		},
+	})
+	c.Assert(err, tc.IsNil)
 }
 
 // openAPIWithoutLogin connects to the API and returns an api connection
