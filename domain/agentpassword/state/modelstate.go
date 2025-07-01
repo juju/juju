@@ -343,7 +343,7 @@ WHERE  name=$entityName.name`, u)
 	return u.UUID, errors.Capture(err)
 }
 
-// MatchesModelPasswordHash checks if the password is valid or not againt the
+// MatchesModelPasswordHash checks if the password is valid or not against the
 // password hash stored for the model's agent.
 func (s *ModelState) MatchesModelPasswordHash(
 	ctx context.Context, passwordHash agentpassword.PasswordHash,
@@ -361,7 +361,7 @@ WHERE  password_hash = $validateModelPasswordHash.password_hash;
 `
 	stmt, err := s.Prepare(query, args)
 	if err != nil {
-		return false, errors.Errorf("preparing statement to set password hash: %w", err)
+		return false, errors.Capture(err)
 	}
 
 	var count int
