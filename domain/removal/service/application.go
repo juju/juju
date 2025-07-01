@@ -99,8 +99,8 @@ func (s *Service) RemoveApplication(
 
 	// Ensure that the application units and machines are removed as well.
 	if len(unitUUIDs) > 0 {
-		// If there are any units that transitioned from alive to dying or dead, we
-		// need to schedule their removal as well.
+		// If there are any units that transitioned from alive to dying or dead,
+		// we need to schedule their removal as well.
 		s.logger.Infof(ctx, "application has units %v, scheduling removal", unitUUIDs)
 
 		s.removeUnits(ctx, unitUUIDs, force, wait)

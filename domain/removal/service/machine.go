@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
@@ -66,7 +65,7 @@ func (s *Service) RemoveMachine(
 	}
 
 	// Ensure the machine is not alive.
-	units, machines, err := s.st.EnsureMachineNotAliveCascade(ctx, machineUUID.String())
+	unitUUIDs, machineUUIDs, err := s.st.EnsureMachineNotAliveCascade(ctx, machineUUID.String())
 	if err != nil {
 		return "", errors.Errorf("machine %q: %w", machineUUID, err)
 	}
@@ -91,38 +90,27 @@ func (s *Service) RemoveMachine(
 	machineJobUUID, err := s.machineScheduleRemoval(ctx, machineUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
-	} else if len(units) == 0 && len(machines) == 0 {
+	} else if len(unitUUIDs) == 0 && len(machineUUIDs) == 0 {
 		// If there are no units or machines to update, we can return early.
 		return machineJobUUID, nil
 	}
 
-	if len(units) > 0 {
-		s.logger.Infof(ctx, "units were affected by machine removal %v, scheduling removal", units)
+	// Ensure that the machines has units and child machines, which are removed
+	// as well.
+	if len(unitUUIDs) > 0 {
+		// If there are any units that transitioned from alive to dying or dead,
+		// we need to schedule their removal as well.
+		s.logger.Infof(ctx, "machine has units %v, scheduling removal", unitUUIDs)
 
-		// If there are units to update, we need to schedule their removal.
-		for _, unitUUID := range units {
-			if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); err != nil {
-				// If the unit fails to be scheduled for removal, then log the
-				// error. The machine has been transitioned to dying and there
-				// is no way to transition it back to alive.
-				s.logger.Errorf(ctx, "failed to schedule unit %q for removal: %v", unitUUID, err)
-			}
-		}
+		s.removeUnits(ctx, unitUUIDs, force, wait)
 	}
 
-	if len(machines) > 0 {
-		s.logger.Infof(ctx, "child machines were affected by machine removal %v, scheduling removal", machines)
+	if len(machineUUIDs) > 0 {
+		// If there are any child machines that transitioned from alive to dying
+		// or dead, we need to schedule their removal as well.
+		s.logger.Infof(ctx, "machine has child machines %v, scheduling removal", machineUUIDs)
 
-		// If there are child machines to update, we need to schedule their
-		// removal.
-		for _, mUUID := range machines {
-			if _, err := s.RemoveMachine(ctx, machine.UUID(mUUID), force, wait); err != nil {
-				// If the machine fails to be scheduled for removal, then log the
-				// error. The machine has been transitioned to dying and there
-				// is no way to transition it back to alive.
-				s.logger.Errorf(ctx, "failed to schedule machine %q for removal: %v", mUUID, err)
-			}
-		}
+		s.removeMachines(ctx, machineUUIDs, force, wait)
 	}
 
 	return machineJobUUID, nil

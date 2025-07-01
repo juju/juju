@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -112,14 +111,7 @@ func (s *Service) RemoveUnit(
 
 	s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", machineUUID)
 
-	// If the unit was the last one on the machine, we need to schedule
-	// a removal job for the machine.
-	if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); err != nil {
-		// If the machine fails to be scheduled, then log out an error. The
-		// machine and the unit have been transitioned to dying and there is no
-		// way to transition them back to alive.
-		s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
-	}
+	s.removeMachines(ctx, []string{machineUUID}, force, wait)
 
 	return unitJobUUID, nil
 }
