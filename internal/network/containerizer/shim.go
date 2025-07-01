@@ -74,18 +74,7 @@ type Machine interface {
 	Id() string
 	AllDeviceAddresses() ([]Address, error)
 	AllSpaces(allSubnets network.SubnetInfos) (set.Strings, error)
-	SetLinkLayerDevices(devicesArgs ...state.LinkLayerDeviceArgs) (err error)
 	AllLinkLayerDevices() ([]LinkLayerDevice, error)
-
-	// TODO (manadart 2018-10-10) These methods are used in tests, which rely
-	// on the StateSuite. Some of them are recruited via the Container
-	// interface below, but they are all located here for simplicity.
-	// A better approach could be sought that does not require their
-	// presence here.
-	SetDevicesAddresses(devicesAddresses ...state.LinkLayerDeviceAddress) (err error)
-	SetConstraints(cons constraints.Value) (err error)
-	RemoveAllAddresses() error
-	Raw() *state.Machine
 }
 
 // MachineShim implements Machine.

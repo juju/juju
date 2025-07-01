@@ -47,10 +47,6 @@ const (
 	jujuDB = "juju"
 )
 
-type providerIdDoc struct {
-	ID string `bson:"_id"` // format: "<model-uuid>:<global-key>:<provider-id>"
-}
-
 // State represents the state of an model
 // managed by juju.
 type State struct {
@@ -1421,40 +1417,12 @@ func (st *State) AssignUnit(
 	return errors.Trace(u.assignToNewMachine(""))
 }
 
-func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
-	key := st.networkEntityGlobalKey(globalKey, providerId)
-	return txn.Op{
-		C:      providerIDsC,
-		Id:     key,
-		Assert: txn.DocMissing,
-		Insert: providerIdDoc{ID: key},
-	}
-}
-
 func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
 		Id:     key,
 		Remove: true,
-	}
-}
-
-func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId network.Id) (bool, error) {
-	col, closer := st.db().GetCollection(providerIDsC)
-	defer closer()
-
-	key := st.networkEntityGlobalKey(globalKey, providerId)
-	var doc providerIdDoc
-	err := col.FindId(key).One(&doc)
-
-	switch err {
-	case nil:
-		return true, nil
-	case mgo.ErrNotFound:
-		return false, nil
-	default:
-		return false, errors.Annotatef(err, "reading provider ID %q", key)
 	}
 }
 

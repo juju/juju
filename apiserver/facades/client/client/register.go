@@ -44,11 +44,8 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		logDir: ctx.LogDir(),
 		clock:  ctx.Clock(),
 
-		controllerTag: names.NewControllerTag(ctx.ControllerUUID()),
-		modelTag:      names.NewModelTag(ctx.ModelUUID().String()),
-		stateAccessor: &stateShim{
-			State: st,
-		},
+		controllerTag:    names.NewControllerTag(ctx.ControllerUUID()),
+		modelTag:         names.NewModelTag(ctx.ModelUUID().String()),
 		storageAccessor:  storageAccessor,
 		auth:             authorizer,
 		leadershipReader: leadershipReader,
