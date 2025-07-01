@@ -108,16 +108,12 @@ func (s *querySuite) TestEnsurePatches(c *tc.C) {
 		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
 	}
 
-	var called bool
+	computed := computeHashes(patches)
+
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return ensurePatchesAreApplied(c.Context(), tx, 0, patches, func(i int, statement string) (string, error) {
-			called = true
-			c.Check(i, tc.Equals, 0)
-			return statement, nil
-		})
+		return ensurePatchesAreApplied(c.Context(), tx, 0, patches, computed)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(called, tc.IsTrue)
 }
 
 func (s *querySuite) createSchemaTable(c *tc.C) {
@@ -131,7 +127,7 @@ func (s *querySuite) expectCurrentVersion(c *tc.C, expected int, hashes []string
 	var current int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
-		current, err = queryCurrentVersion(ctx, tx, hashes)
+		current, err = validateCurrentVersion(ctx, tx, hashes)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

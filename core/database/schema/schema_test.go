@@ -190,5 +190,5 @@ func (s *schemaSuite) TestEnsureHashBreaks(c *tc.C) {
 	schema.Add(MakePatch("CREATE TEMP TABLE baz (id INTEGER PRIMARY KEY);"))
 
 	_, err = schema.Ensure(c.Context(), s.TxnRunner())
-	c.Assert(err, tc.ErrorMatches, `failed to query current schema version: hash mismatch for version 2`)
+	c.Assert(err, tc.ErrorMatches, `querying current schema version: hash mismatch for version 2`)
 }

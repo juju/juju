@@ -30,8 +30,8 @@ type Patch struct {
 	stmt string
 }
 
-// MakePatch returns a patch that applies the given SQL statement with the given
-// arguments.
+// MakePatch returns a patch that applies the input
+// statement with the input arguments.
 func MakePatch(statement string, args ...any) Patch {
 	return Patch{
 		run: func(ctx context.Context, tx Tx) error {
@@ -95,28 +95,42 @@ type ChangeSet struct {
 // initial version that the schema has been upgraded from.
 func (s *Schema) Ensure(ctx context.Context, runner database.TxnRunner) (ChangeSet, error) {
 	current, post := -1, -1
+
+	// Make a copy of the patches and apply the hook to each statement.
+	// We want to do this before computing hashes.
+	toApply := make([]Patch, len(s.patches))
+	copy(toApply, s.patches)
+	for i, patch := range toApply {
+		var err error
+		toApply[i].stmt, err = s.hook(i, patch.stmt)
+		if err != nil {
+			return ChangeSet{}, errors.Errorf("applying hook for patch %d: %w", i, err)
+		}
+	}
+
+	hashes := computeHashes(toApply)
+
 	err := runner.StdTxn(ctx, func(ctx context.Context, t *sql.Tx) error {
 		if err := createSchemaTable(ctx, t); err != nil {
 			return errors.Capture(err)
 		}
 
-		hashes := computeHashes(s.patches)
-
 		var err error
-		if current, err = queryCurrentVersion(ctx, t, hashes); err != nil {
-			return errors.Errorf("failed to query current schema version: %w", err)
+		if current, err = validateCurrentVersion(ctx, t, hashes); err != nil {
+			return errors.Errorf("querying current schema version: %w", err)
 		}
 
-		if err := ensurePatchesAreApplied(ctx, t, current, s.patches, s.hook); err != nil {
-			return errors.Errorf("failed to apply schema patches: %w", err)
+		if err := ensurePatchesAreApplied(ctx, t, current, s.patches, hashes); err != nil {
+			return errors.Errorf("applying schema patches: %w", err)
 		}
 
-		if post, err = queryCurrentVersion(ctx, t, hashes); err != nil {
-			return errors.Errorf("failed to query post schema version: %w", err)
+		if post, err = validateCurrentVersion(ctx, t, hashes); err != nil {
+			return errors.Errorf("querying post schema version: %w", err)
 		}
 
 		return nil
 	})
+
 	return ChangeSet{
 		Current: current,
 		Post:    post,

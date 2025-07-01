@@ -71,7 +71,7 @@ func main() {
 	}
 	if !*quiteFlag {
 		schema.Hook(func(i int, stmt string) (string, error) {
-			fmt.Printf("-- Applied patch %d\n%s\n", i, stmt)
+			fmt.Printf("-- Applying patch %d\n%s\n", i, stmt)
 			return stmt, nil
 		})
 	}
