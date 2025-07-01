@@ -97,6 +97,36 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 1)
 }
 
+func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{
+			AddUnitArg: applicationservice.AddUnitArg{
+				Placement: instance.MustParsePlacement("0"),
+			},
+		})
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 2)
+
+	parentMachineUUID := s.getUnitMachineUUID(c, unitUUIDs[0])
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(units), tc.Equals, 2)
+	c.Check(len(childMachines), tc.Equals, 0)
+
+	// The unit should now be "dying".
+	s.checkUnitLife(c, units[0], 1)
+	s.checkUnitLife(c, units[1], 1)
+
+	// The last machine had life "alive" and should now be "dying".
+	s.checkMachineLife(c, parentMachineUUID.String(), 1)
+}
+
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
@@ -119,24 +149,12 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 	c.Check(len(units), tc.Equals, 2, tc.Commentf("this should return 2 units, one on the parent machine and one on the child machine"))
 	c.Check(len(childMachines), tc.Equals, 1, tc.Commentf("this should return 1 child machine, the one that was created for the second unit"))
 
-	// The unit should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM unit WHERE uuid = ?", units[0])
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1, tc.Commentf("unit should be dying, but got %d", lifeID))
+	s.checkUnitLife(c, units[0], 1)
+	s.checkUnitLife(c, units[1], 1)
 
 	// The last machine had life "alive" and should now be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", parentMachineUUID)
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1, tc.Commentf("parent machine should be dying, but got %d", lifeID))
-
-	// The child machine should also be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", childMachines[0])
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1, tc.Commentf("child machine should be dying, but got %d", lifeID))
+	s.checkMachineLife(c, parentMachineUUID.String(), 1)
+	s.checkMachineLife(c, childMachines[0], 1)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDying(c *tc.C) {
@@ -155,18 +173,10 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDyi
 	c.Check(len(units), tc.Equals, 1)
 	c.Check(len(childMachines), tc.Equals, 0)
 
-	// The unit should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM machine WHERE uuid = ?", machineUUID0)
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkMachineLife(c, machineUUID0.String(), 1)
 
-	// The last machine had life "alive" and should now be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID1)
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 0)
+	// The other machine should not be affected.
+	s.checkMachineLife(c, machineUUID1.String(), 0)
 }
 
 func (s *machineSuite) TestDeleteMachine(c *tc.C) {
@@ -201,4 +211,20 @@ func (s *machineSuite) getMachineUUIDFromApp(c *tc.C, appUUID application.ID) ma
 	unitUUID := unitUUIDs[0]
 
 	return s.getUnitMachineUUID(c, unitUUID)
+}
+
+func (s *machineSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM unit WHERE uuid = ?", unitUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
+}
+
+func (s *machineSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM machine WHERE uuid = ?", machineUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
 }
