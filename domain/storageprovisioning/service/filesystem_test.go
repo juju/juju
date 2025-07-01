@@ -6,14 +6,15 @@ package service
 import (
 	"testing"
 
+	"github.com/juju/tc"
+	gomock "go.uber.org/mock/gomock"
+
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // filesystemSuite provides a test suite for asserting the [Service] interface
