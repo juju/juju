@@ -10,17 +10,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// Backend contains the state.State methods used in this package,
-// allowing stubs to be created for testing.
-type Backend interface {
-	AllMachines() ([]*state.Machine, error)
-	AllStatus() (*state.AllStatus, error)
-}
-
-type stateShim struct {
-	*state.State
-}
-
 type StorageInterface interface {
 	storagecommon.StorageAccess
 	storagecommon.VolumeAccess

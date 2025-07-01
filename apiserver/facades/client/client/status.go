@@ -175,7 +175,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		logger.Tracef(ctx, "cross model relations are disabled until "+
 			"backend functionality is moved to domain")
 	}
-	if err = context.fetchMachines(ctx, c.stateAccessor); err != nil {
+	if err = context.fetchMachines(ctx); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch machines: %w", err)
 	}
 	if err = context.fetchAllOpenPortRanges(ctx, c.portService); err != nil {
@@ -426,7 +426,7 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func (c *statusContext) fetchMachines(ctx context.Context, st Backend) error {
+func (c *statusContext) fetchMachines(ctx context.Context) error {
 	if c.model.Type == model.CAAS {
 		return nil
 	}
