@@ -62,16 +62,20 @@ func makeStorageDirective(pool string, size, count uint64) storage.Directive {
 
 type mockStoragePoolGetter struct{}
 
-func (mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (domainstorage.StoragePool, error) {
-	switch name {
+func (mockStoragePoolGetter) GetStoragePoolUUID(_ context.Context, name string) (domainstorage.StoragePoolUUID, error) {
+	return domainstorage.StoragePoolUUID(name), nil
+}
+
+func (mockStoragePoolGetter) GetStoragePool(_ context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error) {
+	switch poolUUID.String() {
 	case "loop-pool":
-		return domainstorage.StoragePool{Name: name, Provider: "loop"}, nil
+		return domainstorage.StoragePool{Name: poolUUID.String(), Provider: "loop"}, nil
 	case "rootfs":
-		return domainstorage.StoragePool{Name: name, Provider: "rootfs"}, nil
+		return domainstorage.StoragePool{Name: poolUUID.String(), Provider: "rootfs"}, nil
 	case "tmp":
-		return domainstorage.StoragePool{Name: name, Provider: "tmpfs", Attrs: map[string]string{"storage-medium": "foo"}}, nil
+		return domainstorage.StoragePool{Name: poolUUID.String(), Provider: "tmpfs", Attrs: map[string]string{"storage-medium": "foo"}}, nil
 	}
-	return domainstorage.StoragePool{}, errors.Errorf("storage pool %q not found", name).Add(storageerrors.PoolNotFoundError)
+	return domainstorage.StoragePool{}, errors.Errorf("storage pool %q not found", poolUUID.String()).Add(storageerrors.PoolNotFoundError)
 }
 
 func (s *validationSuite) validateStorageDirectives(c *tc.C, storage map[string]storage.Directive) error {

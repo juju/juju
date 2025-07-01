@@ -19,7 +19,14 @@ import (
 
 // StoragePoolGetter provides access to a storage pool getter for validation purposes.
 type StoragePoolGetter interface {
-	GetStoragePoolByName(ctx context.Context, name string) (StoragePool, error)
+	// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	GetStoragePoolUUID(ctx context.Context, name string) (StoragePoolUUID, error)
+	// GetStoragePool returns the storage pool for the specified UUID.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
+	GetStoragePool(ctx context.Context, poolUUID StoragePoolUUID) (StoragePool, error)
 }
 
 // Charm provides access to charm metadata.
@@ -163,7 +170,7 @@ func (v storageDirectivesValidator) poolStorageProvider(
 	ctx context.Context,
 	poolName string,
 ) (storage.ProviderType, storage.Provider, storage.Attrs, error) {
-	pool, err := v.storagePoolGetter.GetStoragePoolByName(ctx, poolName)
+	poolUUID, err := v.storagePoolGetter.GetStoragePoolUUID(ctx, poolName)
 	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
@@ -176,6 +183,10 @@ func (v storageDirectivesValidator) poolStorageProvider(
 		}
 		return providerType, aProvider, nil, nil
 	} else if err != nil {
+		return "", nil, nil, errors.Capture(err)
+	}
+	pool, err := v.storagePoolGetter.GetStoragePool(ctx, poolUUID)
+	if err != nil {
 		return "", nil, nil, errors.Capture(err)
 	}
 	providerType := storage.ProviderType(pool.Provider)
