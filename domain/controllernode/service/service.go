@@ -306,10 +306,10 @@ func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (m
 	return s.st.GetAPIAddressesByControllerIDForAgents(ctx)
 }
 
-// GetAllAPIAddressesForAgentsInPreferredOrder returns a string slice of api
+// GetAllAPIAddressesForAgents returns a string slice of api
 // addresses available for agents ordered to prefer local-cloud scoped
 // addresses and IPv4 over IPv6 for each machine.
-func (s *Service) GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error) {
+func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error) {
 	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)

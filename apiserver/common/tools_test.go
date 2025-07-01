@@ -323,7 +323,7 @@ func (s *getUrlSuite) setup(c *tc.C) *gomock.Controller {
 func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(nil, nil)
+	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(nil, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	_, err := g.ToolsURLs(c.Context(), coretesting.CurrentVersion())
@@ -333,7 +333,7 @@ func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *tc.C) {
 func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(nil, errors.New("oh noes"))
+	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(nil, errors.New("oh noes"))
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	_, err := g.ToolsURLs(c.Context(), coretesting.CurrentVersion())
@@ -344,7 +344,7 @@ func (s *getUrlSuite) TestToolsURLGetter(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	addrs := []string{"0.1.2.3:1234"}
-	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(addrs, nil)
+	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	current := coretesting.CurrentVersion()

@@ -529,19 +529,19 @@ func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecor
 	return m.recorder
 }
 
-// GetAllAPIAddressesForAgentsInPreferredOrder mocks base method.
-func (m *MockControllerNodeService) GetAllAPIAddressesForAgentsInPreferredOrder(arg0 context.Context) ([]string, error) {
+// GetAllAPIAddressesForAgents mocks base method.
+func (m *MockControllerNodeService) GetAllAPIAddressesForAgents(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllAPIAddressesForAgentsInPreferredOrder", arg0)
+	ret := m.ctrl.Call(m, "GetAllAPIAddressesForAgents", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAllAPIAddressesForAgentsInPreferredOrder indicates an expected call of GetAllAPIAddressesForAgentsInPreferredOrder.
-func (mr *MockControllerNodeServiceMockRecorder) GetAllAPIAddressesForAgentsInPreferredOrder(arg0 any) *gomock.Call {
+// GetAllAPIAddressesForAgents indicates an expected call of GetAllAPIAddressesForAgents.
+func (mr *MockControllerNodeServiceMockRecorder) GetAllAPIAddressesForAgents(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesForAgentsInPreferredOrder", reflect.TypeOf((*MockControllerNodeService)(nil).GetAllAPIAddressesForAgentsInPreferredOrder), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesForAgents", reflect.TypeOf((*MockControllerNodeService)(nil).GetAllAPIAddressesForAgents), arg0)
 }
 
 // WatchControllerAPIAddresses mocks base method.
