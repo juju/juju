@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -182,6 +183,41 @@ AND    life_id = 0;`, uuids{})
 	}
 
 	return units, childMachines, nil
+}
+
+// MachineScheduleRemoval schedules a removal job for the machine with the
+// input UUID, qualified with the input force boolean.
+// We don't care if the unit does not exist at this point because:
+// - it should have been validated prior to calling this method,
+// - the removal job executor will handle that fact.
+func (st *State) MachineScheduleRemoval(
+	ctx context.Context, removalUUID, machineUUID string, force bool, when time.Time,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalRec := removalJob{
+		UUID:          removalUUID,
+		RemovalTypeID: 1,
+		EntityUUID:    machineUUID,
+		Force:         force,
+		ScheduledFor:  when,
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
+	if err != nil {
+		return errors.Errorf("preparing machine removal: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, removalRec).Run()
+		if err != nil {
+			return errors.Errorf("scheduling machine removal: %w", err)
+		}
+		return nil
+	}))
 }
 
 // GetMachineLife returns the life of the machine with the input UUID.

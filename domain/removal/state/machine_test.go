@@ -5,6 +5,7 @@ package state
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -177,6 +178,74 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDyi
 
 	// The other machine should not be affected.
 	s.checkMachineLife(c, machineUUID1.String(), 0)
+}
+
+func (s *machineSuite) TestMachineRemovalNormalSuccess(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.MachineScheduleRemoval(
+		c.Context(), "removal-uuid", machineUUID.String(), false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	row := s.DB().QueryRow(
+		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
+		"removal-uuid",
+	)
+	var (
+		removalTypeID int
+		rUUID         string
+		force         bool
+		scheduledFor  time.Time
+	)
+	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalTypeID, tc.Equals, 1)
+	c.Check(rUUID, tc.Equals, machineUUID.String())
+	c.Check(force, tc.Equals, false)
+	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *machineSuite) TestMachineRemovalNotExistsSuccess(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err := st.MachineScheduleRemoval(
+		c.Context(), "removal-uuid", "some-unit-uuid", true, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// We should have a removal job scheduled immediately.
+	// It doesn't matter that the unit does not exist.
+	// We rely on the worker to handle that fact.
+	row := s.DB().QueryRow(`
+SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+where  r.uuid = ?`, "removal-uuid",
+	)
+
+	var (
+		removalType  string
+		rUUID        string
+		force        bool
+		scheduledFor time.Time
+	)
+	err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(removalType, tc.Equals, "unit")
+	c.Check(rUUID, tc.Equals, "some-unit-uuid")
+	c.Check(force, tc.Equals, true)
+	c.Check(scheduledFor, tc.Equals, when)
 }
 
 func (s *machineSuite) TestDeleteMachine(c *tc.C) {
