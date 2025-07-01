@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
@@ -226,9 +225,6 @@ type machineInfo struct {
 	providerAddresses []network.SpaceAddress
 	life              state.Life
 	isManual          bool
-
-	linkLayerDevices []commonnetwork.LinkLayerDevice
-	addresses        []commonnetwork.LinkLayerAddress
 }
 
 type mockMachine struct {
@@ -297,30 +293,6 @@ func (m *mockMachine) SetProviderAddresses(controllerConfig controller.Config, a
 	}
 	m.providerAddresses = addrs
 	return nil
-}
-
-// AllLinkLayerDevices implements StateMachine.
-func (m *mockMachine) AllLinkLayerDevices() ([]commonnetwork.LinkLayerDevice, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "AllLinkLayerDevices")
-	if err := m.NextErr(); err != nil {
-		return nil, err
-	}
-	return m.linkLayerDevices, nil
-}
-
-// AllDeviceAddresses implements StateMachine.
-func (m *mockMachine) AllDeviceAddresses() ([]commonnetwork.LinkLayerAddress, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "AllDeviceAddresses")
-	if err := m.NextErr(); err != nil {
-		return nil, err
-	}
-	return m.addresses, nil
 }
 
 // InstanceStatus implements StateMachine.

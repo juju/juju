@@ -178,13 +178,6 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 		// Treat errors as transient; the purpose of this API
 		// method is to simply update the provider addresses.
 		interfaceInfos := params.InterfaceInfoFromNetworkConfig(configs)
-		if err := a.mergeLinkLayer(machine, interfaceInfos); err != nil {
-			a.logger.Errorf(ctx,
-				"link layer device merge attempt for machine %v failed due to error: %v; "+
-					"waiting until next instance-poller run to retry", machine.Id(), err)
-		}
-
-		// Write in dqlite
 		if err := a.setProviderConfigOneMachine(ctx, arg.Tag, interfaceInfos); err != nil {
 			a.logger.Errorf(ctx,
 				"link layer device merge attempt for machine %v failed due to error: %v; "+
@@ -211,10 +204,6 @@ func maybeUpdateMachineProviderAddresses(
 	}
 
 	return true, m.SetProviderAddresses(controllerConfig, newSpaceAddrs...)
-}
-
-func (a *InstancePollerAPI) mergeLinkLayer(m StateMachine, devs network.InterfaceInfos) error {
-	return errors.Trace(a.st.ApplyOperation(newMergeMachineLinkLayerOp(m, devs, a.logger)))
 }
 
 // mapNetworkConfigsToProviderAddresses iterates the list of incoming network
