@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -116,12 +115,6 @@ func (ctrl *Controller) Import(
 	}
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
-	}
-	if err := restore.linklayerdevices(); err != nil {
-		return nil, nil, errors.Annotate(err, "linklayerdevices")
-	}
-	if err := restore.ipAddresses(); err != nil {
-		return nil, nil, errors.Annotate(err, "ipAddresses")
 	}
 	if err := restore.storage(); err != nil {
 		return nil, nil, errors.Annotate(err, "storage")
@@ -454,119 +447,6 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 		doc.StatusData = nil
 	}
 	return doc
-}
-
-func (i *importer) linklayerdevices() error {
-	i.logger.Debugf(context.TODO(), "importing linklayerdevices")
-	for _, device := range i.model.LinkLayerDevices() {
-		err := i.addLinkLayerDevice(device)
-		if err != nil {
-			i.logger.Errorf(context.TODO(), "error importing ip device %v: %s", device, err)
-			return errors.Trace(err)
-		}
-	}
-	i.logger.Debugf(context.TODO(), "importing linklayerdevices succeeded")
-	return nil
-}
-
-func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error {
-	providerID := device.ProviderID()
-	modelUUID := i.st.ModelUUID()
-	localID := linkLayerDeviceGlobalKey(device.MachineID(), device.Name())
-	linkLayerDeviceDocID := i.st.docID(localID)
-	newDoc := &linkLayerDeviceDoc{
-		ModelUUID:       modelUUID,
-		DocID:           linkLayerDeviceDocID,
-		MachineID:       device.MachineID(),
-		ProviderID:      providerID,
-		Name:            device.Name(),
-		MTU:             device.MTU(),
-		Type:            network.LinkLayerDeviceType(device.Type()),
-		MACAddress:      device.MACAddress(),
-		IsAutoStart:     device.IsAutoStart(),
-		IsUp:            device.IsUp(),
-		ParentName:      device.ParentName(),
-		VirtualPortType: network.VirtualPortType(device.VirtualPortType()),
-	}
-
-	ops := []txn.Op{{
-		C:      linkLayerDevicesC,
-		Id:     newDoc.DocID,
-		Insert: newDoc,
-	}}
-	if providerID != "" {
-		id := network.Id(providerID)
-		ops = append(ops, i.st.networkEntityGlobalKeyOp("linklayerdevice", id))
-	}
-	if err := i.st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (i *importer) ipAddresses() error {
-	i.logger.Debugf(context.TODO(), "importing IP addresses")
-	for _, addr := range i.model.IPAddresses() {
-		err := i.addIPAddress(addr)
-		if err != nil {
-			i.logger.Errorf(context.TODO(), "error importing IP address %v: %s", addr, err)
-			return errors.Trace(err)
-		}
-	}
-	i.logger.Debugf(context.TODO(), "importing IP addresses succeeded")
-	return nil
-}
-
-func (i *importer) addIPAddress(addr description.IPAddress) error {
-	addressValue := addr.Value()
-	subnetCIDR := addr.SubnetCIDR()
-
-	globalKey := ipAddressGlobalKey(addr.MachineID(), addr.DeviceName(), addressValue)
-	ipAddressDocID := i.st.docID(globalKey)
-	providerID := addr.ProviderID()
-
-	modelUUID := i.st.ModelUUID()
-
-	// Compatibility shim for deployments prior to 2.9.1.
-	configType := addr.ConfigMethod()
-	if configType == "dynamic" {
-		configType = string(network.ConfigDHCP)
-	}
-
-	newDoc := &ipAddressDoc{
-		DocID:             ipAddressDocID,
-		ModelUUID:         modelUUID,
-		ProviderID:        providerID,
-		DeviceName:        addr.DeviceName(),
-		MachineID:         addr.MachineID(),
-		SubnetCIDR:        subnetCIDR,
-		ConfigMethod:      network.AddressConfigType(configType),
-		Value:             addressValue,
-		DNSServers:        addr.DNSServers(),
-		DNSSearchDomains:  addr.DNSSearchDomains(),
-		GatewayAddress:    addr.GatewayAddress(),
-		IsDefaultGateway:  addr.IsDefaultGateway(),
-		ProviderNetworkID: addr.ProviderNetworkID(),
-		ProviderSubnetID:  addr.ProviderSubnetID(),
-		Origin:            network.Origin(addr.Origin()),
-		IsShadow:          addr.IsShadow(),
-		IsSecondary:       addr.IsSecondary(),
-	}
-
-	ops := []txn.Op{{
-		C:      ipAddressesC,
-		Id:     newDoc.DocID,
-		Insert: newDoc,
-	}}
-
-	if providerID != "" {
-		id := network.Id(providerID)
-		ops = append(ops, i.st.networkEntityGlobalKeyOp("address", id))
-	}
-	if err := i.st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 func (i *importer) sshHostKeys() error {

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/network"
 )
@@ -175,50 +174,6 @@ func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
 	return dev, errors.Trace(err)
 }
 
-// SetProviderIDOps returns the operations required to set the input
-// provider ID for the link-layer device.
-func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
-	currentID := network.Id(dev.doc.ProviderID)
-
-	// If this provider ID is already set, we have nothing to do.
-	if id == currentID {
-		return nil, nil
-	}
-
-	// If removing the provider ID from the device,
-	// also remove the ID from the global collection.
-	if id == "" {
-		return []txn.Op{
-			{
-				C:      linkLayerDevicesC,
-				Id:     dev.doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.M{"$unset": bson.M{"providerid": 1}},
-			},
-			dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", currentID),
-		}, nil
-	}
-
-	// Ensure that it is not currently used to identify another device.
-	exists, err := dev.st.networkEntityGlobalKeyExists("linklayerdevice", id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if exists {
-		return nil, newProviderIDNotUniqueError(id)
-	}
-
-	return []txn.Op{
-		dev.st.networkEntityGlobalKeyOp("linklayerdevice", id),
-		{
-			C:      linkLayerDevicesC,
-			Id:     dev.doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"providerid": id}},
-		},
-	}, nil
-}
-
 // RemoveOps returns transaction operations that will ensure that the
 // device is not present in the collection and that if set,
 // its provider ID is removed from the global register.
@@ -239,142 +194,6 @@ func (dev *LinkLayerDevice) RemoveOps() []txn.Op {
 	return ops
 }
 
-// UpdateOps returns the transaction operations required to update the device
-// so that it reflects the incoming arguments.
-// This method is intended for updating a device based on args gleaned from the
-// host/container directly. As such it does not update provider IDs.
-// There are separate methods for generating those operations.
-func (dev *LinkLayerDevice) UpdateOps(args LinkLayerDeviceArgs) []txn.Op {
-	newDoc := &linkLayerDeviceDoc{
-		DocID:           dev.doc.DocID,
-		Name:            args.Name,
-		ModelUUID:       dev.doc.ModelUUID,
-		MTU:             args.MTU,
-		MachineID:       dev.doc.MachineID,
-		Type:            args.Type,
-		MACAddress:      args.MACAddress,
-		IsAutoStart:     args.IsAutoStart,
-		IsUp:            args.IsUp,
-		ParentName:      args.ParentName,
-		VirtualPortType: args.VirtualPortType,
-	}
-
-	if op, hasUpdates := updateLinkLayerDeviceDocOp(&dev.doc, newDoc); hasUpdates {
-		return []txn.Op{op}
-	}
-	return nil
-}
-
-// AddAddressOps returns transaction operations required
-// to add the input address to the device.
-// TODO (manadart 2020-07-22): This method is currently used only for adding
-// machine sourced addresses.
-// If it is used in future to set provider addresses, the provider ID args must
-// be included and the global ID collection must be maintained and verified.
-func (dev *LinkLayerDevice) AddAddressOps(args LinkLayerDeviceAddress) ([]txn.Op, error) {
-	address, subnet, err := args.addressAndSubnet()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	newDoc := ipAddressDoc{
-		DeviceName:       dev.doc.Name,
-		DocID:            dev.doc.DocID + "#ip#" + address,
-		ModelUUID:        dev.doc.ModelUUID,
-		MachineID:        dev.doc.MachineID,
-		SubnetCIDR:       subnet,
-		ConfigMethod:     args.ConfigMethod,
-		Value:            address,
-		DNSServers:       args.DNSServers,
-		DNSSearchDomains: args.DNSSearchDomains,
-		GatewayAddress:   args.GatewayAddress,
-		IsDefaultGateway: args.IsDefaultGateway,
-		Origin:           args.Origin,
-		IsSecondary:      args.IsSecondary,
-	}
-	return []txn.Op{insertIPAddressDocOp(&newDoc)}, nil
-}
-
-// Remove removes the device, if it exists. No error is returned when the device
-// was already removed. ErrParentDeviceHasChildren is returned if this device is
-// a parent to one or more existing devices and therefore cannot be removed.
-func (dev *LinkLayerDevice) Remove() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove %s", dev)
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err = dev.errNoOperationsIfMissing(); err != nil {
-				return nil, err
-			}
-		}
-
-		children, err := dev.childCount()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if children > 0 {
-			return nil, newParentDeviceHasChildrenError(dev.doc.Name, children)
-		}
-
-		ops, err := removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.ParentID())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if dev.ProviderID() != "" {
-			op := dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", dev.ProviderID())
-			ops = append(ops, op)
-		}
-		return ops, nil
-	}
-
-	return errors.Trace(dev.st.db().Run(buildTxn))
-}
-
-func (dev *LinkLayerDevice) childCount() (int, error) {
-	col, closer := dev.st.db().GetCollection(linkLayerDevicesC)
-	defer closer()
-
-	children, err := col.Find(bson.M{"$or": []bson.M{
-		// Devices on the same machine with a parent name
-		// matching this device name.
-		{
-			"machine-id":  dev.doc.MachineID,
-			"parent-name": dev.doc.Name,
-		},
-		// devices on other machines (containers or VMs)
-		// with this device as the parent.
-		{
-			"parent-name": strings.Join([]string{"m", dev.doc.MachineID, "d", dev.doc.Name}, "#"),
-		},
-	}}).Count()
-
-	return children, errors.Trace(err)
-}
-
-func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
-	_, err := dev.st.LinkLayerDevice(dev.DocID())
-	if errors.Is(err, errors.NotFound) {
-		return jujutxn.ErrNoOperations
-	}
-	return errors.Trace(err)
-}
-
-// AllLinkLayerDevices returns all link layer devices in the model.
-func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
-	devicesCollection, closer := st.db().GetCollection(linkLayerDevicesC)
-	defer closer()
-
-	var sDocs []linkLayerDeviceDoc
-	err = devicesCollection.Find(nil).All(&sDocs)
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving link-layer devices")
-	}
-	for _, d := range sDocs {
-		devices = append(devices, newLinkLayerDevice(st, d))
-	}
-	return devices, nil
-}
-
 func (st *State) LinkLayerDevice(id string) (*LinkLayerDevice, error) {
 	linkLayerDevices, closer := st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
@@ -388,35 +207,6 @@ func (st *State) LinkLayerDevice(id string) (*LinkLayerDevice, error) {
 	}
 
 	return newLinkLayerDevice(st, doc), nil
-}
-
-// removeLinkLayerDeviceOps returns the list of operations needed to remove the
-// device with the given linkLayerDeviceDocID, asserting it still exists and has
-// no children referring to it. If the device is a child, parentDeviceDocID will
-// be non-empty and the operations includes decrementing the parent's
-// NumChildren.
-func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID string) ([]txn.Op, error) {
-	// We know the DocID has a valid format for a global key, hence the last
-	// return below is ignored.
-	machineID, deviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(linkLayerDeviceDocID)
-	if !canBeGlobalKey {
-		return nil, errors.Errorf(
-			"link-layer device %q on machine %q has unexpected key format",
-			machineID, deviceName,
-		)
-	}
-
-	var ops []txn.Op
-	addressesQuery := findAddressesQuery(machineID, deviceName)
-	if addressesOps, err := st.removeMatchingIPAddressesDocOps(addressesQuery); err == nil {
-		ops = append(ops, addressesOps...)
-	} else {
-		return nil, errors.Trace(err)
-	}
-
-	return append(ops,
-		removeLinkLayerDeviceDocOp(linkLayerDeviceDocID),
-	), nil
 }
 
 // removeLinkLayerDeviceDocOp returns an operation to remove the
@@ -442,73 +232,6 @@ func removeLinkLayerDeviceUnconditionallyOps(linkLayerDeviceDocID string) []txn.
 	return []txn.Op{removeDeviceDocOp}
 }
 
-// insertLinkLayerDeviceDocOp returns an operation inserting the given newDoc,
-// asserting it does not exist yet.
-func insertLinkLayerDeviceDocOp(newDoc *linkLayerDeviceDoc) txn.Op {
-	return txn.Op{
-		C:      linkLayerDevicesC,
-		Id:     newDoc.DocID,
-		Assert: txn.DocMissing,
-		Insert: *newDoc,
-	}
-}
-
-// updateLinkLayerDeviceDocOp returns an operation updating the fields of
-// existingDoc with the respective values of those fields in newDoc. DocID,
-// ModelUUID, MachineID, and Name cannot be changed. ProviderID cannot be
-// changed once set. In all other cases newDoc values overwrites existingDoc
-// values.
-func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) (txn.Op, bool) {
-	changes := make(bson.M)
-	if existingDoc.ProviderID == "" && newDoc.ProviderID != "" {
-		// Only allow changing the ProviderID if it was empty.
-		changes["providerid"] = newDoc.ProviderID
-	}
-	if existingDoc.Type != newDoc.Type {
-		changes["type"] = newDoc.Type
-	}
-	if existingDoc.MTU != newDoc.MTU {
-		changes["mtu"] = newDoc.MTU
-	}
-	if existingDoc.MACAddress != newDoc.MACAddress {
-		changes["mac-address"] = newDoc.MACAddress
-	}
-	if existingDoc.IsAutoStart != newDoc.IsAutoStart {
-		changes["is-auto-start"] = newDoc.IsAutoStart
-	}
-	if existingDoc.IsUp != newDoc.IsUp {
-		changes["is-up"] = newDoc.IsUp
-	}
-	if existingDoc.ParentName != newDoc.ParentName {
-		changes["parent-name"] = newDoc.ParentName
-	}
-	if existingDoc.VirtualPortType != newDoc.VirtualPortType {
-		changes["virtual-port-type"] = newDoc.VirtualPortType
-	}
-
-	var updates bson.D
-	if len(changes) > 0 {
-		updates = append(updates, bson.DocElem{Name: "$set", Value: changes})
-	}
-
-	return txn.Op{
-		C:      linkLayerDevicesC,
-		Id:     existingDoc.DocID,
-		Assert: txn.DocExists,
-		Update: updates,
-	}, len(updates) > 0
-}
-
-// assertLinkLayerDeviceExistsOp returns an operation asserting the document
-// matching linkLayerDeviceDocID exists.
-func assertLinkLayerDeviceExistsOp(linkLayerDeviceDocID string) txn.Op {
-	return txn.Op{
-		C:      linkLayerDevicesC,
-		Id:     linkLayerDeviceDocID,
-		Assert: txn.DocExists,
-	}
-}
-
 // String returns a human-readable representation of the device.
 func (dev *LinkLayerDevice) String() string {
 	return fmt.Sprintf("%s device %q on machine %q", dev.doc.Type, dev.doc.Name, dev.doc.MachineID)
@@ -519,20 +242,6 @@ func linkLayerDeviceGlobalKey(machineID, deviceName string) string {
 		return ""
 	}
 	return "m#" + machineID + "#d#" + deviceName
-}
-
-func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName string, canBeGlobalKey bool) {
-	if !strings.Contains(globalKey, "#") {
-		// Can't be a global key.
-		return "", "", false
-	}
-	keyParts := strings.Split(globalKey, "#")
-	if len(keyParts) != 4 || (keyParts[0] != "m" && keyParts[2] != "d") {
-		// Invalid global key format.
-		return "", "", true
-	}
-	machineID, deviceName = keyParts[1], keyParts[3]
-	return machineID, deviceName, true
 }
 
 // Addresses returns all IP addresses assigned to the device.

@@ -11,13 +11,6 @@ import (
 )
 
 var (
-	newProviderIDNotUniqueError     = stateerrors.NewProviderIDNotUniqueError
-	newParentDeviceHasChildrenError = stateerrors.NewParentDeviceHasChildrenError
-
-	IsProviderIDNotUniqueError = stateerrors.IsProviderIDNotUniqueError
-)
-
-var (
 	// State package internal errors.
 	machineNotAliveErr     = stateerrors.NewNotAliveError("machine")
 	applicationNotAliveErr = stateerrors.NewNotAliveError("application")
