@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
@@ -301,18 +302,22 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 	s.controller = ctrl
 
 	// Set the api host ports in state.
-	sHsPs := []network.SpaceHostPorts{{
-		network.SpaceHostPort{
-			SpaceAddress: network.SpaceAddress{MachineAddress: network.MachineAddress{
-				Value: "localhost",
-				Type:  network.AddressType("hostname"),
-			}},
-			NetPort: network.NetPort(apiPort),
+	apiAddrArgs := controllernode.SetAPIAddressArgs{
+		MgmtSpace: nil,
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": {
+				network.SpaceHostPort{
+					SpaceAddress: network.SpaceAddress{MachineAddress: network.MachineAddress{
+						Value: "localhost",
+						Type:  network.AddressType("hostname"),
+					}},
+					NetPort: network.NetPort(apiPort),
+				},
+			},
 		},
-	}}
-	st, err := ctrl.SystemState()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.SetAPIHostPorts(controllerCfg, sHsPs, sHsPs)
+	}
+	controllerNodeService := domainServices.ControllerNode()
+	err = controllerNodeService.SetAPIAddresses(c.Context(), apiAddrArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Allow "dummy" cloud.

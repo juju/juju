@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -55,12 +54,6 @@ func (s *uniterLegacySuite) SetUpTest(c *tc.C) {
 	s.machineService = s.domainServices.Machine()
 	s.applicationService = s.domainServices.Application()
 	s.portService = s.domainServices.Port()
-}
-
-func (s *uniterLegacySuite) controllerConfig(c *tc.C) (controller.Config, error) {
-	controllerDomainServices := s.ControllerDomainServices(c)
-	controllerConfigService := controllerDomainServices.ControllerConfig()
-	return controllerConfigService.ControllerConfig(c.Context())
 }
 
 func (s *uniterLegacySuite) TestUniterFailsWithNonUnitAgentUser(c *tc.C) {
@@ -370,25 +363,6 @@ func (s *uniterLegacySuite) TestWatchRelationUnits(c *tc.C) {
 
 	// TODO(jam): 2019-10-21 this test is getting a bit unweildy, but maybe we
 	//  should test that changing application data triggers a change here
-}
-
-func (s *uniterLegacySuite) TestAPIAddresses(c *tc.C) {
-	hostPorts := []network.SpaceHostPorts{
-		network.NewSpaceHostPorts(1234, "0.1.2.3"),
-	}
-
-	controllerConfig, err := s.controllerConfig(c)
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := s.ControllerModel(c).State()
-	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
-	c.Assert(err, tc.ErrorIsNil)
-
-	result, err := s.uniter.APIAddresses(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.StringsResult{
-		Result: []string{"0.1.2.3:1234"},
-	})
 }
 
 func (s *uniterLegacySuite) TestWatchUnitAddressesHash(c *tc.C) {

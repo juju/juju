@@ -10,9 +10,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -41,27 +39,6 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 		"--data-dir", "jd",
 	}
 	return cmdtesting.InitCommand(ac, append(common, args...))
-}
-
-// AgentSuite is a fixture to be used by agent test suites.
-type AgentSuite struct {
-	agenttest.AgentSuite
-}
-
-func (s *AgentSuite) SetUpTest(c *tc.C) {
-	s.AgentSuite.SetUpTest(c)
-	// Set API host ports so FindTools/Tools API calls succeed.
-	hostPorts := []network.SpaceHostPorts{
-		network.NewSpaceHostPorts(1234, "0.1.2.3"),
-	}
-
-	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
-	controllerConfig, err := controllerConfigService.ControllerConfig(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := s.ControllerModel(c).State()
-	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 type agentLoggingSuite struct {

@@ -18,6 +18,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -238,13 +239,16 @@ func (s *AgentSuite) primeAPIHostPorts(c *tc.C) {
 	hostPorts := network.SpaceHostPorts{
 		{SpaceAddress: network.SpaceAddress{MachineAddress: mHP.MachineAddress}, NetPort: mHP.NetPort}}
 
+	apiAddrArgs := controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": hostPorts,
+		},
+	}
+
 	domainServices := s.ControllerDomainServices(c)
-	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
+	controllerNodeService := domainServices.ControllerNode()
 
-	st := s.ControllerModel(c).State()
-
-	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts}, []network.SpaceHostPorts{hostPorts})
+	err = controllerNodeService.SetAPIAddresses(c.Context(), apiAddrArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Logf("api host ports primed %#v", hostPorts)
