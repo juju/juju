@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -125,15 +124,9 @@ func InstanceConfig(
 	}
 
 	// Get the API connection info; attempt all API addresses.
-	apiAddrsForAgents, err := services.ControllerNodeService.GetAllAPIAddressesForAgents(ctx)
+	apiAddrsForAgents, err := services.ControllerNodeService.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API addresses")
-	}
-	apiAddrs := make(set.Strings)
-	for _, apiAddrsForAgent := range apiAddrsForAgents {
-		for _, addr := range apiAddrsForAgent {
-			apiAddrs.Add(addr)
-		}
 	}
 
 	password, err := password.RandomPassword()
@@ -148,7 +141,7 @@ func InstanceConfig(
 
 	caCert, _ := controllerConfig.CACert()
 	apiInfo := &api.Info{
-		Addrs:    apiAddrs.SortedValues(),
+		Addrs:    apiAddrsForAgents,
 		CACert:   caCert,
 		ModelTag: names.NewModelTag(modelID.String()),
 		Tag:      machine.Tag(),

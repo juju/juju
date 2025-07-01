@@ -120,6 +120,45 @@ func (c *MockStateGetAPIAddressesCall) DoAndReturn(f func(context.Context, strin
 	return c
 }
 
+// GetAPIAddressesByControllerIDForAgents mocks base method.
+func (m *MockState) GetAPIAddressesByControllerIDForAgents(arg0 context.Context) (map[string][]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAPIAddressesByControllerIDForAgents", arg0)
+	ret0, _ := ret[0].(map[string][]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAPIAddressesByControllerIDForAgents indicates an expected call of GetAPIAddressesByControllerIDForAgents.
+func (mr *MockStateMockRecorder) GetAPIAddressesByControllerIDForAgents(arg0 any) *MockStateGetAPIAddressesByControllerIDForAgentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIAddressesByControllerIDForAgents", reflect.TypeOf((*MockState)(nil).GetAPIAddressesByControllerIDForAgents), arg0)
+	return &MockStateGetAPIAddressesByControllerIDForAgentsCall{Call: call}
+}
+
+// MockStateGetAPIAddressesByControllerIDForAgentsCall wrap *gomock.Call
+type MockStateGetAPIAddressesByControllerIDForAgentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAPIAddressesByControllerIDForAgentsCall) Return(arg0 map[string][]string, arg1 error) *MockStateGetAPIAddressesByControllerIDForAgentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAPIAddressesByControllerIDForAgentsCall) Do(f func(context.Context) (map[string][]string, error)) *MockStateGetAPIAddressesByControllerIDForAgentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAPIAddressesByControllerIDForAgentsCall) DoAndReturn(f func(context.Context) (map[string][]string, error)) *MockStateGetAPIAddressesByControllerIDForAgentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAPIAddressesForAgents mocks base method.
 func (m *MockState) GetAPIAddressesForAgents(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -155,45 +194,6 @@ func (c *MockStateGetAPIAddressesForAgentsCall) Do(f func(context.Context, strin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAPIAddressesForAgentsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetAPIAddressesForAgentsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetAllAPIAddressesForAgents mocks base method.
-func (m *MockState) GetAllAPIAddressesForAgents(arg0 context.Context) (map[string][]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllAPIAddressesForAgents", arg0)
-	ret0, _ := ret[0].(map[string][]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllAPIAddressesForAgents indicates an expected call of GetAllAPIAddressesForAgents.
-func (mr *MockStateMockRecorder) GetAllAPIAddressesForAgents(arg0 any) *MockStateGetAllAPIAddressesForAgentsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesForAgents", reflect.TypeOf((*MockState)(nil).GetAllAPIAddressesForAgents), arg0)
-	return &MockStateGetAllAPIAddressesForAgentsCall{Call: call}
-}
-
-// MockStateGetAllAPIAddressesForAgentsCall wrap *gomock.Call
-type MockStateGetAllAPIAddressesForAgentsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllAPIAddressesForAgentsCall) Return(arg0 map[string][]string, arg1 error) *MockStateGetAllAPIAddressesForAgentsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllAPIAddressesForAgentsCall) Do(f func(context.Context) (map[string][]string, error)) *MockStateGetAllAPIAddressesForAgentsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllAPIAddressesForAgentsCall) DoAndReturn(f func(context.Context) (map[string][]string, error)) *MockStateGetAllAPIAddressesForAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

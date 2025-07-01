@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -45,11 +46,24 @@ func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
 func (s *apiAddresserSuite) TestAPIHostPorts(c *tc.C) {
 	defer s.setupMock(c).Finish()
 	// Arrange
-	res := map[string][]string{
-		"one": {"10.2.3.54:1"},
-		"two": {"192.168.5.7:2"},
+	mhp := []network.MachineHostPorts{
+		{
+			{
+				MachineAddress: network.NewMachineAddress("10.2.3.54"),
+				NetPort:        1,
+			},
+		}, {
+			{
+				MachineAddress: network.NewMachineAddress("192.168.5.7"),
+				NetPort:        2,
+			},
+		},
 	}
-	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(res, nil)
+	args := []network.HostPorts{
+		mhp[0].HostPorts(),
+		mhp[1].HostPorts(),
+	}
+	s.apiAddressAccessor.EXPECT().GetAPIHostPortsForAgents(gomock.Any()).Return(args, nil)
 	expected := [][]params.HostPort{
 		{{
 			Address: params.Address{Value: "10.2.3.54"},

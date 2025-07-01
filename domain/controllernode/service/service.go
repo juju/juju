@@ -73,11 +73,11 @@ type State interface {
 	// controller node.
 	GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error)
 
-	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
-	// addresses that are available for agents. The map is keyed by controller
-	// ID, and the values are slices of strings representing the API addresses
-	// for each controller node.
-	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
+	// their API addresses that are available for agents. The map is keyed by
+	// controller ID, and the values are slices of strings representing the API
+	// addresses for each controller node.
+	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 
 	// GetAPIAddressesForAgents returns the list of API address strings including
 	// port for the provided controller node that are available for agents.
@@ -259,12 +259,51 @@ func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string,
 	return s.st.GetAPIAddresses(ctx, nodeID)
 }
 
-// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
-// addresses that are available for agents. The map is keyed by controller ID,
-// and the values are slices of strings representing the API addresses for each
-// controller node.
-func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error) {
-	return s.st.GetAllAPIAddressesForAgents(ctx)
+// GetAPIHostPortsForAgents returns API HostPorts that are available for
+// agents. HostPorts are grouped by controller node, though each specific
+// controller is not identified.
+func (s *Service) GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostPorts, error) {
+	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]network.HostPorts, len(agentAddrs))
+	for i, addr := range agentAddrs {
+		result[i], err = addr.ToHostPortsNoMachineLocal()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+	return result, nil
+}
+
+// GetAPIHostPortsForClients returns API HostPorts that are available for
+// clients. HostPorts are grouped by controller node, though each specific
+// controller is not identified.
+func (s *Service) GetAPIHostPortsForClients(ctx context.Context) ([]network.HostPorts, error) {
+	clientAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]network.HostPorts, len(clientAddrs))
+	for i, addr := range clientAddrs {
+		// todo - skip machine local
+		result[i], err = addr.ToHostPortsNoMachineLocal()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+	return result, nil
+}
+
+// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
+// their API addresses that are available for agents. The map is keyed by
+// controller ID, and the values are slices of strings representing the API
+// addresses for each controller node.
+func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
+	return s.st.GetAPIAddressesByControllerIDForAgents(ctx)
 }
 
 // GetAllAPIAddressesForAgentsInPreferredOrder returns a string slice of api
@@ -300,12 +339,12 @@ func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (strin
 // addresses available for agents ordered to prefer public scoped
 // addresses and IPv4 over IPv6 for each machine.
 func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
-	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
+	clientAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	orderedAddrs := make([]string, 0)
-	for _, addrs := range agentAddrs {
+	for _, addrs := range clientAddrs {
 		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
 	}
 	return orderedAddrs, nil

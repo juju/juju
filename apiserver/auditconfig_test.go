@@ -18,10 +18,12 @@ import (
 	servertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -56,6 +58,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *tc.C) {
 	userTag := names.NewUserTag("bobbrown")
 	password := "password"
 	s.createModelAdminUser(c, userTag, password)
+	s.setAPIAddresses(c)
 
 	conn := s.openAPIWithoutLogin(c)
 
@@ -134,6 +137,7 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *tc.C) 
 	userTag := names.NewUserTag("bobbrown")
 	password := "password"
 	s.createModelAdminUser(c, userTag, password)
+	s.setAPIAddresses(c)
 
 	conn := s.openAPIWithoutLogin(c)
 
@@ -170,6 +174,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *tc.C) {
 	userTag := names.NewUserTag("bobbrown")
 	password := "password"
 	s.createModelAdminUser(c, userTag, password)
+	s.setAPIAddresses(c)
 
 	conn := s.openAPIWithoutLogin(c)
 
@@ -226,6 +231,26 @@ func (s *auditConfigSuite) TestNewServerValidatesConfig(c *tc.C) {
 	srv, err := apiserver.NewServer(c.Context(), cfg)
 	c.Assert(err, tc.ErrorMatches, "missing GetAuditConfig not valid")
 	c.Assert(srv, tc.IsNil)
+}
+
+func (s *auditConfigSuite) setAPIAddresses(c *tc.C) {
+	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
+	addrs := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.9.9.32",
+				},
+			},
+			NetPort: 42,
+		},
+	}
+	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": addrs,
+		},
+	})
+	c.Assert(err, tc.IsNil)
 }
 
 func (s *auditConfigSuite) createModelAdminUser(c *tc.C, userTag names.UserTag, password string) {

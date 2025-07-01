@@ -30,11 +30,11 @@ const (
 // that provides information about the controller nodes. This is used to
 // determine which nodes are available for remote API calls.
 type ControllerNodeService interface {
-	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
-	// addresses that are available for agents. The map is keyed by controller
-	// ID, and the values are slices of strings representing the API addresses
-	// for each controller node.
-	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
+	// their API addresses that are available for agents. The map is keyed by
+	// controller ID, and the values are slices of strings representing the API
+	// addresses for each controller node.
+	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 	// WatchControllerNodes returns a watcher that observes changes to the
 	// controller nodes.
 	WatchControllerNodes(context.Context) (watcher.NotifyWatcher, error)
@@ -192,7 +192,7 @@ func (w *remoteWorker) loop() error {
 			w.cfg.Logger.Debugf(ctx, "remoteWorker API server change")
 
 			// Get the latest API addresses for all controller nodes.
-			servers, err := w.cfg.ControllerNodeService.GetAllAPIAddressesForAgents(ctx)
+			servers, err := w.cfg.ControllerNodeService.GetAPIAddressesByControllerIDForAgents(ctx)
 			if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
 				// There should be at least one controller address available
 				// (itself), so if we get an empty addresses error then we can't

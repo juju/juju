@@ -5,12 +5,12 @@ package common
 
 import (
 	"context"
-	"net/netip"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -18,11 +18,10 @@ import (
 // APIAddressAccessor describes methods that allow agents to maintain
 // up-to-date information on how to connect to the Juju API server.
 type APIAddressAccessor interface {
-	// GetAllAPIAddressesForAgents returns a map of controller IDs to their API
-	// addresses that are available for agents. The map is keyed by controller
-	// ID, and the values are slices of strings representing the API addresses
-	// for each controller node.
-	GetAllAPIAddressesForAgents(ctx context.Context) (map[string][]string, error)
+	// GetAPIHostPortsForAgents returns API HostPorts that are available for
+	// agents. HostPorts are grouped by controller node, though each specific
+	// controller is not identified.
+	GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostPorts, error)
 
 	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
@@ -55,39 +54,14 @@ func NewAPIAddresser(getter APIAddressAccessor, watcherRegistry facade.WatcherRe
 
 // APIHostPorts returns the API server addresses.
 func (a *APIAddresser) APIHostPorts(ctx context.Context) (params.APIHostPortsResult, error) {
-	srvs, err := a.apiAddressAccessor.GetAllAPIAddressesForAgents(ctx)
+	sSvrs, err := a.apiAddressAccessor.GetAPIHostPortsForAgents(ctx)
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}
 
-	// Convert the strings to the HostPorts.
-	serverResults := make([][]params.HostPort, 0)
-	for _, addrs := range srvs {
-		out, err := transformToHostPorts(addrs)
-		if err != nil {
-			return params.APIHostPortsResult{}, err
-		}
-		serverResults = append(serverResults, out)
-	}
-
 	return params.APIHostPortsResult{
-		Servers: serverResults,
+		Servers: params.FromHostsPorts(sSvrs),
 	}, nil
-}
-
-func transformToHostPorts(input []string) ([]params.HostPort, error) {
-	results := make([]params.HostPort, len(input))
-	for i, in := range input {
-		addrPort, err := netip.ParseAddrPort(in)
-		if err != nil {
-			return nil, err
-		}
-		results[i] = params.HostPort{
-			Address: params.Address{Value: addrPort.Addr().String()},
-			Port:    int(addrPort.Port()),
-		}
-	}
-	return results, nil
 }
 
 // WatchAPIHostPorts watches the API server addresses.
