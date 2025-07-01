@@ -422,11 +422,11 @@ WHERE controller_id = $controllerID.controller_id
 	return decodeAPIAddresses(result), nil
 }
 
-// GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
-// addresses that are available for agents. The map is keyed by controller ID,
-// and the values are slices of strings representing the API addresses for each
-// controller node.
-func (st *State) GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
+// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
+// their API addresses that are available for agents. The map is keyed by
+// controller ID, and the values are slices of strings representing the API
+// addresses for each controller node.
+func (st *State) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)

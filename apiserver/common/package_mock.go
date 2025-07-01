@@ -41,41 +41,41 @@ func (m *MockAPIAddressAccessor) EXPECT() *MockAPIAddressAccessorMockRecorder {
 	return m.recorder
 }
 
-// GetAPIHostPortsByControllerIDForAgents mocks base method.
-func (m *MockAPIAddressAccessor) GetAPIHostPortsByControllerIDForAgents(arg0 context.Context) ([]network.HostPorts, error) {
+// GetAPIHostPortsForAgents mocks base method.
+func (m *MockAPIAddressAccessor) GetAPIHostPortsForAgents(arg0 context.Context) ([]network.HostPorts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAPIHostPortsByControllerIDForAgents", arg0)
+	ret := m.ctrl.Call(m, "GetAPIHostPortsForAgents", arg0)
 	ret0, _ := ret[0].([]network.HostPorts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAPIHostPortsByControllerIDForAgents indicates an expected call of GetAPIHostPortsByControllerIDForAgents.
-func (mr *MockAPIAddressAccessorMockRecorder) GetAPIHostPortsByControllerIDForAgents(arg0 any) *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall {
+// GetAPIHostPortsForAgents indicates an expected call of GetAPIHostPortsForAgents.
+func (mr *MockAPIAddressAccessorMockRecorder) GetAPIHostPortsForAgents(arg0 any) *MockAPIAddressAccessorGetAPIHostPortsForAgentsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIHostPortsByControllerIDForAgents", reflect.TypeOf((*MockAPIAddressAccessor)(nil).GetAPIHostPortsByControllerIDForAgents), arg0)
-	return &MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIHostPortsForAgents", reflect.TypeOf((*MockAPIAddressAccessor)(nil).GetAPIHostPortsForAgents), arg0)
+	return &MockAPIAddressAccessorGetAPIHostPortsForAgentsCall{Call: call}
 }
 
-// MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall wrap *gomock.Call
-type MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall struct {
+// MockAPIAddressAccessorGetAPIHostPortsForAgentsCall wrap *gomock.Call
+type MockAPIAddressAccessorGetAPIHostPortsForAgentsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall) Return(arg0 []network.HostPorts, arg1 error) *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall {
+func (c *MockAPIAddressAccessorGetAPIHostPortsForAgentsCall) Return(arg0 []network.HostPorts, arg1 error) *MockAPIAddressAccessorGetAPIHostPortsForAgentsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall) Do(f func(context.Context) ([]network.HostPorts, error)) *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall {
+func (c *MockAPIAddressAccessorGetAPIHostPortsForAgentsCall) Do(f func(context.Context) ([]network.HostPorts, error)) *MockAPIAddressAccessorGetAPIHostPortsForAgentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall) DoAndReturn(f func(context.Context) ([]network.HostPorts, error)) *MockAPIAddressAccessorGetAPIHostPortsByControllerIDForAgentsCall {
+func (c *MockAPIAddressAccessorGetAPIHostPortsForAgentsCall) DoAndReturn(f func(context.Context) ([]network.HostPorts, error)) *MockAPIAddressAccessorGetAPIHostPortsForAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

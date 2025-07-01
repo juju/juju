@@ -39,19 +39,19 @@ type ControllerConfigService interface {
 // ControllerNodeService defines the methods on the controller node service
 // that are needed by APIAddresser used by the machiner API.
 type ControllerNodeService interface {
-	// GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
-	// addresses that are available for agents. The map is keyed by controller
-	// ID, and the values are slices of strings representing the API addresses
-	// for each controller node.
-	GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
+	// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
+	// their API addresses that are available for agents. The map is keyed by
+	// controller ID, and the values are slices of strings representing the API
+	// addresses for each controller node.
+	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
 	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
-	// GetAPIHostPortsByControllerIDForAgents returns API HostPorts that are available
-	// for agents. The map is keyed by controller ID, and the values are HostPorts
-	// representing the API addresses for each controller node.
-	GetAPIHostPortsByControllerIDForAgents(ctx context.Context) ([]network.HostPorts, error)
+	// GetAPIHostPortsForAgents returns API HostPorts that are available for
+	// agents. HostPorts are grouped by controller node, though each specific
+	// controller is not identified.
+	GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostPorts, error)
 	// WatchControllerAPIAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
 	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)

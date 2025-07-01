@@ -18,10 +18,10 @@ import (
 // APIAddressAccessor describes methods that allow agents to maintain
 // up-to-date information on how to connect to the Juju API server.
 type APIAddressAccessor interface {
-	// GetAPIHostPortsByControllerIDForAgents returns API HostPorts that are available
-	// for agents. The map is keyed by controller ID, and the values are HostPorts
-	// representing the API addresses for each controller node.
-	GetAPIHostPortsByControllerIDForAgents(ctx context.Context) ([]network.HostPorts, error)
+	// GetAPIHostPortsForAgents returns API HostPorts that are available for
+	// agents. HostPorts are grouped by controller node, though each specific
+	// controller is not identified.
+	GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostPorts, error)
 
 	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
@@ -54,7 +54,7 @@ func NewAPIAddresser(getter APIAddressAccessor, watcherRegistry facade.WatcherRe
 
 // APIHostPorts returns the API server addresses.
 func (a *APIAddresser) APIHostPorts(ctx context.Context) (params.APIHostPortsResult, error) {
-	sSvrs, err := a.apiAddressAccessor.GetAPIHostPortsByControllerIDForAgents(ctx)
+	sSvrs, err := a.apiAddressAccessor.GetAPIHostPortsForAgents(ctx)
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}

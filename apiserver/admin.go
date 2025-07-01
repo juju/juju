@@ -113,9 +113,9 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	// If the login comes from a client, return all available addresses.
 	// Otherwise return the addresses suitable for agent use.
 	controllerNodeService := a.root.DomainServices().ControllerNode()
-	getHostPorts := controllerNodeService.GetAPIHostPortsByControllerIDForAgents
+	getHostPorts := controllerNodeService.GetAPIHostPortsForAgents
 	if k, _ := names.TagKind(req.AuthTag); k == names.UserTagKind {
-		getHostPorts = controllerNodeService.GetAPIHostPortsByControllerIDForClients
+		getHostPorts = controllerNodeService.GetAPIHostPortsForClients
 	}
 	hostPorts, err := getHostPorts(ctx)
 	if err != nil {

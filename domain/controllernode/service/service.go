@@ -73,11 +73,11 @@ type State interface {
 	// controller node.
 	GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error)
 
-	// GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
-	// addresses that are available for agents. The map is keyed by controller
-	// ID, and the values are slices of strings representing the API addresses
-	// for each controller node.
-	GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
+	// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
+	// their API addresses that are available for agents. The map is keyed by
+	// controller ID, and the values are slices of strings representing the API
+	// addresses for each controller node.
+	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 
 	// GetAPIAddressesForAgents returns the list of API address strings including
 	// port for the provided controller node that are available for agents.
@@ -259,10 +259,10 @@ func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string,
 	return s.st.GetAPIAddresses(ctx, nodeID)
 }
 
-// GetAPIHostPortsByControllerIDForAgents returns API HostPorts that are available
-// for agents. The map is keyed by controller ID, and the values are HostPorts
-// representing the API addresses for each controller node.
-func (s *Service) GetAPIHostPortsByControllerIDForAgents(ctx context.Context) ([]network.HostPorts, error) {
+// GetAPIHostPortsForAgents returns API HostPorts that are available for
+// agents. HostPorts are grouped by controller node, though each specific
+// controller is not identified.
+func (s *Service) GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostPorts, error) {
 	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -278,10 +278,10 @@ func (s *Service) GetAPIHostPortsByControllerIDForAgents(ctx context.Context) ([
 	return result, nil
 }
 
-// GetAPIHostPortsByControllerIDForClients returns API HostPorts that are available
-// for clients. The map is keyed by controller ID, and the values are HostPorts
-// representing the API addresses for each controller node.
-func (s *Service) GetAPIHostPortsByControllerIDForClients(ctx context.Context) ([]network.HostPorts, error) {
+// GetAPIHostPortsForClients returns API HostPorts that are available for
+// clients. HostPorts are grouped by controller node, though each specific
+// controller is not identified.
+func (s *Service) GetAPIHostPortsForClients(ctx context.Context) ([]network.HostPorts, error) {
 	clientAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -298,12 +298,12 @@ func (s *Service) GetAPIHostPortsByControllerIDForClients(ctx context.Context) (
 	return result, nil
 }
 
-// GetAllAPIAddressesByControllerIDForAgents returns a map of controller IDs to their API
-// addresses that are available for agents. The map is keyed by controller ID,
-// and the values are slices of strings representing the API addresses for each
-// controller node.
-func (s *Service) GetAllAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
-	return s.st.GetAllAPIAddressesByControllerIDForAgents(ctx)
+// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
+// their API addresses that are available for agents. The map is keyed by
+// controller ID, and the values are slices of strings representing the API
+// addresses for each controller node.
+func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
+	return s.st.GetAPIAddressesByControllerIDForAgents(ctx)
 }
 
 // GetAllAPIAddressesForAgentsInPreferredOrder returns a string slice of api
