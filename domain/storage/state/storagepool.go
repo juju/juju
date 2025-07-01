@@ -486,7 +486,7 @@ ORDER BY sp.uuid`, spTypes, storagePool{}, poolAttribute{})
 	return dbRows.toStoragePools(keyValues)
 }
 
-// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
+// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 // The following errors can be expected:
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 // Exported for use by other domains that need to load storage pools.
@@ -513,7 +513,7 @@ WHERE  name = $storagePoolIdentifiers.name`, inputArg)
 	return domainstorage.StoragePoolUUID(inputArg.UUID), nil
 }
 
-// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
+// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 // The following errors can be expected:
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 func (st State) GetStoragePoolUUID(

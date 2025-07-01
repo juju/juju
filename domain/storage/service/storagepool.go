@@ -64,7 +64,7 @@ type StoragePoolState interface {
 		ctx context.Context, providers []string,
 	) ([]domainstorage.StoragePool, error)
 
-	// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
+	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 	// The following errors can be expected:
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 	GetStoragePoolUUID(ctx context.Context, name string) (domainstorage.StoragePoolUUID, error)
@@ -328,7 +328,7 @@ func (s *StoragePoolService) ListStoragePoolsByProviders(
 	return pools, nil
 }
 
-// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
+// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 // The following errors can be expected:
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 // - [storageerrors.InvalidPoolNameError] if the pool name is not valid.

@@ -799,7 +799,7 @@ func (s *Service) poolStorageProvider(
 	registry storage.ProviderRegistry,
 	poolNameOrType string,
 ) (storage.Provider, error) {
-	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
+	poolUUID, err := s.st.GetStoragePoolUUID(ctx, poolNameOrType)
 	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If there's no pool called poolNameOrType, maybe a provider type
 		// has been specified directly.
@@ -812,6 +812,10 @@ func (s *Service) poolStorageProvider(
 		}
 		return aProvider, nil
 	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+	pool, err := s.st.GetStoragePool(ctx, poolUUID)
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	providerType := storage.ProviderType(pool.Provider)

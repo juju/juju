@@ -1006,10 +1006,13 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "loop").Return(poolUUID, nil).MaxTimes(2)
 	pool := domainstorage.StoragePool{Name: "loop", Provider: "loop"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil).MaxTimes(2)
+	s.state.EXPECT().GetStoragePool(gomock.Any(), poolUUID).Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err = s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -1128,10 +1131,13 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "fast").Return(poolUUID, nil).MaxTimes(2)
 	pool := domainstorage.StoragePool{Name: "fast", Provider: "modelscoped-block"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
+	s.state.EXPECT().GetStoragePool(gomock.Any(), poolUUID).Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err = s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -1254,10 +1260,13 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "rootfs").Return(poolUUID, nil).MaxTimes(2)
 	pool := domainstorage.StoragePool{Name: "rootfs", Provider: "rootfs"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil).MaxTimes(2)
+	s.state.EXPECT().GetStoragePool(gomock.Any(), poolUUID).Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err = s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -1377,10 +1386,13 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
+	poolUUID, err := domainstorage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "fast").Return(poolUUID, nil).MaxTimes(2)
 	pool := domainstorage.StoragePool{Name: "fast", Provider: "modelscoped"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
+	s.state.EXPECT().GetStoragePool(gomock.Any(), poolUUID).Return(pool, nil).MaxTimes(2)
 
-	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+	_, err = s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 		Revision: ptr(42),
@@ -1457,8 +1469,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *
 	// Depending on the map serialization order, the loop may or may not be the
 	// first element. In that case, we need to handle it with a mock if it is
 	// called. We only ever expect it to be called a maximum of once.
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").
-		Return(domainstorage.StoragePool{}, storageerrors.PoolNotFoundError).MaxTimes(1)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "loop").Return("", storageerrors.PoolNotFoundError).MaxTimes(1)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),

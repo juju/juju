@@ -658,14 +658,50 @@ SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 	})
 }
 
-// GetStoragePoolByName returns the storage pool with the specified name, returning an error
-// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error) {
+// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+func (st State) GetStoragePoolUUID(
+	ctx context.Context,
+	name string,
+) (domainstorage.StoragePoolUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var poolUUID domainstorage.StoragePoolUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		poolUUID, err = storagestate.GetStoragePoolUUID(ctx, tx, name)
+		return err
+	})
+	if err != nil {
+		return "", errors.Errorf("getting storage pool %q UUID: %w", name, err)
+	}
+	return poolUUID, nil
+}
+
+// GetStoragePool returns the storage pool for the specified UUID.
+// The following errors can be expected:
+// - [storageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
+func (st State) GetStoragePool(
+	ctx context.Context,
+	poolUUID domainstorage.StoragePoolUUID,
+) (domainstorage.StoragePool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
-	return storagestate.GetStoragePoolByName(ctx, db, name)
+
+	var pool domainstorage.StoragePool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		pool, err = storagestate.GetStoragePool(ctx, tx, poolUUID)
+		return err
+	})
+	if err != nil {
+		return domainstorage.StoragePool{}, errors.Errorf("getting storage pool %q: %w", poolUUID, err)
+	}
+	return pool, nil
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error

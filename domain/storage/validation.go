@@ -19,7 +19,7 @@ import (
 
 // StoragePoolGetter provides access to a storage pool getter for validation purposes.
 type StoragePoolGetter interface {
-	// GetStoragePoolUUID returns the UUID of the storage pool with the specified name.
+	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 	// The following errors can be expected:
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 	GetStoragePoolUUID(ctx context.Context, name string) (StoragePoolUUID, error)

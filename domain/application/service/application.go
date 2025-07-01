@@ -83,10 +83,15 @@ type ApplicationState interface {
 	// StorageDefaults returns the default storage sources for a model.
 	StorageDefaults(context.Context) (domainstorage.StorageDefaults, error)
 
-	// GetStoragePoolByName returns the storage pool with the specified name,
-	// returning an error satisfying [storageerrors.PoolNotFoundError] if it
-	// doesn't exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
+	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	GetStoragePoolUUID(ctx context.Context, name string) (domainstorage.StoragePoolUUID, error)
+
+	// GetStoragePool returns the storage pool for the specified UUID.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
+	GetStoragePool(ctx context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error)
 
 	// UpsertCloudService updates the cloud service for the specified application.
 	// The following errors may be returned:
