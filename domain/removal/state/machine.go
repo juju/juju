@@ -14,6 +14,7 @@ import (
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -236,6 +237,40 @@ func (st *State) GetMachineLife(ctx context.Context, mUUID string) (life.Life, e
 	})
 
 	return life, errors.Capture(err)
+}
+
+// MarkMachineAsDead marks the machine with the input UUID as dead.
+func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machineUUID := entityUUID{UUID: mUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE machine
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 1`, machineUUID)
+	if err != nil {
+		return errors.Errorf("preparing unit life update: %w", err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.getMachineLife(ctx, tx, mUUID); err != nil {
+			return errors.Errorf("getting unit life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		err := tx.Query(ctx, updateStmt, machineUUID).Run()
+		if err != nil {
+			return errors.Errorf("marking machine as dead: %w", err)
+		}
+
+		return nil
+	}))
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.

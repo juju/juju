@@ -38,6 +38,9 @@ type MachineState interface {
 	// GetMachineLife returns the life of the machine with the input UUID.
 	GetMachineLife(ctx context.Context, mUUID string) (life.Life, error)
 
+	// MarkMachineAsDead marks the machine with the input UUID as dead.
+	MarkMachineAsDead(ctx context.Context, mUUID string) error
+
 	// DeleteMachine deletes the specified machine and any dependent child
 	// records.
 	DeleteMachine(ctx context.Context, mName string) error
@@ -114,6 +117,21 @@ func (s *Service) RemoveMachine(
 	}
 
 	return machineJobUUID, nil
+}
+
+// MarkMachineAsDead marks the machine as dead. It will not remove the machine as
+// that is a separate operation. This will advance the machines's life to dead
+// and will not allow it to be transitioned back to alive.
+// Returns an error if the machine does not exist.
+func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUID) error {
+	exists, err := s.st.MachineExists(ctx, machineUUID.String())
+	if err != nil {
+		return errors.Errorf("checking if machine exists: %w", err)
+	} else if !exists {
+		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
+	}
+
+	return s.st.MarkMachineAsDead(ctx, machineUUID.String())
 }
 
 func (s *Service) machineScheduleRemoval(

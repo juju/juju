@@ -16,6 +16,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -248,6 +249,35 @@ where  r.uuid = ?`, "removal-uuid",
 	c.Check(scheduledFor, tc.Equals, when)
 }
 
+func (s *machineSuite) TestMarkMachineAsDead(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+
+	_, err = s.DB().Exec("UPDATE machine SET life_id = 1 WHERE uuid = ?", machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine should now be dead.
+	s.checkMachineLife(c, machineUUID.String(), 2)
+}
+
+func (s *machineSuite) TestMarkMachineAsDeadNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkMachineAsDead(c.Context(), "abc")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
@@ -280,20 +310,4 @@ func (s *machineSuite) getMachineUUIDFromApp(c *tc.C, appUUID application.ID) ma
 	unitUUID := unitUUIDs[0]
 
 	return s.getUnitMachineUUID(c, unitUUID)
-}
-
-func (s *machineSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife int) {
-	row := s.DB().QueryRow("SELECT life_id FROM unit WHERE uuid = ?", unitUUID)
-	var lifeID int
-	err := row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
-}
-
-func (s *machineSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife int) {
-	row := s.DB().QueryRow("SELECT life_id FROM machine WHERE uuid = ?", machineUUID)
-	var lifeID int
-	err := row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
 }

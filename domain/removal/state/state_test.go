@@ -434,9 +434,25 @@ func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Li
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *baseSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM unit WHERE uuid = ?", unitUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
+}
+
 func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE machine SET life_id = ? WHERE uuid = ?", newLife, machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM machine WHERE uuid = ?", machineUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
 }
 
 type stubCharm struct {

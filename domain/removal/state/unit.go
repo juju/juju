@@ -277,7 +277,7 @@ AND    life_id = 1`, unitUUID)
 		return errors.Errorf("preparing unit life update: %w", err)
 	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if l, err := st.GetUnitLife(ctx, uUUID); err != nil {
+		if l, err := st.getUnitLife(ctx, tx, uUUID); err != nil {
 			return errors.Errorf("getting unit life: %w", err)
 		} else if l == life.Dead {
 			return nil
