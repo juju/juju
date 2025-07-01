@@ -2409,21 +2409,6 @@ func (s *modelStateSuite) TestSetInstanceStatusNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-// TestSetInstanceStatusMachineNotProvisioned asserts that SetInstanceStatus
-// returns a NotProvisioned error when the given machine instance cannot be
-// found.
-func (s *modelStateSuite) TestSetInstanceStatusMachineNotProvisioned(c *tc.C) {
-	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	mName, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.state.SetInstanceStatus(c.Context(), mName.String(), status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-	})
-	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
-}
-
 func (s *modelStateSuite) appStatus(now time.Time) *status.StatusInfo[status.WorkloadStatusType] {
 	return &status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,

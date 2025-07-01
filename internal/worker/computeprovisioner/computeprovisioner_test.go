@@ -324,6 +324,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return("machine-666-uuid", nil)
 
 	var nonce string
+	instanceStart := make(chan string)
 	s.machineService.EXPECT().SetMachineCloudInstance(
 		gomock.Any(),
 		machine.UUID("machine-666-uuid"),
@@ -333,11 +334,20 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 		nil,
 	).DoAndReturn(func(ctx context.Context, u machine.UUID, i instance.Id, s1, s2 string, hc *instance.HardwareCharacteristics) error {
 		nonce = s2
+		instanceStart <- "inst-666"
 		return nil
 	})
 
 	s.sendModelMachinesChange(c, mTag.Id())
-	s.checkStartInstance(c, m666)
+	// Wait until the instance is actually started.
+	select {
+	case instID := <-instanceStart:
+		// This is a hack, only needed to continue using the hand-made mock machine
+		// API, which should dissapear soon.
+		m666.SetInstanceInfo(c.Context(), instance.Id(instID), "", "", nil, nil, nil, nil, nil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for instance to start")
+	}
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {

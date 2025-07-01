@@ -2208,7 +2208,6 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 // machine.
 // This method may return the following errors:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
-// - [machineerrors.NotProvisioned] if the machine instance does not exist.
 func (st *ModelState) SetInstanceStatus(ctx context.Context, mName string, newStatus status.StatusInfo[status.InstanceStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
@@ -2248,11 +2247,6 @@ VALUES ($setMachineStatus.*)
 			return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
 		} else if err != nil {
 			return errors.Errorf("querying uuid for machine %q: %w", mName, err)
-		}
-
-		_, err := st.getInstanceID(ctx, tx, mUUID)
-		if err != nil {
-			return errors.Errorf("getting machine instance id for %q: %w", mName, err)
 		}
 
 		// Query for setting the machine cloud instance status
