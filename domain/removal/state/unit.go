@@ -526,6 +526,7 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 		"unit_workload_status",
 		"unit_workload_version",
 		"unit_principal",
+		"unit_resource",
 		"k8s_pod_status",
 		"port_range",
 		"unit_constraint",

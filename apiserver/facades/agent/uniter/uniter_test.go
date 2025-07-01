@@ -39,6 +39,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/internal/charm"
@@ -58,6 +59,7 @@ type uniterSuite struct {
 	machineService     *MockMachineService
 	networkService     *MockNetworkService
 	resolveService     *MockResolveService
+	removalService     *MockRemovalService
 	watcherRegistry    *MockWatcherRegistry
 
 	uniter *UniterAPI
@@ -71,6 +73,209 @@ func (s *uniterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.badTag = nil
+}
+
+func (s *uniterSuite) TestEnsureDeadUnauthorised(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.badTag = names.NewUnitTag("foo/0")
+
+	// Act
+	res, err := s.uniter.EnsureDead(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: s.badTag.String(),
+			},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestEnsureDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := coreunit.Name("foo/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.removalService.EXPECT().MarkUnitAsDead(gomock.Any(), unitUUID).Return(nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return("", nil)
+
+	// Act
+	res, err := s.uniter.EnsureDead(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: names.NewUnitTag(unitName.String()).String(),
+			},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+}
+
+func (s *uniterSuite) TestEnsureDeadNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.applicationService.EXPECT().GetUnitUUID(c.Context(), coreunit.Name("foo/0")).Return("", applicationerrors.UnitNotFound)
+
+	// Act
+	res, err := s.uniter.EnsureDead(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: names.NewUnitTag("foo/0").String(),
+			},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *uniterSuite) TestDestroyUnauthorised(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.badTag = names.NewUnitTag("foo/0")
+
+	// Act:
+	res, err := s.uniter.Destroy(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: s.badTag.String(),
+			},
+		},
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestDestroy(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := coreunit.Name("foo/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return("", nil)
+
+	// Act
+	res, err := s.uniter.Destroy(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: names.NewUnitTag(unitName.String()).String(),
+			},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+}
+
+func (s *uniterSuite) TestDestroyNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.applicationService.EXPECT().GetUnitUUID(c.Context(), coreunit.Name("foo/0")).Return("", applicationerrors.UnitNotFound)
+
+	// Act
+	res, err := s.uniter.Destroy(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: names.NewUnitTag("foo/0").String(),
+			},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *uniterSuite) TestDestroyAllSubordinatesUnauthorised(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.badTag = names.NewUnitTag("foo/0")
+
+	// Act:
+	res, err := s.uniter.DestroyAllSubordinates(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: s.badTag.String(),
+		}},
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestDestroyAllSubordinates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: a unit with some suboridnates
+	principalUnitName := coreunit.Name("foo/0")
+
+	subordinateUnitName1 := coreunit.Name("bar/1")
+	subordinateUnitUUID1 := unittesting.GenUnitUUID(c)
+	subordinateUnitName2 := coreunit.Name("bar/2")
+	subordinateUnitUUID2 := unittesting.GenUnitUUID(c)
+
+	s.applicationService.EXPECT().GetUnitSubordinates(gomock.Any(), principalUnitName).Return([]coreunit.Name{subordinateUnitName1, subordinateUnitName2}, nil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), subordinateUnitName1).Return(subordinateUnitUUID1, nil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), subordinateUnitName2).Return(subordinateUnitUUID2, nil)
+
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), subordinateUnitUUID1, false, time.Duration(0)).Return(removal.UUID(""), nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), subordinateUnitUUID2, false, time.Duration(0)).Return(removal.UUID(""), nil)
+
+	// Act:
+	res, err := s.uniter.DestroyAllSubordinates(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag(principalUnitName.String()).String(),
+		}},
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+}
+
+func (s *uniterSuite) TestDestroyAllSubordinatesNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunit.Name("foo/0")
+	s.applicationService.EXPECT().GetUnitSubordinates(gomock.Any(), unitName).Return(nil, applicationerrors.UnitNotFound)
+
+	// Act:
+	res, err := s.uniter.DestroyAllSubordinates(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *uniterSuite) TestWatchUnitResolveModeUnauthorised(c *tc.C) {
@@ -887,6 +1092,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	authFunc := func(ctx context.Context) (common.AuthFunc, error) {
@@ -899,6 +1105,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 		machineService:     s.machineService,
 		networkService:     s.networkService,
 		resolveService:     s.resolveService,
+		removalService:     s.removalService,
 		accessUnit:         authFunc,
 		accessApplication:  authFunc,
 		watcherRegistry:    s.watcherRegistry,
@@ -909,6 +1116,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.machineService = nil
 		s.networkService = nil
 		s.resolveService = nil
+		s.removalService = nil
 		s.watcherRegistry = nil
 	})
 

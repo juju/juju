@@ -31,10 +31,12 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/removal"
@@ -691,4 +693,72 @@ func (s *CAASApplicationProvisionerSuite) TestRemove(c *tc.C) {
 	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{
 		Error: nil,
 	}}})
+}
+
+func (s *CAASApplicationProvisionerSuite) TestDestroyUnits(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	// Arrange
+	unitName := coreunit.Name("foo/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return(removal.UUID(""), nil)
+
+	// Act
+	res, err := s.api.DestroyUnits(c.Context(), params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+}
+
+func (s *CAASApplicationProvisionerSuite) TestDestroyUnitsForce(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	d := time.Hour
+
+	// Arrange
+	unitName := coreunit.Name("foo/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, true, time.Hour).Return(removal.UUID(""), nil)
+
+	// Act
+	res, err := s.api.DestroyUnits(c.Context(), params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: names.NewUnitTag(unitName.String()).String(),
+			Force:   true,
+			MaxWait: &d,
+		}},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+}
+
+func (s *CAASApplicationProvisionerSuite) TestDestroyUnitsNotFound(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	// Arrange
+	unitName := coreunit.Name("foo/0")
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(coreunit.UUID(""), applicationerrors.UnitNotFound)
+
+	// Act
+	res, err := s.api.DestroyUnits(c.Context(), params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{{
+			UnitTag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
 }

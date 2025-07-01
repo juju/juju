@@ -27,6 +27,11 @@ type removalJob struct {
 	Arg sql.NullString `db:"arg"`
 }
 
+// objectStoreUUID holds the UUID of an object store item.
+type objectStoreUUID struct {
+	UUID sql.Null[string] `db:"uuid"`
+}
+
 // entityUUID holds a UUID in string form.
 type entityUUID struct {
 	// UUID uniquely identifies a domain entity.

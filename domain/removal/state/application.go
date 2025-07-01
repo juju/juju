@@ -315,6 +315,8 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"application_endpoint",
 		"application_extra_endpoint",
 		"application_storage_directive",
+		"application_resource",
+		"application_status",
 		"application_workload_version",
 		"device_constraint",
 	} {
@@ -463,6 +465,26 @@ WHERE  charm_uuid = $entityAssociationCount.uuid`, uuidCount)
 func (st *State) deleteCharm(ctx context.Context, tx *sqlair.TX, cUUID string) error {
 	charmUUID := entityUUID{UUID: cUUID}
 
+	getCharmResourcesStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM resource
+WHERE charm_uuid = $entityUUID.uuid
+`, charmUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var resourceUUIDs = []entityUUID{}
+	err = tx.Query(ctx, getCharmResourcesStmt, charmUUID).GetAll(&resourceUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting charm resources: %w", err)
+	}
+	for _, resourceUUID := range resourceUUIDs {
+		if err := st.deleteResource(ctx, tx, resourceUUID); err != nil {
+			return errors.Errorf("deleting charm resource: %w", err)
+		}
+	}
+
 	for _, table := range []string{
 		"charm_config",
 		"charm_manifest_base",
@@ -489,23 +511,24 @@ func (st *State) deleteCharm(ctx context.Context, tx *sqlair.TX, cUUID string) e
 		}
 
 		if err := tx.Query(ctx, deleteApplicationReferenceStmt, charmUUID).Run(); err != nil {
-			return errors.Errorf("deleting reference to application in %s: %w", table, err)
+			return errors.Errorf("deleting reference to charm in %s: %w", table, err)
 		}
 	}
 
-	// Delete the associated object store entry.
-	objectStoreStmt, err := st.Prepare(`
-DELETE FROM object_store_metadata
-WHERE uuid IN (
-    SELECT object_store_uuid 
-    FROM charm 
-    WHERE uuid = $entityUUID.uuid
-)`, charmUUID)
+	getObjectStoreEntryStmt, err := st.Prepare(`
+SELECT object_store_uuid AS &objectStoreUUID.uuid
+FROM charm
+WHERE uuid = $entityUUID.uuid
+`, objectStoreUUID{}, charmUUID)
 	if err != nil {
-		return errors.Errorf("preparing charm object store delete: %w", err)
+		return errors.Capture(err)
 	}
-	if err := tx.Query(ctx, objectStoreStmt, charmUUID).Run(); err != nil {
-		return errors.Errorf("deleting charm object store entry: %w", err)
+
+	// retrieve the object store UUID to clean up later
+	var objectStoreUUID objectStoreUUID
+	err = tx.Query(ctx, getObjectStoreEntryStmt, charmUUID).Get(&objectStoreUUID)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	// Delete the charm itself.
@@ -513,10 +536,101 @@ WHERE uuid IN (
 DELETE FROM charm
 WHERE uuid = $entityUUID.uuid`, charmUUID)
 	if err != nil {
-		return errors.Errorf("preparing charm delete: %w", err)
+		return errors.Capture(err)
 	}
 	if err := tx.Query(ctx, deleteCharmStmt, charmUUID).Run(); err != nil {
 		return errors.Errorf("deleting charm %q: %w", cUUID, err)
+	}
+
+	if objectStoreUUID.UUID.Valid {
+		if err := st.deleteFromObjectStore(ctx, tx, objectStoreUUID.UUID.V); err != nil {
+			return errors.Errorf("deleting charm object store entry: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (st *State) deleteResource(ctx context.Context, tx *sqlair.TX, resourceUUID entityUUID) error {
+	getObjectStoreEntryStmt, err := st.Prepare(`
+SELECT store_uuid AS &entityUUID.uuid
+FROM resource_file_store
+WHERE resource_uuid = $entityUUID.uuid 
+`, resourceUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var objectStoreUUIDs []entityUUID
+	err = tx.Query(ctx, getObjectStoreEntryStmt, resourceUUID).GetAll(&objectStoreUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting object store UUIDs for resource: %w", err)
+	}
+
+	for _, table := range []string{
+		"pending_application_resource",
+		"resource_retrieved_by",
+		"resource_file_store",
+		"resource_image_store",
+	} {
+		deleteResourceReference := fmt.Sprintf(`DELETE FROM %s WHERE resource_uuid = $entityUUID.uuid`, table)
+		deleteResourceReferenceStmt, err := st.Prepare(deleteResourceReference, resourceUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, deleteResourceReferenceStmt, resourceUUID).Run(); err != nil {
+			return errors.Errorf("deleting reference to resource in %s: %w", table, err)
+		}
+	}
+
+	for _, objectStoreUUID := range objectStoreUUIDs {
+		if err := st.deleteFromObjectStore(ctx, tx, objectStoreUUID.UUID); err != nil {
+			return errors.Errorf("deleting resource %q object store entry: %w", resourceUUID.UUID, err)
+		}
+	}
+
+	deleteResourceStmt, err := st.Prepare(`
+DELETE FROM resource
+WHERE uuid = $entityUUID.uuid
+`, resourceUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, deleteResourceStmt, resourceUUID).Run(); err != nil {
+		return errors.Errorf("deleting resource %q: %w", resourceUUID, err)
+	}
+
+	return nil
+}
+
+func (st *State) deleteFromObjectStore(ctx context.Context, tx *sqlair.TX, objectStoreUUID string) error {
+	ident := entityUUID{UUID: objectStoreUUID}
+
+	deleteObjectStorePathStmt, err := st.Prepare(`
+	DELETE FROM object_store_metadata_path
+	WHERE metadata_uuid = $entityUUID.uuid
+	`, ident)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete the associated object store entry.
+	deleteObjectStoreStmt, err := st.Prepare(`
+DELETE FROM object_store_metadata
+WHERE uuid = $entityUUID.uuid
+`, ident)
+	if err != nil {
+		return errors.Errorf("preparing object store delete: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteObjectStorePathStmt, ident).Run(); err != nil {
+		return errors.Errorf("deleting charm object store path: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteObjectStoreStmt, ident).Run(); err != nil {
+		return errors.Errorf("deleting charm object store entry: %w", err)
 	}
 
 	return nil

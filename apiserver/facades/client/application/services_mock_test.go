@@ -883,120 +883,6 @@ func (c *MockApplicationServiceCreateIAASApplicationCall) DoAndReturn(f func(con
 	return c
 }
 
-// DeleteApplication mocks base method.
-func (m *MockApplicationService) DeleteApplication(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteApplication", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteApplication indicates an expected call of DeleteApplication.
-func (mr *MockApplicationServiceMockRecorder) DeleteApplication(arg0, arg1 any) *MockApplicationServiceDeleteApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteApplication", reflect.TypeOf((*MockApplicationService)(nil).DeleteApplication), arg0, arg1)
-	return &MockApplicationServiceDeleteApplicationCall{Call: call}
-}
-
-// MockApplicationServiceDeleteApplicationCall wrap *gomock.Call
-type MockApplicationServiceDeleteApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceDeleteApplicationCall) Return(arg0 error) *MockApplicationServiceDeleteApplicationCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceDeleteApplicationCall) Do(f func(context.Context, string) error) *MockApplicationServiceDeleteApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceDeleteApplicationCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationServiceDeleteApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// DestroyApplication mocks base method.
-func (m *MockApplicationService) DestroyApplication(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyApplication", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DestroyApplication indicates an expected call of DestroyApplication.
-func (mr *MockApplicationServiceMockRecorder) DestroyApplication(arg0, arg1 any) *MockApplicationServiceDestroyApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyApplication", reflect.TypeOf((*MockApplicationService)(nil).DestroyApplication), arg0, arg1)
-	return &MockApplicationServiceDestroyApplicationCall{Call: call}
-}
-
-// MockApplicationServiceDestroyApplicationCall wrap *gomock.Call
-type MockApplicationServiceDestroyApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceDestroyApplicationCall) Return(arg0 error) *MockApplicationServiceDestroyApplicationCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceDestroyApplicationCall) Do(f func(context.Context, string) error) *MockApplicationServiceDestroyApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceDestroyApplicationCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationServiceDestroyApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// DestroyUnit mocks base method.
-func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 unit.Name) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyUnit", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DestroyUnit indicates an expected call of DestroyUnit.
-func (mr *MockApplicationServiceMockRecorder) DestroyUnit(arg0, arg1 any) *MockApplicationServiceDestroyUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnit", reflect.TypeOf((*MockApplicationService)(nil).DestroyUnit), arg0, arg1)
-	return &MockApplicationServiceDestroyUnitCall{Call: call}
-}
-
-// MockApplicationServiceDestroyUnitCall wrap *gomock.Call
-type MockApplicationServiceDestroyUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceDestroyUnitCall) Return(arg0 error) *MockApplicationServiceDestroyUnitCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceDestroyUnitCall) Do(f func(context.Context, unit.Name) error) *MockApplicationServiceDestroyUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceDestroyUnitCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockApplicationServiceDestroyUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetApplicationAndCharmConfig mocks base method.
 func (m *MockApplicationService) GetApplicationAndCharmConfig(arg0 context.Context, arg1 application.ID) (service.ApplicationConfig, error) {
 	m.ctrl.T.Helper()
@@ -2749,6 +2635,45 @@ func (m *MockRemovalService) EXPECT() *MockRemovalServiceMockRecorder {
 	return m.recorder
 }
 
+// RemoveApplication mocks base method.
+func (m *MockRemovalService) RemoveApplication(arg0 context.Context, arg1 application.ID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveApplication", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(removal.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoveApplication indicates an expected call of RemoveApplication.
+func (mr *MockRemovalServiceMockRecorder) RemoveApplication(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveApplication", reflect.TypeOf((*MockRemovalService)(nil).RemoveApplication), arg0, arg1, arg2, arg3)
+	return &MockRemovalServiceRemoveApplicationCall{Call: call}
+}
+
+// MockRemovalServiceRemoveApplicationCall wrap *gomock.Call
+type MockRemovalServiceRemoveApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceRemoveApplicationCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceRemoveApplicationCall) Do(f func(context.Context, application.ID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceRemoveApplicationCall) DoAndReturn(f func(context.Context, application.ID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RemoveRelation mocks base method.
 func (m *MockRemovalService) RemoveRelation(arg0 context.Context, arg1 relation.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
 	m.ctrl.T.Helper()
@@ -2784,6 +2709,45 @@ func (c *MockRemovalServiceRemoveRelationCall) Do(f func(context.Context, relati
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemovalServiceRemoveRelationCall) DoAndReturn(f func(context.Context, relation.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RemoveUnit mocks base method.
+func (m *MockRemovalService) RemoveUnit(arg0 context.Context, arg1 unit.UUID, arg2 bool, arg3 time.Duration) (removal.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveUnit", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(removal.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoveUnit indicates an expected call of RemoveUnit.
+func (mr *MockRemovalServiceMockRecorder) RemoveUnit(arg0, arg1, arg2, arg3 any) *MockRemovalServiceRemoveUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnit", reflect.TypeOf((*MockRemovalService)(nil).RemoveUnit), arg0, arg1, arg2, arg3)
+	return &MockRemovalServiceRemoveUnitCall{Call: call}
+}
+
+// MockRemovalServiceRemoveUnitCall wrap *gomock.Call
+type MockRemovalServiceRemoveUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemovalServiceRemoveUnitCall) Return(arg0 removal.UUID, arg1 error) *MockRemovalServiceRemoveUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemovalServiceRemoveUnitCall) Do(f func(context.Context, unit.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemovalServiceRemoveUnitCall) DoAndReturn(f func(context.Context, unit.UUID, bool, time.Duration) (removal.UUID, error)) *MockRemovalServiceRemoveUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

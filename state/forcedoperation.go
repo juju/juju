@@ -5,9 +5,9 @@ package state
 
 import "time"
 
-// ForcedOperation that allows accumulation of operational errors and
+// forcedOperation that allows accumulation of operational errors and
 // can be forced.
-type ForcedOperation struct {
+type forcedOperation struct {
 	// Force controls whether or not the removal of a unit
 	// will be forced, i.e. ignore operational errors.
 	Force bool
@@ -25,14 +25,14 @@ type ForcedOperation struct {
 }
 
 // AddError adds an error to the collection of errors for this operation.
-func (op *ForcedOperation) AddError(one ...error) {
+func (op *forcedOperation) AddError(one ...error) {
 	op.Errors = append(op.Errors, one...)
 }
 
 // FatalError returns true if the err is not nil and Force is false.
 // If the error is not nil, it's added to the slice of errors for the
 // operation.
-func (op *ForcedOperation) FatalError(err error) bool {
+func (op *forcedOperation) FatalError(err error) bool {
 	if err != nil {
 		if !op.Force {
 			return true
@@ -43,7 +43,7 @@ func (op *ForcedOperation) FatalError(err error) bool {
 }
 
 // LastError returns last added error for this operation.
-func (op *ForcedOperation) LastError() error {
+func (op *forcedOperation) LastError() error {
 	if len(op.Errors) == 0 {
 		return nil
 	}

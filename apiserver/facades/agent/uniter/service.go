@@ -5,12 +5,12 @@ package uniter
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/cloudspec"
@@ -46,6 +47,7 @@ type Services struct {
 	RelationService         RelationService
 	SecretService           SecretService
 	UnitStateService        UnitStateService
+	RemovalService          RemovalService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -124,15 +126,6 @@ type ApplicationService interface {
 
 	// GetUnitNamesForApplication returns a slice of the unit names for the given application
 	GetUnitNamesForApplication(ctx context.Context, appName string) ([]coreunit.Name, error)
-
-	// EnsureUnitDead is called by the unit agent just before it terminates.
-	EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error
-
-	// DeleteUnit deletes the specified unit.
-	DeleteUnit(ctx context.Context, unitName coreunit.Name) error
-
-	// DestroyUnit prepares a unit for removal from the model.
-	DestroyUnit(ctx context.Context, unitName coreunit.Name) error
 
 	// WatchApplication returns a NotifyWatcher for changes to the application.
 	WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error)
@@ -546,4 +539,29 @@ type RelationService interface {
 		unitName coreunit.Name,
 		relationUUID corerelation.UUID,
 	) (watcher.StringsWatcher, error)
+}
+
+type RemovalService interface {
+	// RemoveUnit checks if a unit with the input name exists.
+	// If it does, the unit is guaranteed after this call to be:
+	//   - No longer alive.
+	//   - Removed or scheduled to be removed with the input force qualification.
+	//   - If the unit is the last one on the machine, the machine will also
+	//     guaranteed to be no longer alive and scheduled for removal.
+	//
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// unit. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveUnit(
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+		force bool,
+		wait time.Duration,
+	) (removal.UUID, error)
+
+	// MarkUnitAsDead marks the unit as dead. It will not remove the unit as
+	// that is a separate operation. This will advance the unit's life to dead
+	// and will not allow it to be transitioned back to alive.
+	MarkUnitAsDead(context.Context, coreunit.UUID) error
 }

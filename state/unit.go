@@ -148,62 +148,53 @@ func (u *Unit) life() Life {
 	return u.doc.Life
 }
 
-// DestroyMaybeRemove destroys a unit and returns if it was also removed.
-func (u *Unit) DestroyMaybeRemove(store objectstore.ObjectStore) (bool, error) {
-	removed, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
-	if len(errs) != 0 {
-		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.name(), errs)
-	}
-	return removed, err
-}
-
-// DestroyWithForce does the same thing as Destroy() but
+// destroyWithForce does the same thing as Destroy() but
 // ignores errors.
-func (u *Unit) DestroyWithForce(store objectstore.ObjectStore, force bool, maxWait time.Duration) (removed bool, errs []error, err error) {
+func (u *Unit) destroyWithForce(store objectstore.ObjectStore, force bool, maxWait time.Duration) (removed bool, errs []error, err error) {
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			u.doc.Life = Dying
 		}
 	}()
-	op := u.DestroyOperation(store)
+	op := u.destroyOperation(store)
 	op.Force = force
 	op.MaxWait = maxWait
 	err = u.st.ApplyOperation(op)
-	return op.Removed, op.Errors, err
+	return op.removed, op.Errors, err
 }
 
-// DestroyOperation returns a model operation that will destroy the unit.
-func (u *Unit) DestroyOperation(store objectstore.ObjectStore) *DestroyUnitOperation {
-	return &DestroyUnitOperation{
+// destroyOperation returns a model operation that will destroy the unit.
+func (u *Unit) destroyOperation(store objectstore.ObjectStore) *destroyUnitOperation {
+	return &destroyUnitOperation{
 		unit:  &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		Store: store,
+		store: store,
 	}
 }
 
-// DestroyUnitOperation is a model operation for destroying a unit.
-type DestroyUnitOperation struct {
-	// ForcedOperation stores needed information to force this operation.
-	ForcedOperation
+// destroyUnitOperation is a model operation for destroying a unit.
+type destroyUnitOperation struct {
+	// forcedOperation stores needed information to force this operation.
+	forcedOperation
 
 	// unit holds the unit to destroy.
 	unit *Unit
 
-	// DestroyStorage controls whether or not storage attached
+	// destroyStorage controls whether or not storage attached
 	// to the unit is destroyed. If this is false, then detachable
 	// storage will be detached and left in the model.
-	DestroyStorage bool
+	destroyStorage bool
 
-	// Removed is true if the application is removed during destroy.
-	Removed bool
+	// removed is true if the application is removed during destroy.
+	removed bool
 
-	// Store is the object store to use for blob access.
-	Store objectstore.ObjectStore
+	// store is the object store to use for blob access.
+	store objectstore.ObjectStore
 }
 
 // Build is part of the ModelOperation interface.
-func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
-	if op.Store == nil {
+func (op *destroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	if op.store == nil {
 		return nil, errors.New("no object store provided")
 	}
 	if attempt > 0 {
@@ -233,7 +224,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 }
 
 // Done is part of the ModelOperation interface.
-func (op *DestroyUnitOperation) Done(err error) error {
+func (op *destroyUnitOperation) Done(err error) error {
 	if err != nil {
 		if !op.Force {
 			return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
@@ -253,7 +244,7 @@ func (op *DestroyUnitOperation) Done(err error) error {
 // When 'force' is set on the operation, this call will return both needed operations
 // as well as all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
+func (op *destroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	if op.unit.doc.Life != Alive {
 		if !op.Force {
 			return nil, errAlreadyDying
@@ -282,7 +273,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 
-	cleanupOp := newCleanupOp(cleanupDyingUnit, op.unit.doc.Name, op.DestroyStorage, op.Force, op.MaxWait)
+	cleanupOp := newCleanupOp(cleanupDyingUnit, op.unit.doc.Name, op.destroyStorage, op.Force, op.MaxWait)
 
 	// If we're forcing destruction the assertion shouldn't be that
 	// life is alive, but that it's what we think it is now.
@@ -368,7 +359,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// When 'force' is set, this call will return some, if not all, needed operations.
 	// All operational errors encountered will be added to the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	removeOps, err := op.unit.removeOps(op.Store, removeAsserts, &op.ForcedOperation, op.DestroyStorage)
+	removeOps, err := op.unit.removeOps(op.store, removeAsserts, &op.forcedOperation, op.destroyStorage)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
 	} else if op.FatalError(err) {
@@ -376,7 +367,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	}
 	ops := []txn.Op{statusOp}
 	ops = append(ops, removeOps...)
-	op.Removed = true
+	op.removed = true
 	return ops, nil
 }
 
@@ -385,7 +376,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 // When 'force' is set, this call will return needed operations
 // and accumulate all operational errors encountered on the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op, err error) {
+func (u *Unit) destroyHostOps(a *Application, op *forcedOperation) (ops []txn.Op, err error) {
 	if a.doc.Subordinate {
 		return []txn.Op{{
 			C:      unitsC,
@@ -475,7 +466,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 // When 'force' is set, this call will return needed operations
 // accumulating all operational errors in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (u *Unit) removeOps(store objectstore.ObjectStore, asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
+func (u *Unit) removeOps(store objectstore.ObjectStore, asserts bson.D, op *forcedOperation, destroyStorage bool) ([]txn.Op, error) {
 	app, err := u.st.Application(u.doc.Application)
 	if errors.Is(err, errors.NotFound) {
 		// If the application has been removed, the unit must already have been.
@@ -549,15 +540,15 @@ func (u *Unit) EnsureDead() (err error) {
 func (u *Unit) RemoveOperation(store objectstore.ObjectStore, force bool) *RemoveUnitOperation {
 	return &RemoveUnitOperation{
 		unit:            &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		ForcedOperation: ForcedOperation{Force: force},
+		forcedOperation: forcedOperation{Force: force},
 		Store:           store,
 	}
 }
 
 // RemoveUnitOperation is a model operation for removing a unit.
 type RemoveUnitOperation struct {
-	// ForcedOperation stores needed information to force this operation.
-	ForcedOperation
+	// forcedOperation stores needed information to force this operation.
+	forcedOperation
 
 	// unit holds the unit to remove.
 	unit *Unit
@@ -637,7 +628,7 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
-	unitRemoveOps, err := op.unit.removeOps(op.Store, isDeadDoc, &op.ForcedOperation, false)
+	unitRemoveOps, err := op.unit.removeOps(op.Store, isDeadDoc, &op.forcedOperation, false)
 	if op.FatalError(err) {
 		return nil, err
 	}

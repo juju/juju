@@ -146,44 +146,44 @@ func (a *Application) life() Life {
 
 var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
 
-// DestroyOperation returns a model operation that will destroy the application.
-func (a *Application) DestroyOperation(store objectstore.ObjectStore) *DestroyApplicationOperation {
-	return &DestroyApplicationOperation{
+// destroyOperation returns a model operation that will destroy the application.
+func (a *Application) destroyOperation(store objectstore.ObjectStore) *destroyApplicationOperation {
+	return &destroyApplicationOperation{
 		app:   &Application{st: a.st, doc: a.doc},
 		store: store,
 	}
 }
 
-// DestroyApplicationOperation is a model operation for destroying an
+// destroyApplicationOperation is a model operation for destroying an
 // application.
-type DestroyApplicationOperation struct {
+type destroyApplicationOperation struct {
 	// app holds the application to destroy.
 	app *Application
 
-	// DestroyStorage controls whether or not storage attached
+	// destroyStorage controls whether or not storage attached
 	// to units of the application are destroyed. If this is false,
 	// then detachable storage will be detached and left in the model.
-	DestroyStorage bool
+	destroyStorage bool
 
-	// CleanupIgnoringResources is true if this operation has been
+	// cleanupIgnoringResources is true if this operation has been
 	// scheduled by a forced cleanup task.
-	CleanupIgnoringResources bool
+	cleanupIgnoringResources bool
 
-	// Removed is true if the application is removed during destroy.
-	Removed bool
+	// removed is true if the application is removed during destroy.
+	removed bool
 
-	// PostDestroyAppLife is the life of the app if destroy completes without error.
-	PostDestroyAppLife Life
+	// postDestroyAppLife is the life of the app if destroy completes without error.
+	postDestroyAppLife Life
 
-	// ForcedOperation stores needed information to force this operation.
-	ForcedOperation
+	// forcedOperation stores needed information to force this operation.
+	forcedOperation
 
 	// Store is the object store to use for blob access.
 	store objectstore.ObjectStore
 }
 
 // Build is part of the ModelOperation interface.
-func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
+func (op *destroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	if op.store == nil {
 		return nil, errors.New("object store not set")
 	}
@@ -222,10 +222,10 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 }
 
 // Done is part of the ModelOperation interface.
-func (op *DestroyApplicationOperation) Done(err error) error {
+func (op *destroyApplicationOperation) Done(err error) error {
 	if err == nil {
 		// Only delete secrets after application is removed.
-		if !op.Removed {
+		if !op.removed {
 			return nil
 		}
 
@@ -249,9 +249,9 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 //
 // When the 'force' is not set, any operational errors will be considered fatal. All operations
 // constructed up until the error will be discarded and the error will be returned.
-func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore) ([]txn.Op, error) {
+func (op *destroyApplicationOperation) destroyOps(store objectstore.ObjectStore) ([]txn.Op, error) {
 	var ops []txn.Op
-	op.PostDestroyAppLife = Dying
+	op.postDestroyAppLife = Dying
 	removeUnitAssignmentOps, err := op.app.removeUnitAssignmentsOps()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -274,7 +274,7 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		// application and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set and the call came across some errors,
 		// these errors will be fatal and no operations will be returned.
-		removeOps, err := op.app.removeOps(assertion, &op.ForcedOperation)
+		removeOps, err := op.app.removeOps(assertion, &op.forcedOperation)
 		if err != nil {
 			if !op.Force || errors.Cause(err) == errRefresh {
 				return nil, errors.Trace(err)
@@ -282,7 +282,7 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 			op.AddError(err)
 			return ops, nil
 		}
-		op.Removed = true
+		op.removed = true
 		return append(ops, removeOps...), nil
 	}
 	// In all other cases, application removal will be handled as a consequence
@@ -305,7 +305,7 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		cleanupOp := newCleanupOp(
 			cleanupUnitsForDyingApplication,
 			op.app.doc.Name,
-			op.DestroyStorage,
+			op.destroyStorage,
 			op.Force,
 			op.MaxWait,
 		)
@@ -348,7 +348,7 @@ func (a *Application) removeUnitAssignmentsOps() (ops []txn.Op, err error) {
 // When 'force' is set, this call will return operations to remove this
 // application and will accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, error) {
+func (a *Application) removeOps(asserts bson.D, op *forcedOperation) ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
@@ -1381,7 +1381,7 @@ type UpsertCAASUnitParams struct {
 // When 'force' is set, this call will always return some needed operations
 // and accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
+func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asserts bson.D, op *forcedOperation, destroyStorage bool) ([]txn.Op, error) {
 	hostOps, err := u.destroyHostOps(a, op)
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)

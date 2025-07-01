@@ -66,6 +66,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 			RelationService:         domainServices.Relation(),
 			SecretService:           domainServices.Secret(),
 			UnitStateService:        domainServices.UnitState(),
+			RemovalService:          domainServices.Removal(),
 		},
 	)
 }
@@ -190,5 +191,6 @@ func newUniterAPIWithServices(
 		relationService:         services.RelationService,
 		secretService:           services.SecretService,
 		unitStateService:        services.UnitStateService,
+		removalService:          services.RemovalService,
 	}, nil
 }

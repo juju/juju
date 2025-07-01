@@ -1398,8 +1398,18 @@ func (a *API) destroyUnit(ctx context.Context, args params.DestroyUnitParams) (p
 	if err != nil {
 		return params.DestroyUnitResult{}, internalerrors.Errorf("parsing unit name: %w", err)
 	}
+	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return params.DestroyUnitResult{}, nil
+	} else if err != nil {
+		return params.DestroyUnitResult{}, internalerrors.Errorf("getting unit %q UUID: %w", unitName, err)
+	}
 
-	err = a.applicationService.DestroyUnit(ctx, unitName)
+	maxWait := time.Duration(0)
+	if args.MaxWait != nil {
+		maxWait = *args.MaxWait
+	}
+	_, err = a.removalService.RemoveUnit(ctx, unitUUID, args.Force, maxWait)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return params.DestroyUnitResult{}, nil
 	} else if err != nil {

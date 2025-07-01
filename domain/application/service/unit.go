@@ -7,7 +7,6 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
@@ -67,12 +66,6 @@ type UnitState interface {
 	// if the unit doesn't exist.
 	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
 
-	// DeleteUnit deletes the specified unit. If the unit's application is Dying
-	// and no other references to it exist, true is returned to indicate the
-	// application could be safely deleted. It will fail if the unit is not
-	// Dead.
-	DeleteUnit(context.Context, coreunit.Name) (bool, error)
-
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
 	// exist.
@@ -96,9 +89,6 @@ type UnitState interface {
 	// have a machine assigned, [applicationerrors.UnitMachineNotAssigned] is
 	// returned.
 	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error)
-
-	// SetUnitLife sets the life of the specified unit.
-	SetUnitLife(context.Context, coreunit.Name, life.Life) error
 
 	// GetAllUnitLifeForApplication returns a map of the unit names and their lives
 	// for the given application.
@@ -348,93 +338,6 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	return nil
 }
 
-// RemoveUnit is called by the deployer worker and caas application provisioner
-// worker to remove from the model units which have transitioned to dead.
-// TODO(units): revisit his existing logic ported from mongo Note: the callers
-// of this method only do so after the unit has become dead, so there's strictly
-// no need to set the life to Dead before removing. If the unit is still alive,
-// an error satisfying [applicationerrors.UnitIsAlive] is returned. If the unit
-// is not found, an error satisfying [applicationerrors.UnitNotFound] is
-// returned.
-func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-
-	unitLife, err := s.st.GetUnitLife(ctx, unitName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if unitLife == life.Alive {
-		return errors.Errorf("cannot remove unit %q: %w", unitName, applicationerrors.UnitIsAlive)
-	}
-	_, err = s.st.DeleteUnit(ctx, unitName)
-	if err != nil {
-		return errors.Errorf("removing unit %q: %w", unitName, err)
-	}
-	appName := unitName.Application()
-	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		s.logger.Warningf(ctx, "cannot revoke lease for dead unit %q", unitName)
-	}
-	return nil
-}
-
-// DestroyUnit prepares a unit for removal from the model
-// returning an error  satisfying [applicationerrors.UnitNotFoundError]
-// if the unit doesn't exist.
-func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-
-	// For now, all we do is advance the unit's life to Dying.
-	if err := s.st.SetUnitLife(ctx, unitName, life.Dying); err != nil {
-		return errors.Errorf("destroying unit %q: %w", unitName, err)
-	}
-	return nil
-}
-
-// EnsureUnitDead is called by the unit agent just before it terminates.
-// TODO(units): revisit his existing logic ported from mongo Note: the agent
-// only calls this method once it gets notification that the unit has become
-// dead, so there's strictly no need to call this method as the unit is already
-// dead. This method is also called during cleanup from various cleanup jobs. If
-// the unit is not found, an error satisfying [applicationerrors.UnitNotFound]
-// is returned.
-func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-
-	unitLife, err := s.st.GetUnitLife(ctx, unitName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if unitLife == life.Dead {
-		return nil
-	}
-	err = s.st.SetUnitLife(ctx, unitName, life.Dead)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return nil
-	} else if err != nil {
-		return errors.Errorf("marking unit %q is dead: %w", unitName, err)
-	}
-	appName := unitName.Application()
-	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		s.logger.Warningf(ctx, "cannot revoke lease for dead unit %q", unitName)
-	}
-	return nil
-}
-
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
@@ -527,32 +430,6 @@ func (s *Service) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name
 	}
 
 	return unitMachine, nil
-}
-
-// DeleteUnit deletes the specified unit.
-// TODO(units) - rework when dual write is refactored
-// This method is called (mostly during cleanup) after a unit
-// has been removed from mongo. The mongo calls are
-// DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
-func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-
-	isLast, err := s.st.DeleteUnit(ctx, unitName)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return nil
-	} else if err != nil {
-		return errors.Errorf("deleting unit %q: %w", unitName, err)
-	}
-	if isLast {
-		// TODO(units): schedule application cleanup
-		_ = isLast
-	}
-	return nil
 }
 
 // GetUnitRefreshAttributes returns the unit refresh attributes for the

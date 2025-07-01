@@ -29,10 +29,10 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
-	"github.com/juju/juju/domain/life"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
+	removalstate "github.com/juju/juju/domain/removal/state"
 	"github.com/juju/juju/domain/resolve"
 	resolvestate "github.com/juju/juju/domain/resolve/state"
 	"github.com/juju/juju/domain/status"
@@ -1050,6 +1050,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
 	_, err := machineSvc.CreateMachine(c.Context(), "0", nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1085,21 +1086,29 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		err := st.SetUnitLife(ctx, "foo/0", life.Dying)
+		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := st.DeleteUnit(ctx, "foo/0")
+		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
+		c.Assert(err, tc.ErrorIsNil)
+		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{"foo/0"}))
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := st.DeleteUnit(ctx, "foo/1")
+		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/1")
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -1124,6 +1133,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
 	_, err := machineSvc.CreateMachine(c.Context(), "0", nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1175,14 +1185,24 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := st.DeleteUnit(ctx, "bar/0")
+		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "bar/0")
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		s.DumpTable(c, "unit", "machine")
+		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{"bar/0"}))
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := st.DeleteUnit(ctx, "bar/1")
+		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "bar/1")
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		s.DumpTable(c, "unit", "machine")
+		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -1222,6 +1242,11 @@ func (s *watcherSuite) TestWatchApplications(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 	svc := s.setupService(c, factory)
 
+	modelDB := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
+
 	ctx := c.Context()
 	watcher, err := svc.WatchApplications(ctx)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1248,9 +1273,9 @@ func (s *watcherSuite) TestWatchApplications(c *tc.C) {
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			return svc.DeleteApplication(ctx, "bar")
-		})
+		_, _, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		err = removalSt.DeleteApplication(c.Context(), appID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{appID.String()}))
@@ -1379,6 +1404,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	}
 	statusState := statusstate.NewModelState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 	resolveState := resolvestate.NewState(modelDB)
+	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
 	alternateCharmID, _, err := svc.SetCharm(c.Context(), charm.SetCharmArgs{
 		Charm:         &stubCharm{},
@@ -1462,7 +1488,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 
 	// Assert that changing the life of a unit triggers a change
 	harness.AddTest(func(c *tc.C) {
-		err := svc.EnsureUnitDead(ctx, unitName, noOpRevoker{})
+		_, err := removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -1754,10 +1780,4 @@ func (s *stubCharm) Revision() int {
 
 func (s *stubCharm) Version() string {
 	return ""
-}
-
-type noOpRevoker struct{}
-
-func (noOpRevoker) RevokeLeadership(applicationName string, unitName unit.Name) error {
-	return nil
 }

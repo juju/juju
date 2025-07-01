@@ -18,7 +18,6 @@ import (
 	application "github.com/juju/juju/core/application"
 	constraints "github.com/juju/juju/core/constraints"
 	devices "github.com/juju/juju/core/devices"
-	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
 	status "github.com/juju/juju/core/status"
@@ -199,20 +198,6 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
-}
-
-// DestroyUnit mocks base method.
-func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 unit.Name) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyUnit", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DestroyUnit indicates an expected call of DestroyUnit.
-func (mr *MockApplicationServiceMockRecorder) DestroyUnit(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnit", reflect.TypeOf((*MockApplicationService)(nil).DestroyUnit), arg0, arg1)
 }
 
 // GetApplicationCharmOrigin mocks base method.
@@ -423,20 +408,6 @@ func (m *MockApplicationService) IsCharmAvailable(arg0 context.Context, arg1 cha
 func (mr *MockApplicationServiceMockRecorder) IsCharmAvailable(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCharmAvailable", reflect.TypeOf((*MockApplicationService)(nil).IsCharmAvailable), arg0, arg1)
-}
-
-// RemoveUnit mocks base method.
-func (m *MockApplicationService) RemoveUnit(arg0 context.Context, arg1 unit.Name, arg2 leadership.Revoker) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveUnit", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveUnit indicates an expected call of RemoveUnit.
-func (mr *MockApplicationServiceMockRecorder) RemoveUnit(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnit", reflect.TypeOf((*MockApplicationService)(nil).RemoveUnit), arg0, arg1, arg2)
 }
 
 // UpdateCAASUnit mocks base method.

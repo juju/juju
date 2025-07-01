@@ -39,7 +39,6 @@ func TestCleanerSuite(t *testing.T) {
 func (s *CleanerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.domainServices = NewMockDomainServices(ctrl)
-	s.domainServices.EXPECT().Application()
 	s.domainServices.EXPECT().Machine()
 	return ctrl
 }
@@ -176,7 +175,7 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 	return w
 }
 
-func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationAndUnitRemover) error {
-	st.MethodCall(st, "Cleanup", mr, ar)
+func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover) error {
+	st.MethodCall(st, "Cleanup", mr)
 	return st.NextErr()
 }
