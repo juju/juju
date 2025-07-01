@@ -200,7 +200,7 @@ func (st *State) MachineScheduleRemoval(
 
 	removalRec := removalJob{
 		UUID:          removalUUID,
-		RemovalTypeID: 1,
+		RemovalTypeID: 3,
 		EntityUUID:    machineUUID,
 		Force:         force,
 		ScheduledFor:  when,

@@ -209,7 +209,7 @@ func (s *machineSuite) TestMachineRemovalNormalSuccess(c *tc.C) {
 	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(removalTypeID, tc.Equals, 1)
+	c.Check(removalTypeID, tc.Equals, 3)
 	c.Check(rUUID, tc.Equals, machineUUID.String())
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
@@ -220,12 +220,12 @@ func (s *machineSuite) TestMachineRemovalNotExistsSuccess(c *tc.C) {
 
 	when := time.Now().UTC()
 	err := st.MachineScheduleRemoval(
-		c.Context(), "removal-uuid", "some-unit-uuid", true, when,
+		c.Context(), "removal-uuid", "some-machine-uuid", true, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We should have a removal job scheduled immediately.
-	// It doesn't matter that the unit does not exist.
+	// It doesn't matter that the machine does not exist.
 	// We rely on the worker to handle that fact.
 	row := s.DB().QueryRow(`
 SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
@@ -242,8 +242,8 @@ where  r.uuid = ?`, "removal-uuid",
 	err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(removalType, tc.Equals, "unit")
-	c.Check(rUUID, tc.Equals, "some-unit-uuid")
+	c.Check(removalType, tc.Equals, "machine")
+	c.Check(rUUID, tc.Equals, "some-machine-uuid")
 	c.Check(force, tc.Equals, true)
 	c.Check(scheduledFor, tc.Equals, when)
 }
