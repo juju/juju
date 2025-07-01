@@ -1107,20 +1107,6 @@ func (s *mergeLinkLayerSuite) addProviderSubnet(
 		VALUES (?, ?)`, providerID, subnetUUID)
 }
 
-// addIPAddressWithSubnet adds an IP address to the database and returns its UUID.
-func (s *mergeLinkLayerSuite) addIPAddressWithSubnet(c *tc.C, deviceUUID, netNodeUUID,
-	subnetUUID, addressValue string) string {
-	addressUUID := "address-" + addressValue + "-uuid"
-
-	s.query(c, `
-		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, addressUUID, deviceUUID, addressValue, netNodeUUID, subnetUUID, 0, 4, 1, 0,
-		false, false)
-
-	return addressUUID
-}
-
 // addSpace adds a space to the database and returns its UUID.
 func (s *mergeLinkLayerSuite) addSpace(c *tc.C, name string) string {
 	spaceUUID := uuid.MustNewUUID().String()

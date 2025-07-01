@@ -52,6 +52,7 @@ type State interface {
 	NetConfigState
 	ContainerState
 	MigrationState
+	NetworkInfoState
 
 	// GetMachineNetNodeUUID returns the net node UUID for the input machine UUID.
 	GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error)
@@ -160,4 +161,17 @@ type NetConfigState interface {
 	// MergeLinkLayerDevice merges the existing link layer devices with the
 	// incoming ones.
 	MergeLinkLayerDevice(ctx context.Context, machineUUID string, incoming []domainnetwork.NetInterface) error
+}
+
+// NetworkInfoState defines a persistence layer interface for retrieving
+// network relationship details.
+type NetworkInfoState interface {
+
+	// GetUnitEndpointNetworks retrieves network relationship details for a
+	// specified unit and its given endpoints.
+	// It returns a list of domainnetwork.Info, one per endpoint name,
+	// with no guaranteed order.
+	// Returns if retrieval fails, or an empty list if the unit is not found or
+	// endpoints are inconsistent.
+	GetUnitEndpointNetworks(ctx context.Context, unitUUID string, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
 }
