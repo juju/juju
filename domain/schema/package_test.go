@@ -35,9 +35,9 @@ func (s *schemaBaseSuite) NewCleanDB(c *tc.C) *sql.DB {
 
 func (s *schemaBaseSuite) applyDDL(c *tc.C, ddl *schema.Schema) {
 	if s.Verbose {
-		ddl.Hook(func(i int, statement string) error {
+		ddl.Hook(func(i int, statement string) (string, error) {
 			c.Logf("-- Applying schema change %d\n%s\n", i, statement)
-			return nil
+			return statement, nil
 		})
 	}
 	changeSet, err := ddl.Ensure(c.Context(), s.TxnRunner())

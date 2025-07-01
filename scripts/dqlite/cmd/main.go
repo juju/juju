@@ -70,9 +70,9 @@ func main() {
 		panic("unknown database type")
 	}
 	if !*quiteFlag {
-		schema.Hook(func(i int, stmt string) error {
-			fmt.Printf("-- Applied patch %d\n%s\n", i, stmt)
-			return nil
+		schema.Hook(func(i int, stmt string) (string, error) {
+			fmt.Printf("-- Applying patch %d\n%s\n", i, stmt)
+			return stmt, nil
 		})
 	}
 

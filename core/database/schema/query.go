@@ -31,9 +31,11 @@ func createSchemaTable(ctx context.Context, tx *sql.Tx) error {
 	return errors.Capture(err)
 }
 
-// queryCurrentVersion returns the highest patch version currently applied.
+// validateCurrentVersion checks that the input hashes match the
+// hashes of the patches that have been applied to the database.
+// It returns the highest patch version currently applied.
 // Zero means that no patches have been applied yet.
-func queryCurrentVersion(ctx context.Context, tx *sql.Tx, computedHashes []string) (int, error) {
+func validateCurrentVersion(ctx context.Context, tx *sql.Tx, computedHashes []string) (int, error) {
 	versions, err := selectSchemaVersions(ctx, tx)
 	if err != nil {
 		return -1, errors.Errorf("failed to fetch patch versions: %v", err)
@@ -107,34 +109,22 @@ func checkSchemaHashesMatch(versions []versionHash, computedHashes []string) err
 	return nil
 }
 
-// Apply any pending patch that was not yet applied.
-func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patches []Patch, hook Hook) error {
+// ensurePatchesAreApplied applies any pending patch that was not yet applied.
+// It returns an error if the current version is more recent than the
+// expected version, or if any patch fails to apply.
+// The input hashes are assumed to be valid for the input patches.
+func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patches []Patch, hashes []string) error {
 	if current > len(patches) {
-		return errors.Errorf(
-			"schema version '%d' is more recent than expected '%d'",
-			current, len(patches))
-
+		return errors.Errorf("schema version '%d' is more recent than expected '%d'", current, len(patches))
 	}
 
-	// If there are no patches, there's nothing to do.
 	if len(patches) == 0 {
 		return nil
 	}
 
-	// Compute the hashes of all patches, we can then verify that old patches
-	// haven't been tampered with before running new patches up to the current
-	// version.
-	hashes := computeHashes(patches)
-
-	// Apply missing patches.
 	for _, patch := range patches[current:] {
-		// If the context has any underlying errors, close out immediately.
 		if err := ctx.Err(); err != nil {
 			return errors.Capture(err)
-		}
-
-		if err := hook(current, patch.stmt); err != nil {
-			return errors.Errorf("failed to execute hook (version %d): %w", current, err)
 		}
 
 		if err := patch.run(ctx, tx); err != nil {
