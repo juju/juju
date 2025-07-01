@@ -310,7 +310,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -407,7 +407,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -471,7 +471,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -570,7 +570,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -1722,6 +1722,9 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 				Since:   now,
 			},
 		},
+		Constraints: constraints.Constraints{
+			Arch: ptr(arch.AMD64),
+		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	returnedCharm := applicationcharm.Charm{
@@ -1882,6 +1885,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	now := ptr(s.clock.Now())
 	u := []application.AddUnitArg{{
 		Constraints: constraints.Constraints{
+			Arch:     ptr(arch.AMD64),
 			CpuCores: ptr(uint64(4)),
 			CpuPower: ptr(uint64(75)),
 		},
@@ -1993,7 +1997,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 		},
 	}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{

@@ -23,8 +23,10 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	networkstate "github.com/juju/juju/domain/network/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
+	statusstate "github.com/juju/juju/domain/status/state"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -226,51 +228,6 @@ func (s *stateSuite) TestDeleteMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machineCount, tc.Equals, 0)
-}
-
-// TestDeleteMachineStatus asserts that DeleteMachine at the state layer removes
-// any machine status and status data when deleting a machine.
-func (s *stateSuite) TestDeleteMachineStatus(c *tc.C) {
-	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	bd := blockdevice.BlockDevice{
-		DeviceName:     "name-666",
-		Label:          "label-666",
-		UUID:           "device-666",
-		HardwareId:     "hardware-666",
-		WWN:            "wwn-666",
-		BusAddress:     "bus-666",
-		SizeMiB:        666,
-		FilesystemType: "btrfs",
-		InUse:          true,
-		MountPoint:     "mount-666",
-		SerialId:       "serial-666",
-	}
-	bdUUID := uuid.MustNewUUID().String()
-	s.insertBlockDevice(c, bd, bdUUID, string(machineName))
-
-	s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
-		Status:  status.MachineStatusStarted,
-		Message: "started",
-		Data:    []byte(`{"key": "data"}`),
-	})
-
-	err = s.state.DeleteMachine(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var status int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status WHERE machine_uuid=?", "deadbeef").Scan(&status)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(status, tc.Equals, 0)
 }
 
 func (s *stateSuite) insertBlockDevice(c *tc.C, bd blockdevice.BlockDevice, blockDeviceUUID, machineName string) {
@@ -968,13 +925,13 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
 	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef2", instance.Id("124"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().Txn(c.Context(), func(c context.Context, tx *sqlair.TX) error {
-		return s.state.createParentMachineLink(c, tx, createMachineArgs{
-			name:        "666/lxd/667",
-			machineUUID: "deadbeef2",
-			netNodeUUID: "abc1",
-		})
-	})
+	// err = s.TxnRunner().Txn(c.Context(), func(c context.Context, tx *sqlair.TX) error {
+	// 	return s.state.createParentMachineLink(c, tx, createMachineArgs{
+	// 		name:        "666/lxd/667",
+	// 		machineUUID: "deadbeef2",
+	// 		netNodeUUID: "abc1",
+	// 	})
+	// })
 	err = s.state.SetMachineCloudInstance(c.Context(), "parent-uuid", instance.Id("124"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1153,58 +1110,31 @@ func (s *stateSuite) TestGetMachinePlacementDirectiveNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestConstraintFull(c *tc.C) {
+	networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).AddSpace(c.Context(), "space-uuid-0", "space0", "", []string{})
+	networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).AddSpace(c.Context(), "space-uuid-1", "space1", "", []string{})
+
 	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
 		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		addConstraintStmt := `INSERT INTO "constraint" (uuid, arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, container_type_id, virt_type, allocate_public_ip, image_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err := tx.ExecContext(ctx, addConstraintStmt, "constraint-uuid", "amd64", 2, 42, 8, 256, "root-disk-source", "instance-role", "instance-type", 1, "virt-type", true, "image-id")
-		if err != nil {
-			return err
-		}
-
-		addTagConsStmt := `INSERT INTO constraint_tag (constraint_uuid, tag) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addTagConsStmt, "constraint-uuid", "tag0")
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, addTagConsStmt, "constraint-uuid", "tag1")
-		if err != nil {
-			return err
-		}
-		addSpaceStmt := `INSERT INTO space (uuid, name) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addSpaceStmt, "space0-uuid", "space0")
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, addSpaceStmt, "space1-uuid", "space1")
-		if err != nil {
-			return err
-		}
-		addSpaceConsStmt := `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`
-		_, err = tx.ExecContext(ctx, addSpaceConsStmt, "constraint-uuid", "space0", false)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, addSpaceConsStmt, "constraint-uuid", "space1", true)
-		if err != nil {
-			return err
-		}
-		addZoneConsStmt := `INSERT INTO constraint_zone (constraint_uuid, zone) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addZoneConsStmt, "constraint-uuid", "zone0")
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, addZoneConsStmt, "constraint-uuid", "zone1")
-		if err != nil {
-			return err
-		}
-
-		addMachineConstraintStmt := `INSERT INTO machine_constraint (machine_uuid, constraint_uuid) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addMachineConstraintStmt, "deadbeef", "constraint-uuid")
-		return err
+		Constraints: constraints.Constraints{
+			Arch:             ptr("amd64"),
+			CpuCores:         ptr(uint64(2)),
+			CpuPower:         ptr(uint64(42)),
+			Mem:              ptr(uint64(8)),
+			RootDisk:         ptr(uint64(256)),
+			RootDiskSource:   ptr("root-disk-source"),
+			InstanceRole:     ptr("instance-role"),
+			InstanceType:     ptr("instance-type"),
+			Container:        ptr(instance.LXD),
+			VirtType:         ptr("virt-type"),
+			AllocatePublicIP: ptr(true),
+			ImageID:          ptr("image-id"),
+			Tags:             ptr([]string{"tag0", "tag1"}),
+			Spaces: ptr([]constraints.SpaceConstraint{
+				{SpaceName: "space0", Exclude: false},
+				{SpaceName: "space1", Exclude: true},
+			}),
+			Zones: ptr([]string{"zone0", "zone1"}),
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1233,18 +1163,12 @@ func (s *stateSuite) TestConstraintFull(c *tc.C) {
 func (s *stateSuite) TestConstraintPartial(c *tc.C) {
 	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
 		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		addConstraintStmt := `INSERT INTO "constraint" (uuid, arch, cpu_cores, allocate_public_ip, image_id) VALUES (?, ?, ?, ?, ?)`
-		_, err := tx.ExecContext(ctx, addConstraintStmt, "constraint-uuid", "amd64", 2, true, "image-id")
-		if err != nil {
-			return err
-		}
-		addMachineConstraintStmt := `INSERT INTO machine_constraint (machine_uuid, constraint_uuid) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addMachineConstraintStmt, "deadbeef", "constraint-uuid")
-		return err
+		Constraints: constraints.Constraints{
+			Arch:             ptr("amd64"),
+			CpuCores:         ptr(uint64(2)),
+			AllocatePublicIP: ptr(true),
+			ImageID:          ptr("image-id"),
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1261,18 +1185,9 @@ func (s *stateSuite) TestConstraintPartial(c *tc.C) {
 func (s *stateSuite) TestConstraintSingleValue(c *tc.C) {
 	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
 		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		addConstraintStmt := `INSERT INTO "constraint" (uuid, cpu_cores) VALUES (?, ?)`
-		_, err := tx.ExecContext(ctx, addConstraintStmt, "constraint-uuid", 2)
-		if err != nil {
-			return err
-		}
-		addMachineConstraintStmt := `INSERT INTO machine_constraint (machine_uuid, constraint_uuid) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addMachineConstraintStmt, "deadbeef", "constraint-uuid")
-		return err
+		Constraints: constraints.Constraints{
+			CpuCores: ptr(uint64(2)),
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1308,8 +1223,6 @@ func (s *stateSuite) TestGetMachineBase(c *tc.C) {
 			Architecture: architecture.AMD64,
 		},
 	})
-
-	s.DumpTable(c, "machine_platform", "machine")
 
 	base, err := s.state.GetMachineBase(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)

@@ -241,6 +241,7 @@ WHERE m.net_node_uuid = ?
 			}
 
 			for _, table := range []string{
+				"machine_constraint",
 				"machine_status",
 				"machine_cloud_instance_status",
 				"machine_cloud_instance",
@@ -520,6 +521,7 @@ WHERE m.net_node_uuid = ?
 			}
 
 			for _, table := range []string{
+				"machine_constraint",
 				"machine_status",
 				"machine_cloud_instance_status",
 				"machine_cloud_instance",

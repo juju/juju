@@ -58,12 +58,6 @@ func (s *ProviderService) CreateMachine(ctx context.Context, args CreateMachineA
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Machine name must not contain container child names, so they must be
-	// singular machine name.
-	if machineName.IsContainer() {
-		return "", errors.Errorf("machine name %q cannot be a container", machineName)
-	}
-
 	provider, err := s.providerGetter(ctx)
 	if err != nil {
 		return "", "", errors.Errorf("getting provider for create machine: %w", err)
@@ -103,25 +97,6 @@ func (s *ProviderService) CreateMachineWithParent(ctx context.Context, args Crea
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Machine names must not contain container child names, so they must be
-	// singular machine name.
-	if machineName.IsContainer() {
-		return "", errors.Errorf("machine name %q cannot be a container", machineName)
-	} else if parentName.IsContainer() {
-		return "", errors.Errorf("parent machine name %q cannot be a container", parentName)
-	}
-
-	// The machine name then becomes, the <parent name>/scope/<machine name>.
-	// TODO (stickupkid): Use the placement directive to determine the
-	// the scope.
-	name, err := parentName.NamedChild("lxd", machineName.String())
-	if err != nil {
-		return "", errors.Errorf("creating machine name from parent %q and machine %q: %w", parentName, machineName, err)
-	}
-	if err := name.Validate(); err != nil {
-		return "", errors.Errorf("validating machine name %q: %w", name, err)
-	}
-
 	provider, err := s.providerGetter(ctx)
 	if err != nil {
 		return "", "", errors.Errorf("getting provider for create machine with parent %q: %w", parentName, err)
@@ -150,7 +125,7 @@ func (s *ProviderService) CreateMachineWithParent(ctx context.Context, args Crea
 		return "", "", errors.Errorf("creating machine with parent %q: %w", parentName, err)
 	}
 
-	if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, name, s.clock); err != nil {
+	if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, machineName, s.clock); err != nil {
 		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
 	}
 

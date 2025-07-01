@@ -52,8 +52,6 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNonce(c *tc.C) {
 	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", "foo", "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.DumpTable(c, "machine", "machine_cloud_instance")
-
 	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
 		tx.ExecContext(c, `UPDATE machine SET password_hash = 'ssssh!' WHERE uuid = 'deadbeef'`)
 		return nil

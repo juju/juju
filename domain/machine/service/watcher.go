@@ -160,7 +160,7 @@ func (s *WatchableService) getContainerTypeOrUseDefault(
 		return defaultType, errors.Capture(err)
 	}
 
-	containerTypes, err := s.st.GetSupportedContainersTypes(ctx, uuid)
+	containerTypes, err := s.st.GetSupportedContainersTypes(ctx, uuid.String())
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return defaultType, nil
 	} else if err != nil {

@@ -71,7 +71,6 @@ func PlaceMachine(
 			directive:   args.Directive.Directive,
 			platform:    args.Platform,
 			constraints: args.Constraints,
-			nonce:       args.Nonce,
 		}
 		machineUUID, machineName, err := acquireParentMachineForContainer(ctx, tx, preparer, acquireParentMachineArgs, clock)
 		if err != nil {
@@ -682,7 +681,6 @@ func acquireParentMachineForContainer(
 		machineUUID: machineUUID.String(),
 		machineName: machineName.String(),
 		platform:    args.platform,
-		nonce:       args.nonce,
 		constraints: args.constraints,
 	}
 	_, err = insertMachineAndNetNode(ctx, tx, preparer, clock, insertMachineAndNetNodeArgs)

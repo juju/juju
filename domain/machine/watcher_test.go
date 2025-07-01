@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/life"
@@ -363,20 +364,21 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 // TestWatchMachineLife tests the functionality of watching machine lifecycle
 // changes.
 func (s *watcherSuite) TestWatchMachineLife(c *tc.C) {
-	watcher, err := s.svc.WatchMachineLife(c.Context(), "1")
+	watcher, err := s.svc.WatchMachineLife(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+		_, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
+	// Create a second machine, make sure it doesn't trigger a change.
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachine(c.Context(), "2", nil)
+		_, _, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
@@ -400,10 +402,10 @@ func (s *watcherSuite) TestWatchMachineContainerLifeInit(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchMachineContainerLifeInitMachine(c *tc.C) {
-	_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+	_, mName, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), mName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var changes []string
@@ -417,13 +419,12 @@ func (s *watcherSuite) TestWatchMachineContainerLifeInitMachine(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchMachineContainerLifeInitMachineContainer(c *tc.C) {
-	_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+	_, parentName, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	_, _, err = s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, parentName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.svc.CreateMachineWithParent(c.Context(), "1", "1")
-	c.Assert(err, tc.ErrorIsNil)
-
-	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), parentName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var changes []string
@@ -438,20 +439,22 @@ func (s *watcherSuite) TestWatchMachineContainerLifeInitMachineContainer(c *tc.C
 }
 
 func (s *watcherSuite) TestWatchMachineContainerLife(c *tc.C) {
-	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
+	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
 
+	var parentName machine.Name
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachine(c.Context(), "1", nil)
+		var err error
+		_, parentName, err = s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachineWithParent(c.Context(), "1", "1")
+		_, _, err = s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, parentName)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertChange()
@@ -464,17 +467,19 @@ func (s *watcherSuite) TestWatchMachineContainerLifeNoDispatch(c *tc.C) {
 	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 
+	var parentName machine.Name
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachine(c.Context(), "0", nil)
+		var err error
+		_, parentName, err = s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachineWithParent(c.Context(), "0", "0")
+		_, _, err = s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, parentName)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()

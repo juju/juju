@@ -266,7 +266,6 @@ type insertChildMachineForContainerPlacementArgs struct {
 type acquireParentMachineForContainerArgs struct {
 	directive   string
 	platform    deployment.Platform
-	nonce       *string
 	constraints constraints.Constraints
 }
 
