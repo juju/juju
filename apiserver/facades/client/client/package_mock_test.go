@@ -39,80 +39,80 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// AllIPAddresses mocks base method.
-func (m *MockBackend) AllIPAddresses() ([]*state.Address, error) {
+// AllMachines mocks base method.
+func (m *MockBackend) AllMachines() ([]*state.Machine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllIPAddresses")
-	ret0, _ := ret[0].([]*state.Address)
+	ret := m.ctrl.Call(m, "AllMachines")
+	ret0, _ := ret[0].([]*state.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllIPAddresses indicates an expected call of AllIPAddresses.
-func (mr *MockBackendMockRecorder) AllIPAddresses() *MockBackendAllIPAddressesCall {
+// AllMachines indicates an expected call of AllMachines.
+func (mr *MockBackendMockRecorder) AllMachines() *MockBackendAllMachinesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllIPAddresses", reflect.TypeOf((*MockBackend)(nil).AllIPAddresses))
-	return &MockBackendAllIPAddressesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockBackend)(nil).AllMachines))
+	return &MockBackendAllMachinesCall{Call: call}
 }
 
-// MockBackendAllIPAddressesCall wrap *gomock.Call
-type MockBackendAllIPAddressesCall struct {
+// MockBackendAllMachinesCall wrap *gomock.Call
+type MockBackendAllMachinesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockBackendAllIPAddressesCall) Return(arg0 []*state.Address, arg1 error) *MockBackendAllIPAddressesCall {
+func (c *MockBackendAllMachinesCall) Return(arg0 []*state.Machine, arg1 error) *MockBackendAllMachinesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendAllIPAddressesCall) Do(f func() ([]*state.Address, error)) *MockBackendAllIPAddressesCall {
+func (c *MockBackendAllMachinesCall) Do(f func() ([]*state.Machine, error)) *MockBackendAllMachinesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllIPAddressesCall) DoAndReturn(f func() ([]*state.Address, error)) *MockBackendAllIPAddressesCall {
+func (c *MockBackendAllMachinesCall) DoAndReturn(f func() ([]*state.Machine, error)) *MockBackendAllMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// AllLinkLayerDevices mocks base method.
-func (m *MockBackend) AllLinkLayerDevices() ([]*state.LinkLayerDevice, error) {
+// AllStatus mocks base method.
+func (m *MockBackend) AllStatus() (*state.AllStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllLinkLayerDevices")
-	ret0, _ := ret[0].([]*state.LinkLayerDevice)
+	ret := m.ctrl.Call(m, "AllStatus")
+	ret0, _ := ret[0].(*state.AllStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllLinkLayerDevices indicates an expected call of AllLinkLayerDevices.
-func (mr *MockBackendMockRecorder) AllLinkLayerDevices() *MockBackendAllLinkLayerDevicesCall {
+// AllStatus indicates an expected call of AllStatus.
+func (mr *MockBackendMockRecorder) AllStatus() *MockBackendAllStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllLinkLayerDevices", reflect.TypeOf((*MockBackend)(nil).AllLinkLayerDevices))
-	return &MockBackendAllLinkLayerDevicesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllStatus", reflect.TypeOf((*MockBackend)(nil).AllStatus))
+	return &MockBackendAllStatusCall{Call: call}
 }
 
-// MockBackendAllLinkLayerDevicesCall wrap *gomock.Call
-type MockBackendAllLinkLayerDevicesCall struct {
+// MockBackendAllStatusCall wrap *gomock.Call
+type MockBackendAllStatusCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockBackendAllLinkLayerDevicesCall) Return(arg0 []*state.LinkLayerDevice, arg1 error) *MockBackendAllLinkLayerDevicesCall {
+func (c *MockBackendAllStatusCall) Return(arg0 *state.AllStatus, arg1 error) *MockBackendAllStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendAllLinkLayerDevicesCall) Do(f func() ([]*state.LinkLayerDevice, error)) *MockBackendAllLinkLayerDevicesCall {
+func (c *MockBackendAllStatusCall) Do(f func() (*state.AllStatus, error)) *MockBackendAllStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllLinkLayerDevicesCall) DoAndReturn(f func() ([]*state.LinkLayerDevice, error)) *MockBackendAllLinkLayerDevicesCall {
+func (c *MockBackendAllStatusCall) DoAndReturn(f func() (*state.AllStatus, error)) *MockBackendAllStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

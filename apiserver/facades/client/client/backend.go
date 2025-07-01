@@ -13,8 +13,8 @@ import (
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
-	AllIPAddresses() ([]*state.Address, error)
-	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
+	AllMachines() ([]*state.Machine, error)
+	AllStatus() (*state.AllStatus, error)
 }
 
 type stateShim struct {
