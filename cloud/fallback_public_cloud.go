@@ -72,6 +72,8 @@ clouds:
         endpoint: https://ec2.me-central-1.amazonaws.com
       sa-east-1:
         endpoint: https://ec2.sa-east-1.amazonaws.com
+      il-central-1:
+        endpoint: https://ec2.il-central-1.amazonaws.com
   aws-china:
     type: ec2
     description: Amazon China
@@ -328,6 +330,38 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
+      chilecentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      indonesiacentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      israelcentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      italynorth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      malaysiawest:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      mexicocentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      newzealandnorth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      spaincentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
   azure-china:
     type: azure
     description: Microsoft Azure China
