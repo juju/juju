@@ -47,6 +47,36 @@ WHERE  uuid = $entityUUID.uuid`, machineUUID)
 	return machineExists, errors.Capture(err)
 }
 
+// EnsureMachineNotAliveCascade ensures that there is no machine identified by
+// the input machine UUID, that is still alive.
+func (st *State) EnsureMachineNotAliveCascade(ctx context.Context, mUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machineUUID := entityUUID{UUID: mUUID}
+	updateUnitStmt, err := st.Prepare(`
+UPDATE machine
+SET    life_id = 1
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 0`, machineUUID)
+	if err != nil {
+		return errors.Errorf("preparing machine life update: %w", err)
+	}
+
+	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, updateUnitStmt, machineUUID).Run(); err != nil {
+			return errors.Errorf("advancing machine life: %w", err)
+		}
+		return nil
+	})); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // GetMachineLife returns the life of the machine with the input UUID.
 func (st *State) GetMachineLife(ctx context.Context, mUUID string) (life.Life, error) {
 	db, err := st.DB()
@@ -66,21 +96,20 @@ func (st *State) GetMachineLife(ctx context.Context, mUUID string) (life.Life, e
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
-func (st *State) DeleteMachine(ctx context.Context, mName string) error {
+func (st *State) DeleteMachine(ctx context.Context, mUUID string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	// Prepare query for machine uuid.
-	machineNameParam := machineName{Name: mName}
-	machineUUIDParam := entityUUID{}
+	machineUUIDParam := entityUUID{UUID: mUUID}
 	queryMachine := `
 SELECT &entityUUID.*
 FROM machine
-WHERE name = $machineName.name;
+WHERE uuid = $entityUUID.uuid;
 `
-	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, machineUUIDParam)
+	queryMachineStmt, err := st.Prepare(queryMachine, machineUUIDParam)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -108,7 +137,7 @@ DELETE FROM net_node WHERE uuid IN
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&machineUUIDParam)
+		err = tx.Query(ctx, queryMachineStmt, machineUUIDParam).Get(&machineUUIDParam)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return machineerrors.MachineNotFound
 		} else if err != nil {
@@ -139,7 +168,7 @@ DELETE FROM net_node WHERE uuid IN
 		return nil
 	})
 	if err != nil {
-		return errors.Errorf("deleting machine %q: %w", mName, err)
+		return errors.Errorf("deleting machine: %w", err)
 	}
 	return nil
 }

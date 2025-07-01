@@ -372,6 +372,13 @@ func (s *unitSuite) TestMarkUnitAsDeadNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *unitSuite) TestDeleteUnitNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), "blah")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
