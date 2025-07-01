@@ -110,10 +110,10 @@ func (s *querySuite) TestEnsurePatches(c *tc.C) {
 
 	var called bool
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return ensurePatchesAreApplied(c.Context(), tx, 0, patches, func(i int, statement string) error {
+		return ensurePatchesAreApplied(c.Context(), tx, 0, patches, func(i int, statement string) (string, error) {
 			called = true
 			c.Check(i, tc.Equals, 0)
-			return nil
+			return statement, nil
 		})
 	})
 	c.Assert(err, tc.ErrorIsNil)

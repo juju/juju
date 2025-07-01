@@ -129,11 +129,12 @@ func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patch
 	// Apply missing patches.
 	for _, patch := range patches[current:] {
 		// If the context has any underlying errors, close out immediately.
-		if err := ctx.Err(); err != nil {
+		err := ctx.Err()
+		if err != nil {
 			return errors.Capture(err)
 		}
 
-		if err := hook(current, patch.stmt); err != nil {
+		if patch.stmt, err = hook(current, patch.stmt); err != nil {
 			return errors.Errorf("failed to execute hook (version %d): %w", current, err)
 		}
 

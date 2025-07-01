@@ -22,9 +22,9 @@ type SchemaApplier struct {
 // Apply applies the schema to the database.
 func (s *SchemaApplier) Apply(c *tc.C, ctx context.Context, runner database.TxnRunner) {
 	if s.Verbose {
-		s.Schema.Hook(func(i int, statement string) error {
+		s.Schema.Hook(func(i int, statement string) (string, error) {
 			c.Logf("-- Applying schema change %d\n%s\n", i, statement)
-			return nil
+			return statement, nil
 		})
 	}
 
