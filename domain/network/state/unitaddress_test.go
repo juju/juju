@@ -47,7 +47,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.DeepEquals, corenetwork.SpaceAddresses{
+	c.Check(addr, tc.SameContents, corenetwork.SpaceAddresses{
 		{
 			SpaceID: corenetwork.SpaceUUID(spaceUUID),
 			Origin:  corenetwork.OriginMachine,
