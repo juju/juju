@@ -112,5 +112,5 @@ func (s *infoSuite) TestGetUnitEndpointNetworksStateError(c *tc.C) {
 
 	service := NewService(s.st, loggertesting.WrapCheckLog(c))
 	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
-	c.Assert(err, tc.ErrorMatches, "getting unit relation infos: state error")
+	c.Assert(err, tc.ErrorMatches, "getting unit endpoint networks: state error")
 }

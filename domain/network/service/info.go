@@ -38,7 +38,7 @@ func (s *Service) GetUnitEndpointNetworks(
 
 	result, err := s.st.GetUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting unit relation infos: %w", err)
+		return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
 	}
 
 	return result, nil
