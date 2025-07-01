@@ -105,6 +105,8 @@ func (s *Service) RemoveUnit(
 	if err != nil {
 		return "", errors.Capture(err)
 	} else if machineUUID == "" {
+		// If there is no machine UUID, then the unit was not the last one on
+		// the machine, so we can return early.
 		return unitJobUUID, nil
 	}
 
