@@ -610,9 +610,25 @@ type linkLayerDevice struct {
 	GatewayAddress  sql.NullString `db:"gateway_address"`
 	IsAutoStart     bool           `db:"is_auto_start"`
 	IsEnabled       bool           `db:"is_enabled"`
-	Type            int64          `db:"device_type_id"`
-	VirtualPortType int64          `db:"virtual_port_type_id"`
+	Type            int            `db:"device_type_id"`
+	VirtualPortType int            `db:"virtual_port_type_id"`
 	VLAN            int            `db:"vlan_tag"`
+}
+
+// readLinkLayerDevice is used to verify data in tests.
+// It contains type names rather than IDs.
+type readLinkLayerDevice struct {
+	UUID           string         `db:"uuid"`
+	NetNodeUUID    string         `db:"net_node_uuid"`
+	Name           string         `db:"name"`
+	MTU            sql.NullInt64  `db:"mtu"`
+	MAC            sql.NullString `db:"mac_address"`
+	GatewayAddress sql.NullString `db:"gateway_address"`
+	IsAutoStart    bool           `db:"is_auto_start"`
+	IsEnabled      bool           `db:"is_enabled"`
+	DeviceType     string         `db:"device_type"`
+	VirtualPort    string         `db:"virtual_port_type"`
+	VLAN           int            `db:"vlan_tag"`
 }
 
 // linkLayerDeviceName is used for identifying
@@ -790,4 +806,9 @@ func nilstr[T ~string](s *string) *T {
 		res = &cast
 	}
 	return res
+}
+
+type typeIDName struct {
+	ID   int    `db:"id"`
+	Name string `db:"name"`
 }

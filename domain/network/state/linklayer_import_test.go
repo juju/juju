@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/canonical/sqlair"
@@ -91,7 +92,7 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 			MACAddress:      ptr("00:16:3e:ad:4e:88"),
 		},
 	}
-	expectedLLDRows := transformImportArgToResult(c, importData)
+	expectedLLDRows := transformImportArgToResult(importData)
 
 	// Act
 	err := s.state.ImportLinkLayerDevices(ctx, importData)
@@ -170,16 +171,30 @@ func (s *linkLayerImportSuite) TestDeleteImportedRelations(c *tc.C) {
 	s.checkRowCount(c, "provider_link_layer_device", 0)
 }
 
-func (s *linkLayerImportSuite) readLinkLayerDevices(c *tc.C) []linkLayerDeviceDML {
+func (s *linkLayerImportSuite) readLinkLayerDevices(c *tc.C) []readLinkLayerDevice {
 	var (
-		rows []linkLayerDeviceDML
+		rows []readLinkLayerDevice
 		err  error
 	)
 	err = s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
 		stmt, err := s.state.Prepare(`
-SELECT * AS &linkLayerDeviceDML.*
-FROM link_layer_device
-`, linkLayerDeviceDML{})
+SELECT
+     (lld.uuid,
+      lld.net_node_uuid,
+      lld.name,
+      lld.mtu,
+      lld.is_auto_start,
+      lld.is_enabled,
+      lld.gateway_address,
+      lld.vlan_tag,
+      lld.mac_address
+     ) AS (&readLinkLayerDevice.*),
+     lldt.name AS &readLinkLayerDevice.device_type,
+     vpt.name AS &readLinkLayerDevice.virtual_port_type
+FROM link_layer_device AS lld
+JOIN link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
+JOIN virtual_port_type AS vpt ON lld.virtual_port_type_id = vpt.id
+`, readLinkLayerDevice{})
 		if err != nil {
 			return err
 		}
@@ -234,27 +249,28 @@ FROM provider_link_layer_device
 }
 
 func transformImportArgToResult(
-	c *tc.C, importData []internal.ImportLinkLayerDevice,
-) []linkLayerDeviceDML {
-	return transform.Slice[internal.ImportLinkLayerDevice, linkLayerDeviceDML](importData,
-		func(in internal.ImportLinkLayerDevice) linkLayerDeviceDML {
-			typeID, err := encodeDeviceType(in.Type)
-			c.Check(err, tc.ErrorIsNil)
-			portTypeID, err := encodeVirtualPortType(in.VirtualPortType)
-			c.Check(err, tc.ErrorIsNil)
-			return linkLayerDeviceDML{
-				UUID:              in.UUID,
-				NetNodeUUID:       in.NetNodeUUID,
-				Name:              in.Name,
-				MTU:               in.MTU,
-				MACAddress:        in.MACAddress,
-				DeviceTypeID:      typeID,
-				VirtualPortTypeID: portTypeID,
-				IsAutoStart:       in.IsAutoStart,
-				IsEnabled:         in.IsEnabled,
-				IsDefaultGateway:  false,
-				GatewayAddress:    nil,
-				VlanTag:           0,
+	importData []internal.ImportLinkLayerDevice,
+) []readLinkLayerDevice {
+	return transform.Slice[internal.ImportLinkLayerDevice, readLinkLayerDevice](importData,
+		func(in internal.ImportLinkLayerDevice) readLinkLayerDevice {
+			return readLinkLayerDevice{
+				UUID:        in.UUID,
+				NetNodeUUID: in.NetNodeUUID,
+				Name:        in.Name,
+				MAC: sql.NullString{
+					String: dereferenceOrEmpty(in.MACAddress),
+					Valid:  isNotNil(in.MACAddress),
+				},
+				MTU: sql.NullInt64{
+					Int64: dereferenceOrEmpty(in.MTU),
+					Valid: isNotNil(in.MTU),
+				},
+				DeviceType:     string(in.Type),
+				VirtualPort:    string(in.VirtualPortType),
+				IsAutoStart:    in.IsAutoStart,
+				IsEnabled:      in.IsEnabled,
+				GatewayAddress: sql.NullString{},
+				VLAN:           0,
 			}
 		})
 

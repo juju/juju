@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -54,12 +55,19 @@ func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.Im
 		return errors.Capture(err)
 	}
 
-	llds, parents, providers, err := transformImportData(input)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		deviceTypeMap, err := st.deviceTypeDetails(ctx, tx)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		portTypeMap, err := st.portTypeDetails(ctx, tx)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		llds, parents, providers, err := transformImportData(input, deviceTypeMap, portTypeMap)
+		if err != nil {
+			return errors.Capture(err)
+		}
 		if err := st.importLinkLayerDevice(ctx, tx, llds); err != nil {
 			return errors.Capture(err)
 		}
@@ -133,10 +141,54 @@ INSERT INTO link_layer_device_parent (*) VALUES ($linkLayerDeviceParent.*)
 	return nil
 }
 
+func (st *State) deviceTypeDetails(ctx context.Context, tx *sqlair.TX) (map[network.LinkLayerDeviceType]int, error) {
+	deviceTypeStmt, err := st.Prepare(`
+SELECT &typeIDName.*
+FROM link_layer_device_type
+`, typeIDName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var types []typeIDName
+	if err := tx.Query(ctx, deviceTypeStmt).GetAll(&types); err != nil {
+
+		return nil, errors.Errorf("querying link layer device types: %w", err)
+	}
+	result := make(map[network.LinkLayerDeviceType]int)
+	for _, t := range types {
+		result[network.LinkLayerDeviceType(t.Name)] = t.ID
+	}
+	return result, nil
+}
+
+func (st *State) portTypeDetails(ctx context.Context, tx *sqlair.TX) (map[network.VirtualPortType]int, error) {
+	portTypeStmt, err := st.Prepare(`
+SELECT &typeIDName.*
+FROM virtual_port_type
+`, typeIDName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var types []typeIDName
+	if err := tx.Query(ctx, portTypeStmt).GetAll(&types); err != nil {
+
+		return nil, errors.Errorf("querying link layer device types: %w", err)
+	}
+	result := make(map[network.VirtualPortType]int)
+	for _, t := range types {
+		result[network.VirtualPortType(t.Name)] = t.ID
+	}
+	return result, nil
+}
+
 // transformImportData transform the initial import data into the different
 // structures for insertion into the database. A LinkLayerDeviceUUID is created
 // at this time.
-func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice, []linkLayerDeviceParent, []providerLinkLayerDevice, error) {
+func transformImportData(
+	in []internal.ImportLinkLayerDevice,
+	deviceTypeMap map[network.LinkLayerDeviceType]int,
+	portTypeMap map[network.VirtualPortType]int,
+) ([]linkLayerDevice, []linkLayerDeviceParent, []providerLinkLayerDevice, error) {
 	llds := make([]linkLayerDevice, len(in))
 	parents := make([]linkLayerDeviceParent, 0)
 	providers := make([]providerLinkLayerDevice, 0)
@@ -146,14 +198,14 @@ func transformImportData(in []internal.ImportLinkLayerDevice) ([]linkLayerDevice
 
 	// Fill in the linkLayerDevice and providerLinkLayerDevice structures.
 	for i, l := range in {
-		devTypeID, err := encodeDeviceType(l.Type)
-		if err != nil {
-			return nil, nil, nil, errors.Capture(err)
+		devTypeID, ok := deviceTypeMap[l.Type]
+		if !ok {
+			return nil, nil, nil, errors.Errorf("unknown device type %q", l.Type)
 		}
 
-		portTypeID, err := encodeVirtualPortType(l.VirtualPortType)
-		if err != nil {
-			return nil, nil, nil, errors.Capture(err)
+		portTypeID, ok := portTypeMap[l.VirtualPortType]
+		if !ok {
+			return nil, nil, nil, errors.Errorf("unknown port type %q", l.VirtualPortType)
 		}
 
 		lld := linkLayerDevice{
