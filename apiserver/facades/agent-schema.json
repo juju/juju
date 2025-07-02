@@ -8669,14 +8669,6 @@
                         }
                     }
                 },
-                "WatchApplications": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringsWatchResult"
-                        }
-                    }
-                },
                 "WatchBlockDevices": {
                     "type": "object",
                     "properties": {
