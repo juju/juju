@@ -296,8 +296,8 @@ type linkLayerDeviceDML struct {
 	Name              string  `db:"name"`
 	MTU               *int64  `db:"mtu"`
 	MACAddress        *string `db:"mac_address"`
-	DeviceTypeID      int64   `db:"device_type_id"`
-	VirtualPortTypeID int64   `db:"virtual_port_type_id"`
+	DeviceTypeID      int     `db:"device_type_id"`
+	VirtualPortTypeID int     `db:"virtual_port_type_id"`
 	IsAutoStart       bool    `db:"is_auto_start"`
 	IsEnabled         bool    `db:"is_enabled"`
 	IsDefaultGateway  bool    `db:"is_default_gateway"`
@@ -325,6 +325,7 @@ type dnsAddressRow struct {
 // process before calling this method.
 func netInterfaceToDML(
 	dev network.NetInterface, nodeUUID string, nameToUUID map[string]string,
+	netConfigTypes nameToIDTable,
 ) (linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, error) {
 	var devDML linkLayerDeviceDML
 
@@ -333,14 +334,14 @@ func netInterfaceToDML(
 		return devDML, nil, nil, errors.Errorf("no UUID associated with device %q", dev.Name)
 	}
 
-	devTypeID, err := encodeDeviceType(dev.Type)
-	if err != nil {
-		return devDML, nil, nil, errors.Capture(err)
+	devTypeID, ok := netConfigTypes.DeviceMap[dev.Type]
+	if !ok {
+		return devDML, nil, nil, errors.Errorf("unsupported device type: %q", dev.Type)
 	}
 
-	portTypeID, err := encodeVirtualPortType(dev.VirtualPortType)
-	if err != nil {
-		return devDML, nil, nil, errors.Capture(err)
+	portTypeID, ok := netConfigTypes.PortMap[dev.VirtualPortType]
+	if !ok {
+		return devDML, nil, nil, errors.Errorf("unsupported virtual port type: %q", dev.VirtualPortType)
 	}
 
 	devDML = linkLayerDeviceDML{
@@ -376,46 +377,7 @@ func netInterfaceToDML(
 	// - link_layer_device_parent
 	// - provider_link_layer_device
 
-	return devDML, dnsSearchDMLs, dnsAddressDMLs, errors.Capture(err)
-}
-
-// encodeDeviceType returns an identifier congruent with the database lookup for
-// a network interface type. The caller of this method should already have
-// called IsValidLinkLayerDeviceType for the input in the service layer,
-// but we guard against bad input anyway.
-func encodeDeviceType(kind corenetwork.LinkLayerDeviceType) (int64, error) {
-	switch kind {
-	case corenetwork.UnknownDevice:
-		return 0, nil
-	case corenetwork.LoopbackDevice:
-		return 1, nil
-	case corenetwork.EthernetDevice:
-		return 2, nil
-	case corenetwork.VLAN8021QDevice:
-		return 3, nil
-	case corenetwork.BondDevice:
-		return 4, nil
-	case corenetwork.BridgeDevice:
-		return 5, nil
-	case corenetwork.VXLANDevice:
-		return 6, nil
-	default:
-		return -1, errors.Errorf("unsupported device type: %q", kind)
-	}
-}
-
-// encodeVirtualPortType returns an identifier congruent with the database
-// lookup for a virtual port type. The caller of this method should have already
-// validated the input in the service layer.
-func encodeVirtualPortType(kind corenetwork.VirtualPortType) (int64, error) {
-	switch kind {
-	case corenetwork.NonVirtualPort:
-		return 0, nil
-	case corenetwork.OvsPort:
-		return 1, nil
-	default:
-		return -1, errors.Errorf("unsupported virtual port type: %q", kind)
-	}
+	return devDML, dnsSearchDMLs, dnsAddressDMLs, nil
 }
 
 // ipAddressDML is for writing data to the ip_address table.
@@ -425,10 +387,10 @@ type ipAddressDML struct {
 	DeviceUUID   string  `db:"device_uuid"`
 	AddressValue string  `db:"address_value"`
 	SubnetUUID   *string `db:"subnet_uuid"`
-	TypeID       int64   `db:"type_id"`
-	ConfigTypeID int64   `db:"config_type_id"`
-	OriginID     int64   `db:"origin_id"`
-	ScopeID      int64   `db:"scope_id"`
+	TypeID       int     `db:"type_id"`
+	ConfigTypeID int     `db:"config_type_id"`
+	OriginID     int     `db:"origin_id"`
+	ScopeID      int     `db:"scope_id"`
 	IsSecondary  bool    `db:"is_secondary"`
 	IsShadow     bool    `db:"is_shadow"`
 }
@@ -442,7 +404,10 @@ type ipAddressDML struct {
 // It is expected that UUID lookups will be populated as part of the
 // reconciliation process before calling this method.
 func netAddrToDML(
-	addr network.NetAddr, nodeUUID, devUUID string, ipToUUID map[string]string,
+	addr network.NetAddr,
+	nodeUUID, devUUID string,
+	ipToUUID map[string]string,
+	addrTypes nameToIDTable,
 ) (ipAddressDML, error) {
 	var dml ipAddressDML
 
@@ -451,24 +416,24 @@ func netAddrToDML(
 		return dml, errors.Errorf("no UUID associated with IP %q on device %q", addr.AddressValue, addr.InterfaceName)
 	}
 
-	addrTypeID, err := encodeAddressType(addr.AddressType)
-	if err != nil {
-		return dml, errors.Capture(err)
+	addrTypeID, ok := addrTypes.AddrMap[addr.AddressType]
+	if !ok {
+		return dml, errors.Errorf("unsupported address type: %q", addr.AddressType)
 	}
 
-	addrConfTypeID, err := encodeAddressConfigType(addr.ConfigType)
-	if err != nil {
-		return dml, errors.Capture(err)
+	addrConfTypeID, ok := addrTypes.AddrConfigMap[addr.ConfigType]
+	if !ok {
+		return dml, errors.Errorf("unsupported address config type: %q", addr.ConfigType)
 	}
 
-	originID, err := encodeAddressOrigin(addr.Origin)
-	if err != nil {
-		return dml, errors.Capture(err)
+	originID, ok := addrTypes.OriginMap[addr.Origin]
+	if !ok {
+		return dml, errors.Errorf("unsupported address origin: %q", addr.Origin)
 	}
 
-	scopeID, err := encodeAddressScope(addr.Scope)
-	if err != nil {
-		return dml, errors.Capture(err)
+	scopeID, ok := addrTypes.ScopeMap[addr.Scope]
+	if !ok {
+		return dml, errors.Errorf("unsupported address scope: %q", addr.Scope)
 	}
 
 	dml = ipAddressDML{
@@ -486,68 +451,6 @@ func netAddrToDML(
 	}
 
 	return dml, nil
-}
-
-func encodeAddressType(kind corenetwork.AddressType) (int64, error) {
-	switch kind {
-	case corenetwork.IPv4Address:
-		return 0, nil
-	case corenetwork.IPv6Address:
-		return 1, nil
-	case corenetwork.HostName:
-		return -1, errors.Errorf("address type %q can not be used for an IP address", kind)
-	default:
-		return -1, errors.Errorf("unsupported address type: %q", kind)
-	}
-}
-
-func encodeAddressConfigType(kind corenetwork.AddressConfigType) (int64, error) {
-	switch kind {
-	case corenetwork.ConfigUnknown:
-		return 0, nil
-	case corenetwork.ConfigDHCP:
-		return 1, nil
-	case corenetwork.ConfigStatic:
-		return 4, nil
-	case corenetwork.ConfigManual:
-		return 5, nil
-	case corenetwork.ConfigLoopback:
-		return 6, nil
-	default:
-		return -1, errors.Errorf("unsupported address config type: %q", kind)
-	}
-}
-
-const (
-	originMachine  int64 = 0
-	originProvider int64 = 1
-)
-
-func encodeAddressOrigin(kind corenetwork.Origin) (int64, error) {
-	switch kind {
-	case corenetwork.OriginMachine:
-		return originMachine, nil
-	case corenetwork.OriginProvider:
-		return originProvider, nil
-	default:
-		return -1, errors.Errorf("unsupported address origin: %q", kind)
-	}
-}
-func encodeAddressScope(kind corenetwork.Scope) (int64, error) {
-	switch kind {
-	case corenetwork.ScopeUnknown:
-		return 0, nil
-	case corenetwork.ScopePublic:
-		return 1, nil
-	case corenetwork.ScopeCloudLocal:
-		return 2, nil
-	case corenetwork.ScopeMachineLocal:
-		return 3, nil
-	case corenetwork.ScopeLinkLocal:
-		return 4, nil
-	default:
-		return -1, errors.Errorf("unsupported address scope: %q", kind)
-	}
 }
 
 // machineInterfaceRow is the type for a row from the v_machine_interface view.
@@ -642,7 +545,7 @@ type linkLayerDeviceName struct {
 type ipAddressValue struct {
 	UUID       string         `db:"uuid"`
 	Value      string         `db:"address_value"`
-	OriginID   int64          `db:"origin_id"`
+	OriginID   int            `db:"origin_id"`
 	SubnetUUID sql.NullString `db:"subnet_uuid"`
 }
 
@@ -806,9 +709,4 @@ func nilstr[T ~string](s *string) *T {
 		res = &cast
 	}
 	return res
-}
-
-type typeIDName struct {
-	ID   int    `db:"id"`
-	Name string `db:"name"`
 }

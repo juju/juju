@@ -141,46 +141,6 @@ INSERT INTO link_layer_device_parent (*) VALUES ($linkLayerDeviceParent.*)
 	return nil
 }
 
-func (st *State) deviceTypeDetails(ctx context.Context, tx *sqlair.TX) (map[network.LinkLayerDeviceType]int, error) {
-	deviceTypeStmt, err := st.Prepare(`
-SELECT &typeIDName.*
-FROM link_layer_device_type
-`, typeIDName{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var types []typeIDName
-	if err := tx.Query(ctx, deviceTypeStmt).GetAll(&types); err != nil {
-
-		return nil, errors.Errorf("querying link layer device types: %w", err)
-	}
-	result := make(map[network.LinkLayerDeviceType]int)
-	for _, t := range types {
-		result[network.LinkLayerDeviceType(t.Name)] = t.ID
-	}
-	return result, nil
-}
-
-func (st *State) portTypeDetails(ctx context.Context, tx *sqlair.TX) (map[network.VirtualPortType]int, error) {
-	portTypeStmt, err := st.Prepare(`
-SELECT &typeIDName.*
-FROM virtual_port_type
-`, typeIDName{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var types []typeIDName
-	if err := tx.Query(ctx, portTypeStmt).GetAll(&types); err != nil {
-
-		return nil, errors.Errorf("querying link layer device types: %w", err)
-	}
-	result := make(map[network.VirtualPortType]int)
-	for _, t := range types {
-		result[network.VirtualPortType(t.Name)] = t.ID
-	}
-	return result, nil
-}
-
 // transformImportData transform the initial import data into the different
 // structures for insertion into the database. A LinkLayerDeviceUUID is created
 // at this time.
