@@ -81,9 +81,6 @@ const (
 	// AuthorizedKeysKey is the key for the authorized-keys attribute.
 	AuthorizedKeysKey = "authorized-keys"
 
-	// ProvisionerHarvestModeKey stores the key for this setting.
-	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
-
 	// NumProvisionWorkersKey is the key for number of model provisioner
 	// workers.
 	NumProvisionWorkersKey = "num-provision-workers"
@@ -313,70 +310,6 @@ const (
 	LoggingConfigKey = "logging-config"
 )
 
-// ParseHarvestMode parses description of harvesting method and
-// returns the representation.
-func ParseHarvestMode(description string) (HarvestMode, error) {
-	description = strings.ToLower(description)
-	for method, descr := range harvestingMethodToFlag {
-		if description == descr {
-			return method, nil
-		}
-	}
-	return 0, fmt.Errorf("unknown harvesting method: %s", description)
-}
-
-// HarvestMode is a bit field which is used to store the harvesting
-// behavior for Juju.
-type HarvestMode uint32
-
-const (
-	// HarvestNone signifies that Juju should not harvest any
-	// machines.
-	HarvestNone HarvestMode = 1 << iota
-	// HarvestUnknown signifies that Juju should only harvest machines
-	// which exist, but we don't know about.
-	HarvestUnknown
-	// HarvestDestroyed signifies that Juju should only harvest
-	// machines which have been explicitly released by the user
-	// through a destroy of an application/model/unit.
-	HarvestDestroyed
-	// HarvestAll signifies that Juju should harvest both unknown and
-	// destroyed instances. ♫ Don't fear the reaper. ♫
-	HarvestAll = HarvestUnknown | HarvestDestroyed
-)
-
-// A mapping from method to description. Going this way will be the
-// more common operation, so we want this type of lookup to be O(1).
-var harvestingMethodToFlag = map[HarvestMode]string{
-	HarvestAll:       "all",
-	HarvestNone:      "none",
-	HarvestUnknown:   "unknown",
-	HarvestDestroyed: "destroyed",
-}
-
-// String returns the description of the harvesting mode.
-func (method HarvestMode) String() string {
-	if description, ok := harvestingMethodToFlag[method]; ok {
-		return description
-	}
-	panic("Unknown harvesting method.")
-}
-
-// HarvestNone returns whether or not the None harvesting flag is set.
-func (method HarvestMode) HarvestNone() bool {
-	return method&HarvestNone != 0
-}
-
-// HarvestDestroyed returns whether or not the Destroyed harvesting flag is set.
-func (method HarvestMode) HarvestDestroyed() bool {
-	return method&HarvestDestroyed != 0
-}
-
-// HarvestUnknown returns whether or not the Unknown harvesting flag is set.
-func (method HarvestMode) HarvestUnknown() bool {
-	return method&HarvestUnknown != 0
-}
-
 // GetDefaultSupportedLTSBase returns the DefaultSupportedLTSBase.
 // This is exposed for one reason and one reason only; testing!
 // The fact that PreferredBase doesn't take an argument for a default base
@@ -539,7 +472,6 @@ var defaultConfigValues = map[string]any{
 
 	DefaultBaseKey: "",
 
-	ProvisionerHarvestModeKey:       HarvestDestroyed.String(),
 	NumProvisionWorkersKey:          16,
 	NumContainerProvisionWorkersKey: 4,
 	ResourceTagsKey:                 "",
@@ -1369,22 +1301,6 @@ func (c *Config) TransmitVendorMetrics() bool {
 	return val
 }
 
-// ProvisionerHarvestMode reports the harvesting methodology the
-// provisioner should take.
-func (c *Config) ProvisionerHarvestMode() HarvestMode {
-	if v, ok := c.defined[ProvisionerHarvestModeKey].(string); ok {
-		if method, err := ParseHarvestMode(v); err != nil {
-			// This setting should have already been validated. Don't
-			// burden the caller with handling any errors.
-			panic(err)
-		} else {
-			return method
-		}
-	} else {
-		return HarvestDestroyed
-	}
-}
-
 // NumProvisionWorkers returns the number of provisioner workers to use.
 func (c *Config) NumProvisionWorkers() int {
 	value, _ := c.defined[NumProvisionWorkersKey].(int)
@@ -1754,7 +1670,6 @@ var alwaysOptional = schema.Defaults{
 	SAASIngressAllowKey: schema.Omit,
 
 	"logging-config":                schema.Omit,
-	ProvisionerHarvestModeKey:       schema.Omit,
 	NumProvisionWorkersKey:          schema.Omit,
 	NumContainerProvisionWorkersKey: schema.Omit,
 	HTTPProxyKey:                    schema.Omit,
