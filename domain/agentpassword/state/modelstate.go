@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
@@ -100,7 +101,7 @@ AND    password_hash = $validatePasswordHash.password_hash;
 	var count int
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, args).Get(&args); err != nil {
-			return errors.Errorf("setting password hash: %w", err)
+			return errors.Errorf("checking password hash: %w", err)
 		}
 		count = args.Count
 		return nil
@@ -203,9 +204,7 @@ WHERE  uuid = $entityPasswordHash.uuid;
 		}
 
 		result := outcome.Result()
-		if err != nil {
-			return errors.Errorf("getting result of setting password hash: %w", err)
-		} else if affected, err := result.RowsAffected(); err != nil {
+		if affected, err := result.RowsAffected(); err != nil {
 			return errors.Errorf("getting number of affected rows: %w", err)
 		} else if affected == 0 {
 			return machineerrors.MachineNotFound
@@ -255,7 +254,7 @@ AND       m.nonce = $validatePasswordHashWithNonce.nonce;
 	var valid bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, passwordStmt, args).Get(&result); err != nil {
-			return errors.Errorf("setting password hash: %w", err)
+			return errors.Errorf("checking password hash: %w", err)
 		}
 
 		// We've not found any rows, so the password does not match.
@@ -404,13 +403,11 @@ SET    password_hash = $modelPasswordHash.password_hash,
 			&outcome,
 		)
 		if err != nil {
-			return err
+			return errors.Errorf("getting result of setting model password hash: %w", err)
 		}
 
 		result := outcome.Result()
-		if err != nil {
-			return errors.Errorf("getting result of setting model password hash: %w", err)
-		} else if affected, err := result.RowsAffected(); err != nil {
+		if affected, err := result.RowsAffected(); err != nil {
 			return errors.Errorf("getting number of affected rows: %w", err)
 		} else if affected == 0 {
 			// Should never happen.
@@ -481,6 +478,131 @@ func (s *ModelState) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, 
 		return machineUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
 	}
 	return machineUUIDoutput, nil
+}
+
+// SetApplicationPasswordHash sets the password hash for the given application.
+func (s *ModelState) SetApplicationPasswordHash(
+	ctx context.Context, appID application.ID, passwordHash agentpassword.PasswordHash,
+) error {
+	db, err := s.DB()
+	if err != nil {
+		return err
+	}
+
+	app := applicationID{
+		ID: appID,
+	}
+	appStmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM application
+WHERE uuid = $applicationID.uuid
+`, app, count{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	args := entityPasswordHash{
+		UUID:         appID.String(),
+		PasswordHash: passwordHash,
+	}
+
+	query := `
+INSERT INTO application_agent (application_uuid, password_hash, password_hash_algorithm_id)
+VALUES      ($entityPasswordHash.uuid, $entityPasswordHash.password_hash, 0)
+ON CONFLICT (application_uuid) DO
+UPDATE SET  password_hash = $entityPasswordHash.password_hash,
+            password_hash_algorithm_id = 0
+`
+	stmt, err := s.Prepare(query, args)
+	if err != nil {
+		return errors.Errorf("preparing statement to set password hash: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		c := count{}
+		if err := tx.Query(ctx, appStmt, app).Get(&c); err != nil {
+			return errors.Errorf("querying for application %q: %w", appID, err)
+		} else if c.Count == 0 {
+			return errors.Errorf("application %q: %w", appID, applicationerrors.ApplicationNotFound)
+		}
+
+		if err := tx.Query(ctx, stmt, args).Run(); err != nil {
+			return errors.Errorf("setting password hash: %w", err)
+		}
+		return nil
+	})
+	return errors.Capture(err)
+}
+
+// MatchesApplicationPasswordHash checks if the password is valid or not against the
+// password hash stored in the database.
+func (s *ModelState) MatchesApplicationPasswordHash(
+	ctx context.Context, appID application.ID, passwordHash agentpassword.PasswordHash,
+) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, err
+	}
+
+	args := validatePasswordHash{
+		UUID:         appID.String(),
+		PasswordHash: passwordHash,
+	}
+
+	query := `
+SELECT COUNT(*) AS &validatePasswordHash.count FROM application_agent
+WHERE  application_uuid = $validatePasswordHash.uuid
+AND    password_hash = $validatePasswordHash.password_hash;
+`
+	stmt, err := s.Prepare(query, args)
+	if err != nil {
+		return false, errors.Errorf("preparing statement to match password hash: %w", err)
+	}
+
+	var count int
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, args).Get(&args); err != nil {
+			return errors.Errorf("matching password hash: %w", err)
+		}
+		count = args.Count
+		return nil
+	})
+	return count > 0, errors.Capture(err)
+}
+
+// GetApplicationIDByName returns the application ID for the named application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (s *ModelState) GetApplicationIDByName(ctx context.Context, name string) (application.ID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	app := applicationIDAndName{Name: name}
+
+	queryApplicationStmt, err := s.Prepare(`
+SELECT uuid AS &applicationIDAndName.uuid
+FROM application
+WHERE name = $applicationIDAndName.name
+`, app)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
+		} else if err != nil {
+			return errors.Errorf("looking up UUID for application %q: %w", name, err)
+		}
+		return err
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return app.ID, nil
 }
 
 func encodeUnitPasswordHashes(results []unitPasswordHashes) agentpassword.UnitPasswordHashes {

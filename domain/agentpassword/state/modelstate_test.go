@@ -467,6 +467,113 @@ func (s *modelStateSuite) TestIsMachineControllerNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+// TestSetApplicationPassword asserts that an application password hash is set to
+// the expected hash value.
+func (s *modelStateSuite) TestSetApplicationPassword(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	appID := s.createApplication(c, false)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err := st.SetApplicationPasswordHash(c.Context(), appID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Check that the password hash was set correctly.
+	var hash string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM application_agent WHERE application_uuid = ?", appID).Scan(&hash)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hash, tc.Equals, string(passwordHash))
+}
+
+// TestGetApplicationIDByName asserts that an application ID can be found by name.
+func (s *modelStateSuite) TestGetApplicationIDByName(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	appID := s.createApplication(c, false)
+
+	gotAppID, err := st.GetApplicationIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotAppID, tc.Equals, appID)
+}
+
+// TestGetApplicationIDByNameNotFound asserts that an application not found error
+// is returned when the named application cannot be found.
+func (s *modelStateSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	_, err := st.GetApplicationIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+// TestSetApplicationPasswordApplicationNotFound asserts that an application not
+// found error is returned when the identified application does not exist when
+// the password is set.
+func (s *modelStateSuite) TestSetApplicationPasswordApplicationNotFound(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	appID, err := coreapplication.NewID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetApplicationPasswordHash(c.Context(), appID, passwordHash)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+// TestMatchesApplicationPasswordHash asserts that the provided password hash
+// matches the hash stored for the identified application.
+func (s *modelStateSuite) TestMatchesApplicationPasswordHash(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	appID := s.createApplication(c, false)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err := st.SetApplicationPasswordHash(c.Context(), appID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesApplicationPasswordHash(c.Context(), appID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(valid, tc.IsTrue)
+}
+
+// TestMatchesApplicationPasswordHashApplicationNotFound asserts that the
+// password hash does not match for the missing identified application but no
+// error is returned.
+func (s *modelStateSuite) TestMatchesApplicationPasswordHashApplicationNotFound(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	appID, err := coreapplication.NewID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	valid, err := st.MatchesApplicationPasswordHash(c.Context(), appID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(valid, tc.IsFalse)
+}
+
+// TestMatchesApplicationPasswordHashInvalidPassword asserts that the provided
+// password hash does not match the stored password hash for the identified app.
+func (s *modelStateSuite) TestMatchesApplicationPasswordHashInvalidPassword(c *tc.C) {
+	st := NewModelState(s.TxnRunnerFactory())
+
+	appID := s.createApplication(c, false)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err := st.SetApplicationPasswordHash(c.Context(), appID, passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesApplicationPasswordHash(c.Context(), appID, passwordHash+"1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(valid, tc.IsFalse)
+}
+
 func (s *modelStateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)

@@ -6,6 +6,7 @@ package state
 import (
 	"database/sql"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -68,4 +69,13 @@ type machinePassword struct {
 
 type modelPasswordHash struct {
 	PasswordHash agentpassword.PasswordHash `db:"password_hash"`
+}
+
+type applicationID struct {
+	ID application.ID `db:"uuid"`
+}
+
+type applicationIDAndName struct {
+	ID   application.ID `db:"uuid"`
+	Name string         `db:"name"`
 }
