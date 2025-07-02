@@ -144,6 +144,45 @@ func (c *MockAgentPasswordServiceIsMachineControllerCall) DoAndReturn(f func(con
 	return c
 }
 
+// MatchesApplicationPasswordHash mocks base method.
+func (m *MockAgentPasswordService) MatchesApplicationPasswordHash(arg0 context.Context, arg1, arg2 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MatchesApplicationPasswordHash", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MatchesApplicationPasswordHash indicates an expected call of MatchesApplicationPasswordHash.
+func (mr *MockAgentPasswordServiceMockRecorder) MatchesApplicationPasswordHash(arg0, arg1, arg2 any) *MockAgentPasswordServiceMatchesApplicationPasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MatchesApplicationPasswordHash", reflect.TypeOf((*MockAgentPasswordService)(nil).MatchesApplicationPasswordHash), arg0, arg1, arg2)
+	return &MockAgentPasswordServiceMatchesApplicationPasswordHashCall{Call: call}
+}
+
+// MockAgentPasswordServiceMatchesApplicationPasswordHashCall wrap *gomock.Call
+type MockAgentPasswordServiceMatchesApplicationPasswordHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAgentPasswordServiceMatchesApplicationPasswordHashCall) Return(arg0 bool, arg1 error) *MockAgentPasswordServiceMatchesApplicationPasswordHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAgentPasswordServiceMatchesApplicationPasswordHashCall) Do(f func(context.Context, string, string) (bool, error)) *MockAgentPasswordServiceMatchesApplicationPasswordHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAgentPasswordServiceMatchesApplicationPasswordHashCall) DoAndReturn(f func(context.Context, string, string) (bool, error)) *MockAgentPasswordServiceMatchesApplicationPasswordHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MatchesControllerNodePasswordHash mocks base method.
 func (m *MockAgentPasswordService) MatchesControllerNodePasswordHash(arg0 context.Context, arg1, arg2 string) (bool, error) {
 	m.ctrl.T.Helper()

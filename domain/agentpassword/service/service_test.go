@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
@@ -399,6 +400,116 @@ func (s *serviceSuite) TestMatchesControllerNodePasswordHashInvalidPassword(c *t
 	service := NewService(s.modelState, s.controllerState)
 	_, err := service.MatchesControllerNodePasswordHash(c.Context(), "0", "abc")
 	c.Assert(err, tc.ErrorIs, agentpassworderrors.InvalidPassword)
+}
+
+func (s *serviceSuite) TestSetApplicationPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID, err := application.NewID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelState.EXPECT().SetApplicationPasswordHash(gomock.Any(), appID, hashPassword(password)).Return(nil)
+
+	service := NewService(s.modelState, s.controllerState)
+	err = service.SetApplicationPassword(c.Context(), appID, password)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetApplicationPasswordNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID, err := application.NewID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelState.EXPECT().SetApplicationPasswordHash(gomock.Any(), appID, hashPassword(password)).Return(applicationerrors.ApplicationNotFound)
+
+	service := NewService(s.modelState, s.controllerState)
+	err = service.SetApplicationPassword(c.Context(), appID, password)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *serviceSuite) TestMatchesApplicationPasswordHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID, err := application.NewID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	appName := "foo"
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.modelState.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), appID, hashPassword(password)).Return(true, nil)
+
+	service := NewService(s.modelState, s.controllerState)
+	valid, err := service.MatchesApplicationPasswordHash(c.Context(), appName, password)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestMatchesApplicationPasswordHashNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID, err := application.NewID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	appName := "foo"
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, applicationerrors.ApplicationNotFound)
+
+	service := NewService(s.modelState, s.controllerState)
+	valid, err := service.MatchesApplicationPasswordHash(c.Context(), appName, password)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Check(valid, tc.IsFalse)
+}
+
+func (s *serviceSuite) TestMatchesApplicationPasswordHashNotMatch(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID, err := application.NewID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	appName := "foo"
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.modelState.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), appID, hashPassword(password)).Return(false, nil)
+
+	service := NewService(s.modelState, s.controllerState)
+	valid, err := service.MatchesApplicationPasswordHash(c.Context(), appName, password)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+}
+
+func (s *serviceSuite) TestMatchesApplicationPasswordHashEmptyPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+
+	service := NewService(s.modelState, s.controllerState)
+	valid, err := service.MatchesApplicationPasswordHash(c.Context(), appName, "")
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.EmptyPassword)
+	c.Check(valid, tc.IsFalse)
+}
+
+func (s *serviceSuite) TestMatchesApplicationPasswordHashInvalidPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+
+	service := NewService(s.modelState, s.controllerState)
+	valid, err := service.MatchesApplicationPasswordHash(c.Context(), appName, "123")
+	c.Assert(err, tc.ErrorIs, agentpassworderrors.InvalidPassword)
+	c.Check(valid, tc.IsFalse)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

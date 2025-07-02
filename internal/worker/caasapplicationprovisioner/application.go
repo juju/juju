@@ -30,14 +30,15 @@ type appNotifyWorker interface {
 }
 
 type appWorker struct {
-	catacomb           catacomb.Catacomb
-	applicationService ApplicationService
-	statusService      StatusService
-	facade             CAASProvisionerFacade
-	broker             CAASBroker
-	clock              clock.Clock
-	logger             logger.Logger
-	ops                ApplicationOps
+	catacomb             catacomb.Catacomb
+	applicationService   ApplicationService
+	statusService        StatusService
+	agentPasswordService AgentPasswordService
+	facade               CAASProvisionerFacade
+	broker               CAASBroker
+	clock                clock.Clock
+	logger               logger.Logger
+	ops                  ApplicationOps
 
 	appID       coreapplication.ID
 	modelTag    names.ModelTag
@@ -52,8 +53,9 @@ type appWorker struct {
 type AppWorkerConfig struct {
 	AppID coreapplication.ID
 
-	ApplicationService ApplicationService
-	StatusService      StatusService
+	ApplicationService   ApplicationService
+	StatusService        StatusService
+	AgentPasswordService AgentPasswordService
 
 	Ops    ApplicationOps
 	Broker CAASBroker
@@ -78,17 +80,18 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
-			applicationService:  config.ApplicationService,
-			statusService:       config.StatusService,
-			appID:               config.AppID,
-			facade:              config.Facade,
-			broker:              config.Broker,
-			modelTag:            config.ModelTag,
-			clock:               config.Clock,
-			logger:              config.Logger,
-			changes:             changes,
-			ops:                 ops,
-			engineReportRequest: make(chan chan<- map[string]any),
+			applicationService:   config.ApplicationService,
+			statusService:        config.StatusService,
+			agentPasswordService: config.AgentPasswordService,
+			appID:                config.AppID,
+			facade:               config.Facade,
+			broker:               config.Broker,
+			modelTag:             config.ModelTag,
+			clock:                config.Clock,
+			logger:               config.Logger,
+			changes:              changes,
+			ops:                  ops,
+			engineReportRequest:  make(chan chan<- map[string]any),
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Name: "caas-application-provisioner",
@@ -177,9 +180,9 @@ func (a *appWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = a.facade.SetPassword(ctx, name, a.password)
+		err = a.agentPasswordService.SetApplicationPassword(ctx, a.appID, a.password)
 		if err != nil {
-			return errors.Annotate(err, "failed to set application api passwords")
+			return errors.Annotate(err, "failed to set application api password")
 		}
 	}
 

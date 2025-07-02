@@ -82,14 +82,15 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	w, err := config.NewWorker(Config{
-		ApplicationService: domainServices.Application(),
-		StatusService:      domainServices.Status(),
-		Facade:             apicaasapplicationprovisioner.NewClient(apiCaller),
-		Broker:             broker,
-		ModelTag:           modelTag,
-		Clock:              clock,
-		Logger:             config.Logger,
-		NewAppWorker:       NewAppWorker,
+		ApplicationService:   domainServices.Application(),
+		StatusService:        domainServices.Status(),
+		AgentPasswordService: domainServices.AgentPassword(),
+		Facade:               apicaasapplicationprovisioner.NewClient(apiCaller),
+		Broker:               broker,
+		ModelTag:             modelTag,
+		Clock:                clock,
+		Logger:               config.Logger,
+		NewAppWorker:         NewAppWorker,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

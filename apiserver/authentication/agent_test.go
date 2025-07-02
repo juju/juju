@@ -20,12 +20,9 @@ import (
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testhelpers"
 )
 
 type agentAuthenticatorSuite struct {
-	testhelpers.IsolationSuite
-
 	agentPasswordService *MockAgentPasswordService
 }
 
@@ -45,7 +42,7 @@ func (s *agentAuthenticatorSuite) TestUserLogin(c *tc.C) {
 
 	authTag := names.NewUserTag("joeblogs")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag: authTag,
 	})
@@ -59,7 +56,7 @@ func (s *agentAuthenticatorSuite) TestUnitLogin(c *tc.C) {
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
@@ -75,7 +72,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *tc.C) {
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -90,7 +87,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *tc.C) {
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -105,7 +102,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *tc.C) {
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -120,7 +117,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *tc.C) {
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -135,7 +132,7 @@ func (s *agentAuthenticatorSuite) TestMachineLogin(c *tc.C) {
 
 	authTag := names.NewMachineTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
@@ -152,7 +149,7 @@ func (s *agentAuthenticatorSuite) TestMachineLoginEmptyCredentials(c *tc.C) {
 
 	authTag := names.NewMachineTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -168,7 +165,7 @@ func (s *agentAuthenticatorSuite) TestMachineLoginEmptyNonce(c *tc.C) {
 
 	authTag := names.NewMachineTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
@@ -184,7 +181,7 @@ func (s *agentAuthenticatorSuite) TestMachineLoginInvalidCredentials(c *tc.C) {
 
 	authTag := names.NewMachineTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -200,7 +197,7 @@ func (s *agentAuthenticatorSuite) TestMachineLoginMachineNotFound(c *tc.C) {
 
 	authTag := names.NewMachineTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -216,7 +213,7 @@ func (s *agentAuthenticatorSuite) TestMachineLoginMachineNotProvisioned(c *tc.C)
 
 	authTag := names.NewMachineTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -232,7 +229,7 @@ func (s *agentAuthenticatorSuite) TestMachineLoginMachineError(c *tc.C) {
 
 	authTag := names.NewMachineTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -247,7 +244,7 @@ func (s *agentAuthenticatorSuite) TestControllerNodeLogin(c *tc.C) {
 
 	authTag := names.NewControllerAgentTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
@@ -263,7 +260,7 @@ func (s *agentAuthenticatorSuite) TestControllerNodeLoginEmptyCredentials(c *tc.
 
 	authTag := names.NewControllerAgentTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -278,7 +275,7 @@ func (s *agentAuthenticatorSuite) TestControllerNodeLoginInvalidCredentials(c *t
 
 	authTag := names.NewControllerAgentTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -293,7 +290,7 @@ func (s *agentAuthenticatorSuite) TestControllerNodeLoginControllerNodeNotFound(
 
 	authTag := names.NewControllerAgentTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -308,7 +305,83 @@ func (s *agentAuthenticatorSuite) TestControllerNodeLoginControllerNodeError(c *
 
 	authTag := names.NewControllerAgentTag("0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "",
+	})
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *agentAuthenticatorSuite) TestApplicationLogin(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), "foo", "password").Return(true, nil)
+
+	authTag := names.NewApplicationTag("foo")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
+	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "password",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entity.Tag(), tc.DeepEquals, authTag)
+}
+
+func (s *agentAuthenticatorSuite) TestApplicationLoginEmptyCredentials(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), "foo", "").Return(false, agentpassworderrors.EmptyPassword)
+
+	authTag := names.NewApplicationTag("foo")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrBadRequest)
+}
+
+func (s *agentAuthenticatorSuite) TestApplicationLoginInvalidCredentials(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), "foo", "123").Return(false, agentpassworderrors.InvalidPassword)
+
+	authTag := names.NewApplicationTag("foo")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "123",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
+}
+
+func (s *agentAuthenticatorSuite) TestApplicationLoginApplicationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), "foo", "").Return(false, applicationerrors.ApplicationNotFound)
+
+	authTag := names.NewApplicationTag("foo")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
+	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrUnauthorized)
+}
+
+func (s *agentAuthenticatorSuite) TestApplicationLoginOtherError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), "foo", "").Return(false, errors.Errorf("boom"))
+
+	authTag := names.NewApplicationTag("foo")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",

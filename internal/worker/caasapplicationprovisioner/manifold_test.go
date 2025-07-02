@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	agentpasswordservice "github.com/juju/juju/domain/agentpassword/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	statusservice "github.com/juju/juju/domain/status/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -98,6 +99,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	mockDomainServices := mocks.NewMockModelDomainServices(ctrl)
 	mockDomainServices.EXPECT().Application().Return(&applicationservice.WatchableService{})
 	mockDomainServices.EXPECT().Status().Return(&statusservice.LeadershipService{})
+	mockDomainServices.EXPECT().AgentPassword().Return(&agentpasswordservice.Service{})
 
 	called := false
 	s.config.NewWorker = func(config caasapplicationprovisioner.Config) (worker.Worker, error) {
@@ -111,6 +113,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		mc.AddExpr(`_.UnitFacade`, tc.NotNil)
 		mc.AddExpr(`_.ApplicationService`, tc.NotNil)
 		mc.AddExpr(`_.StatusService`, tc.NotNil)
+		mc.AddExpr(`_.AgentPasswordService`, tc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.Config{
 			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		})

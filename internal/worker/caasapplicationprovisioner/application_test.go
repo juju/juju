@@ -72,17 +72,19 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	ops caasapplicationprovisioner.ApplicationOps,
 	applicationService caasapplicationprovisioner.ApplicationService,
 	statusService caasapplicationprovisioner.StatusService,
+	agentPasswordService caasapplicationprovisioner.AgentPasswordService,
 ) worker.Worker {
 	config := caasapplicationprovisioner.AppWorkerConfig{
-		AppID:              s.appID,
-		Facade:             facade,
-		Broker:             broker,
-		ModelTag:           s.modelTag,
-		Clock:              clk,
-		Logger:             s.logger,
-		Ops:                ops,
-		ApplicationService: applicationService,
-		StatusService:      statusService,
+		AppID:                s.appID,
+		Facade:               facade,
+		Broker:               broker,
+		ModelTag:             s.modelTag,
+		Clock:                clk,
+		Logger:               s.logger,
+		Ops:                  ops,
+		ApplicationService:   applicationService,
+		StatusService:        statusService,
+		AgentPasswordService: agentPasswordService,
 	}
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
 	c.Assert(startFunc, tc.NotNil)
@@ -101,6 +103,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
+	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	done := make(chan struct{})
 
 	gomock.InOrder(
@@ -109,7 +112,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 			return "", applicationerrors.ApplicationNotFound
 		}),
 	)
-	appWorker := s.startAppWorker(c, nil, facade, broker, ops, applicationService, statusService)
+	appWorker := s.startAppWorker(c, nil, facade, broker, ops, applicationService, statusService, agentPasswordService)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -125,6 +128,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
+	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
 
 	done := make(chan struct{})
@@ -143,7 +147,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 				return nil
 			}),
 	)
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -159,6 +163,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
+	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
@@ -180,7 +185,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 
 		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
 
-		facade.EXPECT().SetPassword(gomock.Any(), "test", gomock.Any()).Return(nil),
+		agentPasswordService.EXPECT().SetApplicationPassword(gomock.Any(), s.appID, gomock.Any()).Return(nil),
 
 		applicationService.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
@@ -250,7 +255,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -265,6 +270,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
+	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
@@ -326,7 +332,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -341,6 +347,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
+	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
@@ -362,7 +369,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 
 		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
 
-		facade.EXPECT().SetPassword(gomock.Any(), "test", gomock.Any()).Return(nil),
+		agentPasswordService.EXPECT().SetApplicationPassword(gomock.Any(), s.appID, gomock.Any()).Return(nil),
 
 		applicationService.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
@@ -437,7 +444,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }

@@ -120,17 +120,12 @@ func NewStateAuthenticator(
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	systemState, err := statePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	passwordService, err := agentPasswordServiceGetter.GetAgentPasswordServiceForModel(ctx, controllerModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(passwordService, systemState, nil)
+	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(passwordService, nil)
 	stateAuthenticator, err := stateauthenticator.NewAuthenticator(
 		ctx,
 		controllerModelUUID, controllerConfigService,

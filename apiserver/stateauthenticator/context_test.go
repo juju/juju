@@ -67,7 +67,7 @@ func (s *macaroonCommonSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
 	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
 
-	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, nil, loggertesting.WrapCheckLog(c))
+	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, loggertesting.WrapCheckLog(c))
 
 	authenticator, err := NewAuthenticator(
 		c.Context(),

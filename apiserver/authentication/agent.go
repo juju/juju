@@ -38,22 +38,23 @@ type AgentPasswordService interface {
 
 	// IsMachineController checks if the machine is a controller.
 	IsMachineController(context.Context, machine.Name) (bool, error)
+
+	// MatchesApplicationPasswordHash checks if the password is valid or not.
+	MatchesApplicationPasswordHash(context.Context, string, string) (bool, error)
 }
 
 // AgentAuthenticatorGetter is a factory for creating authenticators, which
 // can create authenticators for a given state.
 type AgentAuthenticatorGetter struct {
 	agentPasswordService AgentPasswordService
-	legacyState          *state.State
 	logger               corelogger.Logger
 }
 
 // NewAgentAuthenticatorGetter returns a new agent authenticator factory, for
 // a known state.
-func NewAgentAuthenticatorGetter(agentPasswordService AgentPasswordService, legacy *state.State, logger corelogger.Logger) AgentAuthenticatorGetter {
+func NewAgentAuthenticatorGetter(agentPasswordService AgentPasswordService, logger corelogger.Logger) AgentAuthenticatorGetter {
 	return AgentAuthenticatorGetter{
 		agentPasswordService: agentPasswordService,
-		legacyState:          legacy,
 		logger:               logger,
 	}
 }
@@ -62,7 +63,6 @@ func NewAgentAuthenticatorGetter(agentPasswordService AgentPasswordService, lega
 func (f AgentAuthenticatorGetter) Authenticator() EntityAuthenticator {
 	return agentAuthenticator{
 		agentPasswordService: f.agentPasswordService,
-		state:                f.legacyState,
 		logger:               f.logger,
 	}
 }
@@ -77,13 +77,7 @@ func (f AgentAuthenticatorGetter) AuthenticatorForModel(agentPasswordService Age
 
 type agentAuthenticator struct {
 	agentPasswordService AgentPasswordService
-	state                *state.State
 	logger               corelogger.Logger
-}
-
-type taggedAuthenticator interface {
-	state.Entity
-	state.Authenticator
 }
 
 // Authenticate authenticates the provided entity.
@@ -102,10 +96,13 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 	case names.ControllerAgentTagKind:
 		return a.authenticateControllerAgent(ctx, authParams.AuthTag.(names.ControllerAgentTag), authParams.Credentials)
 
-	default:
-		entity, err := a.fallbackAuth(ctx, authParams)
-		return entity, err
+	case names.ApplicationTagKind:
+		return a.authenticateApplication(ctx, authParams.AuthTag.(names.ApplicationTag), authParams.Credentials)
+
+	case names.ModelTagKind:
+		return nil, errors.NotImplemented
 	}
+	return nil, apiservererrors.ErrBadRequest
 }
 
 func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.UnitTag, credentials string) (state.Entity, error) {
@@ -190,22 +187,30 @@ func (a *agentAuthenticator) authenticateControllerAgent(ctx context.Context, ta
 	return TagToEntity(tag), nil
 }
 
-func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthParams) (state.Entity, error) {
-	entity, err := a.state.FindEntity(authParams.AuthTag)
-	if errors.Is(err, errors.NotFound) {
-		logger.Debugf(ctx, "cannot authenticate unknown entity: %v", authParams.AuthTag)
+func (a *agentAuthenticator) authenticateApplication(ctx context.Context, tag names.ApplicationTag, credentials string) (state.Entity, error) {
+	appName := tag.Id()
+
+	// Check if the password is correct.
+	// - If the password is empty, then we consider that a bad request
+	//   (incorrect payload).
+	// - If the password is invalid, then we consider that unauthorized.
+	// - If the application is not found, then we consider that unauthorized.
+	//   Prevent the knowing about which application the password didn't match
+	//   (rainbow attack).
+	// - If the password isn't valid for the application, then we consider that
+	//   unauthorized.
+	// - Any other error, is considered an internal server error.
+
+	valid, err := a.agentPasswordService.MatchesApplicationPasswordHash(ctx, appName, credentials)
+	if errors.Is(err, agentpassworderrors.EmptyPassword) {
+		return nil, errors.Trace(fmt.Errorf("application authentication: %w", apiservererrors.ErrBadRequest))
+	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, errors.Trace(err)
-	}
-	authenticator, ok := entity.(taggedAuthenticator)
-	if !ok {
-		return nil, errors.Trace(fmt.Errorf("authenticate fallback: %w", apiservererrors.ErrBadRequest))
-	}
-	if !authenticator.PasswordValid(authParams.Credentials) {
+	} else if !valid {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	return entity, nil
+	return TagToEntity(tag), nil
 }
