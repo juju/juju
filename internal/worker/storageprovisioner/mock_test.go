@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
@@ -89,20 +88,6 @@ type mockStringsWatcher struct {
 
 func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 	return w.changes
-}
-
-type mockApplicationsWatcher struct {
-	watcher *watchertest.MockStringsWatcher
-}
-
-func (w *mockApplicationsWatcher) WatchApplications(_ context.Context) (watcher.StringsWatcher, error) {
-	return w.watcher, nil
-}
-
-func newMockApplicationsWatcher(ch chan []string) *mockApplicationsWatcher {
-	return &mockApplicationsWatcher{
-		watcher: watchertest.NewMockStringsWatcher(ch),
-	}
 }
 
 func newMockAttachmentsWatcher() *mockAttachmentsWatcher {
