@@ -80,11 +80,6 @@ type agentAuthenticator struct {
 	logger               corelogger.Logger
 }
 
-type taggedAuthenticator interface {
-	state.Entity
-	state.Authenticator
-}
-
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
 func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error) {
