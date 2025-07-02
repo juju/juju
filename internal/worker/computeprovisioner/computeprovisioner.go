@@ -133,7 +133,7 @@ func (p *environProvisioner) Wait() error {
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *environProvisioner) getStartTask(ctx context.Context, harvestMode config.HarvestMode, workerCount int) (provisionertask.ProvisionerTask, error) {
+func (p *environProvisioner) getStartTask(ctx context.Context, workerCount int) (provisionertask.ProvisionerTask, error) {
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
 	machineWatcher, err := p.getMachineWatcher(ctx)
@@ -163,7 +163,6 @@ func (p *environProvisioner) getStartTask(ctx context.Context, harvestMode confi
 		ControllerUUID:               controllerCfg.ControllerUUID(),
 		HostTag:                      hostTag,
 		Logger:                       p.logger,
-		HarvestMode:                  harvestMode,
 		ControllerAPI:                p.controllerAPI,
 		MachinesAPI:                  p.machinesAPI,
 		GetMachineInstanceInfoSetter: p.machineInstanceInfoSetter,
@@ -314,9 +313,8 @@ func (p *environProvisioner) loop() error {
 		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
-	harvestMode := modelConfig.ProvisionerHarvestMode()
 	workerCount := modelConfig.NumProvisionWorkers()
-	task, err := p.getStartTask(ctx, harvestMode, workerCount)
+	task, err := p.getStartTask(ctx, workerCount)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -340,7 +338,6 @@ func (p *environProvisioner) loop() error {
 			if err := p.setConfig(ctx, modelConfig); err != nil {
 				return errors.Annotate(err, "loaded invalid model configuration")
 			}
-			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
 			task.SetNumProvisionWorkers(modelConfig.NumProvisionWorkers())
 		}
 	}

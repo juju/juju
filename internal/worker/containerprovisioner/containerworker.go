@@ -106,10 +106,8 @@ func (w *ContainerSetupAndProvisioner) work() error {
 
 	// The container provisioner is now doing all the work, sit and wait
 	// to be shutdown.
-	select {
-	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
-	}
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
 
 // checkDying, returns an error if this worker's catacomb

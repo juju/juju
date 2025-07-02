@@ -77,7 +77,7 @@ func (s *CommonProvisionerSuite) expectStartup(c *tc.C) {
 	watchCfg := watchertest.NewMockNotifyWatcher(s.modelConfigCh)
 	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
 
-	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String()})
+	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{})
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).MaxTimes(2)
 
 	s.provisionerStarted = make(chan bool)
@@ -120,54 +120,12 @@ func (s *CommonProvisionerSuite) checkStartInstance(c *tc.C, m *testMachine) {
 	c.Fatalf("machine %v not started", m.id)
 }
 
-func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *tc.C, p computeprovisioner.Provisioner, container bool) {
-	// Inject our observer into the provisioner
-	cfgObserver := make(chan *config.Config)
-	computeprovisioner.SetObserver(p, cfgObserver)
-
-	attrs := coretesting.FakeConfig()
-	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
-	modelCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, tc.ErrorIsNil)
-	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
-
-	if !container {
-		s.broker.EXPECT().SetConfig(gomock.Any(), modelCfg).Return(nil)
-	}
-
-	s.sendModelConfigChange(c)
-
-	// Wait for the PA to load the new configuration. We wait for the change we expect
-	// like this because sometimes we pick up the initial harvest config (destroyed)
-	// rather than the one we change to (all).
-	var received []int
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case newCfg := <-cfgObserver:
-			if newCfg.ProvisionerHarvestMode() == config.HarvestDestroyed {
-				return
-			}
-			received = append(received, newCfg.NumProvisionWorkers())
-		case <-timeout:
-			if len(received) == 0 {
-				c.Fatalf("PA did not action config change")
-			} else {
-				c.Fatalf("timed out waiting for config to change to '%v', received %+v",
-					config.HarvestDestroyed.String(), received)
-			}
-		}
-	}
-}
-
 func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *tc.C, p computeprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
 	computeprovisioner.SetObserver(p, cfgObserver)
 
-	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String(),
-	})
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{})
 	if container {
 		attrs[config.NumContainerProvisionWorkersKey] = 20
 	} else {
@@ -394,15 +352,6 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 
 	// Make sure the nonce is set correctly.
 	c.Assert(strings.HasPrefix(nonce, "machine-0:"), tc.IsTrue)
-}
-
-func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChanges(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
-	p := s.newEnvironProvisioner(c)
-	defer workertest.CleanKill(c, p)
-	s.assertProvisionerObservesConfigChanges(c, p, false)
 }
 
 func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChangesWorkerCount(c *tc.C) {
