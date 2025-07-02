@@ -77,7 +77,7 @@ func (s *lxdProvisionerSuite) expectStartup(c *tc.C) {
 	watchCfg := watchertest.NewMockNotifyWatcher(s.modelConfigCh)
 	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
 
-	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String()})
+	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{})
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).MaxTimes(2)
 
 	s.provisionerStarted = make(chan bool)
@@ -202,16 +202,6 @@ func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *tc.C) {
 	s.waitForRemovalMark(c, c666)
 }
 
-func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
-	p := s.newLXDProvisioner(c, ctrl)
-	defer workertest.CleanKill(c, p)
-
-	s.assertProvisionerObservesConfigChanges(c, p, true)
-}
-
 func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
@@ -232,54 +222,12 @@ func (s *lxdProvisionerSuite) waitForRemovalMark(c *tc.C, m *testMachine) {
 	c.Fatalf("machine %q not marked for removal", m.id)
 }
 
-func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChanges(c *tc.C, p containerprovisioner.Provisioner, container bool) {
-	// Inject our observer into the provisioner
-	cfgObserver := make(chan *config.Config)
-	containerprovisioner.SetObserver(p, cfgObserver)
-
-	attrs := coretesting.FakeConfig()
-	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
-	modelCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, tc.ErrorIsNil)
-	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
-
-	if !container {
-		s.broker.EXPECT().SetConfig(gomock.Any(), modelCfg).Return(nil)
-	}
-
-	s.sendModelConfigChange(c)
-
-	// Wait for the PA to load the new configuration. We wait for the change we expect
-	// like this because sometimes we pick up the initial harvest config (destroyed)
-	// rather than the one we change to (all).
-	var received []int
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case newCfg := <-cfgObserver:
-			if newCfg.ProvisionerHarvestMode() == config.HarvestDestroyed {
-				return
-			}
-			received = append(received, newCfg.NumProvisionWorkers())
-		case <-timeout:
-			if len(received) == 0 {
-				c.Fatalf("PA did not action config change")
-			} else {
-				c.Fatalf("timed out waiting for config to change to '%v', received %+v",
-					config.HarvestDestroyed.String(), received)
-			}
-		}
-	}
-}
-
 func (s *lxdProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *tc.C, p containerprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
 	containerprovisioner.SetObserver(p, cfgObserver)
 
-	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String(),
-	})
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{})
 	if container {
 		attrs[config.NumContainerProvisionWorkersKey] = 20
 	} else {

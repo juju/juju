@@ -176,10 +176,9 @@ func (p *containerProvisioner) loop() error {
 		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
-	harvestMode := modelConfig.ProvisionerHarvestMode()
 	workerCount := modelConfig.NumContainerProvisionWorkers()
 
-	task, err := p.getStartTask(ctx, harvestMode, workerCount)
+	task, err := p.getStartTask(ctx, workerCount)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -200,7 +199,6 @@ func (p *containerProvisioner) loop() error {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
 			p.configObserver.notify(modelConfig)
-			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
 			task.SetNumProvisionWorkers(modelConfig.NumContainerProvisionWorkers())
 		}
 	}
@@ -240,7 +238,7 @@ func (p *containerProvisioner) scopedContext() (context.Context, context.CancelF
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *containerProvisioner) getStartTask(ctx context.Context, harvestMode config.HarvestMode, workerCount int) (provisionertask.ProvisionerTask, error) {
+func (p *containerProvisioner) getStartTask(ctx context.Context, workerCount int) (provisionertask.ProvisionerTask, error) {
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
 	machineWatcher, err := p.getMachineWatcher(ctx)
@@ -266,7 +264,6 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, harvestMode con
 		ControllerUUID:               controllerCfg.ControllerUUID(),
 		HostTag:                      hostTag,
 		Logger:                       p.logger,
-		HarvestMode:                  harvestMode,
 		ControllerAPI:                p.controllerAPI,
 		MachinesAPI:                  p.machinesAPI,
 		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,

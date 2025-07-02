@@ -315,53 +315,6 @@ var configTests = []configTest{
 		}),
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
-		about: fmt.Sprintf(
-			"%s: %s",
-			"provisioner-harvest-mode",
-			config.HarvestAll.String(),
-		),
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"provisioner-harvest-mode": config.HarvestAll.String(),
-		}),
-	}, {
-		about: fmt.Sprintf(
-			"%s: %s",
-			"provisioner-harvest-mode",
-			config.HarvestDestroyed.String(),
-		),
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"provisioner-harvest-mode": config.HarvestDestroyed.String(),
-		}),
-	}, {
-		about: fmt.Sprintf(
-			"%s: %s",
-			"provisioner-harvest-mode",
-			config.HarvestUnknown.String(),
-		),
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"provisioner-harvest-mode": config.HarvestUnknown.String(),
-		}),
-	}, {
-		about: fmt.Sprintf(
-			"%s: %s",
-			"provisioner-harvest-mode",
-			config.HarvestNone.String(),
-		),
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"provisioner-harvest-mode": config.HarvestNone.String(),
-		}),
-	}, {
-		about:       "provisioner-harvest-mode: incorrect",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"provisioner-harvest-mode": "yes please",
-		}),
-		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
-	}, {
 		about:       "num-provision-workers: 42",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -687,14 +640,6 @@ func (test configTest) check(c *tc.C) {
 		c.Check(cfg.SSLHostnameVerification(), tc.Equals, v)
 	}
 
-	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
-		harvestMeth, err := config.ParseHarvestMode(v.(string))
-		c.Check(err, tc.ErrorIsNil)
-		c.Check(cfg.ProvisionerHarvestMode(), tc.Equals, harvestMeth)
-	} else {
-		c.Check(cfg.ProvisionerHarvestMode(), tc.Equals, config.HarvestDestroyed)
-	}
-
 	if v, ok := test.attrs["image-stream"]; ok {
 		c.Check(cfg.ImageStream(), tc.Equals, v)
 	} else {
@@ -815,9 +760,6 @@ func (s *ConfigSuite) TestAllAttrs(c *tc.C) {
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), tc.DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), tc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
-
-	// Verify that default provisioner-harvest-mode is good.
-	c.Assert(cfg.ProvisionerHarvestMode(), tc.Equals, config.HarvestDestroyed)
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",

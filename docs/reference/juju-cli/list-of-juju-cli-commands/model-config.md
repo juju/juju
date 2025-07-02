@@ -257,9 +257,6 @@ The following keys are available:
     num-provision-workers:
       type: int
       description: The number of provisioning workers to use per model
-    provisioner-harvest-mode:
-      type: string
-      description: What to do with unknown machines (default destroyed)
     proxy-ssh:
       type: bool
       description: Whether SSH commands should be proxied through the API server
