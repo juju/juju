@@ -792,7 +792,6 @@ func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Contex
 	if !isSubordinate && !snapshotCons.HasArch() {
 		a := coreconstraints.ArchOrDefault(snapshotCons, nil)
 		snapshotCons.Arch = &a
-		mergedCons = snapshotCons
 	}
 
 	return snapshotCons, nil

@@ -1104,7 +1104,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
+		w.Check(watchertest.SliceAssert([]string{"foo/0"}))
 	})
 
 	harness.AddTest(func(c *tc.C) {

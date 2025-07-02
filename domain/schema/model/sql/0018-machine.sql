@@ -306,7 +306,7 @@ LEFT JOIN constraint_zone AS czone ON c.uuid = czone.constraint_uuid;
 
 CREATE VIEW v_machine_platform AS
 SELECT
-    mp.machine_uuid AS machine_uuid,
+    mp.machine_uuid,
     os.name AS os_name,
     mp.channel,
     a.name AS architecture

@@ -199,16 +199,3 @@ func (s *providerServiceSuite) expectCreateMachineStatusHistory(c *tc.C, machine
 			return nil
 		})
 }
-
-func (s *providerServiceSuite) expectCreateMachineParentStatusHistory(c *tc.C) {
-	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID("0/lxd/1"), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
-			c.Check(si.Status, tc.Equals, status.Pending)
-			return nil
-		})
-	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("0/lxd/1"), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
-			c.Check(si.Status, tc.Equals, status.Pending)
-			return nil
-		})
-}

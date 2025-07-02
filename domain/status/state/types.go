@@ -299,10 +299,6 @@ type setMachineStatus struct {
 	MachineUUID string     `db:"machine_uuid"`
 }
 
-type instanceID struct {
-	ID string `db:"instance_id"`
-}
-
 type machineStatusDetails struct {
 	Name                       coremachine.Name          `db:"name"`
 	UUID                       coremachine.UUID          `db:"uuid"`

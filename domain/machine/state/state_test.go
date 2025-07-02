@@ -1223,6 +1223,7 @@ func (s *stateSuite) TestGetMachineBase(c *tc.C) {
 			Architecture: architecture.AMD64,
 		},
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	base, err := s.state.GetMachineBase(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)

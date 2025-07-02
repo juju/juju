@@ -110,16 +110,6 @@ func (s *CommonProvisionerSuite) waitForProvisioner(c *tc.C) {
 	}
 }
 
-func (s *CommonProvisionerSuite) checkStartInstance(c *tc.C, m *testMachine) {
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		_, err := m.InstanceId(c.Context())
-		if err == nil {
-			return
-		}
-	}
-	c.Fatalf("machine %v not started", m.id)
-}
-
 func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCount(c *tc.C, p computeprovisioner.Provisioner, container bool) {
 	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config)
@@ -343,7 +333,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	select {
 	case instID := <-instanceStart:
 		// This is a hack, only needed to continue using the hand-made mock machine
-		// API, which should dissapear soon.
+		// API, which should dissappear soon.
 		m666.SetInstanceInfo(c.Context(), instance.Id(instID), "", "", nil, nil, nil, nil, nil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for instance to start")

@@ -2264,27 +2264,6 @@ VALUES ($setMachineStatus.*)
 	})
 }
 
-func (st *ModelState) getInstanceID(ctx context.Context, tx *sqlair.TX, mUUID machineUUID) (string, error) {
-	query := `
-SELECT &instanceID.instance_id
-FROM   machine_cloud_instance
-WHERE  machine_uuid = $machineUUID.uuid;`
-	queryStmt, err := st.Prepare(query, mUUID, instanceID{})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var result instanceID
-
-	if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) || result.ID == "" {
-		return "", errors.Errorf("getting machine instance id for %q: %w", mUUID, machineerrors.NotProvisioned)
-	} else if err != nil {
-		return "", errors.Errorf("querying instance for machine %q: %w", mUUID, err)
-	}
-
-	return result.ID, nil
-}
-
 func ptr[T any](v T) *T {
 	return &v
 }
