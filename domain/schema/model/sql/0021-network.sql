@@ -28,7 +28,8 @@ CREATE UNIQUE INDEX idx_virtual_port_type_name
 ON virtual_port_type (name);
 
 INSERT INTO virtual_port_type VALUES
-(0, 'nonvirtualport'),
+-- Note that this corresponds with corenetwork.NonVirtualPortType
+(0, ''),
 (1, 'openvswitch');
 
 CREATE TABLE link_layer_device (

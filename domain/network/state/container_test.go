@@ -136,6 +136,9 @@ func (s *containerSuite) TestNICsInSpaces(c *tc.C) {
 	_, err = db.ExecContext(ctx, "UPDATE ip_address SET subnet_uuid = ? WHERE uuid = ?", subUUID2, addrUUID2)
 	c.Assert(err, tc.ErrorIsNil)
 
+	_, err = db.ExecContext(ctx, "UPDATE link_layer_device SET virtual_port_type_id = 1 WHERE uuid = ?", dUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+
 	// Act.
 	nics, err := s.state.NICsInSpaces(ctx, nUUID)
 
@@ -143,19 +146,22 @@ func (s *containerSuite) TestNICsInSpaces(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(nics, tc.DeepEquals, map[string][]network.NetInterface{
 		spUUID1: {{
-			Name:       eth,
-			MACAddress: &ethMAC,
-			Type:       corenetwork.EthernetDevice,
+			Name:            eth,
+			MACAddress:      &ethMAC,
+			Type:            corenetwork.EthernetDevice,
+			VirtualPortType: corenetwork.OvsPort,
 		}},
 		spUUID2: {{
-			Name:       eth,
-			MACAddress: &ethMAC,
-			Type:       corenetwork.EthernetDevice,
+			Name:            eth,
+			MACAddress:      &ethMAC,
+			Type:            corenetwork.EthernetDevice,
+			VirtualPortType: corenetwork.OvsPort,
 		}},
 		"": {{
-			Name:       bond,
-			MACAddress: &bondMAC,
-			Type:       corenetwork.BondDevice,
+			Name:            bond,
+			MACAddress:      &bondMAC,
+			Type:            corenetwork.BondDevice,
+			VirtualPortType: corenetwork.NonVirtualPort,
 		}},
 	})
 
