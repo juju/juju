@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-
 	"github.com/juju/collections/transform"
+
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"

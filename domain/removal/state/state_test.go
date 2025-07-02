@@ -317,28 +317,6 @@ func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UU
 	return unitUUIDs
 }
 
-func (s *baseSuite) getAllMachineUUIDs(c *tc.C) []machine.UUID {
-	var machineUUIDs []machine.UUID
-	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM machine ORDER BY uuid`)
-		if err != nil {
-			return err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			var machineUUID machine.UUID
-			if err := rows.Scan(&machineUUID); err != nil {
-				return err
-			}
-			machineUUIDs = append(machineUUIDs, machineUUID)
-		}
-		return rows.Err()
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return machineUUIDs
-}
-
 func (s *baseSuite) getAllUnitAndMachineUUIDs(c *tc.C) ([]unit.UUID, []machine.UUID) {
 	result := make(map[unit.UUID]machine.UUID)
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

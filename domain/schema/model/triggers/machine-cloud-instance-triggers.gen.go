@@ -30,6 +30,7 @@ CREATE TRIGGER trg_log_machine_cloud_instance_update
 AFTER UPDATE ON machine_cloud_instance FOR EACH ROW
 WHEN 
 	NEW.machine_uuid != OLD.machine_uuid OR
+	NEW.life_id != OLD.life_id OR
 	(NEW.instance_id != OLD.instance_id OR (NEW.instance_id IS NOT NULL AND OLD.instance_id IS NULL) OR (NEW.instance_id IS NULL AND OLD.instance_id IS NOT NULL)) OR
 	(NEW.display_name != OLD.display_name OR (NEW.display_name IS NOT NULL AND OLD.display_name IS NULL) OR (NEW.display_name IS NULL AND OLD.display_name IS NOT NULL)) OR
 	(NEW.arch != OLD.arch OR (NEW.arch IS NOT NULL AND OLD.arch IS NULL) OR (NEW.arch IS NULL AND OLD.arch IS NOT NULL)) OR
