@@ -221,6 +221,18 @@ CREATE TABLE application_status (
     REFERENCES workload_status_value (id)
 );
 
+CREATE TABLE application_agent (
+    application_uuid TEXT NOT NULL PRIMARY KEY,
+    password_hash_algorithm_id TEXT,
+    password_hash TEXT,
+    CONSTRAINT fk_application_agent_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_application_agent_password_hash_algorithm
+    FOREIGN KEY (password_hash_algorithm_id)
+    REFERENCES password_hash_algorithm (id)
+);
+
 CREATE TABLE device_constraint (
     uuid TEXT NOT NULL PRIMARY KEY,
     application_uuid TEXT NOT NULL,
