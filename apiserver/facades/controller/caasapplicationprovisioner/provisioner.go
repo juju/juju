@@ -58,7 +58,6 @@ import (
 )
 
 type APIGroup struct {
-	*common.PasswordChanger
 	*common.AgentEntityWatcher
 	*API
 
@@ -98,7 +97,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	st := ctx.State()
 	domainServices := ctx.DomainServices()
 
-	agentPasswordService := domainServices.AgentPassword()
 	controllerConfigService := domainServices.ControllerConfig()
 	modelConfigService := domainServices.Config()
 
@@ -172,7 +170,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	)
 
 	apiGroup := &APIGroup{
-		PasswordChanger:    common.NewPasswordChanger(agentPasswordService, st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.WatcherRegistry(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
