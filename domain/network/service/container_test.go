@@ -106,7 +106,7 @@ func (s *containerSuite) TestDevicesToBridgeSpaceReqsSatisfiedByOVS(c *tc.C) {
 	exp.GetMachineSpaceConstraints(c.Context(), s.guestUUID.String()).Return(spaces, nil, nil)
 	exp.GetMachineAppBindings(c.Context(), s.guestUUID.String()).Return(nil, nil)
 	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
-	// A bridge in the space means that connectivity is satisfied.
+	// An OVS device in the space means that connectivity is satisfied.
 	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(map[string][]network.NetInterface{
 		spaceUUID: {{
 			Name:            "ovs-1",

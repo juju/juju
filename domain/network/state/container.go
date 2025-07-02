@@ -137,6 +137,7 @@ func (st *State) NICsInSpaces(ctx context.Context, nodeUUID string) (map[string]
 	type deviceInSpace struct {
 		DeviceName string         `db:"device_name"`
 		Type       string         `db:"type_name"`
+		PortType   string         `db:"port_type_name"`
 		MACAddress sql.NullString `db:"mac_address"`
 		ParentName sql.NullString `db:"parent_name"`
 		SpaceUUID  sql.NullString `db:"space_uuid"`
@@ -148,10 +149,12 @@ func (st *State) NICsInSpaces(ctx context.Context, nodeUUID string) (map[string]
 SELECT DISTINCT 
        d.name AS &deviceInSpace.device_name, 
        t.name AS &deviceInSpace.type_name, 
+       v.name AS &deviceInSpace.port_type_name,
        pd.name AS &deviceInSpace.parent_name, 
        (s.space_uuid, d.mac_address) AS (&deviceInSpace.*)
 FROM   link_layer_device d
        JOIN link_layer_device_type t on d.device_type_id = t.id	
+       JOIN virtual_port_type v on d.virtual_port_type_id = v.id
        LEFT JOIN ip_address a on d.uuid = a.device_uuid
        LEFT JOIN subnet s on a.subnet_uuid = s.uuid
        LEFT JOIN link_layer_device_parent p ON d.uuid = p.device_uuid
@@ -179,8 +182,9 @@ WHERE  d.net_node_uuid = $entityUUID.uuid`
 	nicsInSpaces := make(map[string][]network.NetInterface)
 	for _, spaceNic := range nics {
 		nic := network.NetInterface{
-			Name: spaceNic.DeviceName,
-			Type: corenetwork.LinkLayerDeviceType(spaceNic.Type),
+			Name:            spaceNic.DeviceName,
+			Type:            corenetwork.LinkLayerDeviceType(spaceNic.Type),
+			VirtualPortType: corenetwork.VirtualPortType(spaceNic.PortType),
 		}
 
 		if spaceNic.MACAddress.Valid {
