@@ -255,8 +255,6 @@ func (task *provisionerTask) loop() (taskErr error) {
 				return errors.New("machine watcher closed channel")
 			}
 
-			fmt.Println("??", ids)
-
 			if err := task.processMachines(ctx, ids); err != nil {
 				return errors.Annotate(err, "processing updated machines")
 			}
@@ -384,7 +382,6 @@ func (task *provisionerTask) populateMachineMaps(ctx context.Context, ids []stri
 
 	instances := make(map[instance.Id]instances.Instance)
 	for _, i := range allInstances {
-		fmt.Println("??1", i.Id())
 		instances[i.Id()] = i
 	}
 	task.machinesMutex.Lock()
@@ -686,8 +683,6 @@ func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead 
 				task.logger.Debugf(ctx, "machine %v is dead but keep-instance is true", instId)
 				continue
 			}
-
-			fmt.Println("????", task.instances, instId)
 
 			// If the instance is not found we can't stop it.
 			if inst, found := task.instances[instId]; found {
