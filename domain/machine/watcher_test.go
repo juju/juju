@@ -53,44 +53,87 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
-	_, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
-	c.Assert(err, tc.IsNil)
-
-	_, err = s.svc.CreateMachineWithParent(c.Context(), "0", "0")
-	c.Assert(err, tc.IsNil)
-
-	s.AssertChangeStreamIdle(c)
-
 	watcher, err := s.svc.WatchModelMachines(c.Context())
 	c.Assert(err, tc.IsNil)
-	defer watchertest.CleanKill(c, watcher)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	watcherC := watchertest.NewStringsWatcherC(c, watcher)
+	// Should fire when a machine is created.
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
+		c.Assert(err, tc.IsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"0"}))
+	})
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachine(c.Context(), "1", ptr("nonce-123"))
+		c.Assert(err, tc.IsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"1"}))
+	})
+	// Should fire when the machine life changes.
+	harness.AddTest(func(c *tc.C) {
+		err := s.svc.SetMachineLife(c.Context(), "1", life.Dying)
+		c.Assert(err, tc.IsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"1"}))
+	})
+	// Should not fire on containers.
+	harness.AddTest(func(c *tc.C) {
+		_, err := s.svc.CreateMachineWithParent(c.Context(), "1", "0")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+	// Should fire on machine deletes.
+	harness.AddTest(func(c *tc.C) {
+		err := s.svc.DeleteMachine(c.Context(), "1")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"1"}))
+	})
 
-	// The initial event should have the machine we created prior,
-	// but not the container.
-	watcherC.AssertChange("0")
+	harness.Run(c, []string(nil))
+}
 
-	// A new machine triggers an emission.
-	_, err = s.svc.CreateMachine(c.Context(), "1", ptr("nonce-123"))
-	c.Assert(err, tc.IsNil)
-	watcherC.AssertChange("1")
+func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
+	_, err := s.svc.CreateMachine(c.Context(), "0", nil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	// An update triggers an emission.
-	err = s.svc.SetMachineLife(c.Context(), "1", life.Dying)
-	c.Assert(err, tc.IsNil)
-	watcherC.AssertChange("1")
+	watcher, err := s.svc.WatchModelMachines(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 
-	// A deletion is ignored.
-	err = s.svc.DeleteMachine(c.Context(), "1")
-	c.Assert(err, tc.IsNil)
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-c.Context().Done():
+		c.Fatalf("watcher did not emit initial changes: %v", c.Context().Err())
+	}
 
-	// As is a container creation.
+	// The machine appears in the initial changes.
+	c.Assert(changes, tc.HasLen, 1)
+	c.Assert(changes[0], tc.Equals, "0")
+}
+
+func (s *watcherSuite) TestWatchModelMachinesInitialEventContainer(c *tc.C) {
+	_, err := s.svc.CreateMachine(c.Context(), "0", nil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.svc.CreateMachineWithParent(c.Context(), "1", "0")
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	s.AssertChangeStreamIdle(c)
-	watcherC.AssertNoChange()
+	watcher, err := s.svc.WatchModelMachines(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-c.Context().Done():
+		c.Fatalf("watcher did not emit initial changes: %v", c.Context().Err())
+	}
+
+	// Only the parent machine appears in the initial changes, not the
+	// container.
+	c.Assert(changes, tc.HasLen, 1)
+	c.Assert(changes[0], tc.Equals, "0")
 }
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {

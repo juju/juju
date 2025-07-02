@@ -185,10 +185,13 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
-	return s.watcherFactory.NewNamespaceMapperWatcher(
+	return s.watcherFactory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges(stmt),
-		s.uuidToNameMapper(noContainersFilter),
-		eventsource.NamespaceFilter(table, changestream.Changed),
+		eventsource.PredicateFilter(table, changestream.All,
+			func(changed string) bool {
+				return !strings.Contains(changed, "/")
+			},
+		),
 	)
 }
 
@@ -258,43 +261,4 @@ func (s *WatchableService) machineToCareForReboot(ctx context.Context, uuid mach
 		return []machine.UUID{uuid}, nil
 	}
 	return []machine.UUID{uuid, parentUUID}, nil
-}
-
-// uuidToNameMapper is an eventsource.Mapper that converts a slice of
-// changestream.ChangeEvent containing machine UUIDs to another slice of
-// events with the machine names that correspond to the UUIDs.
-// If the input filter is not nil and returns true for any machine UUID/name in
-// the events, those events are omitted.
-func (s *WatchableService) uuidToNameMapper(filter func(string, machine.Name) bool) eventsource.Mapper {
-	return func(
-		ctx context.Context, events []changestream.ChangeEvent,
-	) ([]string, error) {
-		// Generate a slice of UUIDs and placeholders for our query
-		// and index the events by those UUIDs.
-		machineUUIDs := transform.Slice(events, func(e changestream.ChangeEvent) string {
-			return e.Changed()
-		})
-
-		uuidsToName, err := s.st.GetNamesForUUIDs(ctx, machineUUIDs)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-
-		var changes []string
-		for uuid, name := range uuidsToName {
-			if filter != nil && filter(uuid, name) {
-				continue
-			}
-
-			changes = append(changes, name.String())
-		}
-
-		return changes, nil
-	}
-}
-
-// noContainersFilter returns true if the input machine name
-// is one reserved for LXD containers.
-func noContainersFilter(_ string, name machine.Name) bool {
-	return strings.Contains(name.String(), "/")
 }

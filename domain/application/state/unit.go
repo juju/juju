@@ -187,7 +187,7 @@ func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.
 // query for unit insert and deletes events on a specific net node, as well as
 // the watcher namespace to watch.
 func (st *State) InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID string) (string, eventsource.NamespaceQuery) {
-	return "unit_insert_delete", func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+	return "custom_unit_lifecycle", func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		var unitNames []coreunit.Name
 		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error
