@@ -142,7 +142,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
 	if newMirror := cfg.PackageMirror(); newMirror != "" {
-		cmds = append(cmds, LogProgressCmd("%s", fmt.Sprintf("Changing apt mirror to %q", newMirror)))
+		cmds = append(cmds, LogProgressCmd("Changing apt mirror to %q", newMirror))
 		cmds = append(cmds, cfg.aptCommander.SetMirrorCommands(newMirror, newMirror)...)
 	}
 

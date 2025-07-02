@@ -62,18 +62,6 @@ func (s *UndertakerSuite) TestRemoveModel(c *tc.C) {
 	c.Assert(called, tc.IsTrue)
 }
 
-func (s *UndertakerSuite) TestRemoveModelSecrets(c *tc.C) {
-	var called bool
-	client := s.mockClient(c, "RemoveModelSecrets", func(response interface{}) {
-		called = true
-		c.Assert(response, tc.IsNil)
-	})
-
-	err := client.RemoveModelSecrets(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(called, tc.IsTrue)
-}
-
 func (s *UndertakerSuite) mockClient(c *tc.C, expectedRequest string, callback func(response interface{})) *undertaker.Client {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string,

@@ -8,7 +8,7 @@
 *
 ```
 
-> See also: {ref}`write-a-unit-test`
+> See also: [How to write a unit test](/doc/dev/how-to/write-a-unit-test.md)
 
 Unit testing `juju` uses the `go test` CLI and a test suite and check libary called [`tc`](https://github.com/juju/tc").
 
@@ -25,7 +25,7 @@ consists of:
 <!--Even though it's part of the `magic` package rather than the `test` package, we call it `_test` because Juju ignores all files with `_test`. This file acts like a bridge between the two packages.
 -->
 
-- Test files of the form `<code filename>_test.go`, which are collections of {ref}`unit test suites <unit-test-suite>`.
+- Test files of the form `<code filename>_test.go`, which are collections of unit test suites.
 
 <!--
 github.com/juju/juju/provider/magic:

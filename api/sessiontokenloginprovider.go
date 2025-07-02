@@ -82,7 +82,7 @@ func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICa
 	if err == nil {
 		return result, nil
 	}
-	if params.IsCodeSessionTokenInvalid(err) && p.output != nil {
+	if params.IsCodeSessionTokenInvalid(err) {
 		// if we fail because of an invalid session token, we initiate a
 		// new device login.
 		if err := p.initiateDeviceLogin(ctx, caller); err != nil {
@@ -95,6 +95,9 @@ func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICa
 }
 
 func (p *sessionTokenLoginProvider) printOutput(format string, params ...any) error {
+	if p.output == nil {
+		return errors.New("cannot present login details")
+	}
 	message := fmt.Sprintf(format, params...)
 	if len(message) > 0 && message[len(message)-1] != '\n' {
 		message += "\n"

@@ -31,13 +31,8 @@ import (
 
 ## Setting up tests for new packages
 
-Let's say we are creating a new provider for "magic" cloud, and we have a package
-called "magic" that lives at `github.com/juju/juju/provider/magic`.  The
-general approach for testing in juju is to have the tests in a separate package.
-Continuing with this example the tests would be in a package called "magic_test".
-
-If the package uses additional helper functionality, you will need to implement a
-`TestMain` function to ensure it is ready for your test suites.
+If the package is testing mongo functionality, you will need to implement a
+`TestMain` function to ensure mongo is ready for your test suites.
 
 ```go
 // Copyright 2014 Canonical Ltd.
@@ -46,18 +41,25 @@ If the package uses additional helper functionality, you will need to implement 
 package magic_test
 
 import (
-	"os"
 	stdtesting "testing"
 
-	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 )
 
 func TestMain(m *stdtesting.M) {
-	testhelpers.ExecHelperProcess()
-	os.Exit(m.Run())
+	os.Exit(func() int {
+		defer testing.MgoTestMain()()
+		return m.Run()
+	}())
 }
-
 ```
+
+This second makes sure that there is a mongo available for the duration of the
+package tests.
+
+A general rule is not to setup mongo for a package unless you really
+need to as it is extra overhead.
+
 
 ## Writing the test files
 

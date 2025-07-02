@@ -479,10 +479,10 @@ func checkStoragePoolReleasable(im *storageBackend, pool string) error {
 		return errors.Trace(err)
 	}
 	if !aProvider.Releasable() {
-		return errors.WithType(errors.Errorf(
+		return errors.Errorf(
 			"storage provider %q does not support releasing storage",
 			providerType,
-		), stateerrors.StorageNotReleasableError)
+		)
 	}
 	return nil
 }

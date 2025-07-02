@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type baseModel interface {
@@ -63,12 +62,6 @@ type EnvironConfigGetter struct {
 
 	// CloudService provides access to clouds.
 	CloudService CloudService
-}
-
-// ControllerUUID returns the universally unique identifier of the controller.
-func (g EnvironConfigGetter) ControllerUUID() uuid.UUID {
-	u, _ := uuid.UUIDFromString(g.Model.ControllerUUID())
-	return u
 }
 
 // ModelConfig implements environs.EnvironConfigGetter.

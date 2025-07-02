@@ -23,7 +23,7 @@ A *storage constraint* is slightly different from a {ref}`constraint <constraint
 
 ```{important}
 
-To put together a storage constraint, you need information from both the charm and the {ref}`storage provider <storage-provider>` /  {ref}`storage pool <storage-pool>`.
+To put together a storage constraint, you need information from both the charm and the {ref}`storage provider <storage-provider>` /  {ref}`storage pool <storage-pool>`. 
 
 ```
 
@@ -31,7 +31,7 @@ This constraint has the form `<label>=<pool>,<count>,<size>`.
 
 ```{important}
 
-The order of the arguments does not actually matter -- they are identified based on a regex (pool names must start with a letter and sizes must end with a unit suffix).
+The order of the arguments does not actually matter -- they are identified based on a regex (pool names must start with a letter and sizes must end with a unit suffix). 
 
 ```
 
@@ -178,7 +178,7 @@ AWS-based models have access to the 'ebs' storage provider, which supports the f
 
 **iops**
 
-* The number of IOPS for io1, io2 and gp3 volume types. There are restrictions on minimum and maximum IOPS, as a ratio of the size of volumes. See [Provisioned IOPS (SSD) Volumes](https://docs.aws.amazon.com/ebs/latest/userguide/provisioned-iops.html) for more information.
+* The number of IOPS for io1, io2 and gp3 volume types. There are restrictions on minimum and maximum IOPS, as a ratio of the size of volumes. See [Provisioned IOPS (SSD) Volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html#EBSVolumeTypes_piops) for more information.
 
 **encrypted**
 
@@ -186,7 +186,7 @@ AWS-based models have access to the 'ebs' storage provider, which supports the f
 
 **kms-key-id**
 
-* The KMS Key ARN used to encrypt the disk. Requires *encrypted: true* to function.
+* The KMS Key ARN used to encrypt the disk. Requires *encrypted: true* to function.  
 
 **throughput**
 
@@ -380,7 +380,7 @@ When deploying an application or unit that requires storage, using machine place
 <!--Charmed operators can be made to be storage-aware, allowing data storage that persists beyond the lifetime of any given machine.-->
 
 
-<!--
+<!-- 
 It's not always "machine independent" data volume. It can be but can also just be a directory on disk tied to the machine
 Storage declares that a charm needs either a block or filesystem - how that is realised is determined at deployment. For development, a filesystem storage requirement might be a directory on disk under the charm dir and hence is tied to the machine and goes away when the unit is destroyed. Or it could be (like the text currently says) a machine independent volume which can (if the user so chooses) outlive the machine to which it was attached and be reattached later elsewhere. It's hard to define everything n just one sentence as it's a complex topic-->
 
@@ -390,8 +390,8 @@ Storage declares that a charm needs either a block or filesystem - how that is r
 <!--TODO incorporate any useful detail into https://juju.is/docs/sdk/use-storage-in-a-charm, then delete this section.-->
 
 ### In general
-
-Charm storage is defined [in the `storage` key in `charmcraft.yaml`](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/charmcraft-yaml-file/).
+ 
+Charm storage is defined in the [`storage` key in `charmcraft.yaml`](https://juju.is/docs/sdk/charmcraft-yaml#heading--storage).
 
 The `storage` map definition:
 
@@ -457,9 +457,9 @@ The above snippet will ensure that both the `important-app` container and charm 
 
 ```{note}
 
-The `location` attribute *must* be specified when mounting a storage into a workload container as shown above - this will dictate the mount point for the specific container.
+The `location` attribute *must* be specified when mounting a storage into a workload container as shown above - this will dictate the mount point for the specific container. 
 
-Optionally, developers can specify the `location` attribute on the storage itself, which will specify the mount point in the charm container. If left unset, the charm container will have the storage volume mounted at a predictable path at `/var/lib/juju/storage/<name>/<num>`, where `<num>` is the index of the storage. This defaults to `0`.
+Optionally, developers can specify the `location` attribute on the storage itself, which will specify the mount point in the charm container. If left unset, the charm container will have the storage volume mounted at a predictable path at `/var/lib/juju/storage/<name>/<num>`, where `<num>` is the index of the storage. This defaults to `0`. 
 
 For the above `metadata.yaml`, the charm container would have the storage available at: `/var/lib/juju/storage/logs/0`.
 
@@ -467,14 +467,14 @@ For the above `metadata.yaml`, the charm container would have the storage availa
 
 
 ## Storage events
-
-
+ 
+ 
 There are two key events associated with storage:
 
 |         Event name         |                                                 Event Type                                                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | :------------------------: | :--------------------------------------------------------------------------------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<name>_storage_attached`  | [`StorageAttachedEvents`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageAttachedEvent)  | This event is triggered when new storage is available for the charm to use. Callback methods bound to this event allow the charm to run code when storage has been added.<br/><br/>Such methods will be run before the `install` event fires, so that the installation routine may use the storage. The name prefix of this hook will depend on the storage key defined in the `metadata.yaml` file.                            |
-| `<name>_storage_detaching` | [`StorageDetachingEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageDetachingEvent) | Callback methods bound to this event allow the charm to run code before storage is removed.<br/><br/>Such methods will be run before storage is detached, and always before the `stop` event fires, thereby allowing the charm to gracefully release resources before they are removed and before the unit terminates.<br/><br/>The name prefix of the hook will depend on the storage key defined in the `metadata.yaml` file. |
+| `<name>_storage_attached`  | [`StorageAttachedEvents`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageAttachedEvent)  | This event is triggered when new storage is available for the charm to use. Callback methods bound to this event allow the charm to run code when storage has been added.<br/><br/>Such methods will be run before the `install` event fires, so that the installation routine may use the storage. The name prefix of this hook will depend on the storage key defined in the `metadata.yaml` file.                            |
+| `<name>_storage_detaching` | [`StorageDetachingEvent`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageDetachingEvent) | Callback methods bound to this event allow the charm to run code before storage is removed.<br/><br/>Such methods will be run before storage is detached, and always before the `stop` event fires, thereby allowing the charm to gracefully release resources before they are removed and before the unit terminates.<br/><br/>The name prefix of the hook will depend on the storage key defined in the `metadata.yaml` file. |
 
 ### Charm and container access to storage
 
@@ -510,8 +510,8 @@ def _my_hook_function(self, event):
 ```
 
 This example utilizes the framework's representation of juju storage - i.e. `self.model.storages`
-which returns a [`mapping`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageMapping) of
-`<storage_name>` to [`Storage`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Storage)
+which returns a [`mapping`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageMapping) of
+`<storage_name>` to [`Storage`](https://ops.readthedocs.io/en/latest/index.html#ops.Storage)
 objects, which exposes the `name`, `id` and `location` of each storage to the charm developer,
 where `id` is the underlying storage provider ID.
 
@@ -572,13 +572,16 @@ under an indexed subdirectory of that storage's main directory - e.g.
 does not modify or affect existing storage mounts.  This would generate two separate
 storage-attached events that should be handled.
 
-In addition to juju client requests for adding storage, the [`StorageMapping`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageMapping)
+In addition to juju client requests for adding storage, the [`StorageMapping`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageMapping)
 returned by `self.model.storages` also exposes a
-[`request`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageMapping.request)
+[`request`](https://ops.readthedocs.io/en/latest/index.html#ops.StorageMapping.request)
 method (e.g. `self.model.storages.request()`) which provides an expedient method for the developer
-to invoke the underlying {ref}`storage-add <hook-command-storage-add>` hook command in
+to invoke the underlying
+[`storage-add`](https://discourse.charmhub.io/t/hook-tools/1163#heading--storage-add) hook tool in
 the charm to request additional storage. On success, this will fire a
-{ref}`storage-attached <hook-storage-attached>` hook.
+`<storage_name>-storage-attached` event.
+
+
 
 (storage-support)=
 ## Storage Support

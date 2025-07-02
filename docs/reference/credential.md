@@ -28,7 +28,6 @@ Juju credentials can be created for either the Juju client or the Juju controlle
 The set of client credentials and controller credentials can end up being the same. However, they don't have to.
 ```
 
-(credential-definition)=
 ## Credential definition
 > See also: {ref}`add-a-credential`
 

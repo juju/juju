@@ -2,7 +2,7 @@
 # `juju_machine_lock`
 
 
-This function actually calls into every agent on the machine to ask about the agent's view of the hook execution lock. Where the {ref}`machine-lock.log <the-machine-lock-log-file>` file shows the history of the machine lock, the introspection endpoint shows the current status of the lock, whether the agent holds the lock, or is waiting for the lock.
+This function actually calls into every agent on the machine to ask about the agent's view of the hook execution lock. Where the {ref}`machine-lock.log <logfile-varlogjujumachine-locklog>` file shows the history of the machine lock, the introspection endpoint shows the current status of the lock, whether the agent holds the lock, or is waiting for the lock.
 
 During a deploy of `hadoop-kafka`, after the machine 0 has started, and is deploying the two units, we can see the following:
 

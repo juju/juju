@@ -99,18 +99,14 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (environs.OpenParams, error) {
 	// To get a k8s client, we need a config with minimal information.
 	// It's not used unless operating on a real model but we need to supply it.
-	modelUUID, err := uuid.NewUUID()
-	if err != nil {
-		return environs.OpenParams{}, errors.Trace(err)
-	}
-	controllerUUID, err := uuid.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return environs.OpenParams{}, errors.Trace(err)
 	}
 	attrs := map[string]interface{}{
 		config.NameKey: "add-cloud",
 		config.TypeKey: "kubernetes",
-		config.UUIDKey: modelUUID.String(),
+		config.UUIDKey: uuid.String(),
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
@@ -122,8 +118,7 @@ func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (en
 		return environs.OpenParams{}, errors.Trace(err)
 	}
 	openParams := environs.OpenParams{
-		ControllerUUID: controllerUUID.String(),
-		Cloud:          cloudSpec, Config: cfg,
+		Cloud: cloudSpec, Config: cfg,
 	}
 	return openParams, nil
 }

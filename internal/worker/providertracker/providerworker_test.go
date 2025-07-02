@@ -367,10 +367,10 @@ func (s *providerWorkerSuite) newWorker(c *tc.C, trackerType TrackerType) worker
 	w, err := newWorker(Config{
 		TrackerType:          trackerType,
 		DomainServicesGetter: s.domainServicesGetter,
-		GetIAASProvider: func(ctx context.Context, ecg environs.EnvironConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
+		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
-		GetCAASProvider: func(ctx context.Context, ecg environs.EnvironConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
+		GetCAASProvider: func(ctx context.Context, pcg ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 			c.Fatalf("unexpected call to GetCAASProvider")
 			return nil, cloudspec.CloudSpec{}, nil
 		},

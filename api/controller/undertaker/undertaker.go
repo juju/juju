@@ -69,11 +69,6 @@ func (c *Client) RemoveModel(ctx context.Context) error {
 	return c.entityFacadeCall(ctx, "RemoveModel", nil)
 }
 
-// RemoveModelSecrets removes any secrets associated with the model.
-func (c *Client) RemoveModelSecrets(ctx context.Context) error {
-	return c.entityFacadeCall(ctx, "RemoveModelSecrets", nil)
-}
-
 func (c *Client) entityFacadeCall(ctx context.Context, name string, results interface{}) error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: c.modelTag.String()}},

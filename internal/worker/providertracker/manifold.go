@@ -20,12 +20,22 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 )
 
 // Provider is an interface that represents a provider, this can either be
 // a CAAS broker or IAAS provider.
 type Provider = providertracker.Provider
+
+// ProviderConfigGetter is an interface that extends
+// environs.EnvironConfigGetter to include the ControllerUUID method.
+type ProviderConfigGetter interface {
+	environs.EnvironConfigGetter
+
+	// ControllerUUID returns the UUID of the controller.
+	ControllerUUID() uuid.UUID
+}
 
 // IAASProviderFunc is a function that returns a IAAS provider.
 type IAASProviderFunc func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error)
@@ -34,7 +44,7 @@ type IAASProviderFunc func(ctx context.Context, args environs.OpenParams, invali
 type CAASProviderFunc func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error)
 
 // GetProviderFunc is a helper function that gets a provider from the manifold.
-type GetProviderFunc func(context.Context, environs.EnvironConfigGetter, environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error)
+type GetProviderFunc func(context.Context, ProviderConfigGetter, environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error)
 
 // GetProviderServicesGetterFunc is a helper function that gets a service
 // factory getter from the manifold.
@@ -151,8 +161,8 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 }
 
 // IAASGetProvider creates a new provider from the given args.
-func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, getter environs.EnvironConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
-	return func(ctx context.Context, getter environs.EnvironConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
+func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
+	return func(ctx context.Context, getter ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 		// We can't use newProvider directly, as type invariance prevents us
 		// from using it with the environs.GetEnvironAndCloud function.
 		// Just wrap it in a closure to work around this.
@@ -167,8 +177,8 @@ func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, get
 }
 
 // CAASGetProvider creates a new provider from the given args.
-func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, getter environs.EnvironConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
-	return func(ctx context.Context, getter environs.EnvironConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
+func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
+	return func(ctx context.Context, getter ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 		cloudSpec, err := getter.CloudSpec(ctx)
 		if err != nil {
 			return nil, cloudspec.CloudSpec{}, errors.Annotate(err, "cannot get cloud information")

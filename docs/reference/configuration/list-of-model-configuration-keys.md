@@ -639,7 +639,7 @@ List of domain addresses not to be proxied (comma-separated), may contain CIDRs.
 (model-config-logging-config)=
 ## `logging-config`
 
-The configuration string to use when configuring Juju agent logging (see [this link](https://pkg.go.dev/github.com/juju/loggo#ParseConfigString) for details).
+The configuration string to use when configuring Juju agent logging.
 
 **Default value:** `""`
 

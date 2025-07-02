@@ -236,44 +236,6 @@ func (c *MockFacadeRemoveModelCall) DoAndReturn(f func(context.Context) error) *
 	return c
 }
 
-// RemoveModelSecrets mocks base method.
-func (m *MockFacade) RemoveModelSecrets(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveModelSecrets", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveModelSecrets indicates an expected call of RemoveModelSecrets.
-func (mr *MockFacadeMockRecorder) RemoveModelSecrets(arg0 any) *MockFacadeRemoveModelSecretsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveModelSecrets", reflect.TypeOf((*MockFacade)(nil).RemoveModelSecrets), arg0)
-	return &MockFacadeRemoveModelSecretsCall{Call: call}
-}
-
-// MockFacadeRemoveModelSecretsCall wrap *gomock.Call
-type MockFacadeRemoveModelSecretsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFacadeRemoveModelSecretsCall) Return(arg0 error) *MockFacadeRemoveModelSecretsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFacadeRemoveModelSecretsCall) Do(f func(context.Context) error) *MockFacadeRemoveModelSecretsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeRemoveModelSecretsCall) DoAndReturn(f func(context.Context) error) *MockFacadeRemoveModelSecretsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchModel mocks base method.
 func (m *MockFacade) WatchModel(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()

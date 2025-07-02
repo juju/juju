@@ -552,7 +552,6 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 					CACert:          "cert1",
 					AuthTag:         names.NewUserTag("admin1").String(),
 					Password:        "secret1",
-					Token:           "token1",
 				},
 			}, {
 				ModelTag: model2.ModelTag().String(),
@@ -564,7 +563,6 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 					AuthTag:         names.NewUserTag("admin2").String(),
 					Macaroons:       string(macsJSON),
 					Password:        "secret2",
-					Token:           "token2",
 				},
 			},
 		},
@@ -596,7 +594,6 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 		c.Check(targetInfo.CACert, tc.Equals, spec.TargetInfo.CACert)
 		c.Check(targetInfo.AuthTag.String(), tc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, tc.Equals, spec.TargetInfo.Password)
-		c.Check(targetInfo.Token, tc.Equals, spec.TargetInfo.Token)
 
 		if spec.TargetInfo.Macaroons != "" {
 			macJSONdb, err := json.Marshal(targetInfo.Macaroons)

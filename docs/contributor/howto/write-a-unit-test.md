@@ -1,4 +1,3 @@
-(write-a-unit-test)=
 # Write a unit test
 > See also: {ref}`unit-testing`
 

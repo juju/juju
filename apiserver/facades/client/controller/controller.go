@@ -581,7 +581,6 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		AuthTag:         authTag,
 		Password:        specTarget.Password,
 		Macaroons:       macs,
-		Token:           specTarget.Token,
 	}
 
 	modelConfigService, err := c.modelConfigServiceGetter(ctx, modelUUID)
@@ -811,8 +810,8 @@ var runMigrationPrechecks = func(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	loginProvider := migration.NewLoginProvider(*targetInfo)
-	targetConn, err := api.Open(ctx, targetToAPIInfo(targetInfo), migration.ControllerDialOpts(loginProvider))
+
+	targetConn, err := api.Open(ctx, targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
 	if err != nil {
 		return errors.Annotate(err, "connect to target controller")
 	}

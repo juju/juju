@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -26,14 +24,12 @@ import (
 // Facade covers the parts of the api/undertaker.UndertakerClient that we
 // need for the worker. It's more than a little raw, but we'll survive.
 type Facade interface {
-	ModelConfig(context.Context) (*config.Config, error)
-	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
+	environs.EnvironConfigGetter
 	ModelInfo(context.Context) (params.UndertakerModelInfoResult, error)
 	WatchModelResources(context.Context) (watcher.NotifyWatcher, error)
 	WatchModel(context.Context) (watcher.NotifyWatcher, error)
 	ProcessDyingModel(context.Context) error
 	RemoveModel(context.Context) error
-	RemoveModelSecrets(context.Context) error
 }
 
 // Config holds the resources and configuration necessary to run an
@@ -241,11 +237,6 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 	default:
 	}
 
-	if err := u.config.Facade.RemoveModelSecrets(ctx); err != nil {
-		u.config.Logger.Errorf(ctx, "remove model secrets failed: %v", err)
-		return errors.Annotate(err, "cannot remove model secrets")
-	}
-
 	// Finally, the model is going to be dead, and be removed.
 	if err := u.config.Facade.RemoveModel(ctx); err != nil {
 		u.config.Logger.Errorf(ctx, "remove model failed: %v", err)
@@ -325,10 +316,6 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-	}
-
-	if err := u.config.Facade.RemoveModelSecrets(ctx); err != nil {
-		u.config.Logger.Errorf(ctx, "remove model secrets failed: %v", err)
 	}
 
 	// Finally, the model is going to be dead, and be removed.

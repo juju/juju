@@ -75,12 +75,6 @@ func (mock *mockFacade) RemoveModel(context.Context) error {
 	return mock.stub.NextErr()
 }
 
-func (mock *mockFacade) RemoveModelSecrets(context.Context) error {
-	mock.stub.AddCall("RemoveModelSecrets")
-	time.Sleep(100 * time.Millisecond)
-	return mock.stub.NextErr()
-}
-
 func (mock *mockFacade) ModelConfig(_ context.Context) (*config.Config, error) {
 	mock.stub.AddCall("ModelConfig")
 	cfg, _ := config.New(config.NoDefaults, map[string]interface{}{

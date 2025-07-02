@@ -4,7 +4,7 @@
 In Juju, a **hook** is a notification from  the controller agent through the unit agent to the charm that the internal representation of Juju has changed in a way that requires a reaction from the charm so that the unit's state and the controller's state can be reconciled.
 
 
-For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events = 'events', specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.HookEvent).
+For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events = 'events', specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/index.html#ops.HookEvent).
 
 Whenever a hook event is received, the associated event handler should ensure the current charm configuration is properly reflected in the underlying application configuration.
 Invocations of associated handlers should be idempotent and should not make changes to the environment, or restart services, unless there is a material change to the charm's configuration, such as a change in the port exposed by the charm, addition or removal of a relation which may require a database migration or a "scale out" event for high availability, or similar.
@@ -210,14 +210,13 @@ A charm's lifecycle consists of distinct **phases**:
 * installation
 * operation
 * upgrade
-* teardown
+* tear down
 
 Generally, no assumptions can be made about the order of hook execution. However, there are some limited guarantees
 about hook sequencing during install, upgrade, and relation removal.
 
 In normal operation, a unit will run at least the `install`, `start`, `config-changed` and `stop` hooks over the course of its lifetime.
 
-(installation-phase)=
 ### Installation phase
 
 When a charm is first deployed, the following hooks are executed in order before a charm reaches its operation phase:
@@ -233,14 +232,12 @@ Only machine charms have the behaviour where the `storage-attached` hook must ru
 See {ref}``storage hooks` <storage-hooks>` for more details.
 ```
 
-(operation-phase)=
 ### Operation phase
 
 This phase occurs when a charm has completed its installation operations and starts responding to events which correspond to interesting (relevant) changes to the Juju model.
 The behaviour when in this phase can be explained by understanding the events which trigger the execution of the different hook kinds, and the context in which the hooks execute.
 This is covered in subsequent sections where hook kinds are explored in more detail.
 
-(upgrade-phase)=
 ### Upgrade phase
 
 When a charm is upgraded, the `upgrade-charm` hook is followed by a `config-changed` hook.
@@ -251,8 +248,8 @@ so after a forced upgrade; but will *not* be run after a forced upgrade from an
 existing error state. (Consequently, neither will the config-changed hook that
 would ordinarily follow the upgrade-charm.)
 
-(teardown-phase)=
-### Teardown phase
+
+### Tear down phase
 
 When a unit is to be removed, the following hooks are executed:
 
@@ -436,7 +433,7 @@ It also runs whenever:
 
 *Which environment variables is it executed with?*
 
-All {ref}`the generic environment variables <hook-execution>`.
+All [common charm hook](#common-charm-hooks) environment variables.
 
 *Who gets it*?
 
@@ -461,7 +458,7 @@ A Pebble check passing the failure threshold.
 
 *Which environment variables is it executed with?*
 
-All {ref}`the generic environment variables <hook-execution>` and:
+All [common charm hook](#common-charm-hooks) and:
 
 * $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
 * $JUJU_PEBBLE_CHECK_NAME holds the name of the Pebble check.
@@ -482,7 +479,7 @@ A Pebble check passing after previously reaching the failure threshold.
 
 *Which environment variables is it executed with?*
 
-All {ref}`the generic environment variables <hook-execution>` and:
+All [common charm hook](#common-charm-hooks) and:
 
 * $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
 * $JUJU_PEBBLE_CHECK_NAME holds the name of the Pebble check.
@@ -501,7 +498,7 @@ A Pebble notice of type "custom" occurring.
 
 *Which environment variables is it executed with?*
 
-All {ref}`the generic environment variables <hook-execution>` and:
+All [common charm hook](#common-charm-hooks) and:
 
 * $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
 * $JUJU_NOTICE_ID holds the Pebble notice ID.
@@ -521,11 +518,11 @@ The charm responsible for the container to which the hook pertains.
 The requested container being ready.
 
 The `pebble-ready` event doesn't guarantee the workload container is *still* up. For example, if you manually `kubectl patch` during (for example) `install`, then you may receive this event after the old workload is down but before the new one is up.
-For this reason it's essential, even in `pebble-ready` event handlers, to catch [`ConnectionError`](https://ops.readthedocs.io/en/latest/reference/pebble.html#ops.pebble.ConnectionError) when using Pebble to make container changes. There is a [`Container.can_connect`()](https://ops.readthedocs.io/en/latest/reference/ops-testing.html#ops.testing.Container.can_connect) method, but note that this is a point-in-time check, so just because `can_connect()` returns `True` doesn’t mean it will still return `True` moments later. So, **code defensively** to avoid race conditions.
+For this reason it's essential, even in `pebble-ready` event handlers, to catch [`ConnectionError`](https://ops.readthedocs.io/en/latest/pebble.html#ops.pebble.ConnectionError) when using Pebble to make container changes. There is a [`Container.can_connect`()](https://ops.readthedocs.io/en/latest/#ops.Container.can_connect) method, but note that this is a point-in-time check, so just because `can_connect()` returns `True` doesn’t mean it will still return `True` moments later. So, **code defensively** to avoid race conditions.
 
-Moreover, as pod churn can occur at any moment, `pebble-ready` events can be received throughout any phase of a charm's lifecycle. Each container could churn multiple times, and they all can do so independently from one another. In short, the charm should make no assumptions at all about the moment in time at which it may or may not receive `pebble-ready` events, or how often that can occur. The fact that the charm receives a `pebble-ready` event indicates that the container has just become ready (for the first time, or again, after pod churn), therefore you typically will need to **reconfigure your workload from scratch** every single time.
+Moreover, as pod churn can occur at any moment, `pebble-ready` events can be received throughout any phase of [a charm's lifecycle](https://juju.is/docs/sdk/a-charms-life). Each container could churn multiple times, and they all can do so independently from one another. In short, the charm should make no assumptions at all about the moment in time at which it may or may not receive `pebble-ready` events, or how often that can occur. The fact that the charm receives a `pebble-ready` event indicates that the container has just become ready (for the first time, or again, after pod churn), therefore you typically will need to **reconfigure your workload from scratch** every single time.
 
-This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://ops.readthedocs.io/en/latest/explanation/holistic-vs-delta-charms.html).
+This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://discourse.charmhub.io/t/deltas-vs-holistic-charming/11095).
 
 
 *Which environment variables is it executed with?*
@@ -564,7 +561,7 @@ As such, contrary to many other events, `-relation-changed` events are mostly tr
 -->
 
 
-(hook-relation-broken)=
+(hook-endpoint-relation-broken)=
 ### `<endpoint>-relation-broken`
 
 *What triggers it?*
@@ -599,7 +596,7 @@ TBA
 
 -->
 
-(hook-relation-changed)=
+(hook-endpoint-relation-changed)=
 ### `<endpoint>-relation-changed`
 
 
@@ -615,7 +612,7 @@ Hooks bound to this event should be the only ones that rely on remote relation s
 
 Charm authors should expect this event to fire many times during an application's life cycle. Units in an application are able to update relation data as needed, and a `relation-changed` event will fire every time the data in a relation changes. Since relation data can be updated on a per unit bases, a unit may receive multiple `relation-changed` events if it is related to multiple units in an application and all those units update their relation data.
 
-This event is guaranteed to follow immediately after each {ref}`hook-relation-joined`. So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include:
+This event is guaranteed to follow immediately after each [`relation-joined`](https://discourse.charmhub.io/t/relation-name-relation-joined-event/6478). So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include:
 
 |   Scenario  | Example Command                          | Resulting Events                     |
 | :-------: | -------------------------- | ------------------------------------ |
@@ -657,14 +654,14 @@ TBA
 TBA
 -->
 
-(hook-relation-created)=
+(hook-endpoint-relation-created)=
 ### `<endpoint>-relation-created`
 
 *What triggers it?*
 
 `relation-created` is a "setup" event and, emitted when an application is related to another. Its purpose is to inform the newly related charms that they are entering the relation.
 
-If Juju is aware of the existence of the relation "early enough", before the application has started (i.e. *before* the application has started, i.e., before the {ref}`start hook <hook-start>` has run), this event will be fired as part of the setup phase. An important consequence of this fact is, that for all peer-type relations, since Juju is aware of their existence from the start, those `relation-created`  events will always fire before `start`.
+If Juju is aware of the existence of the relation "early enough", before the application has started (i.e. *before* the application has started, i.e., before the {ref}`start <event-start>` has run), this event will be fired as part of the setup phase. An important consequence of this fact is, that for all peer-type relations, since Juju is aware of their existence from the start, those `relation-created`  events will always fire before `start`.
 
 Similarly, if an application is being scaled up, the new unit will see `relation-created` events for all relations the application already has during the Setup phase.
 
@@ -697,22 +694,22 @@ TBA
 
 -->
 
-(hook-relation-departed)=
+(hook-endpoint-relation-departed)=
 ### `<endpoint>-relation-departed`
 
 *What triggers it?*
 
-Emitted when a unit departs from an existing relation.
+<endpoint name>-relation-departed; emitted when a unit departs from an existing relation.
 
-The `relation-departed` hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
+The "relation-departed" hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
 
 
-`relation-departed` is a {ref}`teardown <teardown-phase>` hook, emitted when a remote unit departs a relation.
+`relation-departed` is a "teardown" event, emitted when a remote unit departs a relation.
 This event is the exact inverse of `relation-joined`.
 
 
 `*-relation-broken` events are emitted on a unit when a related application is scaled down. Suppose you have two related applications, `foo` and `bar`.
-If you scale down `bar`, all `foo` units will receive a `*-relation-departed` event. The departing unit will receive a `*-relation-broken` event as part of its {ref}`teardown phase <teardown-phase>`.
+If you scale down `bar`, all `foo` units will receive a `*-relation-departed` event. The departing unit will receive a `*-relation-broken` event as part of its {ref}`teardown sequence <charm-lifecycle>`.
 Also removing a relation altogether will trigger `*-relation-departed` events (followed by `*-relation-broken`) on all involved units.
 
 |   Scenario  | Example Command                          | Resulting Events                     |
@@ -784,7 +781,7 @@ By the time this event is emitted, the only available data concerning the relati
  - the name of the joining unit.
  - the `private-address` of the joining unit.
 
-In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
+In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}``relation-changed` <event-relation-name-relation-changed>` event.
 
 
 
@@ -845,8 +842,8 @@ Therefore, ways to cause `install` to occur are:
 
 
 > Note:
-> - Typically, operations performed on `install` should also be considered for {ref}`hook-upgrade-charm`.
-> - In some cases, the {ref}`config-changed <hook-config-changed>` hook  can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
+> - Typically, operations performed on `install` should also be considered for [`upgrade-charm`](https://discourse.charmhub.io/t/upgrade-charm-event/6485).
+> - In some cases, [`config-changed`](https://discourse.charmhub.io/t/config-changed-event/6465) can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
 
 The `install` event is emitted once per unit at the beginning of a charm's lifecycle. Associated callbacks should be used to perform one-time initial setup operations and prepare the unit to execute the application. Depending on the charm, this may include installing packages, configuring the underlying machine or provisioning cloud-specific resources.
@@ -858,8 +855,8 @@ Therefore, ways to cause `install` to occur are:
 
 
 > Note:
-> - Typically, operations performed on `install` should also be considered for {ref}`hook-upgrade-charm`.
-> - In some cases, {ref}`hook-config-changed` can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
+> - Typically, operations performed on `install` should also be considered for [`upgrade-charm`](https://discourse.charmhub.io/t/upgrade-charm-event/6485).
+> - In some cases, [`config-changed`](https://discourse.charmhub.io/t/config-changed-event/6465) can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
 <!--
 *Which hooks can be guaranteed to have fired before it, if any?*?
@@ -976,7 +973,7 @@ If the leader unit is rescheduled, or removed entirely. When the new leader is e
 | :-------: | -------------------------- | ------------------------------------ |
 |  Removal of leader   | `juju remove-unit foo/0` (foo/0 being leader)  | `leader-settings-changed` (for all non leaders) |
 
-> Since this event needs leadership changes to trigger, check out {ref}`triggers for the leader-electe hook <hook-leader-elected>` as the same situations apply for `leader-settings-changed`.
+> Since this event needs leadership changes to trigger, check out {ref}`triggers for `leader-elected` <6471md>` as the same situations apply for `leader-settings-changed`.
 
 <!--
 *Which hooks can be guaranteed to have fired before it, if any?*?
@@ -1022,13 +1019,13 @@ TBA
 
 *What triggers it?*
 
-This event is triggered when an operator runs `juju upgrade-series <machine> prepare ...` from the command line. This event hook allows charm units on the machine being upgraded to do any necessary tasks prior to the upgrade process beginning (which may involve e.g. being rebooted, etc.).
+This event is triggered when an operator runs `juju upgrade-series <machine> prepare ...` from the command line.    Read [here](https://juju.is/docs/olm/upgrade-a-machines-series#heading--upgrading-a-machines-series) to learn more about the series upgrade process.  This event hook allows charm units on the machine being upgraded to do any necessary tasks prior to the upgrade process beginning (which may involve e.g. being rebooted, etc.).
 
 |  Scenario | Example command | Resulting events |
 |:-:|-|-|
-| {ref}`upgrade-a-machine` | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
+|[Upgrade series](https://juju.is/docs/olm/upgrade-a-machines-series#heading--upgrading-a-machines-series) | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
 
- Notably, after this event fires and before the {ref}`hook-post-series-upgrade` hook fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
+ Notably, after this event fires and before the [post-series-upgrade event](https://discourse.charmhub.io/t/post-series-upgrade-event/6472) fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
 
 
 
@@ -1067,7 +1064,7 @@ Of course, removing an application altogether will result in these events firing
 
 If the unit has any relations active or any storage attached at the time the removal occurs, these will be cleaned up (in no specific order) between `stop` and `remove`. This means the unit will receive `stop -> (*-relation-broken | *-storage-detaching) -> remove`.
 
-The `remove` event is the last event a unit will ever see before going down, right after {ref}`hook-stop`. It is exclusively fired when the unit is in the {ref}`teardown phase <teardown-phase>`.
+The `remove` event is the last event a unit will ever see before going down, right after [`stop`](https://discourse.charmhub.io/t/6483). It is exclusively fired when the unit is in the [Teardown phase](https://discourse.charmhub.io/t/5938).
 
 <!--
 *Which hooks can be guaranteed to have fired before it, if any?*?
@@ -1269,7 +1266,7 @@ Any unit.
 
 
 
-(hook-storage-attached)=
+(hook-storage-storage-attached)=
 ### `<storage>-storage-attached`
 
 *What triggers it?*
@@ -1290,7 +1287,7 @@ TBA
 TBA
 -->
 
-(hook-storage-detaching)=
+(hook-storage-storage-detaching)=
 ### `<storage>-storage-detaching`
 
 *What triggers it?*
@@ -1359,8 +1356,8 @@ The associated callback should be used to reconcile the current state written by
 
 ```{important}
 
-- Typically, operations performed on `upgrade-charm` should also be considered for {ref}`hook-install`.
-- In some cases, the {ref}`hook-config-changed` hook can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
+- Typically, operations performed on `upgrade-charm` should also be considered for [`install`](https://discourse.charmhub.io/t/install-event/6469).
+- In some cases, [`config-changed`](https://discourse.charmhub.io/t/config-changed-event/6465) can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 - Note that you cannot upgrade a Charmhub charm to the same version. However, upgrading a local charm from path works (and goes through the entire upgrade sequence) even if the charm is exactly the same.
 
 ```

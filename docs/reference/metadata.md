@@ -123,30 +123,26 @@ and vice versa.
 These are initially specified in the environments.yaml file (and then subsequently copied to the
 jenv file when the model is bootstrapped). For images, use "image-metadata-url"; for agent binaries,
 use "agent-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
-an address served by an HTTP server, or even a shared directory accessible by all node instances
+an address served by a http server, or even a shared directory accessible by all node instances
 running in the cloud.
 
-For example, assume an Apache HTTP server with base URL `https://juju-metadata`, providing access to
-information at `<base>/images` and `<base>/tools`. The Juju model yaml file could have
+eg assume an Apache http server with base URL https://juju-metadata, providing access to
+information at <base>/images and <base>/tools. The Juju model yaml file could have
 the following entries (one or both):
 
-```text
 agent-metadata-url: https://juju-metadata/tools
 image-metadata-url: https://juju-metadata/images
-```
 
 The required files in each location is as per the directory layout described earlier.
-For a shared directory, use a URL of the form `file:///sharedpath`.
+For a shared directory, use a URL of the form "file:///sharedpath".
 
 3. Provider specific storage
 
 Providers may allow additional locations to search for metadata and agent binaries. For Openstack, keystone
 endpoints may be created by the cloud administrator. These are defined as follows:
 
-```text
 juju-tools      : the <path_url> value as described above in Tools Metadata Contents
 product-streams : the <path_url> value as described above in Image Metadata Contents
-```
 
 4. Central web location (https://streams.canonical.com/juju)
 
@@ -176,7 +172,7 @@ A summary of the overall workflow is (more detail next):
 - generate image metadata to local directory
 - optionally download agent binaries to local directory/tools
 Then either
-- juju bootstrap --metadata-source `<local dir>`
+- juju bootstrap --metadata-source <local_directory>
 or
 - optionally, copy image metadata to somewhere in the metadata search path
 - optionally, mirror agent binaries to somewhere in the metadata search path

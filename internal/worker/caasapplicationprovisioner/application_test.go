@@ -284,6 +284,8 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 		broker.EXPECT().Application("con-troll-er", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(gomock.Any(), s.appID).Return(life.Alive, nil),
 
+		ops.EXPECT().CheckCharmFormat(gomock.Any(), "con-troll-er", gomock.Any(), gomock.Any()).Return(true, nil),
+
 		applicationService.EXPECT().WatchApplicationScale(gomock.Any(), "con-troll-er").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		applicationService.EXPECT().WatchApplicationSettings(gomock.Any(), "con-troll-er").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
 		applicationService.EXPECT().WatchApplicationUnitLife(gomock.Any(), "con-troll-er").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),

@@ -11,8 +11,8 @@ Starting with `juju v.3.0`,  Juju Dashboard needs to be set up via the `juju-das
 
 ```
 
-(set-up-the-juju-dashboard)=
-## Set up the Juju dashboard
+
+## Set up the dashboard
 
 First, switch to the controller model (always called `controller`; see `juju status`):
 
@@ -46,10 +46,10 @@ juju expose juju-dashboard
 
 Your application is now ready to be accessed.
 
-(access-the-juju-dashboard)=
-## Access the Juju dashboard
 
-### Using the CLI
+## Access the dashboard
+
+### Access using the CLI
 
 First, use the `dashboard` command to get the IP address and login credentials to access the dashboard. This command will need to be run on the same machine as your browser as it will proxy a secure connection to the controller.
 
@@ -87,17 +87,15 @@ After opening the Juju dashboard URL, you are greeted with the login window, whe
 
 If you'd rather not have your login credentials displayed in the output of `juju dashboard`, they can be suppressed by adding the `--hide-credential` argument.
 
-(access-the-juju-dashboard-without-the-cli)=
-### Without the CLI
+### Access without the CLI
 
 If you would like Juju Dashboard to be available without using the CLI to proxy your connection, you will need to set up a web proxy (e.g. [HAProxy](https://charmhub.io/haproxy)) in front on the dashboard and Juju controller API.
 
-(upgrade-the-juju-dashboard)=
-## Upgrade the Juju dashboard
+## Upgrade the dashboard
 
 The dashboard might inform you that a newer version is available.
 
-![Upgrade the dashboard](manage-the-juju-dashboard-upgrade.png)
+![Upgrade the dashboard](manage-the-juju-dashboard-upgrade.png)  
 
 If you have permission to modify the controller model you can upgrade the dashboard application charm.
 

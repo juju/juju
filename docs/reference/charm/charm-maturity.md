@@ -3,15 +3,19 @@
 
 Charms are built for reuse. Having reuse in mind, the design and implementation of a charm needs to  be independent from particular use cases or domains. But how can you ensure reuse?
 
-The best way to enable reuse is to start an open source project. Open source brings experts together; they can participate in the development and contribute their knowledge from their different backgrounds. In addition, the open source approach offers transparency and lets users and developers freely use, modify, analyse and redistribute the software.
+The best way to enable reuse is to start an open source project. Open source brings experts together; they can participate in the development and contribute their knowledge from their different backgrounds. In addition, the open source approach offers transparency and lets users and developers freely use, modify, analyse and redistribute the software. Read more about [reasons to publish your charm in our documentation](https://juju.is/docs/sdk/reasons-to-publish-your-charm-on-charmhub).
 
 ## Two stages of maturity
+
 
 An open source project is the suitable foundation for reuse. However, providing a reusable charm is also a matter of maturity: high-quality software development and relevant capabilities for operating applications. Accordingly, the development of a charm follows a two-stage approach:
 
 1. {ref}`Stage 1: Important qualities <stage-1-important-qualities>`: A quality open source project, implements state-the-art documentation, testing and automation - this is the foundation for sharing and effective collaboration.
 
 2. {ref}`Stage 2: Important capabilities <stage-2-important-capabilities>` are about implementing the most relevant capabilities to ensure effective operations.
+
+For both stages, the reference documents above provide two parts: a first part explains the goals and a second part lists references to the documentation or example code for implementation. The points listed in the stages prioritise the development and explain how to implement the qualities and capabilities using the [Charm SDK](https://juju.is/docs/sdk). For general best practices for developing a charm, please read the [Charm development best practices](https://juju.is/docs/sdk/styleguide).
+
 
 (stage-1-important-qualities)=
 ### Stage 1: Important qualities
@@ -41,7 +45,7 @@ The power of a charm lies in the fact that it packages expert knowledge in a way
 
 ```{important}
 
-While every charm can be published on [Charmhub](https://charmhub.io/), only charms that meet this first set of standards will be *listed*, that is, be visible when a user browses or searches for content on Charmhub.
+While every charm can be published on {ref}`Charmhub <charmhub>`, only charms that meet this first set of standards will be *listed*, that is, be visible when a user browses or searches for content on Charmhub.
 
 ```
 
@@ -61,7 +65,7 @@ A charm is no good if it does not work reliably as intended. To that end, make s
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-|The charm has appropriate unit tests. These tests cover all the actions of the charm and are executed as part of a CI/CD pipeline.  |  See the best practice notes in [Charmcraft](https://canonical-charmcraft.readthedocs-hosted.com/stable/) and [Ops](https://ops.readthedocs.io/en/latest/) docs.|
+|The charm has appropriate unit tests. These tests cover all the actions of the charm and are executed as part of a CI/CD pipeline.  |  {ref}`charm-development-best-practices`|
 
 <!--Reasonable refers to covering the actions of the charm. It does not refer to reaching a specific code coverage metric.
 Unit tests cover, for example, handling of events with a mocked application.
@@ -71,7 +75,7 @@ Unit tests cover, for example, handling of events with a mocked application.
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| The charm has suitable integration tests. These tests cover installation and basic functionality and are executed automatically as part of a CI/CD pipeline.<p>The implementation of a basic integration test or a smoke test (“turn on and see if smoke comes out”) is not crucial, but the definition of basic or minimal functionality testing is required.<p>To make integration tests possible in the ecosystem, charm authors provide the following information:<p>&#8226; Definition of the project’s reference setup, such as substrate version and required settings. Testers need to understand the setup which developers have considered.<br/>&#8226; In addition to the reference setup, the test documentation lists anticipated substrates/platforms/setups to show the community opportunities for additional testing.<br/>&#8226; Description about the use and expected behaviour of relevant integration points subject to testing, e.g. API, service endpoints, relations.Integration tests should be executed automatically and visible to the community.| See the best practice notes in [Charmcraft](https://canonical-charmcraft.readthedocs-hosted.com/stable/) and [Ops](https://ops.readthedocs.io/en/latest/) docs.|
+| The charm has suitable integration tests. These tests cover installation and basic functionality and are executed automatically as part of a CI/CD pipeline.<p>The implementation of a basic integration test or a smoke test (“turn on and see if smoke comes out”) is not crucial, but the definition of basic or minimal functionality testing is required.<p>To make integration tests possible in the ecosystem, charm authors provide the following information:<p>&#8226; Definition of the project’s reference setup, such as substrate version and required settings. Testers need to understand the setup which developers have considered.<br/>&#8226; In addition to the reference setup, the test documentation lists anticipated substrates/platforms/setups to show the community opportunities for additional testing.<br/>&#8226; Description about the use and expected behaviour of relevant integration points subject to testing, e.g. API, service endpoints, relations.Integration tests should be executed automatically and visible to the community.| {ref}`charm-development-best-practices`|
 
 
 #### The charm is collaboration-ready
@@ -89,7 +93,7 @@ The power of a charm compounds every time someone else finds it, uses it, and co
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| The charm has an appropriate and recognizable icon that can be displayed on Charmhub or the Juju dashboard as a symbol instead of the charm name. | The icon helps users identify the charm both when searching and selecting on Charmhub and when using the charm in models displayed in the juju dashboard. <p> The workload/application icon is considered for the charm in many cases. If the publisher of the charm and the publisher of the workload/application do not belong to the same legal entity, trademark rules may apply when using existing icons. <p>  See [Charmcraft | Manage charms > Add an icon](https://canonical-charmcraft.readthedocs-hosted.com/stable/howto/manage-charms/#add-an-icon).|
+| The charm has an appropriate and recognizable icon that can be displayed on Charmhub or the Juju dashboard as a symbol instead of the charm name. | The icon helps users identify the charm both when searching and selecting on Charmhub and when using the charm in models displayed in the juju dashboard. <p> The workload/application icon is considered for the charm in many cases. If the publisher of the charm and the publisher of the workload/application do not belong to the same legal entity, trademark rules may apply when using existing icons. <p>  {ref}`:link: How to create an icon for your charm <how-to-create-an-icon-for-your-charm>`|
 
 ##### Documentation
 
@@ -101,7 +105,7 @@ The power of a charm compounds every time someone else finds it, uses it, and co
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| The code favours a simple, readable approach. There is sufficient documentation for any integration points with the charm, such as libraries, to aid the forming of relations.| [PEP 8](https://peps.python.org/pep-0008/) for general code style:<p>[PEP 257](https://peps.python.org/pep-0257/) for in-code documentation style<p> See [Charmcraft | Manage charms > Add docs](https://canonical-charmcraft.readthedocs-hosted.com/stable/howto/manage-charms/#add-docs) for user-facing documentation.|
+| The code favours a simple, readable approach. There is sufficient documentation for any integration points with the charm, such as libraries, to aid the forming of relations.| [PEP 8](https://peps.python.org/pep-0008/) for general code style:<p>[PEP 257](https://peps.python.org/pep-0257/) for in-code documentation style<p>{ref}`charm-development-best-practices`|
 
 
 #### The charm is compliant
@@ -118,7 +122,7 @@ Charms cover applications which need to be updated regularly. In today’s world
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| The charm is up-to-date, that is, it has build, test and delivery automation. This automation is important to ensure the project can roll out updates quickly.<p>For this, you need CI/CD in place, including publishing edge and beta/candidate builds.<p>CI/CD is important to ensure that the most recent developments are also accessible to the community for testing.| &#8226; CI/CD builds are triggered ideally at a commit to the main line / master of the charm code.<p>&#8226; In the sense of “CD”, the charm is being published to its beta or edge channel on Charmhub<p>&#8226; See more: [Ops | Write integration tests for a charm](https://ops.readthedocs.io/en/latest/howto/write-integration-tests-for-a-charm.html) |
+| The charm is up-to-date, that is, it has build, test and delivery automation. This automation is important to ensure the project can roll out updates quickly.<p>For this, you need CI/CD in place, including publishing edge and beta/candidate builds.<p>CI/CD is important to ensure that the most recent developments are also accessible to the community for testing.| &#8226; CI/CD builds are triggered ideally at a commit to the main line / master of the charm code.<p>&#8226; In the sense of “CD”, the charm is being published to its beta or edge channel on Charmhub<p>&#8226; The charm development best practices provide an introduction about [integration tests](https://juju.is/docs/sdk/styleguide#heading--continuous-integration). |
 
 #### The charm maintainers are reachable
 
@@ -136,7 +140,7 @@ Users must know where to reach out to ask questions or find relevant information
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| A Discourse link or Mattermost channel must be available for discussion, announcements and the exchange of ideas, as well as anything else which would not fit into an issue.<p>For the application, links to the referring forums can also be provided. | Discourse is preferred because framework topics and other charms are also discussed there. It is the most popular place for the community of charms. Therefore, technical questions are most likely covered there.<p> Issues can also be discussed in the [public chat](https://matrix.to/#/#charmhub-juju:ubuntu.com).
+| A Discourse link or Mattermost channel must be available for discussion, announcements and the exchange of ideas, as well as anything else which would not fit into an issue.<p>For the application, links to the referring forums can also be provided. | Discourse is preferred because framework topics and other charms are also discussed there. It is the most popular place for the community of charms. Therefore, technical questions are most likely covered there.<p>For the forum, get started with an [introduction](https://discourse.charmhub.io/t/read-me-first-admin-quick-start-guide/10).<br/>Issues can also be discussed in the [public chat](https://chat.charmhub.io/).
 
 
 (stage-2-important-capabilities)=
@@ -179,7 +183,7 @@ A user can deploy the charm with a sensible default configuration.
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| The purpose is to provide a fast and reliable entry point for evaluation. Of course, optimised deployments will require configurations.  |  Often applications require initial passwords to be set, which should be auto-generated and retrievable using an action or {ref}`secrets <secret>`. <p> Hostnames and load balancer addresses are examples that often cannot be set with a sensible default. But they should be covered in the documentation and indicated clearly in the status messages on deployment when not properly set.|
+| The purpose is to provide a fast and reliable entry point for evaluation. Of course, optimised deployments will require configurations.  |  Often applications require initial passwords to be set, which should be auto-generated and retrievable using an action or [Juju Secrets](https://discourse.charmhub.io/t/juju-secrets-early-access-preview/5150) once available. <p> Hostnames and load balancer addresses are examples that often cannot be set with a sensible default. But they should be covered in the documentation and indicated clearly in the status messages on deployment when not properly set.|
 
 #### The charm is compatible with the ecosystem
 
@@ -187,7 +191,7 @@ The charm can expose provides/requires interfaces for integration ready to be ad
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Newly proposed relations have been reviewed and approved by experts to ensure:<p>&#8226; The relation is ready for adoption by other charmers from a development best practice point of view.<p>&#8226;  No conflicts with existing relations of published charms.<p>&#8226;  Relation naming and structuring are consistent with existing relations.<p>&#8226; Tests cover integration with the applications consuming the relations. | A [Github project](https://github.com/canonical/charm-relation-interfaces) structures and defines the implementation of relations.<p>No new relation should conflict with the ones covered by the relation integration set [published on Github](https://github.com/canonical/charm-relation-interfaces).<p>&#8226; See more: [Charmcraft | Manage relations](https://canonical-charmcraft.readthedocs-hosted.com/stable/howto/manage-charms/#manage-relations), [Ops | Manage relations](https://ops.readthedocs.io/en/latest/howto/manage-relations.html)|
+| Newly proposed relations have been reviewed and approved by experts to ensure:<p>&#8226; The relation is ready for adoption by other charmers from a development best practice point of view.<p>&#8226;  No conflicts with existing relations of published charms.<p>&#8226;  Relation naming and structuring are consistent with existing relations.<p>&#8226; Tests cover integration with the applications consuming the relations. | A [Github project](https://github.com/canonical/charm-relation-interfaces) structures and defines the implementation of relations.<p>No new relation should conflict with the ones covered by the relation integration set [published on Github](https://github.com/canonical/charm-relation-interfaces).<p>&#8226; [Getting started with relations in Juju](https://discourse.charmhub.io/t/implementing-relations/1051)<p>&#8226; [Discussion about consistency](https://discourse.charmhub.io/t/popular-charm-library-index/5732) |
 
 #### The charm upgrades the application safely
 
@@ -195,14 +199,14 @@ The charm supports upgrading the workload and the application. An upgrade task p
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| A best practice is to support upgrades sequentially, meaning that users of the charm can regularly apply upgrades in the sequence of released revisions. | &#8226; {ref}`upgrade-an-application`|
+| A best practice is to support upgrades sequentially, meaning that users of the charm can regularly apply upgrades in the sequence of released revisions. | &#8226; [How to upgrade applications with Juju](https://juju.is/docs/olm/manage-applications#heading--upgrade-an-application)|
 
 #### The charm supports scaling up and down
 **If the application permits or supports it,** the charm does not only scale up but also supports scaling down.
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Scale-up and scale-down can involve the number of deployment units and the allocated resources (such as storage or computing). | <p>&#8226;  {ref}`scale-an-application` <p>Note that the cited links also point to how to deal with relations when instances are added or removed:<p>&#8226; See more: [Charmcraft | Manage relations](https://canonical-charmcraft.readthedocs-hosted.com/stable/howto/manage-charms/#manage-relations), [Ops | Manage relations](https://ops.readthedocs.io/en/latest/howto/manage-relations.html) |
+| Scale-up and scale-down can involve the number of deployment units and the allocated resources (such as storage or computing). | <p>&#8226;  [Scaling applications with Juju](https://juju.is/docs/olm/manage-applications#heading--scale-an-application)<p>Note that the cited links also point to how to deal with relations when instances are added or removed:<p>&#8226;[SDK Docs - Relations](https://discourse.charmhub.io/t/relations/4465)<p>&#8226; [SDK Docs - Peer Relation Example](https://juju.is/docs/sdk/relations#heading--peer-relation-example) |
 <!--
 <a href="#heading--backup"><h2 id="heading--backup">The charm supports backup and restore</h2></a>
 
@@ -219,7 +223,7 @@ Engineers and administrators who operate an application at a production-grade le
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Integrating observability refers to providing:<p>&#8226; a metrics endpoint,<p>&#8226; alert rules,<p>&#8226; Grafana dashboards, and<p>&#8226; integration with a log sink (e.g. [Loki](https://charmhub.io/loki-k8s)).| Consider the [Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack) (COS) for covering observability in charms. Several endpoints are available from the COS to integrate with charms:<p>&#8226; Provide metrics endpoints using the MetricsProviderEndpoint<p>&#8226; Provide alert rules to Prometheus<p>&#8226; Provide dashboards using the GrafanaDashboardProvider<p>&#8226; Require a logging endpoint using the LogProxyConsumer or LokiPushApiConsumer<p>More information is available on the [Canonical Observability Stack homepage](https://charmhub.io/topics/canonical-observability-stack).<p>Consider the Zinc charm implementation as [an example for integrations with Prometheus, Grafana and Loki](https://github.com/jnsgruk/zinc-k8s-operator/blob/main/charmcraft.yaml). |
+| Integrating observability refers to providing:<p>&#8226; a metrics endpoint,<p>&#8226; alert rules,<p>&#8226; Grafana dashboards, and<p>&#8226; integration with a log sink (e.g. [Loki](https://charmhub.io/loki-k8s)).| Consider the [Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack) (COS) for covering observability in charms. Several endpoints are available from the COS to integrate with charms:<p>&#8226; Provide metrics endpoints using the MetricsProviderEndpoint<p>&#8226; Provide alert rules to Prometheus<p>&#8226; Provide dashboards using the GrafanaDashboardProvider<p>&#8226; Require a logging endpoint using the LogProxyConsumer or LokiPushApiConsumer<p>More information is available on the [Canonical Observability Stack homepage](https://charmhub.io/topics/canonical-observability-stack).<p>Consider the zinc charm implementation as [an example for integrations with Prometheus, Grafana and Loki](https://github.com/jnsgruk/zinc-k8s-operator/blob/main/metadata.yaml). |
 
 
 
@@ -227,7 +231,7 @@ Engineers and administrators who operate an application at a production-grade le
 
 Everyone can publish charms to [https://charmhub.io/](https://charmhub.io/). Then, the charm can be accessed for deployments using Juju or via a web browser by its URL. If a charm is published in Charmhub.io and included in search results, the charm entry needs to be switched into the listed mode. To bring your charm into the listing, [reach out to the community](https://discourse.charmhub.io/c/charmhub-requests/46) to announce your charm and ask for a review by an experienced community member.
 
-The Stage 1- Important qualities reference is the requirement for switching a charm into the *listed* mode. The points listed in the first stage ensure a useful charm project is suitable for presentation on [https://charmhub.io/](https://charmhub.io/) and for testing by others.
+The [Stage 1- Important qualities](https://juju.is/docs/sdk/charm-publication-checklist) reference is the requirement for switching a charm into the *listed* mode. The points listed in the first stage ensure a useful charm project is suitable for presentation on [https://charmhub.io/](https://charmhub.io/) and for testing by others.
 
 
 

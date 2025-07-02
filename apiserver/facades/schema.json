@@ -8361,9 +8361,6 @@
                         },
                         "password": {
                             "type": "string"
-                        },
-                        "token": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,

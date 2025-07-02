@@ -66,7 +66,7 @@ func (s *OldUndertakerSuite) TestAlreadyDeadRemoves(c *tc.C) {
 	stub := s.fix.run(c, func(w worker.Worker) {
 		workertest.CheckKilled(c, w)
 	})
-	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "ModelConfig", "CloudSpec", "Destroy", "RemoveModelSecrets", "RemoveModel")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "ModelConfig", "CloudSpec", "Destroy", "RemoveModel")
 }
 
 func (s *OldUndertakerSuite) TestDyingDeadRemoved(c *tc.C) {
@@ -81,7 +81,6 @@ func (s *OldUndertakerSuite) TestDyingDeadRemoved(c *tc.C) {
 		"ModelConfig",
 		"CloudSpec",
 		"Destroy",
-		"RemoveModelSecrets",
 		"RemoveModel",
 	)
 }
@@ -146,7 +145,6 @@ func (s *OldUndertakerSuite) TestProcessDyingModelErrorRetried(c *tc.C) {
 		"ModelConfig",
 		"CloudSpec",
 		"Destroy",
-		"RemoveModelSecrets",
 		"RemoveModel",
 	)
 }
@@ -194,12 +192,12 @@ func (s *OldUndertakerSuite) TestDestroyErrorForced(c *tc.C) {
 	})
 	// Removal continues despite the error calling destroy.
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "RemoveModelSecrets", "RemoveModel"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "RemoveModel"})
 	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
 func (s *OldUndertakerSuite) TestRemoveModelErrorFatal(c *tc.C) {
-	s.fix.errors = []error{nil, nil, nil, nil, nil, nil, errors.New("pow")}
+	s.fix.errors = []error{nil, nil, nil, nil, nil, errors.New("pow")}
 	s.fix.info.Result.Life = "dead"
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
@@ -207,7 +205,7 @@ func (s *OldUndertakerSuite) TestRemoveModelErrorFatal(c *tc.C) {
 		c.Check(err, tc.ErrorMatches, "cannot remove model: pow")
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "RemoveModelSecrets", "RemoveModel"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "RemoveModel"})
 	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
@@ -240,7 +238,7 @@ func (s *OldUndertakerSuite) TestDestroyTimeoutForce(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModelSecrets", "RemoveModel"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
 	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
@@ -253,7 +251,7 @@ func (s *OldUndertakerSuite) TestEnvironDestroyTimeout(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModelSecrets", "RemoveModel"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
 	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
@@ -267,7 +265,7 @@ func (s *OldUndertakerSuite) TestEnvironDestroyTimeoutForce(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModelSecrets", "RemoveModel"})
+	c.Assert(mainCalls, tc.DeepEquals, []string{"WatchModel", "ModelInfo", "WatchModelResources", "ProcessDyingModel", "RemoveModel"})
 	c.Assert(destroyCloudCalls, tc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
@@ -293,7 +291,7 @@ func (s *OldUndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *tc.C) {
 		err := workertest.CheckKilled(c, w)
 		c.Assert(err, tc.ErrorIsNil)
 	})
-	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "RemoveModelSecrets", "RemoveModel")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "RemoveModel")
 }
 
 type UndertakerSuite struct{}

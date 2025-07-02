@@ -132,7 +132,6 @@ func (s *Suite) TestMigrationStatus(c *tc.C) {
 	defer ctrl.Finish()
 
 	password := "secret"
-	token := "token"
 
 	mig := mocks.NewMockModelMigration(ctrl)
 
@@ -146,7 +145,6 @@ func (s *Suite) TestMigrationStatus(c *tc.C) {
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      password,
 		Macaroons:     []macaroon.Slice{{mac}},
-		Token:         token,
 	}
 
 	exp := mig.EXPECT()
@@ -173,7 +171,6 @@ func (s *Suite) TestMigrationStatus(c *tc.C) {
 				AuthTag:       names.NewUserTag("admin").String(),
 				Password:      password,
 				Macaroons:     `[[{"l":"location","i":"id","s64":"qYAr8nQmJzPWKDppxigFtWaNv0dbzX7cJaligz98LLo"}]]`,
-				Token:         token,
 			},
 		},
 		MigrationId:      "ID",

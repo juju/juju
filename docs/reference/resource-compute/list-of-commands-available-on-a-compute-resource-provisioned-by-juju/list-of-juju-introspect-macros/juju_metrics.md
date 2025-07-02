@@ -2,7 +2,7 @@
 # `juju_metrics`
 
 
-The juju metrics introspection tool provides the current values of metrics which juju tracking. Some of these are more interesting over time using a tool such as grafana.
+The juju metrics introspection tool provides the current values of metrics which juju tracking. Some of these are more interesting over time using a tool such as grafana. 
 
 This is primarily useful to developers to help debug problems that may be occurring in deployed systems. Advance admins can use the data to see when investigation is required, or an error is hidden.
 
@@ -42,6 +42,6 @@ go_memstats_alloc_bytes 2.3154496e+07
 
 * `process_open_fds`: how many file descriptors are open. This should not grow over time in a stable juju deployment.
 
-* `juju_dependency_engine_worker_start`: how many times a dependency has started. Each dependency has an individual number. None should have a number significantly higher than the rest. This indicates the worker is restarting due to an error. Also seen in the {ref}`juju_engine_report`.
+* `juju_dependency_engine_worker_start`: how many times a dependency has started. Each dependency has an individual number. None should have a number significantly higher than the rest. This indicates the worker is restarting due to an error. Also seen in the [juju_engine_report](https://discourse.jujucharms.com/t/agent-introspection-juju-engine-report/146).
 
 * `go_goroutines`: a gauge for the current number of goroutines. Should not be growing in a stable config.

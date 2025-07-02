@@ -25,13 +25,13 @@ A **non-peer** relation is a relation from one application to another, where the
 
 <!--
 ![relations](https://assets.ubuntu.com/v1/4f0eba09-juju-relations.png)
-<br> *Example non-peer relation: The WordPress application with actual relations to MySQL and Apache and a potential relation to HAProxy, by virtue of the `wordpress` charm having a [`requires` endpoint that supports the `mysql` interface](https://charmhub.io/wordpress/integrations#db), compatible with `mysql`'s [`provides` endpoint supporting the same interface](https://charmhub.io/mysql/integrations#mysql), and a [`provides` endpoint that supports the `http` interface](https://charmhub.io/wordpress/integrations#website), compatible with `apache2`'s or `haproxy`'s `requires` endpoint supporting the same interface, among others.*
+<br> *Example non-peer relation: The WordPress application with actual relations to MySQL and Apache and a potential relation to HAProxy, by virtue of the `wordpress` charm having a [`requires` endpoint that supports the `mysql` interface](https://charmhub.io/wordpress/integrations#db), compatible with `mysql`'s [`provides` endpoint supporting the same interface](https://charmhub.io/mysql/integrations#mysql), and a [`provides` endpoint that supports the `http` interface](https://charmhub.io/wordpress/integrations#website), compatible with `apache2`'s or `haproxy`'s `requires` endpoint supporting the same interface, among others.* 
 -->
 
 (non-subordinate-relation)=
 #### Non-subordinate
 
-A **non-subordinate** relation (aka 'regular') is a {ref}`non-peer-relation` relation where the applications are both principal.
+A **non-subordinate** relation (aka 'regular') is a {ref}`non-peer-relation` relation where the applications are both principal. 
 
 ##### Non-cross-model
 
@@ -49,7 +49,7 @@ Cross-model relations enable, for example, scenarios where  your databases are h
 
 If the network topology is anything other than flat, the Juju controllers will need to be bootstrapped with `--controller-external-ips`, `--controller-external-name`, or both, so that the controllers are able to communicate. Note that these config values can only be set at bootstrap time, and are read-only thereafter.
 
-A cross-model relation has two sides: the offering side (aka "offerer") and the consume side (aka 'saas'). It does not make a difference which side of the relation (provider or requirer) is the offerer and which is the saas - the two are interchangeable. However, the endpoint type does influence on how juju sets up firewall rules: it is assumed that a requirer is the client and the provider is the server, so ports are opened on the provider side.
+A cross-model relation has two sides: the [offer](https://discourse.charmhub.io/t/how-to-manage-offers/1150) side (aka "offerer") and the consume side (aka saas). It does not make a difference which side of the relation (provider or requirer) is the offerer and which is the saas - the two are interchangeable. However, the endpoint type does influence on how juju sets up firewall rules: it is assumed that a requirer is the client and the provider is the server, so ports are opened on the provider side.
 
 Note that application names are obfuscated (anonymised) to the offerer side:
 - Applications that relate to the saas appear to the offerer as remote + token, e.g. `remote-76cd96ab50f146b284912afd1cc13a0e`.
@@ -65,7 +65,7 @@ A subordinate charm is by definition a charm deployed on the same machine as the
 (peer-relation)=
 ### Peer
 
-A **peer** relation is a relation that an application has to itself (i.e., its units respond to one another) automatically by virtue of having a `peers` endpoint.
+A **peer** relation is a relation that an application has to itself (i.e., its units respond to one another) automatically by virtue of having a `peers` endpoint. 
 
 Because every relation results in the creation of unit and application databags in Juju's database, peer relations are sometimes used by charm authors as a way to persist charm data. When the application has multiple units, peer relations are also the mechanism behind {ref}`high availability <high-availability>`.
 
@@ -99,9 +99,9 @@ When an application becomes involved in a relation, each one of its units gets a
 - each unit gets a **unit databag**
 - each application gets an **application databag**
 
-While the relation is maintained,
+While the relation is maintained, 
 
-- in a non-peer relation, whether regular or subordinate:
+- in a non-peer relation, whether regular or subordinate: 
     - each unit can read and write to its own databag;
     - leader units can also read and write to the local application databag;
     - all units of an application can read all of the remote application's databags.
@@ -112,7 +112,7 @@ While the relation is maintained,
 
 ```{important}
 
-Note that, in peer relations, all permissions related to the remote application are turned inwards and become permissions related to the local application.
+Note that, in peer relations, all permissions related to the remote application are turned inwards and become permissions related to the local application. 
 
 ```
 
@@ -123,7 +123,7 @@ When an application becomes involved in a relation, each one of its units gets a
 
 From the moment the relation is created, any unit involved in it can interact with it.
 In practice, that means using one of the following hook tools that the Juju unit agent exposes to the charm:
-- `relation-ids`
+- `relation-ids` 
 - `relation-list`
 - `relation-get`
 - `relation-set`
@@ -132,10 +132,10 @@ When the charm uses `relation-set` to write something to a databag, all of the u
 
 For example, if the `wordpress/0*` leader uses `relation-set` to write to its local *unit* databag, its peers and the `mysql/0*` leader will receive `http-relation-changed`, because they can access that data (by calling `relation-get`), but the other mysql units will not be notified.
 
-Any time one of the involved applications is scaled up, the existing units will receive `<endpoint>-relation-joined`, once for each unit being added.
+Any time one of the involved applications is scaled up, the existing units will receive `<endpoint>-relation-joined`, once for each unit being added. 
 Any time one of the involved applications is scaled down, the existing units will receive `<endpoint>-relation-departed`, once for each unit being removed.
 
-When the user destroys the relation by using `juju remove-relation`, all involved units will be notified with `<endpoint>-relation-broken`.
+When the user destroys the relation by using `juju remove-relation`, all involved units will be notified with `<endpoint>-relation-broken`. 
 
 <!--From https://discourse.charmhub.io/t/the-lifecycle-of-charm-integrations/1050 -->
 

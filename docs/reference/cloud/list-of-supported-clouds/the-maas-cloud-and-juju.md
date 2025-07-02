@@ -2,9 +2,9 @@
 # The MAAS cloud and Juju
 
 
-This document describes details specific to using your existing MAAS cloud with Juju.
+This document describes details specific to using your existing MAAS cloud with Juju. 
 
-> See more: [MAAS](https://maas.io/)
+> See more: [MAAS](https://maas.io/) 
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
@@ -35,7 +35,7 @@ Attributes:
 
 ```{note}
 
-`maas-oauth` is your MAAS API key. See more: MAAS | How to add an API key for a user](https://maas.io/docs/how-to-enhance-maas-security#p-9102-manage-api-keys)
+`maas-oauth` is your MAAS API key. See more: MAAS | How to add an API key for a user](https://maas.io/docs/how-to-manage-user-accounts#heading--api-key)
 ```
 
 <!--

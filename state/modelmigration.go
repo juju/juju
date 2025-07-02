@@ -155,10 +155,6 @@ type modelMigDoc struct {
 	// TargetMacaroons holds the macaroons to use with TargetAuthTag
 	// when authenticating.
 	TargetMacaroons string `bson:"target-macaroons,omitempty"`
-
-	// TargetToken holds an optional token to use for authentication
-	// with a JIMM controller.
-	TargetToken string `bson:"target-token,omitempty"`
 }
 
 // modelMigStatusDoc tracks the progress of a migration attempt for a
@@ -286,7 +282,6 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		AuthTag:         authTag,
 		Password:        mig.doc.TargetPassword,
 		Macaroons:       macs,
-		Token:           mig.doc.TargetToken,
 	}, nil
 }
 
@@ -657,7 +652,6 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			TargetAuthTag:         spec.TargetInfo.AuthTag.String(),
 			TargetPassword:        spec.TargetInfo.Password,
 			TargetMacaroons:       macsJSON,
-			TargetToken:           spec.TargetInfo.Token,
 		}
 
 		statusDoc = modelMigStatusDoc{

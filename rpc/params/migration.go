@@ -37,7 +37,6 @@ type MigrationTargetInfo struct {
 	AuthTag         string   `json:"auth-tag"`
 	Password        string   `json:"password,omitempty"`
 	Macaroons       string   `json:"macaroons,omitempty"`
-	Token           string   `json:"token,omitempty"`
 }
 
 // MigrationSourceInfo holds the details required to connect to

@@ -82,7 +82,7 @@ type ModelMigrationService interface {
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetMachinesNotAtTargetAgentVersion reports all of the machines in the model that
+	// GetMachinesNotAtTargetVersion reports all of the machines in the model that
 	// are currently not at the desired target version. This also returns machines
 	// that have no reported agent version set. If all units are up to the
 	// target version or no units exist in the model a zero length slice is
@@ -131,11 +131,6 @@ type StatusService interface {
 
 // APIV4 implements the APIV4.
 type APIV4 struct {
-	*APIV5
-}
-
-// APIV5 implements the APIV5.
-type APIV5 struct {
 	*API
 }
 

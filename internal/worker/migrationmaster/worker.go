@@ -931,8 +931,7 @@ func (w *Worker) openAPIConnForModel(ctx context.Context, targetInfo coremigrati
 	if targetInfo.AuthTag.IsLocal() {
 		apiInfo.Tag = targetInfo.AuthTag
 	}
-	loginProvider := migration.NewLoginProvider(targetInfo)
-	return w.config.APIOpen(ctx, apiInfo, migration.ControllerDialOpts(loginProvider))
+	return w.config.APIOpen(ctx, apiInfo, migration.ControllerDialOpts())
 }
 
 func modelHasMigrated(phase coremigration.Phase) bool {
