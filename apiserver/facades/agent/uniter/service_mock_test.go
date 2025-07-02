@@ -2800,44 +2800,6 @@ func (c *MockNetworkServiceGetUnitRelationNetworkCall) DoAndReturn(f func(contex
 	return c
 }
 
-// SetUnitRelationNetworks mocks base method.
-func (m *MockNetworkService) SetUnitRelationNetworks(arg0 context.Context, arg1 unit.Name) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitRelationNetworks", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUnitRelationNetworks indicates an expected call of SetUnitRelationNetworks.
-func (mr *MockNetworkServiceMockRecorder) SetUnitRelationNetworks(arg0, arg1 any) *MockNetworkServiceSetUnitRelationNetworksCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitRelationNetworks", reflect.TypeOf((*MockNetworkService)(nil).SetUnitRelationNetworks), arg0, arg1)
-	return &MockNetworkServiceSetUnitRelationNetworksCall{Call: call}
-}
-
-// MockNetworkServiceSetUnitRelationNetworksCall wrap *gomock.Call
-type MockNetworkServiceSetUnitRelationNetworksCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockNetworkServiceSetUnitRelationNetworksCall) Return(arg0 error) *MockNetworkServiceSetUnitRelationNetworksCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceSetUnitRelationNetworksCall) Do(f func(context.Context, unit.Name) error) *MockNetworkServiceSetUnitRelationNetworksCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceSetUnitRelationNetworksCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockNetworkServiceSetUnitRelationNetworksCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockRemovalService is a mock of RemovalService interface.
 type MockRemovalService struct {
 	ctrl     *gomock.Controller

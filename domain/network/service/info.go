@@ -79,9 +79,3 @@ func (s *Service) GetUnitRelationNetwork(ctx context.Context, unitName coreunit.
 	}
 	return infos[0], nil
 }
-
-// SetUnitRelationNetworks updates the relation network information for
-// the specified unit.
-func (s *Service) SetUnitRelationNetworks(context context.Context, name coreunit.Name) error {
-	return nil // To be implemented
-}
