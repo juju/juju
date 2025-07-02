@@ -29,8 +29,8 @@ import (
 var modelSchemaDir embed.FS
 
 const (
-	customNamespaceUnitInsertDelete tableNamespaceID = iota
-	customNamespaceMachineInsertDelete
+	customNamespaceUnitLifecycle tableNamespaceID = iota
+	customNamespaceMachineLifecycle
 	customNamespaceStorageFilesystemLifeMachineProvisioning
 	customNamespaceStorageFilesystemLifeModelProvisioning
 	customNamespaceStorageFilesystemAttachmentLifeMachineProvisioning
@@ -202,8 +202,8 @@ func ModelDDL() *schema.Schema {
 
 		// Add a custom namespace that only watches for insert and delete
 		// operations for entities.
-		triggerEntityLifecycleByNameForTable("unit", customNamespaceUnitInsertDelete),
-		triggerEntityLifecycleByNameForTable("machine", customNamespaceMachineInsertDelete),
+		triggerEntityLifecycleByNameForTable("unit", customNamespaceUnitLifecycle),
+		triggerEntityLifecycleByNameForTable("machine", customNamespaceMachineLifecycle),
 	)
 
 	// For agent_version we only care if the single row is updated.
