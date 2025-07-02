@@ -1,5 +1,6 @@
 CREATE TABLE machine_cloud_instance (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
+    life_id INT NOT NULL,
     -- Instance ID is optional, because it won't be set until the instance
     -- is actually created in the cloud provider. Otherwise, the record is used
     -- to track the status of the instance creation process.
@@ -18,6 +19,9 @@ CREATE TABLE machine_cloud_instance (
     CONSTRAINT fk_machine_machine_uuid
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid),
+    CONSTRAINT fk_instance_life
+    FOREIGN KEY (life_id)
+    REFERENCES life (id),
     CONSTRAINT fk_availability_zone_availability_zone_uuid
     FOREIGN KEY (availability_zone_uuid)
     REFERENCES availability_zone (uuid)

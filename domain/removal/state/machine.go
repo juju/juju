@@ -72,6 +72,15 @@ AND    life_id = 0`, machineUUID)
 		return nil, nil, errors.Errorf("preparing machine life update: %w", err)
 	}
 
+	updateInstanceStmt, err := st.Prepare(`
+UPDATE machine_cloud_instance
+SET    life_id = 1
+WHERE  machine_uuid = $entityUUID.uuid
+AND    life_id = 0;`, machineUUID)
+	if err != nil {
+		return nil, nil, errors.Errorf("preparing machine cloud instance life update: %w", err)
+	}
+
 	// Mark any container machines (0/lxd/0) that are also on the same machine
 	// as dying. Also mark, any units on the machine as dying as well. This
 	// is the inverse of the marking the last unit on the machine as dying.
@@ -92,6 +101,15 @@ WHERE  uuid IN ($uuids[:])
 AND    life_id = 0;`, uuids{})
 	if err != nil {
 		return nil, nil, errors.Errorf("preparing container machine life update: %w", err)
+	}
+
+	updateContainerInstanceStmt, err := st.Prepare(`
+UPDATE machine_cloud_instance
+SET    life_id = 1
+WHERE  machine_uuid IN ($uuids[:])
+AND    life_id = 0;`, uuids{})
+	if err != nil {
+		return nil, nil, errors.Errorf("preparing container machine instance life update: %w", err)
 	}
 
 	// Select any units that are directly on the parent machine.
@@ -124,6 +142,10 @@ AND    life_id = 0;`, uuids{})
 			return errors.Errorf("advancing machine life: %w", err)
 		}
 
+		if err := tx.Query(ctx, updateInstanceStmt, machineUUID).Run(); err != nil {
+			return errors.Errorf("advancing machine cloud instance life: %w", err)
+		}
+
 		// Remove any container machines that are on the same parent machine
 		// as the input machine.
 		if err := tx.Query(ctx, selectContainerMachines, machineUUID).GetAll(&machineUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -138,6 +160,9 @@ AND    life_id = 0;`, uuids{})
 			})
 			if err := tx.Query(ctx, updateContainerStmt, uuids(s)).Run(); err != nil {
 				return errors.Errorf("advancing container machine life: %w", err)
+			}
+			if err := tx.Query(ctx, updateContainerInstanceStmt, uuids(s)).Run(); err != nil {
+				return errors.Errorf("advancing container machine instance life: %w", err)
 			}
 
 			// If there are any container machines, we also need to
@@ -253,11 +278,46 @@ SET    life_id = 2
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 1`, machineUUID)
 	if err != nil {
-		return errors.Errorf("preparing unit life update: %w", err)
+		return errors.Errorf("preparing machine life update: %w", err)
 	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if l, err := st.getMachineLife(ctx, tx, mUUID); err != nil {
-			return errors.Errorf("getting unit life: %w", err)
+			return errors.Errorf("getting machine life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		err := tx.Query(ctx, updateStmt, machineUUID).Run()
+		if err != nil {
+			return errors.Errorf("marking machine as dead: %w", err)
+		}
+
+		return nil
+	}))
+}
+
+// MarkInstanceAsDead marks the machine cloud instance with the input UUID as
+// dead.
+func (st *State) MarkInstanceAsDead(ctx context.Context, mUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machineUUID := entityUUID{UUID: mUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE machine_cloud_instance
+SET    life_id = 2
+WHERE  machine_uuid = $entityUUID.uuid
+AND    life_id = 1`, machineUUID)
+	if err != nil {
+		return errors.Errorf("preparing machine life update: %w", err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.getMachineLife(ctx, tx, mUUID); err != nil {
+			return errors.Errorf("getting machine life: %w", err)
 		} else if l == life.Dead {
 			return nil
 		} else if l == life.Alive {
@@ -280,17 +340,7 @@ func (st *State) DeleteMachine(ctx context.Context, mUUID string) error {
 		return errors.Capture(err)
 	}
 
-	// Prepare query for machine uuid.
 	machineUUIDParam := entityUUID{UUID: mUUID}
-	queryMachine := `
-SELECT &entityUUID.*
-FROM machine
-WHERE uuid = $entityUUID.uuid;
-`
-	queryMachineStmt, err := st.Prepare(queryMachine, machineUUIDParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
 
 	// Prepare query for deleting machine row.
 	deleteMachine := `
@@ -315,11 +365,27 @@ DELETE FROM net_node WHERE uuid IN
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryMachineStmt, machineUUIDParam).Get(&machineUUIDParam)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return machineerrors.MachineNotFound
-		} else if err != nil {
-			return errors.Errorf("looking up machine UUID: %w", err)
+		mLife, err := st.getMachineLife(ctx, tx, machineUUIDParam.UUID)
+		if err != nil {
+			return errors.Errorf("getting machine life: %w", err)
+		} else if mLife == life.Alive {
+			return errors.Errorf("cannot delete machine %q, machine is still alive", machineUUIDParam.UUID).
+				Add(removalerrors.EntityStillAlive)
+		} else if mLife == life.Dying {
+			return errors.Errorf("waiting for machine to be removed before deletion").
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
+		// Check to see if the machine_cloud_instance is still alive. If it is,
+		// we cannot delete the machine. It is expected that the provisioner
+		// will have removed the instance before calling this method.
+		iLife, err := st.getInstanceLife(ctx, tx, machineUUIDParam.UUID)
+		if err != nil {
+			return errors.Errorf("getting machine instance life: %w", err)
+		} else if iLife == life.Alive {
+			return errors.Errorf("cannot delete machine %q, instance is still alive", machineUUIDParam.UUID)
+		} else if iLife == life.Dying {
+			return errors.Errorf("waiting for instance to be removed before deletion").Add(removalerrors.RemovalJobIncomplete)
 		}
 
 		// Remove all basic machine data associated with the machine.
@@ -403,4 +469,26 @@ WHERE  uuid = $entityUUID.uuid;`, machineLife, machineUUID)
 	}
 
 	return machineLife.Life, errors.Capture(err)
+}
+
+func (st *State) getInstanceLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {
+	var instance entityLife
+	machineUUID := entityUUID{UUID: mUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   machine_cloud_instance
+WHERE  machine_uuid = $entityUUID.uuid;`, instance, machineUUID)
+	if err != nil {
+		return -1, errors.Errorf("preparing machine instance life query: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, machineUUID).Get(&instance)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return -1, machineerrors.MachineNotFound
+	} else if err != nil {
+		return -1, errors.Errorf("running machine instance life query: %w", err)
+	}
+
+	return instance.Life, errors.Capture(err)
 }

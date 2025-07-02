@@ -330,19 +330,23 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var netNodeUUIDRec entityUUID
-		if err := tx.Query(ctx, selectNetNodeStmt, unitUUIDRec).Get(&netNodeUUIDRec); errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.UnitNotFound
-		} else if err != nil {
-			return errors.Errorf("getting net node UUID for unit %q: %w", unitUUID, err)
-		}
-
 		if uLife, err := st.getUnitLife(ctx, tx, unitUUID); err != nil {
 			return errors.Errorf("getting unit life for unit %q: %w", unitUUID, err)
 		} else if uLife == life.Alive {
 			// The unit is still alive, we cannot delete it.
 			return errors.Errorf("cannot delete unit %q as it is still alive", unitUUID).
 				Add(removalerrors.EntityStillAlive)
+		} else if uLife == life.Dying {
+			// The unit is dying, we cannot delete it yet.
+			return errors.Errorf("waiting for unit %q to be removed before deletion", unitUUID).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
+		var netNodeUUIDRec entityUUID
+		if err := tx.Query(ctx, selectNetNodeStmt, unitUUIDRec).Get(&netNodeUUIDRec); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Errorf("getting net node UUID for unit %q: %w", unitUUID, err)
 		}
 
 		// Ensure that the unit has no associated subordinates.

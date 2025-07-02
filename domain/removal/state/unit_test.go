@@ -354,7 +354,7 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
-	s.advanceUnitLife(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -386,7 +386,7 @@ func (s *unitSuite) TestDeleteSubordinateUnit(c *tc.C) {
 	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
 	subUnitUUID := subUnitUUIDs[0]
 
-	s.advanceUnitLife(c, subUnitUUID, life.Dying)
+	s.advanceUnitLife(c, subUnitUUID, life.Dead)
 
 	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
 		subUnitUUID.String(), unitUUID.String())
@@ -414,7 +414,7 @@ func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
 	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
 	subUnitUUID := subUnitUUIDs[0]
 
-	s.advanceUnitLife(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
 
 	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
 		subUnitUUID.String(), unitUUID.String())
@@ -475,7 +475,7 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
-	s.advanceUnitLife(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 

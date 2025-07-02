@@ -218,14 +218,6 @@ func (st *State) DeleteApplication(ctx context.Context, aUUID string) error {
 
 	applicationUUIDCount := entityAssociationCount{UUID: aUUID}
 
-	applicationStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &entityAssociationCount.count
-FROM   application
-WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
-	if err != nil {
-		return errors.Errorf("preparing application life query: %w", err)
-	}
-
 	unitsStmt, err := st.Prepare(`
 SELECT count(*) AS &entityAssociationCount.count
 FROM unit
@@ -243,11 +235,17 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, applicationStmt, applicationUUIDCount).Get(&applicationUUIDCount)
-		if errors.Is(err, sqlair.ErrNoRows) || applicationUUIDCount.Count == 0 {
-			return applicationerrors.ApplicationNotFound
-		} else if err != nil {
-			return errors.Errorf("running application life query: %w", err)
+		// TODO (stickupkid): We should ensure that the application is not
+		// in a dying state, but nothing calls MarkApplicationAsDead. It is
+		// assumed that, as long as all units are removed then we can
+		// delete the application.
+		aLife, err := st.getApplicationLife(ctx, tx, aUUID)
+		if err != nil {
+			return errors.Errorf("getting application life: %w", err)
+		} else if aLife == life.Alive {
+			// The application is still alive, we cannot delete it.
+			return errors.Errorf("cannot delete application %q as it is still alive", aUUID).
+				Add(removalerrors.EntityStillAlive)
 		}
 
 		// Check that there are no units.
@@ -634,4 +632,26 @@ WHERE uuid = $entityUUID.uuid
 	}
 
 	return nil
+}
+
+func (st *State) getApplicationLife(ctx context.Context, tx *sqlair.TX, aUUID string) (life.Life, error) {
+	var applicationLife entityLife
+	applicationUUID := entityUUID{UUID: aUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   application
+WHERE  uuid = $entityUUID.uuid;`, applicationLife, applicationUUID)
+	if err != nil {
+		return -1, errors.Errorf("preparing application life query: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, applicationUUID).Get(&applicationLife)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return -1, applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return -1, errors.Errorf("running application life query: %w", err)
+	}
+
+	return applicationLife.Life, errors.Capture(err)
 }

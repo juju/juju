@@ -287,6 +287,7 @@ VALUES ($machineInstanceUUID.*);
 
 	return tx.Query(ctx, setInstanceDataStmt, machineInstanceUUID{
 		MachineUUID: mUUID,
+		LifeID:      0,
 	}).Run()
 }
 

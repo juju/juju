@@ -429,6 +429,11 @@ func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
 	c.Check(count, tc.Equals, expectedCount)
 }
 
+func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.ID, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE application SET life_id = ? WHERE uuid = ?", newLife, appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE unit SET life_id = ? WHERE uuid = ?", newLife, unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -449,6 +454,19 @@ func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLif
 
 func (s *baseSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife int) {
 	row := s.DB().QueryRow("SELECT life_id FROM machine WHERE uuid = ?", machineUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
+}
+
+func (s *baseSuite) advanceInstanceLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE machine_cloud_instance SET life_id = ? WHERE machine_uuid = ?", newLife, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM machine_cloud_instance WHERE machine_uuid = ?", machineUUID)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)

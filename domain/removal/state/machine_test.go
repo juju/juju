@@ -85,18 +85,9 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 	c.Check(len(units), tc.Equals, 1)
 	c.Check(len(childMachines), tc.Equals, 0)
 
-	// The unit should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM unit WHERE uuid = ?", units[0])
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
-
-	// The last machine had life "alive" and should now be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID)
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkUnitLife(c, units[0], 1)
+	s.checkMachineLife(c, machineUUID.String(), 1)
+	s.checkInstanceLife(c, machineUUID.String(), 1)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
@@ -127,6 +118,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 
 	// The last machine had life "alive" and should now be "dying".
 	s.checkMachineLife(c, parentMachineUUID.String(), 1)
+	s.checkInstanceLife(c, parentMachineUUID.String(), 1)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
@@ -157,6 +149,9 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 	// The last machine had life "alive" and should now be "dying".
 	s.checkMachineLife(c, parentMachineUUID.String(), 1)
 	s.checkMachineLife(c, childMachines[0], 1)
+
+	s.checkInstanceLife(c, parentMachineUUID.String(), 1)
+	s.checkInstanceLife(c, childMachines[0], 1)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDying(c *tc.C) {
@@ -176,9 +171,11 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDyi
 	c.Check(len(childMachines), tc.Equals, 0)
 
 	s.checkMachineLife(c, machineUUID0.String(), 1)
+	s.checkInstanceLife(c, machineUUID0.String(), 1)
 
 	// The other machine should not be affected.
 	s.checkMachineLife(c, machineUUID1.String(), 0)
+	s.checkInstanceLife(c, machineUUID1.String(), 0)
 }
 
 func (s *machineSuite) TestMachineRemovalNormalSuccess(c *tc.C) {
@@ -261,8 +258,7 @@ func (s *machineSuite) TestMarkMachineAsDead(c *tc.C) {
 	err := st.MarkMachineAsDead(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
-	_, err = s.DB().Exec("UPDATE machine SET life_id = 1 WHERE uuid = ?", machineUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
+	s.advanceMachineLife(c, machineUUID, life.Dying)
 
 	err = st.MarkMachineAsDead(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -286,7 +282,8 @@ func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	s.advanceMachineLife(c, machineUUID, life.Dying)
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
 
 	err := st.DeleteMachine(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
