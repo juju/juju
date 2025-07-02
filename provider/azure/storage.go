@@ -409,7 +409,7 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 
 const (
 	azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
-	nvmeDiskDeviceLink  = "/dev/nvme0n%d" // +2 to actual lun
+	nvmeDiskDeviceLink  = "/dev/disk/by-path/acpi-MSFT1000:00-pci-c05b:00:00.0-nvme-%d" // +2 to actual lun
 )
 
 func (v *azureVolumeSource) attachVolume(
