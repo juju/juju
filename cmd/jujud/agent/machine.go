@@ -1066,8 +1066,10 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 
 	var manifolds dependency.Manifolds
 	if cfg.ModelType == state.ModelTypeIAAS {
+		logger.Infof("alvin using iaas model manifolds")
 		manifolds = iaasModelManifolds(manifoldsCfg)
 	} else {
+		logger.Infof("alvin using caas model manifolds")
 		manifolds = caasModelManifolds(manifoldsCfg)
 	}
 	if err := dependency.Install(engine, manifolds); err != nil {

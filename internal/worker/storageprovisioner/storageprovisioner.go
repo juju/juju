@@ -171,6 +171,7 @@ type StatusSetter interface {
 // will not. If the directory path is non-empty, then it
 // will be passed to the storage source via its config.
 var NewStorageProvisioner = func(config Config) (worker.Worker, error) {
+	config.Logger.Debugf("alvin new storage provisioner config: %+v", config)
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -204,6 +205,7 @@ func (w *storageProvisioner) Wait() error {
 }
 
 func (w *storageProvisioner) loop() error {
+	w.config.Logger.Debugf("alvin storage provisioner loop start")
 	var (
 		volumesChanges               watcher.StringsChannel
 		filesystemsChanges           watcher.StringsChannel

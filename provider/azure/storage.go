@@ -346,6 +346,7 @@ func (v *azureVolumeSource) ValidateVolumeParams(params storage.VolumeParams) er
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
 func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+	logger.Infof("alvin AttachVolumes azureVolumeSource called")
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	instanceIds := make([]instance.Id, len(attachParams))
 	for i, p := range attachParams {
@@ -408,6 +409,7 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 
 const (
 	azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
+	nvmeDiskDeviceLink  = "/dev/nvme0n%d" // +2 to actual lun
 )
 
 func (v *azureVolumeSource) attachVolume(
@@ -415,6 +417,7 @@ func (v *azureVolumeSource) attachVolume(
 	p storage.VolumeAttachmentParams,
 ) (_ *storage.VolumeAttachment, updated bool, _ error) {
 	logger.Infof("alvin attachVolume called")
+
 	var dataDisks []*armcompute.DataDisk
 	var diskControllerType *armcompute.DiskControllerTypes
 	if vm.Properties != nil {
@@ -428,7 +431,6 @@ func (v *azureVolumeSource) attachVolume(
 		}
 	}
 
-	logger.Tracef(`executing "udevadm control" for alvin`)
 	output, err := exec.Command(
 		"udevadm", "control",
 		"--reload-rules",
@@ -438,15 +440,11 @@ func (v *azureVolumeSource) attachVolume(
 		line := s.Text()
 		logger.Infof("alvin line: %s", line)
 	}
+	isSCSI := true
 
-	if diskControllerType != nil {
-		if *diskControllerType != armcompute.DiskControllerTypesNVMe {
-			logger.Infof("alvin nvme")
-		} else if *diskControllerType == armcompute.DiskControllerTypesNVMe {
-			logger.Infof("alvin scsci")
-		} else {
-			logger.Infof("alvin not sure")
-		}
+	if diskControllerType != nil && *diskControllerType == armcompute.DiskControllerTypesNVMe {
+		logger.Infof("alvin nvme")
+		isSCSI = false
 	}
 
 	diskName := p.VolumeId
@@ -454,18 +452,28 @@ func (v *azureVolumeSource) attachVolume(
 		if toValue(disk.Name) != diskName {
 			continue
 		}
+		logger.Infof("alvin lun number for diskName %s is %d", *disk.Name, toValue(disk.Lun))
+		var deviceLink string
+		if isSCSI {
+			deviceLink = fmt.Sprintf(azureDiskDeviceLink, toValue(disk.Lun))
+		} else {
+			deviceLink = fmt.Sprintf(nvmeDiskDeviceLink, toValue(disk.Lun)+2)
+		}
 		// Disk is already attached.
 		volumeAttachment := &storage.VolumeAttachment{
 			Volume:  p.Volume,
 			Machine: p.Machine,
 			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
-				DeviceLink: fmt.Sprintf(azureDiskDeviceLink, toValue(disk.Lun)),
+				DeviceLink: deviceLink,
 			},
 		}
+
+		logger.Infof("alvin attachVolume deviceLink: %s", deviceLink)
 		return volumeAttachment, false, nil
 	}
 
-	volumeAttachment, err := v.addDataDisk(vm, diskName, p.Volume, p.Machine, armcompute.DiskCreateOptionTypesAttach, nil)
+	logger.Infof("alvin add data disk for diskName: %s  isSCSI value: %v", diskName, isSCSI)
+	volumeAttachment, err := v.addDataDisk(vm, diskName, p.Volume, p.Machine, armcompute.DiskCreateOptionTypesAttach, nil, isSCSI)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -479,12 +487,14 @@ func (v *azureVolumeSource) addDataDisk(
 	machineTag names.Tag,
 	createOption armcompute.DiskCreateOptionTypes,
 	diskSizeGB *int32,
+	isSCSI bool,
 ) (*storage.VolumeAttachment, error) {
 
 	lun, err := nextAvailableLUN(vm)
 	if err != nil {
 		return nil, errors.Annotate(err, "choosing LUN")
 	}
+	logger.Infof("alvin nextAvailableLUN %d", lun)
 
 	dataDisk := &armcompute.DataDisk{
 		Lun:          to.Ptr(lun),
@@ -507,11 +517,18 @@ func (v *azureVolumeSource) addDataDisk(
 		vm.Properties.StorageProfile.DataDisks = dataDisks
 	}
 
+	var deviceLink string
+	if isSCSI {
+		deviceLink = fmt.Sprintf(azureDiskDeviceLink, lun)
+	} else {
+		deviceLink = fmt.Sprintf(nvmeDiskDeviceLink, lun+2)
+	}
+	logger.Infof("alvin addDatadisk deviceLink: %s", deviceLink)
 	return &storage.VolumeAttachment{
 		Volume:  volumeTag,
 		Machine: machineTag,
 		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
-			DeviceLink: fmt.Sprintf(azureDiskDeviceLink, lun),
+			DeviceLink: deviceLink,
 		},
 	}, nil
 }

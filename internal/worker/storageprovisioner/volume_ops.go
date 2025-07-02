@@ -128,6 +128,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 
 // attachVolumes creates volume attachments with the specified parameters.
 func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp) error {
+	ctx.config.Logger.Debugf("alvin attachVolumes called highest")
 	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
@@ -150,6 +151,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 			// to do here.
 			continue
 		}
+		ctx.config.Logger.Debugf("alvin volumeSource: %+v", volumeSource)
 		results, err := volumeSource.AttachVolumes(ctx.config.CloudCallContextFunc(stdcontext.Background()), volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)

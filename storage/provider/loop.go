@@ -195,6 +195,7 @@ func (lvs *loopVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 
 // AttachVolumes is defined on the VolumeSource interface.
 func (lvs *loopVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+	logger.Infof("alvin loop AttachVolumes called")
 	results := make([]storage.AttachVolumesResult, len(args))
 	for i, arg := range args {
 		attachment, err := lvs.attachVolume(arg)

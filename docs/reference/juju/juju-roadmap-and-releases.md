@@ -25,7 +25,7 @@ $ go run version/helper/main.go
 ADD WHEN FIXED.
 -->
 
-<!--TEMPLATE (>= 3.6.7)
+<!--TEMPLATE (>= 3.6.8)
 ### 🔸 **Juju 3.6.X**  
 🗓️ <DATE>  <--leave this as TBC until released into stable!
 
@@ -41,7 +41,7 @@ ADD WHEN FIXED.
 * @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
 -->
 
-<!--LEGACY TEMPLATE (< 3.6.7)
+<!--LEGACY TEMPLATE (< 3.6.8)
 ### 🔸 **Juju 2.9.X**  - <DATE>  <--leave this as TBC until released into stable!
 ⚙️ Features:
 * feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
@@ -66,7 +66,7 @@ ADD WHEN FIXED.
 Juju 3.6 series is LTS
 ```
 
-### 🔸 **Juju 3.6.7**
+### 🔸 **Juju 3.6.8**
 🗓️ 09 June 2025
 
 🛠️ Fixes:

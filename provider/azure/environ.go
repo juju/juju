@@ -2273,8 +2273,9 @@ func (env *azureEnviron) resourceGroupName(ctx stdcontext.Context, modelTag name
 		return "", errors.Trace(err)
 	}
 
-	logger.Debugf("legacy resource group name doesn't exist, using short name")
+	// logger.Debugf("legacy resource group name doesn't exist, using short name")
 	resourceGroup := resourceGroupName(modelTag, modelName)
+	logger.Infof("alvin legacy resource group name doesn't exist, using short name: %q", resourceGroup)
 	return resourceGroup, nil
 }
 
