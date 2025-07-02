@@ -14,18 +14,17 @@ import (
 
 // Config holds configuration and dependencies for a storageprovisioner worker.
 type Config struct {
-	Model        names.ModelTag
-	Scope        names.Tag
-	StorageDir   string
-	Applications ApplicationWatcher
-	Volumes      VolumeAccessor
-	Filesystems  FilesystemAccessor
-	Life         LifecycleManager
-	Registry     storage.ProviderRegistry
-	Machines     MachineAccessor
-	Status       StatusSetter
-	Clock        clock.Clock
-	Logger       logger.Logger
+	Model       names.ModelTag
+	Scope       names.Tag
+	StorageDir  string
+	Volumes     VolumeAccessor
+	Filesystems FilesystemAccessor
+	Life        LifecycleManager
+	Registry    storage.ProviderRegistry
+	Machines    MachineAccessor
+	Status      StatusSetter
+	Clock       clock.Clock
+	Logger      logger.Logger
 }
 
 // Validate returns an error if the config cannot be relied upon to start a worker.
@@ -47,9 +46,6 @@ func (config Config) Validate() error {
 	case names.ApplicationTag:
 		if config.StorageDir != "" {
 			return errors.NotValidf("application Scope with StorageDir")
-		}
-		if config.Applications == nil {
-			return errors.NotValidf("nil Applications")
 		}
 	default:
 		return errors.NotValidf("%T Scope", config.Scope)

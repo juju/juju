@@ -51,18 +51,17 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := config.NewWorker(Config{
-				Model:        config.Model,
-				Scope:        config.Model,
-				StorageDir:   config.StorageDir,
-				Applications: api,
-				Volumes:      api,
-				Filesystems:  api,
-				Life:         api,
-				Registry:     registry,
-				Machines:     api,
-				Status:       api,
-				Clock:        config.Clock,
-				Logger:       config.Logger,
+				Model:       config.Model,
+				Scope:       config.Model,
+				StorageDir:  config.StorageDir,
+				Volumes:     api,
+				Filesystems: api,
+				Life:        api,
+				Registry:    registry,
+				Machines:    api,
+				Status:      api,
+				Clock:       config.Clock,
+				Logger:      config.Logger,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
