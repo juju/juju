@@ -367,9 +367,7 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 	// Set up auth handler.
 	factory := s.ControllerDomainServices(c)
 
-	systemState, err := cfg.StatePool.SystemState()
-	c.Assert(err, tc.ErrorIsNil)
-	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(factory.AgentPassword(), systemState, nil)
+	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(factory.AgentPassword(), nil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
 		c.Context(),
