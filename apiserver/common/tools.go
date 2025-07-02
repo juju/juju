@@ -404,7 +404,7 @@ func NewToolsURLGetter(modelUUID string, a APIHostPortsForAgentsGetter) *toolsUR
 
 // ToolsURLs returns a list of tools URLs pointing at an API server.
 func (t *toolsURLGetter) ToolsURLs(ctx context.Context, v semversion.Binary) ([]string, error) {
-	addrs, err := t.apiHostPortsGetter.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
+	addrs, err := t.apiHostPortsGetter.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, err
 	}

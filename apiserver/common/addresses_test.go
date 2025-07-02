@@ -32,7 +32,7 @@ func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
 	defer s.setupMock(c).Finish()
 	// Arrange
 	res := []string{"10.2.3.43:1", "10.4.7.178:2"}
-	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgentsInPreferredOrder(gomock.Any()).Return(res, nil)
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(res, nil)
 	addresser := s.getAddresser()
 
 	// Act

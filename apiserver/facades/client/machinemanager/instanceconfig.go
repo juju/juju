@@ -124,7 +124,7 @@ func InstanceConfig(
 	}
 
 	// Get the API connection info; attempt all API addresses.
-	apiAddrsForAgents, err := services.ControllerNodeService.GetAllAPIAddressesForAgentsInPreferredOrder(ctx)
+	apiAddrsForAgents, err := services.ControllerNodeService.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API addresses")
 	}

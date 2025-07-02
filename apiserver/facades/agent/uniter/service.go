@@ -63,10 +63,10 @@ type ControllerNodeService interface {
 	// controller ID, and the values are slices of strings representing the API
 	// addresses for each controller node.
 	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
-	// GetAllAPIAddressesForAgentsInPreferredOrder returns a string of api
+	// GetAllAPIAddressesForAgents returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
-	GetAllAPIAddressesForAgentsInPreferredOrder(ctx context.Context) ([]string, error)
+	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
 	// GetAPIHostPortsForAgents returns API HostPorts that are available for
 	// agents. HostPorts are grouped by controller node, though each specific
 	// controller is not identified.
