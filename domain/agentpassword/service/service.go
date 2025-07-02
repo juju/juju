@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
@@ -41,6 +42,18 @@ type ModelState interface {
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(context.Context, machine.Name) (bool, error)
+
+	// SetApplicationPasswordHash sets the password hash for the given application.
+	SetApplicationPasswordHash(context.Context, application.ID, agentpassword.PasswordHash) error
+
+	// MatchesApplicationPasswordHash checks if the password is valid or not against the
+	// password hash stored in the database.
+	MatchesApplicationPasswordHash(context.Context, application.ID, agentpassword.PasswordHash) (bool, error)
+
+	// GetApplicationIDByName returns the application ID for the named application.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
 }
 
 // ControllerState gets and sets the state of the controller node service.
@@ -210,6 +223,41 @@ func (s *Service) MatchesControllerNodePasswordHash(ctx context.Context, id, pas
 	}
 
 	return s.controllerState.MatchesControllerNodePasswordHash(ctx, id, hashPassword(password))
+}
+
+// SetApplicationPassword sets the password for the given application. If the
+// app does not exist, an error satisfying [applicationerrors.ApplicationNotFound]
+// is returned.
+func (s *Service) SetApplicationPassword(ctx context.Context, appID application.ID, password string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	return s.modelState.SetApplicationPasswordHash(ctx, appID, hashPassword(password))
+}
+
+// MatchesApplicationPasswordHash checks if the password is valid or not against
+// the password hash stored in the database.
+func (s *Service) MatchesApplicationPasswordHash(ctx context.Context, appName string, password string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// An empty password is never valid.
+	if password == "" {
+		return false, passworderrors.EmptyPassword
+	} else if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return s.modelState.MatchesApplicationPasswordHash(ctx, appID, hashPassword(password))
 }
 
 func hashPassword(p string) agentpassword.PasswordHash {
