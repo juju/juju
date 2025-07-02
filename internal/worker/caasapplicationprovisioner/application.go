@@ -165,13 +165,13 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
-	// Ensure the charm is to a v2 charm.
-	isOk, err := a.ops.CheckCharmFormat(ctx, name, a.facade, a.logger)
-	if !isOk || err != nil {
-		return errors.Trace(err)
-	}
+	if appLife == life.Alive && !statusOnly {
+		// Ensure the charm is to a v2 charm.
+		isOk, err := a.ops.CheckCharmFormat(ctx, name, a.facade, a.logger)
+		if !isOk || err != nil {
+			return errors.Trace(err)
+		}
 
-	if !statusOnly {
 		// Update the password once per worker start to avoid it changing too frequently.
 		a.password, err = password.RandomPassword()
 		if err != nil {

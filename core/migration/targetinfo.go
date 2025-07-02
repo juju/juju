@@ -44,6 +44,10 @@ type TargetInfo struct {
 	// Macaroons holds macaroons to use with AuthTag. At least one of
 	// Password or Macaroons must be set.
 	Macaroons []macaroon.Slice
+
+	// Token holds an optional token string to use for authentication
+	// specifically with a JIMM controller.
+	Token string
 }
 
 // Validate returns an error if the TargetInfo contains bad data. Nil
@@ -67,8 +71,8 @@ func (info *TargetInfo) Validate() error {
 		return errors.Errorf("empty AuthTag %w", coreerrors.NotValid)
 	}
 
-	if info.Password == "" && len(info.Macaroons) == 0 {
-		return errors.Errorf("missing Password & Macaroons %w", coreerrors.NotValid)
+	if info.Password == "" && len(info.Macaroons) == 0 && info.Token == "" {
+		return errors.Errorf("missing Password, Macaroons or Token %w", coreerrors.NotValid)
 	}
 
 	return nil

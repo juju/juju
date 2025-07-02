@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -28,6 +29,10 @@ func TestEnvironSuite(t *stdtesting.T) {
 type mockModel struct {
 	stateenvirons.Model
 	cfg *config.Config
+}
+
+func (m *mockModel) ControllerUUID() string {
+	return uuid.MustNewUUID().String()
 }
 
 func (m *mockModel) Config() (*config.Config, error) {

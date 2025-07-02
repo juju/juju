@@ -5,36 +5,39 @@ In Juju, **status** can describe the status of an application or a unit, where t
 
 ## Types of status
 
+(application-status)=
 ### Application status
 
-As its name indicates, the application status reports on the status of each deployed application. 
+As its name indicates, the application status reports on the status of each deployed application.
 
-The application status can be specified by the charm author. When not specified, it is the highest-priority status of the workload statuses of all of the application's units. So if all workloads are active, the application will also be active, but if even  just one workload is blocked, the application will also be marked blocked. 
+The application status can be specified by the charm author. When not specified, it is the highest-priority status of the workload statuses of all of the application's units. So if all workloads are active, the application will also be active, but if even  just one workload is blocked, the application will also be marked blocked.
 
 
 The following figure provides an illustration of the status an application may be in at a given time, and lists the reasons for the transitions between different statuses:
 
-![application_status](status.png) 
+![application_status](status.png)
 
+(unit-status)=
 ### Unit status
 
-The unit status is given by the status of its workload/charm and the status of its `juju` agent. 
+The unit status is given by the status of its workload/charm and the status of its `juju` agent.
 
 ```{note}
 A unit's status is usually expressed as `<workload status>/<agent status>`, e.g. , `active/idle` or `unknown/lost`.
 ```
 
+(workload--charm-status)=
 #### Workload / charm status
 
 <!--
-For the priority order, see: https://github.com/juju/juju/blob/bcca5675c4ffec94f477959e5c967a913dc7e86c/core/status/status.go#L373 
+For the priority order, see: https://github.com/juju/juju/blob/bcca5675c4ffec94f477959e5c967a913dc7e86c/core/status/status.go#L373
 -->
 
 The workload / charm status reports the status of the charm(ed service):
 
 ```{caution}
 
-Except for `error`, `terminated` and `unknown`, which are set by Juju, the workload status is generally speaking set by the charm.  As such, its semantics is ultimately up to the charm author. The meanings listed below represent just the ideal case, if the charm author has followed the best practice guidelines. 
+Except for `error`, `terminated` and `unknown`, which are set by Juju, the workload status is generally speaking set by the charm.  As such, its semantics is ultimately up to the charm author. The meanings listed below represent just the ideal case, if the charm author has followed the best practice guidelines.
 
 ```
 
@@ -109,7 +112,7 @@ The `Colour in GUI` is included for information at this point, until this featur
 
 ## Status in the output of `juju status`
 
-In the output of `juju status`, application status is given under `App{ref}`lication] > Status` and unit status -- consisting, as we said, of the workload / charm status and of the Juju agent status -- is given under `Unit > Workload, Agent`. 
+In the output of `juju status`, application status is given under `App{ref}`lication] > Status` and unit status -- consisting, as we said, of the workload / charm status and of the Juju agent status -- is given under `Unit > Workload, Agent`.
 
 
 ````{dropdown} Expand to view a sample 'juju status' output
@@ -119,11 +122,11 @@ Model        Controller           Cloud/Region        Version  SLA          Time
 charm-model  tutorial-controller  microk8s/localhost  3.1.5    unsupported  14:23:55+02:00
 
 App             Version  Status  Scale  Charm           Channel    Rev  Address         Exposed  Message
-demo-api-charm  1.0.0    active      1  demo-api-charm               0  10.152.183.175  no       
+demo-api-charm  1.0.0    active      1  demo-api-charm               0  10.152.183.175  no
 postgresql-k8s  14.7     active      1  postgresql-k8s  14/stable   73  10.152.183.237  no       Primary
 
 Unit               Workload  Agent  Address      Ports  Message
-demo-api-charm/0*  active    idle   10.1.157.72         
+demo-api-charm/0*  active    idle   10.1.157.72
 postgresql-k8s/0*  active    idle   10.1.157.74         Primary
 ```
 

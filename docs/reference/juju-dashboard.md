@@ -18,11 +18,11 @@ Juju Dashboard is hosted on [JAAS](https://jaas.ai/) for use with JAAS controlle
 
 ```{caution}
 
-Prior to `juju v.3.0`,  the Juju dashboard was automatically deployed with every controller, but from `juju v.3.0` it needs to be set up by [deploying](https://juju.is/docs/juju/manage-the-juju-dashboard#heading--set-up-the-dashboard) the `juju-dashboard` or `juju-dashboard-k8s` charm in the controller model and integrating it with the `controller` application. 
+Prior to `juju v.3.0`,  the Juju dashboard was automatically deployed with every controller, but from `juju v.3.0` it needs to be set up by deploying the `juju-dashboard` or `juju-dashboard-k8s` charm in the controller model and integrating it with the `controller` application. See more: {ref}`set-up-the-juju-dashboard`
 
 ```
 
-
+(juju-dashboard-models-view)=
 ## Models view
 
 The models view lists all the models associated with the connected controllers that you have some form of access to. The list displays the models across clouds. This allows you to access the health of all the models at a glance, surfacing any relevant errors so you can quickly investigate what has happened.
@@ -39,7 +39,7 @@ The dashboard provides comprehensive search and filter functionality. This allow
 
 ![Juju dashboard search and filtering](juju-dashboard-search-and-filtering.png)
 
-
+(juju-dashboard-model-details-view)=
 ## Model details view
 
 
@@ -58,11 +58,11 @@ The unit view scopes your list of units to the model and application you are ins
 ### Machine view
 
 ```{note}
-Requirements: this view is only available for a [machine charm](https://juju.is/docs/sdk/charm-taxonomy#heading--charm-types-by-substrate) environment and will not be visible when deployed on Kubernetes.
+Requirements: this view is only available for a {ref}`machine-charm <machine-charm>` environment and will not be visible when deployed on Kubernetes.
 
 ```
 
-The machine view displays all [machine instances](https://juju.is/docs/juju/machine) managed by Juju. It all also displays the machine status and any applications running on the machines.
+The machine view displays all {ref}`machines <machine>` managed by Juju. It all also displays the machine status and any applications running on the machines.
 
 ![Juju dashboard machine view](juju-dashboard-machine-view-1.png)
 
@@ -96,8 +96,9 @@ Requirements: the web CLI is only available when the dashboard is deployed on a 
 
 ```
 
-The dashboard provides a way to run Juju CLI commands from the web interface. For full details see the [web CLI docs](https://juju.is/docs/olm/the-juju-web-cli).
+The dashboard provides a way to run Juju CLI commands from the web interface. See more: {ref}`juju-web-cli`.
 
+(juju-dashboard-controllers-view)=
 ## Controllers view
 
 The controllers view offers a top level view, monitoring across different controllers, and the possibility to add, edit, and manage controllers. It displays a set of aggregate charts to represent the status of the controllers that have been added to the dashboard. It also displays a table listing each controller and the usage of each entity hosted by the controller.
@@ -108,7 +109,7 @@ The controllers view offers a top level view, monitoring across different contro
 
 If you have admin rights on a model, the dashboard allows you to add, remove, or modify other users' access to the model. Once model access has been granted, the model will automatically appear in that user's model list.
 
-The model access panel can be opened from a button that appears on hover in the [model list](https://juju.is/docs/juju/the-juju-dashboard#heading--models-view) for models you have admin access to and will also appear on the left side of the [model details](https://juju.is/docs/juju/the-juju-dashboard#heading--model-details-view) views.
+The model access panel can be opened from a button that appears on hover in the {ref}`models view <juju-dashboard-models-view>` for models you have admin access to and will also appear on the left side of the {ref}`model details view <juju-dashboard-model-details-view>`.
 
 ![Juju dashboard model access management](juju-dashboard-model-access-management-1.png)
 
@@ -121,7 +122,7 @@ JAAS uses the Ubuntu SSO provider and to allow access to other users you can use
 ![Juju dashboard model access management](juju-dashboard-model-access-management-2.png)
 
 ## Running actions from the dashboard
- 
+
 
 If you have write or admin permissions on a model, you can trigger any available action the charmed application provides. If the action requires options, the UI will provide these as a form with help text to describe the options and the default values.
 
@@ -161,11 +162,11 @@ If you’ve set up a local controller and this is your first time logging in, ma
 
 ### How do I deploy the dashboard?
 
-The dashboard can be deployed on a controller model using the `juju-dashboard` or `juju-dashboard-k8s` charm. See the [deployment instructions](https://juju.is/docs/juju/manage-the-juju-dashboard#heading--set-up-the-dashboard) for full details.
+The dashboard can be deployed on a controller model using the `juju-dashboard` or `juju-dashboard-k8s` charm. See more: {ref}`set-up-the-juju-dashboard`.
 
 ### How do I make the dashboard accessible over the network?
 
-To make the dashboard available over your network without using the `juju dashboard` command you will need to [set up a secure proxy](https://juju.is/docs/juju/manage-the-juju-dashboard#heading--access-without-the-cli).
+To make the dashboard available over your network without using the `juju dashboard` command you will need to set up a secure proxy. See more: {ref}`access-the-juju-dashboard-without-the-cli`.
 
 ### Why can't I see the web CLI?
 
