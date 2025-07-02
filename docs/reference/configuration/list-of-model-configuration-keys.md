@@ -814,45 +814,6 @@ The number of provisioning workers to use per model.
 **Type:** int
 
 
-(model-config-provisioner-harvest-mode)=
-## `provisioner-harvest-mode`
-
-What to do with unknown machines (default destroyed).
-
-**Default value:** `destroyed`
-
-**Type:** string
-
-**Valid values:** `all`, `none`, `unknown`, `destroyed`
-
-**Description:**
-
-
-Juju keeps state on the running model and it can harvest (remove) machines which it deems are no longer required. This can help reduce running costs and keep the model tidy. Harvesting is guided by what "harvesting mode" has been set.
-
-A Juju machine can be in one of four states:
-
--   **Alive:** The machine is running and being used.
--   **Dying:** The machine is in the process of being terminated by Juju, but hasn't yet finished.
--   **Dead:** The machine has been successfully brought down by Juju, but is still being tracked for removal.
--   **Unknown:** The machine exists, but Juju knows nothing about it.
-
-Juju can be in one of several harvesting modes, in order of most conservative to most aggressive:
-
--   **none:** Machines will never be harvested. This is a good choice if machines are managed via a process outside of Juju.
--   **destroyed:** Machines will be harvested if i) Juju "knows" about them and
-
-ii) they are 'Dead'. - **unknown:** Machines will be harvested if Juju does not "know" about them ('Unknown' state). Use with caution in a mixed environment or one which may contain multiple instances of Juju. - **all:** Machines will be harvested if Juju considers them to be 'destroyed' or 'unknown'.
-
-The default mode is **destroyed**.
-
-Below, the harvest mode key for the current model is set to 'none':
-
-	juju model-config provisioner-harvest-mode=none
-
-
-
-
 (model-config-proxy-ssh)=
 ## `proxy-ssh`
 
