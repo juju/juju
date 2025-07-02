@@ -1496,44 +1496,6 @@ func (c *MockStorageBackendWatchUnitFilesystemAttachmentsCall) DoAndReturn(f fun
 	return c
 }
 
-// WatchUnitFilesystems mocks base method.
-func (m *MockStorageBackend) WatchUnitFilesystems(arg0 names.ApplicationTag) state.StringsWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchUnitFilesystems", arg0)
-	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
-}
-
-// WatchUnitFilesystems indicates an expected call of WatchUnitFilesystems.
-func (mr *MockStorageBackendMockRecorder) WatchUnitFilesystems(arg0 any) *MockStorageBackendWatchUnitFilesystemsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnitFilesystems", reflect.TypeOf((*MockStorageBackend)(nil).WatchUnitFilesystems), arg0)
-	return &MockStorageBackendWatchUnitFilesystemsCall{Call: call}
-}
-
-// MockStorageBackendWatchUnitFilesystemsCall wrap *gomock.Call
-type MockStorageBackendWatchUnitFilesystemsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStorageBackendWatchUnitFilesystemsCall) Return(arg0 state.StringsWatcher) *MockStorageBackendWatchUnitFilesystemsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStorageBackendWatchUnitFilesystemsCall) Do(f func(names.ApplicationTag) state.StringsWatcher) *MockStorageBackendWatchUnitFilesystemsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageBackendWatchUnitFilesystemsCall) DoAndReturn(f func(names.ApplicationTag) state.StringsWatcher) *MockStorageBackendWatchUnitFilesystemsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchUnitVolumeAttachments mocks base method.
 func (m *MockStorageBackend) WatchUnitVolumeAttachments(arg0 names.ApplicationTag) state.StringsWatcher {
 	m.ctrl.T.Helper()

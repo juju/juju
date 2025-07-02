@@ -39,36 +39,6 @@ func (fw Watchers) WatchModelManagedFilesystems() state.StringsWatcher {
 	})
 }
 
-// WatchUnitManagedFilesystems returns a strings watcher that reports both
-// unit-scoped filesystems, and model-scoped, volume-backed filesystems
-// that are attached to units of the specified application.
-func (fw Watchers) WatchUnitManagedFilesystems(app names.ApplicationTag) state.StringsWatcher {
-	w := &hostFilesystemsWatcher{
-		stringsWatcherBase:     stringsWatcherBase{out: make(chan []string)},
-		backend:                fw.Backend,
-		changes:                set.NewStrings(),
-		hostFilesystems:        fw.Backend.WatchUnitFilesystems(app),
-		modelFilesystems:       fw.Backend.WatchModelFilesystems(),
-		modelVolumeAttachments: fw.Backend.WatchModelVolumeAttachments(),
-		modelVolumesAttached:   names.NewSet(),
-		modelVolumeFilesystems: make(map[names.VolumeTag]names.FilesystemTag),
-		hostMatch: func(tag names.Tag) (bool, error) {
-			entity, err := names.UnitApplication(tag.Id())
-			if err != nil {
-				return false, errors.Trace(err)
-			}
-			return app.Id() == entity, nil
-		},
-	}
-	w.tomb.Go(func() error {
-		defer watcher.Stop(w.hostFilesystems, &w.tomb)
-		defer watcher.Stop(w.modelFilesystems, &w.tomb)
-		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
-		return w.loop()
-	})
-	return w
-}
-
 // WatchMachineManagedFilesystems returns a strings watcher that reports both
 // machine-scoped filesystems, and model-scoped, volume-backed filesystems
 // that are attached to the specified machine.

@@ -125,10 +125,6 @@ type ApplicationService interface {
 	// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error)
 
-	// WatchApplication returns a watcher that emits application uuids when
-	// applications are added or removed.
-	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
-
 	// GetApplicationTrustSetting returns the application trust setting.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist

@@ -255,27 +255,6 @@ func NewStorageProvisionerAPIv4(
 	}, nil
 }
 
-// WatchApplications starts a StringsWatcher to watch CAAS applications
-// deployed to this model.
-func (s *StorageProvisionerAPIv4) WatchApplications(ctx context.Context) (params.StringsWatchResult, error) {
-	watch, err := s.applicationService.WatchApplications(ctx)
-	if err != nil {
-		return params.StringsWatchResult{
-			Error: apiservererrors.ServerError(err),
-		}, err
-	}
-	watcherID, changes, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, watch)
-	if err != nil {
-		return params.StringsWatchResult{
-			Error: apiservererrors.ServerError(err),
-		}, err
-	}
-	return params.StringsWatchResult{
-		StringsWatcherId: watcherID,
-		Changes:          changes,
-	}, nil
-}
-
 // WatchBlockDevices watches for changes to the specified machines' block devices.
 func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	canAccess, err := s.getBlockDevicesAuthFunc(ctx)
@@ -355,7 +334,7 @@ func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchVolumes(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(ctx, args, s.sb.WatchModelVolumes, s.sb.WatchMachineVolumes, nil)
+	return s.watchStorageEntities(ctx, args, s.sb.WatchModelVolumes, s.sb.WatchMachineVolumes)
 }
 
 // WatchFilesystems watches for changes to filesystems scoped
@@ -367,7 +346,6 @@ func (s *StorageProvisionerAPIv4) WatchFilesystems(ctx context.Context, args par
 		args,
 		w.WatchModelManagedFilesystems,
 		w.WatchMachineManagedFilesystems,
-		w.WatchUnitManagedFilesystems,
 	)
 }
 
@@ -376,7 +354,6 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 	args params.Entities,
 	watchEnvironStorage func() state.StringsWatcher,
 	watchMachineStorage func(names.MachineTag) state.StringsWatcher,
-	watchApplicationStorage func(tag names.ApplicationTag) state.StringsWatcher,
 ) (params.StringsWatchResults, error) {
 	canAccess, err := s.getScopeAuthFunc(ctx)
 	if err != nil {
@@ -396,8 +373,6 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 			w = watchMachineStorage(tag)
 		case names.ModelTag:
 			w = watchEnvironStorage()
-		case names.ApplicationTag:
-			w = watchApplicationStorage(tag)
 		default:
 			return "", nil, apiservererrors.ServerError(errors.NotSupportedf("watching storage for %v", tag))
 		}
