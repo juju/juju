@@ -87,6 +87,44 @@ func (s *Service) DevicesToBridge(
 	return toBridge, errors.Capture(err)
 }
 
+// DevicesForGuest returns the network devices that should be configured in the
+// guest machine with the input UUID, based on the host machine's bridges.
+func (s *Service) DevicesForGuest(
+	ctx context.Context, hostUUID, guestUUID machine.UUID,
+) ([]network.NetInterface, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := hostUUID.Validate(); err != nil {
+		return nil, errors.Errorf("invalid host machine UUID: %w", err)
+	}
+	if err := guestUUID.Validate(); err != nil {
+		return nil, errors.Errorf("invalid guest machine UUID: %w", err)
+	}
+
+	spaces, err := s.spaceRequirementsForMachine(ctx, guestUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	spaceUUIDs := make([]string, len(spaces))
+	spaceNames := make([]string, len(spaces))
+	for i, space := range spaces {
+		spaceUUIDs[i] = space.UUID
+		spaceNames[i] = space.Name
+	}
+
+	s.logger.Infof(ctx, "machine %q needs spaces %v", guestUUID, spaceNames)
+
+	nics, err := s.nicsInSpaces(ctx, hostUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	guestDevices, err := s.guestDevices(ctx, guestUUID, spaceUUIDs, nics)
+	return guestDevices, errors.Capture(err)
+}
+
 // spaceRequirementsForMachine returns UUID-to-name for the *positive*
 // space requirements of the machine with the input UUID.
 // If the positive and negative space constraints are in conflict,
@@ -280,4 +318,64 @@ func bridgeNameForDevice(device string) string {
 		hash := crc32.Checksum([]byte(device), crc32.IEEETable) & 0xffffff
 		return fmt.Sprintf("b-%0.6x-%s", hash, device[len(device)-6:])
 	}
+}
+
+func (s *Service) guestDevices(
+	ctx context.Context, mUUID machine.UUID, spaceUUIDs []string, nics map[string][]network.NetInterface,
+) ([]network.NetInterface, error) {
+	var (
+		guestDevices []network.NetInterface
+		deviceIndex  int
+	)
+	spacesToSatisfy := set.NewStrings(spaceUUIDs...)
+
+	for spaceUUID, spaceNics := range nics {
+		if !spacesToSatisfy.Contains(spaceUUID) {
+			continue
+		}
+
+		s.logger.Debugf(ctx, "looking for bridges in space %q", spaceUUID)
+
+		var bridgeToUse *network.NetInterface
+		for _, nic := range spaceNics {
+			if nic.Type == corenetwork.BridgeDevice || nic.VirtualPortType == corenetwork.OvsPort {
+				bridgeToUse = &nic
+				break
+			}
+		}
+
+		if bridgeToUse == nil {
+			return nil, errors.Errorf(
+				"no bridge found in space %q for machine %q", spaceUUID, mUUID,
+			).Add(domainerrors.SpaceRequirementsUnsatisfiable)
+		}
+
+		s.logger.Debugf(ctx, "found bridge %q in space %q for machine %q", bridgeToUse.Name, spaceUUID, mUUID)
+
+		newDev := network.NetInterface{
+			Name: fmt.Sprintf("eth%d", deviceIndex),
+			// When using the Fan, we used to locate the VXLAN device
+			// associated with the bridge and use that MTU.
+			// We no longer support Fan networking, but this is worth being
+			// aware of in situations where the MTU set turns out to be
+			// incompatible with the bridged network.
+			MTU:              bridgeToUse.MTU,
+			Type:             corenetwork.EthernetDevice,
+			ParentDeviceName: bridgeToUse.Name,
+			VirtualPortType:  bridgeToUse.VirtualPortType,
+		}
+
+		mac := corenetwork.GenerateVirtualMACAddress()
+		newDev.MACAddress = &mac
+
+		// TODO: Get the CIDR that the device is connected to,
+		// and add a single address with the same CIDR, but no IP.
+		// The config method set will be static if the provider
+		// assigns addresses, or DHCP if it does not.
+
+		deviceIndex++
+		guestDevices = append(guestDevices, newDev)
+	}
+
+	return guestDevices, nil
 }
