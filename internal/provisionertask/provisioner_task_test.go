@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	environmocks "github.com/juju/juju/environs/testing"
@@ -56,7 +55,6 @@ import (
 
 const (
 	numProvisionWorkersForTesting = 4
-	defaultHarvestMode            = config.HarvestAll
 )
 
 func machineInstanceInfoSetter(machineProvisionerAPI apiprovisioner.MachineProvisioner) func(
@@ -114,7 +112,6 @@ func (s *ProvisionerTaskSuite) TestStartStop(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	task := s.newProvisionerTask(c,
-		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 		numProvisionWorkersForTesting,
@@ -158,7 +155,6 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *tc.C)
 	s.expectMachines(m0, m1)
 
 	task := s.newProvisionerTask(c,
-		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 		numProvisionWorkersForTesting,
@@ -196,7 +192,6 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *tc.C) {
 	)
 
 	task := s.newProvisionerTaskWithRetry(c,
-		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 		provisionertask.RetryStrategy{
@@ -271,7 +266,6 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	task := s.newProvisionerTask(c,
-		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 		numProvisionWorkersForTesting,
@@ -328,7 +322,6 @@ func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvail
 	defer s.setUpMocks(c).Finish()
 
 	task := s.newProvisionerTask(c,
-		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 		numProvisionWorkersForTesting,
@@ -390,7 +383,7 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *tc.C) {
 			})
 	}
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, "0", "1", "2", "3")
 
 	retryCallArgs := retry.CallArgs{
@@ -483,7 +476,7 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *tc.C) {
 	broker.EXPECT().StartInstance(gomock.Any(), spaceConstraints).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
 	}, nil)
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
 	s.sendModelMachinesChange(c, "0")
 	s.waitForProvisioned(c, m0)
@@ -506,7 +499,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *tc.C) {
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az9")
 	broker.EXPECT().DeriveAvailabilityZones(gomock.Any(), azConstraints).Return([]string{}, nil)
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, "0")
 	s.waitForWorkerSetup(c)
 
@@ -543,7 +536,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *tc.C) {
 	broker.EXPECT().StartInstance(gomock.Any(), azConstraints).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
 	}, nil)
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
 	s.sendModelMachinesChange(c, "0")
 	s.waitForProvisioned(c, m0)
@@ -577,7 +570,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *tc
 		}, nil),
 	)
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
 	s.sendMachineErrorRetryChange(c)
 	s.sendMachineErrorRetryChange(c)
@@ -617,7 +610,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *tc.C)
 	// so we expect the machine to be created in az2.
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az1"},
-	}, numProvisionWorkersForTesting, defaultHarvestMode)
+	}, numProvisionWorkersForTesting)
 
 	s.sendModelMachinesChange(c, "0")
 	s.waitForProvisioned(c, m0)
@@ -655,7 +648,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 	// so we expect the machine to be created in az2.
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az1"},
-	}, numProvisionWorkersForTesting, defaultHarvestMode)
+	}, numProvisionWorkersForTesting)
 
 	s.sendMachineErrorRetryChange(c)
 	s.sendMachineErrorRetryChange(c)
@@ -695,7 +688,7 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az2"},
 		names.NewMachineTag("1"): {"az3"},
-	}, numProvisionWorkersForTesting, defaultHarvestMode)
+	}, numProvisionWorkersForTesting)
 
 	s.sendMachineErrorRetryChange(c)
 	s.sendMachineErrorRetryChange(c)
@@ -715,7 +708,7 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *tc.C)
 
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
 		names.NewMachineTag("0"): {"az1"},
-	}, numProvisionWorkersForTesting, defaultHarvestMode)
+	}, numProvisionWorkersForTesting)
 	s.sendModelMachinesChange(c, "0")
 	s.waitForWorkerSetup(c)
 
@@ -791,7 +784,7 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *tc.C) {
 		return nil
 	})
 
-	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode, barrierCb)
+	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, barrierCb)
 
 	s.sendModelMachinesChange(c, "0")
 
@@ -809,7 +802,7 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
-	s.instances = []instances.Instance{&testInstance{id: "0"}}
+	s.instances = []instances.Instance{&testInstance{id: "instance-0"}}
 
 	// m0 is a machine that should be started.
 	m0 := &testMachine{
@@ -883,7 +876,7 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 		}),
 		broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
 			c.Assert(len(ids), tc.Equals, 1)
-			c.Assert(ids[0], tc.DeepEquals, instance.Id("0"))
+			c.Assert(ids[0], tc.DeepEquals, instance.Id("instance-0"))
 
 			// Signal the test to shut down the worker.
 			close(doneCh)
@@ -891,7 +884,7 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 		}),
 	)
 
-	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode, barrierCb)
+	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, barrierCb)
 
 	// Send change for machine 0
 	s.sendModelMachinesChange(c, "0")
@@ -919,7 +912,7 @@ func (s *ProvisionerTaskSuite) TestResizeWorkerPool(c *tc.C) {
 	}
 
 	broker := s.setUpZonedEnviron(ctrl)
-	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode, barrierCb)
+	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, barrierCb)
 
 	// Resize the pool
 	task.SetNumProvisionWorkers(numProvisionWorkersForTesting + 1)
@@ -976,7 +969,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 		Instance: &testInstance{id: "instance-0"},
 	}, nil).MinTimes(3)
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, defaultHarvestMode)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
 	syncStep := func() {
 		select {
@@ -1016,31 +1009,6 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *tc.C
 	workertest.CleanKill(c, task)
 }
 
-func (s *ProvisionerTaskSuite) TestHarvestUnknownReapsOnlyUnknown(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
-	inst0 := &testInstance{id: "0"}
-	m0 := &testMachine{c: c, id: "0", life: life.Alive, instance: inst0}
-	instUnknown := &testInstance{id: "unknown"}
-	s.instances = []instances.Instance{inst0, instUnknown}
-
-	s.expectMachines(m0)
-
-	broker := environmocks.NewMockEnviron(ctrl)
-	exp := broker.EXPECT()
-	exp.AllRunningInstances(gomock.Any()).Return(s.instances, nil).MinTimes(1)
-	// Only stop the unknown instance.
-	exp.StopInstances(gomock.Any(), []instance.Id{"unknown"}).Return(nil)
-
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestUnknown)
-	defer workertest.CleanKill(c, task)
-
-	m0.SetLife(life.Dead)
-	s.sendModelMachinesChange(c, "0")
-	s.waitForRemovalMark(c, m0)
-}
-
 func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *tc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
@@ -1058,36 +1026,11 @@ func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *tc.C) {
 	// Only stop the dead instance.
 	exp.StopInstances(gomock.Any(), []instance.Id{"0"}).Return(nil).AnyTimes()
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestDestroyed)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	defer workertest.CleanKill(c, task)
 
 	// This results in no action.
 	s.sendModelMachinesChange(c, "0")
-
-	m0.SetLife(life.Dead)
-	s.sendModelMachinesChange(c, "0")
-	s.waitForRemovalMark(c, m0)
-}
-
-func (s *ProvisionerTaskSuite) TestHarvestAllReapsAllTheThings(c *tc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
-	inst0 := &testInstance{id: "0"}
-	m0 := &testMachine{c: c, id: "0", life: life.Alive, instance: inst0}
-	instUnknown := &testInstance{id: "unknown"}
-	s.instances = []instances.Instance{inst0, instUnknown}
-
-	s.expectMachines(m0)
-
-	broker := environmocks.NewMockEnviron(ctrl)
-	exp := broker.EXPECT()
-	exp.AllRunningInstances(gomock.Any()).Return(s.instances, nil).MinTimes(1)
-	// Stop both instances.
-	exp.StopInstances(gomock.Any(), []instance.Id{"0", "unknown"}).Return(nil)
-
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestAll)
-	defer workertest.CleanKill(c, task)
 
 	m0.SetLife(life.Dead)
 	s.sendModelMachinesChange(c, "0")
@@ -1108,7 +1051,6 @@ func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *tc.C) {
 	)
 
 	task := s.newProvisionerTaskWithRetry(c,
-		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 		provisionertask.RetryStrategy{
@@ -1155,7 +1097,6 @@ func (s *ProvisionerTaskSuite) TestMachineErrorsRetainInstances(c *tc.C) {
 	// start the provisioner and ensure it doesn't kill any
 	// instances if there are errors getting machines.
 	task := s.newProvisionerTask(c,
-		config.HarvestAll,
 		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 		numProvisionWorkersForTesting,
@@ -1197,7 +1138,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedRootDisk(c *
 		Instance: &testInstance{id: "instance-0"},
 	}, nil)
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestAll)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	defer workertest.CleanKill(c, task)
 
 	s.sendModelMachinesChange(c, "0")
@@ -1286,7 +1227,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *t
 		Instance: &testInstance{id: "instance-0"},
 	}, nil)
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestAll)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	defer workertest.CleanKill(c, task)
 
 	s.sendModelMachinesChange(c, "0")
@@ -1320,7 +1261,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningDoesNotProvisionTheSameMachineAft
 		s.sendModelMachinesChange(c, "0")
 	}()
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestAll)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	defer workertest.CleanKill(c, task)
 
 	select {
@@ -1348,7 +1289,7 @@ func (s *ProvisionerTaskSuite) TestDyingMachines(c *tc.C) {
 	exp.AllRunningInstances(gomock.Any()).Return(s.instances, nil).MinTimes(1)
 	s.expectMachines(m0, m1)
 
-	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestAll)
+	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 	defer workertest.CleanKill(c, task)
 
 	s.sendModelMachinesChange(c, "0", "1")
@@ -1438,13 +1379,11 @@ func (s *ProvisionerTaskSuite) sendMachineErrorRetryChange(c *tc.C) {
 
 func (s *ProvisionerTaskSuite) newProvisionerTask(
 	c *tc.C,
-	harvestingMethod config.HarvestMode,
 	distributionGroupFinder provisionertask.DistributionGroupFinder,
 	toolsFinder provisionertask.ToolsFinder,
 	numProvisionWorkers int,
 ) provisionertask.ProvisionerTask {
 	return s.newProvisionerTaskWithRetry(c,
-		harvestingMethod,
 		distributionGroupFinder,
 		toolsFinder,
 		provisionertask.RetryStrategy{
@@ -1457,7 +1396,6 @@ func (s *ProvisionerTaskSuite) newProvisionerTask(
 
 func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	c *tc.C,
-	harvestingMethod config.HarvestMode,
 	distributionGroupFinder provisionertask.DistributionGroupFinder,
 	toolsFinder provisionertask.ToolsFinder,
 	retryStrategy provisionertask.RetryStrategy,
@@ -1467,7 +1405,6 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		ControllerUUID:               coretesting.ControllerTag.Id(),
 		HostTag:                      names.NewMachineTag("0"),
 		Logger:                       loggertesting.WrapCheckLog(c),
-		HarvestMode:                  harvestingMethod,
 		ControllerAPI:                s.controllerAPI,
 		MachinesAPI:                  s.machinesAPI,
 		DistributionGroupFinder:      distributionGroupFinder,
@@ -1489,9 +1426,8 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
 	broker environs.InstanceBroker,
 	distributionGroups map[names.MachineTag][]string,
 	numProvisionWorkers int,
-	harvestingMethod config.HarvestMode,
 ) provisionertask.ProvisionerTask {
-	return s.newProvisionerTaskWithBrokerAndEventCb(c, broker, distributionGroups, numProvisionWorkers, harvestingMethod, nil)
+	return s.newProvisionerTaskWithBrokerAndEventCb(c, broker, distributionGroups, numProvisionWorkers, nil)
 }
 
 func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
@@ -1499,14 +1435,12 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 	broker environs.InstanceBroker,
 	distributionGroups map[names.MachineTag][]string,
 	numProvisionWorkers int,
-	harvestingMethod config.HarvestMode,
 	evtCb func(string),
 ) provisionertask.ProvisionerTask {
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:          coretesting.ControllerTag.Id(),
 		HostTag:                 names.NewMachineTag("0"),
 		Logger:                  loggertesting.WrapCheckLog(c),
-		HarvestMode:             harvestingMethod,
 		ControllerAPI:           s.controllerAPI,
 		MachinesAPI:             s.machinesAPI,
 		DistributionGroupFinder: &mockDistributionGroupFinder{groups: distributionGroups},

@@ -51,11 +51,6 @@ import (
 type ProvisionerTask interface {
 	worker.Worker
 
-	// SetHarvestMode sets a flag to indicate how the provisioner task
-	// should harvest machines. See config.HarvestMode for
-	// documentation of behavior.
-	SetHarvestMode(mode config.HarvestMode)
-
 	// SetNumProvisionWorkers resizes the pool of provision workers.
 	SetNumProvisionWorkers(numWorkers int)
 }
@@ -123,7 +118,6 @@ type TaskConfig struct {
 	ControllerUUID               string
 	HostTag                      names.Tag
 	Logger                       logger.Logger
-	HarvestMode                  config.HarvestMode
 	ControllerAPI                ControllerAPI
 	MachinesAPI                  MachinesAPI
 	GetMachineInstanceInfoSetter GetMachineInstanceInfoSetter
@@ -160,8 +154,6 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		machineChanges:               machineChanges,
 		retryChanges:                 retryChanges,
 		broker:                       cfg.Broker,
-		harvestMode:                  cfg.HarvestMode,
-		harvestModeChan:              make(chan config.HarvestMode, 1),
 		machines:                     make(map[string]apiprovisioner.MachineProvisioner),
 		machinesStarting:             make(map[string]bool),
 		machinesStopDeferred:         make(map[string]bool),
@@ -191,7 +183,6 @@ const (
 	eventTypeProcessedMachines         = "processed-machines"
 	eventTypeRetriedMachinesWithErrors = "retried-machines-with-errors"
 	eventTypeResizedWorkerPool         = "resized-worker-pool"
-	eventTypeHarvestModeChanged        = "harvest-mode-changed"
 )
 
 type provisionerTask struct {
@@ -208,8 +199,6 @@ type provisionerTask struct {
 	broker                       environs.InstanceBroker
 	catacomb                     catacomb.Catacomb
 	imageStream                  string
-	harvestMode                  config.HarvestMode
-	harvestModeChan              chan config.HarvestMode
 	retryStartInstanceStrategy   RetryStrategy
 
 	machinesMutex            sync.RWMutex
@@ -253,21 +242,20 @@ func (task *provisionerTask) loop() (taskErr error) {
 		task.logger.Infof(ctx, "exiting provisioner task loop; err: %v", taskErr)
 	}()
 
-	// Don't allow the harvesting mode to change until we have read at
-	// least one set of changes, which will populate the task.machines
-	// map. Otherwise we will potentially see all legitimate instances
-	// as unknown.
-	var harvestModeChan chan config.HarvestMode
-
 	// When the watcher is started, it will have the initial changes be all
 	// the machines that are relevant. Also, since this is available straight
 	// away, we know there will be some changes right off the bat.
 	for {
 		select {
+		case <-task.catacomb.Dying():
+			return task.catacomb.ErrDying()
+
 		case ids, ok := <-task.machineChanges:
 			if !ok {
 				return errors.New("machine watcher closed channel")
 			}
+
+			fmt.Println("??", ids)
 
 			if err := task.processMachines(ctx, ids); err != nil {
 				return errors.Annotate(err, "processing updated machines")
@@ -275,9 +263,6 @@ func (task *provisionerTask) loop() (taskErr error) {
 
 			task.notifyEventProcessedCallback(eventTypeProcessedMachines)
 
-			// We've seen a set of changes.
-			// Enable modification of harvesting mode.
-			harvestModeChan = task.harvestModeChan
 		case numWorkers := <-task.wpSizeChan:
 			if task.wp.Size() == numWorkers {
 				continue // nothing to do
@@ -291,32 +276,18 @@ func (task *provisionerTask) loop() (taskErr error) {
 			}
 			task.wp = workerpool.NewWorkerPool(task.logger, numWorkers)
 			task.notifyEventProcessedCallback(eventTypeResizedWorkerPool)
-		case harvestMode := <-harvestModeChan:
-			if harvestMode == task.harvestMode {
-				break
-			}
-			task.logger.Infof(ctx, "harvesting mode changed to %s", harvestMode)
-			task.harvestMode = harvestMode
-			task.notifyEventProcessedCallback(eventTypeHarvestModeChanged)
-			if harvestMode.HarvestUnknown() {
-				task.logger.Infof(ctx, "harvesting unknown machines")
-				if err := task.processMachines(ctx, nil); err != nil {
-					return errors.Annotate(err, "processing machines after safe mode disabled")
-				}
-				task.notifyEventProcessedCallback(eventTypeProcessedMachines)
-			}
+
 		case <-task.retryChanges:
 			if err := task.processMachinesWithTransientErrors(ctx); err != nil {
 				return errors.Annotate(err, "processing machines with transient errors")
 			}
 			task.notifyEventProcessedCallback(eventTypeRetriedMachinesWithErrors)
+
 		case <-task.wp.Done():
 			// The worker pool has detected one or more errors and
 			// is in the process of shutting down. Collect and
 			// report any emitted errors.
 			return task.wp.Close()
-		case <-task.catacomb.Dying():
-			return task.catacomb.ErrDying()
 		}
 	}
 }
@@ -324,14 +295,6 @@ func (task *provisionerTask) loop() (taskErr error) {
 func (task *provisionerTask) notifyEventProcessedCallback(evtType string) {
 	if task.eventProcessedCb != nil {
 		task.eventProcessedCb(evtType)
-	}
-}
-
-// SetHarvestMode implements ProvisionerTask.SetHarvestMode().
-func (task *provisionerTask) SetHarvestMode(mode config.HarvestMode) {
-	select {
-	case task.harvestModeChan <- mode:
-	case <-task.catacomb.Dying():
 	}
 }
 
@@ -421,6 +384,7 @@ func (task *provisionerTask) populateMachineMaps(ctx context.Context, ids []stri
 
 	instances := make(map[instance.Id]instances.Instance)
 	for _, i := range allInstances {
+		fmt.Println("??1", i.Id())
 		instances[i.Id()] = i
 	}
 	task.machinesMutex.Lock()
@@ -501,6 +465,9 @@ func (task *provisionerTask) scopedContext() (context.Context, context.CancelFun
 	return context.WithCancel(task.catacomb.Context(context.Background()))
 }
 
+// ClassifiableMachine is an interface that provides methods to classify a
+// machine based on its life cycle state and instance ID. It is used to
+// determine if a machine is pending, dead, or has no instance ID assigned.
 type ClassifiableMachine interface {
 	Life() life.Value
 	Id() string
@@ -510,6 +477,8 @@ type ClassifiableMachine interface {
 	InstanceStatus(context.Context) (status.Status, string, error)
 }
 
+// MachineClassification represents the classification of a machine based on
+// its life cycle state. It can be None, Pending, or Dead.
 type MachineClassification string
 
 const (
@@ -565,39 +534,6 @@ func classifyMachine(ctx context.Context, logger logger.Logger, machine Classifi
 	return None, nil
 }
 
-// findUnknownInstances finds instances which are not associated with a machine.
-func (task *provisionerTask) findUnknownInstances(ctx context.Context, stopping []instances.Instance) ([]instances.Instance, error) {
-	// Make a copy of the instances we know about.
-	taskInstances := make(map[instance.Id]instances.Instance)
-	for k, v := range task.instances {
-		taskInstances[k] = v
-	}
-
-	task.machinesMutex.RLock()
-	defer task.machinesMutex.RUnlock()
-	for _, m := range task.machines {
-		instId, err := m.InstanceId(ctx)
-		switch {
-		case err == nil:
-			delete(taskInstances, instId)
-		case params.IsCodeNotProvisioned(err):
-		case params.IsCodeNotFoundOrCodeUnauthorized(err):
-		default:
-			return nil, err
-		}
-	}
-	// Now remove all those instances that we are stopping already as we
-	// know about those and don't want to include them in the unknown list.
-	for _, inst := range stopping {
-		delete(taskInstances, inst.Id())
-	}
-	var unknown []instances.Instance
-	for _, inst := range taskInstances {
-		unknown = append(unknown, inst)
-	}
-	return unknown, nil
-}
-
 // filterAndQueueRemovalOfDeadMachines scans the list of dead machines and:
 //   - Sets the deferred stop flag for machines that are still online
 //   - Filters out any machines that are either stopping or have the deferred
@@ -634,37 +570,16 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 	ctx context.Context,
 	dead []apiprovisioner.MachineProvisioner,
 ) error {
+	if len(dead) == 0 {
+		// nothing to do
+		return nil
+	}
+
 	// Collect the instances for all provisioned machines that are dead.
 	stopping := task.instancesForDeadMachines(ctx, dead)
-
-	// Find running instances that have no machines associated.
-	unknown, err := task.findUnknownInstances(ctx, stopping)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if !task.harvestMode.HarvestUnknown() && len(unknown) != 0 {
-		task.logger.Infof(ctx,
-			"%s is set to %s; unknown instances not stopped %v",
-			config.ProvisionerHarvestModeKey,
-			task.harvestMode.String(),
-			instanceIds(unknown),
-		)
-		unknown = nil
-	}
-
-	if (task.harvestMode.HarvestNone() || !task.harvestMode.HarvestDestroyed()) && len(stopping) != 0 {
-		task.logger.Infof(ctx,
-			`%s is set to "%s"; will not harvest %s`,
-			config.ProvisionerHarvestModeKey,
-			task.harvestMode.String(),
-			instanceIds(stopping),
-		)
-		stopping = nil
-	}
-
-	if len(dead) == 0 {
-		return nil // nothing to do
+	if len(stopping) == 0 {
+		// no instances to stop, as the machines are not provisioned.
+		return nil
 	}
 
 	provTask := workerpool.Task{
@@ -673,15 +588,12 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 			if len(stopping) > 0 {
 				task.logger.Infof(ctx, "stopping known instances %v", instanceIds(stopping))
 			}
-			if len(unknown) > 0 {
-				task.logger.Infof(ctx, "stopping unknown instances %v", instanceIds(unknown))
-			}
 
 			// It is important that we stop unknown instances before starting
 			// pending ones, because if we start an instance and then fail to
 			// set its InstanceId on the machine.
 			// We don't want to start a new instance for the same machine ID.
-			if err := task.doStopInstances(ctx, append(stopping, unknown...)); err != nil {
+			if err := task.doStopInstances(ctx, stopping); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -774,6 +686,8 @@ func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead 
 				task.logger.Debugf(ctx, "machine %v is dead but keep-instance is true", instId)
 				continue
 			}
+
+			fmt.Println("????", task.instances, instId)
 
 			// If the instance is not found we can't stop it.
 			if inst, found := task.instances[instId]; found {
@@ -1170,10 +1084,10 @@ func (task *provisionerTask) populateDistributionGroupZoneMap(machineIds []strin
 	dgSet := set.NewStrings(machineIds...)
 	for _, azm := range task.availabilityZoneMachines {
 		dgAvailabilityZoneMachines = append(dgAvailabilityZoneMachines, &AvailabilityZoneMachine{
-			azm.ZoneName,
-			azm.MachineIds.Intersection(dgSet),
-			azm.FailedMachineIds,
-			azm.ExcludedMachineIds,
+			ZoneName:           azm.ZoneName,
+			MachineIds:         azm.MachineIds.Intersection(dgSet),
+			FailedMachineIds:   azm.FailedMachineIds,
+			ExcludedMachineIds: azm.ExcludedMachineIds,
 		})
 	}
 	return dgAvailabilityZoneMachines
