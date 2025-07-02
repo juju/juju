@@ -659,6 +659,7 @@ SELECT sp.uuid
 FROM   storage_pool sp
 WHERE  sp.name = ?`, "ebs-fast").Scan(&poolUUID)
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.GetStoragePoolUUID(ctx, "ebs-fast")
 	c.Assert(err, tc.ErrorIsNil)
