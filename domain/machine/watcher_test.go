@@ -60,28 +60,34 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should fire when a machine is created.
+	var mName0 machine.Name
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
+		_, mName0, err = s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+			Nonce: ptr("nonce-123"),
+		})
 		c.Assert(err, tc.IsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.SliceAssert([]string{"0"}))
+		w.Check(watchertest.SliceAssert([]string{mName0.String()}))
 	})
+	var mName1 machine.Name
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachine(c.Context(), "1", ptr("nonce-123"))
+		_, mName1, err = s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+			Nonce: ptr("nonce-123"),
+		})
 		c.Assert(err, tc.IsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.SliceAssert([]string{"1"}))
+		w.Check(watchertest.SliceAssert([]string{mName0.String()}))
 	})
 	// Should fire when the machine life changes.
 	harness.AddTest(func(c *tc.C) {
-		err := s.svc.SetMachineLife(c.Context(), "1", life.Dying)
+		err := s.svc.SetMachineLife(c.Context(), mName1, life.Dying)
 		c.Assert(err, tc.IsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.SliceAssert([]string{"1"}))
+		w.Check(watchertest.SliceAssert([]string{mName1.String()}))
 	})
 	// Should not fire on containers.
 	harness.AddTest(func(c *tc.C) {
-		_, err := s.svc.CreateMachineWithParent(c.Context(), "1", "0")
+		_, _, err = s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, mName0)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -98,7 +104,9 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
-	_, err := s.svc.CreateMachine(c.Context(), "0", nil)
+	_, mName0, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := s.svc.WatchModelMachines(c.Context())
@@ -113,13 +121,15 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
 
 	// The machine appears in the initial changes.
 	c.Assert(changes, tc.HasLen, 1)
-	c.Assert(changes[0], tc.Equals, "0")
+	c.Assert(changes[0], tc.Equals, mName0.String())
 }
 
 func (s *watcherSuite) TestWatchModelMachinesInitialEventContainer(c *tc.C) {
-	_, err := s.svc.CreateMachine(c.Context(), "0", nil)
+	_, mName0, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.svc.CreateMachineWithParent(c.Context(), "1", "0")
+	_, _, err = s.svc.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, mName0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := s.svc.WatchModelMachines(c.Context())
@@ -135,7 +145,7 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventContainer(c *tc.C) {
 	// Only the parent machine appears in the initial changes, not the
 	// container.
 	c.Assert(changes, tc.HasLen, 1)
-	c.Assert(changes[0], tc.Equals, "0")
+	c.Assert(changes[0], tc.Equals, mName0.String())
 }
 
 func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) {
