@@ -323,29 +323,6 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 	return nil
 }
 
-// divideAndSpreadContainerResource evenly distributes the total resource across a given number of containers.
-// It returns a slice of len(containers), where each element represents the distributed value
-// allocated to that container. Any remainder is distributed one-by-one starting from the lowest index.
-// e.g., [4,4,3] for totalResource = 11, numContainers = 3
-func divideAndSpreadContainerResource(totalResource uint64, numContainers int) []uint64 {
-	if numContainers <= 0 {
-		return nil
-	}
-
-	result := make([]uint64, numContainers)
-	quotient := totalResource / uint64(numContainers)
-	remainder := totalResource % uint64(numContainers)
-
-	for i := 0; i < numContainers; i++ {
-		if uint64(i) < remainder {
-			result[i] = quotient + 1
-		} else {
-			result[i] = quotient
-		}
-	}
-	return result
-}
-
 // configureWorkloadConstraint sets the resource limits for all containers,
 // and the resource request for the first workload container only.
 func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceName, value uint64) (err error) {
@@ -383,19 +360,14 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 	return nil
 }
 
-// configureWorkloadConstraintV2 sets the resource limits for all containers,
-// and distributes the resource request evenly across workload containers,
+// configureWorkloadConstraintV2 sets the resource limits and requests for all containers,
 // excluding the charm container.
 func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.ResourceName, value uint64) (err error) {
 	if len(pod.Containers) == 0 {
 		return nil
 	}
 
-	var (
-		// contains resource request of each workload container
-		perCtrReqResources []uint64
-		unitSuffix         string
-	)
+	var unitSuffix string
 
 	if len(pod.Containers) > 1 {
 		switch resourceName {
@@ -406,7 +378,6 @@ func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.Resource
 		default:
 			return errors.NotSupportedf("converting resource value for %q", resourceName)
 		}
-		perCtrReqResources = divideAndSpreadContainerResource(value, len(pod.Containers)-1) // We only consider workload containers, not the charm container.
 	}
 
 	resourceValStr := fmt.Sprintf("%d%s", value, unitSuffix)
@@ -415,30 +386,16 @@ func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.Resource
 		return errors.Annotatef(err, "parsing constraint value %q for %q", value, resourceName)
 	}
 
-	// Set resource requests for each workload container using precomputed per-container values.
-	workloadCtrIndex := 0
 	for i, container := range pod.Containers {
 		isCharmContainer := container.Name == constants.ApplicationCharmContainer
 		if isCharmContainer {
 			continue
 		}
 
-		if workloadCtrIndex < len(perCtrReqResources) {
-			perCtrReqResource := perCtrReqResources[workloadCtrIndex]
-			perCtrReqValStr := fmt.Sprintf("%d%s", perCtrReqResource, unitSuffix)
-
-			qty, err := resource.ParseQuantity(perCtrReqValStr)
-			if err != nil {
-				return errors.Annotatef(err,
-					"invalid container constraint value %q for %q", perCtrReqValStr, resourceName)
-			}
-
-			pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, qty, container.Resources.Requests)
-			if err != nil {
-				return errors.Annotatef(err,
-					"merging request constraint %s=%s for container %s", resourceName, perCtrReqValStr, container.Name)
-			}
-			workloadCtrIndex++
+		pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, limitResourceQty, container.Resources.Requests)
+		if err != nil {
+			return errors.Annotatef(err,
+				"merging request constraint %s=%s for container %s", resourceName, resourceValStr, container.Name)
 		}
 
 		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitResourceQty, container.Resources.Limits)

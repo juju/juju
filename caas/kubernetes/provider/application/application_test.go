@@ -2944,10 +2944,7 @@ func (s *applicationSuite) TestEnsureUpdatedConstraints(c *gc.C) {
 				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemRequestMiB))}
 			charmResourceMemLimit := corev1.ResourceList{
 				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemLimitMiB))}
-			workloadResourceRequests := corev1.ResourceList{
-				corev1.ResourceCPU:    k8sresource.MustParse("500m"),
-				corev1.ResourceMemory: k8sresource.MustParse("512Mi"),
-			}
+
 			workloadResourceLimits := corev1.ResourceList{
 				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
 				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
@@ -2957,7 +2954,7 @@ func (s *applicationSuite) TestEnsureUpdatedConstraints(c *gc.C) {
 				if container.Name == constants.ApplicationCharmContainer {
 					continue
 				}
-				ps.Containers[i].Resources.Requests = workloadResourceRequests
+				ps.Containers[i].Resources.Requests = workloadResourceLimits
 				ps.Containers[i].Resources.Limits = workloadResourceLimits
 			}
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
@@ -2969,12 +2966,11 @@ func (s *applicationSuite) TestEnsureUpdatedConstraints(c *gc.C) {
 					continue
 				}
 
-				workloadReq := corev1.ResourceList{
-					corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(500, k8sresource.DecimalSI),
-					corev1.ResourceMemory: *k8sresource.NewQuantity(512*1024*1024, k8sresource.BinarySI),
-				}
-				c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadReq.Cpu()), jc.IsTrue)
-				c.Check(ctr.Resources.Requests.Memory().Equal(*workloadReq.Memory()), jc.IsTrue)
+				c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadResourceLimits.Cpu()), jc.IsTrue)
+				c.Check(ctr.Resources.Requests.Memory().Equal(*workloadResourceLimits.Memory()), jc.IsTrue)
+
+				c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadResourceLimits.Cpu()), jc.IsTrue)
+				c.Check(ctr.Resources.Requests.Memory().Equal(*workloadResourceLimits.Memory()), jc.IsTrue)
 			}
 		},
 	)
