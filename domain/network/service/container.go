@@ -169,10 +169,13 @@ func (s *Service) devicesToBridge(
 		// If any of these satisfy the space requirement, no action is required.
 		// The default LXD bridge can only satisfy a space requirement if the
 		// container networking method is "local".
+		// For practical purposes, OVS devices are treated as bridges.
 		if slices.ContainsFunc(spaceNics, func(nic network.NetInterface) bool {
-			return nic.Type == corenetwork.BridgeDevice &&
-				(netMethod == containermanager.NetworkingMethodLocal.String() ||
-					nic.Name != internalNetwork.DefaultLXDBridge)
+			if nic.Type != corenetwork.BridgeDevice && nic.VirtualPortType != corenetwork.OvsPort {
+				return false
+			}
+			return netMethod == containermanager.NetworkingMethodLocal.String() ||
+				nic.Name != internalNetwork.DefaultLXDBridge
 		}) {
 			spacesLeftToSatisfy.Remove(spaceUUID)
 			continue
@@ -183,7 +186,7 @@ func (s *Service) devicesToBridge(
 		// This is a second loop iteration, but we're looking
 		// at a very small n, usually 1.
 		for _, nic := range spaceNics {
-			if nic.Type == corenetwork.BridgeDevice {
+			if nic.Type == corenetwork.BridgeDevice || nic.VirtualPortType == corenetwork.OvsPort {
 				continue
 			}
 

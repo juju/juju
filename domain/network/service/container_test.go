@@ -62,7 +62,7 @@ func (s *containerSuite) TestDevicesToBridgeConflictingSpaceConstraints(c *tc.C)
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementConflict)
 }
 
-func (s *containerSuite) TestDevicesToBridgeSpaceReqsSatisfied(c *tc.C) {
+func (s *containerSuite) TestDevicesToBridgeSpaceReqsSatisfiedByBridge(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -82,6 +82,36 @@ func (s *containerSuite) TestDevicesToBridgeSpaceReqsSatisfied(c *tc.C) {
 		spaceUUID: {{
 			Name: "br-not-default-lxd",
 			Type: corenetwork.BridgeDevice,
+		}},
+	}, nil)
+	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
+
+	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(nics, tc.HasLen, 0)
+}
+
+func (s *containerSuite) TestDevicesToBridgeSpaceReqsSatisfiedByOVS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	spaceUUID := "positive-space-uuid"
+	spaces := []internal.SpaceName{{
+		UUID: spaceUUID,
+		Name: "positive-space",
+	}}
+
+	exp := s.st.EXPECT()
+	exp.GetMachineSpaceConstraints(c.Context(), s.guestUUID.String()).Return(spaces, nil, nil)
+	exp.GetMachineAppBindings(c.Context(), s.guestUUID.String()).Return(nil, nil)
+	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
+	// A bridge in the space means that connectivity is satisfied.
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(map[string][]network.NetInterface{
+		spaceUUID: {{
+			Name:            "ovs-1",
+			Type:            corenetwork.EthernetDevice,
+			VirtualPortType: corenetwork.OvsPort,
 		}},
 	}, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
