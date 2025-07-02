@@ -40,7 +40,6 @@ import (
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
 	ProvisioningInfo(context.Context, string) (api.ProvisioningInfo, error)
-	SetPassword(context.Context, string, string) error
 	CharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
 	ApplicationCharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
 	ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error)
@@ -125,29 +124,38 @@ type StatusService interface {
 	SetApplicationStatus(ctx context.Context, name string, info status.StatusInfo) error
 }
 
+type AgentPasswordService interface {
+	// SetApplicationPassword sets the password for the given application. If the
+	// app does not exist, an error satisfying [applicationerrors.ApplicationNotFound]
+	// is returned.
+	SetApplicationPassword(ctx context.Context, appID application.ID, password string) error
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
-	ApplicationService ApplicationService
-	StatusService      StatusService
-	Facade             CAASProvisionerFacade
-	Broker             CAASBroker
-	ModelTag           names.ModelTag
-	Clock              clock.Clock
-	Logger             logger.Logger
-	NewAppWorker       NewAppWorkerFunc
+	ApplicationService   ApplicationService
+	StatusService        StatusService
+	AgentPasswordService AgentPasswordService
+	Facade               CAASProvisionerFacade
+	Broker               CAASBroker
+	ModelTag             names.ModelTag
+	Clock                clock.Clock
+	Logger               logger.Logger
+	NewAppWorker         NewAppWorkerFunc
 }
 
 type provisioner struct {
-	catacomb           catacomb.Catacomb
-	runner             Runner
-	applicationService ApplicationService
-	statusService      StatusService
-	facade             CAASProvisionerFacade
-	broker             CAASBroker
-	clock              clock.Clock
-	logger             logger.Logger
-	newAppWorker       NewAppWorkerFunc
-	modelTag           names.ModelTag
+	catacomb             catacomb.Catacomb
+	runner               Runner
+	applicationService   ApplicationService
+	statusService        StatusService
+	agentPasswordService AgentPasswordService
+	facade               CAASProvisionerFacade
+	broker               CAASBroker
+	clock                clock.Clock
+	logger               logger.Logger
+	newAppWorker         NewAppWorkerFunc
+	modelTag             names.ModelTag
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -169,15 +177,16 @@ func newProvisionerWorker(
 	config Config, runner Runner,
 ) (worker.Worker, error) {
 	p := &provisioner{
-		applicationService: config.ApplicationService,
-		statusService:      config.StatusService,
-		facade:             config.Facade,
-		broker:             config.Broker,
-		modelTag:           config.ModelTag,
-		clock:              config.Clock,
-		logger:             config.Logger,
-		newAppWorker:       config.NewAppWorker,
-		runner:             runner,
+		applicationService:   config.ApplicationService,
+		statusService:        config.StatusService,
+		agentPasswordService: config.AgentPasswordService,
+		facade:               config.Facade,
+		broker:               config.Broker,
+		modelTag:             config.ModelTag,
+		clock:                config.Clock,
+		logger:               config.Logger,
+		newAppWorker:         config.NewAppWorker,
+		runner:               runner,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "caas-application-provisioner",
@@ -241,14 +250,15 @@ func (p *provisioner) loop() error {
 				}
 
 				config := AppWorkerConfig{
-					AppID:              appID,
-					ApplicationService: p.applicationService,
-					StatusService:      p.statusService,
-					Facade:             p.facade,
-					Broker:             p.broker,
-					ModelTag:           p.modelTag,
-					Clock:              p.clock,
-					Logger:             p.logger.Child(id),
+					AppID:                appID,
+					ApplicationService:   p.applicationService,
+					StatusService:        p.statusService,
+					AgentPasswordService: p.agentPasswordService,
+					Facade:               p.facade,
+					Broker:               p.broker,
+					ModelTag:             p.modelTag,
+					Clock:                p.clock,
+					Logger:               p.logger.Child(id),
 				}
 				startFunc := p.newAppWorker(config)
 				p.logger.Debugf(ctx, "starting app worker %q", appID)

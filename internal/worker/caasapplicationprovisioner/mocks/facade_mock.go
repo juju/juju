@@ -314,44 +314,6 @@ func (c *MockCAASProvisionerFacadeRemoveUnitCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// SetPassword mocks base method.
-func (m *MockCAASProvisionerFacade) SetPassword(arg0 context.Context, arg1, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetPassword", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetPassword indicates an expected call of SetPassword.
-func (mr *MockCAASProvisionerFacadeMockRecorder) SetPassword(arg0, arg1, arg2 any) *MockCAASProvisionerFacadeSetPasswordCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPassword", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).SetPassword), arg0, arg1, arg2)
-	return &MockCAASProvisionerFacadeSetPasswordCall{Call: call}
-}
-
-// MockCAASProvisionerFacadeSetPasswordCall wrap *gomock.Call
-type MockCAASProvisionerFacadeSetPasswordCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASProvisionerFacadeSetPasswordCall) Return(arg0 error) *MockCAASProvisionerFacadeSetPasswordCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeSetPasswordCall) Do(f func(context.Context, string, string) error) *MockCAASProvisionerFacadeSetPasswordCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeSetPasswordCall) DoAndReturn(f func(context.Context, string, string) error) *MockCAASProvisionerFacadeSetPasswordCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UpdateUnits mocks base method.
 func (m *MockCAASProvisionerFacade) UpdateUnits(arg0 context.Context, arg1 params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
 	m.ctrl.T.Helper()
