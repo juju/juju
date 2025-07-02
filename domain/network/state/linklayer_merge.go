@@ -633,15 +633,15 @@ func (st *State) normalizeLinkLayerDevices(
 			}
 			return mergeLinkLayerDevice{
 				Name:       dev.Name,
-				MACAddress: deref(dev.MACAddress),
-				ProviderID: string(deref(dev.ProviderID)),
+				MACAddress: dereferenceOrEmpty(dev.MACAddress),
+				ProviderID: string(dereferenceOrEmpty(dev.ProviderID)),
 				Type:       dev.Type,
 				Addresses: transform.Slice(dev.Addrs,
 					func(addr network.NetAddr) mergeAddress {
 						return mergeAddress{
 							Value:            addr.AddressValue,
-							ProviderID:       string(deref(addr.ProviderID)),
-							ProviderSubnetID: string(deref(addr.ProviderSubnetID)),
+							ProviderID:       string(dereferenceOrEmpty(addr.ProviderID)),
+							ProviderSubnetID: string(dereferenceOrEmpty(addr.ProviderSubnetID)),
 						}
 					}),
 			}
@@ -767,13 +767,4 @@ SET subnet_uuid = (
 		UUID:             address.UUID,
 		ProviderSubnetID: address.ProviderSubnetID,
 	}).Run()
-}
-
-// deref returns the value pointed to by t or the zero value of T if t is nil.
-func deref[T any](t *T) T {
-	var zero T
-	if t == nil {
-		return zero
-	}
-	return *t
 }
