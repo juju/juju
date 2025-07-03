@@ -559,11 +559,18 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *tc
 	broker := s.setUpZonedEnviron(ctrl)
 	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1")
 
-	failedErr := errors.Errorf("oh no")
 	// Use satisfaction of this call as the synchronisation point.
+	failedErr := errors.Errorf("oh no")
+	failedStartInstanceCh := make(chan struct{})
 	gomock.InOrder(
 		broker.EXPECT().DeriveAvailabilityZones(gomock.Any(), azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
-		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).Return(nil, failedErr),
+		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).DoAndReturn(func(ctx context.Context, params environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+			// We signal that we can send the next simulated start machine
+			// event, and avoid it being picked as a concurrent event thus
+			// ignored.
+			close(failedStartInstanceCh)
+			return nil, failedErr
+		}),
 		broker.EXPECT().DeriveAvailabilityZones(gomock.Any(), azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
 		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).Return(&environs.StartInstanceResult{
 			Instance: &testInstance{id: "instance-1"},
@@ -573,6 +580,11 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *tc
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting)
 
 	s.sendMachineErrorRetryChange(c)
+	select {
+	case <-failedStartInstanceCh:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for StartInstance to be called")
+	}
 	s.sendMachineErrorRetryChange(c)
 	s.waitForProvisioned(c, m0)
 	workertest.CleanKill(c, task)
@@ -635,9 +647,16 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 
 	// Use satisfaction of this call as the synchronisation point.
 	failedErr := errors.Errorf("oh no")
+	failedStartInstanceCh := make(chan struct{})
 	gomock.InOrder(
 		broker.EXPECT().DeriveAvailabilityZones(gomock.Any(), azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
-		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).Return(nil, failedErr),
+		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).DoAndReturn(func(ctx context.Context, params environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+			// We signal that we can send the next simulated start machine
+			// event, and avoid it being picked as a concurrent event thus
+			// ignored.
+			close(failedStartInstanceCh)
+			return nil, failedErr
+		}),
 		broker.EXPECT().DeriveAvailabilityZones(gomock.Any(), azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
 		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).Return(&environs.StartInstanceResult{
 			Instance: &testInstance{id: "instance-1"},
@@ -651,6 +670,11 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 	}, numProvisionWorkersForTesting)
 
 	s.sendMachineErrorRetryChange(c)
+	select {
+	case <-failedStartInstanceCh:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for StartInstance to be called")
+	}
 	s.sendMachineErrorRetryChange(c)
 	s.waitForProvisioned(c, m0)
 	workertest.CleanKill(c, task)
@@ -674,9 +698,16 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 
 	// Use satisfaction of this call as the synchronisation point.
 	failedErr := errors.Errorf("oh no")
+	failedStartInstanceCh := make(chan struct{})
 	gomock.InOrder(
 		broker.EXPECT().DeriveAvailabilityZones(gomock.Any(), azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
-		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).Return(nil, failedErr),
+		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).DoAndReturn(func(ctx context.Context, params environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+			// We signal that we can send the next simulated start machine
+			// event, and avoid it being picked as a concurrent event thus
+			// ignored.
+			close(failedStartInstanceCh)
+			return nil, failedErr
+		}),
 		broker.EXPECT().DeriveAvailabilityZones(gomock.Any(), azConstraints).Return([]string{}, nil).AnyTimes(), // may be called multiple times due to the changes in the provisioner task main logic.
 		broker.EXPECT().StartInstance(gomock.Any(), azConstraints).Return(&environs.StartInstanceResult{
 			Instance: &testInstance{id: "instance-2"},
@@ -691,6 +722,11 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 	}, numProvisionWorkersForTesting)
 
 	s.sendMachineErrorRetryChange(c)
+	select {
+	case <-failedStartInstanceCh:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for StartInstance to be called")
+	}
 	s.sendMachineErrorRetryChange(c)
 	s.waitForProvisioned(c, m0)
 	workertest.CleanKill(c, task)
