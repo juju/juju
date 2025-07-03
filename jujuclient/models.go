@@ -57,6 +57,7 @@ func ParseModels(data []byte) (map[string]*ControllerModels, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal models")
 	}
+	fixLegacyModelNames(result.ControllerModels)
 	return result.ControllerModels, nil
 }
 
