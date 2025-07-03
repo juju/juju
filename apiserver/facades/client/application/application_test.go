@@ -19,6 +19,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corearch "github.com/juju/juju/core/arch"
 	coreassumes "github.com/juju/juju/core/assumes"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
@@ -383,6 +384,43 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *tc.C) {
 					Risk:         "stable",
 				},
 				Resources: map[string]string{"foo": resourceUUID.String()},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errorResults.Results, tc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, tc.IsNil)
+}
+
+func (s *applicationSuite) TestDeployWithApplicationConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	s.expectCharm(c, "foo")
+	s.expectCharmConfig(c, 2)
+	s.expectCharmMeta("foo", map[string]charmresource.Meta{}, 8)
+	s.expectAddApplication()
+	config := map[string]interface{}{"stringOption": "hey"}
+	s.expectCreateApplicationForDeployWithConfig(c, "foo", config, nil)
+
+	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{
+			{
+				ApplicationName: "foo",
+				CharmURL:        "local:foo-42",
+				CharmOrigin: &params.CharmOrigin{
+					Type:   "charm",
+					Source: "local",
+					Base: params.Base{
+						Name:    "ubuntu",
+						Channel: "24.04",
+					},
+					Architecture: "amd64",
+					Revision:     ptr(42),
+					Track:        ptr("1.0"),
+					Risk:         "stable",
+				},
+				Config: map[string]string{"stringOption": "hey"},
 			},
 		},
 	})
@@ -1533,6 +1571,21 @@ func (s *applicationSuite) expectCreateApplicationForDeploy(name string, retErr 
 		gomock.Any(),
 		gomock.AssignableToTypeOf(applicationservice.AddApplicationArgs{}),
 	).Return(application.ID("app-"+name), retErr)
+}
+
+// expectCreateApplicationForDeploy should only be used when calling
+// api.Deploy(). DO NOT use for DeployFromRepository(), the expectations
+// are different.
+func (s *applicationSuite) expectCreateApplicationForDeployWithConfig(c *tc.C, name string, config config.ConfigAttributes, retErr error) {
+	s.applicationService.EXPECT().CreateIAASApplication(gomock.Any(),
+		name,
+		gomock.Any(),
+		gomock.Any(),
+		gomock.AssignableToTypeOf(applicationservice.AddApplicationArgs{}),
+	).DoAndReturn(func(ctx context.Context, s string, charm internalcharm.Charm, origin corecharm.Origin, args applicationservice.AddApplicationArgs, arg ...applicationservice.AddIAASUnitArg) (application.ID, error) {
+		c.Check(args.ApplicationConfig, tc.DeepEquals, config)
+		return application.ID("app-" + name), retErr
+	})
 }
 
 func (s *applicationSuite) expectDeletePendingResources(resSlice []resource.UUID) {
