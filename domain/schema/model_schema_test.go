@@ -160,7 +160,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_platform",
 		"machine_placement",
 		"machine_platform",
-		"machine_removals",
+		"machine_removals", // Deprecated, use machine_cloud_instance life.
 		"machine_requires_reboot",
 		"machine_status_value",
 		"machine_status",
@@ -574,6 +574,11 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_custom_machine_lifecycle_insert",
 		"trg_log_custom_machine_lifecycle_update",
 		"trg_log_custom_machine_lifecycle_delete",
+
+		"trg_application_guard_life",
+		"trg_machine_cloud_instance_guard_life",
+		"trg_machine_guard_life",
+		"trg_unit_guard_life",
 	)
 
 	// These are additional triggers that are not change log triggers, but
@@ -651,4 +656,20 @@ VALUES (?, 'foo');`,
 		"charm_metadata table is unmodifiable, only insertions and deletions are allowed", id)
 
 	s.assertExecSQL(c, "DELETE FROM charm_metadata WHERE charm_uuid = ?;", id)
+}
+
+func (s *modelSchemaSuite) TestTriggerGuardForLife(c *tc.C) {
+	s.applyDDL(c, ModelDDL())
+
+	// Ensure that the trigger for life is present.
+	s.assertExecSQL(c, `
+INSERT INTO net_node (uuid) VALUES ("node2");
+INSERT INTO machine (uuid, net_node_uuid, name, life_id)
+VALUES ("abc", "node2", "machine-1", "0");`)
+
+	s.assertExecSQL(c, `UPDATE machine SET life_id = "1" WHERE uuid = "abc";`)
+	s.assertExecSQLError(c,
+		`UPDATE machine SET life_id = "0" WHERE uuid = "abc";`,
+		"Cannot transition life for machine backwards",
+	)
 }

@@ -195,6 +195,44 @@ func (c *MockStateDeleteJobCall) DoAndReturn(f func(context.Context, string) err
 	return c
 }
 
+// DeleteMachine mocks base method.
+func (m *MockState) DeleteMachine(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteMachine", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteMachine indicates an expected call of DeleteMachine.
+func (mr *MockStateMockRecorder) DeleteMachine(arg0, arg1 any) *MockStateDeleteMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMachine", reflect.TypeOf((*MockState)(nil).DeleteMachine), arg0, arg1)
+	return &MockStateDeleteMachineCall{Call: call}
+}
+
+// MockStateDeleteMachineCall wrap *gomock.Call
+type MockStateDeleteMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteMachineCall) Return(arg0 error) *MockStateDeleteMachineCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteMachineCall) Do(f func(context.Context, string) error) *MockStateDeleteMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteMachineCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteRelation mocks base method.
 func (m *MockState) DeleteRelation(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -345,6 +383,46 @@ func (c *MockStateEnsureApplicationNotAliveCascadeCall) Do(f func(context.Contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateEnsureApplicationNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureApplicationNotAliveCascadeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// EnsureMachineNotAliveCascade mocks base method.
+func (m *MockState) EnsureMachineNotAliveCascade(arg0 context.Context, arg1 string) ([]string, []string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureMachineNotAliveCascade", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].([]string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// EnsureMachineNotAliveCascade indicates an expected call of EnsureMachineNotAliveCascade.
+func (mr *MockStateMockRecorder) EnsureMachineNotAliveCascade(arg0, arg1 any) *MockStateEnsureMachineNotAliveCascadeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureMachineNotAliveCascade", reflect.TypeOf((*MockState)(nil).EnsureMachineNotAliveCascade), arg0, arg1)
+	return &MockStateEnsureMachineNotAliveCascadeCall{Call: call}
+}
+
+// MockStateEnsureMachineNotAliveCascadeCall wrap *gomock.Call
+type MockStateEnsureMachineNotAliveCascadeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateEnsureMachineNotAliveCascadeCall) Return(arg0, arg1 []string, arg2 error) *MockStateEnsureMachineNotAliveCascadeCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateEnsureMachineNotAliveCascadeCall) Do(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureMachineNotAliveCascadeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateEnsureMachineNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureMachineNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -544,6 +622,45 @@ func (c *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall) DoAndReturn(f fun
 	return c
 }
 
+// GetMachineLife mocks base method.
+func (m *MockState) GetMachineLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineLife indicates an expected call of GetMachineLife.
+func (mr *MockStateMockRecorder) GetMachineLife(arg0, arg1 any) *MockStateGetMachineLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineLife", reflect.TypeOf((*MockState)(nil).GetMachineLife), arg0, arg1)
+	return &MockStateGetMachineLifeCall{Call: call}
+}
+
+// MockStateGetMachineLifeCall wrap *gomock.Call
+type MockStateGetMachineLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetMachineLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockStateGetMachineLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockStateGetMachineLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationLife mocks base method.
 func (m *MockState) GetRelationLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -657,6 +774,82 @@ func (c *MockStateMachineExistsCall) Do(f func(context.Context, string) (bool, e
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateMachineExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateMachineExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MachineScheduleRemoval mocks base method.
+func (m *MockState) MachineScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MachineScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MachineScheduleRemoval indicates an expected call of MachineScheduleRemoval.
+func (mr *MockStateMockRecorder) MachineScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockStateMachineScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineScheduleRemoval", reflect.TypeOf((*MockState)(nil).MachineScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
+	return &MockStateMachineScheduleRemovalCall{Call: call}
+}
+
+// MockStateMachineScheduleRemovalCall wrap *gomock.Call
+type MockStateMachineScheduleRemovalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMachineScheduleRemovalCall) Return(arg0 error) *MockStateMachineScheduleRemovalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMachineScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockStateMachineScheduleRemovalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMachineScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockStateMachineScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkMachineAsDead mocks base method.
+func (m *MockState) MarkMachineAsDead(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkMachineAsDead", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkMachineAsDead indicates an expected call of MarkMachineAsDead.
+func (mr *MockStateMockRecorder) MarkMachineAsDead(arg0, arg1 any) *MockStateMarkMachineAsDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkMachineAsDead", reflect.TypeOf((*MockState)(nil).MarkMachineAsDead), arg0, arg1)
+	return &MockStateMarkMachineAsDeadCall{Call: call}
+}
+
+// MockStateMarkMachineAsDeadCall wrap *gomock.Call
+type MockStateMarkMachineAsDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMarkMachineAsDeadCall) Return(arg0 error) *MockStateMarkMachineAsDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMarkMachineAsDeadCall) Do(f func(context.Context, string) error) *MockStateMarkMachineAsDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMarkMachineAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockStateMarkMachineAsDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

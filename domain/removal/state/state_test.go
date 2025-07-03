@@ -298,7 +298,7 @@ WHERE uuid IN (
 func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UUID {
 	var unitUUIDs []unit.UUID
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ? ORDER BY uuid`, appID)
+		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ? ORDER BY name`, appID)
 		if err != nil {
 			return err
 		}
@@ -315,28 +315,6 @@ func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UU
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return unitUUIDs
-}
-
-func (s *baseSuite) getAllMachineUUIDs(c *tc.C) []machine.UUID {
-	var machineUUIDs []machine.UUID
-	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM machine ORDER BY uuid`)
-		if err != nil {
-			return err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			var machineUUID machine.UUID
-			if err := rows.Scan(&machineUUID); err != nil {
-				return err
-			}
-			machineUUIDs = append(machineUUIDs, machineUUID)
-		}
-		return rows.Err()
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return machineUUIDs
 }
 
 func (s *baseSuite) getAllUnitAndMachineUUIDs(c *tc.C) ([]unit.UUID, []machine.UUID) {
@@ -429,9 +407,48 @@ func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
 	c.Check(count, tc.Equals, expectedCount)
 }
 
+func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.ID, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE application SET life_id = ? WHERE uuid = ?", newLife, appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE unit SET life_id = ? WHERE uuid = ?", newLife, unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM unit WHERE uuid = ?", unitUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
+}
+
+func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE machine SET life_id = ? WHERE uuid = ?", newLife, machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM machine WHERE uuid = ?", machineUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
+}
+
+func (s *baseSuite) advanceInstanceLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE machine_cloud_instance SET life_id = ? WHERE machine_uuid = ?", newLife, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM machine_cloud_instance WHERE machine_uuid = ?", machineUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
 }
 
 type stubCharm struct {

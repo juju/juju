@@ -15,6 +15,8 @@ const (
 	UnitJob
 	// ApplicationJob indicates a job to remove an application.
 	ApplicationJob
+	// MachineJob indicates a job to remove a machine.
+	MachineJob
 )
 
 // Job is a removal job for a single entity.

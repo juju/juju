@@ -131,6 +131,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	c.Assert(row.Err(), tc.ErrorIsNil)
 	err = row.Scan(
 		&instanceData.MachineUUID,
+		&instanceData.LifeID,
 		&instanceData.InstanceID,
 		&instanceData.DisplayName,
 		&instanceData.Arch,
@@ -144,6 +145,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceData.MachineUUID, tc.Equals, machineUUID)
+	c.Check(instanceData.LifeID, tc.Equals, int64(0))
 	c.Check(instanceData.InstanceID, tc.DeepEquals, sql.Null[string]{V: "1", Valid: true})
 	c.Check(instanceData.DisplayName, tc.DeepEquals, sql.Null[string]{V: "one", Valid: true})
 	c.Check(*instanceData.Arch, tc.Equals, "arm64")

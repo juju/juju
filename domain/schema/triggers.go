@@ -120,3 +120,17 @@ BEGIN
 		return schema.MakePatch(stmt)
 	}
 }
+
+func triggerGuardForLife(tableName string) func() schema.Patch {
+	return func() schema.Patch {
+		stmt := fmt.Sprintf(`
+CREATE TRIGGER trg_%[1]s_guard_life
+    BEFORE UPDATE ON %[1]s
+    FOR EACH ROW
+    WHEN NEW.life_id < OLD.life_id
+    BEGIN
+        SELECT RAISE(FAIL, 'Cannot transition life for %[1]s backwards');
+    END;`[1:], tableName)
+		return schema.MakePatch(stmt)
+	}
+}

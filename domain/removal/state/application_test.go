@@ -363,6 +363,8 @@ func (s *applicationSuite) TestDeleteIAASApplication(c *tc.C) {
 	svc := s.setupService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app")
 
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.DeleteApplication(c.Context(), appUUID.String())
@@ -384,7 +386,8 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
-	s.advanceUnitLife(c, unitUUIDs[0], life.Dying)
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -419,7 +422,9 @@ func (s *applicationSuite) TestDeleteIAASApplicationMultipleRemovesCharm(c *tc.C
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
-	s.advanceUnitLife(c, unitUUIDs[0], life.Dying)
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
+	s.advanceApplicationLife(c, appUUID1, life.Dead)
+	s.advanceApplicationLife(c, appUUID2, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -449,7 +454,8 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
-	s.advanceUnitLife(c, unitUUIDs[0], life.Dying)
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -472,6 +478,8 @@ func (s *applicationSuite) TestDeleteCAASApplicationWithUnit(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)
 	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	s.advanceApplicationLife(c, appUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 

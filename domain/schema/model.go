@@ -200,6 +200,12 @@ func ModelDDL() *schema.Schema {
 			"storage pool origin cannot be changed",
 		),
 
+		// Ensure that entities with life values can not transition backwards.
+		triggerGuardForLife("application"),
+		triggerGuardForLife("unit"),
+		triggerGuardForLife("machine"),
+		triggerGuardForLife("machine_cloud_instance"),
+
 		// Add a custom namespace that only watches for insert and delete
 		// operations for entities.
 		triggerEntityLifecycleByNameForTable("unit", customNamespaceUnitLifecycle),

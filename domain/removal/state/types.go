@@ -32,6 +32,9 @@ type objectStoreUUID struct {
 	UUID sql.Null[string] `db:"uuid"`
 }
 
+// entityUUIDs is a slice of entityUUID, used to hold multiple UUIDs.
+type uuids []string
+
 // entityUUID holds a UUID in string form.
 type entityUUID struct {
 	// UUID uniquely identifies a domain entity.

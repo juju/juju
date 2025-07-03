@@ -16,6 +16,7 @@ import (
 // table.
 type instanceData struct {
 	MachineUUID          machine.UUID     `db:"machine_uuid"`
+	LifeID               int64            `db:"life_id"`
 	InstanceID           sql.Null[string] `db:"instance_id"`
 	DisplayName          sql.Null[string] `db:"display_name"`
 	Arch                 *string          `db:"arch"`
@@ -131,6 +132,7 @@ type machineUUID struct {
 
 type machineInstanceUUID struct {
 	MachineUUID machine.UUID `db:"machine_uuid"`
+	LifeID      int64        `db:"life_id"`
 }
 
 type machineExistsUUID struct {

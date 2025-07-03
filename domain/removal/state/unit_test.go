@@ -68,17 +68,10 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnit(c *tc.C) 
 	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
 
 	// Unit had life "alive" and should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkUnitLife(c, unitUUID.String(), 1)
 
 	// The last machine had life "alive" and should now be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", machineUUID)
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkMachineLife(c, unitMachineUUID.String(), 1)
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitParentMachine(c *tc.C) {
@@ -114,18 +107,11 @@ INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
 	c.Assert(machineUUID, tc.Equals, "")
 
 	// Unit had life "alive" and should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", app1UnitUUID.String())
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkUnitLife(c, app1UnitUUID.String(), 1)
 
 	// The last machine had life "alive" and should be still alive, because
 	// it is a parent machine.
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", app1UnitMachineUUID)
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 0)
+	s.checkMachineLife(c, app1UnitMachineUUID.String(), 0)
 }
 
 // Test to ensure that we don't prevent a unit from being set to "dying"
@@ -157,11 +143,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitMachineAlr
 	c.Check(machineUUID, tc.Equals, "")
 
 	// Unit had life "alive" and should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkUnitLife(c, unitUUID.String(), 1)
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
@@ -193,17 +175,10 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
 	c.Assert(machineUUID, tc.Equals, "")
 
 	// Unit had life "alive" and should now be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkUnitLife(c, unitUUID.String(), 1)
 
 	// Don't set the machine life to "dying" if there are other units on it.
-	row = s.DB().QueryRow("SELECT life_id FROM machine where uuid = ?", unitMachineUUID)
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 0)
+	s.checkMachineLife(c, unitMachineUUID.String(), 0)
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingSuccess(c *tc.C) {
@@ -221,11 +196,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Unit was already "dying" and should be unchanged.
-	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkUnitLife(c, unitUUID.String(), 1)
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeNotExistsSuccess(c *tc.C) {
@@ -315,13 +286,16 @@ func (s *unitSuite) TestGetUnitLifeSuccess(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
-	// Set the unit to "dying" manually.
-	_, err := s.DB().Exec("UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	l, err := st.GetUnitLife(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+
+	// Set the unit to "dying" manually.
+	s.advanceUnitLife(c, unitUUID, life.Dying)
+
+	l, err = st.GetUnitLife(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(l, tc.Equals, life.Dying)
 }
@@ -354,17 +328,20 @@ func (s *unitSuite) TestMarkUnitAsDead(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit should now be dead.
-	row := s.DB().QueryRow("SELECT life_id FROM unit where uuid = ?", unitUUID.String())
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2) // 2 is the ID for "dead" in the database.
+	s.checkUnitLife(c, unitUUID.String(), 2) // 2 is the ID for "dead" in the database.
 }
 
 func (s *unitSuite) TestMarkUnitAsDeadNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.MarkUnitAsDead(c.Context(), "abc")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitSuite) TestDeleteUnitNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), "blah")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -377,7 +354,7 @@ func (s *unitSuite) TestDeleteIAASUnit(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
-	s.advanceUnitLife(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -409,7 +386,7 @@ func (s *unitSuite) TestDeleteSubordinateUnit(c *tc.C) {
 	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
 	subUnitUUID := subUnitUUIDs[0]
 
-	s.advanceUnitLife(c, subUnitUUID, life.Dying)
+	s.advanceUnitLife(c, subUnitUUID, life.Dead)
 
 	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
 		subUnitUUID.String(), unitUUID.String())
@@ -437,7 +414,7 @@ func (s *unitSuite) TestDeleteIAASUnitWithSubordinates(c *tc.C) {
 	c.Assert(len(subUnitUUIDs), tc.Equals, 1)
 	subUnitUUID := subUnitUUIDs[0]
 
-	s.advanceUnitLife(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
 
 	_, err := s.DB().Exec(`INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`,
 		subUnitUUID.String(), unitUUID.String())
@@ -498,7 +475,7 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
-	s.advanceUnitLife(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 

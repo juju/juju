@@ -1097,6 +1097,10 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	harness.AddTest(func(c *tc.C) {
 		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
 		c.Assert(err, tc.ErrorIsNil)
+		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		err = removalSt.MarkUnitAsDead(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -1107,6 +1111,8 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/1")
 		c.Assert(err, tc.ErrorIsNil)
 		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		err = removalSt.MarkUnitAsDead(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
@@ -1189,7 +1195,8 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
-		s.DumpTable(c, "unit", "machine")
+		err = removalSt.MarkUnitAsDead(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -1201,7 +1208,8 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
-		s.DumpTable(c, "unit", "machine")
+		err = removalSt.MarkUnitAsDead(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.DeleteUnit(ctx, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {

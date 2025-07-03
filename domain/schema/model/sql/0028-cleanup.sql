@@ -9,7 +9,8 @@ ON removal_type (name);
 INSERT INTO removal_type VALUES
 (0, 'relation'),
 (1, 'unit'),
-(2, 'application');
+(2, 'application'),
+(3, 'machine');
 
 CREATE TABLE removal (
     uuid TEXT NOT NULL PRIMARY KEY,
