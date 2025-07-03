@@ -453,10 +453,6 @@ func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 		return errors.Annotate(err, "creating controller service proxy for controller")
 	}
 
-	// create shared-secret secret for controller pod.
-	if err = c.createControllerSecretSharedSecret(ctx); err != nil {
-		return errors.Annotate(err, "creating shared-secret secret for controller")
-	}
 	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
@@ -699,19 +695,6 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 
 func (c *controllerStack) addCleanUp(cleanUp func()) {
 	c.cleanUps = append(c.cleanUps, cleanUp)
-}
-
-func (c *controllerStack) createControllerSecretSharedSecret(ctx context.Context) error {
-	secret, err := c.getControllerSecret(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Tracef(context.TODO(), "ensuring shared secret: \n%+v", secret)
-	c.addCleanUp(func() {
-		logger.Debugf(context.TODO(), "deleting %q shared-secret", secret.Name)
-		_ = c.broker.deleteSecret(ctx, secret.GetName(), secret.GetUID())
-	})
-	return c.broker.updateSecret(ctx, secret)
 }
 
 func (c *controllerStack) createDockerSecret(ctx context.Context) (string, error) {

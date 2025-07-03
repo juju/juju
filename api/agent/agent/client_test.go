@@ -40,7 +40,6 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 			Cert:           "some-cert",
 			PrivateKey:     "some-key",
 			CAPrivateKey:   "private-key",
-			SharedSecret:   "secret",
 			SystemIdentity: "fred",
 		}
 		return nil
@@ -55,7 +54,6 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 		Cert:           "some-cert",
 		PrivateKey:     "some-key",
 		CAPrivateKey:   "private-key",
-		SharedSecret:   "secret",
 		SystemIdentity: "fred",
 	})
 }

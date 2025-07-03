@@ -350,8 +350,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 
 	controllerStacker := s.controllerStackerGetter()
 
-	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
-
 	scName := "some-storage"
 	sc := k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
@@ -420,20 +418,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			},
 			ClusterIP:   svcPublicIP,
 			ExternalIPs: []string{"10.0.0.1"},
-		},
-	}
-
-	secretWithServerPEMAdded := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.namespace,
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
-		},
-		Type: core.SecretTypeOpaque,
-		Data: map[string][]byte{
-			"shared-secret": []byte(sharedSecret),
-			"server.pem":    []byte(sslKey),
 		},
 	}
 
@@ -1213,11 +1197,7 @@ exec /opt/pebble run --http :38811 --verbose
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(svc, tc.DeepEquals, svcProvisioned)
 
-		secret, err := s.mockSecrets.Get(c.Context(), "juju-controller-test-secret", v1.GetOptions{})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(secret, tc.DeepEquals, secretWithServerPEMAdded)
-
-		secret, err = s.mockSecrets.Get(c.Context(), "juju-controller-test-application-config", v1.GetOptions{})
+		secret, err := s.mockSecrets.Get(c.Context(), "juju-controller-test-application-config", v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(secret, tc.DeepEquals, secretControllerAppConfig)
 
