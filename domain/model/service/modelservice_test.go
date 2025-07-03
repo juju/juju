@@ -527,132 +527,6 @@ func (s *modelServiceSuite) TestGetModelCloudTypeFailedModelNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
-type providerModelServiceSuite struct {
-	modelServiceSuite
-	mockProvider          *MockModelResourcesProvider
-	mockCloudInfoProvider *MockCloudInfoProvider
-}
-
-func TestProviderModelServiceSuite(t *testing.T) {
-	tc.Run(t, &providerModelServiceSuite{})
-}
-func (s *providerModelServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := s.modelServiceSuite.setupMocks(c)
-	s.mockProvider = NewMockModelResourcesProvider(ctrl)
-	s.mockCloudInfoProvider = NewMockCloudInfoProvider(ctrl)
-	return ctrl
-}
-
-func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	controllerUUID := uuid.MustNewUUID()
-	modelUUID := modeltesting.GenModelUUID(c)
-	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
-		UUID:           modelUUID,
-		ControllerUUID: controllerUUID,
-		Name:           "my-awesome-model",
-		Qualifier:      "prod",
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
-		Type:           coremodel.IAAS,
-	}, nil)
-	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
-		UUID:           modelUUID,
-		ControllerUUID: controllerUUID,
-		Name:           "my-awesome-model",
-		Qualifier:      "prod",
-		Type:           coremodel.IAAS,
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
-		AgentStream:    modelagent.AgentStreamReleased,
-		AgentVersion:   jujuversion.Current,
-	}).Return(nil)
-
-	s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
-	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
-	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
-
-	svc := NewProviderModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
-		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
-		DefaultAgentBinaryFinder(),
-	)
-	err := svc.CreateModel(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	controllerUUID := uuid.MustNewUUID()
-	modelUUID := modeltesting.GenModelUUID(c)
-	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
-		UUID:           modelUUID,
-		Name:           "my-awesome-model",
-		Qualifier:      "prod",
-		ControllerUUID: controllerUUID,
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
-		Type:           coremodel.IAAS,
-	}, nil)
-	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
-		UUID:           modelUUID,
-		ControllerUUID: controllerUUID,
-		Name:           "my-awesome-model",
-		Qualifier:      "prod",
-		Type:           coremodel.IAAS,
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
-		AgentStream:    modelagent.AgentStreamReleased,
-		AgentVersion:   jujuversion.Current,
-	}).Return(modelerrors.AlreadyExists)
-
-	svc := NewProviderModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
-		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
-		DefaultAgentBinaryFinder(),
-	)
-	err := svc.CreateModel(c.Context())
-	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
-}
-
-func (s *providerModelServiceSuite) TestCloudAPIVersion(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	modelUUID := modeltesting.GenModelUUID(c)
-
-	s.mockCloudInfoProvider.EXPECT().APIVersion().Return("666", nil)
-
-	svc := NewProviderModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
-		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
-		DefaultAgentBinaryFinder(),
-	)
-	vers, err := svc.CloudAPIVersion(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(vers, tc.Equals, "666")
-}
-
 func (s *modelServiceSuite) TestIsControllerModel(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -1071,4 +945,174 @@ func (s *modelServiceSuite) TestGetUserModelSummary(c *tc.C) {
 			UnitCount:    10,
 		},
 	})
+}
+
+type providerModelServiceSuite struct {
+	modelServiceSuite
+	mockProvider          *MockModelResourcesProvider
+	mockCloudInfoProvider *MockCloudInfoProvider
+}
+
+func TestProviderModelServiceSuite(t *testing.T) {
+	tc.Run(t, &providerModelServiceSuite{})
+}
+
+func (s *providerModelServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.modelServiceSuite.setupMocks(c)
+	s.mockProvider = NewMockModelResourcesProvider(ctrl)
+	s.mockCloudInfoProvider = NewMockCloudInfoProvider(ctrl)
+	return ctrl
+}
+
+func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	controllerUUID := uuid.MustNewUUID()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
+		UUID:           modelUUID,
+		ControllerUUID: controllerUUID,
+		Name:           "my-awesome-model",
+		Qualifier:      "prod",
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		Type:           coremodel.IAAS,
+	}, nil)
+	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
+		UUID:           modelUUID,
+		ControllerUUID: controllerUUID,
+		Name:           "my-awesome-model",
+		Qualifier:      "prod",
+		Type:           coremodel.IAAS,
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		AgentStream:    modelagent.AgentStreamReleased,
+		AgentVersion:   jujuversion.Current,
+	}).Return(nil)
+
+	s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
+	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
+	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
+
+	svc := NewProviderModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	err := svc.CreateModel(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	controllerUUID := uuid.MustNewUUID()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
+		UUID:           modelUUID,
+		Name:           "my-awesome-model",
+		Qualifier:      "prod",
+		ControllerUUID: controllerUUID,
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		Type:           coremodel.IAAS,
+	}, nil)
+	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
+		UUID:           modelUUID,
+		ControllerUUID: controllerUUID,
+		Name:           "my-awesome-model",
+		Qualifier:      "prod",
+		Type:           coremodel.IAAS,
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		AgentStream:    modelagent.AgentStreamReleased,
+		AgentVersion:   jujuversion.Current,
+	}).Return(modelerrors.AlreadyExists)
+
+	svc := NewProviderModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	err := svc.CreateModel(c.Context())
+	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
+}
+
+func (s *providerModelServiceSuite) TestCloudAPIVersion(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.mockCloudInfoProvider.EXPECT().APIVersion().Return("666", nil)
+
+	svc := NewProviderModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	vers, err := svc.CloudAPIVersion(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vers, tc.Equals, "666")
+}
+
+func (s *providerModelServiceSuite) TestResolveConstraints(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+	}, nil)
+
+	validator := coreconstraints.NewValidator()
+	s.mockProvider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
+
+	svc := NewProviderModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	result, err := svc.ResolveConstraints(c.Context(), coreconstraints.Value{
+		Arch:      ptr("arm64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+	})
+	c.Check(err, tc.ErrorIsNil)
+
+	cons := coreconstraints.Value{
+		Arch:      ptr("arm64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+	}
+	c.Check(result, tc.DeepEquals, cons)
 }

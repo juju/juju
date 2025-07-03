@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -1186,16 +1185,6 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
-	unsupported, err := m.st.validateConstraints(cons)
-	if len(unsupported) > 0 {
-		logger.Warningf(context.TODO(),
-			"setting constraints on machine %q: unsupported constraints: %v",
-			m.Id(), strings.Join(unsupported, ","),
-		)
-	} else if err != nil {
-		return nil, err
-	}
-
 	if m.doc.Life != Alive {
 		return nil, machineNotAliveErr
 	}

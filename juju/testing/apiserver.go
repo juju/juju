@@ -262,13 +262,6 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		}
 		return svc.Storage(), nil
 	}
-	modelConfigServiceGetter := func(modelUUID coremodel.UUID) (stateenvirons.ModelConfigService, error) {
-		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(c.Context(), modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return svc.Config(), nil
-	}
 	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
 		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(c.Context(), modelUUID)
 		if err != nil {
@@ -294,7 +287,7 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		},
 		CloudName:          DefaultCloud.Name,
 		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(domainServices.Cloud(), domainServices.Credential(), modelConfigServiceGetter, storageServiceGetter),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
 		CharmServiceGetter: charmServiceGetter,
 		SSHServerHostKey:   coretesting.SSHServerHostKey,
 	})

@@ -25,7 +25,7 @@ type ManifoldConfig struct {
 	AgentName              string
 	StateConfigWatcherName string
 	DomainServicesName     string
-	OpenStatePool          func(context.Context, coreagent.Config, services.ControllerDomainServices, services.DomainServicesGetter) (*state.StatePool, error)
+	OpenStatePool          func(context.Context, coreagent.Config, services.DomainServicesGetter) (*state.StatePool, error)
 	PingInterval           time.Duration
 
 	// SetStatePool is called with the state pool when it is created,
@@ -97,7 +97,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
 				return nil, err
 			}
-			pool, err := config.OpenStatePool(context.Background(), agent.CurrentConfig(), controllerDomainServices, domainServicesGetter)
+			pool, err := config.OpenStatePool(context.Background(), agent.CurrentConfig(), domainServicesGetter)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

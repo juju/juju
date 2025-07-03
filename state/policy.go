@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/constraints"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/storage"
@@ -29,52 +28,8 @@ type NewPolicyFunc func(*State) Policy
 // be ignored. Any other error will cause an error
 // in the use of the policy.
 type Policy interface {
-	// ConstraintsValidator returns a constraints.Validator or an error.
-	ConstraintsValidator(context.Context) (constraints.Validator, error)
-
 	// StorageServices returns a StoragePoolGetter, storage.ProviderRegistry or an error.
 	StorageServices() (StoragePoolGetter, error)
-}
-
-func (st *State) constraintsValidator() (constraints.Validator, error) {
-	// Default behaviour is to simply use a standard validator with
-	// no model specific behaviour built in.
-	var validator constraints.Validator
-	if st.policy != nil {
-		var err error
-		validator, err = st.policy.ConstraintsValidator(context.Background())
-		if errors.Is(err, errors.NotImplemented) {
-			validator = constraints.NewValidator()
-		} else if err != nil {
-			return nil, err
-		} else if validator == nil {
-			return nil, errors.New("policy returned nil constraints validator without an error")
-		}
-	} else {
-		validator = constraints.NewValidator()
-	}
-	return validator, nil
-}
-
-// ResolveConstraints combines the given constraints with the environ constraints to get
-// a constraints which will be used to create a new instance.
-func (st *State) ResolveConstraints(cons constraints.Value) (constraints.Value, error) {
-	validator, err := st.constraintsValidator()
-	if err != nil {
-		return constraints.Value{}, err
-	}
-	// TODO(CodingCookieRookie): Retrieve model constraints to be used as first arg in validator merge
-	return validator.Merge(constraints.Value{}, cons)
-}
-
-// validateConstraints returns an error if the given constraints are not valid for the
-// current model, and also any unsupported attributes.
-func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
-	validator, err := st.constraintsValidator()
-	if err != nil {
-		return nil, err
-	}
-	return validator.Validate(cons)
 }
 
 // Used for tests.

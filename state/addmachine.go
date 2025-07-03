@@ -192,17 +192,7 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 }
 
 func (st *State) resolveMachineConstraints(cons constraints.Value) (constraints.Value, error) {
-	mcons, err := st.ResolveConstraints(cons)
-	if err != nil {
-		return constraints.Value{}, err
-	}
-	// Machine constraints do not use a container constraint value.
-	// Both provisioning and deployment constraints use the same
-	// constraints.Value struct so here we clear the container
-	// value. Provisioning ignores the container value but clearing
-	// it avoids potential confusion.
-	mcons.Container = nil
-	return mcons, nil
+	return cons, nil
 }
 
 // effectiveMachineTemplate verifies that the given template is
