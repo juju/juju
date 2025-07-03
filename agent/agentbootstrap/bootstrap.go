@@ -90,9 +90,6 @@ type AgentBootstrap struct {
 	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
 	bootstrapMachineAddresses corenetwork.ProviderAddresses
 
-	// SharedSecret is the Mongo replica set shared secret (keyfile).
-	sharedSecret string
-
 	// Provider is called to obtain an EnvironProvider.
 	provider func(string) (environs.EnvironProvider, error)
 
@@ -109,9 +106,7 @@ type AgentBootstrapArgs struct {
 	AgentConfig               agent.ConfigSetter
 	BootstrapEnviron          environs.BootstrapEnviron
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
-	//BootstrapMachineJobs      []coremodel.MachineJob
 	MongoDialOpts             mongo.DialOpts
-	SharedSecret              string
 	StateInitializationParams instancecfg.StateInitializationParams
 	StorageProviderRegistry   storage.ProviderRegistry
 	BootstrapDqlite           DqliteInitializerFunc
@@ -128,9 +123,6 @@ func (a *AgentBootstrapArgs) validate() error {
 	}
 	if a.AgentConfig == nil {
 		return errors.NotValidf("agent config")
-	}
-	if a.SharedSecret == "" {
-		return errors.NotValidf("shared secret")
 	}
 	if a.StorageProviderRegistry == nil {
 		return errors.NotValidf("storage provider registry")
@@ -169,7 +161,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		logger:                    args.Logger,
 		mongoDialOpts:             args.MongoDialOpts,
 		provider:                  args.Provider,
-		sharedSecret:              args.SharedSecret,
 		stateInitializationParams: args.StateInitializationParams,
 		storageProviderRegistry:   args.StorageProviderRegistry,
 	}, nil
@@ -347,7 +338,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	defer func() {
 		_ = ctrl.Close()
 	}()
-	servingInfo.SharedSecret = b.sharedSecret
 	b.agentConfig.SetStateServingInfo(servingInfo)
 
 	st, err := ctrl.SystemState()

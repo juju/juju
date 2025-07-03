@@ -61,7 +61,6 @@ type format_2_0Serialization struct {
 	CAPrivateKey          string        `yaml:"caprivatekey,omitempty"`
 	APIPort               int           `yaml:"apiport,omitempty"`
 	StatePort             int           `yaml:"stateport,omitempty"`
-	SharedSecret          string        `yaml:"sharedsecret,omitempty"`
 	SystemIdentity        string        `yaml:"systemidentity,omitempty"`
 	JujuDBSnapChannel     string        `yaml:"juju-db-snap-channel,omitempty"`
 	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
@@ -151,7 +150,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			CAPrivateKey:   format.CAPrivateKey,
 			APIPort:        format.APIPort,
 			StatePort:      format.StatePort,
-			SharedSecret:   format.SharedSecret,
 			SystemIdentity: format.SystemIdentity,
 		}
 		// If private key is not present, infer it from the ports in the state addresses.
@@ -233,7 +231,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.CAPrivateKey = config.servingInfo.CAPrivateKey
 		format.APIPort = config.servingInfo.APIPort
 		format.StatePort = config.servingInfo.StatePort
-		format.SharedSecret = config.servingInfo.SharedSecret
 		format.SystemIdentity = config.servingInfo.SystemIdentity
 		format.StatePassword = config.statePassword
 	}

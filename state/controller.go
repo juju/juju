@@ -15,11 +15,6 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 )
 
-const (
-	// ControllerSettingsGlobalKey is the key for the controller and its settings.
-	ControllerSettingsGlobalKey = "controllerSettings"
-)
-
 // Controller encapsulates state for the Juju controller as a whole,
 // as opposed to model specific functionality.
 //
@@ -128,13 +123,11 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 const stateServingInfoKey = "stateServingInfo"
 
 type stateServingInfo struct {
-	APIPort      int    `bson:"apiport"`
-	StatePort    int    `bson:"stateport"`
-	Cert         string `bson:"cert"`
-	PrivateKey   string `bson:"privatekey"`
-	CAPrivateKey string `bson:"caprivatekey"`
-	// this will be passed as the KeyFile argument to MongoDB
-	SharedSecret   string `bson:"sharedsecret"`
+	APIPort        int    `bson:"apiport"`
+	StatePort      int    `bson:"stateport"`
+	Cert           string `bson:"cert"`
+	PrivateKey     string `bson:"privatekey"`
+	CAPrivateKey   string `bson:"caprivatekey"`
 	SystemIdentity string `bson:"systemidentity"`
 }
 
@@ -157,7 +150,6 @@ func (st *State) StateServingInfo() (jujucontroller.StateServingInfo, error) {
 		Cert:           info.Cert,
 		PrivateKey:     info.PrivateKey,
 		CAPrivateKey:   info.CAPrivateKey,
-		SharedSecret:   info.SharedSecret,
 		SystemIdentity: info.SystemIdentity,
 	}, nil
 }
@@ -185,7 +177,6 @@ func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error
 			Cert:           info.Cert,
 			PrivateKey:     info.PrivateKey,
 			CAPrivateKey:   info.CAPrivateKey,
-			SharedSecret:   info.SharedSecret,
 			SystemIdentity: info.SystemIdentity,
 		}}},
 	}}

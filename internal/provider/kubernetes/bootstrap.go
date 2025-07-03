@@ -272,16 +272,6 @@ func newControllerStack(
 		return nil, errors.NewNotValid(nil, "agent config has no state serving info")
 	}
 
-	// ensures shared-secret content.
-	if si.SharedSecret == "" {
-		// Generate a shared secret for the Mongo replica set.
-		sharedSecret, err := mongo.GenerateSharedSecret()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		si.SharedSecret = sharedSecret
-	}
-
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
@@ -712,16 +702,10 @@ func (c *controllerStack) addCleanUp(cleanUp func()) {
 }
 
 func (c *controllerStack) createControllerSecretSharedSecret(ctx context.Context) error {
-	si, ok := c.agentConfig.StateServingInfo()
-	if !ok {
-		return errors.NewNotValid(nil, "agent config has no state serving info")
-	}
-
 	secret, err := c.getControllerSecret(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	secret.Data[mongo.SharedSecretFile] = []byte(si.SharedSecret)
 	logger.Tracef(context.TODO(), "ensuring shared secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf(context.TODO(), "deleting %q shared-secret", secret.Name)

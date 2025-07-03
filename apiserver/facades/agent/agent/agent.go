@@ -306,7 +306,6 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 		Cert:           info.Cert,
 		PrivateKey:     info.PrivateKey,
 		CAPrivateKey:   info.CAPrivateKey,
-		SharedSecret:   info.SharedSecret,
 		SystemIdentity: info.SystemIdentity,
 	}
 
@@ -320,7 +319,7 @@ func (api *AgentAPI) IsMaster(_ context.Context) (params.IsMasterResult, error) 
 		return params.IsMasterResult{}, apiservererrors.ErrPerm
 	}
 
-	switch _ := api.auth.GetAuthTag().(type) {
+	switch api.auth.GetAuthTag().(type) {
 	case names.MachineTag:
 		return params.IsMasterResult{}, nil
 	default:

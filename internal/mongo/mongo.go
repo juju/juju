@@ -5,9 +5,6 @@ package mongo
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -42,19 +39,6 @@ const (
 // JujuDbSnapMongodPath is the path that the juju-db snap
 // makes mongod available at
 var JujuDbSnapMongodPath = "/snap/bin/juju-db.mongod"
-
-// GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
-// for use with Mongo replica sets.
-func GenerateSharedSecret() (string, error) {
-	// "A key’s length must be between 6 and 1024 characters and may
-	// only contain characters in the base64 set."
-	//   -- http://docs.mongodb.org/manual/tutorial/generate-key-file/
-	buf := make([]byte, base64.StdEncoding.DecodedLen(1024))
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("cannot read random secret: %v", err)
-	}
-	return base64.StdEncoding.EncodeToString(buf), nil
-}
 
 /*
 Values set as per bug:
@@ -94,9 +78,6 @@ type EnsureServerParams struct {
 
 	// CAPrivateKey is the CA certificate's private key.
 	CAPrivateKey string
-
-	// SharedSecret is a secret shared between mongo servers.
-	SharedSecret string
 
 	// SystemIdentity is the identity of the system.
 	SystemIdentity string
@@ -265,11 +246,6 @@ func setupDataDirectory(args EnsureServerParams) error {
 	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
 	if err := UpdateSSLKey(args.MongoDataDir, args.Cert, args.PrivateKey); err != nil {
 		return errors.Trace(err)
-	}
-
-	err := utils.AtomicWriteFile(sharedSecretPath(args.MongoDataDir), []byte(args.SharedSecret), 0600)
-	if err != nil {
-		return errors.Annotatef(err, "cannot write mongod shared secret to %v", sharedSecretPath(args.MongoDataDir))
 	}
 
 	if err := os.MkdirAll(logPath(dbDir), 0755); err != nil {

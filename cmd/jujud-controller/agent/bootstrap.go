@@ -349,7 +349,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			AdminUser:                 adminTag,
 			StateInitializationParams: args,
 			BootstrapMachineAddresses: addrs,
-			SharedSecret:              info.SharedSecret,
 			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
 			MongoDialOpts:             dialOpts,
 			BootstrapDqlite:           c.DqliteInitializer,
@@ -426,13 +425,6 @@ func ensureKeys(
 	info.SystemIdentity = privateKey
 
 	args.ControllerConfig[controller.SystemSSHKeys] = publicKey
-
-	// Generate a shared secret for the Mongo replica set, and write it out.
-	sharedSecret, err := mongo.GenerateSharedSecret()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	info.SharedSecret = sharedSecret
 
 	return nil
 }

@@ -82,7 +82,6 @@ func newEnsureMongoParams(agentConfig agent.Config) (mongo.EnsureServerParams, e
 		Cert:           si.Cert,
 		PrivateKey:     si.PrivateKey,
 		CAPrivateKey:   si.CAPrivateKey,
-		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,
 
 		OplogSize:            oplogSize,
