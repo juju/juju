@@ -350,6 +350,9 @@ CREATE TABLE storage_volume_attachment (
     REFERENCES storage_provision_scope (id)
 );
 
+CREATE INDEX idx_storage_volume_attachment_net_node_uuid
+ON storage_volume_attachment (net_node_uuid);
+
 CREATE TABLE storage_filesystem_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL
@@ -439,6 +442,9 @@ CREATE TABLE storage_filesystem_attachment (
     FOREIGN KEY (provision_scope_id)
     REFERENCES storage_provision_scope (id)
 );
+
+CREATE INDEX idx_storage_filesystem_attachment_net_node_uuid
+ON storage_filesystem_attachment (net_node_uuid);
 
 CREATE TABLE storage_volume_device_type (
     id INT PRIMARY KEY,
