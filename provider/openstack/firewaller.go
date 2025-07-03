@@ -413,18 +413,16 @@ func (c *neutronFirewaller) ensureInternalRules(neutronClient *neutron.Client, g
 	return nil
 }
 
-func (c *neutronFirewaller) deleteSecurityGroups(ctx context.ProviderCallContext, securityGroups []neutron.SecurityGroupV2, match func(name string) bool) error {
+func (c *neutronFirewaller) deleteSecurityGroups(ctx context.ProviderCallContext, securityGroups []neutron.SecurityGroupV2) error {
 	neutronClient := c.environ.neutron()
 	for _, group := range securityGroups {
-		if match(group.Name) {
-			deleteSecurityGroup(
-				ctx,
-				neutronClient.DeleteSecurityGroupV2,
-				group.Name,
-				group.Id,
-				clock.WallClock,
-			)
-		}
+		deleteSecurityGroup(
+			ctx,
+			neutronClient.DeleteSecurityGroupV2,
+			group.Name,
+			group.Id,
+			clock.WallClock,
+		)
 	}
 	return nil
 }
@@ -439,8 +437,26 @@ func (c *neutronFirewaller) DeleteGroups(ctx context.ProviderCallContext, names 
 		}
 		groupsToDelete = append(groupsToDelete, group)
 	}
-	match := func(string) bool { return true }
-	return c.deleteSecurityGroups(ctx, groupsToDelete, match)
+
+	return c.deleteSecurityGroups(ctx, groupsToDelete)
+}
+
+func (c *neutronFirewaller) listAndFilterSecurityGroups(ctx context.ProviderCallContext, re *regexp.Regexp) ([]neutron.SecurityGroupV2, error) {
+	neutronClient := c.environ.neutron()
+	securityGroups, err := neutronClient.ListSecurityGroupsV2()
+	var securityGroupsToDelete []neutron.SecurityGroupV2
+	if err != nil {
+		handleCredentialError(err, ctx)
+		return securityGroupsToDelete, errors.Annotate(err, "cannot list security groups")
+	}
+
+	for _, group := range securityGroups {
+		if re.MatchString(group.Name) {
+			securityGroupsToDelete = append(securityGroupsToDelete, group)
+		}
+	}
+
+	return securityGroupsToDelete, nil
 }
 
 // DeleteAllControllerGroups implements Firewaller interface.
@@ -451,7 +467,12 @@ func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallCo
 		return errors.Trace(err)
 	}
 
-	return c.deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, re.MatchString)
+	securityGroups, err := c.listAndFilterSecurityGroups(ctx, re)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return c.deleteSecurityGroups(ctx, securityGroups)
 }
 
 // DeleteAllModelGroups implements Firewaller interface.
@@ -462,7 +483,12 @@ func (c *neutronFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext
 		return errors.Trace(err)
 	}
 
-	return c.deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, re.MatchString)
+	securityGroups, err := c.listAndFilterSecurityGroups(ctx, re)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return c.deleteSecurityGroups(ctx, securityGroups)
 }
 
 func (c *neutronFirewaller) DeleteMachineGroup(ctx context.ProviderCallContext, machineID string) error {
@@ -474,8 +500,8 @@ func (c *neutronFirewaller) DeleteMachineGroup(ctx context.ProviderCallContext, 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	match := func(string) bool { return true }
-	return c.deleteSecurityGroups(ctx, []neutron.SecurityGroupV2{group}, match)
+
+	return c.deleteSecurityGroups(ctx, []neutron.SecurityGroupV2{group})
 }
 
 // UpdateGroupController implements Firewaller interface.
