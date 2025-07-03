@@ -46,7 +46,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
-	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
@@ -144,11 +143,6 @@ func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 				agent.Dir(c.AgentConf.DataDir(), tag),
 				k8sconstants.TemplateFileNameAgentConf,
 			),
-		},
-		{
-			// ensure server.pem
-			to:   filepath.Join(c.AgentConf.DataDir(), mongo.FileNameDBSSLKey),
-			from: filepath.Join(c.AgentConf.DataDir(), k8sprovider.TemplateFileNameServerPEM),
 		},
 	} {
 		if err := copyFileFromTemplate(v.to, v.from); err != nil {

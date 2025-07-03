@@ -88,21 +88,6 @@ func (k *kubernetesClient) updateSecret(ctx context.Context, sec *core.Secret) e
 	return errors.Trace(err)
 }
 
-// getSecret return a secret resource.
-func (k *kubernetesClient) getSecret(ctx context.Context, secretName string) (*core.Secret, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("secret %q", secretName)
-		}
-		return nil, errors.Trace(err)
-	}
-	return secret, nil
-}
-
 // createSecret creates a secret resource.
 func (k *kubernetesClient) createSecret(ctx context.Context, secret *core.Secret) (*core.Secret, error) {
 	if k.namespace == "" {

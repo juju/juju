@@ -17,7 +17,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v4"
 
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/packaging/dependency"
@@ -243,11 +242,6 @@ func setupDataDirectory(args EnsureServerParams) error {
 		return errors.Annotate(err, "cannot create mongo database directory")
 	}
 
-	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
-	if err := UpdateSSLKey(args.MongoDataDir, args.Cert, args.PrivateKey); err != nil {
-		return errors.Trace(err)
-	}
-
 	if err := os.MkdirAll(logPath(dbDir), 0755); err != nil {
 		return errors.Annotate(err, "cannot create mongodb logging directory")
 	}
@@ -275,17 +269,6 @@ func tweakSysctlForMongo(editables map[string]string) {
 			logger.Errorf(context.TODO(), "could not set the value of %q to %q because of: %v\n", editableFile, value, err)
 		}
 	}
-}
-
-// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
-func UpdateSSLKey(dataDir, cert, privateKey string) error {
-	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(GenerateSSLKey(cert, privateKey)), 0600)
-	return errors.Annotate(err, "cannot write SSL key")
-}
-
-// GenerateSSLKey combines cert and private key to generate the ssl key - server.pem.
-func GenerateSSLKey(cert, privateKey string) string {
-	return cert + "\n" + privateKey
 }
 
 func logVersion(mongoPath string) {

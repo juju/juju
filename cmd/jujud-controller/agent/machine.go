@@ -453,9 +453,6 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 	si.Cert, si.PrivateKey = string(cert), string(privateKey)
 
-	if err := mongo.UpdateSSLKey(config.DataDir(), si.Cert, si.PrivateKey); err != nil {
-		return err
-	}
 	config.SetStateServingInfo(si)
 	return nil
 }

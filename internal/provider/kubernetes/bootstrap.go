@@ -61,11 +61,6 @@ const (
 	apiServerScratchStorageName = "apiserver-scratch"
 )
 
-var (
-	// TemplateFileNameServerPEM is the template server.pem file name.
-	TemplateFileNameServerPEM = "template-" + mongo.FileNameDBSSLKey
-)
-
 const (
 	mongoDBContainerName   = "mongodb"
 	apiServerContainerName = "api-server"
@@ -169,7 +164,6 @@ type controllerStack struct {
 	resourceNameService,
 	resourceNameConfigMap,
 	resourceNameSecret, resourceNamedockerSecret,
-	resourceNameVolSharedSecret, resourceNameVolSSLKey,
 	resourceNameVolBootstrapParams, resourceNameVolAgentConf string
 
 	dockerAuthSecretData []byte
@@ -308,8 +302,6 @@ func newControllerStack(
 	cs.resourceNameSecret = cs.getResourceName("secret")
 	cs.resourceNamedockerSecret = constants.CAASImageRepoSecretName
 
-	cs.resourceNameVolSharedSecret = cs.getResourceName(mongo.SharedSecretFile)
-	cs.resourceNameVolSSLKey = cs.getResourceName(mongo.FileNameDBSSLKey)
 	cs.resourceNameVolBootstrapParams = cs.getResourceName(cloudconfig.FileNameBootstrapParams)
 	cs.resourceNameVolAgentConf = cs.getResourceName(agentconstants.AgentConfigFilename)
 
@@ -357,34 +349,6 @@ func (c *controllerStack) pathJoin(elem ...string) string {
 	// We always use forward-slash because Linux is the only OS we support now.
 	pathSeparator := "/"
 	return strings.Join(elem, pathSeparator)
-}
-
-func (c *controllerStack) getControllerSecret(ctx context.Context) (secret *core.Secret, err error) {
-	defer func() {
-		if err == nil && secret != nil && secret.Data == nil {
-			secret.Data = map[string][]byte{}
-		}
-	}()
-
-	secret, err = c.broker.getSecret(ctx, c.resourceNameSecret)
-	if err == nil {
-		return secret, nil
-	}
-	if errors.Is(err, errors.NotFound) {
-		_, err = c.broker.createSecret(ctx, &core.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        c.resourceNameSecret,
-				Labels:      c.stackLabels,
-				Namespace:   c.broker.Namespace(),
-				Annotations: c.stackAnnotations,
-			},
-			Type: core.SecretTypeOpaque,
-		})
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return c.broker.getSecret(ctx, c.resourceNameSecret)
 }
 
 func (c *controllerStack) getControllerConfigMap(ctx context.Context) (cm *core.ConfigMap, err error) {
@@ -451,18 +415,6 @@ func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 	// create the proxy resources for services of type cluster ip
 	if err = c.createControllerProxy(ctx); err != nil {
 		return errors.Annotate(err, "creating controller service proxy for controller")
-	}
-
-	if environsbootstrap.IsContextDone(ctx) {
-		return environsbootstrap.Cancelled()
-	}
-
-	// create server.pem secret for controller pod.
-	if err = c.createControllerSecretServerPem(ctx); err != nil {
-		return errors.Annotate(err, "creating server.pem secret for controller")
-	}
-	if environsbootstrap.IsContextDone(ctx) {
-		return environsbootstrap.Cancelled()
 	}
 
 	// create bootstrap-params configmap for controller pod.
@@ -734,27 +686,6 @@ func (c *controllerStack) patchServiceAccountForImagePullSecret(ctx context.Cont
 	)
 	_, err = c.broker.updateServiceAccount(ctx, sa)
 	return errors.Trace(err)
-}
-
-func (c *controllerStack) createControllerSecretServerPem(ctx context.Context) error {
-	si, ok := c.agentConfig.StateServingInfo()
-	if !ok || si.CAPrivateKey == "" {
-		// No certificate information exists yet, nothing to do.
-		return errors.NewNotValid(nil, "certificate is empty")
-	}
-
-	secret, err := c.getControllerSecret(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	secret.Data[mongo.FileNameDBSSLKey] = []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey))
-
-	logger.Tracef(context.TODO(), "ensuring server.pem secret: \n%+v", secret)
-	c.addCleanUp(func() {
-		logger.Debugf(context.TODO(), "deleting %q server.pem", secret.Name)
-		_ = c.broker.deleteSecret(ctx, secret.GetName(), secret.GetUID())
-	})
-	return c.broker.updateSecret(ctx, secret)
 }
 
 func (c *controllerStack) ensureControllerConfigmapBootstrapParams(ctx context.Context) error {
@@ -1127,36 +1058,6 @@ func (c *controllerStack) buildStorageSpecForController(ctx context.Context, sta
 			EmptyDir: &core.EmptyDirVolumeSource{},
 		},
 	}, {
-		// add volume server.pem secret.
-		Name: c.resourceNameVolSSLKey,
-		VolumeSource: core.VolumeSource{
-			Secret: &core.SecretVolumeSource{
-				SecretName:  c.resourceNameSecret,
-				DefaultMode: pointer.Int32(0400),
-				Items: []core.KeyToPath{
-					{
-						Key:  mongo.FileNameDBSSLKey,
-						Path: TemplateFileNameServerPEM,
-					},
-				},
-			},
-		},
-	}, {
-		// add volume shared secret.
-		Name: c.resourceNameVolSharedSecret,
-		VolumeSource: core.VolumeSource{
-			Secret: &core.SecretVolumeSource{
-				SecretName:  c.resourceNameSecret,
-				DefaultMode: pointer.Int32(0660),
-				Items: []core.KeyToPath{
-					{
-						Key:  mongo.SharedSecretFile,
-						Path: mongo.SharedSecretFile,
-					},
-				},
-			},
-		},
-	}, {
 		// add volume agent.conf configmap.
 		Name: c.resourceNameVolAgentConf,
 		VolumeSource: core.VolumeSource{
@@ -1203,10 +1104,6 @@ func (c *controllerStack) appSecretName() string {
 
 func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerImage string, jujudEnv map[string]string) ([]core.Container, error) {
 	var containerSpec []core.Container
-	// add container mongoDB.
-	// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
-	// then generate mongo config from EnsureServerParams.
-	tlsPrivateKeyPath := c.pathJoin(c.pcfg.DataDir, mongo.FileNameDBSSLKey)
 	probeCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
@@ -1229,10 +1126,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 
 	// Create the script used to start mongo.
 	const mongoSh = "/tmp/mongo.sh"
-	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "),
-		c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile+".temp"),
-		c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile),
-		tlsPrivateKeyPath)
+	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "))
 	// Write it to a file so it can be executed.
 	mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
 	makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)
@@ -1315,18 +1209,6 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				Name:      storageName,
 				MountPath: c.pathJoin(c.pcfg.DataDir, "db"),
 				SubPath:   "db",
-			},
-			{
-				Name:      c.resourceNameVolSSLKey,
-				MountPath: c.pathJoin(c.pcfg.DataDir, TemplateFileNameServerPEM),
-				SubPath:   TemplateFileNameServerPEM,
-				ReadOnly:  true,
-			},
-			{
-				Name:      c.resourceNameVolSharedSecret,
-				MountPath: c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile+".temp"),
-				SubPath:   mongo.SharedSecretFile,
-				ReadOnly:  true,
 			},
 		},
 	})
@@ -1438,18 +1320,6 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				),
 				SubPath:  constants.ControllerAgentConfigFilename,
 				ReadOnly: true,
-			},
-			{
-				Name:      c.resourceNameVolSSLKey,
-				MountPath: c.pathJoin(c.pcfg.DataDir, TemplateFileNameServerPEM),
-				SubPath:   TemplateFileNameServerPEM,
-				ReadOnly:  true,
-			},
-			{
-				Name:      c.resourceNameVolSharedSecret,
-				MountPath: c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile),
-				SubPath:   mongo.SharedSecretFile,
-				ReadOnly:  true,
 			},
 			{
 				Name:      c.resourceNameVolBootstrapParams,
