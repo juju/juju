@@ -236,6 +236,41 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *tc.C) {
 	c.Check(instanceId, tc.Equals, instance.UnknownId)
 }
 
+func (s *serviceSuite) TestGetInstanceIDByMachineNameSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID).Return("i-foo", nil)
+
+	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetInstanceIDByMachineName(c.Context(), machine.Name("666"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(instanceId, tc.Equals, instance.Id("i-foo"))
+}
+
+func (s *serviceSuite) TestGetInstanceIDByMachineNameNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return("", machineerrors.MachineNotFound)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetInstanceIDByMachineName(c.Context(), machine.Name("666"))
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestGetInstanceIDByMachineNameNotProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID).Return("", machineerrors.NotProvisioned)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetInstanceIDByMachineName(c.Context(), machine.Name("666"))
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+}
+
 // TestIsMachineControllerSuccess asserts the happy path of the
 // IsMachineController service.
 func (s *serviceSuite) TestIsMachineControllerSuccess(c *tc.C) {

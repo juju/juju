@@ -59,7 +59,6 @@ var facadeVersions = facades.FacadeVersions{
 	"ImageMetadata":                {3},
 	"ImageMetadataManager":         {1},
 	"InstanceMutater":              {3},
-	"InstancePoller":               {4},
 	"KeyManager":                   {1},
 	"KeyUpdater":                   {1},
 	"LeadershipService":            {2},

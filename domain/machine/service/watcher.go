@@ -195,6 +195,19 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 	)
 }
 
+// WatchModelMachineLifeAndStartTimes returns a string watcher that emits machine names
+// for changes to machine life or agent start times.
+func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table, stmt := s.st.InitialWatchModelMachineLifeAndStartTimesStatement()
+	return s.watcherFactory.NewNamespaceWatcher(
+		eventsource.InitialNamespaceChanges(stmt),
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
+}
+
 // WatchMachineCloudInstances returns a NotifyWatcher that is subscribed to
 // the changes in the machine_cloud_instance table in the model, for the given
 // machine UUID.

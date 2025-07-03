@@ -822,6 +822,45 @@ func (c *MockStateInitialMachineContainerLifeStatementCall) DoAndReturn(f func()
 	return c
 }
 
+// InitialWatchModelMachineLifeAndStartTimesStatement mocks base method.
+func (m *MockState) InitialWatchModelMachineLifeAndStartTimesStatement() (string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchModelMachineLifeAndStartTimesStatement")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
+}
+
+// InitialWatchModelMachineLifeAndStartTimesStatement indicates an expected call of InitialWatchModelMachineLifeAndStartTimesStatement.
+func (mr *MockStateMockRecorder) InitialWatchModelMachineLifeAndStartTimesStatement() *MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchModelMachineLifeAndStartTimesStatement", reflect.TypeOf((*MockState)(nil).InitialWatchModelMachineLifeAndStartTimesStatement))
+	return &MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall{Call: call}
+}
+
+// MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall wrap *gomock.Call
+type MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall) Return(arg0, arg1 string) *MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall) Do(f func() (string, string)) *MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall) DoAndReturn(f func() (string, string)) *MockStateInitialWatchModelMachineLifeAndStartTimesStatementCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchModelMachinesStatement mocks base method.
 func (m *MockState) InitialWatchModelMachinesStatement() (string, string) {
 	m.ctrl.T.Helper()

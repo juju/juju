@@ -31,6 +31,7 @@ var modelSchemaDir embed.FS
 const (
 	customNamespaceUnitLifecycle tableNamespaceID = iota
 	customNamespaceMachineLifecycle
+	customNamespaceMachineLifeAndStartTime
 	customNamespaceStorageFilesystemLifeMachineProvisioning
 	customNamespaceStorageFilesystemLifeModelProvisioning
 	customNamespaceStorageFilesystemAttachmentLifeMachineProvisioning
@@ -211,6 +212,36 @@ func ModelDDL() *schema.Schema {
 		triggerEntityLifecycleByNameForTable("unit", customNamespaceUnitLifecycle),
 		triggerEntityLifecycleByNameForTable("machine", customNamespaceMachineLifecycle),
 	)
+
+	patches = append(patches, func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+INSERT INTO change_log_namespace VALUES (%[1]d, 'custom_machine_lifecycle_start_time', 'Machine life or agent start time changes');
+
+CREATE TRIGGER trg_log_machine_insert_life_start_time
+AFTER INSERT ON machine FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[1]d, NEW.name, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_log_machine_update_life_start_time
+AFTER UPDATE ON machine FOR EACH ROW
+WHEN 
+	NEW.life_id != OLD.life_id OR
+	(NEW.agent_started_at != OLD.agent_started_at OR (NEW.agent_started_at IS NOT NULL AND OLD.agent_started_at IS NULL) OR (NEW.agent_started_at IS NULL AND OLD.agent_started_at IS NOT NULL))
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[1]d, OLD.name, DATETIME('now'));
+END;
+
+CREATE TRIGGER trg_log_machine_delete_life_start_time
+AFTER DELETE ON machine FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[1]d, OLD.name, DATETIME('now'));
+END;
+`, customNamespaceMachineLifeAndStartTime))
+	})
 
 	// For agent_version we only care if the single row is updated.
 	// We emit the new target agent version.

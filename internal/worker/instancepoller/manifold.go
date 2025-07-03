@@ -8,32 +8,16 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/services"
 )
-
-// facadeShim wraps an instancepoller API instance and allows us to provide
-// methods that return interfaces which we can easily mock in our tests.
-type facadeShim struct {
-	api *instancepoller.API
-}
-
-func (s facadeShim) Machine(ctx context.Context, tag names.MachineTag) (Machine, error) {
-	return s.api.Machine(ctx, tag)
-}
-func (s facadeShim) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
-	return s.api.WatchModelMachines(ctx)
-}
 
 var errNetworkingNotSupported = errors.NotSupportedf("networking")
 
@@ -54,17 +38,13 @@ func (e environWithoutNetworking) NetworkInterfaces(context.Context, []instance.
 
 // ManifoldConfig describes the resources used by the instancepoller worker.
 type ManifoldConfig struct {
-	APICallerName string
-	ClockName     string
-	EnvironName   string
-	Logger        logger.Logger
+	DomainServicesName string
+	Clock              clock.Clock
+	EnvironName        string
+	Logger             logger.Logger
 }
 
 func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
-	var clock clock.Clock
-	if err := getter.Get(config.ClockName, &clock); err != nil {
-		return nil, errors.Trace(err)
-	}
 	var environ environs.Environ
 	if err := getter.Get(config.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
@@ -77,18 +57,18 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		netEnv = &environWithoutNetworking{env: environ}
 	}
 
-	var apiCaller base.APICaller
-	if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
+	var domainServices services.ModelDomainServices
+	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w, err := NewWorker(Config{
-		Clock: clock,
-		Facade: facadeShim{
-			api: instancepoller.NewAPI(apiCaller),
-		},
-		Environ: netEnv,
-		Logger:  config.Logger,
+		Clock:          config.Clock,
+		MachineService: domainServices.Machine(),
+		StatusService:  domainServices.Status(),
+		NetworkService: domainServices.Network(),
+		Environ:        netEnv,
+		Logger:         config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -100,9 +80,8 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
+			config.DomainServicesName,
 			config.EnvironName,
-			config.ClockName,
 		},
 		Start: config.start,
 	}

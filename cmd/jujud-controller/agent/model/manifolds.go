@@ -431,10 +431,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggingContext.GetLogger("juju.worker.unitassigner"),
 		})),
 		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   providerTrackerName,
-			ClockName:     clockName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.instancepoller"),
+			DomainServicesName: domainServicesName,
+			EnvironName:        providerTrackerName,
+			Clock:              config.Clock,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.instancepoller"),
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName: apiCallerName,

@@ -13,8 +13,9 @@ import (
 )
 
 // GetInstanceID returns the cloud specific instance id for this machine.
-// If the machine is not provisioned, it returns a
-// [github.com/juju/juju/domain/machine/errors.NotProvisioned]
+// The following errors may be returned:
+//   - [github.com/juju/juju/domain/machine/errors.NotProvisioned] if the machine
+//     is not provisioned.
 func (s *Service) GetInstanceID(ctx context.Context, machineUUID machine.UUID) (instance.Id, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -26,10 +27,30 @@ func (s *Service) GetInstanceID(ctx context.Context, machineUUID machine.UUID) (
 	return instance.Id(instanceId), nil
 }
 
+// GetInstanceIDByMachineName returns the cloud specific instance id for this machine.
+// The following errors may be returned:
+//   - [github.com/juju/juju/domain/machine/errors.NotProvisioned] if the machine
+//     is not provisioned.
+func (s *Service) GetInstanceIDByMachineName(ctx context.Context, machineName machine.Name) (instance.Id, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return "", errors.Errorf("retrieving machine UUID for machine %q: %w", machineName, err)
+	}
+	instanceId, err := s.st.GetInstanceID(ctx, machineUUID)
+	if err != nil {
+		return "", errors.Errorf("retrieving cloud instance id for machine %q: %w", machineUUID, err)
+	}
+	return instance.Id(instanceId), nil
+}
+
 // GetInstanceIDAndName returns the cloud specific instance ID and display name for
 // this machine.
-// If the machine is not provisioned, it returns a
-// [github.com/juju/juju/domain/machine/errors.NotProvisioned]
+// The following errors may be returned:
+//   - [github.com/juju/juju/domain/machine/errors.NotProvisioned] if the machine
+//     is not provisioned.
 func (s *Service) GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
