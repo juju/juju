@@ -1554,6 +1554,26 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
+	err = u.relationService.EnterScope(
+		ctx,
+		relUUID,
+		unitName,
+		unitNetworkToUnitSettings(info),
+		subordinateCreator(u.applicationService.AddIAASSubordinateUnit),
+	)
+	if internalerrors.Is(err, relationerrors.PotentialRelationUnitNotValid) {
+		u.logger.Debugf(ctx, "ignoring %q EnterScope for %q, not valid", unitName, relKey.String())
+		return nil
+	}
+	return internalerrors.Capture(err)
+}
+
+// unitNetworkToUnitSettings extracts network settings from a UnitNetwork
+// instance and converts them into a string map.
+// The `ingress-address` key is set from the first ingress address, if available.
+// The `egress-subnets` key is set from a comma-separated list of egress subnets,
+// if available.
+func unitNetworkToUnitSettings(info domainnetork.UnitNetwork) map[string]string {
 	ingressAddresses := info.IngressAddresses
 	egressSubnets := info.EgressSubnets
 	settings := map[string]string{}
@@ -1565,19 +1585,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 	if len(egressSubnets) > 0 {
 		settings["egress-subnets"] = strings.Join(egressSubnets, ",")
 	}
-
-	err = u.relationService.EnterScope(
-		ctx,
-		relUUID,
-		unitName,
-		settings,
-		subordinateCreator(u.applicationService.AddIAASSubordinateUnit),
-	)
-	if internalerrors.Is(err, relationerrors.PotentialRelationUnitNotValid) {
-		u.logger.Debugf(ctx, "ignoring %q EnterScope for %q, not valid", unitName, relKey.String())
-		return nil
-	}
-	return internalerrors.Capture(err)
+	return settings
 }
 
 // LeaveScope signals each unit has left its scope in the relation,
@@ -1911,6 +1919,12 @@ func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg pa
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
+
+	// This is not the place to update those fields they are updated
+	// if required in setUnitRelationNetworks.
+	// Keeping those entries here may override incoming update with old values
+	delete(arg.Settings, "ingress-address")
+	delete(arg.Settings, "egress-subnets")
 
 	err = u.relationService.SetRelationApplicationAndUnitSettings(ctx, unitName, relUnitUUID, arg.ApplicationSettings, arg.Settings)
 	if errors.Is(err, corelease.ErrNotHeld) {
@@ -2624,6 +2638,14 @@ func (u *UniterAPI) CloudAPIVersion(ctx context.Context) (params.StringResult, e
 // UpdateNetworkInfo refreshes the network settings for a unit's bound
 // endpoints.
 func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	// TODO(gfouillet) - 2025-07-01 - Remove me in the next facade update
+	//   Looks like this method is never called. I implemented it in case
+	//   of possible calls I cannot be aware, but nor QA with config changes
+	//   nor searching "UpdateNetworkInfo" in the code base make me find
+	//   a possible code path to this facade method. I believe it is unused.
+	//   Update relation unit settings with network info are already done in
+	//   both EnterScope and CommitHookChanged, which seems to be enough for
+	//   all our use cases.
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -2642,7 +2664,7 @@ func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities)
 			continue
 		}
 
-		if err = u.networkService.SetUnitRelationNetworks(ctx, coreunit.Name(unitTag.Id())); err != nil {
+		if err = u.setUnitRelationNetworks(ctx, coreunit.Name(unitTag.Id())); err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -2695,7 +2717,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	var modelOps []state.ModelOperation
 
 	if changes.UpdateNetworkInfo {
-		err := u.networkService.SetUnitRelationNetworks(ctx, coreunit.Name(unitTag.Id()))
+		err := u.setUnitRelationNetworks(ctx, coreunit.Name(unitTag.Id()))
 		if err != nil {
 			return internalerrors.Errorf("updating network info: %w", err)
 		}
@@ -2881,6 +2903,47 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
+}
+
+func (u *UniterAPI) setUnitRelationNetworks(ctx context.Context, name coreunit.Name) error {
+	unitUUID, err := u.applicationService.GetUnitUUID(ctx, name)
+	if err != nil {
+		return internalerrors.Errorf("getting UUID of unit %q: %w", name, err)
+	}
+
+	unitRelations, err := u.relationService.GetRelationsStatusForUnit(ctx, unitUUID)
+	if err != nil {
+		return internalerrors.Errorf("getting relations for unit %q: %w", name, err)
+	}
+	// Fetch all joined relation for the unit
+	for _, rel := range unitRelations {
+		if !rel.InScope {
+			continue
+		}
+		relationUUID, err := u.relationService.GetRelationUUIDByKey(ctx, rel.Key)
+		if err != nil {
+			return internalerrors.Errorf("getting relation UUID: %w", err)
+		}
+		relationUnitUUID, err := u.relationService.GetRelationUnit(ctx, relationUUID, name)
+		if err != nil {
+			return internalerrors.Errorf("getting relation uni UUIDt: %w", err)
+		}
+		unitNetwork, err := u.networkService.GetUnitRelationNetwork(ctx, name, rel.Key)
+		if err != nil {
+			return internalerrors.Errorf("getting relation network: %w", err)
+		}
+		if err := u.relationService.SetRelationApplicationAndUnitSettings(ctx,
+			name,
+			relationUnitUUID,
+			nil,
+			unitNetworkToUnitSettings(unitNetwork),
+		); err != nil {
+			return internalerrors.Errorf("setting relation application and unit settings: %w", err)
+		}
+	}
+
+	// Set relation settings.
+	return nil
 }
 
 // WatchInstanceData is a shim to call the LXDProfileAPI version of this method.

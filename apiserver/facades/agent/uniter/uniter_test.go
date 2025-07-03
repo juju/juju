@@ -2307,6 +2307,7 @@ type commitHookChangesSuite struct {
 	testhelpers.IsolationSuite
 
 	applicationService *MockApplicationService
+	networkService     *MockNetworkService
 	relationService    *MockRelationService
 
 	uniter *UniterAPI
@@ -2325,9 +2326,11 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *tc.C) {
 	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
 	appSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
 	unitSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID)
+	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	s.expectGetRelationUUIDByKey(relKey, relUUID)
 	s.expectGetRelationUnit(relUUID, relUnitUUID, unitTag.Id())
 	s.expectedSetRelationApplicationAndUnitSettings(coreunit.Name(unitTag.Id()), relUnitUUID, appSettings, unitSettings)
+
 	canAccess := func(tag names.Tag) bool {
 		return true
 	}
@@ -2391,18 +2394,248 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadRelation
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworks(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitName := coreunit.Name("wordpress/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	relKey1 := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	relKey2 := relationtesting.GenNewKey(c, "wordpress:web nginx:web")
+	relUUID1 := relationtesting.GenRelationUUID(c)
+	relUUID2 := relationtesting.GenRelationUUID(c)
+	relUnitUUID1 := relationtesting.GenRelationUnitUUID(c)
+	relUnitUUID2 := relationtesting.GenRelationUnitUUID(c)
+
+	// Set up expectations
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.expectGetRelationsStatusForUnit(unitUUID, []relation.RelationUnitStatus{
+		{Key: relKey1, InScope: true},
+		{Key: relKey2, InScope: true},
+	}, nil)
+
+	// For relation 1
+	s.expectGetRelationUUIDByKey(relKey1, relUUID1)
+	s.expectGetRelationUnit(relUUID1, relUnitUUID1, string(unitName))
+	s.expectGetUnitRelationNetworkWithEgress(unitName, relKey1, "10.0.0.1", "192.168.0.0/24")
+	s.expectedSetRelationApplicationAndUnitSettings(unitName, relUnitUUID1, nil, map[string]string{
+		"ingress-address": "10.0.0.1",
+		"egress-subnets":  "192.168.0.0/24",
+	})
+
+	// For relation 2
+	s.expectGetRelationUUIDByKey(relKey2, relUUID2)
+	s.expectGetRelationUnit(relUUID2, relUnitUUID2, string(unitName))
+	s.expectGetUnitRelationNetwork(unitName, relKey2, "10.0.0.2")
+	s.expectedSetRelationApplicationAndUnitSettings(unitName, relUnitUUID2, nil, map[string]string{
+		"ingress-address": "10.0.0.2",
+	})
+
+	// act
+	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
+
+	// assert
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetUnitUUIDError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitName := coreunit.Name("wordpress/0")
+	expectedErr := internalerrors.New("unit not found")
+
+	// Set up expectations
+	s.expectGetUnitUUID(unitName, coreunit.UUID(""), expectedErr)
+
+	// act
+	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
+
+	// assert
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Matches, `getting UUID of unit "wordpress/0": unit not found`)
+}
+
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationsStatusError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitName := coreunit.Name("wordpress/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	expectedErr := internalerrors.New("failed to get relations")
+
+	// Set up expectations
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.expectGetRelationsStatusForUnit(unitUUID, nil, expectedErr)
+
+	// act
+	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
+
+	// assert
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Matches, `getting relations for unit "wordpress/0": failed to get relations`)
+}
+
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationUUIDError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitName := coreunit.Name("wordpress/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	expectedErr := internalerrors.New("relation not found")
+
+	// Set up expectations
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.expectGetRelationsStatusForUnit(unitUUID, []relation.RelationUnitStatus{
+		{Key: relKey, InScope: true},
+	}, nil)
+	// Mock the error return
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), relKey).Return(corerelation.UUID(""), expectedErr)
+
+	// act
+	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
+
+	// assert
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Matches, `getting relation UUID: relation not found`)
+}
+
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationUnitError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitName := coreunit.Name("wordpress/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	relUUID := relationtesting.GenRelationUUID(c)
+	expectedErr := internalerrors.New("relation unit not found")
+
+	// Set up expectations
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.expectGetRelationsStatusForUnit(unitUUID, []relation.RelationUnitStatus{
+		{Key: relKey, InScope: true},
+	}, nil)
+	s.expectGetRelationUUIDByKey(relKey, relUUID)
+	s.relationService.EXPECT().GetRelationUnit(gomock.Any(), relUUID, unitName).Return(corerelation.UnitUUID(""), expectedErr)
+
+	// act
+	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
+
+	// assert
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Matches, `getting relation uni UUIDt: relation unit not found`)
+}
+
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetUnitRelationNetworkError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitName := coreunit.Name("wordpress/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	relUUID := relationtesting.GenRelationUUID(c)
+	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	expectedErr := internalerrors.New("network not found")
+
+	// Set up expectations
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.expectGetRelationsStatusForUnit(unitUUID, []relation.RelationUnitStatus{
+		{Key: relKey, InScope: true},
+	}, nil)
+	s.expectGetRelationUUIDByKey(relKey, relUUID)
+	s.expectGetRelationUnit(relUUID, relUnitUUID, string(unitName))
+	s.expectGetUnitRelationNetworkError(unitName, relKey, expectedErr)
+
+	// act
+	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
+
+	// assert
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Matches, `getting relation network: network not found`)
+}
+
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSetRelationSettingsError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitName := coreunit.Name("wordpress/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	relUUID := relationtesting.GenRelationUUID(c)
+	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	expectedErr := internalerrors.New("failed to set settings")
+
+	// Set up expectations
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.expectGetRelationsStatusForUnit(unitUUID, []relation.RelationUnitStatus{
+		{Key: relKey, InScope: true},
+	}, nil)
+	s.expectGetRelationUUIDByKey(relKey, relUUID)
+	s.expectGetRelationUnit(relUUID, relUnitUUID, string(unitName))
+	s.expectGetUnitRelationNetwork(unitName, relKey, "10.0.0.1")
+	s.relationService.EXPECT().SetRelationApplicationAndUnitSettings(
+		gomock.Any(),
+		unitName,
+		relUnitUUID,
+		nil,
+		map[string]string{"ingress-address": "10.0.0.1"},
+	).Return(expectedErr)
+
+	// act
+	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
+
+	// assert
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Matches, `setting relation application and unit settings: failed to set settings`)
+}
+
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSkipsRelationsNotInScope(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitName := coreunit.Name("wordpress/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	relKey1 := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	relKey2 := relationtesting.GenNewKey(c, "wordpress:web nginx:web")
+
+	// Set up expectations
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.expectGetRelationsStatusForUnit(unitUUID, []relation.RelationUnitStatus{
+		{Key: relKey1, InScope: false}, // This relation is not in scope and should be skipped
+		{Key: relKey2, InScope: true},
+	}, nil)
+
+	// Only relation 2 should be processed
+	relUUID2 := relationtesting.GenRelationUUID(c)
+	relUnitUUID2 := relationtesting.GenRelationUnitUUID(c)
+	s.expectGetRelationUUIDByKey(relKey2, relUUID2)
+	s.expectGetRelationUnit(relUUID2, relUnitUUID2, string(unitName))
+	s.expectGetUnitRelationNetwork(unitName, relKey2, "10.0.0.2")
+	s.expectedSetRelationApplicationAndUnitSettings(unitName, relUnitUUID2, nil, map[string]string{
+		"ingress-address": "10.0.0.2",
+	})
+
+	// act
+	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
+
+	// assert
+	c.Assert(err, tc.IsNil)
+}
+
 func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
+	s.networkService = NewMockNetworkService(ctrl)
 
 	s.uniter = &UniterAPI{
 		logger: loggertesting.WrapCheckLog(c),
 
 		applicationService: s.applicationService,
+		networkService:     s.networkService,
 		relationService:    s.relationService,
 	}
+
+	c.Cleanup(func() {
+		s.applicationService = nil
+		s.networkService = nil
+		s.relationService = nil
+		s.uniter = nil
+	})
 
 	return ctrl
 }
@@ -2417,4 +2650,31 @@ func (s *commitHookChangesSuite) expectGetRelationUnit(relUUID corerelation.UUID
 
 func (s *commitHookChangesSuite) expectedSetRelationApplicationAndUnitSettings(unitName coreunit.Name, uuid corerelation.UnitUUID, appSettings, unitSettings map[string]string) {
 	s.relationService.EXPECT().SetRelationApplicationAndUnitSettings(gomock.Any(), unitName, uuid, appSettings, unitSettings).Return(nil)
+}
+
+func (s *commitHookChangesSuite) expectGetUnitRelationNetwork(unitName coreunit.Name, key corerelation.Key,
+	ingress string) {
+	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, key).Return(domainnetwork.UnitNetwork{
+		IngressAddresses: []string{ingress},
+	}, nil)
+}
+
+func (s *commitHookChangesSuite) expectGetUnitRelationNetworkWithEgress(unitName coreunit.Name, key corerelation.Key,
+	ingress, egress string) {
+	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, key).Return(domainnetwork.UnitNetwork{
+		IngressAddresses: []string{ingress},
+		EgressSubnets:    []string{egress},
+	}, nil)
+}
+
+func (s *commitHookChangesSuite) expectGetUnitRelationNetworkError(unitName coreunit.Name, key corerelation.Key, err error) {
+	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, key).Return(domainnetwork.UnitNetwork{}, err)
+}
+
+func (s *commitHookChangesSuite) expectGetUnitUUID(unitName coreunit.Name, unitUUID coreunit.UUID, err error) {
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, err)
+}
+
+func (s *commitHookChangesSuite) expectGetRelationsStatusForUnit(unitUUID coreunit.UUID, relations []relation.RelationUnitStatus, err error) {
+	s.relationService.EXPECT().GetRelationsStatusForUnit(gomock.Any(), unitUUID).Return(relations, err)
 }

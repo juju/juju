@@ -268,10 +268,6 @@ type NetworkService interface {
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist
 	GetUnitEndpointNetworks(ctx context.Context, unitName coreunit.Name, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
-
-	// SetUnitRelationNetworks updates the relation network information for
-	// the specified unit.
-	SetUnitRelationNetworks(context context.Context, name coreunit.Name) error
 }
 
 type ResolveService interface {
