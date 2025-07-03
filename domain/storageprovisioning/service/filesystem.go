@@ -20,18 +20,18 @@ import (
 type FilesystemState interface {
 	// GetFilesystemAttachmentIDs returns the
 	// [storageprovisioning.FilesystemAttachmentID] information for each
-	// fimesystem attachment uuid supplied. If a uuid does not exist or isn't
+	// filesystem attachment uuid supplied. If a uuid does not exist or isn't
 	// attached to either a machine or a unit then it will not exist in the
 	// result.
 	GetFilesystemAttachmentIDs(ctx context.Context, uuids []string) (map[string]storageprovisioning.FilesystemAttachmentID, error)
 
 	// GetFilesystemAttachmentLifeForNetNode returns a mapping of filesystem
-	// attachment uuid to the current life value for each machine provisioned
+	// attachment uuids to the current life value for each machine provisioned
 	// filesystem attachment that is to be provisioned by the machine owning the
 	// supplied net node.
 	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)
 
-	// GetFilesystemLifeForNetNode returns a mapping of filesystem id to current
+	// GetFilesystemLifeForNetNode returns a mapping of filesystem ids to current
 	// life value for each machine provisioned filesystem that is to be
 	// provisioned by the machine owning the supplied net node.
 	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)

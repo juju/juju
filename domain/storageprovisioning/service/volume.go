@@ -30,8 +30,10 @@ type VolumeState interface {
 	GetVolumeAttachmentLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)
 
 	// GetVolumeAttachmentPlanLifeForNetNode returns a mapping of volume
-	// attachment plan uuid to the current life value for each volume attachment
-	// plan.
+	// attachment plan volume id to the current life value for each volume
+	// attachment plan. The volume id of attachment plans is returned instead of
+	// the uuid because the caller for the watcher works off of this
+	// information.
 	GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)
 
 	// GetVolumeLifeForNetNode returns a mapping of volume id to current
@@ -73,7 +75,8 @@ type VolumeState interface {
 
 	// InitialWatchStatementVolumeAttachmentPlans returns both the namespace for
 	// watching volume attachment plan life changes. On top of this the initial
-	// query for getting all volume attachment plans in the model is returned.
+	// query for getting all volume attachment plan volume ids in the model that
+	// are for the given net node uuid.
 	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID string) (string, eventsource.Query[map[string]life.Life])
 }
 
@@ -194,7 +197,7 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 }
 
 // WatchVolumeAttachmentPlans returns a watcher that emits volume attachment
-// plan UUIDs, whenever a volume attachment plan's life changes for the given
+// plan volume ids, whenever a volume attachment plan's life changes for the given
 // machine.
 //
 // The following errors may be returned:
