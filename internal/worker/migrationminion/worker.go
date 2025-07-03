@@ -89,6 +89,12 @@ const (
 	// retryExpBackoff is the exponential backoff factor for retrying the
 	// validation.
 	retryExpBackoff = 1.6
+
+	// maxRedirects is the maximum number of redirects we'll follow when
+	// dialing the target controller. This is to prevent infinite loops in case
+	// of misconfiguration or a redirect loop.
+	// If we reach this limit, we'll return an error.
+	maxRedirects = 5
 )
 
 // Facade exposes controller functionality to a Worker.
@@ -159,13 +165,19 @@ func New(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
+type newDetails struct {
+	targetAPIAddrs []string
+	caCert         string
+}
+
 // Worker waits for a model migration to be active, then locks down the
 // configured fortress and implements the migration.
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	processed map[string]migration.Phase
+	processed            map[string]migration.Phase
+	newControllerDetails *newDetails
 }
 
 // Kill implements worker.Worker.
@@ -301,13 +313,37 @@ func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
 }
 
 func (w *Worker) validate(status watcher.MigrationStatus) error {
+	conn, newDetails, err := w.dialNewController(status.TargetAPIAddrs, status.TargetCACert)
+	if err != nil {
+		return errors.Annotate(err, "failed to open API to target controller")
+	}
+	defer func() { _ = conn.Close() }()
+
+	// Ask the agent to confirm that things look ok.
+	err = w.config.ValidateMigration(conn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If the validation was successful, we can store the new controller details
+	// for use in the SUCCESS phase.
+	w.newControllerDetails = &newDetails
+	return nil
+}
+
+// dialNewController dials the target controller and returns a connection
+// and the newDetails struct containing the target API addresses and CA cert.
+// It uses the current agent configuration to get the API connection details.
+// If the connection is redirected, it will follow the redirect and return
+// the final addresses and CA cert in the newDetails struct.
+func (w *Worker) dialNewController(addrs []string, caCert string) (api.Connection, newDetails, error) {
 	agentConf := w.config.Agent.CurrentConfig()
 	apiInfo, ok := agentConf.APIInfo()
 	if !ok {
-		return errors.New("no API connection details")
+		return nil, newDetails{}, errors.New("no API connection details")
 	}
-	apiInfo.Addrs = status.TargetAPIAddrs
-	apiInfo.CACert = status.TargetCACert
+	apiInfo.Addrs = addrs
+	apiInfo.CACert = caCert
 	// Application agents (k8s) use old password.
 	if apiInfo.Password == "" {
 		apiInfo.Password = agentConf.OldPassword()
@@ -316,15 +352,31 @@ func (w *Worker) validate(status watcher.MigrationStatus) error {
 	// Use zero DialOpts (no retries) because the worker must stay
 	// responsive to Kill requests. We don't want it to be blocked by
 	// a long set of retry attempts.
+	conn, err := w.dialWithRedirect(apiInfo, api.DialOpts{}, 0)
+	if err != nil {
+		return nil, newDetails{}, errors.Annotate(err, "failed to open API to target controller")
+	}
+	return conn, newDetails{
+		targetAPIAddrs: apiInfo.Addrs,
+		caCert:         apiInfo.CACert,
+	}, nil
+}
+
+func (w *Worker) dialWithRedirect(apiInfo *api.Info, dialOpts api.DialOpts, redirectCount int) (api.Connection, error) {
+	if redirectCount >= maxRedirects {
+		return nil, errors.Errorf("too many redirects (%d) when connecting to target controller", redirectCount)
+	}
 	conn, err := w.config.APIOpen(apiInfo, api.DialOpts{})
 	if err != nil {
-		return errors.Annotate(err, "failed to open API to target controller")
+		if redirectErr, ok := errors.Cause(err).(*api.RedirectError); ok {
+			w.config.Logger.Infof("following redirect to %v", redirectErr.Servers)
+			apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
+			apiInfo.CACert = redirectErr.CACert
+			return w.dialWithRedirect(apiInfo, dialOpts, redirectCount+1)
+		}
+		return nil, errors.Annotatef(err, "failed to open API to target controller")
 	}
-	defer func() { _ = conn.Close() }()
-
-	// Ask the agent to confirm that things look ok.
-	err = w.config.ValidateMigration(conn)
-	return errors.Trace(err)
+	return conn, nil
 }
 
 func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
@@ -336,7 +388,20 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
 			)
 		}
 	}()
-	hps, err := network.ParseProviderHostPorts(status.TargetAPIAddrs...)
+
+	// If the new details struct is nil, it means that the agent restarted between the
+	// VALIDATION and SUCCESS phases, and we need to re-dial the new controller to
+	// ensure that we follow any redirects that may have occurred.
+	if w.newControllerDetails == nil {
+		conn, newDetails, err := w.dialNewController(status.TargetAPIAddrs, status.TargetCACert)
+		if err != nil {
+			return errors.Annotate(err, "failed to open API to target controller")
+		}
+		conn.Close()
+		w.newControllerDetails = &newDetails
+	}
+
+	hps, err := network.ParseProviderHostPorts(w.newControllerDetails.targetAPIAddrs...)
 	if err != nil {
 		return errors.Annotate(err, "converting API addresses")
 	}
@@ -354,7 +419,7 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		conf.SetCACert(status.TargetCACert)
+		conf.SetCACert(w.newControllerDetails.caCert)
 		return nil
 	})
 	return errors.Annotate(err, "setting agent config")
@@ -386,7 +451,7 @@ func (w *Worker) robustReport(status watcher.MigrationStatus, success bool) erro
 		Func: func() error {
 			w.config.Logger.Infof("reporting back for phase %s: %v", status.Phase, success)
 
-			conn, err := w.config.APIOpen(apiInfo, api.DialOpts{})
+			conn, err := w.dialWithRedirect(apiInfo, api.DialOpts{}, 0)
 			if err != nil {
 				return fmt.Errorf("cannot dial source controller: %w", err)
 			}

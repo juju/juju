@@ -46,6 +46,8 @@ type TargetInfo struct {
 
 	// Token holds an optional token string to use for authentication
 	// specifically with a JIMM controller.
+	// If set, the apiserver will skip validation of local users on the
+	// target controller.
 	Token string
 }
 

@@ -845,12 +845,17 @@ var runMigrationPreChecks = func(
 		return errors.Annotate(err, "connect to target controller")
 	}
 	defer targetConn.Close()
-	dstUserList, err := getTargetControllerUsers(targetConn)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
-		return errors.Trace(err)
+
+	// Token is optional, but if set, we are migrating to a JIMM controller
+	// which doesn't support local users, so we need to skip this check.
+	if targetInfo.Token != "" {
+		dstUserList, err := getTargetControllerUsers(targetConn)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	client := migrationtarget.NewClient(targetConn)
 	if targetInfo.CACert == "" {
