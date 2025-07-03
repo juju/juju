@@ -16,6 +16,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/apiserver/facade"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -155,6 +157,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		}
 	}
 
+	attrs := dt.applicationConfig.Attributes()
+	trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
+
 	applicationArg := applicationservice.AddApplicationArgs{
 		ReferenceName: dt.charmURL.Name,
 		Storage:       dt.storage,
@@ -171,6 +176,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		ApplicationStatus: &status.StatusInfo{
 			Status: status.Unset,
 			Since:  ptr(api.clock.Now()),
+		},
+		ApplicationSettings: application.ApplicationSettings{
+			Trust: trust,
 		},
 	}
 
