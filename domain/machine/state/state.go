@@ -1388,6 +1388,12 @@ func (*State) InitialWatchModelMachinesStatement() (string, string) {
 	return "custom_machine_lifecycle", "SELECT name FROM machine WHERE name NOT LIKE '%/%'"
 }
 
+// InitialWatchModelMachineLifeAndStartTimesStatement returns the namespace and the initial watch
+// statement for watching life and agent start time changes machines.
+func (*State) InitialWatchModelMachineLifeAndStartTimesStatement() (string, string) {
+	return "custom_machine_lifecycle_start_time", "SELECT name FROM machine"
+}
+
 // InitialMachineContainerLifeStatement returns the table and the initial watch
 // statement for watching life changes of container machines.
 func (*State) InitialMachineContainerLifeStatement() (string, string, func(string) string) {

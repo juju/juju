@@ -76,7 +76,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
-	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
@@ -194,7 +193,6 @@ func AllFacades() *facade.Registry {
 	imagemetadata.Register(registry)
 	imagemetadatamanager.Register(registry)
 	instancemutater.Register(registry)
-	instancepoller.Register(registry)
 	keymanager.Register(registry)
 	keyupdater.Register(registry)
 	leadership.Register(registry)

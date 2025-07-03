@@ -575,10 +575,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_custom_machine_lifecycle_update",
 		"trg_log_custom_machine_lifecycle_delete",
 
-		"trg_application_guard_life",
-		"trg_machine_cloud_instance_guard_life",
-		"trg_machine_guard_life",
-		"trg_unit_guard_life",
+		"trg_log_machine_insert_life_start_time",
+		"trg_log_machine_update_life_start_time",
+		"trg_log_machine_delete_life_start_time",
 	)
 
 	// These are additional triggers that are not change log triggers, but
@@ -608,6 +607,11 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_storage_pool_guard_update",
 		"trg_storage_pool_immutable_delete",
 		"trg_storage_pool_immutable_update",
+
+		"trg_application_guard_life",
+		"trg_machine_cloud_instance_guard_life",
+		"trg_machine_guard_life",
+		"trg_unit_guard_life",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")

@@ -49,6 +49,10 @@ type State interface {
 	// watch statement for watching life changes of non-container machines.
 	InitialWatchModelMachinesStatement() (string, string)
 
+	// InitialWatchModelMachineLifeAndStartTimesStatement returns the namespace and the initial watch
+	// statement for watching life and agent start time changes machines.
+	InitialWatchModelMachineLifeAndStartTimesStatement() (string, string)
+
 	// GetMachineLife returns the life status of the specified machine.
 	// It returns a MachineNotFound if the given machine doesn't exist.
 	GetMachineLife(context.Context, machine.Name) (life.Life, error)

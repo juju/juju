@@ -8,20 +8,22 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/rpc/params"
 )
 
 // ShortPoll and LongPoll hold the polling intervals for the instance
@@ -46,35 +48,56 @@ type Environ interface {
 	NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]network.InterfaceInfos, error)
 }
 
-// Machine specifies an interface for machine instances processed by the
-// instance poller.
-type Machine interface {
-	Id() string
-	InstanceId(ctx context.Context) (instance.Id, error)
-	SetProviderNetworkConfig(context.Context, network.InterfaceInfos) (network.ProviderAddresses, bool, error)
-	InstanceStatus(ctx context.Context) (params.StatusResult, error)
-	SetInstanceStatus(context.Context, status.Status, string, map[string]interface{}) error
-	String() string
-	Refresh(ctx context.Context) error
-	Status(ctx context.Context) (params.StatusResult, error)
-	Life() life.Value
-	IsManual(ctx context.Context) (bool, error)
+// MachineService defines the interface for interacting with the machine
+// service.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
+
+	// WatchModelMachineLifeAndStartTimes returns a string watcher that emits
+	// machine names for changes to machine life or agent start times.
+	WatchModelMachineLifeAndStartTimes(context.Context) (watcher.StringsWatcher, error)
+
+	// IsMachineManuallyProvisioned returns whether the machine is a manual machine.
+	IsMachineManuallyProvisioned(context.Context, machine.Name) (bool, error)
+
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	GetMachineLife(context.Context, machine.Name) (corelife.Value, error)
+
+	// GetInstanceIDByMachineName returns the cloud specific instance id for this machine.
+	GetInstanceIDByMachineName(context.Context, machine.Name) (instance.Id, error)
 }
 
-// FacadeAPI specifies the api-server methods needed by the instance
-// poller.
-type FacadeAPI interface {
-	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
-	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
+// StatusService defines the interface for interacting with the status
+// service.
+type StatusService interface {
+	// GetInstanceStatus returns the cloud specific instance status for this
+	// machine.
+	GetInstanceStatus(context.Context, machine.Name) (status.StatusInfo, error)
+
+	// SetInstanceStatus sets the cloud specific instance status for this machine.
+	SetInstanceStatus(context.Context, machine.Name, status.StatusInfo) error
+
+	// GetMachineStatus returns the status of the specified machine.
+	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
+}
+
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// SetProviderNetConfig updates the network configuration for a machine using its unique identifier and new interface data.
+	SetProviderNetConfig(context.Context, machine.UUID, []domainnetwork.NetInterface) error
 }
 
 // Config encapsulates the configuration options for instantiating a new
 // instance poller worker.
 type Config struct {
-	Clock   clock.Clock
-	Facade  FacadeAPI
-	Environ Environ
-	Logger  logger.Logger
+	Clock          clock.Clock
+	MachineService MachineService
+	StatusService  StatusService
+	NetworkService NetworkService
+	Environ        Environ
+	Logger         logger.Logger
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -82,8 +105,14 @@ func (config Config) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("nil clock.Clock")
 	}
-	if config.Facade == nil {
-		return errors.NotValidf("nil Facade")
+	if config.MachineService == nil {
+		return errors.NotValidf("nil MachineService")
+	}
+	if config.StatusService == nil {
+		return errors.NotValidf("nil StatusService")
+	}
+	if config.NetworkService == nil {
+		return errors.NotValidf("nil NetworkService")
 	}
 	if config.Environ == nil {
 		return errors.NotValidf("nil Environ")
@@ -103,9 +132,8 @@ const (
 )
 
 type pollGroupEntry struct {
-	m          Machine
-	tag        names.MachineTag
-	instanceID instance.Id
+	machineName machine.Name
+	instanceID  instance.Id
 
 	shortPollInterval time.Duration
 	shortPollAt       time.Time
@@ -128,7 +156,7 @@ type updaterWorker struct {
 	config   Config
 	catacomb catacomb.Catacomb
 
-	pollGroup              [2]map[names.MachineTag]*pollGroupEntry
+	pollGroup              [2]map[machine.Name]*pollGroupEntry
 	instanceIDToGroupEntry map[instance.Id]*pollGroupEntry
 
 	// Hook function which tests can use to be notified when the worker
@@ -145,9 +173,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 	u := &updaterWorker{
 		config: config,
-		pollGroup: [2]map[names.MachineTag]*pollGroupEntry{
-			make(map[names.MachineTag]*pollGroupEntry),
-			make(map[names.MachineTag]*pollGroupEntry),
+		pollGroup: [2]map[machine.Name]*pollGroupEntry{
+			make(map[machine.Name]*pollGroupEntry),
+			make(map[machine.Name]*pollGroupEntry),
 		},
 		instanceIDToGroupEntry: make(map[instance.Id]*pollGroupEntry),
 	}
@@ -176,7 +204,7 @@ func (u *updaterWorker) loop() error {
 	ctx, cancel := u.scopedContext()
 	defer cancel()
 
-	watch, err := u.config.Facade.WatchModelMachines(ctx)
+	watch, err := u.config.MachineService.WatchModelMachineLifeAndStartTimes(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -195,14 +223,17 @@ func (u *updaterWorker) loop() error {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
-		case ids, ok := <-watch.Changes():
+		case names, ok := <-watch.Changes():
 			if !ok {
 				return errors.New("machines watcher closed")
 			}
 
-			for i := range ids {
-				tag := names.NewMachineTag(ids[i])
-				if err := u.queueMachineForPolling(ctx, tag); err != nil {
+			for _, name := range names {
+				machineName := machine.Name(name)
+				if err := machineName.Validate(); err != nil {
+					return errors.Annotate(err, "validating emitted machine name")
+				}
+				if err := u.queueMachineForPolling(ctx, machineName); err != nil {
 					return err
 				}
 			}
@@ -224,27 +255,18 @@ func (u *updaterWorker) loop() error {
 	}
 }
 
-func (u *updaterWorker) queueMachineForPolling(ctx context.Context, tag names.MachineTag) error {
+func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName machine.Name) error {
 	// If we are already polling this machine, check whether it is still alive
 	// and remove it from its poll group if it is now dead.
-	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
-		var isDead bool
-		if err := entry.m.Refresh(ctx); err != nil {
-			// If the machine is not found, this probably means
-			// that it is dead and has been removed from the DB.
-			if !errors.Is(err, errors.NotFound) {
-				return errors.Trace(err)
-			}
-			isDead = true
-		} else if entry.m.Life() == life.Dead {
-			isDead = true
-		}
-
-		if isDead {
-			u.config.Logger.Debugf(ctx, "removing dead machine %q (instance ID %q)", entry.m, entry.instanceID)
-			delete(u.pollGroup[groupType], tag)
+	if entry, groupType := u.lookupPolledMachine(machineName); entry != nil {
+		life, err := u.config.MachineService.GetMachineLife(ctx, machineName)
+		if life == corelife.Dead || errors.Is(err, machineerrors.MachineNotFound) {
+			u.config.Logger.Debugf(ctx, "removing dead machine %q (instance ID %q)", entry.machineName, entry.instanceID)
+			delete(u.pollGroup[groupType], machineName)
 			delete(u.instanceIDToGroupEntry, entry.instanceID)
 			return nil
+		} else if err != nil {
+			return errors.Trace(err)
 		}
 
 		// Something has changed with the machine state. Reset short
@@ -253,32 +275,31 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, tag names.Ma
 		// status at the next interval.
 		u.moveEntryToPollGroup(shortPollGroup, entry)
 		if groupType == longPollGroup {
-			u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) to short poll group", entry.m, entry.instanceID)
+			u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) to short poll group", entry.machineName, entry.instanceID)
 		}
 		return nil
 	}
 
-	// Get information about the machine
-	m, err := u.config.Facade.Machine(ctx, tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// We don't poll manual machines, instead we're setting the status to 'running'
 	// as we don't have any better information from the provider, see lp:1678981
-	isManual, err := m.IsManual(ctx)
+	isManual, err := u.config.MachineService.IsMachineManuallyProvisioned(ctx, machineName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if isManual {
-		machineStatus, err := m.InstanceStatus(ctx)
+		machineStatus, err := u.config.StatusService.GetInstanceStatus(ctx, machineName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if status.Status(machineStatus.Status) != status.Running {
-			if err = m.SetInstanceStatus(ctx, status.Running, "Manually provisioned machine", nil); err != nil {
-				u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", m, err)
+		if machineStatus.Status != status.Running {
+			now := u.config.Clock.Now()
+			if err = u.config.StatusService.SetInstanceStatus(ctx, machineName, status.StatusInfo{
+				Status:  status.Running,
+				Message: "Manually provisioned machine",
+				Since:   &now,
+			}); err != nil {
+				u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", machineName, err)
 				return err
 			}
 		}
@@ -287,23 +308,22 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, tag names.Ma
 
 	// Add all new machines to the short poll group and arrange for them to
 	// be polled as soon as possible.
-	u.appendToShortPollGroup(tag, m)
+	u.appendToShortPollGroup(machineName)
 	return nil
 }
 
-func (u *updaterWorker) appendToShortPollGroup(tag names.MachineTag, m Machine) {
+func (u *updaterWorker) appendToShortPollGroup(machineName machine.Name) {
 	entry := &pollGroupEntry{
-		tag: tag,
-		m:   m,
+		machineName: machineName,
 	}
 	entry.resetShortPollInterval(u.config.Clock)
-	u.pollGroup[shortPollGroup][tag] = entry
+	u.pollGroup[shortPollGroup][machineName] = entry
 }
 
 func (u *updaterWorker) moveEntryToPollGroup(toGroup pollGroupType, entry *pollGroupEntry) {
 	// Ensure that the entry is not present in the other group
-	delete(u.pollGroup[1-toGroup], entry.tag)
-	u.pollGroup[toGroup][entry.tag] = entry
+	delete(u.pollGroup[1-toGroup], entry.machineName)
+	u.pollGroup[toGroup][entry.machineName] = entry
 
 	// If moving to the short poll group reset the poll interval
 	if toGroup == shortPollGroup {
@@ -311,9 +331,9 @@ func (u *updaterWorker) moveEntryToPollGroup(toGroup pollGroupType, entry *pollG
 	}
 }
 
-func (u *updaterWorker) lookupPolledMachine(tag names.MachineTag) (*pollGroupEntry, pollGroupType) {
+func (u *updaterWorker) lookupPolledMachine(machineName machine.Name) (*pollGroupEntry, pollGroupType) {
 	for groupType, members := range u.pollGroup {
-		if found := members[tag]; found != nil {
+		if found := members[machineName]; found != nil {
 			return found, pollGroupType(groupType)
 		}
 	}
@@ -330,7 +350,7 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 		}
 
 		if err := u.resolveInstanceID(ctx, entry); err != nil {
-			if params.IsCodeNotProvisioned(err) {
+			if errors.Is(err, machineerrors.NotProvisioned) {
 				// machine not provisioned yet; bump its poll
 				// interval and re-try later (or as soon as we
 				// get a change for the machine)
@@ -423,17 +443,17 @@ func (u *updaterWorker) processOneInstance(
 		return nil
 	}
 
-	providerStatus, providerAddrCount, err := u.processProviderInfo(ctx, entry, info, nics)
+	providerStatus, err := u.processProviderInfo(ctx, entry, info, nics)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	machineStatus, err := entry.m.Status(ctx)
+	machineStatus, err := u.config.StatusService.GetMachineStatus(ctx, entry.machineName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	u.maybeSwitchPollGroup(ctx, groupType, entry, providerStatus, status.Status(machineStatus.Status), providerAddrCount)
+	u.maybeSwitchPollGroup(ctx, groupType, entry, providerStatus, machineStatus.Status, len(nics))
 	return nil
 }
 
@@ -442,9 +462,9 @@ func (u *updaterWorker) resolveInstanceID(ctx context.Context, entry *pollGroupE
 		return nil // already resolved
 	}
 
-	instID, err := entry.m.InstanceId(ctx)
+	instID, err := u.config.MachineService.GetInstanceIDByMachineName(ctx, entry.machineName)
 	if err != nil {
-		return errors.Annotatef(err, "retrieving instance ID for machine %q", entry.m.Id())
+		return errors.Annotatef(err, "retrieving instance ID for machine %q", entry.machineName)
 	}
 
 	entry.instanceID = instID
@@ -460,32 +480,35 @@ func (u *updaterWorker) processProviderInfo(
 	ctx context.Context,
 	entry *pollGroupEntry, info instances.Instance,
 	providerInterfaces network.InterfaceInfos,
-) (status.Status, int, error) {
-	curStatus, err := entry.m.InstanceStatus(ctx)
+) (status.Status, error) {
+	curStatus, err := u.config.StatusService.GetInstanceStatus(ctx, entry.machineName)
 	if err != nil {
 		// This should never occur since the machine is provisioned. If
 		// it does occur, report an unknown status to move the machine to
 		// the short poll group.
 		u.config.Logger.Warningf(ctx, "cannot get current instance status for machine %v (instance ID %q): %v",
-			entry.m.Id(), entry.instanceID, err)
+			entry.machineName, entry.instanceID, err)
 
-		return status.Unknown, -1, nil
+		return status.Unknown, nil
 	}
 
 	// Check for status changes
 	providerStatus := info.Status(ctx)
 	curInstStatus := instance.Status{
-		Status:  status.Status(curStatus.Status),
-		Message: curStatus.Info,
+		Status:  curStatus.Status,
+		Message: curStatus.Message,
 	}
 
 	if providerStatus != curInstStatus {
 		u.config.Logger.Infof(ctx, "machine %q (instance ID %q) instance status changed from %q to %q",
-			entry.m.Id(), entry.instanceID, curInstStatus, providerStatus)
+			entry.machineName, entry.instanceID, curInstStatus, providerStatus)
 
-		if err = entry.m.SetInstanceStatus(ctx, providerStatus.Status, providerStatus.Message, nil); err != nil {
-			u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", entry.m, err)
-			return status.Unknown, -1, errors.Trace(err)
+		if err = u.config.StatusService.SetInstanceStatus(ctx, entry.machineName, status.StatusInfo{
+			Status:  providerStatus.Status,
+			Message: providerStatus.Message,
+		}); err != nil {
+			u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", entry.machineName, err)
+			return status.Unknown, errors.Trace(err)
 		}
 
 		// If the instance is now running, we should reset the poll
@@ -498,18 +521,21 @@ func (u *updaterWorker) processProviderInfo(
 
 	// We don't care about dead machines; they will be cleaned up when we
 	// process the following machine watcher events.
-	if entry.m.Life() == life.Dead {
-		return status.Unknown, -1, nil
+	life, err := u.config.MachineService.GetMachineLife(ctx, entry.machineName)
+	if life == corelife.Dead || errors.Is(err, machineerrors.MachineNotFound) {
+		return status.Unknown, nil
+	} else if err != nil {
+		return status.Unknown, err
 	}
 
 	// Check whether the provider addresses for this machine need to be
 	// updated.
-	addrCount, err := u.syncProviderAddresses(ctx, entry, providerInterfaces)
+	err = u.syncProviderAddresses(ctx, entry, providerInterfaces)
 	if err != nil {
-		return status.Unknown, -1, err
+		return status.Unknown, err
 	}
 
-	return providerStatus.Status, addrCount, nil
+	return providerStatus.Status, nil
 }
 
 // syncProviderAddresses updates the provider addresses for this entry's machine
@@ -519,16 +545,18 @@ func (u *updaterWorker) processProviderInfo(
 func (u *updaterWorker) syncProviderAddresses(
 	ctx context.Context,
 	entry *pollGroupEntry, providerIfaceList network.InterfaceInfos,
-) (int, error) {
-	addrs, modified, err := entry.m.SetProviderNetworkConfig(ctx, providerIfaceList)
+) error {
+	uuid, err := u.config.MachineService.GetMachineUUID(ctx, entry.machineName)
 	if err != nil {
-		return -1, errors.Trace(err)
-	} else if modified {
-		u.config.Logger.Infof(ctx, "machine %q (instance ID %q) has new addresses: %v",
-			entry.m.Id(), entry.instanceID, addrs)
+		return errors.Annotatef(err, "retrieving machine UUID for machine %q", entry.machineName)
 	}
 
-	return len(addrs), nil
+	devices := transform.Slice(providerIfaceList, newNetInterface)
+	err = u.config.NetworkService.SetProviderNetConfig(ctx, uuid, devices)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (u *updaterWorker) maybeSwitchPollGroup(
@@ -537,7 +565,7 @@ func (u *updaterWorker) maybeSwitchPollGroup(
 	entry *pollGroupEntry,
 	curProviderStatus,
 	curMachineStatus status.Status,
-	providerAddrCount int,
+	providerNicCount int,
 ) {
 	if curProviderStatus == status.Allocating || curProviderStatus == status.Pending {
 		// Keep the machine in the short poll group until it settles.
@@ -548,18 +576,18 @@ func (u *updaterWorker) maybeSwitchPollGroup(
 	// If the machine is currently in the long poll group and it has an
 	// unknown status or suddenly has no network addresses, move it back to
 	// the short poll group.
-	if curGroup == longPollGroup && (curProviderStatus == status.Unknown || providerAddrCount == 0) {
+	if curGroup == longPollGroup && (curProviderStatus == status.Unknown || providerNicCount == 0) {
 		u.moveEntryToPollGroup(shortPollGroup, entry)
-		u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) back to short poll group", entry.m, entry.instanceID)
+		u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) back to short poll group", entry.machineName, entry.instanceID)
 		return
 	}
 
 	// The machine has started and we have at least one address; move to
 	// the long poll group
-	if providerAddrCount > 0 && curMachineStatus == status.Started {
+	if providerNicCount > 0 && curMachineStatus == status.Started {
 		u.moveEntryToPollGroup(longPollGroup, entry)
 		if curGroup != longPollGroup {
-			u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) to long poll group", entry.m, entry.instanceID)
+			u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) to long poll group", entry.machineName, entry.instanceID)
 		}
 		return
 	}
@@ -578,4 +606,51 @@ func (u *updaterWorker) scopedContext() (context.Context, context.CancelFunc) {
 func isPartialOrNoInstancesError(err error) bool {
 	cause := errors.Cause(err)
 	return cause == environs.ErrPartialInstances || cause == environs.ErrNoInstances
+}
+
+func newNetInterface(device network.InterfaceInfo) domainnetwork.NetInterface {
+	return domainnetwork.NetInterface{
+		Name:             device.InterfaceName,
+		MTU:              ptr(int64(device.MTU)),
+		MACAddress:       ptr(device.MACAddress),
+		ProviderID:       ptr(device.ProviderId),
+		Type:             network.LinkLayerDeviceType(device.ConfigType),
+		VirtualPortType:  device.VirtualPortType,
+		IsAutoStart:      !device.NoAutoStart,
+		IsEnabled:        !device.Disabled,
+		ParentDeviceName: device.ParentInterfaceName,
+		GatewayAddress:   ptr(device.GatewayAddress.Value),
+		IsDefaultGateway: device.IsDefaultGateway,
+		VLANTag:          uint64(device.VLANTag),
+		DNSSearchDomains: device.DNSSearchDomains,
+		DNSAddresses:     device.DNSServers,
+		Addrs: append(
+			transform.Slice(device.Addresses, newNetAddress(device, false)),
+			transform.Slice(device.ShadowAddresses, newNetAddress(device, true))...),
+	}
+}
+
+func newNetAddress(device network.InterfaceInfo, isShadow bool) func(network.ProviderAddress) domainnetwork.NetAddr {
+	return func(providerAddr network.ProviderAddress) domainnetwork.NetAddr {
+		return domainnetwork.NetAddr{
+			InterfaceName:    device.InterfaceName,
+			AddressValue:     providerAddr.Value,
+			AddressType:      providerAddr.Type,
+			ConfigType:       providerAddr.ConfigType,
+			Origin:           network.OriginProvider,
+			Scope:            providerAddr.Scope,
+			IsSecondary:      providerAddr.IsSecondary,
+			IsShadow:         isShadow,
+			ProviderID:       ptr(device.ProviderAddressId),
+			ProviderSubnetID: ptr(device.ProviderSubnetId),
+		}
+	}
+}
+
+func ptr[T comparable](f T) *T {
+	var zero T
+	if f == zero {
+		return nil
+	}
+	return &f
 }

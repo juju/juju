@@ -5,6 +5,7 @@ package machine_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/clock"
@@ -136,10 +137,63 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventContainer(c *tc.C) {
 	c.Assert(changes[0], tc.Equals, "0")
 }
 
+func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) {
+	_, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c)
+
+	watcher, err := s.svc.WatchModelMachineLifeAndStartTimes(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	watcherC := watchertest.NewStringsWatcherC(c, watcher)
+
+	watcherC.AssertChange("0")
+}
+
+func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
+	watcher, err := s.svc.WatchModelMachineLifeAndStartTimes(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *tc.C) {
+		var err error
+		_, err = s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"0"}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := s.svc.SetMachineLife(c.Context(), "0", life.Dying)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"0"}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, "UPDATE machine SET agent_started_at = DATETIME('2022-02-02')")
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"0"}))
+	})
+
+	harness.AddTest(func(c *tc.C) {
+		err = s.svc.DeleteMachine(c.Context(), "0")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"0"}))
+	})
+
+	harness.Run(c, nil)
+}
+
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
 	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hc := &instance.HardwareCharacteristics{
 		Mem:      ptr[uint64](1024),
 		RootDisk: ptr[uint64](256),
@@ -164,7 +218,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
 	machineUUID, err := s.svc.CreateMachine(c.Context(), "machine-1", ptr("nonce-123"))
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hc := &instance.HardwareCharacteristics{
 		Mem:      ptr[uint64](1024),
 		RootDisk: ptr[uint64](256),
@@ -172,7 +226,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 		CpuPower: ptr[uint64](75),
 	}
 	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", "nonce", hc)
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := s.svc.WatchMachineCloudInstances(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -241,7 +295,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Create machine hierarchy to reboot from parent, with a child (which will be watched) and a control child
 	parentUUID, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	childUUID, err := s.svc.CreateMachineWithParent(c.Context(), "1", "0")
 	c.Assert(err, tc.ErrorIsNil)
 	controlUUID, err := s.svc.CreateMachineWithParent(c.Context(), "2", "0")
@@ -249,7 +303,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 
 	// Create watcher for child
 	watcher, err := s.svc.WatchMachineReboot(c.Context(), childUUID)
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 

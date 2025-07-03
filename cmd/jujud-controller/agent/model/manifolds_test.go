@@ -498,7 +498,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"instance-poller": {
 		"agent",
 		"api-caller",
-		"clock",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
