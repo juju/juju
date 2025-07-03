@@ -62,12 +62,6 @@ func (s *ConfigSuite) TestApplicationScopeStorageDir(c *tc.C) {
 	s.checkNotValid(c, "application Scope with StorageDir not valid")
 }
 
-func (s *ConfigSuite) TestNilApplications(c *tc.C) {
-	s.config.Scope = names.NewApplicationTag("mariadb")
-	s.config.Applications = nil
-	s.checkNotValid(c, "nil Applications not valid")
-}
-
 func (s *ConfigSuite) TestNilVolumes(c *tc.C) {
 	s.config.Volumes = nil
 	s.checkNotValid(c, "nil Volumes not valid")

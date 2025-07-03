@@ -223,12 +223,6 @@ func (sb *storageBackend) WatchMachineFilesystems(m names.MachineTag) StringsWat
 	return sb.watchHostStorage(m, filesystemsC)
 }
 
-// WatchUnitFilesystems returns a StringsWatcher that notifies of changes
-// to the lifecycles of all filesystems scoped to units of the specified application.
-func (sb *storageBackend) WatchUnitFilesystems(app names.ApplicationTag) StringsWatcher {
-	return sb.watchHostStorage(app, filesystemsC)
-}
-
 func (sb *storageBackend) watchHostStorage(host names.Tag, collection string) StringsWatcher {
 	mb := sb.mb
 	// The regexp patterns below represent either machine or unit attached storage, <hostid>/<number>.

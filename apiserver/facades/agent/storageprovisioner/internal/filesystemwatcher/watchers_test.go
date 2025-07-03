@@ -251,24 +251,6 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchUnitManagedFilesystems(c *tc.C) {
-	w := s.watchers.WatchUnitManagedFilesystems(names.NewApplicationTag("mariadb"))
-	defer workertest.CleanKill(c, w)
-	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
-	s.backend.unitFilesystemsW.C <- []string{"mariadb/0/2", "mariadb/0/3"}
-	s.backend.modelVolumeAttachmentsW.C <- []string{"mariadb/0:1", "mariadb/0:2", "mysql/1:3"}
-
-	wc := watchertest.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("1", "mariadb/0/2", "mariadb/0/3")
-	wc.AssertNoChange()
-}
-
-func (s *WatchersSuite) TestWatchUnitManagedFilesystemsErrorsPropagate(c *tc.C) {
-	w := s.watchers.WatchUnitManagedFilesystems(names.NewApplicationTag("mariadb"))
-	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
-}
-
 func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachments(c *tc.C) {
 	w := s.watchers.WatchUnitManagedFilesystemAttachments(names.NewApplicationTag("mariadb"))
 	defer workertest.CleanKill(c, w)

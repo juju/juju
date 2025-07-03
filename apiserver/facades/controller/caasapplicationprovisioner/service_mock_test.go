@@ -439,21 +439,6 @@ func (mr *MockApplicationServiceMockRecorder) WatchApplication(arg0, arg1 any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockApplicationService)(nil).WatchApplication), arg0, arg1)
 }
 
-// WatchApplications mocks base method.
-func (m *MockApplicationService) WatchApplications(arg0 context.Context) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplications", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchApplications indicates an expected call of WatchApplications.
-func (mr *MockApplicationServiceMockRecorder) WatchApplications(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplications", reflect.TypeOf((*MockApplicationService)(nil).WatchApplications), arg0)
-}
-
 // MockStatusService is a mock of StatusService interface.
 type MockStatusService struct {
 	ctrl     *gomock.Controller

@@ -455,7 +455,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // run together to administer a CAAS model, as configured.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
-	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
@@ -507,14 +506,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Logger:             config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
 			},
 		)),
-		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-			APICallerName:       apiCallerName,
-			Clock:               config.Clock,
-			Logger:              config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
-			StorageRegistryName: providerTrackerName,
-			Model:               modelTag,
-			NewWorker:           storageprovisioner.NewCaasWorker,
-		}))),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
@@ -631,7 +622,6 @@ const (
 	caasModelOperatorName          = "caas-model-operator"
 	caasmodelconfigmanagerName     = "caas-model-config-manager"
 	caasApplicationProvisionerName = "caas-application-provisioner"
-	caasStorageProvisionerName     = "caas-storage-provisioner"
 
 	secretsPrunerName      = "secrets-pruner"
 	userSecretsDrainWorker = "user-secrets-drain-worker"

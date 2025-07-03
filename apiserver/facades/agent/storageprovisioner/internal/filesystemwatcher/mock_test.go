@@ -58,10 +58,6 @@ func (b *mockBackend) WatchMachineFilesystems(tag names.MachineTag) state.String
 	return b.machineFilesystemsW
 }
 
-func (b *mockBackend) WatchUnitFilesystems(tag names.ApplicationTag) state.StringsWatcher {
-	return b.unitFilesystemsW
-}
-
 func (b *mockBackend) WatchMachineFilesystemAttachments(tag names.MachineTag) state.StringsWatcher {
 	return b.machineFilesystemAttachmentsW
 }

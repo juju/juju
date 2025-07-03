@@ -6,7 +6,6 @@ package storageprovisioner
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -16,11 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/life"
-	watcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -44,34 +40,6 @@ type caasProvisionerSuite struct {
 
 func TestCaasProvisionerSuite(t *testing.T) {
 	tc.Run(t, &caasProvisionerSuite{})
-}
-
-func (s *caasProvisionerSuite) TestWatchApplications(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	done := make(chan struct{})
-	defer close(done)
-	ch := make(chan []string)
-
-	w := watchertest.NewMockStringsWatcher(ch)
-	s.applicationService.EXPECT().WatchApplications(gomock.Any()).
-		DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
-			time.AfterFunc(internaltesting.ShortWait, func() {
-				// Send initial event.
-				select {
-				case ch <- []string{"application-mariadb"}:
-				case <-done:
-					c.Error("watcher (applications) did not fire")
-				}
-			})
-			return w, nil
-		})
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
-
-	result, err := s.api.WatchApplications(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.StringsWatcherId, tc.Equals, "1")
-	c.Check(result.Changes, tc.DeepEquals, []string{"application-mariadb"})
 }
 
 func (s *caasProvisionerSuite) TestRemoveVolumeAttachment(c *tc.C) {

@@ -26,26 +26,6 @@ type provisionerSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *provisionerSuite) TestWatchApplications(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, tc.Equals, "StorageProvisioner")
-		c.Check(version, tc.Equals, 0)
-		c.Check(id, tc.Equals, "")
-		c.Check(request, tc.Equals, "WatchApplications")
-		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResult{})
-		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
-			Error: &params.Error{Message: "FAIL"},
-		}
-		return nil
-	})
-
-	st, err := storageprovisioner.NewClient(apiCaller)
-	c.Assert(err, tc.ErrorIsNil)
-	watcher, err := st.WatchApplications(c.Context())
-	c.Assert(watcher, tc.IsNil)
-	c.Assert(err, tc.ErrorMatches, "FAIL")
-}
-
 func (s *provisionerSuite) TestWatchVolumes(c *tc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

@@ -35,20 +35,6 @@ func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
 	return &Client{facadeCaller}, nil
 }
 
-// WatchApplications returns a StringsWatcher that notifies of
-// changes to the lifecycles of CAAS applications in the current model.
-func (st *Client) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
-	var result params.StringsWatchResult
-	if err := st.facade.FacadeCall(ctx, "WatchApplications", nil, &result); err != nil {
-		return nil, err
-	}
-	if err := result.Error; err != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
-	return w, nil
-}
-
 // WatchBlockDevices watches for changes to the specified machine's block devices.
 func (st *Client) WatchBlockDevices(ctx context.Context, m names.MachineTag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
