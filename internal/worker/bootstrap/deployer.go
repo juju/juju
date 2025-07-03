@@ -39,13 +39,6 @@ type SystemState interface {
 	// ToolsStorage returns a new binarystorage.StorageCloser that stores tools
 	// metadata in the "juju" database "toolsmetadata" collection.
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-	// SetAPIHostPorts sets the addresses, if changed, of two collections:
-	//   - The list of *all* addresses at which the API is accessible.
-	//   - The list of addresses at which the API can be accessed by agents according
-	//     to the controller management space configuration.
-	//
-	// Each server is represented by one element in the top level slice.
-	SetAPIHostPorts(controllerConfig controller.Config, newHostPorts []network.SpaceHostPorts, newHostPortsForAgents []network.SpaceHostPorts) error
 }
 
 // BinaryAgentStorageService is the interface that is used to get the storage

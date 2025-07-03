@@ -443,14 +443,7 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 			"0": hostPorts,
 		},
 	}
-	if err := w.cfg.ControllerNodeService.SetAPIAddresses(ctx, args); err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(nvinuesa): Remove this double write to mongodb once we wire the
-	// apiaddresssetter worker.
-	hostPortsForAgents := w.filterHostPortsForManagementSpace(ctx, mgmtSpaceCfg, []network.SpaceHostPorts{hostPorts}, allSpaces)
-	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts}, hostPortsForAgents)
+	return w.cfg.ControllerNodeService.SetAPIAddresses(ctx, args)
 }
 
 // We filter the collection of API addresses based on the configured

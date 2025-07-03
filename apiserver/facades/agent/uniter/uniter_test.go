@@ -2678,3 +2678,46 @@ func (s *commitHookChangesSuite) expectGetUnitUUID(unitName coreunit.Name, unitU
 func (s *commitHookChangesSuite) expectGetRelationsStatusForUnit(unitUUID coreunit.UUID, relations []relation.RelationUnitStatus, err error) {
 	s.relationService.EXPECT().GetRelationsStatusForUnit(gomock.Any(), unitUUID).Return(relations, err)
 }
+
+type apiAddresserSuite struct {
+	watcherRegistry    *MockWatcherRegistry
+	apiAddressAccessor *MockAPIAddressAccessor
+}
+
+func TestAPIAddresserSuite(t *testing.T) {
+	tc.Run(t, &apiAddresserSuite{})
+}
+
+// TestAPIAddresses ensures that the APIAddresser is wired up within the uniter.
+// Functionality of the APIAddresser is tested in apiserver/common.
+func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return([]string{"0.1.2.3:1234"}, nil)
+
+	uniter := &UniterAPI{
+		APIAddresser: common.NewAPIAddresser(s.apiAddressAccessor, s.watcherRegistry),
+	}
+
+	// Act
+	result, err := uniter.APIAddresses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsResult{
+		Result: []string{"0.1.2.3:1234"},
+	})
+}
+
+func (s *apiAddresserSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.apiAddressAccessor = NewMockAPIAddressAccessor(ctrl)
+	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
+
+	c.Cleanup(func() {
+		s.apiAddressAccessor = nil
+		s.watcherRegistry = nil
+	})
+	return ctrl
+}

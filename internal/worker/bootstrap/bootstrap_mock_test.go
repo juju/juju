@@ -346,44 +346,6 @@ func (m *MockSystemState) EXPECT() *MockSystemStateMockRecorder {
 	return m.recorder
 }
 
-// SetAPIHostPorts mocks base method.
-func (m *MockSystemState) SetAPIHostPorts(arg0 controller.Config, arg1, arg2 []network.SpaceHostPorts) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAPIHostPorts", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetAPIHostPorts indicates an expected call of SetAPIHostPorts.
-func (mr *MockSystemStateMockRecorder) SetAPIHostPorts(arg0, arg1, arg2 any) *MockSystemStateSetAPIHostPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAPIHostPorts", reflect.TypeOf((*MockSystemState)(nil).SetAPIHostPorts), arg0, arg1, arg2)
-	return &MockSystemStateSetAPIHostPortsCall{Call: call}
-}
-
-// MockSystemStateSetAPIHostPortsCall wrap *gomock.Call
-type MockSystemStateSetAPIHostPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStateSetAPIHostPortsCall) Return(arg0 error) *MockSystemStateSetAPIHostPortsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStateSetAPIHostPortsCall) Do(f func(controller.Config, []network.SpaceHostPorts, []network.SpaceHostPorts) error) *MockSystemStateSetAPIHostPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStateSetAPIHostPortsCall) DoAndReturn(f func(controller.Config, []network.SpaceHostPorts, []network.SpaceHostPorts) error) *MockSystemStateSetAPIHostPortsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ToolsStorage mocks base method.
 func (m *MockSystemState) ToolsStorage(arg0 objectstore.ObjectStore) (binarystorage.StorageCloser, error) {
 	m.ctrl.T.Helper()

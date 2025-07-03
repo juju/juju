@@ -75,10 +75,10 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.expectSetAPIHostPorts()
 	s.expectStateServingInfo()
 	s.expectReloadSpaces()
 	s.expectInitialiseBakeryConfig(nil)
+	s.expectSetAPIHostPorts()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -492,10 +492,6 @@ func (s *workerSuite) expectSetAPIHostPorts() {
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-	s.state.EXPECT().SetAPIHostPorts(controller.Config{
-		controller.ControllerUUIDKey:   "test-uuid",
-		controller.JujuManagementSpace: "mgmt-space",
-	}, gomock.Any(), gomock.Any())
 }
 
 func (s *workerSuite) ensureBootstrapParams(c *tc.C) {
