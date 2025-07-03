@@ -264,6 +264,45 @@ func (st *State) GetMachineLife(ctx context.Context, mUUID string) (life.Life, e
 	return life, errors.Capture(err)
 }
 
+// GetMachineNetworkInterfaces returns the network interfaces for the
+// machine with the input UUID. This is used to release any addresses that the
+// machine has allocated.
+// This will only return interfaces that have a non-null MAC address or
+// if the machine is a non-container machine (i.e. not a lxd machine).
+func (st *State) GetMachineNetworkInterfaces(ctx context.Context, machineUUID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	selectStmt, err := st.Prepare(`
+SELECT lld.mac_Address AS &interface.hardwareAddress
+FROM   machine AS m
+JOIN   net_node AS n ON n.uuid = m.net_node_uuid
+JOIN   net_node_lld AS lld ON lld.net_node_uuid = n.uuid
+LEFT JOIN machine_parent AS mp ON mp.machine_uuid = m.uuid
+WHERE  m.uuid = $entityUUID.uuid
+AND    lld.mac_address IS NOT NULL
+AND    COUNT(mp.machine_uuid) = 0
+AND    m.life_id = 1`, entityUUID{UUID: machineUUID})
+	if err != nil {
+		return nil, errors.Errorf("preparing machine network interfaces selection: %w", err)
+	}
+	var interfaces []string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, selectStmt, entityUUID{UUID: machineUUID}).
+			GetAll(&interfaces)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting machine %q network interfaces: %w", machineUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return interfaces, nil
+}
+
 // MarkMachineAsDead marks the machine with the input UUID as dead.
 func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB()

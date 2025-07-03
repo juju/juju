@@ -661,6 +661,45 @@ func (c *MockStateGetMachineLifeCall) DoAndReturn(f func(context.Context, string
 	return c
 }
 
+// GetMachineNetworkInterfaces mocks base method.
+func (m *MockState) GetMachineNetworkInterfaces(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineNetworkInterfaces", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineNetworkInterfaces indicates an expected call of GetMachineNetworkInterfaces.
+func (mr *MockStateMockRecorder) GetMachineNetworkInterfaces(arg0, arg1 any) *MockStateGetMachineNetworkInterfacesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineNetworkInterfaces", reflect.TypeOf((*MockState)(nil).GetMachineNetworkInterfaces), arg0, arg1)
+	return &MockStateGetMachineNetworkInterfacesCall{Call: call}
+}
+
+// MockStateGetMachineNetworkInterfacesCall wrap *gomock.Call
+type MockStateGetMachineNetworkInterfacesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineNetworkInterfacesCall) Return(arg0 []string, arg1 error) *MockStateGetMachineNetworkInterfacesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineNetworkInterfacesCall) Do(f func(context.Context, string) ([]string, error)) *MockStateGetMachineNetworkInterfacesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineNetworkInterfacesCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetMachineNetworkInterfacesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationLife mocks base method.
 func (m *MockState) GetRelationLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()

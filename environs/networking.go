@@ -85,7 +85,7 @@ type Networking interface {
 
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
-	ReleaseContainerAddresses(ctx context.Context, interfaces []network.ProviderInterfaceInfo) error
+	ReleaseContainerAddresses(ctx context.Context, hardwareAddresses []string) error
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
@@ -146,7 +146,7 @@ func (*NoContainerAddressesEnviron) AllocateContainerAddresses(
 // ReleaseContainerAddresses (Networking) indicates that this provider does not
 // support releasing container addresses.
 func (*NoContainerAddressesEnviron) ReleaseContainerAddresses(
-	context.Context, []network.ProviderInterfaceInfo,
+	context.Context, []string,
 ) error {
 	return errors.NotSupportedf("ReleaseContainerAddresses")
 }

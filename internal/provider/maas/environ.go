@@ -1312,12 +1312,7 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx context.Context, hostInst
 	return interfaces, nil
 }
 
-func (env *maasEnviron) ReleaseContainerAddresses(ctx context.Context, interfaces []corenetwork.ProviderInterfaceInfo) error {
-	hwAddresses := make([]string, len(interfaces))
-	for i, info := range interfaces {
-		hwAddresses[i] = info.HardwareAddress
-	}
-
+func (env *maasEnviron) ReleaseContainerAddresses(ctx context.Context, hwAddresses []string) error {
 	devices, err := env.maasController.Devices(gomaasapi.DevicesArgs{MACAddresses: hwAddresses})
 	if err != nil {
 		return env.HandleCredentialError(ctx, err)
