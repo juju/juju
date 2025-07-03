@@ -6,7 +6,7 @@ The heap profile provides memory allocation samples. Helpful to monitor current 
 
 
 ## Usage
-Can be run on any juju machine. Suggest putting the output in a file, so it can be compared at different points in time.
+Can be run on any Juju machine. Suggest putting the output in a file, so it can be compared at different points in time.
 
 ```text
 juju_heap_profile > heap_profile.01
