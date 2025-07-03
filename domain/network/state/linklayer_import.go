@@ -56,11 +56,11 @@ func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.Im
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		deviceTypeMap, err := st.deviceTypeDetails(ctx, tx)
+		deviceTypeMap, err := typeNameToIDMap[network.LinkLayerDeviceType](ctx, st, tx, "link_layer_device_type")
 		if err != nil {
 			return errors.Capture(err)
 		}
-		portTypeMap, err := st.portTypeDetails(ctx, tx)
+		portTypeMap, err := typeNameToIDMap[network.VirtualPortType](ctx, st, tx, "virtual_port_type")
 		if err != nil {
 			return errors.Capture(err)
 		}
