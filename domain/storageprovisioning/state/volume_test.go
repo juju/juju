@@ -32,7 +32,7 @@ func TestVolumeSuite(t *testing.T) {
 func (s *volumeSuite) TestGetVolumeAttachmentIDsOnlyUnits(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID := s.newApplication(c, "foo")
-	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	_, unitName := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	vsUUID, vsID := s.newMachineVolume(c)
 	vsaUUID := s.newMachineVolumeAttachment(c, vsUUID, netNodeUUID)
@@ -44,7 +44,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentIDsOnlyUnits(c *tc.C) {
 		vsaUUID: {
 			VolumeID:    vsID,
 			MachineName: nil,
-			UnitName:    ptr("foo/0"),
+			UnitName:    &unitName,
 		},
 	})
 }
@@ -65,7 +65,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentIDsOnlyMachines(c *tc.C) {
 	c.Check(result, tc.DeepEquals, map[string]storageprovisioning.VolumeAttachmentID{
 		vsaUUID: {
 			VolumeID:    vsID,
-			MachineName: ptr(machineName),
+			MachineName: &machineName,
 			UnitName:    nil,
 		},
 	})
@@ -90,7 +90,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentIDsMachineNotUnit(c *tc.C) {
 	c.Check(result, tc.DeepEquals, map[string]storageprovisioning.VolumeAttachmentID{
 		vsaUUID: {
 			VolumeID:    vsID,
-			MachineName: ptr(machineName),
+			MachineName: &machineName,
 			UnitName:    nil,
 		},
 	})
@@ -104,7 +104,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentIDsMixed(c *tc.C) {
 	netNodeUUID2 := s.newNetNode(c)
 	_, machineName := s.newMachineWithNetNode(c, netNodeUUID1)
 	appUUID := s.newApplication(c, "foo")
-	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID2)
+	_, unitName := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID2)
 
 	vsOneUUID, vsOneID := s.newMachineVolume(c)
 	vsaOneUUID := s.newMachineVolumeAttachment(c, vsOneUUID, netNodeUUID1)
@@ -120,13 +120,13 @@ func (s *volumeSuite) TestGetVolumeAttachmentIDsMixed(c *tc.C) {
 	c.Check(result, tc.DeepEquals, map[string]storageprovisioning.VolumeAttachmentID{
 		vsaOneUUID: {
 			VolumeID:    vsOneID,
-			MachineName: ptr(machineName),
+			MachineName: &machineName,
 			UnitName:    nil,
 		},
 		vsaTwoUUID: {
 			VolumeID:    vsTwoID,
 			MachineName: nil,
-			UnitName:    ptr("foo/0"),
+			UnitName:    &unitName,
 		},
 	})
 }

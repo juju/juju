@@ -10,6 +10,8 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/juju/core/database"
+	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/life"
@@ -80,10 +82,12 @@ SELECT &filesystemAttachmentIDs.* FROM (
 			FilesystemID: v.FilesystemID,
 		}
 		if v.MachineName.Valid {
-			id.MachineName = &v.MachineName.String
+			machineName := coremachine.Name(v.MachineName.String)
+			id.MachineName = &machineName
 		}
 		if v.UnitName.Valid {
-			id.UnitName = &v.UnitName.String
+			unitName := coreunit.Name(v.UnitName.String)
+			id.UnitName = &unitName
 		}
 
 		rval[v.UUID] = id

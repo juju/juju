@@ -7,8 +7,10 @@ import (
 	"context"
 	"database/sql"
 
+	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -24,7 +26,7 @@ type baseSuite struct {
 // newMachineWithNetNode creates a new machine in the model attached to the
 // supplied net node. The newly created machines uuid is returned along with the
 // name.
-func (s *baseSuite) newMachineWithNetNode(c *tc.C, netNodeUUID string) (string, string) {
+func (s *baseSuite) newMachineWithNetNode(c *tc.C, netNodeUUID string) (string, coremachine.Name) {
 	machineUUID := machinetesting.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
@@ -37,7 +39,7 @@ func (s *baseSuite) newMachineWithNetNode(c *tc.C, netNodeUUID string) (string, 
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return machineUUID.String(), name
+	return machineUUID.String(), coremachine.Name(name)
 }
 
 // newNetNode creates a new net node in the model for referencing to storage
@@ -89,8 +91,8 @@ VALUES (?, ?, ?, "0", ?)`, appUUID.String(), appUUID.String(), name, network.Alp
 
 // newUnitWithNetNode creates a new unit in the model for the provided
 // application uuid. The new unit will use the supplied net node. Returned is
-// the new uuid of the unit.
-func (s *baseSuite) newUnitWithNetNode(c *tc.C, name, appUUID, netNodeUUID string) string {
+// the new uuid of the unit and the name that was used.
+func (s *baseSuite) newUnitWithNetNode(c *tc.C, name, appUUID, netNodeUUID string) (string, coreunit.Name) {
 	var charmUUID string
 	err := s.DB().QueryRowContext(
 		c.Context(),
@@ -111,5 +113,5 @@ VALUES (?, ?, ?, ?, ?, 0)
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return unitUUID.String()
+	return unitUUID.String(), coreunit.Name(name)
 }

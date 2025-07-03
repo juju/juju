@@ -33,7 +33,7 @@ func TestFilesystemSuite(t *testing.T) {
 func (s *filesystemSuite) TestGetFilesystemAttachmentIDsOnlyUnits(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID := s.newApplication(c, "foo")
-	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	_, unitName := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	fsUUID, fsID := s.newMachineFilesystem(c)
 	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
@@ -45,7 +45,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentIDsOnlyUnits(c *tc.C) {
 		fsaUUID: {
 			FilesystemID: fsID,
 			MachineName:  nil,
-			UnitName:     ptr("foo/0"),
+			UnitName:     &unitName,
 		},
 	})
 }
@@ -66,7 +66,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentIDsOnlyMachines(c *tc.C) {
 	c.Check(result, tc.DeepEquals, map[string]storageprovisioning.FilesystemAttachmentID{
 		fsaUUID: {
 			FilesystemID: fsID,
-			MachineName:  ptr(machineName),
+			MachineName:  &machineName,
 			UnitName:     nil,
 		},
 	})
@@ -91,7 +91,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentIDsMachineNotUnit(c *tc.C) 
 	c.Check(result, tc.DeepEquals, map[string]storageprovisioning.FilesystemAttachmentID{
 		fsaUUID: {
 			FilesystemID: fsID,
-			MachineName:  ptr(machineName),
+			MachineName:  &machineName,
 			UnitName:     nil,
 		},
 	})
@@ -105,7 +105,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentIDsMixed(c *tc.C) {
 	netNodeUUID2 := s.newNetNode(c)
 	_, machineName := s.newMachineWithNetNode(c, netNodeUUID1)
 	appUUID := s.newApplication(c, "foo")
-	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID2)
+	_, unitName := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID2)
 
 	fs1UUID, fsID1 := s.newMachineFilesystem(c)
 	fsa1UUID := s.newMachineFilesystemAttachment(c, fs1UUID, netNodeUUID1)
@@ -121,13 +121,13 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentIDsMixed(c *tc.C) {
 	c.Check(result, tc.DeepEquals, map[string]storageprovisioning.FilesystemAttachmentID{
 		fsa1UUID: {
 			FilesystemID: fsID1,
-			MachineName:  ptr(machineName),
+			MachineName:  &machineName,
 			UnitName:     nil,
 		},
 		fsa2UUID: {
 			FilesystemID: fsID2,
 			MachineName:  nil,
-			UnitName:     ptr("foo/0"),
+			UnitName:     &unitName,
 		},
 	})
 }
