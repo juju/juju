@@ -411,7 +411,7 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 
 const (
 	azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
-	nvmeDiskDeviceLink  = "/dev/nvme0n%d" // +2 to actual lun
+	nvmeDiskDeviceName  = "nvme0n%d" // +2 to actual lun
 )
 
 func (v *azureVolumeSource) attachVolume(
@@ -446,11 +446,16 @@ func (v *azureVolumeSource) attachVolume(
 			continue
 		}
 		logger.Infof("alvin lun number for diskName %s is %d", *disk.Name, toValue(disk.Lun))
-		var deviceLink string
+
+		var (
+			deviceLink string
+			deviceName string
+		)
+
 		if isSCSI {
 			deviceLink = fmt.Sprintf(azureDiskDeviceLink, toValue(disk.Lun))
 		} else {
-			deviceLink = fmt.Sprintf(nvmeDiskDeviceLink, toValue(disk.Lun)+2)
+			deviceLink = fmt.Sprintf(nvmeDiskDeviceName, toValue(disk.Lun)+2)
 		}
 		// Disk is already attached.
 		volumeAttachment := &storage.VolumeAttachment{
@@ -458,6 +463,7 @@ func (v *azureVolumeSource) attachVolume(
 			Machine: p.Machine,
 			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 				DeviceLink: deviceLink,
+				DeviceName: deviceName,
 			},
 		}
 
@@ -510,11 +516,15 @@ func (v *azureVolumeSource) addDataDisk(
 		vm.Properties.StorageProfile.DataDisks = dataDisks
 	}
 
-	var deviceLink string
+	var (
+		deviceLink string
+		deviceName string
+	)
+
 	if isSCSI {
 		deviceLink = fmt.Sprintf(azureDiskDeviceLink, lun)
 	} else {
-		deviceLink = fmt.Sprintf(nvmeDiskDeviceLink, lun+2)
+		deviceName = fmt.Sprintf(nvmeDiskDeviceName, lun+2)
 	}
 	logger.Infof("alvin addDatadisk deviceLink: %s", deviceLink)
 	return &storage.VolumeAttachment{
@@ -522,6 +532,7 @@ func (v *azureVolumeSource) addDataDisk(
 		Machine: machineTag,
 		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 			DeviceLink: deviceLink,
+			DeviceName: deviceName,
 		},
 	}, nil
 }

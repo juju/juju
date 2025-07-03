@@ -204,6 +204,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 				)
 				continue
 			}
+			ctx.config.Logger.Debugf("alvin attachVolumes result.VolumeAttachment: %+v", *result.VolumeAttachment)
 			volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
 		}
 	}
