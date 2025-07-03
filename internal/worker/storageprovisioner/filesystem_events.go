@@ -16,6 +16,7 @@ import (
 // filesystemsChanged is called when the lifecycle states of the filesystems
 // with the provided IDs have been seen to have changed.
 func filesystemsChanged(ctx *context, changes []string) error {
+	ctx.config.Logger.Debugf("alvin filesystems changed: %+v", changes)
 	tags := make([]names.Tag, len(changes))
 	for i, change := range changes {
 		tags[i] = names.NewFilesystemTag(change)
@@ -24,6 +25,7 @@ func filesystemsChanged(ctx *context, changes []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	ctx.config.Logger.Debugf("filesystems alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if len(alive)+len(dying)+len(dead) == 0 {
 		return nil
@@ -45,6 +47,7 @@ func filesystemsChanged(ctx *context, changes []string) error {
 	if err != nil {
 		return errors.Annotatef(err, "getting filesystem information")
 	}
+	ctx.config.Logger.Debugf("alvin filesystemResults %+v", filesystemResults)
 
 	aliveFilesystemTags := filesystemTags[:len(alive)]
 	dyingFilesystemTags := filesystemTags[len(alive) : len(alive)+len(dying)]
@@ -68,6 +71,8 @@ func filesystemsChanged(ctx *context, changes []string) error {
 // filesystemAttachmentsChanged is called when the lifecycle states of the filesystem
 // attachments with the provided IDs have been seen to have changed.
 func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
+	ctx.config.Logger.Debugf("alvin filesystemAttachmentsChanged changed: %+v", watcherIds)
+
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, gone, err := attachmentLife(ctx, ids)
 	if err != nil {
@@ -129,6 +134,7 @@ func updateFilesystem(ctx *context, info storage.Filesystem) {
 }
 
 func updatePendingFilesystem(ctx *context, params storage.FilesystemParams) {
+	ctx.config.Logger.Debugf("alvin updatePendingFilesystem called: %+v", params)
 	if params.Volume != (names.VolumeTag{}) {
 		// The filesystem is volume-backed: we must watch for
 		// the corresponding block device. This will trigger a
@@ -163,6 +169,8 @@ func updatePendingFilesystemAttachment(
 ) {
 	var incomplete bool
 	filesystem, ok := ctx.filesystems[params.Filesystem]
+	ctx.config.Logger.Debugf("alvin updatePendingFilesystemAttachment called: %+v", filesystem)
+
 	if !ok {
 		incomplete = true
 	} else {
@@ -172,24 +180,36 @@ func updatePendingFilesystemAttachment(
 			// was created in another session, then the block device
 			// may not have been seen yet. We must wait for the block
 			// device watcher to trigger.
+			ctx.config.Logger.Debugf("alvin updatePendingFilesystemAttachment incomplete 1: %+v", incomplete)
+
 			if _, ok := ctx.volumeBlockDevices[filesystem.Volume]; !ok {
+				ctx.config.Logger.Debugf("alvin updatePendingFilesystemAttachment incomplete 2: %+v", incomplete)
+
 				incomplete = true
 			}
 		}
+		ctx.config.Logger.Debugf("alvin updatePendingFilesystemAttachment incomplete first: %+v", incomplete)
+
 	}
 	if params.InstanceId == "" {
 		watchMachine(ctx, params.Machine.(names.MachineTag))
 		incomplete = true
+		ctx.config.Logger.Debugf("alvin updatePendingFilesystemAttachment incomplete instanceID: %+v", incomplete)
 	}
 	if params.FilesystemId == "" {
 		incomplete = true
+		ctx.config.Logger.Debugf("alvin updatePendingFilesystemAttachment incomplete FilesystemId: %+v", incomplete)
+
 	}
+	ctx.config.Logger.Debugf("alvin updatePendingFilesystemAttachment incomplete: %+v", incomplete)
+
 	if incomplete {
 		ctx.incompleteFilesystemAttachmentParams[id] = params
 		return
 	}
 	delete(ctx.incompleteFilesystemAttachmentParams, id)
 	scheduleOperations(ctx, &attachFilesystemOp{args: params})
+	ctx.config.Logger.Debugf("alvin updatePendingFilesystemAttachment scheduled: %+v", incomplete)
 }
 
 // removePendingFilesystemAttachment removes the specified pending filesystem
@@ -287,6 +307,8 @@ func processAliveFilesystems(ctx *context, tags []names.FilesystemTag, filesyste
 	// Filter out the already-provisioned filesystems.
 	pending := make([]names.FilesystemTag, 0, len(tags))
 	for i, result := range filesystemResults {
+		ctx.config.Logger.Debugf("alvin processAliveFileSystems result: %+v", result)
+
 		tag := tags[i]
 		if result.Error == nil {
 			// Filesystem is already provisioned: skip.
@@ -318,10 +340,13 @@ func processAliveFilesystems(ctx *context, tags []names.FilesystemTag, filesyste
 	if len(pending) == 0 {
 		return nil
 	}
+	ctx.config.Logger.Debugf("alvin processAliveFilesystems pending: %+v", pending)
 	params, err := filesystemParams(ctx, pending)
 	if err != nil {
 		return errors.Annotate(err, "getting filesystem params")
 	}
+	ctx.config.Logger.Debugf("alvin processAliveFilesystems filesystemParams: %+v", params)
+
 	for _, params := range params {
 		if ctx.isApplicationKind() {
 			ctx.config.Logger.Debugf("not queuing filesystem for %v unit", ctx.config.Scope.Id())

@@ -141,6 +141,7 @@ type azureVolumeSource struct {
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
 func (v *azureVolumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+	logger.Debugf("alvin azure CreateVolumes params: %+v", params)
 	results := make([]storage.CreateVolumesResult, len(params))
 	for i, p := range params {
 		if err := v.ValidateVolumeParams(p); err != nil {
@@ -169,6 +170,7 @@ func (v *azureVolumeSource) createManagedDiskVolumes(ctx context.ProviderCallCon
 
 // createManagedDiskVolume creates a managed disk.
 func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallContext, p storage.VolumeParams) (*storage.Volume, error) {
+	logger.Debugf("alvin createManagedDiskVolumes called")
 	cfg, err := newAzureStorageConfig(p.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -198,9 +200,11 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallCont
 		return nil, errors.Trace(err)
 	}
 	var result armcompute.DisksClientCreateOrUpdateResponse
+	// makes a call to the azure API to create disk
 	poller, err := disks.BeginCreateOrUpdate(ctx, v.env.resourceGroup, diskName, diskModel, nil)
 	if err == nil {
 		result, err = poller.PollUntilDone(ctx, nil)
+		logger.Debugf("alvin createManagedDiskVolumes successful")
 	}
 	if err != nil || result.Properties == nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id()), ctx)
@@ -391,6 +395,7 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 	}
 
 	updateResults, err := v.updateVirtualMachines(ctx, virtualMachines, instanceIds)
+	logger.Infof("alvin updateVirtualMachines caller err: %v", err)
 	if err != nil {
 		return nil, errors.Annotate(err, "updating virtual machines")
 	}
@@ -655,6 +660,7 @@ func (v *azureVolumeSource) updateVirtualMachines(
 	ctx context.ProviderCallContext,
 	virtualMachines map[instance.Id]*maybeVirtualMachine, instanceIds []instance.Id,
 ) ([]error, error) {
+	logger.Infof("alvin updateVirtualMachines called")
 	compute, err := v.env.computeClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -674,6 +680,7 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			ctx,
 			v.env.resourceGroup, toValue(vm.vm.Name), *vm.vm, nil,
 		)
+		logger.Infof("alvin updateVirtualMachines BeginCreateOrUpdate err: %v", err)
 		if err == nil {
 			_, err = poller.PollUntilDone(ctx, nil)
 		}
@@ -688,6 +695,8 @@ func (v *azureVolumeSource) updateVirtualMachines(
 		// successfully updated, don't update again
 		delete(virtualMachines, instanceId)
 	}
+	logger.Infof("alvin updateVirtualMachines results: %+v", results)
+
 	return results, nil
 }
 

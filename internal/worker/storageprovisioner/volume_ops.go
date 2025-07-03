@@ -19,6 +19,7 @@ import (
 
 // createVolumes creates volumes with the specified parameters.
 func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error {
+	ctx.config.Logger.Debugf("alvin createVolumes ops: %+v", ops)
 	volumeParams := make([]storage.VolumeParams, 0, len(ops))
 	for _, op := range ops {
 		volumeParams = append(volumeParams, op.args)
@@ -26,6 +27,9 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 	paramsBySource, volumeSources, err := volumeParamsBySource(
 		ctx.config.StorageDir, volumeParams, ctx.config.Registry,
 	)
+	ctx.config.Logger.Debugf("alvin createVolumes paramsBySource: %+v", paramsBySource)
+	ctx.config.Logger.Debugf("alvin createVolumes volumeSources: %+v", volumeSources)
+	ctx.config.Logger.Debugf("alvin createVolumes err: %+v", err)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -34,8 +38,10 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 	var volumeAttachments []storage.VolumeAttachment
 	var statuses []params.EntityStatusArgs
 	for sourceName, volumeParams := range paramsBySource {
-		ctx.config.Logger.Debugf("creating volumes: %v", volumeParams)
+		ctx.config.Logger.Debugf("alvin createVolumes paramsBySource: %+v", sourceName)
+		ctx.config.Logger.Debugf("alvin createVolumes volumeSources: %+v", volumeParams)
 		volumeSource := volumeSources[sourceName]
+		ctx.config.Logger.Debugf("alvin createVolumes volumeSource: %+v", volumeSource)
 		validVolumeParams, validationErrors := validateVolumeParams(volumeSource, volumeParams)
 		for i, err := range validationErrors {
 			if err == nil {
@@ -55,17 +61,24 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		if len(volumeParams) == 0 {
 			continue
 		}
+		ctx.config.Logger.Debugf("alvin createVolumes volumeParams: %+v", volumeParams)
+
 		results, err := volumeSource.CreateVolumes(ctx.config.CloudCallContextFunc(stdcontext.Background()), volumeParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating volumes from source %q", sourceName)
 		}
+		ctx.config.Logger.Debugf("alvin createVolumes results: %+v", results)
+
 		for i, result := range results {
+			ctx.config.Logger.Debugf("alvin createVolumes result: %+v", result)
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
 				Status: status.Attaching.String(),
 			})
 			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
+				ctx.config.Logger.Debugf("alvin createVolumes result.Error: %+v", result.Error)
+
 				// Reschedule the volume creation.
 				reschedule = append(reschedule, ops[volumeParams[i].Tag])
 
@@ -80,6 +93,8 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 					names.ReadableString(volumeParams[i].Tag),
 					result.Error,
 				)
+				ctx.config.Logger.Debugf("alvin createVolumes entityStatus: %+v", entityStatus)
+
 				continue
 			}
 			volumes = append(volumes, *result.Volume)
@@ -128,7 +143,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 
 // attachVolumes creates volume attachments with the specified parameters.
 func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp) error {
-	ctx.config.Logger.Debugf("alvin attachVolumes called highest")
+	ctx.config.Logger.Debugf("alvin attachVolumes ops: %+v", ops)
 	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
@@ -143,7 +158,6 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 	var volumeAttachments []storage.VolumeAttachment
 	var statuses []params.EntityStatusArgs
 	for sourceName, volumeAttachmentParams := range paramsBySource {
-		ctx.config.Logger.Debugf("attaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
 		if volumeSource == nil {
 			// The storage provider does not support dynamic
@@ -151,13 +165,15 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 			// to do here.
 			continue
 		}
-		ctx.config.Logger.Debugf("alvin volumeSource: %+v", volumeSource)
+		ctx.config.Logger.Debugf("alvin attachVolumes volumeAttachmentParams: %+v", volumeAttachmentParams)
 		results, err := volumeSource.AttachVolumes(ctx.config.CloudCallContextFunc(stdcontext.Background()), volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)
 		}
+		ctx.config.Logger.Debugf("alvin attachVolumes results: %+v", results)
 
 		for i, result := range results {
+			ctx.config.Logger.Debugf("alvin attachVolumes result: %+v", result)
 			p := volumeAttachmentParams[i]
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    p.Volume.String(),
@@ -165,6 +181,8 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 			})
 			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
+				ctx.config.Logger.Debugf("alvin attachVolumes error: %+v", result.Error)
+
 				// Reschedule the volume attachment.
 				id := params.MachineStorageId{
 					MachineTag:    p.Machine.String(),

@@ -421,7 +421,15 @@ func processSchedule(ctx *context) error {
 	attachFilesystemOps := make(map[params.MachineStorageId]*attachFilesystemOp)
 	detachFilesystemOps := make(map[params.MachineStorageId]*detachFilesystemOp)
 	for _, item := range ready {
+
 		op := item.(scheduleOp)
+
+		if fs, ok := op.(*createFilesystemOp); ok {
+			ctx.config.Logger.Debugf("alvin processSchedule createFilesystemOp: %v", fs)
+		}
+		if fs, ok := op.(*attachFilesystemOp); ok {
+			ctx.config.Logger.Debugf("alvin processSchedule attachFilesystemOp: %v", fs)
+		}
 		key := op.key()
 		switch op := op.(type) {
 		case *createVolumeOp:
