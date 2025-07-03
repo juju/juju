@@ -995,19 +995,6 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	if err != nil {
 		return Base{}, errors.Trace(err)
 	}
-
-	// Ignore constraints that result from this call as
-	// these would be accumulation of model and application constraints
-	// but we only want application constraints to be persisted here.
-	cons, err := st.ResolveConstraints(args.Constraints)
-	if err != nil {
-		return Base{}, errors.Trace(err)
-	}
-	unsupported, err := st.validateConstraints(cons)
-	if len(unsupported) > 0 {
-		logger.Warningf(context.TODO(),
-			"deploying %q: unsupported constraints: %v", args.Name, strings.Join(unsupported, ","))
-	}
 	return Base{appBase.OS, appBase.Channel.String()}, errors.Trace(err)
 }
 

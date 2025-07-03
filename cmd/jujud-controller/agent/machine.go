@@ -740,7 +740,6 @@ func mongoDialOptions(
 
 func (a *MachineAgent) initState(
 	ctx context.Context, agentConfig agent.Config,
-	domainServices services.ControllerDomainServices,
 	domainServicesGetter services.DomainServicesGetter,
 ) (*state.StatePool, error) {
 	// Start MongoDB server and dial.
@@ -758,7 +757,6 @@ func (a *MachineAgent) initState(
 	pool, err := openStatePool(
 		agentConfig,
 		dialOpts,
-		domainServices,
 		domainServicesGetter,
 	)
 	if err != nil {
@@ -916,7 +914,6 @@ func (a *MachineAgent) ensureMongoServer(ctx context.Context, agentConfig agent.
 func openStatePool(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
-	domainServices services.ControllerDomainServices,
 	domainServicesGetter services.DomainServicesGetter,
 ) (_ *state.StatePool, err error) {
 	info, ok := agentConfig.MongoInfo()
@@ -929,27 +926,12 @@ func openStatePool(
 	}
 	defer session.Close()
 
-	var (
-		credService  stateenvirons.CredentialService
-		cloudService stateenvirons.CloudService
-	)
-	if domainServices != nil {
-		credService = domainServices.Credential()
-		cloudService = domainServices.Cloud()
-	}
 	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
 		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
 		if err != nil {
 			return nil, err
 		}
 		return svc.Storage(), nil
-	}
-	modelConfigServiceGetter := func(modelUUID coremodel.UUID) (stateenvirons.ModelConfigService, error) {
-		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
-		if err != nil {
-			return nil, err
-		}
-		return svc.Config(), nil
 	}
 	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
 		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
@@ -964,7 +946,7 @@ func openStatePool(
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(cloudService, credService, modelConfigServiceGetter, storageServiceGetter),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
 		CharmServiceGetter: charmServiceGetter,
 	})
 	if err != nil {

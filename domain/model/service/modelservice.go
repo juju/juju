@@ -149,6 +149,9 @@ type ModelResourcesProvider interface {
 	ValidateProviderForNewModel(ctx context.Context) error
 	// CreateModelResources is part of the [environs.ModelResources] interface.
 	CreateModelResources(context.Context, environs.CreateParams) error
+	// ConstraintsValidator returns a Validator instance which
+	// is used to validate and merge constraints.
+	ConstraintsValidator(ctx context.Context) (coreconstraints.Validator, error)
 }
 
 // CloudInfoProvider instances provide a means to get
@@ -531,6 +534,22 @@ func (s *ModelService) GetEnvironVersion(ctx context.Context) (int, error) {
 	return envProvider.Version(), nil
 }
 
+// IsControllerModel returns true if the model is the controller model.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model no longer exists.
+func (s *ModelService) IsControllerModel(ctx context.Context) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.modelSt.IsControllerModel(ctx)
+}
+
+// HasValidCredential returns true if the model has a valid credential.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model no longer exists.
+func (s *ModelService) HasValidCredential(ctx context.Context) (bool, error) {
+	return s.controllerSt.HasValidCredential(ctx, s.modelUUID)
+}
+
 // ProviderModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state and the provider.
 type ProviderModelService struct {
@@ -577,6 +596,41 @@ func (s *ProviderModelService) CloudAPIVersion(ctx context.Context) (string, err
 		return "", errors.Errorf("opening provider: %w", err)
 	}
 	return env.APIVersion()
+}
+
+// ResolveConstraints resolves the constraints against the models constraints,
+// using the providers constraints validator. This will merge the incoming
+// constraints with the model's constraints, and return the merged result.
+func (s *ProviderModelService) ResolveConstraints(
+	ctx context.Context,
+	cons coreconstraints.Value,
+) (coreconstraints.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	modelCons, err := s.modelSt.GetModelConstraints(ctx)
+	if err != nil {
+		return coreconstraints.Value{}, errors.Errorf(
+			"getting model constraints for model %q: %w", s.modelUUID, err,
+		)
+	}
+
+	env, err := s.providerGetter(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		// Exit early if the provider does not support resolving constraints.
+		return cons, nil
+	} else if err != nil {
+		return coreconstraints.Value{}, errors.Errorf("opening provider: %w", err)
+	}
+
+	validator, err := env.ConstraintsValidator(ctx)
+	if err != nil {
+		return coreconstraints.Value{}, errors.Errorf(
+			"getting constraints validator for model %q: %w", s.modelUUID, err,
+		)
+	}
+
+	return validator.Merge(constraints.EncodeConstraints(modelCons), cons)
 }
 
 // CreateModel is responsible for creating a new model within the model
@@ -792,20 +846,4 @@ func EnvironVersionProviderGetter() EnvironVersionProviderFunc {
 
 		return environVersionProvider, nil
 	}
-}
-
-// IsControllerModel returns true if the model is the controller model.
-// The following errors may be returned:
-// - [modelerrors.NotFound] when the model no longer exists.
-func (s *ModelService) IsControllerModel(ctx context.Context) (bool, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	return s.modelSt.IsControllerModel(ctx)
-}
-
-// HasValidCredential returns true if the model has a valid credential.
-// The following errors may be returned:
-// - [modelerrors.NotFound] when the model no longer exists.
-func (s *ModelService) HasValidCredential(ctx context.Context) (bool, error) {
-	return s.controllerSt.HasValidCredential(ctx, s.modelUUID)
 }

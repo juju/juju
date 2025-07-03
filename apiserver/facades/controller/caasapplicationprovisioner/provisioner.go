@@ -438,9 +438,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(model): This call should be removed once the model constraints are
-	// removed from the state.
-	mergedCons, err := a.state.ResolveConstraints(cons)
+	mergedCons, err := a.modelInfoService.ResolveConstraints(ctx, cons)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

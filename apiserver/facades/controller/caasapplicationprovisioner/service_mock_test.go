@@ -177,6 +177,21 @@ func (mr *MockModelInfoServiceMockRecorder) GetModelInfo(arg0 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelInfo", reflect.TypeOf((*MockModelInfoService)(nil).GetModelInfo), arg0)
 }
 
+// ResolveConstraints mocks base method.
+func (m *MockModelInfoService) ResolveConstraints(arg0 context.Context, arg1 constraints.Value) (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveConstraints", arg0, arg1)
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveConstraints indicates an expected call of ResolveConstraints.
+func (mr *MockModelInfoServiceMockRecorder) ResolveConstraints(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveConstraints", reflect.TypeOf((*MockModelInfoService)(nil).ResolveConstraints), arg0, arg1)
+}
+
 // MockApplicationService is a mock of ApplicationService interface.
 type MockApplicationService struct {
 	ctrl     *gomock.Controller

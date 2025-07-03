@@ -170,7 +170,7 @@ type ManifoldsConfig struct {
 
 	// OpenStatePool is function used by the state manifold to create a
 	// *state.StatePool.
-	OpenStatePool func(context.Context, coreagent.Config, services.ControllerDomainServices, services.DomainServicesGetter) (*state.StatePool, error)
+	OpenStatePool func(context.Context, coreagent.Config, services.DomainServicesGetter) (*state.StatePool, error)
 
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to

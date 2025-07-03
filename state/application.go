@@ -1011,17 +1011,6 @@ func (a *Application) addUnitOps(
 ) (string, []txn.Op, error) {
 	var cons constraints.Value
 	if !a.doc.Subordinate {
-		scons, err := a.constraints()
-		if errors.Is(err, errors.NotFound) {
-			return "", nil, errors.NotFoundf("application %q", a.name())
-		}
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		cons, err = a.st.ResolveConstraints(scons)
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
 		// If the application is deployed to the controller model and the charm
 		// has the special juju- prefix to its name, then bypass the machineID
 		// empty check.
@@ -1577,14 +1566,6 @@ func (a *Application) constraints() (constraints.Value, error) {
 
 // SetConstraints replaces the current application constraints.
 func (a *Application) SetConstraints(cons constraints.Value) (err error) {
-	unsupported, err := a.st.validateConstraints(cons)
-	if len(unsupported) > 0 {
-		logger.Warningf(context.TODO(),
-			"setting constraints on application %q: unsupported constraints: %v", a.name(), strings.Join(unsupported, ","))
-	} else if err != nil {
-		return err
-	}
-
 	if a.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/state"
@@ -22,7 +21,6 @@ type CAASApplicationProvisionerState interface {
 	ApplyOperation(state.ModelOperation) error
 	Model() (Model, error)
 	Application(string) (Application, error)
-	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
 	Resources(objectstore.ObjectStore) Resources
 	IsController() bool
 }
