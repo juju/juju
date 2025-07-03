@@ -671,9 +671,6 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C
 		c, cfgs,
 		s.mockMutatingWebhookConfigurationV1.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockMutatingWebhookConfigurationV1.EXPECT().
-			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
-			Return(&admissionregistrationv1.MutatingWebhookConfigurationList{Items: []admissionregistrationv1.MutatingWebhookConfiguration{*cfg1}}, nil),
-		s.mockMutatingWebhookConfigurationV1.EXPECT().
 			Get(gomock.Any(), "test-example-mutatingwebhookconfiguration", metav1.GetOptions{}).
 			Return(cfg1, nil),
 		s.mockMutatingWebhookConfigurationV1.EXPECT().Update(gomock.Any(), cfg1, metav1.UpdateOptions{}).Return(cfg1, nil),

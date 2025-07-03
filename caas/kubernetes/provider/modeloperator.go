@@ -344,6 +344,7 @@ func (k *kubernetesClient) EnsureModelOperator(
 		modelName:      k.ModelName(),
 		controllerUUID: k.ControllerUUID(),
 		namespace:      k.Namespace(),
+		labelVersion:   k.LabelVersion(),
 	}
 
 	return ensureModelOperator(modelUUID, agentPath, k.clock, config, bridge)

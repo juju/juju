@@ -15,6 +15,7 @@ import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -135,21 +136,21 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1(cfg *admissionre
 		return cleanUp, errors.Trace(err)
 	}
 
-	existingItems, err := api.List(context.TODO(), metav1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(cfg.GetLabels()).String(),
-	})
-	if k8serrors.IsNotFound(err) || existingItems == nil || len(existingItems.Items) == 0 {
-		// cfg.Name is already used for an existing MutatingWebhookConfiguration.
-		return cleanUp, errors.AlreadyExistsf("MutatingWebhookConfiguration %q", cfg.GetName())
-	}
+	existing, err := api.Get(context.TODO(), cfg.GetName(), metav1.GetOptions{})
 	if err != nil {
 		return cleanUp, errors.Trace(err)
 	}
-	existingCfg, err := api.Get(context.TODO(), cfg.GetName(), metav1.GetOptions{})
-	if err != nil {
-		return cleanUp, errors.Trace(err)
+	if existingManagedValue, ok := existing.Labels[constants.LabelKubernetesAppManaged]; ok && existingManagedValue != resources.JujuFieldManager {
+		return nil, errors.Errorf("MutatingWebhookConfiguration %q exists and is not managed by Juju", cfg.GetName())
 	}
-	cfg.SetResourceVersion(existingCfg.GetResourceVersion())
+	if existingModelName, ok := existing.Labels[constants.LabelJujuModelName]; ok && existingModelName != k.modelName {
+		return nil, errors.Errorf("MutatingWebhookConfiguration %q exists and is managed by a different model", cfg.GetName())
+	}
+	if existingNameValue, ok := existing.Labels[constants.LabelJujuOperatorName]; ok && existingNameValue != modelOperatorName {
+		return nil, errors.Errorf("MutatingWebhookConfiguration %q exists and is not used by a Juju model operator", cfg.GetName())
+	}
+
+	cfg.SetResourceVersion(existing.GetResourceVersion())
 	_, err = api.Update(context.TODO(), cfg, metav1.UpdateOptions{})
 	logger.Debugf("updating MutatingWebhookConfiguration %q", cfg.GetName())
 	return cleanUp, errors.Trace(err)
