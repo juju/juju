@@ -63,7 +63,8 @@ func matchingBlockDevice(
 	planBlockInfo state.BlockDeviceInfo,
 	allowPartitions bool,
 ) (*state.BlockDeviceInfo, bool) {
-	logger.Tracef("looking for block device to match one of planBlockInfo %#v volumeInfo %#v attachmentInfo %#v",
+	logger.Infof("matchingBlockDevice blockDevices: %+v", blockDevices)
+	logger.Infof("alvin matchingBlockDevice looking for block device to match one of planBlockInfo %#v volumeInfo %#v attachmentInfo %#v",
 		planBlockInfo, volumeInfo, attachmentInfo)
 
 	if planBlockInfo.HardwareId != "" {

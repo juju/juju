@@ -124,6 +124,8 @@ func volumeStorageAttachmentInfo(
 
 	blockDeviceInfo := state.BlockDeviceInfo{}
 	volumeAttachmentPlan, err := st.VolumeAttachmentPlan(hostTag, volume.VolumeTag())
+	logger.Infof("alvin volumeStorageAttachmentInfo volumeAttachmentPlan: %+v", blockDeviceInfo)
+
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, errors.Annotate(err, "getting attachment plans")
@@ -137,6 +139,7 @@ func volumeStorageAttachmentInfo(
 		}
 	}
 
+	logger.Infof("alvin volumeStorageAttachmentInfo blockDeviceInfo: %+v", blockDeviceInfo)
 	// TODO(caas) - we currently only support block devices on machines.
 	if hostTag.Kind() != names.MachineTagKind {
 		return nil, errors.NotProvisionedf("%v", names.ReadableString(storageTag))
