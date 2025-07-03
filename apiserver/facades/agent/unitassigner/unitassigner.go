@@ -12,12 +12,10 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -29,17 +27,6 @@ type assignerState interface {
 	WatchForUnitAssignment() state.StringsWatcher
 	AssignStagedUnits(allSpaces network.SpaceInfos, ids []string) ([]state.UnitAssignmentResult, error)
 	AssignedMachineId(unit string) (string, error)
-}
-
-// MachineService is the interface that is used to interact with the machine
-// domain.
-type MachineService interface {
-	// CreateMachine creates the specified machine.
-	//
-	// The following errors may be returned:
-	//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
-	//     already exists.
-	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (machine.UUID, machine.Name, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -59,7 +46,6 @@ type StatusService interface {
 // API implements the functionality for assigning units to machines.
 type API struct {
 	st             assignerState
-	machineService MachineService
 	networkService NetworkService
 	statusService  StatusService
 	clock          clock.Clock
@@ -111,9 +97,6 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 			resultMap[r.Unit] = err
 			continue
 		}
-		if err := a.saveMachineInfo(ctx, machineId); err != nil {
-			resultMap[r.Unit] = err
-		}
 		machineToUnitMap[machineId] = append(machineToUnitMap[machineId], unit.Name(r.Unit))
 	}
 
@@ -128,19 +111,6 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 	}
 
 	return result, nil
-}
-
-func (a *API) saveMachineInfo(ctx context.Context, machineName string) error {
-	// This is temporary - just insert the machine id and all the parent ones.
-	createMachineArgs := machineservice.CreateMachineArgs{}
-	_, _, err := a.machineService.CreateMachine(ctx, createMachineArgs)
-	// The machine might already exist e.g. if we are adding a subordinate
-	// unit to an already existing machine. In this case, just continue
-	// without error.
-	if err != nil {
-		return errors.Annotatef(err, "saving info for machine %q", machineName)
-	}
-	return nil
 }
 
 // WatchUnitAssignments returns a strings watcher that is notified when new unit

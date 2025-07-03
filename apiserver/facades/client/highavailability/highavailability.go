@@ -35,10 +35,6 @@ type NodeService interface {
 // domain.
 type MachineService interface {
 	// CreateMachine creates the specified machine.
-	//
-	// The following errors may be returned:
-	//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
-	//     already exists.
 	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (machine.UUID, machine.Name, error)
 }
 

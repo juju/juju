@@ -105,10 +105,6 @@ type NetworkService interface {
 // service.
 type MachineService interface {
 	// CreateMachine creates the specified machine.
-	//
-	// The following errors may be returned:
-	//   - [machineerrors.MachineAlreadyExists] if a machine with the same name
-	//     already exists.
 	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (machine.UUID, machine.Name, error)
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)

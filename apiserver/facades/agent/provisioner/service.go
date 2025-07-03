@@ -119,23 +119,14 @@ type MachineService interface {
 
 	// GetMachinePlacement returns the placement structure as it was recorded for
 	// the given machine.
-	//
-	// The following errors may be returned:
-	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	GetMachinePlacementDirective(ctx context.Context, mName coremachine.Name) (*string, error)
 
 	// GetMachineConstraints returns the constraints for the given machine.
 	// Empty constraints are returned if no constraints exist for the given
 	// machine.
-	//
-	// The following errors may be returned:
-	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	GetMachineConstraints(ctx context.Context, mName coremachine.Name) (constraints.Value, error)
 
 	// GetMachineBase returns the base for the given machine.
-	//
-	// The following errors may be returned:
-	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	GetMachineBase(ctx context.Context, mName coremachine.Name) (base.Base, error)
 }
 

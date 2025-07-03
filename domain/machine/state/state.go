@@ -55,9 +55,7 @@ func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMac
 		return "", errors.Capture(err)
 	}
 
-	var (
-		machineName machine.Name
-	)
+	var machineName machine.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		_, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
 		return err

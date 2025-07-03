@@ -135,7 +135,9 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	modelInfo model.ModelInfo,
 ) (params.ProvisioningInfo, error) {
 	base, err := api.machineService.GetMachineBase(ctx, machineName)
-	if err != nil {
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return params.ProvisioningInfo{}, apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineName))
+	} else if err != nil {
 		return params.ProvisioningInfo{}, errors.Errorf("getting machine base: %w", err)
 	}
 	result := params.ProvisioningInfo{
@@ -612,7 +614,9 @@ func (api *ProvisionerAPI) constructImageConstraint(
 	imageStream string,
 ) (*imagemetadata.ImageConstraint, error) {
 	machineBase, err := api.machineService.GetMachineBase(ctx, machineName)
-	if err != nil {
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil, apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineName))
+	} else if err != nil {
 		return nil, errors.Errorf("getting machine base: %w", err)
 	}
 
@@ -626,6 +630,8 @@ func (api *ProvisionerAPI) constructImageConstraint(
 		Stream:   imageStream,
 	}
 
+	// NOTE(nvinuesa): We should rethink this, so we can get the constraints
+	// and the base from the same service call.
 	cons, err := api.machineService.GetMachineConstraints(ctx, machineName)
 	if err != nil {
 		return nil, errors.Errorf("cannot get machine constraints for machine %v: %w", machineName, err)

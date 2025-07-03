@@ -522,7 +522,6 @@ func insertMachineConstraints(
 	insertMachineConstraintsQuery := `
 INSERT INTO machine_constraint(*)
 VALUES ($setMachineConstraint.*)
-ON CONFLICT (machine_uuid) DO NOTHING
 `
 	insertMachineConstraintsStmt, err := preparer.Prepare(insertMachineConstraintsQuery, setMachineConstraint{})
 	if err != nil {

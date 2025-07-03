@@ -20,10 +20,6 @@ import (
 type MigrationState interface {
 	// InsertMigratingMachine inserts a machine which is taken from the description
 	// model during migration into the machine table.
-	//
-	// The following errors may be returned:
-	// - [machineerrors.MachineAlreadyExists] if a machine with the same name
-	// already exists.
 	InsertMigratingMachine(ctx context.Context, machineName string, args machine.CreateMachineArgs) error
 
 	// GetMachinesForExport returns all machines in the model for export.
