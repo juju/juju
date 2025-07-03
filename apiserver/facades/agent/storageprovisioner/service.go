@@ -85,7 +85,7 @@ type ApplicationService interface {
 
 // StorageStatusService provides methods to set filesystem and volume status.
 type StorageStatusService interface {
-	// SetFilesystemStatus saves the given volume status, overwriting any
+	// SetFilesystemStatus saves the given filesystem status, overwriting any
 	// current status data. If returns an error satisfying
 	// [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 	SetFilesystemStatus(ctx context.Context, filesystemID string, statusInfo corestatus.StatusInfo) error

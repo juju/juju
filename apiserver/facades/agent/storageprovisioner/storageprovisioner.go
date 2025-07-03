@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -1712,9 +1713,15 @@ func (s *StorageProvisionerAPIv4) SetStatus(ctx context.Context, args params.Set
 		var statusErr error
 		switch tag := tag.(type) {
 		case names.FilesystemTag:
-			statusErr = s.storageStatusService.SetVolumeStatus(ctx, tag.Id(), sInfo)
+			statusErr = s.storageStatusService.SetFilesystemStatus(ctx, tag.Id(), sInfo)
+			if errors.Is(statusErr, storageerrors.FilesystemNotFound) {
+				statusErr = errors.NotFoundf("filesystem %q", tag.Id())
+			}
 		case names.VolumeTag:
 			statusErr = s.storageStatusService.SetVolumeStatus(ctx, tag.Id(), sInfo)
+			if errors.Is(statusErr, storageerrors.VolumeNotFound) {
+				statusErr = errors.NotFoundf("volume %q", tag.Id())
+			}
 		default:
 			statusErr = apiservererrors.ErrPerm
 		}
