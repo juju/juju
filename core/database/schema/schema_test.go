@@ -192,3 +192,23 @@ func (s *schemaSuite) TestEnsureHashBreaks(c *tc.C) {
 	_, err = schema.Ensure(c.Context(), s.TxnRunner())
 	c.Assert(err, tc.ErrorMatches, `querying current schema version: hash mismatch for version 2`)
 }
+
+func (s *schemaSuite) TestHookIsApplied(c *tc.C) {
+	schema := New(
+		MakePatch("this would fail if the hook is not applied"),
+	)
+	schema.Hook(func(int, string) (string, error) {
+		return "CREATE TABLE bar (id INTEGER PRIMARY KEY);", nil
+	})
+	c.Log(&schema.hook)
+
+	current, err := schema.Ensure(c.Context(), s.TxnRunner())
+	c.Assert(err, tc.IsNil)
+	c.Assert(current, tc.DeepEquals, ChangeSet{Current: 0, Post: 1})
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT * FROM bar")
+		return row.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}

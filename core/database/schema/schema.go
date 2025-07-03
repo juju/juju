@@ -25,22 +25,24 @@ type Schema struct {
 // Patch applies a specific schema change to a database, and returns an error
 // if anything goes wrong.
 type Patch struct {
-	run  func(context.Context, Tx) error
 	hash string
 	stmt string
+	args []any
 }
 
 // MakePatch returns a patch that applies the input
 // statement with the input arguments.
 func MakePatch(statement string, args ...any) Patch {
 	return Patch{
-		run: func(ctx context.Context, tx Tx) error {
-			_, err := tx.ExecContext(ctx, statement, args...)
-			return errors.Capture(err)
-		},
 		hash: computeHash(statement),
 		stmt: statement,
+		args: args,
 	}
+}
+
+func (p Patch) run(ctx context.Context, tx Tx) error {
+	_, err := tx.ExecContext(ctx, p.stmt, p.args...)
+	return errors.Capture(err)
 }
 
 // Hook is a callback that gets fired before an update gets applied.
@@ -91,21 +93,20 @@ type ChangeSet struct {
 // updates are tracked in the 'schema' table, which gets automatically
 // created).
 //
-// If no error occurs, the integer returned by this method is the
-// initial version that the schema has been upgraded from.
+// The returned ChangeSet contains the prior and new schema version numbers.
 func (s *Schema) Ensure(ctx context.Context, runner database.TxnRunner) (ChangeSet, error) {
 	current, post := -1, -1
 
 	// Make a copy of the patches and apply the hook to each statement.
 	// We want to do this before computing hashes.
 	toApply := make([]Patch, len(s.patches))
-	copy(toApply, s.patches)
-	for i, patch := range toApply {
+	for i, patch := range s.patches {
 		var err error
-		toApply[i].stmt, err = s.hook(i, patch.stmt)
+		patch.stmt, err = s.hook(i, patch.stmt)
 		if err != nil {
 			return ChangeSet{}, errors.Errorf("applying hook for patch %d: %w", i, err)
 		}
+		toApply[i] = patch
 	}
 
 	hashes := computeHashes(toApply)
@@ -120,7 +121,7 @@ func (s *Schema) Ensure(ctx context.Context, runner database.TxnRunner) (ChangeS
 			return errors.Errorf("querying current schema version: %w", err)
 		}
 
-		if err := ensurePatchesAreApplied(ctx, t, current, s.patches, hashes); err != nil {
+		if err := ensurePatchesAreApplied(ctx, t, current, toApply, hashes); err != nil {
 			return errors.Errorf("applying schema patches: %w", err)
 		}
 
