@@ -29,7 +29,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -314,26 +313,16 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 	return result, nil
 }
 
-// MongoIsMaster is called by the IsMaster API call
-// instead of mongo.IsMaster. It exists so it can
-// be overridden by tests.
-var MongoIsMaster = mongo.IsMaster
-
-func (api *AgentAPI) IsMaster(ctx context.Context) (params.IsMasterResult, error) {
+// IsMaster is unused and should be removed
+// with the next version of this facade.
+func (api *AgentAPI) IsMaster(_ context.Context) (params.IsMasterResult, error) {
 	if !api.auth.AuthController() {
 		return params.IsMasterResult{}, apiservererrors.ErrPerm
 	}
 
-	switch tag := api.auth.GetAuthTag().(type) {
+	switch _ := api.auth.GetAuthTag().(type) {
 	case names.MachineTag:
-		machine, err := api.st.Machine(tag.Id())
-		if err != nil {
-			return params.IsMasterResult{}, apiservererrors.ErrPerm
-		}
-
-		session := api.st.MongoSession()
-		isMaster, err := MongoIsMaster(session, machine)
-		return params.IsMasterResult{Master: isMaster}, err
+		return params.IsMasterResult{}, nil
 	default:
 		return params.IsMasterResult{}, errors.Errorf("authenticated entity is not a Machine")
 	}

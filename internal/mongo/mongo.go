@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 
-	"github.com/juju/juju/core/network"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/packaging/dependency"
 	"github.com/juju/juju/internal/service/common"
@@ -37,9 +35,6 @@ var logger = internallogger.GetLogger("juju.mongo")
 type StorageEngine string
 
 const (
-	// JujuDbSnap is the snap of MongoDB that Juju uses.
-	JujuDbSnap = "juju-db"
-
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
 )
@@ -47,54 +42,6 @@ const (
 // JujuDbSnapMongodPath is the path that the juju-db snap
 // makes mongod available at
 var JujuDbSnapMongodPath = "/snap/bin/juju-db.mongod"
-
-// WithAddresses represents an entity that has a set of
-// addresses. e.g. a state Machine object
-type WithAddresses interface {
-	Addresses() network.SpaceAddresses
-}
-
-// IsMaster returns a boolean that represents whether the given
-// machine's peer address is the primary mongo host for the replicaset
-var IsMaster = isMaster
-
-func isMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
-	addrs := obj.Addresses()
-
-	masterHostPort, err := replicaset.MasterHostPort(session)
-
-	// If the replica set has not been configured, then we
-	// can have only one master and the caller must
-	// be that master.
-	if err == replicaset.ErrMasterNotConfigured {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	masterAddr, _, err := net.SplitHostPort(masterHostPort)
-	if err != nil {
-		return false, err
-	}
-
-	for _, addr := range addrs {
-		if addr.Value == masterAddr {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// SelectPeerAddress returns the address to use as the mongo replica set peer
-// address by selecting it from the given addresses.
-// If no addresses are available an empty string is returned.
-func SelectPeerAddress(addrs network.ProviderAddresses) string {
-	// The second bool result is ignored intentionally (we return an empty
-	// string if no suitable address is available.)
-	addr, _ := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
-	return addr.Value
-}
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
 // for use with Mongo replica sets.

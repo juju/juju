@@ -477,7 +477,8 @@ func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs ne
 		}
 	}
 
-	peerAddr := mongo.SelectPeerAddress(addrs)
+	localAddr, _ := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
+	peerAddr := localAddr.Value
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
