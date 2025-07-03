@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/logger"
-	"github.com/juju/juju/internal/worker/machineundertaker"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modellife"
@@ -430,12 +429,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:        providerTrackerName,
 			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.instancepoller"),
-		})),
-		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   providerTrackerName,
-			NewWorker:     machineundertaker.NewWorker,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		})),
 	}
 
