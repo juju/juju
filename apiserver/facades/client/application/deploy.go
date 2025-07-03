@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/internal/charms"
+	coreapplication "github.com/juju/juju/core/application"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
@@ -25,6 +26,7 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
@@ -167,6 +169,9 @@ func DeployApplication(
 			return nil, errors.Trace(err)
 		}
 
+		attrs := args.ApplicationConfig.Attributes()
+		trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
+
 		applicationArg := applicationservice.AddApplicationArgs{
 			ReferenceName:    chURL.Name,
 			Storage:          args.Storage,
@@ -177,6 +182,9 @@ func DeployApplication(
 			ApplicationStatus: &status.StatusInfo{
 				Status: status.Unset,
 				Since:  ptr(clock.Now()),
+			},
+			ApplicationSettings: application.ApplicationSettings{
+				Trust: trust,
 			},
 		}
 		if modelType == coremodel.CAAS {
