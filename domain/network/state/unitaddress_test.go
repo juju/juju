@@ -200,8 +200,6 @@ func (s *unitAddressSuite) TestGetControllerUnitUUIDByName(c *tc.C) {
 	// The unit uuid and name are the same in addUnit.
 	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
-	s.DumpTable(c, "unit", "application", "application_controller")
-
 	// Act:
 	uuid, err := s.state.GetControllerUnitUUIDByName(c.Context(), coreunit.Name(unitUUID))
 

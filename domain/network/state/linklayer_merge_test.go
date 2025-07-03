@@ -1068,36 +1068,6 @@ func (s *mergeLinkLayerSuite) TestMergeLinkLayerDeviceAddressAlreadyHasCorrectSu
 
 // helpers
 
-// addNetNode adds a net_node to the database and returns its UUID.
-func (s *mergeLinkLayerSuite) addNetNode(c *tc.C) string {
-	nodeUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-			INSERT INTO net_node (uuid)
-			VALUES (?)`, nodeUUID)
-	return nodeUUID
-}
-
-// addLinkLayerDevice adds a link layer device to the database and returns its UUID.
-func (s *mergeLinkLayerSuite) addLinkLayerDevice(
-	c *tc.C, netNodeUUID, name, macAddress string,
-	deviceType corenetwork.LinkLayerDeviceType,
-) string {
-	deviceUUID := "device-" + name + "-uuid"
-
-	deviceTypeID, err := encodeDeviceType(deviceType)
-	c.Assert(err, tc.ErrorIsNil)
-
-	mtu := int64(1500)
-
-	s.query(c, `
-		INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id, is_auto_start, is_enabled, is_default_gateway, gateway_address, vlan_tag)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, deviceUUID, netNodeUUID, name, mtu, macAddress, deviceTypeID, 0, true,
-		true, false, nil, 0)
-
-	return deviceUUID
-}
-
 // addProviderSubnet adds a provider subnet to the database.
 func (s *mergeLinkLayerSuite) addProviderSubnet(
 	c *tc.C, providerID, subnetUUID string,

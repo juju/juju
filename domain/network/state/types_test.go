@@ -25,7 +25,12 @@ func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *tc.C) {
 	dev := getNetInterface()
 
 	nicDML, dnsSearch, dnsAddr, err :=
-		netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
+		netInterfaceToDML(
+			dev,
+			"some-node-uuid",
+			map[string]string{"eth0": "some-device-uuid"},
+			getNetAddressTypes(),
+		)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(nicDML, tc.DeepEquals, linkLayerDeviceDML{
@@ -66,7 +71,7 @@ func (s *typesSuite) TestNetInterfaceToDMLBadDeviceTypeError(c *tc.C) {
 
 	_, _, _, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{
 		"eth0": "some-device-uuid",
-	})
+	}, getNetAddressTypes())
 	c.Assert(err, tc.ErrorMatches, "unsupported device type.*")
 }
 
@@ -74,7 +79,7 @@ func (s *typesSuite) TestNetInterfaceToDMLBadVirtualPortTypeError(c *tc.C) {
 	dev := getNetInterface()
 	dev.VirtualPortType = "bad-type"
 
-	_, _, _, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"})
+	_, _, _, err := netInterfaceToDML(dev, "some-node-uuid", map[string]string{"eth0": "some-device-uuid"}, getNetAddressTypes())
 	c.Assert(err, tc.ErrorMatches, "unsupported virtual port type.*")
 }
 
@@ -82,7 +87,7 @@ func (s *typesSuite) TestNetAddrToDMLSuccess(c *tc.C) {
 	addr := getNetAddr()
 
 	dml, err := netAddrToDML(
-		addr, "some-node-uuid", "some-device-uuid", map[string]string{"10.0.0.13/24": "some-addr-uuid"})
+		addr, "some-node-uuid", "some-device-uuid", map[string]string{"10.0.0.13/24": "some-addr-uuid"}, getNetAddressTypes())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(dml, tc.DeepEquals, ipAddressDML{
@@ -105,7 +110,7 @@ func (s *typesSuite) TestNetAddrToDMLBadAddressTypeError(c *tc.C) {
 	addr.AddressType = "bad-type"
 
 	_, err := netAddrToDML(
-		addr, "some-node-uuid", "some-device-uuid", map[string]string{"10.0.0.13/24": "some-addr-uuid"})
+		addr, "some-node-uuid", "some-device-uuid", map[string]string{"10.0.0.13/24": "some-addr-uuid"}, getNetAddressTypes())
 	c.Assert(err, tc.ErrorMatches, "unsupported address type.*")
 }
 
@@ -152,6 +157,31 @@ func getNetAddr() network.NetAddr {
 		// additional *DML types.
 
 		ProviderID: nil,
+	}
+}
+
+// getNetAddressTypes returns the minimal config needed
+// for these tests.
+func getNetAddressTypes() nameToIDTable {
+	return nameToIDTable{
+		DeviceMap: map[corenetwork.LinkLayerDeviceType]int{
+			corenetwork.EthernetDevice: 2,
+		},
+		PortMap: map[corenetwork.VirtualPortType]int{
+			corenetwork.OvsPort: 1,
+		},
+		AddrMap: map[corenetwork.AddressType]int{
+			corenetwork.IPv4Address: 0,
+		},
+		AddrConfigMap: map[corenetwork.AddressConfigType]int{
+			corenetwork.ConfigDHCP: 1,
+		},
+		OriginMap: map[corenetwork.Origin]int{
+			corenetwork.OriginMachine: 0,
+		},
+		ScopeMap: map[corenetwork.Scope]int{
+			corenetwork.ScopeCloudLocal: 2,
+		},
 	}
 }
 

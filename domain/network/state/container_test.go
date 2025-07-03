@@ -198,8 +198,11 @@ func (s *containerSuite) addCharmRelation(c *tc.C, charmUUID corecharm.ID, r cha
 	charmRelationUUID := uuid.MustNewUUID().String()
 	s.query(c, `
 INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id) 
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`, charmRelationUUID, charmUUID, r.Name, encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, encodeScopeID(r.Scope))
+VALUES (?, ?, ?,
+       (SELECT id FROM charm_relation_role WHERE name = ?),
+       ?, ?, ?,
+       (SELECT id FROM charm_relation_scope WHERE name = ?))
+`, charmRelationUUID, charmUUID, r.Name, r.Role, r.Interface, r.Optional, r.Limit, r.Scope)
 	return charmRelationUUID
 }
 
@@ -237,23 +240,4 @@ INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uu
 VALUES (?, ?, ?, ?, ?, ?)
 `, unitUUID, unitName, 0 /* alive */, appUUID, charmUUID, nodeUUID)
 	return unitUUID
-}
-
-// encodeRoleID returns the ID used in the database for the given charm role.
-// This reflects the contents of the charm_relation_role table.
-func encodeRoleID(role charm.RelationRole) int {
-	return map[charm.RelationRole]int{
-		charm.RoleProvider: 0,
-		charm.RoleRequirer: 1,
-		charm.RolePeer:     2,
-	}[role]
-}
-
-// encodeScopeID returns the ID used in the database for the given charm scope.
-// This reflects the contents of the charm_relation_scope table.
-func encodeScopeID(role charm.RelationScope) int {
-	return map[charm.RelationScope]int{
-		charm.ScopeGlobal:    0,
-		charm.ScopeContainer: 1,
-	}[role]
 }

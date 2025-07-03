@@ -103,17 +103,17 @@ func (s *linkLayerBaseSuite) addLinkLayerDevice(
 ) string {
 	deviceUUID := "device-" + name + "-uuid"
 
-	deviceTypeID, err := encodeDeviceType(deviceType)
-	c.Assert(err, tc.ErrorIsNil)
-
 	mtu := int64(1500)
 
 	s.query(c, `
 INSERT INTO link_layer_device (
 	uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id, 
     is_auto_start, is_enabled, is_default_gateway, gateway_address, vlan_tag)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, deviceUUID, netNodeUUID, name, mtu, macAddress, deviceTypeID, 0, true,
+VALUES (?, ?, ?, ?, ?,
+       (SELECT id FROM link_layer_device_type WHERE name = ?),
+       (SELECT id FROM virtual_port_type WHERE name = ""),
+       ?, ?, ?, ?, ?)
+	`, deviceUUID, netNodeUUID, name, mtu, macAddress, deviceType, true,
 		true, false, nil, 0)
 
 	return deviceUUID
