@@ -19,10 +19,17 @@ import (
 
 // createFilesystems creates filesystems with the specified parameters.
 func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesystemOp) error {
+	ctx.config.Logger.Debugf("alvin creating filesystems ops: %+v", ops)
 	filesystemParams := make([]storage.FilesystemParams, 0, len(ops))
 	for _, op := range ops {
 		filesystemParams = append(filesystemParams, op.args)
 	}
+
+	ctx.config.Logger.Debugf("alvin storagedir: %+v", ctx.config.StorageDir)
+	ctx.config.Logger.Debugf("alvin filesystemParams: %+v", filesystemParams)
+	ctx.config.Logger.Debugf("alvin managedFilesystemSource: %+v", ctx.managedFilesystemSource)
+	ctx.config.Logger.Debugf("alvin registry: %+v", ctx.config.Registry)
+
 	paramsBySource, filesystemSources, err := filesystemParamsBySource(
 		ctx.config.StorageDir,
 		filesystemParams,
@@ -32,6 +39,9 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 	if err != nil {
 		return errors.Trace(err)
 	}
+	ctx.config.Logger.Debugf("alvin parmsBySource: %+v", paramsBySource)
+	ctx.config.Logger.Debugf("alvin filesystemSources: %+v", filesystemSources)
+
 	var reschedule []scheduleOp
 	var filesystems []storage.Filesystem
 	var statuses []params.EntityStatusArgs
@@ -69,7 +79,10 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 				Status: status.Attaching.String(),
 			})
 			entityStatus := &statuses[len(statuses)-1]
+			ctx.config.Logger.Debugf("alvin CreateFileSystems result: %+v", result)
+
 			if result.Error != nil {
+				ctx.config.Logger.Debugf("alvin CreateFileSystems Error: %v", result.Error)
 				// Reschedule the filesystem creation.
 				reschedule = append(reschedule, ops[filesystemParams[i].Tag])
 
@@ -86,6 +99,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 				)
 				continue
 			}
+			ctx.config.Logger.Debugf("alvin CreateFileSystems Success")
 			filesystems = append(filesystems, *result.Filesystem)
 		}
 	}

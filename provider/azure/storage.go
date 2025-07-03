@@ -4,10 +4,7 @@
 package azure
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"os/exec"
 	"path"
 	"sync"
 
@@ -409,7 +406,7 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 
 const (
 	azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
-	nvmeDiskDeviceLink  = "/dev/disk/by-path/acpi-MSFT1000:00-pci-c05b:00:00.0-nvme-%d" // +2 to actual lun
+	nvmeDiskDeviceLink  = "/dev/nvme0n%d" // +2 to actual lun
 )
 
 func (v *azureVolumeSource) attachVolume(
@@ -431,15 +428,6 @@ func (v *azureVolumeSource) attachVolume(
 		}
 	}
 
-	output, err := exec.Command(
-		"udevadm", "control",
-		"--reload-rules",
-	).CombinedOutput()
-	s := bufio.NewScanner(bytes.NewReader(output))
-	for s.Scan() {
-		line := s.Text()
-		logger.Infof("alvin line: %s", line)
-	}
 	isSCSI := true
 
 	if diskControllerType != nil && *diskControllerType == armcompute.DiskControllerTypesNVMe {
