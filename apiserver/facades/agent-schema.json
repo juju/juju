@@ -660,9 +660,6 @@
                         "private-key": {
                             "type": "string"
                         },
-                        "shared-secret": {
-                            "type": "string"
-                        },
                         "state-port": {
                             "type": "integer"
                         },
@@ -677,7 +674,6 @@
                         "cert",
                         "private-key",
                         "ca-private-key",
-                        "shared-secret",
                         "system-identity"
                     ]
                 }
