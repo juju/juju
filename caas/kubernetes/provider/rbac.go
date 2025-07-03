@@ -232,14 +232,26 @@ func (k *kubernetesClient) ensureServiceAccount(sa *core.ServiceAccount) (out *c
 	if !errors.IsAlreadyExists(err) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listServiceAccount(sa.GetLabels())
+
+	existing, err := k.getServiceAccount(sa.GetName())
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// sa.Name is already used for an existing service account.
-			return nil, cleanups, errors.AlreadyExistsf("service account %q", sa.GetName())
-		}
 		return nil, cleanups, errors.Trace(err)
 	}
+
+	if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
+		return nil, cleanups, errors.Errorf("service account %q exists and is not managed by Juju", sa.GetName())
+	}
+	// A "operator.juju.is/name" label might exist if this is for a model operator.
+	if existingNameValue, ok := existing.Labels[constants.LabelJujuOperatorName]; ok &&
+		existingNameValue != sa.Labels[constants.LabelJujuOperatorName] {
+		return nil, cleanups, errors.Errorf("service account %q exists and is not used by a Juju model operator", sa.GetName())
+	}
+	// A "app.kubernetes.io/name" label might exist if this is for an application.
+	if existingNameValue, ok := existing.Labels[constants.LabelKubernetesAppName]; ok &&
+		existingNameValue != sa.Labels[constants.LabelKubernetesAppName] {
+		return nil, cleanups, errors.Errorf("service account %q exists and diverges from the Juju application", sa.GetName())
+	}
+
 	out, err = k.updateServiceAccount(sa)
 	logger.Debugf("updating service account %q", sa.GetName())
 	return out, cleanups, errors.Trace(err)
@@ -283,23 +295,6 @@ func (k *kubernetesClient) deleteServiceAccounts(selectors ...k8slabels.Selector
 	return nil
 }
 
-func (k *kubernetesClient) listServiceAccount(labels map[string]string) ([]core.ServiceAccount, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(labels).String(),
-	}
-	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(saList.Items) == 0 {
-		return nil, errors.NotFoundf("service account with labels %v", labels)
-	}
-	return saList.Items, nil
-}
-
 func (k *kubernetesClient) createRole(role *rbacv1.Role) (*rbacv1.Role, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
@@ -333,14 +328,26 @@ func (k *kubernetesClient) ensureRole(role *rbacv1.Role) (out *rbacv1.Role, clea
 	if !errors.IsAlreadyExists(err) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listRoles(utils.LabelsToSelector(role.GetLabels()))
+
+	existing, err := k.getRole(role.GetName())
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// role.Name is already used for an existing role.
-			return nil, cleanups, errors.AlreadyExistsf("role %q", role.GetName())
-		}
 		return nil, cleanups, errors.Trace(err)
 	}
+
+	if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
+		return nil, cleanups, errors.Errorf("role %q exists and is not managed by Juju", role.GetName())
+	}
+	// A "operator.juju.is/name" label might exist if this is for a model operator.
+	if existingNameValue, ok := existing.Labels[constants.LabelJujuOperatorName]; ok &&
+		existingNameValue != role.Labels[constants.LabelJujuOperatorName] {
+		return nil, cleanups, errors.Errorf("role %q exists and is not used by a Juju model operator", role.GetName())
+	}
+	// A "app.kubernetes.io/name" label might exist if this is for an application.
+	if existingNameValue, ok := existing.Labels[constants.LabelKubernetesAppName]; ok &&
+		existingNameValue != role.Labels[constants.LabelKubernetesAppName] {
+		return nil, cleanups, errors.Errorf("role %q exists and diverges from the Juju application", role.GetName())
+	}
+
 	out, err = k.updateRole(role)
 	logger.Debugf("updating role %q", role.GetName())
 	return out, cleanups, errors.Trace(err)
@@ -385,23 +392,6 @@ func (k *kubernetesClient) deleteRoles(selectors ...k8slabels.Selector) error {
 		}
 	}
 	return nil
-}
-
-func (k *kubernetesClient) listRoles(selector k8slabels.Selector) ([]rbacv1.Role, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	listOps := v1.ListOptions{
-		LabelSelector: selector.String(),
-	}
-	rList, err := k.client().RbacV1().Roles(k.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(rList.Items) == 0 {
-		return nil, errors.NotFoundf("role with selector %q", selector)
-	}
-	return rList.Items, nil
 }
 
 func (k *kubernetesClient) deleteClusterRoles(selector k8slabels.Selector) error {

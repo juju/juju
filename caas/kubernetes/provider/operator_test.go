@@ -650,12 +650,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
-			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
+			Return(svcAccount, nil),
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), svcAccount, v1.UpdateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
-			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
+		s.mockRoles.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
+			Return(role, nil),
 		s.mockRoles.EXPECT().Update(gomock.Any(), role, v1.UpdateOptions{}).Return(role, nil),
 		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
 			Return(rb, nil),

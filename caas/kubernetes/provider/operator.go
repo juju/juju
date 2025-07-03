@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -223,8 +222,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Ports: []core.ServicePort{
 				{
 					Protocol:   core.ProtocolTCP,
-					Port:       k8sconstants.JujuExecServerSocketPort,
-					TargetPort: intstr.FromInt(k8sconstants.JujuExecServerSocketPort),
+					Port:       constants.JujuExecServerSocketPort,
+					TargetPort: intstr.FromInt(constants.JujuExecServerSocketPort),
 				},
 			},
 		},
@@ -255,7 +254,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		}
 	} else {
 		configMapLabels := labels
-		if k.LabelVersion() == 0 {
+		if k.LabelVersion() == constants.LegacyLabelVersion {
 			configMapLabels = k.getConfigMapLabels(appName)
 		}
 		cmCleanUp, err := k.ensureConfigMapLegacy(
@@ -348,8 +347,8 @@ func (k *kubernetesClient) operatorVolumeClaim(
 		}
 		return existingClaim, nil
 	}
-	if storageParams.Provider != k8sconstants.StorageProviderType {
-		return nil, errors.Errorf("expected charm storage provider %q, got %q", k8sconstants.StorageProviderType, storageParams.Provider)
+	if storageParams.Provider != constants.StorageProviderType {
+		return nil, errors.Errorf("expected charm storage provider %q, got %q", constants.StorageProviderType, storageParams.Provider)
 	}
 
 	// Charm needs storage so set it up.
@@ -381,7 +380,7 @@ func (k *kubernetesClient) operatorVolumeClaim(
 }
 
 func (k *kubernetesClient) validateOperatorStorage() (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[k8sconstants.OperatorStorageKey].(string)
+	storageClass, _ := k.Config().AllAttrs()[constants.OperatorStorageKey].(string)
 	if storageClass == "" {
 		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
 	}
@@ -589,7 +588,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -601,7 +600,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		configMapName = "juju-" + configMapName
 	}
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -645,7 +644,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		for _, volName := range volumeNames {
 			logger.Infof("deleting operator PV %s for application %s due to call to kubernetesClient.DeleteOperator", volName, appName)
 			err = pvs.Delete(context.TODO(), volName, v1.DeleteOptions{
-				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+				PropagationPolicy: constants.DefaultPropagationPolicy(),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "deleting operator persistent volume %v for %v",
@@ -809,9 +808,9 @@ func operatorPod(
 	mountToken := true
 	env := []core.EnvVar{
 		{Name: "JUJU_APPLICATION", Value: appName},
-		{Name: k8sconstants.OperatorServiceIPEnvName, Value: operatorServiceIP},
+		{Name: constants.OperatorServiceIPEnvName, Value: operatorServiceIP},
 		{
-			Name: k8sconstants.OperatorPodIPEnvName,
+			Name: constants.OperatorPodIPEnvName,
 			ValueFrom: &core.EnvVarSource{
 				FieldRef: &core.ObjectFieldSelector{
 					FieldPath: "status.podIP",
@@ -819,7 +818,7 @@ func operatorPod(
 			},
 		},
 		{
-			Name: k8sconstants.OperatorNamespaceEnvName,
+			Name: constants.OperatorNamespaceEnvName,
 			ValueFrom: &core.EnvVarSource{
 				FieldRef: &core.ObjectFieldSelector{
 					FieldPath: "metadata.namespace",
@@ -883,8 +882,8 @@ func operatorPod(
 				Env: env,
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
-					MountPath: filepath.Join(agent.Dir(agentPath, appTag), k8sconstants.TemplateFileNameAgentConf),
-					SubPath:   k8sconstants.TemplateFileNameAgentConf,
+					MountPath: filepath.Join(agent.Dir(agentPath, appTag), constants.TemplateFileNameAgentConf),
+					SubPath:   constants.TemplateFileNameAgentConf,
 				}, {
 					Name:      configVolName,
 					MountPath: filepath.Join(agent.Dir(agentPath, appTag), caas.OperatorInfoFile),
@@ -903,7 +902,7 @@ func operatorPod(
 						},
 						Items: []core.KeyToPath{{
 							Key:  operatorConfigMapAgentConfKey(appName),
-							Path: k8sconstants.TemplateFileNameAgentConf,
+							Path: constants.TemplateFileNameAgentConf,
 						}, {
 							Key:  caas.OperatorInfoFile,
 							Path: caas.OperatorInfoFile,
@@ -920,7 +919,7 @@ func operatorPod(
 	}
 	if operatorImageDetails.IsPrivate() {
 		pod.Spec.ImagePullSecrets = []core.LocalObjectReference{
-			{Name: k8sconstants.CAASImageRepoSecretName},
+			{Name: constants.CAASImageRepoSecretName},
 		}
 	}
 	return pod, nil
