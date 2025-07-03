@@ -1,14 +1,14 @@
 (juju_statepool_report)=
 # `juju_statepool_report`
 
-The statepool report shows the internal details of the pool of mongo sessions
-used to provide mongo connectivity for each model. This primarily a diagnostic
+`juju_statepool_report` shows the internal details of the pool of MongoDB sessions
+used to provide MongoDB connectivity for each model. This primarily a diagnostic
 tool for developers. As such, enabling the `developer-mode` feature flag results
 in the addition of a stack trace for each pooled state showing the orign of
 that state's acquisition.
 
 ## Usage
-Must be run on a juju controller machine.
+Must be run on a Juju controller machine.
 ```code
 juju_statepool_report
 ```

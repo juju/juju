@@ -1,15 +1,15 @@
 (juju_presence_report)=
 # `juju_presence_report`
 
-The presence report shows the status of juju agent connections to a controller
+`juju_presence_report` shows the status of Juju agent connections to a controller
 and can be used to establish a view on which agents are "alive". A connection
-is registered whenever an agent logs in to the api server on the machine on
+is registered whenever an agent logs in to the API server on the machine on
 which the report is generated.
 
 The agents for each model are listed together beneath the UUID of that model.
 
 ## Usage
-Must be run on a juju controller machine.
+Must be run on a Juju controller machine.
 ```code
 juju_presence_report
 ```

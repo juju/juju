@@ -1,13 +1,13 @@
 (juju_statetracker_report)=
 # `juju_statetracker_report`
 
-The statetracker report is built using the Go runtime profiling infrastructure.
-This primarily a diagnostic tool for developers. Whenever a new mongo state
+`juju_statetracker_report` is built using the Go runtime profiling infrastructure.
+This primarily a diagnostic tool for developers. Whenever a new MongoDB state
 instance is created, the execution stack is added to the statetracker profile.
 The report displays the content of that profile.
 
 ## Usage
-Must be run on a juju controller machine.
+Must be run on a Juju controller machine.
 ```code
 juju_statetracker_report
 ```
