@@ -155,7 +155,9 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
 // }
 
 func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) {
-	_, err := s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
+	_, mName0, err := s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+		Nonce: ptr("nonce-123"),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.AssertChangeStreamIdle(c)
@@ -164,7 +166,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 
-	watcherC.AssertChange("0")
+	watcherC.AssertChange(mName0.String())
 }
 
 func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
@@ -172,19 +174,22 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
+	var mName0 machine.Name
 	harness.AddTest(func(c *tc.C) {
 		var err error
-		_, err = s.svc.CreateMachine(c.Context(), "0", ptr("nonce-123"))
+		_, mName0, err = s.svc.CreateMachine(c.Context(), service.CreateMachineArgs{
+			Nonce: ptr("nonce-123"),
+		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.SliceAssert([]string{"0"}))
+		w.Check(watchertest.SliceAssert([]string{mName0.String()}))
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		err := s.svc.SetMachineLife(c.Context(), "0", life.Dying)
+		err := s.svc.SetMachineLife(c.Context(), mName0, life.Dying)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.SliceAssert([]string{"0"}))
+		w.Check(watchertest.SliceAssert([]string{mName0.String()}))
 	})
 
 	harness.AddTest(func(c *tc.C) {

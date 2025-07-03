@@ -133,12 +133,8 @@ type machineUUID struct {
 }
 
 type machineInstanceUUID struct {
-<<<<<<< HEAD
-	MachineUUID machine.UUID `db:"machine_uuid"`
-	LifeID      int64        `db:"life_id"`
-=======
 	MachineUUID string `db:"machine_uuid"`
->>>>>>> fa58f6dc6f (feat: pass machine uuid to state layer machine creation methods)
+	LifeID      int64  `db:"life_id"`
 }
 
 type count struct {

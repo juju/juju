@@ -244,7 +244,7 @@ func (s *serviceSuite) TestGetInstanceIDByMachineNameSuccess(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID).Return("i-foo", nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID.String()).Return("i-foo", nil)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceIDByMachineName(c.Context(), machine.Name("666"))
@@ -267,7 +267,7 @@ func (s *serviceSuite) TestGetInstanceIDByMachineNameNotProvisioned(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID).Return("", machineerrors.NotProvisioned)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID.String()).Return("", machineerrors.NotProvisioned)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceIDByMachineName(c.Context(), machine.Name("666"))

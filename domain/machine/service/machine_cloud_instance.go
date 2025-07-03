@@ -39,7 +39,7 @@ func (s *Service) GetInstanceIDByMachineName(ctx context.Context, machineName ma
 	if err != nil {
 		return "", errors.Errorf("retrieving machine UUID for machine %q: %w", machineName, err)
 	}
-	instanceId, err := s.st.GetInstanceID(ctx, machineUUID)
+	instanceId, err := s.st.GetInstanceID(ctx, machineUUID.String())
 	if err != nil {
 		return "", errors.Errorf("retrieving cloud instance id for machine %q: %w", machineUUID, err)
 	}
