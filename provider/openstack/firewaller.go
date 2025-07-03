@@ -173,20 +173,6 @@ func instServerID(inst instances.Instance) (string, error) {
 	return openstackName[lastDashPos+1:], nil
 }
 
-func (c *neutronFirewaller) deleteSecurityGroupsMatchingName(
-	ctx context.ProviderCallContext,
-	deleteSecurityGroups func(ctx context.ProviderCallContext, groups []neutron.SecurityGroupV2, match func(name string) bool) error,
-	match func(name string) bool,
-) error {
-	neutronClient := c.environ.neutron()
-	securityGroups, err := neutronClient.ListSecurityGroupsV2()
-	if err != nil {
-		handleCredentialError(err, ctx)
-		return errors.Annotate(err, "cannot list security groups")
-	}
-	return deleteSecurityGroups(ctx, securityGroups, match)
-}
-
 // deleteSecurityGroup attempts to delete the security group. Should it fail,
 // the deletion is retried due to timing issues in openstack. A security group
 // cannot be deleted while it is in use. Theoretically we terminate all the
