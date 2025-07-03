@@ -208,6 +208,8 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 		UUID: model.UUID(coretesting.ModelTag.Id()),
 	}
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
+	s.modelInfoService.EXPECT().ResolveConstraints(gomock.Any(), constraints.Value{}).Return(constraints.Value{}, nil)
+
 	s.applicationService.EXPECT().GetApplicationScale(gomock.Any(), "gitlab").Return(3, nil)
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(coreapplication.ID("deadbeef"), nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(constraints.Value{}, nil)
