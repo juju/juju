@@ -1226,6 +1226,12 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, machines []
 		// before the machine has completed provisioning we can defer
 		// it until it does.
 		task.machinesMutex.Lock()
+		if _, alreadyStarting := task.machinesStarting[m.Id()]; alreadyStarting {
+			task.machinesMutex.Unlock()
+			task.logger.Debugf(ctx, "machine %q already being started", m.Id())
+			// Already being started, skip.
+			continue
+		}
 		task.machinesStarting[m.Id()] = true
 		task.machinesMutex.Unlock()
 

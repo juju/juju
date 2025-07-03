@@ -333,7 +333,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	select {
 	case instID := <-instanceStart:
 		// This is a hack, only needed to continue using the hand-made mock machine
-		// API, which should dissappear soon.
+		// API, which should disappear soon.
 		m666.SetInstanceInfo(c.Context(), instance.Id(instID), "", "", nil, nil, nil, nil, nil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for instance to start")

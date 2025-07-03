@@ -900,6 +900,83 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 	workertest.CleanKill(c, task)
 }
 
+func (s *ProvisionerTaskSuite) TestDedupStartInstance(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	s.instances = []instances.Instance{&testInstance{id: "instance-0"}}
+
+	m0 := &testMachine{
+		c:           c,
+		id:          "0",
+		life:        life.Alive,
+		constraints: "zones=az1",
+	}
+
+	broker := s.setUpZonedEnviron(ctrl, m0)
+
+	// Synchronization primitives to control the race.
+	startedCh := make(chan struct{})
+	continueCh := make(chan struct{})
+	doneCh := make(chan struct{})
+
+	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1")
+	broker.EXPECT().DeriveAvailabilityZones(gomock.Any(), azConstraints).Return([]string{}, nil).AnyTimes()
+	broker.EXPECT().StartInstance(gomock.Any(), azConstraints).DoAndReturn(func(ctx context.Context, params environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+		// Signal that StartInstance has begun.
+		close(startedCh)
+		// Wait until the test triggers continuation.
+		<-continueCh
+		return &environs.StartInstanceResult{
+			Instance: &testInstance{id: "instance-0"},
+		}, nil
+	}).Times(1) // Should only be called once
+
+	broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
+		c.Assert(len(ids), tc.Equals, 1)
+		c.Assert(ids[0], tc.DeepEquals, instance.Id("instance-0"))
+		close(doneCh)
+		return nil
+	}).Times(1)
+
+	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, nil)
+
+	// Send 3 initial changes to trigger start.
+	// This simulates the watcher triggering multiple times for the same
+	// machine.
+	for range []int{0, 1, 2} {
+		s.sendModelMachinesChange(c, "0")
+	}
+
+	// Wait until StartInstance is in progress.
+	select {
+	case <-startedCh:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for StartInstance to begin")
+	}
+
+	// Simulate concurrent removal: mark as dead and send change.
+	m0.SetLife(life.Dead)
+	s.sendModelMachinesChange(c, "0")
+
+	// Send more rapid triggers after marking as dead.
+	for range []int{0, 1, 2} {
+		s.sendModelMachinesChange(c, "0")
+	}
+
+	// Allow StartInstance to complete.
+	close(continueCh)
+
+	// Wait for StopInstances to be called.
+	select {
+	case <-doneCh:
+	case <-time.After(3 * coretesting.LongWait):
+		c.Fatalf("timed out waiting for StopInstances to complete")
+	}
+
+	workertest.CleanKill(c, task)
+}
+
 func (s *ProvisionerTaskSuite) TestResizeWorkerPool(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
