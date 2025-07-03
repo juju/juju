@@ -4,7 +4,7 @@
 package storageprovisioning
 
 // FilesystemAttachmentID is a struct that provides the IDs and names associated
-// with a filesystem attachment. In this case the id refers to the filesystem
+// with a filesystem attachment. In this case the ID refers to the filesystem
 // resource the attachment is for. As well as this the name of the machine and
 // or the unit the attachment is for is also provided.
 //

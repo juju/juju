@@ -14,6 +14,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -72,7 +73,7 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 func (s *filesystemSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID, err := uuid.NewUUID()
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
