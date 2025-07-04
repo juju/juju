@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockcommand"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -95,8 +96,7 @@ type Authorizer interface {
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
 	// CreateMachine creates a machine with the given name.
-	CreateMachine(context.Context, coremachine.Name, *string) (coremachine.UUID, error)
-
+	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (coremachine.UUID, coremachine.Name, error)
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 

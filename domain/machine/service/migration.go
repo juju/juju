@@ -18,24 +18,23 @@ import (
 
 // MigrationState defines the state interface for migration operations.
 type MigrationState interface {
-	// CreateMachine persists the input machine entity.
-	// It returns a MachineAlreadyExists error if a machine with the same name
-	// already exists.
-	CreateMachine(context.Context, coremachine.Name, string, coremachine.UUID, *string) error
+	// InsertMigratingMachine inserts a machine which is taken from the description
+	// model during migration into the machine table.
+	InsertMigratingMachine(ctx context.Context, machineName string, args machine.CreateMachineArgs) error
 
 	// GetMachinesForExport returns all machines in the model for export.
 	GetMachinesForExport(ctx context.Context) ([]machine.ExportMachine, error)
 
 	// GetHardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
-	GetHardwareCharacteristics(context.Context, coremachine.UUID) (*instance.HardwareCharacteristics, error)
-
-	// GetInstanceID returns the cloud specific instance id for this machine.
-	GetInstanceID(context.Context, coremachine.UUID) (string, error)
+	GetHardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(context.Context, coremachine.UUID, instance.Id, string, string, *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error
+
+	// GetInstanceID returns the cloud specific instance id for this machine.
+	GetInstanceID(context.Context, string) (string, error)
 }
 
 // MigrationService provides the API for migrating applications.
@@ -71,11 +70,14 @@ func (s *MigrationService) CreateMachine(ctx context.Context, machineName corema
 	// Make new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
-	nodeUUID, machineUUID, err := createUUIDs()
+	machineUUID, err := createUUIDs()
 	if err != nil {
 		return "", errors.Errorf("creating machine %q: %w", machineName, err)
 	}
-	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID, nonce)
+	err = s.st.InsertMigratingMachine(ctx, machineName.String(), machine.CreateMachineArgs{
+		MachineUUID: machineUUID,
+		Nonce:       nonce,
+	})
 	if err != nil {
 		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)
 	}
@@ -102,7 +104,7 @@ func (s *MigrationService) GetInstanceID(ctx context.Context, machineUUID corema
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	instanceId, err := s.st.GetInstanceID(ctx, machineUUID)
+	instanceId, err := s.st.GetInstanceID(ctx, machineUUID.String())
 	if err != nil {
 		return "", errors.Errorf("retrieving cloud instance id for machine %q: %w", machineUUID, err)
 	}
@@ -115,7 +117,7 @@ func (s *MigrationService) GetHardwareCharacteristics(ctx context.Context, machi
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	hc, err := s.st.GetHardwareCharacteristics(ctx, machineUUID)
+	hc, err := s.st.GetHardwareCharacteristics(ctx, machineUUID.String())
 	if err != nil {
 		return hc, errors.Errorf("retrieving hardware characteristics for machine %q: %w", machineUUID, err)
 	}
@@ -134,7 +136,7 @@ func (s *MigrationService) SetMachineCloudInstance(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, displayName, nonce, hardwareCharacteristics); err != nil {
+	if err := s.st.SetMachineCloudInstance(ctx, machineUUID.String(), instanceID, displayName, nonce, hardwareCharacteristics); err != nil {
 		return errors.Errorf("setting machine cloud instance for machine %q: %w", machineUUID, err)
 	}
 	return nil

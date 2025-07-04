@@ -42,9 +42,11 @@ func (s *placementSuite) SetUpTest(c *tc.C) {
 
 func (s *placementSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *tc.C) {
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type: deployment.PlacementType(666),
-		}, deployment.Platform{}, nil, clock.WallClock)
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementType(666),
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorMatches, `invalid placement type: 666`)
@@ -59,9 +61,11 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
 	)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, machineNames, err = PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{}, nil, clock.WallClock)
+		netNode, machineNames, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -90,9 +94,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
 	}
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, platform, nil, clock.WallClock)
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			Platform: platform,
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -102,15 +109,22 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
 
 func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithNonce(c *tc.C) {
 	nonce := ptr("test-nonce")
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{}, nonce, clock.WallClock)
+	var (
+		machineNames []machine.Name
+		err          error
+	)
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, machineNames, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			Nonce: nonce,
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.checkNonceForMachine(c, machine.Name("0"), nonce)
+	s.checkNonceForMachine(c, machineNames[0], nonce)
 }
 
 func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchitecture(c *tc.C) {
@@ -121,9 +135,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchite
 	}
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, platform, nil, clock.WallClock)
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			Platform: platform,
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -138,9 +155,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingBase(c 
 	}
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, platform, nil, clock.WallClock)
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			Platform: platform,
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -157,9 +177,11 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 	var netNodes []string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNode, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-				Type: deployment.PlacementTypeUnset,
-			}, deployment.Platform{}, nil, clock.WallClock)
+			netNode, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+				Directive: deployment.Placement{
+					Type: deployment.PlacementTypeUnset,
+				},
+			})
 			if err != nil {
 				return err
 			}
@@ -192,9 +214,11 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 	createMachines := func() {
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNode, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-					Type: deployment.PlacementTypeUnset,
-				}, deployment.Platform{}, nil, clock.WallClock)
+				netNode, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+					Directive: deployment.Placement{
+						Type: deployment.PlacementTypeUnset,
+					},
+				})
 				if err != nil {
 					return err
 				}
@@ -217,6 +241,7 @@ WHERE m.net_node_uuid = ?
 			}
 
 			for _, table := range []string{
+				"machine_constraint",
 				"machine_status",
 				"machine_cloud_instance_status",
 				"machine_cloud_instance",
@@ -273,9 +298,11 @@ func (s *placementSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, _, err = PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{}, nil, clock.WallClock)
+		netNode, _, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -286,10 +313,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 	)
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		resultNetNode, machineNames, err = PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type:      deployment.PlacementTypeMachine,
-			Directive: "0",
-		}, deployment.Platform{}, nil, clock.WallClock)
+		resultNetNode, machineNames, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeMachine,
+				Directive: "0",
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -301,10 +330,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C
 	// Try and place a machine that doesn't exist.
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type:      deployment.PlacementTypeMachine,
-			Directive: "0",
-		}, deployment.Platform{}, nil, clock.WallClock)
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeMachine,
+				Directive: "0",
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
@@ -318,10 +349,13 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 	)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, machineNames, err = PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type:      deployment.PlacementTypeContainer,
-			Container: deployment.ContainerTypeLXD,
-		}, deployment.Platform{}, ptr("nonce-ense"), clock.WallClock)
+		netNode, machineNames, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeContainer,
+				Container: deployment.ContainerTypeLXD,
+			},
+			Nonce: ptr("nonce-ense"),
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -348,9 +382,11 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 
 	// Insert a machine with no placement, then place a container on it.
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{}, nil, clock.WallClock)
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -361,11 +397,13 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 	)
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, machineNames, err = PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type:      deployment.PlacementTypeContainer,
-			Container: deployment.ContainerTypeLXD,
-			Directive: "0",
-		}, deployment.Platform{}, nil, clock.WallClock)
+		netNode, machineNames, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeContainer,
+				Container: deployment.ContainerTypeLXD,
+				Directive: "0",
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -385,11 +423,13 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 
 func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNotFound(c *tc.C) {
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type:      deployment.PlacementTypeContainer,
-			Container: deployment.ContainerTypeLXD,
-			Directive: "1",
-		}, deployment.Platform{}, nil, clock.WallClock)
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeContainer,
+				Container: deployment.ContainerTypeLXD,
+				Directive: "1",
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
@@ -404,10 +444,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 	var netNodes []string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNode, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-				Type:      deployment.PlacementTypeContainer,
-				Container: deployment.ContainerTypeLXD,
-			}, deployment.Platform{}, nil, clock.WallClock)
+			netNode, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+				Directive: deployment.Placement{
+					Type:      deployment.PlacementTypeContainer,
+					Container: deployment.ContainerTypeLXD,
+				},
+			})
 			if err != nil {
 				return err
 			}
@@ -444,10 +486,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 	createMachines := func() {
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNode, _, err := PlaceMachine(ctx, tx, s.st, deployment.Placement{
-					Type:      deployment.PlacementTypeContainer,
-					Container: deployment.ContainerTypeLXD,
-				}, deployment.Platform{}, nil, clock.WallClock)
+				netNode, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+					Directive: deployment.Placement{
+						Type:      deployment.PlacementTypeContainer,
+						Container: deployment.ContainerTypeLXD,
+					},
+				})
 				if err != nil {
 					return err
 				}
@@ -477,6 +521,7 @@ WHERE m.net_node_uuid = ?
 			}
 
 			for _, table := range []string{
+				"machine_constraint",
 				"machine_status",
 				"machine_cloud_instance_status",
 				"machine_cloud_instance",
@@ -546,10 +591,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, _, err = PlaceMachine(ctx, tx, s.st, deployment.Placement{
-			Type:      deployment.PlacementTypeProvider,
-			Directive: "zone=eu-west-1",
-		}, deployment.Platform{}, nil, clock.WallClock)
+		netNode, _, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeProvider,
+				Directive: "zone=eu-west-1",
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

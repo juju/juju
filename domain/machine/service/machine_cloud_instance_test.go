@@ -9,7 +9,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -23,7 +22,7 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *tc.C) {
 		CpuCores: uintptr(4),
 		CpuPower: uintptr(75),
 	}
-	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("42")).
+	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), "42").
 		Return(expected, nil)
 
 	hc, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).GetHardwareCharacteristics(c.Context(), "42")
@@ -34,7 +33,7 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *tc.C) {
 func (s *serviceSuite) TestRetrieveHardwareCharacteristicsFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), machine.UUID("42")).
+	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), "42").
 		Return(nil, errors.New("boom"))
 
 	hc, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).GetHardwareCharacteristics(c.Context(), "42")
@@ -45,7 +44,7 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristicsFails(c *tc.C) {
 func (s *serviceSuite) TestRetrieveAvailabilityZone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AvailabilityZone(gomock.Any(), machine.UUID("42")).
+	s.state.EXPECT().AvailabilityZone(gomock.Any(), "42").
 		Return("foo", nil)
 
 	hc, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).AvailabilityZone(c.Context(), "42")
@@ -64,7 +63,7 @@ func (s *serviceSuite) TestSetMachineCloudInstance(c *tc.C) {
 	}
 	s.state.EXPECT().SetMachineCloudInstance(
 		gomock.Any(),
-		machine.UUID("42"),
+		"42",
 		instance.Id("instance-42"),
 		"42",
 		"nonce",
@@ -87,7 +86,7 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
 	}
 	s.state.EXPECT().SetMachineCloudInstance(
 		gomock.Any(),
-		machine.UUID("42"),
+		"42",
 		instance.Id("instance-42"),
 		"42",
 		"nonce",
@@ -102,7 +101,7 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
 func (s *serviceSuite) TestDeleteMachineCloudInstance(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), machine.UUID("42")).Return(nil)
+	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), "42").Return(nil)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).DeleteMachineCloudInstance(c.Context(), "42")
 	c.Assert(err, tc.ErrorIsNil)
@@ -111,7 +110,7 @@ func (s *serviceSuite) TestDeleteMachineCloudInstance(c *tc.C) {
 func (s *serviceSuite) TestDeleteMachineCloudInstanceFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), machine.UUID("42")).Return(errors.New("boom"))
+	s.state.EXPECT().DeleteMachineCloudInstance(gomock.Any(), "42").Return(errors.New("boom"))
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).DeleteMachineCloudInstance(c.Context(), "42")
 	c.Assert(err, tc.ErrorMatches, "deleting machine cloud instance for machine \"42\": boom")

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -594,10 +595,12 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := machinestate.InsertMachineAndNetNode(c.Context(), tx, s.state, machine.Name("0"), deployment.Platform{
-			OSType:       deployment.Ubuntu,
-			Architecture: architecture.ARM64,
-		}, nil, clock.WallClock)
+		_, _, err := machinestate.CreateMachine(c.Context(), tx, s.state, clock.WallClock, domainmachine.CreateMachineArgs{
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Architecture: architecture.ARM64,
+			},
+		})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

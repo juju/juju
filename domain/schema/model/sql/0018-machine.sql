@@ -276,4 +276,40 @@ FROM machine AS m
 JOIN net_node AS n ON m.net_node_uuid = n.uuid
 LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
 LEFT JOIN application AS a ON u.application_uuid = a.uuid
-LEFT JOIN application_controller AS ac ON a.uuid = ac.application_uuid
+LEFT JOIN application_controller AS ac ON a.uuid = ac.application_uuid;
+
+CREATE VIEW v_machine_constraint AS
+SELECT
+    mc.machine_uuid,
+    c.arch,
+    c.cpu_cores,
+    c.cpu_power,
+    c.mem,
+    c.root_disk,
+    c.root_disk_source,
+    c.instance_role,
+    c.instance_type,
+    ctype.value AS container_type,
+    c.virt_type,
+    c.allocate_public_ip,
+    c.image_id,
+    ctag.tag,
+    cspace.space AS space_name,
+    cspace."exclude" AS space_exclude,
+    czone.zone
+FROM machine_constraint AS mc
+JOIN "constraint" AS c ON mc.constraint_uuid = c.uuid
+LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id
+LEFT JOIN constraint_tag AS ctag ON c.uuid = ctag.constraint_uuid
+LEFT JOIN constraint_space AS cspace ON c.uuid = cspace.constraint_uuid
+LEFT JOIN constraint_zone AS czone ON c.uuid = czone.constraint_uuid;
+
+CREATE VIEW v_machine_platform AS
+SELECT
+    mp.machine_uuid,
+    os.name AS os_name,
+    mp.channel,
+    a.name AS architecture
+FROM machine_platform AS mp
+JOIN os ON mp.os_id = os.id
+JOIN architecture AS a ON mp.architecture_id = a.id;

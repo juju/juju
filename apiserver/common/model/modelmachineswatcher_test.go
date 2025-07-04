@@ -8,45 +8,58 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/model"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type modelMachinesWatcherSuite struct {
 	testing.BaseSuite
+
+	machineService  *MockMachineService
+	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
 func TestModelMachinesWatcherSuite(t *stdtesting.T) {
 	tc.Run(t, &modelMachinesWatcherSuite{})
 }
-func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
-	changes := make(chan []string, 1)
-	// Simulate initial event.
-	changes <- f.initial
-	return &fakeStringsWatcher{changes: changes}
+
+func (s *modelMachinesWatcherSuite) setUpMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.machineService = NewMockMachineService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+	return ctrl
 }
 
 func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
+
+	ch := make(chan []string, 1)
+	w := watchertest.NewMockStringsWatcher(ch)
+	ch <- []string{"foo"}
+	s.machineService.EXPECT().WatchModelMachines(gomock.Any()).Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+
 	e := model.NewModelMachinesWatcher(
-		&fakeModelMachinesWatcher{initial: []string{"foo"}},
-		resources,
+		nil,
+		s.machineService,
+		s.watcherRegistry,
 		authorizer,
 	)
 	result, err := e.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{StringsWatcherId: "1", Changes: []string{"foo"}, Error: nil})
-	c.Assert(resources.Count(), tc.Equals, 1)
 }
 
 func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *tc.C) {
@@ -57,38 +70,12 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *tc.C) {
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	e := model.NewModelMachinesWatcher(
-		&fakeModelMachinesWatcher{},
-		resources,
+		nil,
+		s.machineService,
+		s.watcherRegistry,
 		authorizer,
 	)
 	_, err := e.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 	c.Assert(resources.Count(), tc.Equals, 0)
-}
-
-type fakeModelMachinesWatcher struct {
-	state.ModelMachinesWatcher
-	initial []string
-}
-
-type fakeStringsWatcher struct {
-	changes chan []string
-}
-
-func (*fakeStringsWatcher) Stop() error {
-	return nil
-}
-
-func (*fakeStringsWatcher) Kill() {}
-
-func (*fakeStringsWatcher) Wait() error {
-	return nil
-}
-
-func (*fakeStringsWatcher) Err() error {
-	return nil
-}
-
-func (w *fakeStringsWatcher) Changes() <-chan []string {
-	return w.changes
 }

@@ -3,7 +3,11 @@
 
 package machine
 
-import "github.com/juju/juju/core/machine"
+import (
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
+)
 
 const ManualInstancePrefix = "manual:"
 
@@ -13,4 +17,21 @@ type ExportMachine struct {
 	Name  machine.Name
 	UUID  machine.UUID
 	Nonce string
+}
+
+// CreateMachineArgs contains arguments for creating a machine.
+type CreateMachineArgs struct {
+	MachineUUID machine.UUID
+	Constraints constraints.Constraints
+	Directive   deployment.Placement
+	Platform    deployment.Platform
+	Nonce       *string
+}
+
+// PlaceMachineArgs contains arguments for placing a machine.
+type PlaceMachineArgs struct {
+	Constraints constraints.Constraints
+	Directive   deployment.Placement
+	Platform    deployment.Platform
+	Nonce       *string
 }

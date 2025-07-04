@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -1158,7 +1159,13 @@ func (st *State) insertIAASUnit(
 	}
 
 	// Handle the placement of the net node and machines accompanying the unit.
-	nodeUUID, machineNames, err := machinestate.PlaceMachine(ctx, tx, st, args.Placement, args.Platform, args.Nonce, st.clock)
+	placeMachineArgs := domainmachine.PlaceMachineArgs{
+		Constraints: args.Constraints,
+		Directive:   args.Placement,
+		Platform:    args.Platform,
+		Nonce:       args.Nonce,
+	}
+	nodeUUID, machineNames, err := machinestate.PlaceMachine(ctx, tx, st, st.clock, placeMachineArgs)
 	if err != nil {
 		return nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}

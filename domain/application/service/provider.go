@@ -185,9 +185,9 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
 	}
 
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints))
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints), charm.Meta().Subordinate)
 	if err != nil {
-		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("merging IAAS application and model constraints: %w", err)
 	}
 
 	unitArgs, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
@@ -213,7 +213,7 @@ func (s *ProviderService) makeCAASApplicationArg(
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
 	}
 
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints))
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints), charm.Meta().Subordinate)
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
 	}
@@ -543,7 +543,13 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 		return nil, errors.Errorf("getting application %q platform: %w", appName, err)
 	}
 
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
+	// We must get the charm to know if it's a subordinate.
+	charm, err := s.st.GetCharmByApplicationID(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting application %q charm for subordinate: %w", appName, err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons, charm.Metadata.Subordinate)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -597,7 +603,13 @@ func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, unit
 		return nil, errors.Errorf("getting application %q constraints: %w", appName, err)
 	}
 
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
+	// We must get the charm to know if it's a subordinate.
+	charm, err := s.st.GetCharmByApplicationID(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting application %q charm for subordinate: %w", appName, err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons, charm.Metadata.Subordinate)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -754,7 +766,7 @@ func (s *ProviderService) RegisterCAASUnit(
 	return unitName, pass, nil
 }
 
-func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appCons constraints.Constraints) (coreconstraints.Value, error) {
+func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appCons constraints.Constraints, isSubordinate bool) (coreconstraints.Value, error) {
 	// If the provider doesn't support constraints validation, then we can
 	// just return the zero value.
 	validator, err := s.constraintsValidator(ctx)
@@ -767,12 +779,22 @@ func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Contex
 		return coreconstraints.Value{}, errors.Errorf("retrieving model constraints constraints: %w	", err)
 	}
 
-	res, err := validator.Merge(constraints.EncodeConstraints(appCons), constraints.EncodeConstraints(modelCons))
+	mergedCons, err := validator.Merge(constraints.EncodeConstraints(appCons), constraints.EncodeConstraints(modelCons))
 	if err != nil {
 		return coreconstraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
 	}
 
-	return res, nil
+	// Always ensure that we snapshot the application architecture when adding
+	// the application. If no architecture in the constraints, then look at
+	// the model constraints. If no architecture is found in the model, use the
+	// default architecture (amd64).
+	snapshotCons := mergedCons
+	if !isSubordinate && !snapshotCons.HasArch() {
+		a := coreconstraints.ArchOrDefault(snapshotCons, nil)
+		snapshotCons.Arch = &a
+	}
+
+	return snapshotCons, nil
 }
 
 func (s *ProviderService) validateConstraints(ctx context.Context, cons coreconstraints.Value) error {

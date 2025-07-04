@@ -33,6 +33,7 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -1932,7 +1933,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitModelStatusesNoUnits(c *tc.C)
 // TestGetMachineStatusSuccess asserts the happy path of GetMachineStatus at the
 // state layer.
 func (s *modelStateSuite) TestGetMachineStatusSuccess(c *tc.C) {
-	mUUID := s.createMachine(c, "666")
+	mUUID, machineName := s.createMachine(c)
 
 	// Add a status value for this machine into the
 	// machine_status table using the machineUUID and the status
@@ -1948,7 +1949,7 @@ WHERE machine_uuid=?`, mUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedStatus, tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
@@ -1960,7 +1961,7 @@ WHERE machine_uuid=?`, mUUID)
 // TestGetMachineStatusWithData asserts the happy path of GetMachineStatus at
 // the state layer.
 func (s *modelStateSuite) TestGetMachineStatusSuccessWithData(c *tc.C) {
-	mUUID := s.createMachine(c, "666")
+	mUUID, machineName := s.createMachine(c)
 
 	// Add a status value for this machine into the
 	// machine_status table using the machineUUID and the status
@@ -1977,7 +1978,7 @@ WHERE machine_uuid=?`, mUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedStatus, tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
@@ -1997,9 +1998,9 @@ func (s *modelStateSuite) TestGetMachineStatusNotFoundError(c *tc.C) {
 // TestGetMachineStatusPendingOnCreateMachine asserts that a Pending status is
 // returned when creating a machine.
 func (s *modelStateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
-	_ = s.createMachine(c, "666")
+	_, machineName := s.createMachine(c)
 
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedStatus.Status, tc.Equals, status.MachineStatusPending)
 }
@@ -2007,7 +2008,7 @@ func (s *modelStateSuite) TestGetMachineStatusPendingOnCreateMachine(c *tc.C) {
 // TestGetMachineMachineStatusNotFoundError asserts that a Pending status is
 // returned when creating a machine.
 func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
-	mUUID := s.createMachine(c, "666")
+	mUUID, machineName := s.createMachine(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "DELETE FROM machine_status WHERE machine_uuid=?", mUUID)
@@ -2015,21 +2016,21 @@ func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.GetMachineStatus(c.Context(), "666")
+	_, err = s.state.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
 }
 
 func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
-	uuid0 := s.createMachine(c, "666")
-	uuid1 := s.createMachine(c, "777")
-	uuid2 := s.createMachine(c, "888")
+	uuid0, mName0 := s.createMachine(c)
+	uuid1, mName1 := s.createMachine(c)
+	uuid2, mName2 := s.createMachine(c)
 
-	s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
+	s.state.SetMachineStatus(c.Context(), mName0.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
 		Message: "it's started",
 		Data:    []byte(`{"foo": "bar"}`),
 	})
-	s.state.SetMachineStatus(c.Context(), "777", status.StatusInfo[status.MachineStatusType]{
+	s.state.SetMachineStatus(c.Context(), mName1.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusPending,
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -2042,31 +2043,31 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(statuses, tc.HasLen, 3)
-	c.Check(statuses["666"].InstanceStatus.Since, tc.NotNil)
-	c.Check(statuses["777"].InstanceStatus.Since, tc.NotNil)
-	c.Check(statuses["888"].InstanceStatus.Since, tc.NotNil)
+	c.Check(statuses[mName0].InstanceStatus.Since, tc.NotNil)
+	c.Check(statuses[mName1].InstanceStatus.Since, tc.NotNil)
+	c.Check(statuses[mName2].InstanceStatus.Since, tc.NotNil)
 
 	// Clear all since values to make the test deterministic.
-	m := statuses["666"]
+	m := statuses[mName0]
 	m.MachineStatus.Since = nil
 	m.InstanceStatus.Since = nil
-	statuses["666"] = m
+	statuses[mName0] = m
 
-	m = statuses["777"]
+	m = statuses[mName1]
 	m.MachineStatus.Since = nil
 	m.InstanceStatus.Since = nil
-	statuses["777"] = m
+	statuses[mName1] = m
 
-	m = statuses["888"]
+	m = statuses[mName2]
 	m.MachineStatus.Since = nil
 	m.InstanceStatus.Since = nil
-	statuses["888"] = m
+	statuses[mName2] = m
 
 	c.Check(statuses, tc.DeepEquals, map[coremachine.Name]status.Machine{
-		"666": {
+		mName0: {
 			UUID:        uuid0,
-			InstanceID:  "666",
-			DisplayName: "666",
+			InstanceID:  instance.Id(mName0),
+			DisplayName: mName0.String(),
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status:  status.MachineStatusStarted,
 				Message: "it's started",
@@ -2076,8 +2077,8 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Status: status.InstanceStatusPending,
 			},
 			Platform: deployment.Platform{
-				OSType:       -1,
-				Architecture: -1,
+				OSType:       0,
+				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
 				Arch:           ptr("arm64"),
@@ -2089,10 +2090,10 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				VirtType:       ptr("virtual-machine"),
 			},
 		},
-		"777": {
+		mName1: {
 			UUID:        uuid1,
-			InstanceID:  "777",
-			DisplayName: "777",
+			InstanceID:  instance.Id(mName1),
+			DisplayName: mName1.String(),
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status:  status.MachineStatusPending,
 				Message: "it's pending",
@@ -2102,8 +2103,8 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Status: status.InstanceStatusPending,
 			},
 			Platform: deployment.Platform{
-				OSType:       -1,
-				Architecture: -1,
+				OSType:       0,
+				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
 				Arch:           ptr("arm64"),
@@ -2115,10 +2116,10 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				VirtType:       ptr("virtual-machine"),
 			},
 		},
-		"888": {
+		mName2: {
 			UUID:        uuid2,
-			InstanceID:  "888",
-			DisplayName: "888",
+			InstanceID:  instance.Id(mName2),
+			DisplayName: mName2.String(),
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status: status.MachineStatusPending,
 			},
@@ -2126,8 +2127,8 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Status: status.InstanceStatusPending,
 			},
 			Platform: deployment.Platform{
-				OSType:       -1,
-				Architecture: -1,
+				OSType:       0,
+				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
 				Arch:           ptr("arm64"),
@@ -2150,15 +2151,15 @@ func (s *modelStateSuite) TestGetMachineStatusesEmptyModel(c *tc.C) {
 
 func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
 	// Arrange: 2 machine with statuses
-	s.createMachine(c, "666")
-	s.createMachine(c, "777")
+	_, machineName1 := s.createMachine(c)
+	_, machineName2 := s.createMachine(c)
 
-	s.state.SetMachineStatus(c.Context(), "666", status.StatusInfo[status.MachineStatusType]{
+	s.state.SetMachineStatus(c.Context(), machineName1.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
 		Message: "it's started",
 		Data:    []byte(`{"foo": "bar"}`),
 	})
-	s.state.SetMachineStatus(c.Context(), "777", status.StatusInfo[status.MachineStatusType]{
+	s.state.SetMachineStatus(c.Context(), machineName2.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusPending,
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -2170,12 +2171,12 @@ func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.HasLen, 2)
-	c.Check(statuses["666"], tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
+	c.Check(statuses[machineName1.String()], tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
 		Message: "it's started",
 		Data:    []byte(`{"foo": "bar"}`),
 	})
-	c.Check(statuses["777"], tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
+	c.Check(statuses[machineName2.String()], tc.DeepEquals, status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusPending,
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -2191,17 +2192,17 @@ func (s *modelStateSuite) TestGetAllMachineStatusesEmptyModel(c *tc.C) {
 // TestSetMachineStatusSuccess asserts the happy path of SetMachineStatus at the
 // state layer.
 func (s *modelStateSuite) TestSetMachineStatusSuccess(c *tc.C) {
-	_ = s.createMachine(c, "666")
+	_, machineName := s.createMachine(c)
 
 	expectedStatus := status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
 		Message: "started",
 		Since:   ptr(time.Now().UTC()),
 	}
-	err := s.state.SetMachineStatus(c.Context(), "666", expectedStatus)
+	err := s.state.SetMachineStatus(c.Context(), machineName.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
 }
@@ -2209,7 +2210,7 @@ func (s *modelStateSuite) TestSetMachineStatusSuccess(c *tc.C) {
 // TestSetMachineStatusSuccessWithData asserts the happy path of
 // SetMachineStatus at the state layer.
 func (s *modelStateSuite) TestSetMachineStatusSuccessWithData(c *tc.C) {
-	_ = s.createMachine(c, "666")
+	_, machineName := s.createMachine(c)
 
 	expectedStatus := status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
@@ -2217,10 +2218,10 @@ func (s *modelStateSuite) TestSetMachineStatusSuccessWithData(c *tc.C) {
 		Data:    []byte(`{"key": "data"}`),
 		Since:   ptr(time.Now().UTC()),
 	}
-	err := s.state.SetMachineStatus(c.Context(), "666", expectedStatus)
+	err := s.state.SetMachineStatus(c.Context(), machineName.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetMachineStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
 }
@@ -2237,7 +2238,7 @@ func (s *modelStateSuite) TestSetMachineStatusNotFoundError(c *tc.C) {
 // TestGetInstanceStatusSuccess asserts the happy path of InstanceStatus at the
 // state layer.
 func (s *modelStateSuite) TestGetInstanceStatusSuccess(c *tc.C) {
-	machineUUID := s.createMachine(c, "666")
+	machineUUID, machineName := s.createMachine(c)
 
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
@@ -2253,7 +2254,7 @@ WHERE machine_uuid=?`, machineUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
@@ -2266,7 +2267,7 @@ WHERE machine_uuid=?`, machineUUID)
 // TestGetInstanceStatusSuccessWithData asserts the happy path of InstanceStatus
 // at the state layer.
 func (s *modelStateSuite) TestGetInstanceStatusSuccessWithData(c *tc.C) {
-	machineUUID := s.createMachine(c, "666")
+	machineUUID, machineName := s.createMachine(c)
 
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
@@ -2283,7 +2284,7 @@ WHERE machine_uuid=?`, machineUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
@@ -2305,7 +2306,7 @@ func (s *modelStateSuite) TestGetInstanceStatusNotFoundError(c *tc.C) {
 // a MachineStatusNotFound error when a status value cannot be found for the given
 // machine.
 func (s *modelStateSuite) TestGetInstanceStatusMachineStatusNotFoundError(c *tc.C) {
-	machineUUID := s.createMachine(c, "666")
+	machineUUID, machineName := s.createMachine(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(c.Context(), `
@@ -2317,7 +2318,7 @@ WHERE machine_uuid=?`, machineUUID)
 
 	// Don't add a status value for this instance into the
 	// machine_cloud_instance_status table.
-	_, err = s.state.GetInstanceStatus(c.Context(), "666")
+	_, err = s.state.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
 }
 
@@ -2329,15 +2330,15 @@ func (s *modelStateSuite) TestGetAllInstanceStatusesEmptyModel(c *tc.C) {
 
 func (s *modelStateSuite) TestGetAllInstanceStatuses(c *tc.C) {
 	// Arrange: 2 machine with statuses
-	s.createMachine(c, "666")
-	s.createMachine(c, "777")
+	_, machineName1 := s.createMachine(c)
+	_, machineName2 := s.createMachine(c)
 
-	s.state.SetInstanceStatus(c.Context(), "666", status.StatusInfo[status.InstanceStatusType]{
+	s.state.SetInstanceStatus(c.Context(), machineName1.String(), status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 	})
-	s.state.SetInstanceStatus(c.Context(), "777", status.StatusInfo[status.InstanceStatusType]{
+	s.state.SetInstanceStatus(c.Context(), machineName2.String(), status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusPending,
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -2349,12 +2350,12 @@ func (s *modelStateSuite) TestGetAllInstanceStatuses(c *tc.C) {
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statuses, tc.HasLen, 2)
-	c.Assert(statuses["666"], tc.DeepEquals, status.StatusInfo[status.InstanceStatusType]{
+	c.Assert(statuses[machineName1.String()], tc.DeepEquals, status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 	})
-	c.Assert(statuses["777"], tc.DeepEquals, status.StatusInfo[status.InstanceStatusType]{
+	c.Assert(statuses[machineName2.String()], tc.DeepEquals, status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusPending,
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -2364,16 +2365,16 @@ func (s *modelStateSuite) TestGetAllInstanceStatuses(c *tc.C) {
 // TestSetInstanceStatusSuccess asserts the happy path of SetInstanceStatus at
 // the state layer.
 func (s *modelStateSuite) TestSetInstanceStatusSuccess(c *tc.C) {
-	_ = s.createMachine(c, "666")
+	_, machineName := s.createMachine(c)
 
 	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
 		Message: "running",
 	}
-	err := s.state.SetInstanceStatus(c.Context(), "666", expectedStatus)
+	err := s.state.SetInstanceStatus(c.Context(), machineName.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedStatus.Status, tc.Equals, expectedStatus.Status)
 	c.Assert(obtainedStatus.Message, tc.Equals, expectedStatus.Message)
@@ -2382,7 +2383,7 @@ func (s *modelStateSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 // TestSetInstanceStatusSuccessWithData asserts the happy path of
 // SetInstanceStatus at the state layer.
 func (s *modelStateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
-	_ = s.createMachine(c, "666")
+	_, machineName := s.createMachine(c)
 
 	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
@@ -2390,10 +2391,10 @@ func (s *modelStateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
 		Data:    []byte(`{"key": "data"}`),
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	}
-	err := s.state.SetInstanceStatus(c.Context(), "666", expectedStatus)
+	err := s.state.SetInstanceStatus(c.Context(), machineName.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), "666")
+	obtainedStatus, err := s.state.GetInstanceStatus(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
 }
@@ -2406,22 +2407,6 @@ func (s *modelStateSuite) TestSetInstanceStatusNotFound(c *tc.C) {
 		Message: "running",
 	})
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestSetInstanceStatusMachineNotProvisioned asserts that SetInstanceStatus
-// returns a NotProvisioned error when the given machine instance cannot be
-// found.
-func (s *modelStateSuite) TestSetInstanceStatusMachineNotProvisioned(c *tc.C) {
-	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	mUUID := machinetesting.GenUUID(c)
-	err := machineState.CreateMachine(c.Context(), "666", "", mUUID, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.state.SetInstanceStatus(c.Context(), "666", status.StatusInfo[status.InstanceStatusType]{
-		Status:  status.InstanceStatusRunning,
-		Message: "running",
-	})
-	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *modelStateSuite) appStatus(now time.Time) *status.StatusInfo[status.WorkloadStatusType] {
@@ -2496,16 +2481,21 @@ func (s *modelStateSuite) addRelationToApplication(c *tc.C, appUUID coreapplicat
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelStateSuite) createMachine(c *tc.C, name coremachine.Name) coremachine.UUID {
+func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.Name) {
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	mUUID := machinetesting.GenUUID(c)
-	netNodeUUID := uuid.MustNewUUID().String()
-	err := machineState.CreateMachine(c.Context(), name, netNodeUUID, mUUID, nil)
+	name, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.AMD64,
+		},
+		MachineUUID: mUUID,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
-		mUUID,
+		mUUID.String(),
 		instance.Id(name.String()),
 		name.String(),
 		"nonce",
@@ -2522,7 +2512,7 @@ func (s *modelStateSuite) createMachine(c *tc.C, name coremachine.Name) coremach
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return mUUID
+	return mUUID, name
 }
 
 func (s *modelStateSuite) createApplication(c *tc.C, name string, l life.Life, subordinate bool, appStatus *status.StatusInfo[status.WorkloadStatusType], units ...application.AddIAASUnitArg) (coreapplication.ID, []coreunit.UUID) {

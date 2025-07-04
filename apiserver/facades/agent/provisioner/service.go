@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
@@ -114,6 +116,18 @@ type MachineService interface {
 	// WatchMachineContainerLife returns a watcher that observes machine container
 	// life changes.
 	WatchMachineContainerLife(ctx context.Context, parentMachineName coremachine.Name) (watcher.StringsWatcher, error)
+
+	// GetMachinePlacement returns the placement structure as it was recorded for
+	// the given machine.
+	GetMachinePlacementDirective(ctx context.Context, mName coremachine.Name) (*string, error)
+
+	// GetMachineConstraints returns the constraints for the given machine.
+	// Empty constraints are returned if no constraints exist for the given
+	// machine.
+	GetMachineConstraints(ctx context.Context, mName coremachine.Name) (constraints.Value, error)
+
+	// GetMachineBase returns the base for the given machine.
+	GetMachineBase(ctx context.Context, mName coremachine.Name) (base.Base, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
@@ -1040,9 +1041,12 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, _, err = machinestate.PlaceMachine(ctx, tx, s.state, deployment.Placement{
-			Type: deployment.PlacementTypeUnset,
-		}, deployment.Platform{}, nil, clock.WallClock)
+		placeMachineArgs := domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+		}
+		netNode, _, err = machinestate.PlaceMachine(ctx, tx, s.state, clock.WallClock, placeMachineArgs)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

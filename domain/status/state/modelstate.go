@@ -2208,7 +2208,6 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 // machine.
 // This method may return the following errors:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
-// - [machineerrors.NotProvisioned] if the machine instance does not exist.
 func (st *ModelState) SetInstanceStatus(ctx context.Context, mName string, newStatus status.StatusInfo[status.InstanceStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
@@ -2250,11 +2249,6 @@ VALUES ($setMachineStatus.*)
 			return errors.Errorf("querying uuid for machine %q: %w", mName, err)
 		}
 
-		_, err := st.getInstanceID(ctx, tx, mUUID)
-		if err != nil {
-			return errors.Errorf("getting machine instance id for %q: %w", mName, err)
-		}
-
 		// Query for setting the machine cloud instance status
 		err = tx.Query(ctx, statusQueryStmt, setMachineStatus{
 			MachineUUID: mUUID.UUID,
@@ -2268,27 +2262,6 @@ VALUES ($setMachineStatus.*)
 		}
 		return nil
 	})
-}
-
-func (st *ModelState) getInstanceID(ctx context.Context, tx *sqlair.TX, mUUID machineUUID) (string, error) {
-	query := `
-SELECT &instanceID.instance_id
-FROM   machine_cloud_instance
-WHERE  machine_uuid = $machineUUID.uuid;`
-	queryStmt, err := st.Prepare(query, mUUID, instanceID{})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var result instanceID
-
-	if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) || result.ID == "" {
-		return "", errors.Errorf("getting machine instance id for %q: %w", mUUID, machineerrors.NotProvisioned)
-	} else if err != nil {
-		return "", errors.Errorf("querying instance for machine %q: %w", mUUID, err)
-	}
-
-	return result.ID, nil
 }
 
 func ptr[T any](v T) *T {

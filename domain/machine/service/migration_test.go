@@ -78,7 +78,7 @@ func (s *migrationServiceSuite) TestGetMachines(c *tc.C) {
 func (s *migrationServiceSuite) TestGetInstanceID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetInstanceID(gomock.Any(), coremachine.UUID("abc")).Return("efg", nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), "abc").Return("efg", nil)
 
 	instanceID, err := s.service.GetInstanceID(c.Context(), coremachine.UUID("abc"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -92,7 +92,7 @@ func (s *migrationServiceSuite) TestGetHardwareCharacteristics(c *tc.C) {
 		Mem: ptr[uint64](1024),
 	}
 
-	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("abc")).Return(hwc, nil)
+	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), "abc").Return(hwc, nil)
 
 	result, err := s.service.GetHardwareCharacteristics(c.Context(), coremachine.UUID("abc"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -102,23 +102,36 @@ func (s *migrationServiceSuite) TestGetHardwareCharacteristics(c *tc.C) {
 func (s *migrationServiceSuite) TestCreateMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"), gomock.Any(), gomock.Any(), nil).Return(nil)
+	var expectedUUID coremachine.UUID
+	s.state.EXPECT().InsertMigratingMachine(gomock.Any(), "666", gomock.Any()).
+		DoAndReturn(func(ctx context.Context, machineName string, args machine.CreateMachineArgs) error {
+			expectedUUID = args.MachineUUID
+			return nil
+		})
 
 	s.expectCreateMachineStatusHistory(c)
 
-	_, err := s.service.CreateMachine(c.Context(), "666", nil)
+	obtainedUUID, err := s.service.CreateMachine(c.Context(), "666", nil)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedUUID, tc.Equals, expectedUUID)
 }
 
 func (s *migrationServiceSuite) TestCreateMachineSuccessNonce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"), gomock.Any(), gomock.Any(), ptr("foo")).Return(nil)
+	var expectedUUID coremachine.UUID
+	s.state.EXPECT().InsertMigratingMachine(gomock.Any(), "666", gomock.Any()).
+		DoAndReturn(func(ctx context.Context, machineName string, args machine.CreateMachineArgs) error {
+			expectedUUID = args.MachineUUID
+			c.Check(*args.Nonce, tc.Equals, "foo")
+			return nil
+		})
 
 	s.expectCreateMachineStatusHistory(c)
 
-	_, err := s.service.CreateMachine(c.Context(), "666", ptr("foo"))
+	obtainedUUID, err := s.service.CreateMachine(c.Context(), "666", ptr("foo"))
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedUUID, tc.Equals, expectedUUID)
 }
 
 // TestCreateError asserts that an error coming from the state layer is
@@ -127,7 +140,7 @@ func (s *migrationServiceSuite) TestCreateMachineError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"), gomock.Any(), gomock.Any(), nil).Return(rErr)
+	s.state.EXPECT().InsertMigratingMachine(gomock.Any(), "666", gomock.Any()).Return(rErr)
 
 	_, err := s.service.CreateMachine(c.Context(), "666", nil)
 	c.Assert(err, tc.ErrorIs, rErr)
@@ -141,7 +154,7 @@ func (s *migrationServiceSuite) TestCreateMachineError(c *tc.C) {
 func (s *migrationServiceSuite) TestCreateMachineAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666"), gomock.Any(), gomock.Any(), nil).Return(machineerrors.MachineAlreadyExists)
+	s.state.EXPECT().InsertMigratingMachine(gomock.Any(), "666", gomock.Any()).Return(machineerrors.MachineAlreadyExists)
 
 	_, err := s.service.CreateMachine(c.Context(), coremachine.Name("666"), nil)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)

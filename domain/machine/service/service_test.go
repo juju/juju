@@ -10,11 +10,14 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/base"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
@@ -199,7 +202,7 @@ func (s *serviceSuite) TestListAllMachinesError(c *tc.C) {
 func (s *serviceSuite) TestInstanceIdSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("123", nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("123", nil)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
@@ -213,7 +216,7 @@ func (s *serviceSuite) TestInstanceIdError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("", rErr)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("", rErr)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
@@ -228,7 +231,7 @@ func (s *serviceSuite) TestInstanceIdError(c *tc.C) {
 func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machine.UUID("deadbeef-0bad-400d-8000-4b1d0d06f00d")).Return("", machineerrors.NotProvisioned)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("", machineerrors.NotProvisioned)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceID(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
@@ -241,7 +244,7 @@ func (s *serviceSuite) TestGetInstanceIDByMachineNameSuccess(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID).Return("i-foo", nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID.String()).Return("i-foo", nil)
 
 	instanceId, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceIDByMachineName(c.Context(), machine.Name("666"))
@@ -264,7 +267,7 @@ func (s *serviceSuite) TestGetInstanceIDByMachineNameNotProvisioned(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
-	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID).Return("", machineerrors.NotProvisioned)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID.String()).Return("", machineerrors.NotProvisioned)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetInstanceIDByMachineName(c.Context(), machine.Name("666"))
@@ -444,7 +447,7 @@ func (s *serviceSuite) TestIsMachineRebootError(c *tc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), machine.UUID("666")).Return("123", nil)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("123", nil)
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
@@ -458,7 +461,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), machine.UUID("666")).Return("", rErr)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", rErr)
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
@@ -472,7 +475,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDError(c *tc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), machine.UUID("666")).Return("", coreerrors.NotFound)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", coreerrors.NotFound)
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), machine.UUID("666"))
@@ -487,7 +490,7 @@ func (s *serviceSuite) TestGetMachineParentUUIDNotFound(c *tc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDMachineHasNoParent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), machine.UUID("666")).Return("", machineerrors.MachineHasNoParent)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", machineerrors.MachineHasNoParent)
 
 	parentUUID, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineParentUUID(c.Context(), "666")
@@ -644,7 +647,7 @@ func (s *serviceSuite) TestGetMachineUUIDNotFound(c *tc.C) {
 func (s *serviceSuite) TestLXDProfilesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), machine.UUID("666")).Return([]string{"profile1", "profile2"}, nil)
+	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), "666").Return([]string{"profile1", "profile2"}, nil)
 
 	profiles, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		AppliedLXDProfileNames(c.Context(), "666")
@@ -656,7 +659,7 @@ func (s *serviceSuite) TestLXDProfilesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), machine.UUID("666")).Return(nil, rErr)
+	s.state.EXPECT().AppliedLXDProfileNames(gomock.Any(), "666").Return(nil, rErr)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		AppliedLXDProfileNames(c.Context(), "666")
@@ -666,7 +669,7 @@ func (s *serviceSuite) TestLXDProfilesError(c *tc.C) {
 func (s *serviceSuite) TestSetLXDProfilesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("666"), []string{"profile1", "profile2"}).Return(nil)
+	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(nil)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetAppliedLXDProfileNames(c.Context(), machine.UUID("666"), []string{"profile1", "profile2"})
@@ -677,7 +680,7 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("666"), []string{"profile1", "profile2"}).Return(rErr)
+	s.state.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "666", []string{"profile1", "profile2"}).Return(rErr)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetAppliedLXDProfileNames(c.Context(), "666", []string{"profile1", "profile2"})
@@ -687,8 +690,8 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *tc.C) {
 func (s *serviceSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllProvisionedMachineInstanceID(gomock.Any()).Return(map[string]string{
-		"foo": "123",
+	s.state.EXPECT().GetAllProvisionedMachineInstanceID(gomock.Any()).Return(map[machine.Name]string{
+		machine.Name("foo"): "123",
 	}, nil)
 
 	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
@@ -715,7 +718,7 @@ func (s *serviceSuite) TestSetMachineHostname(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().SetMachineHostname(gomock.Any(), machineUUID, "new-hostname").Return(nil)
+	s.state.EXPECT().SetMachineHostname(gomock.Any(), machineUUID.String(), "new-hostname").Return(nil)
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetMachineHostname(c.Context(), machineUUID, "new-hostname")
@@ -735,7 +738,7 @@ func (s *serviceSuite) TestGetSupportedContainersTypes(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"lxd"}, nil)
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"lxd"}, nil)
 
 	containerTypes, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetSupportedContainersTypes(c.Context(), machineUUID)
@@ -748,7 +751,7 @@ func (s *serviceSuite) TestGetSupportedContainersTypesInvalid(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"boo"}, nil)
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"boo"}, nil)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetSupportedContainersTypes(c.Context(), machineUUID)
@@ -760,7 +763,7 @@ func (s *serviceSuite) TestGetSupportedContainersTypesError(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID).Return([]string{"boo"}, errors.Errorf("boom"))
+	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"boo"}, errors.Errorf("boom"))
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetSupportedContainersTypes(c.Context(), machineUUID)
@@ -798,4 +801,134 @@ func (s *serviceSuite) TestGetMachinePrincipalUnitsError(c *tc.C) {
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachinePrincipalApplications(c.Context(), machineName)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
+}
+
+func (s *serviceSuite) TestGetMachinePlacement(c *tc.C) {
+	s.setupMocks(c)
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName.String()).Return(ptr("0/lxd/42"), nil)
+
+	placement, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePlacementDirective(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*placement, tc.Equals, "0/lxd/42")
+}
+
+func (s *serviceSuite) TestGetMachinePlacementInvalidMachineName(c *tc.C) {
+	s.setupMocks(c)
+
+	machineName := machine.Name("invalid")
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePlacementDirective(c.Context(), machineName)
+	c.Assert(err, tc.ErrorMatches, `.*validating machine name "invalid".*`)
+}
+
+func (s *serviceSuite) TestGetMachinePlacementNotFound(c *tc.C) {
+	s.setupMocks(c)
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName.String()).Return(nil, machineerrors.MachineNotFound)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachinePlacementDirective(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestGetMachineConstraintsFull(c *tc.C) {
+	s.setupMocks(c)
+
+	machineName := machine.Name("0")
+
+	machineConstraints := constraints.Constraints{
+		Arch:           ptr("amd64"),
+		Container:      ptr(instance.LXD),
+		CpuCores:       ptr(uint64(4)),
+		Mem:            ptr(uint64(1024)),
+		RootDisk:       ptr(uint64(1024)),
+		RootDiskSource: ptr("root-disk-source"),
+		Tags:           ptr([]string{"tag1", "tag2"}),
+		InstanceRole:   ptr("instance-role"),
+		InstanceType:   ptr("instance-type"),
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "space1", Exclude: false},
+		}),
+		VirtType:         ptr("virt-type"),
+		Zones:            ptr([]string{"zone1", "zone2"}),
+		AllocatePublicIP: ptr(true),
+	}
+	s.state.EXPECT().GetMachineConstraints(gomock.Any(), machineName.String()).Return(machineConstraints, nil)
+
+	obtained, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineConstraints(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, coreconstraints.Value{
+		Arch:             ptr("amd64"),
+		Container:        ptr(instance.LXD),
+		CpuCores:         ptr(uint64(4)),
+		Mem:              ptr(uint64(1024)),
+		RootDisk:         ptr(uint64(1024)),
+		RootDiskSource:   ptr("root-disk-source"),
+		Tags:             ptr([]string{"tag1", "tag2"}),
+		InstanceRole:     ptr("instance-role"),
+		InstanceType:     ptr("instance-type"),
+		Spaces:           ptr([]string{"space1"}),
+		VirtType:         ptr("virt-type"),
+		Zones:            ptr([]string{"zone1", "zone2"}),
+		AllocatePublicIP: ptr(true),
+	})
+}
+
+func (s *serviceSuite) TestGetMachineConstraintsInvalidMachineName(c *tc.C) {
+	s.setupMocks(c)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineConstraints(c.Context(), machine.Name("invalid"))
+	c.Assert(err, tc.ErrorMatches, `.*validating machine name "invalid".*`)
+}
+
+func (s *serviceSuite) TestGetMachineConstraintsMachineNotFound(c *tc.C) {
+	s.setupMocks(c)
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachineConstraints(gomock.Any(), machineName.String()).Return(constraints.Constraints{}, machineerrors.MachineNotFound)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineConstraints(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestGetMachineBase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+	base := base.Base{
+		OS: "ubuntu",
+		Channel: base.Channel{
+			Track: "22.04",
+			Risk:  "stable",
+		},
+	}
+	s.state.EXPECT().GetMachineBase(gomock.Any(), machineName.String()).Return(base, nil)
+
+	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineBase(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, base)
+}
+
+func (s *serviceSuite) TestGetMachineBaseNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachineBase(gomock.Any(), machineName.String()).Return(base.Base{}, machineerrors.MachineNotFound)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineBase(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }

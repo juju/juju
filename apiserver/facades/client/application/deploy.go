@@ -187,6 +187,7 @@ func DeployApplication(
 			ApplicationSettings: application.ApplicationSettings{
 				Trust: trust,
 			},
+			Constraints: args.Constraints,
 		}
 		if modelType == coremodel.CAAS {
 			unitArgs, err := makeCAASUnitArgs(args)

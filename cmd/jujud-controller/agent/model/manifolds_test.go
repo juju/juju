@@ -65,7 +65,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"state-cleaner",
 		"storage-provisioner",
 		"undertaker",
-		"unit-assigner",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
@@ -633,17 +632,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"lease-manager",
 		"not-alive-flag",
-	},
-
-	"unit-assigner": {
-		"agent",
-		"api-caller",
-		"domain-services",
-		"is-responsible-flag",
-		"lease-manager",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
 	},
 
 	"valid-credential-flag": {"agent", "api-caller"},

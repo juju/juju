@@ -25,7 +25,6 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 
 	return &API{
 		st:             stateShim{State: st},
-		machineService: domainServices.Machine(),
 		networkService: domainServices.Network(),
 		statusService:  domainServices.Status(),
 		clock:          ctx.Clock(),

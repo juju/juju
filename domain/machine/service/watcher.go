@@ -160,7 +160,7 @@ func (s *WatchableService) getContainerTypeOrUseDefault(
 		return defaultType, errors.Capture(err)
 	}
 
-	containerTypes, err := s.st.GetSupportedContainersTypes(ctx, uuid)
+	containerTypes, err := s.st.GetSupportedContainersTypes(ctx, uuid.String())
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return defaultType, nil
 	} else if err != nil {
@@ -266,7 +266,7 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid machine.
 }
 
 func (s *WatchableService) machineToCareForReboot(ctx context.Context, uuid machine.UUID) ([]machine.UUID, error) {
-	parentUUID, err := s.st.GetMachineParentUUID(ctx, uuid)
+	parentUUID, err := s.st.GetMachineParentUUID(ctx, uuid.String())
 	if err != nil && !errors.Is(err, machineerrors.MachineHasNoParent) {
 		return nil, errors.Capture(err)
 	}

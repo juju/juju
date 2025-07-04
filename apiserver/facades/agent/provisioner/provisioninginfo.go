@@ -63,15 +63,12 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
+		if err != nil || !canAccess(tag) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machineName := coremachine.Name(tag.Id())
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, machine, env, allSpaces)
-		}
+		result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, nil, env, allSpaces)
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -120,7 +117,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 		return nil, errors.Capture(err)
 	}
 
-	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(ctx, m.Id(), result.Constraints, machineSpaces, modelInfo.CloudType); err != nil {
+	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(ctx, machineName.String(), result.Constraints, machineSpaces, modelInfo.CloudType); err != nil {
 		return nil, errors.Errorf("matching subnets to zones: %w", err)
 	}
 
@@ -137,21 +134,32 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	modelConfig *config.Config,
 	modelInfo model.ModelInfo,
 ) (params.ProvisioningInfo, error) {
-	base := m.Base()
+	base, err := api.machineService.GetMachineBase(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return params.ProvisioningInfo{}, apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineName))
+	} else if err != nil {
+		return params.ProvisioningInfo{}, errors.Errorf("getting machine base: %w", err)
+	}
 	result := params.ProvisioningInfo{
-		Base:              params.Base{Name: base.OS, Channel: base.Channel},
-		Placement:         m.Placement(),
+		Base:              params.Base{Name: base.OS, Channel: base.Channel.String()},
 		CloudInitUserData: modelConfig.CloudInitUserData(),
-
 		// EndpointBindings are used by MAAS by the provider. Operator defined
 		// space bindings are reflected in ProvisioningNetworkTopology.
 		EndpointBindings: endpointBindings,
 	}
+	placement, err := api.machineService.GetMachinePlacementDirective(ctx, machineName)
+	if err != nil {
+		return params.ProvisioningInfo{}, errors.Errorf("getting machine placement directive: %w", err)
+	}
+	if placement != nil {
+		result.Placement = *placement
+	}
 
-	var err error
-	if result.Constraints, err = m.Constraints(); err != nil {
+	cons, err := api.machineService.GetMachineConstraints(ctx, machineName)
+	if err != nil {
 		return result, errors.Capture(err)
 	}
+	result.Constraints = cons
 
 	// The root disk source constraint might refer to a storage pool.
 	if result.Constraints.HasRootDiskSource() {
@@ -180,7 +188,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
 	}
 
-	if result.ImageMetadata, err = api.availableImageMetadata(ctx, machineName, m, env, modelConfig.ImageStream()); err != nil {
+	if result.ImageMetadata, err = api.availableImageMetadata(ctx, machineName, env, modelConfig.ImageStream()); err != nil {
 		return result, errors.Errorf("cannot get available image metadata: %w", err)
 	}
 
@@ -225,10 +233,15 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
-	volumeAttachments, err := m.VolumeAttachments()
-	if err != nil {
-		return nil, nil, errors.Capture(err)
-	}
+
+	// TODO(storage): We need to wire this from dqlite, since the machine is no
+	// longer inserted into the legacy state.
+	//
+	// volumeAttachments, err := m.VolumeAttachments()
+	// if err != nil {
+	// 	return nil, nil, errors.Capture(err)
+	// }
+	volumeAttachments := []state.VolumeAttachment{}
 	if len(volumeAttachments) == 0 {
 		return nil, nil, nil
 	}
@@ -574,11 +587,10 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 func (api *ProvisionerAPI) availableImageMetadata(
 	ctx context.Context,
 	machineName coremachine.Name,
-	m *state.Machine,
 	env environs.Environ,
 	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
-	imageConstraint, err := api.constructImageConstraint(ctx, machineName, m, env, imageStream)
+	imageConstraint, err := api.constructImageConstraint(ctx, machineName, env, imageStream)
 	if err != nil {
 		return nil, errors.Errorf("could not construct image constraint: %w", err)
 	}
@@ -598,11 +610,17 @@ func (api *ProvisionerAPI) availableImageMetadata(
 func (api *ProvisionerAPI) constructImageConstraint(
 	ctx context.Context,
 	machineName coremachine.Name,
-	m *state.Machine,
 	env environs.Environ,
 	imageStream string,
 ) (*imagemetadata.ImageConstraint, error) {
-	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
+	machineBase, err := api.machineService.GetMachineBase(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil, apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineName))
+	} else if err != nil {
+		return nil, errors.Errorf("getting machine base: %w", err)
+	}
+
+	base, err := corebase.ParseBase(machineBase.OS, machineBase.Channel.String())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -612,7 +630,9 @@ func (api *ProvisionerAPI) constructImageConstraint(
 		Stream:   imageStream,
 	}
 
-	cons, err := m.Constraints()
+	// NOTE(nvinuesa): We should rethink this, so we can get the constraints
+	// and the base from the same service call.
+	cons, err := api.machineService.GetMachineConstraints(ctx, machineName)
 	if err != nil {
 		return nil, errors.Errorf("cannot get machine constraints for machine %v: %w", machineName, err)
 	}
