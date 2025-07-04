@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -33,6 +34,7 @@ import (
 	"github.com/juju/juju/core/status"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/container"
@@ -1114,57 +1116,86 @@ func (api *ProvisionerAPI) prepareContainerAccessEnvironment(ctx context.Context
 	return env, host, canAccess, nil
 }
 
-type hostChangesHandler struct {
-	result params.HostNetworkChangeResults
-}
-
-// ProcessOneContainer implements perContainerHandler.ProcessOneContainer
-func (h *hostChangesHandler) ProcessOneContainer(
-	_ context.Context,
-	_ environs.Environ, policy BridgePolicy,
-	idx int, host Machine, hostIsManual bool,
-	guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
-) error {
-	bridges, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
-	if err != nil {
-		return err
-	}
-
-	for _, bridgeInfo := range bridges {
-		h.result.Results[idx].NewBridges = append(
-			h.result.Results[idx].NewBridges,
-			params.DeviceBridgeInfo{
-				HostDeviceName: bridgeInfo.DeviceName,
-				BridgeName:     bridgeInfo.BridgeName,
-				MACAddress:     bridgeInfo.MACAddress,
-			})
-	}
-	return nil
-}
-
-// Implements perContainerHandler.SetError
-func (h *hostChangesHandler) SetError(idx int, err error) {
-	h.result.Results[idx].Error = apiservererrors.ServerError(err)
-}
-
-// Implements perContainerHandler.ConfigType
-func (h *hostChangesHandler) ConfigType() string {
-	return "network"
-}
-
 // HostChangesForContainers returns the set of changes that need to be done
 // to the host machine to prepare it for the containers to be created.
 // Pass in a list of the containers that you want the changes for.
-func (api *ProvisionerAPI) HostChangesForContainers(ctx context.Context, args params.Entities) (params.HostNetworkChangeResults, error) {
-	c := &hostChangesHandler{
-		result: params.HostNetworkChangeResults{
-			Results: make([]params.HostNetworkChange, len(args.Entities)),
-		},
+func (api *ProvisionerAPI) HostChangesForContainers(
+	ctx context.Context, args params.Entities,
+) (params.HostNetworkChangeResults, error) {
+	result := params.HostNetworkChangeResults{}
+
+	hostUUID, err := api.getAuthedCallerMachineUUID(ctx)
+	if err != nil {
+		return result, err
 	}
-	if err := api.processEachContainer(ctx, args, c); err != nil {
-		return c.result, errors.Trace(err)
+
+	results := make([]params.HostNetworkChange, len(args.Entities))
+	for i, entity := range args.Entities {
+		mTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineName := coremachine.Name(mTag.Id())
+
+		guestUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
+		if err != nil {
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			} else {
+				results[i].Error = apiservererrors.ServerError(err)
+			}
+			continue
+		}
+
+		changes, err := api.networkService.DevicesToBridge(ctx, hostUUID, guestUUID)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results[i] = params.HostNetworkChange{
+			NewBridges: transform.Slice(changes, func(in domainnetwork.DeviceToBridge) params.DeviceBridgeInfo {
+				return params.DeviceBridgeInfo{
+					HostDeviceName: in.DeviceName,
+					BridgeName:     in.BridgeName,
+					MACAddress:     in.MACAddress,
+				}
+			}),
+		}
 	}
-	return c.result, nil
+
+	result.Results = results
+	return result, nil
+}
+
+func (api *ProvisionerAPI) getAuthedCallerMachineUUID(ctx context.Context) (coremachine.UUID, error) {
+	canAccess, err := api.getAuthFunc(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	hostAuthTag := api.authorizer.GetAuthTag()
+	if hostAuthTag == nil {
+		return "", apiservererrors.ErrPerm
+	}
+
+	if !canAccess(hostAuthTag) {
+		return "", apiservererrors.ErrPerm
+	}
+
+	hostTag, err := names.ParseMachineTag(hostAuthTag.String())
+	if err != nil {
+		return "", err
+	}
+
+	hostUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(hostTag.Id()))
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return "", apiservererrors.ErrPerm
+	}
+
+	return hostUUID, err
 }
 
 type containerProfileHandler struct {
