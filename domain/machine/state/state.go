@@ -1363,6 +1363,46 @@ WHERE sp.uuid = $spaceUUID.uuid
 	return count.Count, nil
 }
 
+// IsContainer returns true if the given machine is a container (i.e. if it has
+// a parent).
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+func (st *State) IsContainer(ctx context.Context, mName machine.Name) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result count
+	query := `
+SELECT COUNT(*) AS &count.count
+FROM   machine_parent
+WHERE  machine_uuid = $machineUUID.uuid
+`
+	queryStmt, err := st.Prepare(query, count{}, machineUUID{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		mUUID, err := st.getMachineUUIDFromName(ctx, tx, mName)
+		if err != nil {
+			return err
+		}
+
+		if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); err != nil {
+			return errors.Errorf("querying if machine %q is a container: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Errorf("checking if machine %q is a container: %w", mName, err)
+	}
+
+	return result.Count > 0, nil
+}
+
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {
