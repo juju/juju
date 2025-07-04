@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -305,6 +306,7 @@ func TestUndertakerSuite(t *testing.T) {
 func (s *UndertakerSuite) TestExitOnModelChanged(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+	controllerUUID := uuid.MustNewUUID().String()
 
 	facade := NewMockFacade(ctrl)
 
@@ -325,6 +327,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *tc.C) {
 			Result: params.UndertakerModelInfo{
 				Life:           life.Dying,
 				ForceDestroyed: false,
+				ControllerUUID: controllerUUID,
 			},
 		}, nil),
 		facade.EXPECT().ProcessDyingModel(gomock.Any()).Return(nil),
@@ -336,6 +339,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *tc.C) {
 			Result: params.UndertakerModelInfo{
 				Life:           life.Dying,
 				ForceDestroyed: true, // changed from false to true to cause worker to exit.
+				ControllerUUID: controllerUUID,
 			},
 		}, nil),
 	)

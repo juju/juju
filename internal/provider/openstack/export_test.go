@@ -81,9 +81,9 @@ func MachineGroupName(e environs.Environ, controllerUUID, machineId string) stri
 	return switching.machineGroupName(controllerUUID, machineId)
 }
 
-func MatchingGroup(e environs.Environ, ctx context.Context, nameRegExp string) (neutron.SecurityGroupV2, error) {
+func GetSecurityGroupByName(e environs.Environ, ctx context.Context, name string) (neutron.SecurityGroupV2, error) {
 	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
-	return switching.matchingGroup(ctx, nameRegExp)
+	return switching.getSecurityGroupByName(ctx, name)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose

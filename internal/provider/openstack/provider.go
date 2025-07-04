@@ -168,11 +168,12 @@ func (p EnvironProvider) Open(ctx context.Context, args environs.OpenParams, inv
 	e := &Environ{
 		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
 		name:                  args.Config.Name(),
-		uuid:                  uuid,
+		modelUUID:             uuid,
 		namespace:             namespace,
 		clock:                 clock.WallClock,
 		configurator:          p.Configurator,
 		flavorFilter:          p.FlavorFilter,
+		controllerUUID:        args.ControllerUUID,
 	}
 
 	if err := e.SetConfig(ctx, args.Config); err != nil {
@@ -295,9 +296,10 @@ type Environ struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
 
-	name      string
-	uuid      string
-	namespace instance.Namespace
+	name           string
+	modelUUID      string
+	controllerUUID string
+	namespace      instance.Namespace
 
 	ecfgMutex       sync.Mutex
 	ecfgUnlocked    *environConfig
@@ -1393,7 +1395,7 @@ func (e *Environ) networksForInstance(
 		}
 
 		var port *neutron.PortV2
-		port, err = e.networking.CreatePort(e.uuid, subnetNet.Id, subnetID)
+		port, err = e.networking.CreatePort(e.modelUUID, subnetNet.Id, subnetID)
 		if err != nil {
 			break
 		}
@@ -2172,7 +2174,7 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	// over them, one by one.
 	changes := set.NewStrings()
 	for _, port := range ports {
-		if !strings.HasPrefix(port.Name, fmt.Sprintf("juju-%s", e.uuid)) {
+		if !strings.HasPrefix(port.Name, fmt.Sprintf("juju-%s", e.modelUUID)) {
 			continue
 		}
 		changes.Add(port.Id)

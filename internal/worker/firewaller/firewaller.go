@@ -68,7 +68,7 @@ type Config struct {
 	// should only be used for testing.
 	WatchMachineNotify func(machine.Name)
 	// FlushModelNotify is called when the Firewaller flushes it's model.
-	// This should only be used for testing
+	// This should only be used for testing.
 	FlushModelNotify func()
 	// FlushMMachineNotify is called when the Firewaller flushes a machine.
 	// This should only be used for testing
@@ -137,6 +137,7 @@ type Firewaller struct {
 	// Set to true if the environment supports ingress rules containing
 	// IPV6 CIDRs.
 	envIPV6CIDRSupport bool
+	needsToFlushModel  bool
 
 	modelUUID                  string
 	newRemoteFirewallerAPIFunc newCrossModelFacadeFunc
@@ -843,6 +844,13 @@ func (fw *Firewaller) flushMachine(ctx context.Context, machined *machineData) e
 			fw.flushMachineNotify(machined.name)
 		}
 	}()
+	// We may have received a notification to flushModel() in the past but did not have any machines yet.
+	// Call flushModel() now.
+	if fw.needsToFlushModel {
+		if err := fw.flushModel(ctx); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	want, err := fw.gatherIngressRules(ctx, machined)
 	if err != nil {
 		return errors.Trace(err)
@@ -1099,6 +1107,15 @@ func (fw *Firewaller) flushModel(ctx context.Context) error {
 	if fw.environModelFirewaller == nil {
 		return nil
 	}
+	// Model specific artefacts shouldn't be created until the model contains at least one machine.
+	if len(fw.machineds) == 0 {
+		fw.needsToFlushModel = true
+		fw.logger.Debugf(ctx, "skipping flushing model because there are no machines for this model")
+		return nil
+	}
+	// Reset the flag because the models are being flushed now.
+	fw.needsToFlushModel = false
+
 	want, err := fw.firewallerApi.ModelFirewallRules(ctx)
 	if err != nil {
 		return errors.Trace(err)

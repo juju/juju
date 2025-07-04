@@ -317,8 +317,9 @@ func (s *localServerSuite) openEnviron(c *tc.C, attrs coretesting.Attrs) environ
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(attrs))
 	c.Assert(err, tc.ErrorIsNil)
 	env, err := environs.New(c.Context(), environs.OpenParams{
-		Cloud:  s.CloudSpec(),
-		Config: cfg,
+		Cloud:          s.CloudSpec(),
+		Config:         cfg,
+		ControllerUUID: coretesting.FakeControllerConfig().ControllerUUID(),
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, tc.ErrorIsNil)
 	return env
@@ -1981,31 +1982,34 @@ func (s *localServerSuite) TestEnsureModelGroup(c *tc.C) {
 	c.Check(stringRules, tc.DeepEquals, expectedRules)
 }
 
-// TestMatchingGroup checks that you receive the group you expected.  matchingGroup()
+// TestGetSecurityGroupByName checks that you receive the group you expected.  getSecurityGroupByName()
 // is used by the firewaller when opening and closing ports.  Unit test in response to bug 1675799.
-func (s *localServerSuite) TestMatchingGroup(c *tc.C) {
+func (s *localServerSuite) TestGetSecurityGroupByName(c *tc.C) {
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, tc.ErrorIsNil)
+	machineName1 := openstack.MachineGroupName(s.env, s.ControllerUUID, "1")
 	group1, err := openstack.EnsureGroup(s.env, c.Context(),
-		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), false)
+		machineName1, false)
 	c.Assert(err, tc.ErrorIsNil)
+	machineName2 := openstack.MachineGroupName(s.env, s.ControllerUUID, "2")
 	group2, err := openstack.EnsureGroup(s.env, c.Context(),
-		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), false)
+		machineName2, false)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = openstack.EnsureGroup(s.env, c.Context(), openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), false)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = openstack.EnsureGroup(s.env, c.Context(), openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")
-	groupMatched, err := openstack.MatchingGroup(s.env, c.Context(), machineNameRegexp)
+	groupResult, err := openstack.GetSecurityGroupByName(s.env, c.Context(), machineName1)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(group1.Id, tc.Equals, groupMatched.Id)
+	c.Assert(group1.Id, tc.Equals, groupResult.Id)
 
-	machineNameRegexp = openstack.MachineGroupRegexp(s.env, "2")
-	groupMatched, err = openstack.MatchingGroup(s.env, c.Context(), machineNameRegexp)
+	groupResult, err = openstack.GetSecurityGroupByName(s.env, c.Context(), machineName2)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(group2.Id, tc.Equals, groupMatched.Id)
+	c.Assert(group2.Id, tc.Equals, groupResult.Id)
+
+	groupResult, err = openstack.GetSecurityGroupByName(s.env, c.Context(), "juju-unknown-machine-name")
+	c.Assert(err, tc.ErrorMatches, "failed to find security group with name: juju-unknown-machine-name")
 }
 
 func (s *localServerSuite) TestPorts(c *tc.C) {

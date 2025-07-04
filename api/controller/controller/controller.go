@@ -278,6 +278,7 @@ type MigrationSpec struct {
 	TargetUser            string
 	TargetPassword        string
 	TargetMacaroons       []macaroon.Slice
+	TargetToken           string
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -295,7 +296,7 @@ func (s *MigrationSpec) Validate() error {
 	if !names.IsValidUser(s.TargetUser) {
 		return errors.NotValidf("target user")
 	}
-	if s.TargetPassword == "" && len(s.TargetMacaroons) == 0 {
+	if s.TargetPassword == "" && len(s.TargetMacaroons) == 0 && s.TargetToken == "" {
 		return errors.NotValidf("missing authentication secrets")
 	}
 	return nil
@@ -328,6 +329,7 @@ func (c *Client) InitiateMigration(ctx context.Context, spec MigrationSpec) (str
 				AuthTag:         names.NewUserTag(spec.TargetUser).String(),
 				Password:        spec.TargetPassword,
 				Macaroons:       macsJSON,
+				Token:           spec.TargetToken,
 			},
 		}},
 	}

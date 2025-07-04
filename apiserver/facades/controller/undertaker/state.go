@@ -36,6 +36,9 @@ type State interface {
 	// ModelUUID returns the model UUID for the model controlled
 	// by this state instance.
 	ModelUUID() string
+
+	// ControllerUUID returns the UUID of the controller.
+	ControllerUUID() string
 }
 
 type stateShim struct {

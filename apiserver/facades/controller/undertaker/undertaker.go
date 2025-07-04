@@ -111,6 +111,7 @@ func (u *UndertakerAPI) ModelInfo(ctx context.Context) (params.UndertakerModelIn
 		Life:           life.Value(model.Life().String()),
 		ForceDestroyed: model.ForceDestroyed(),
 		DestroyTimeout: model.DestroyTimeout(),
+		ControllerUUID: u.st.ControllerUUID(),
 	}
 
 	return result, nil

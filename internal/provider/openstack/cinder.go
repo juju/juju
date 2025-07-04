@@ -96,7 +96,7 @@ func (e *Environ) cinderProvider() (*cinderProvider, error) {
 	return &cinderProvider{
 		storageAdaptor:        storageAdaptor,
 		envName:               e.name,
-		modelUUID:             e.uuid,
+		modelUUID:             e.modelUUID,
 		namespace:             e.namespace,
 		zonedEnv:              e,
 		credentialInvalidator: e.CredentialInvalidator,
