@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -112,6 +113,18 @@ func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraint
 	return nil
 }
 
+func isMemResourceValueValid(memVal string) bool {
+	if !strings.HasSuffix(memVal, "Mi") {
+		return false
+	}
+	val := strings.TrimSuffix(memVal, "Mi")
+	num, err := strconv.Atoi(val)
+	if err != nil {
+		return false
+	}
+	return num > 0
+}
+
 // ApplyCharmConstraints applies the specified charm constraints to the charm container.
 func ApplyCharmConstraints(pod *core.PodSpec, appName string,
 	charmContainerResourceRequirements CharmContainerResourceRequirements) error {
@@ -120,25 +133,16 @@ func ApplyCharmConstraints(pod *core.PodSpec, appName string,
 		return nil
 	}
 
-	if charmContainerResourceRequirements.MemLimitMib == "0Mi" {
-		return errors.NotValidf("mem limit value for charm container must be greater than 0")
+	if !isMemResourceValueValid(charmContainerResourceRequirements.MemLimitMi) {
+		return errors.NotValidf("charm container mem limit value")
 	}
 
-	if charmContainerResourceRequirements.MemRequestMib == "0Mi" {
-		return errors.NotValidf("mem request value for charm container must be greater than 0")
+	if !isMemResourceValueValid(charmContainerResourceRequirements.MemRequestMi) {
+		return errors.NotValidf("charm container mem request value")
 	}
 
-	requestValue := charmContainerResourceRequirements.MemRequestMib
-	limitValue := charmContainerResourceRequirements.MemLimitMib
-
-	// requestResourceQty, err := resource.ParseQuantity(requestValue)
-	// if err != nil {
-	// 	return errors.Annotatef(err, "invalid charm container constraint value %q for %q", requestValue, core.ResourceMemory)
-	// }
-	// limitResourceQty, err := resource.ParseQuantity(limitValue)
-	// if err != nil {
-	// 	return errors.Annotatef(err, "invalid charm container constraint value %q for %q", requestValue, core.ResourceMemory)
-	// }
+	requestValue := charmContainerResourceRequirements.MemRequestMi
+	limitValue := charmContainerResourceRequirements.MemLimitMi
 
 	charmContainerIndex := -1
 

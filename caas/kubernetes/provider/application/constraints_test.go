@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/application"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/testing"
 )
@@ -32,6 +33,113 @@ func (s *applyConstraintsSuite) TestMemory(c *gc.C) {
 	}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("mem=4G"), configureConstraint)
 	c.Assert(err, gc.ErrorMatches, "configuring memory constraint for foo: boom")
+}
+
+func (s *applyConstraintsSuite) TestCharmMemory(c *gc.C) {
+	testCases := []struct {
+		desc     string
+		memReq   string
+		memLimit string
+		err      string
+	}{
+		{
+			desc:     "(invalid) 0Mi request",
+			memReq:   "0Mi",
+			memLimit: "1024Mi",
+			err:      "charm container mem request value not valid",
+		},
+		{
+			desc:     "(invalid) limit equals zero",
+			memReq:   "128Mi",
+			memLimit: "0Mi",
+			err:      "charm container mem limit value not valid",
+		},
+		{
+			desc:     "(invalid) negative limit",
+			memReq:   "64Mi",
+			memLimit: "-20Mi",
+			err:      "charm container mem limit value not valid",
+		},
+		{
+			desc:     "(invalid) negative request",
+			memReq:   "-64Mi",
+			memLimit: "1024Mi",
+			err:      "charm container mem request value not valid",
+		},
+		{
+			desc:     "(invalid) both limit and request negative",
+			memReq:   "-64Mi",
+			memLimit: "-20Mi",
+			err:      "charm container mem limit value not valid",
+		},
+		{
+			desc:     "(invalid) unsupported suffix",
+			memReq:   "24Mi",
+			memLimit: "1024Mb",
+			err:      "charm container mem limit value not valid",
+		},
+		{
+			desc:     "(invalid) empty request value",
+			memReq:   "",
+			memLimit: "512Mi",
+			err:      "charm container mem request value not valid",
+		},
+		{
+			desc:     "(invalid) empty limit value",
+			memReq:   "128Mi",
+			memLimit: "",
+			err:      "charm container mem limit value not valid",
+		},
+		{
+			desc:     "(invalid) non-numeric request",
+			memReq:   "abcMi",
+			memLimit: "512Mi",
+			err:      "charm container mem request value not valid",
+		},
+		{
+			desc:     "(invalid) limit with float",
+			memReq:   "128Mi",
+			memLimit: "128.5Mi",
+			err:      "charm container mem limit value not valid",
+		},
+		{
+			desc:     "(valid) small values",
+			memReq:   "1Mi",
+			memLimit: "2Mi",
+		},
+		{
+			desc:     "(valid) large values",
+			memReq:   "99999999Mi",
+			memLimit: "22103103Mi",
+		},
+		{
+			desc:     "(valid) request and limit",
+			memReq:   "64Mi",
+			memLimit: "1024Mi",
+		},
+	}
+
+	for _, tc := range testCases {
+		c.Logf("case: %s", tc.desc)
+
+		pod := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.ApplicationCharmContainer},
+			},
+		}
+
+		err := application.ApplyCharmConstraints(pod, "foo",
+			application.CharmContainerResourceRequirements{
+				MemRequestMi: tc.memReq,
+				MemLimitMi:   tc.memLimit,
+			})
+
+		if tc.err == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, tc.err)
+		}
+	}
 }
 
 func (s *applyConstraintsSuite) TestCPU(c *gc.C) {
