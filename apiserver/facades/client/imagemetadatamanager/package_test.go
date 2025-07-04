@@ -14,7 +14,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package imagemetadatamanager -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/imagemetadatamanager ModelConfigService,ModelInfoService,MetadataService
+//go:generate go run go.uber.org/mock/mockgen -typed -package imagemetadatamanager -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/imagemetadatamanager ModelConfigService,ModelInfoService,MetadataService
 
 type baseImageMetadataSuite struct {
 	coretesting.BaseSuite

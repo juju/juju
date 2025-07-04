@@ -5,11 +5,11 @@ package state
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/database"
@@ -471,15 +471,21 @@ func (st *State) GetAllAPIAddressesWithScopeForAgents(ctx context.Context) ([]co
 		return nil, errors.Capture(err)
 	}
 
-	var result []controllerAPIAddress
+	var controllerAddresses []controllerAPIAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = st.getAllAPIAddressesForAgents(ctx, tx)
+		var err error
+		controllerAddresses, err = st.getAllAPIAddressesForAgents(ctx, tx)
 		return err
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return decodeAllScopedAPIAddresses(result), nil
+	ids, addresses := decodeAllScopedAPIAddresses(controllerAddresses)
+	var result []controllernode.APIAddresses
+	for _, id := range ids {
+		result = append(result, addresses[id])
+	}
+	return result, nil
 }
 
 // GetAllAPIAddressesWithScopeForClients returns all APIAddresses available for
@@ -490,15 +496,42 @@ func (st *State) GetAllAPIAddressesWithScopeForClients(ctx context.Context) ([]c
 		return nil, errors.Capture(err)
 	}
 
-	var result []controllerAPIAddress
+	var controllerAddresses []controllerAPIAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = st.getAllAPIAddressesForClients(ctx, tx)
+		var err error
+		controllerAddresses, err = st.getAllAPIAddressesForClients(ctx, tx)
 		return err
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return decodeAllScopedAPIAddresses(result), nil
+	ids, addresses := decodeAllScopedAPIAddresses(controllerAddresses)
+	var result []controllernode.APIAddresses
+	for _, id := range ids {
+		result = append(result, addresses[id])
+	}
+	return result, nil
+}
+
+// GetControllerAPIAddresses returns all APIAddresses available for controllers
+// to be used in HA. These are all APIAddresses independent of is_agent value.
+func (st *State) GetControllerAPIAddresses(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var controllerAddresses []controllerAPIAddress
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		controllerAddresses, err = st.getAllAPIAddressesForClients(ctx, tx)
+		return err
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	_, result := decodeAllScopedAPIAddresses(controllerAddresses)
+	return result, nil
 }
 
 func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
@@ -687,32 +720,31 @@ func decodeAllAPIAddresses(addrs []controllerAPIAddress) map[string][]string {
 	return result
 }
 
-func decodeAllScopedAPIAddresses(addrs []controllerAPIAddress) []controllernode.APIAddresses {
-	ids := set.NewStrings()
-	interimResult := make(map[string][]controllernode.APIAddress, 0)
+func decodeAllScopedAPIAddresses(addrs []controllerAPIAddress) ([]string, map[string]controllernode.APIAddresses) {
+	var ids []string
+	result := make(map[string]controllernode.APIAddresses, 0)
 	for _, addr := range addrs {
 		if addr.Address == "" {
 			continue
 		}
+
 		controllerID := addr.ControllerID
-		if _, ok := interimResult[controllerID]; !ok {
-			interimResult[controllerID] = controllernode.APIAddresses{}
+		if _, ok := result[controllerID]; !ok {
+			ids = append(ids, controllerID)
+			result[controllerID] = controllernode.APIAddresses{}
 		}
-		controllernodeAddr := controllernode.APIAddress{
+
+		controllerNodeAddr := controllernode.APIAddress{
 			Address: addr.Address,
 			IsAgent: addr.IsAgent,
 			Scope:   network.Scope(addr.Scope),
 		}
-		interimResult[controllerID] = append(interimResult[controllerID], controllernodeAddr)
-		ids.Add(controllerID)
+		result[controllerID] = append(result[controllerID], controllerNodeAddr)
 	}
 
-	result := make([]controllernode.APIAddresses, ids.Size())
-	for i, id := range ids.SortedValues() {
-		result[i] = interimResult[id]
-	}
+	sort.Strings(ids)
 
-	return result
+	return ids, result
 }
 
 func decodeAPIAddresses(addrs []controllerAPIAddressStr) []string {
