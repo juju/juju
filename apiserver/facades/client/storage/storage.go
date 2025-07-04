@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -798,6 +800,13 @@ func (a *StorageAPI) importFilesystem(
 		}
 		volumeImporter, ok := volumeSource.(storage.VolumeImporter)
 		if !ok {
+			return nil, errors.NotSupportedf(
+				"importing volume with storage provider %q",
+				cfg.Provider(),
+			)
+		}
+		// Support import-filesystem on k8s only available when featureflag K8SAttachStorage enabled.
+		if cfg.Provider() == k8sconstants.StorageProviderType && !featureflag.Enabled(feature.K8SAttachStorage) {
 			return nil, errors.NotSupportedf(
 				"importing volume with storage provider %q",
 				cfg.Provider(),

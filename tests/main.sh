@@ -76,6 +76,7 @@ TEST_NAMES="agents \
             spaces_ec2 \
             static_analysis \
             storage \
+            storage_k8s \
             unit \
             upgrade \
             user"

@@ -5,8 +5,10 @@ package storage_test
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,9 +18,11 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -669,6 +673,67 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
 	})
 	volumeSource.CheckNoCalls(c)
 	s.stub.CheckCallNames(c, getBlockForTypeCall)
+}
+
+func (s *storageSuite) TestImportFilesystemK8sProvider(c *gc.C) {
+	volumeSource := volumeImporter{&dummy.VolumeSource{}}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		VolumeSourceFunc: func(*storage.Config) (storage.VolumeSource, error) {
+			return volumeSource, nil
+		},
+		SupportsFunc: func(kind storage.StorageKind) bool {
+			return false
+		},
+	}
+	s.registry.Providers[k8sconstants.StorageProviderType] = dummyStorageProvider
+
+	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        k8sconstants.CAASProviderType,
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{{
+		Result: &params.ImportStorageDetails{
+			StorageTag: "storage-data-0",
+		},
+	}})
+}
+
+func (s *storageSuite) TestImportFilesystemK8sProviderNotSupported(c *gc.C) {
+	// Unset feature flag
+	os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	volumeSource := volumeImporter{&dummy.VolumeSource{}}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		VolumeSourceFunc: func(*storage.Config) (storage.VolumeSource, error) {
+			return volumeSource, nil
+		},
+		SupportsFunc: func(kind storage.StorageKind) bool {
+			return false
+		},
+	}
+	s.registry.Providers[k8sconstants.StorageProviderType] = dummyStorageProvider
+
+	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        k8sconstants.CAASProviderType,
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{
+		{Error: &params.Error{
+			Message: `importing volume with storage provider "kubernetes" not supported`,
+			Code:    "not supported",
+		}},
+	})
 }
 
 func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
