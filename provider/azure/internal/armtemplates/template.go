@@ -3,7 +3,7 @@
 
 package armtemplates
 
-import "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+import "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 
 const (
 	// Schema defines a resource group schema.

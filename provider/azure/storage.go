@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
@@ -31,6 +31,7 @@ const (
 	//
 	// See: https://azure.microsoft.com/en-gb/documentation/articles/virtual-machines-disks-vhds/
 	volumeSizeMaxGiB = 1023
+	nvmeLunOffset    = 2
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
@@ -198,6 +199,7 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallCont
 		return nil, errors.Trace(err)
 	}
 	var result armcompute.DisksClientCreateOrUpdateResponse
+	// makes a call to the azure API to create disk
 	poller, err := disks.BeginCreateOrUpdate(ctx, v.env.resourceGroup, diskName, diskModel, nil)
 	if err == nil {
 		result, err = poller.PollUntilDone(ctx, nil)
@@ -403,7 +405,10 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 	return results, nil
 }
 
-const azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
+const (
+	azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
+	nvmeDiskDeviceName  = "nvme0n%d" // +2 to actual lun
+)
 
 func (v *azureVolumeSource) attachVolume(
 	vm *armcompute.VirtualMachine,
@@ -411,8 +416,20 @@ func (v *azureVolumeSource) attachVolume(
 ) (_ *storage.VolumeAttachment, updated bool, _ error) {
 
 	var dataDisks []*armcompute.DataDisk
-	if vm.Properties != nil && vm.Properties.StorageProfile.DataDisks != nil {
-		dataDisks = vm.Properties.StorageProfile.DataDisks
+	var diskControllerType *armcompute.DiskControllerTypes
+	if vm.Properties != nil && vm.Properties.StorageProfile != nil {
+		if vm.Properties.StorageProfile.DataDisks != nil {
+			dataDisks = vm.Properties.StorageProfile.DataDisks
+		}
+		if vm.Properties.StorageProfile.DiskControllerType != nil {
+			diskControllerType = vm.Properties.StorageProfile.DiskControllerType
+		}
+	}
+
+	isNVME := false
+
+	if diskControllerType != nil && *diskControllerType == armcompute.DiskControllerTypesNVMe {
+		isNVME = true
 	}
 
 	diskName := p.VolumeId
@@ -420,18 +437,31 @@ func (v *azureVolumeSource) attachVolume(
 		if toValue(disk.Name) != diskName {
 			continue
 		}
+
+		var (
+			deviceLink string
+			deviceName string
+		)
+
+		if isNVME {
+			deviceName = fmt.Sprintf(nvmeDiskDeviceName, toValue(disk.Lun)+nvmeLunOffset)
+		} else {
+			deviceLink = fmt.Sprintf(azureDiskDeviceLink, toValue(disk.Lun))
+		}
 		// Disk is already attached.
 		volumeAttachment := &storage.VolumeAttachment{
 			Volume:  p.Volume,
 			Machine: p.Machine,
 			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
-				DeviceLink: fmt.Sprintf(azureDiskDeviceLink, toValue(disk.Lun)),
+				DeviceLink: deviceLink,
+				DeviceName: deviceName,
 			},
 		}
+
 		return volumeAttachment, false, nil
 	}
 
-	volumeAttachment, err := v.addDataDisk(vm, diskName, p.Volume, p.Machine, armcompute.DiskCreateOptionTypesAttach, nil)
+	volumeAttachment, err := v.addDataDisk(vm, diskName, p.Volume, p.Machine, armcompute.DiskCreateOptionTypesAttach, nil, isNVME)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -445,6 +475,7 @@ func (v *azureVolumeSource) addDataDisk(
 	machineTag names.Tag,
 	createOption armcompute.DiskCreateOptionTypes,
 	diskSizeGB *int32,
+	isNVME bool,
 ) (*storage.VolumeAttachment, error) {
 
 	lun, err := nextAvailableLUN(vm)
@@ -466,18 +497,29 @@ func (v *azureVolumeSource) addDataDisk(
 
 	if vm.Properties != nil {
 		var dataDisks []*armcompute.DataDisk
-		if vm.Properties.StorageProfile.DataDisks != nil {
+		if vm.Properties.StorageProfile != nil && vm.Properties.StorageProfile.DataDisks != nil {
 			dataDisks = vm.Properties.StorageProfile.DataDisks
 		}
 		dataDisks = append(dataDisks, dataDisk)
 		vm.Properties.StorageProfile.DataDisks = dataDisks
 	}
 
+	var (
+		deviceLink string
+		deviceName string
+	)
+
+	if isNVME {
+		deviceName = fmt.Sprintf(nvmeDiskDeviceName, lun+nvmeLunOffset)
+	} else {
+		deviceLink = fmt.Sprintf(azureDiskDeviceLink, lun)
+	}
 	return &storage.VolumeAttachment{
 		Volume:  volumeTag,
 		Machine: machineTag,
 		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
-			DeviceLink: fmt.Sprintf(azureDiskDeviceLink, lun),
+			DeviceLink: deviceLink,
+			DeviceName: deviceName,
 		},
 	}, nil
 }
@@ -649,6 +691,7 @@ func (v *azureVolumeSource) updateVirtualMachines(
 		// successfully updated, don't update again
 		delete(virtualMachines, instanceId)
 	}
+
 	return results, nil
 }
 
