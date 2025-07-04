@@ -28,8 +28,8 @@ type State interface {
 	FilesystemState
 	VolumeState
 
-	// CheckMachineIsDead checks to see if a machine is dead returning true when
-	// the life of the machine is dead.
+	// CheckMachineIsDead checks to see if a machine is dead, returning true
+	// when the life of the machine is dead.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no

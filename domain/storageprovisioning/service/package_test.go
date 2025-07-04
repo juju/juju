@@ -69,20 +69,20 @@ func (m eventSourcePredFilterMatcher) String() string {
 		m.Namespace, m.ChangeMask)
 }
 
-// testNamespaceQuery provides a fake [eventsource.NamespaceQuery] for service
-// tests. The query returned fails the test if the query is executed as the
-// service should not be doing this.
-func testNamespaceQuery(t *testing.T) eventsource.NamespaceQuery {
+// namespaceQueryReturningError provides a fake [eventsource.NamespaceQuery] for
+// service tests. The query returned fails the test if the query is executed as
+// the service should not be doing this.
+func namespaceQueryReturningError(t *testing.T) eventsource.NamespaceQuery {
 	return func(_ context.Context, _ database.TxnRunner) ([]string, error) {
 		t.Fatal("namespace query should not have been called")
 		return nil, nil
 	}
 }
 
-// testNamespaceLifeQuery provides a fake [eventsource.Query] for service tests.
-// The query returned fails the test if the query is executed as the service
-// should not be doing this.
-func testNamespaceLifeQuery(t *testing.T) eventsource.Query[map[string]life.Life] {
+// namespaceLifeQueryReturningError provides a fake [eventsource.Query] for
+// service tests. The query returned fails the test if the query is executed as
+// the service should not be doing this.
+func namespaceLifeQueryReturningError(t *testing.T) eventsource.Query[map[string]life.Life] {
 	return func(_ context.Context, _ database.TxnRunner) (map[string]life.Life, error) {
 		t.Fatal("namespace life query should not have been called")
 		return nil, nil

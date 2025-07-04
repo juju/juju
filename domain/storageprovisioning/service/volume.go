@@ -22,6 +22,17 @@ type VolumeState interface {
 	// volume attachment uuid supplied. If a uuid does not exist or isn't
 	// attached to either a machine or a unit then it will not exist in the
 	// result.
+	//
+	// It is not considered an error if a volume attachment uuid no longer
+	// exists as it is expected the caller has already satisfied this requirement
+	// themselves.
+	//
+	// This function exists to help keep supporting storage provisioning facades
+	// that have a very week data model about what a volume attachment is
+	// attached to.
+	//
+	// All returned values will have either the machine name or unit name value
+	// filled out in the [storageprovisioning.VolumeAttachmentID] struct.
 	GetVolumeAttachmentIDs(ctx context.Context, uuids []string) (map[string]storageprovisioning.VolumeAttachmentID, error)
 
 	// GetVolumeAttachmentLifeForNetNode returns a mapping of volume
@@ -44,8 +55,8 @@ type VolumeState interface {
 
 	// InitialWatchStatementMachineProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
-	// machine provisioned. On top of this the initial query for getting all
-	// volumes in the model that are machine provisioned is returned.
+	// machine provisioned and the initial query for getting the set of volumes
+	// that are provisioned by the supplied machine in the model.
 	//
 	// Only volumes that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
@@ -53,15 +64,15 @@ type VolumeState interface {
 
 	// InitialWatchStatementModelProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
-	// model provisioned. On top of this the initial query for getting all
-	// volumes in the model that are model provisioned is returned.
+	// model provisioned and the initial query for getting the set of volumes
+	// that are model provisioned.
 	InitialWatchStatementModelProvisionedVolumes() (string, eventsource.NamespaceQuery)
 
 	// InitialWatchStatementMachineProvisionedVolumeAttachments returns
 	// both the namespace for watching volume attachment life changes where
-	// the volume attachment is machine provisioned. On top of this the
-	// initial query for getting all volume attachments in the model that
-	// are machine provisioned is returned.
+	// the volume attachment is machine provisioned and the initial query for
+	// getting the set of volume attachments in the model that are provisioned
+	// by the supplied machine in the model.
 	//
 	// Only volume attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
@@ -69,15 +80,14 @@ type VolumeState interface {
 
 	// InitialWatchStatementModelProvisionedVolumeAttachments returns both
 	// the namespace for watching volume attachment life changes where the
-	// volume attachment is model provisioned. On top of this the initial
-	// query for getting all volume attachments in the model that are model
-	// provisioned is returned.
+	// volume attachment is model provisioned and the initial query for getting
+	// the set of volume attachments that are model provisioned.
 	InitialWatchStatementModelProvisionedVolumeAttachments() (string, eventsource.NamespaceQuery)
 
 	// InitialWatchStatementVolumeAttachmentPlans returns both the namespace for
-	// watching volume attachment plan life changes. On top of this the initial
-	// query for getting all volume attachment plan volume ids in the model that
-	// are for the given net node uuid.
+	// watching volume attachment plan life changes and the initial query for
+	// getting the set of volume attachment plans in the model that are
+	// provisioned by the supplied machine in the model.
 	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 }
 
@@ -115,7 +125,7 @@ func (s *Service) WatchModelProvisionedVolumes(
 }
 
 // WatchMachineProvisionedVolumes returns a watcher that emits volume IDs,
-// whenever a machine provisioned volume's life changes for the given machine.
+// whenever the given machine's provisioned volume life changes.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
@@ -138,7 +148,7 @@ func (s *Service) WatchMachineProvisionedVolumes(
 	}
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedVolumes(netNodeUUID)
-	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
+	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
@@ -164,8 +174,8 @@ func (s *Service) WatchModelProvisionedVolumeAttachments(
 }
 
 // WatchMachineProvisionedVolumeAttachments returns a watcher that emits volume
-// attachment UUIDs, whenever a machine provisioned volume attachment's life
-// changes for the given machine.
+// attachment UUIDs, whenever the given machine's provisioned volume
+// attachment's life changes.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
@@ -188,7 +198,7 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 	}
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID)
-	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
+	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
@@ -202,8 +212,8 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 }
 
 // WatchVolumeAttachmentPlans returns a watcher that emits volume attachment
-// plan volume ids, whenever a volume attachment plan's life changes for the given
-// machine.
+// plan volume ids, whenever the given machine's volume attachment plan life
+// changes.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
@@ -226,7 +236,7 @@ func (s *Service) WatchVolumeAttachmentPlans(
 	}
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementVolumeAttachmentPlans(netNodeUUID)
-	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
+	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)

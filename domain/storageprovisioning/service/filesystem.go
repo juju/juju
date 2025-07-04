@@ -24,6 +24,17 @@ type FilesystemState interface {
 	// filesystem attachment uuid supplied. If a uuid does not exist or isn't
 	// attached to either a machine or a unit then it will not exist in the
 	// result.
+	//
+	// It is not considered an error if a filesystem attachment uuid no longer
+	// exists as it is expected the caller has already satisfied this
+	// requirement themselves.
+	//
+	// This function exists to help keep supporting storage provisioning facades
+	// that have a very week data model about what a filesystem attachment is
+	// attached to.
+	//
+	// All returned values will have either the machine name or unit name value
+	// filled out in the [storageprovisioning.FilesystemAttachmentID] struct.
 	GetFilesystemAttachmentIDs(ctx context.Context, uuids []string) (map[string]storageprovisioning.FilesystemAttachmentID, error)
 
 	// GetFilesystemAttachmentLifeForNetNode returns a mapping of filesystem
@@ -39,8 +50,8 @@ type FilesystemState interface {
 
 	// InitialWatchStatementMachineProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
-	// machine provisioned. On top of this the initial query for getting all
-	// filesystems in the model that are machine provisioned is returned.
+	// machine provisioned and the query for getting the current set of machine
+	// provisioned filesystems.
 	//
 	// Only filesystems that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
@@ -48,15 +59,14 @@ type FilesystemState interface {
 
 	// InitialWatchStatementModelProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
-	// model provisioned. On top of this the initial query for getting all
-	// filesystems in the model that are model provisioned is returned.
+	// model provisioned and the initial query for getting the current set of
+	// model provisioned filesystems in the model.
 	InitialWatchStatementModelProvisionedFilesystems() (string, eventsource.NamespaceQuery)
 
 	// InitialWatchStatementMachineProvisionedFilesystemAttachments returns
 	// both the namespace for watching filesystem attachment life changes where
-	// the filesystem attachment is machine provisioned. On top of this the
-	// initial query for getting all filesystem attachments in the model that
-	// are machine provisioned is returned.
+	// the filesystem attachment is machine provisioned and the initial query
+	// for getting the current set of machine provisioned filesystem attachments.
 	//
 	// Only filesystem attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
@@ -64,9 +74,8 @@ type FilesystemState interface {
 
 	// InitialWatchStatementModelProvisionedFilesystemAttachments returns both
 	// the namespace for watching filesystem attachment life changes where the
-	// filesystem attachment is model provisioned. On top of this the initial
-	// query for getting all filesystem attachments in the model that are model
-	// provisioned is returned.
+	// filesystem attachment is model provisioned and the initial query for
+	// getting the current set of model provisioned filesystem attachments.
 	InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery)
 }
 
@@ -104,7 +113,7 @@ func (s *Service) WatchModelProvisionedFilesystems(
 }
 
 // WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,
-// whenever a machine provisioned filsystem's life changes for the given machine.
+// whenever the given machine's provisioned filsystem's life changes.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the supplied machine uuid
@@ -127,7 +136,7 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 	}
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID)
-	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
+	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
@@ -153,8 +162,8 @@ func (s *Service) WatchModelProvisionedFilesystemAttachments(
 }
 
 // WatchMachineProvisionedFilesystemAttachments returns a watcher that emits
-// filesystem attachment UUIDs, whenever a machine provisioned filsystem
-// attachment's life changes.
+// filesystem attachment UUIDs, whenever the given machine's provisioned
+// filsystem attachment's life changes.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
@@ -177,7 +186,7 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 	}
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID)
-	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
+	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)

@@ -50,7 +50,7 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().InitialWatchStatementModelProvisionedVolumes().Return(
-		"test_namespace", testNamespaceQuery(c.T),
+		"test_namespace", namespaceQueryReturningError(c.T),
 	)
 	matcher := eventSourceFilterMatcher{
 		ChangeMask: changestream.All,
@@ -81,7 +81,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 	s.state.EXPECT().InitialWatchStatementMachineProvisionedVolumes(
 		netNodeUUID,
 	).Return(
-		"test_namespace", testNamespaceLifeQuery(c.T),
+		"test_namespace", namespaceLifeQueryReturningError(c.T),
 	)
 	matcher := eventSourcePredFilterMatcher{
 		ChangeMask: changestream.All,
@@ -134,7 +134,7 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().InitialWatchStatementModelProvisionedVolumeAttachments().Return(
-		"test_namespace", testNamespaceQuery(c.T),
+		"test_namespace", namespaceQueryReturningError(c.T),
 	)
 	matcher := eventSourceFilterMatcher{
 		ChangeMask: changestream.All,
@@ -165,7 +165,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 	s.state.EXPECT().InitialWatchStatementMachineProvisionedVolumeAttachments(
 		netNodeUUID,
 	).Return(
-		"test_namespace", testNamespaceLifeQuery(c.T),
+		"test_namespace", namespaceLifeQueryReturningError(c.T),
 	)
 	matcher := eventSourcePredFilterMatcher{
 		ChangeMask: changestream.All,
@@ -225,7 +225,7 @@ func (s *volumeSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	s.state.EXPECT().InitialWatchStatementVolumeAttachmentPlans(
 		netNodeUUID,
 	).Return(
-		"test_namespace", testNamespaceLifeQuery(c.T),
+		"test_namespace", namespaceLifeQueryReturningError(c.T),
 	)
 	matcher := eventSourcePredFilterMatcher{
 		ChangeMask: changestream.All,

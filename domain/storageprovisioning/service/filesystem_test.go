@@ -50,7 +50,7 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().InitialWatchStatementModelProvisionedFilesystems().Return(
-		"test_namespace", testNamespaceQuery(c.T),
+		"test_namespace", namespaceQueryReturningError(c.T),
 	)
 	matcher := eventSourceFilterMatcher{
 		ChangeMask: changestream.All,
@@ -81,7 +81,7 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 	s.state.EXPECT().InitialWatchStatementMachineProvisionedFilesystems(
 		netNodeUUID,
 	).Return(
-		"test_namespace", testNamespaceLifeQuery(c.T),
+		"test_namespace", namespaceLifeQueryReturningError(c.T),
 	)
 	matcher := eventSourcePredFilterMatcher{
 		ChangeMask: changestream.All,
@@ -134,7 +134,7 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().InitialWatchStatementModelProvisionedFilesystemAttachments().Return(
-		"test_namespace", testNamespaceQuery(c.T),
+		"test_namespace", namespaceQueryReturningError(c.T),
 	)
 	matcher := eventSourceFilterMatcher{
 		ChangeMask: changestream.All,
@@ -165,7 +165,7 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc
 	s.state.EXPECT().InitialWatchStatementMachineProvisionedFilesystemAttachments(
 		netNodeUUID,
 	).Return(
-		"test_namespace", testNamespaceLifeQuery(c.T),
+		"test_namespace", namespaceLifeQueryReturningError(c.T),
 	)
 	matcher := eventSourcePredFilterMatcher{
 		ChangeMask: changestream.All,
