@@ -3,6 +3,11 @@
 
 package storageprovisioning
 
+import (
+	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
+)
+
 // FilesystemAttachmentID is a struct that provides the IDs and names associated
 // with a filesystem attachment. In this case the ID refers to the filesystem
 // resource the attachment is for. As well as this the name of the machine and
@@ -19,11 +24,11 @@ type FilesystemAttachmentID struct {
 	// against. Only one of [FilesystemAttachmentID.MachineName] or
 	// [FilesystemAttachmentID.UnitName] will be set. It is reasonable to expect
 	// one of these values to be set.
-	MachineName *string
+	MachineName *coremachine.Name
 
 	// UnitName is the name of the unit the filesystem attachment is against.
 	// Only one of [FilesystemAttachmentID.MachineName] or
 	// [FilesystemAttachmentID.UnitName] will be set. It is reasonable to expect
 	// one of these values to be set.
-	UnitName *string
+	UnitName *coreunit.Name
 }
