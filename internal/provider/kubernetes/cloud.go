@@ -123,7 +123,8 @@ func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (en
 	}
 	openParams := environs.OpenParams{
 		ControllerUUID: controllerUUID.String(),
-		Cloud:          cloudSpec, Config: cfg,
+		Cloud:          cloudSpec,
+		Config:         cfg,
 	}
 	return openParams, nil
 }

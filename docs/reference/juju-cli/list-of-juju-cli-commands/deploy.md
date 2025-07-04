@@ -229,7 +229,7 @@ The format is
 
 where the resource name is the name from the metadata.yaml file of the charm
 and where, depending on the type of the resource, the resource can be specified
-as follows: 
+as follows:
 
 (1) If the resource is type 'file', you can specify it by providing
   (a) the resource revision number or
@@ -244,7 +244,7 @@ as follows:
 Note: If you choose (1b) or (2b-c), i.e., a resource that is not from Charmhub:
 You will not be able to go back to using a resource from Charmhub.
 
-Note: If you choose (1b) or (2b): This uploads a file from your loal disk to the juju
+Note: If you choose (1b) or (2b): This uploads a file from your local disk to the juju
 controller to be streamed to the charm when "resource-get" is called by a hook.
 
 Note: If you choose (2b): You will need to specify:
