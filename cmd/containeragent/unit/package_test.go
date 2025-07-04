@@ -39,7 +39,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"api/agent/proxyupdater",
 		"api/agent/reboot",
 		"api/agent/retrystrategy",
-		"api/agent/unitassigner",
 		"api/agent/uniter",
 		"api/agent/upgrader",
 		"api/authentication",
