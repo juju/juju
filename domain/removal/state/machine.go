@@ -264,6 +264,64 @@ func (st *State) GetMachineLife(ctx context.Context, mUUID string) (life.Life, e
 	return life, errors.Capture(err)
 }
 
+// GetInstanceLife returns the life of the machine instance with the input UUID.
+func (st *State) GetInstanceLife(ctx context.Context, mUUID string) (life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var life life.Life
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		life, err = st.getInstanceLife(ctx, tx, mUUID)
+
+		return errors.Capture(err)
+	})
+
+	return life, errors.Capture(err)
+}
+
+// GetMachineNetworkInterfaces returns the network interfaces for the
+// machine with the input UUID. This is used to release any addresses that the
+// machine has allocated.
+// This will only return interfaces that have a non-null MAC address and
+// if the machine is a container machine (i.e. lxd container machine).
+func (st *State) GetMachineNetworkInterfaces(ctx context.Context, machineUUID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	selectStmt, err := st.Prepare(`
+SELECT  lld.mac_address AS &linkLayerDevice.hardware_address
+FROM    machine AS m
+JOIN    net_node AS n ON n.uuid = m.net_node_uuid
+JOIN    machine_parent AS mp ON mp.machine_uuid = m.uuid
+JOIN    link_layer_device AS lld ON lld.net_node_uuid = n.uuid
+WHERE   m.uuid = $entityUUID.uuid
+AND     m.life_id = 1
+AND     lld.mac_address IS NOT NULL;`, entityUUID{UUID: machineUUID}, linkLayerDevice{})
+	if err != nil {
+		return nil, errors.Errorf("preparing machine network interfaces selection: %w", err)
+	}
+	var interfaces []linkLayerDevice
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, selectStmt, entityUUID{UUID: machineUUID}).
+			GetAll(&interfaces)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting machine %q network interfaces: %w", machineUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.Slice(interfaces, func(v linkLayerDevice) string {
+		return v.HardwareAddress
+	}), nil
+}
+
 // MarkMachineAsDead marks the machine with the input UUID as dead.
 func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB()

@@ -38,6 +38,7 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log),
 		domain.NewWatcherFactory(factory, log),
 		nil,
+		nil,
 		clock.WallClock,
 		log,
 	)

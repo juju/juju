@@ -476,6 +476,7 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		s.modelWatcherFactory("removal"),
 		domain.NewLeaseService(s.leaseManager),
+		providertracker.ProviderRunner[removalservice.Provider](s.providerFactory, s.modelUUID.String()),
 		s.clock,
 		log,
 	)

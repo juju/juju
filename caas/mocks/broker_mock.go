@@ -936,7 +936,7 @@ func (c *MockBrokerProxyToApplicationCall) DoAndReturn(f func(context.Context, s
 }
 
 // ReleaseContainerAddresses mocks base method.
-func (m *MockBroker) ReleaseContainerAddresses(arg0 context.Context, arg1 []network.ProviderInterfaceInfo) error {
+func (m *MockBroker) ReleaseContainerAddresses(arg0 context.Context, arg1 []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -962,13 +962,13 @@ func (c *MockBrokerReleaseContainerAddressesCall) Return(arg0 error) *MockBroker
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBrokerReleaseContainerAddressesCall) Do(f func(context.Context, []network.ProviderInterfaceInfo) error) *MockBrokerReleaseContainerAddressesCall {
+func (c *MockBrokerReleaseContainerAddressesCall) Do(f func(context.Context, []string) error) *MockBrokerReleaseContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerReleaseContainerAddressesCall) DoAndReturn(f func(context.Context, []network.ProviderInterfaceInfo) error) *MockBrokerReleaseContainerAddressesCall {
+func (c *MockBrokerReleaseContainerAddressesCall) DoAndReturn(f func(context.Context, []string) error) *MockBrokerReleaseContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -1430,7 +1430,7 @@ func (c *MockProviderWithNetworkingProviderSpaceInfoCall) DoAndReturn(f func(con
 }
 
 // ReleaseContainerAddresses mocks base method.
-func (m *MockProviderWithNetworking) ReleaseContainerAddresses(arg0 context.Context, arg1 []network.ProviderInterfaceInfo) error {
+func (m *MockProviderWithNetworking) ReleaseContainerAddresses(arg0 context.Context, arg1 []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1456,13 +1456,13 @@ func (c *MockProviderWithNetworkingReleaseContainerAddressesCall) Return(arg0 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderWithNetworkingReleaseContainerAddressesCall) Do(f func(context.Context, []network.ProviderInterfaceInfo) error) *MockProviderWithNetworkingReleaseContainerAddressesCall {
+func (c *MockProviderWithNetworkingReleaseContainerAddressesCall) Do(f func(context.Context, []string) error) *MockProviderWithNetworkingReleaseContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderWithNetworkingReleaseContainerAddressesCall) DoAndReturn(f func(context.Context, []network.ProviderInterfaceInfo) error) *MockProviderWithNetworkingReleaseContainerAddressesCall {
+func (c *MockProviderWithNetworkingReleaseContainerAddressesCall) DoAndReturn(f func(context.Context, []string) error) *MockProviderWithNetworkingReleaseContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

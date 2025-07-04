@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -64,6 +65,9 @@ func (s *Service) RemoveUnit(
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	exists, err := s.st.UnitExists(ctx, unitUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if unit exists: %w", err)
@@ -121,6 +125,9 @@ func (s *Service) RemoveUnit(
 // and will not allow it to be transitioned back to alive.
 // Returns an error if the unit does not exist.
 func (s *Service) MarkUnitAsDead(ctx context.Context, unitUUID unit.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	exists, err := s.st.UnitExists(ctx, unitUUID.String())
 	if err != nil {
 		return errors.Errorf("checking if unit exists: %w", err)

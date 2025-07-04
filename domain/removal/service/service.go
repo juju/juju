@@ -11,12 +11,20 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+// Provider describes methods for interacting with the provider.
+type Provider interface {
+	// ReleaseContainerAddresses releases the previously allocated
+	// addresses matching the interface details passed in.
+	ReleaseContainerAddresses(ctx context.Context, interfaces []string) error
+}
 
 // State describes retrieval and persistence methods for entity removal.
 type State interface {
@@ -45,6 +53,7 @@ type Service struct {
 	st State
 
 	leadershipRevoker leadership.Revoker
+	provider          providertracker.ProviderGetter[Provider]
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -113,6 +122,7 @@ func NewWatchableService(
 	st State,
 	watcherFactory WatcherFactory,
 	leadershipRevoker leadership.Revoker,
+	provider providertracker.ProviderGetter[Provider],
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
@@ -120,6 +130,7 @@ func NewWatchableService(
 		Service: Service{
 			st:                st,
 			leadershipRevoker: leadershipRevoker,
+			provider:          provider,
 			clock:             clock,
 			logger:            logger,
 		},

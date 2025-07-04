@@ -75,7 +75,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
-	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
@@ -197,7 +196,6 @@ func AllFacades() *facade.Registry {
 	loggerapi.Register(registry)
 	machineactions.Register(registry)
 	machinemanager.Register(registry)
-	machineundertaker.Register(registry)
 	machine.Register(registry)
 	migrationflag.Register(registry)
 	migrationmaster.Register(registry)

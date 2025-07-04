@@ -65,7 +65,6 @@ var facadeVersions = facades.FacadeVersions{
 	"Logger":                       {1},
 	"MachineActions":               {1},
 	"MachineManager":               {11},
-	"MachineUndertaker":            {1},
 	"Machiner":                     {5, 6},
 	"MigrationFlag":                {1},
 	"MigrationMaster":              {4, 5},

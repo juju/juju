@@ -9,6 +9,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -62,6 +63,9 @@ func (s *Service) RemoveApplication(
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	exists, err := s.st.ApplicationExists(ctx, appUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if application %q exists: %w", appUUID, err)

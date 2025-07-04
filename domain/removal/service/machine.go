@@ -7,7 +7,9 @@ import (
 	"context"
 	"time"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
@@ -38,12 +40,20 @@ type MachineState interface {
 	// GetMachineLife returns the life of the machine with the input UUID.
 	GetMachineLife(ctx context.Context, mUUID string) (life.Life, error)
 
+	// GetInstanceLife returns the life of the machine instance with the input UUID.
+	GetInstanceLife(ctx context.Context, mUUID string) (life.Life, error)
+
 	// MarkMachineAsDead marks the machine with the input UUID as dead.
 	MarkMachineAsDead(ctx context.Context, mUUID string) error
 
 	// DeleteMachine deletes the specified machine and any dependent child
 	// records.
 	DeleteMachine(ctx context.Context, mName string) error
+
+	// GetMachineNetworkInterfaces returns the network interfaces for the
+	// machine with the input UUID. This is used to release any addresses
+	// that container machine has allocated.
+	GetMachineNetworkInterfaces(ctx context.Context, machineUUID string) ([]string, error)
 }
 
 // RemoveMachine checks if a machine with the input name exists.
@@ -60,6 +70,9 @@ func (s *Service) RemoveMachine(
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	exists, err := s.st.MachineExists(ctx, machineUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if machine exists: %w", err)
@@ -124,6 +137,9 @@ func (s *Service) RemoveMachine(
 // and will not allow it to be transitioned back to alive.
 // Returns an error if the machine does not exist.
 func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	exists, err := s.st.MachineExists(ctx, machineUUID.String())
 	if err != nil {
 		return errors.Errorf("checking if machine exists: %w", err)
@@ -174,6 +190,24 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("machine %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
+	l, err = s.st.GetInstanceLife(ctx, job.EntityUUID)
+	if err != nil && !errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.Errorf("getting instance %q life: %w", job.EntityUUID, err)
+	}
+
+	// This instance hasn't yet been marked as dead, so we
+	// will not delete it yet.
+	if l != life.Dead {
+		return errors.Errorf("machine instance %q is not dead", job.EntityUUID).Add(
+			removalerrors.RemovalJobIncomplete)
+	}
+
+	// Do this before we delete the machine, so that we can release any
+	// addresses that the machine has allocated.
+	if err := s.releaseContainerAddresses(ctx, job.EntityUUID); err != nil {
+		return errors.Errorf("releasing addresses for machine %q: %w", job.EntityUUID, err)
+	}
+
 	if err := s.st.DeleteMachine(ctx, job.EntityUUID); errors.Is(err, machineerrors.MachineNotFound) {
 		// The machine has already been removed.
 		// Indicate success so that this job will be deleted.
@@ -181,5 +215,40 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 	} else if err != nil {
 		return errors.Errorf("deleting machine %q: %w", job.EntityUUID, err)
 	}
+
+	return nil
+}
+
+func (s *Service) releaseContainerAddresses(ctx context.Context, machineUUID string) error {
+	// Get the provider for releasing the machine addresses. If the provider
+	// does not support releasing addresses, we can return early.
+	provider, err := s.provider(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting provider: %w", err)
+	}
+
+	// Get all the machines network interfaces, so that we can release them
+	// to the provider. This will only work on container machines.
+	addresses, err := s.st.GetMachineNetworkInterfaces(ctx, machineUUID)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting machine %q network interfaces: %w", machineUUID, err)
+	}
+
+	if len(addresses) == 0 {
+		return nil
+	}
+
+	// If the provider supports the networking interface, but can't release
+	// addresses, then we need to handle the NotSupported error gracefully.
+	if err := provider.ReleaseContainerAddresses(ctx, addresses); errors.Is(err, coreerrors.NotSupported) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("releasing machine %q network interfaces: %w", machineUUID, err)
+	}
+
 	return nil
 }
