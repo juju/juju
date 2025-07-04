@@ -104,6 +104,13 @@ type app struct {
 	newApplier func() resources.Applier
 }
 
+// CharmContainerResourceRequirements defines the memory resource constraints
+// for the workload pod's charm container.
+type CharmContainerResourceRequirements struct {
+	MemRequestMib string
+	MemLimitMib   string
+}
+
 // NewApplication returns an application.
 func NewApplication(
 	name string,
@@ -1795,12 +1802,12 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		if err := ApplyWorkloadConstraints(spec, a.name, config.Constraints, configureWorkloadConstraintV2); err != nil {
 			return nil, errors.Annotate(err, "processing workload container constraints")
 		}
-		charmConstraints := caas.CharmContainerResourceRequirements{
+		charmConstraints := CharmContainerResourceRequirements{
 			MemRequestMib: constants.CharmMemRequestMiB,
 			MemLimitMib:   constants.CharmMemLimitMiB,
 		}
 		if config.Constraints.Mem != nil {
-			charmConstraints.MemLimitMib = *config.Constraints.Mem
+			charmConstraints.MemLimitMib = fmt.Sprintf("%dMi", *config.Constraints.Mem)
 		}
 
 		if err := ApplyCharmConstraints(spec, a.name, charmConstraints); err != nil {

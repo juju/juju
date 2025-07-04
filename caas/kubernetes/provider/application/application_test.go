@@ -2941,9 +2941,11 @@ func (s *applicationSuite) TestEnsureUpdatedConstraints(c *gc.C) {
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000"), true, true, "3.6.8", func() {
 			ps := getPodSpec368()
 			charmResourceMemRequest := corev1.ResourceList{
-				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemRequestMiB))}
+				corev1.ResourceMemory: k8sresource.MustParse(constants.CharmMemRequestMiB),
+			}
 			charmResourceMemLimit := corev1.ResourceList{
-				corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemLimitMiB))}
+				corev1.ResourceMemory: k8sresource.MustParse(constants.CharmMemLimitMiB),
+			}
 
 			workloadResourceLimits := corev1.ResourceList{
 				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),

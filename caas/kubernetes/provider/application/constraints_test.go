@@ -23,31 +23,31 @@ type applyConstraintsSuite struct {
 var _ = gc.Suite(&applyConstraintsSuite{})
 
 func (s *applyConstraintsSuite) TestMemory(c *gc.C) {
-	podSpec := &corev1.PodSpec{}
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
-		c.Assert(pod, gc.Equals, podSpec)
+	pod := &corev1.PodSpec{}
+	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+		c.Assert(got, gc.Equals, pod)
 		c.Assert(resourceName, gc.Equals, corev1.ResourceName("memory"))
-		c.Assert(value, gc.Equals, uint64(4096))
+		c.Assert(value, gc.Equals, "4096Mi")
 		return errors.New("boom")
 	}
-	err := application.ApplyWorkloadConstraints(podSpec, "foo", constraints.MustParse("mem=4G"), configureConstraint)
-	c.Assert(err, gc.ErrorMatches, "configuring workload container memory constraint for foo: boom")
+	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("mem=4G"), configureConstraint)
+	c.Assert(err, gc.ErrorMatches, "configuring memory constraint for foo: boom")
 }
 
 func (s *applyConstraintsSuite) TestCPU(c *gc.C) {
 	pod := &corev1.PodSpec{}
-	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		c.Assert(got, gc.Equals, pod)
 		c.Assert(resourceName, gc.Equals, corev1.ResourceName("cpu"))
-		c.Assert(value, gc.Equals, uint64(2))
+		c.Assert(value, gc.Equals, "2m")
 		return errors.New("boom")
 	}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("cpu-power=2"), configureConstraint)
-	c.Assert(err, gc.ErrorMatches, "configuring workload container cpu constraint for foo: boom")
+	c.Assert(err, gc.ErrorMatches, "configuring cpu constraint for foo: boom")
 }
 
 func (s *applyConstraintsSuite) TestArch(c *gc.C) {
-	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -57,7 +57,7 @@ func (s *applyConstraintsSuite) TestArch(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -74,7 +74,7 @@ func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -101,7 +101,7 @@ func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -127,7 +127,7 @@ func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -144,7 +144,7 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -171,7 +171,7 @@ func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
@@ -199,7 +199,7 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
 }
 
 func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
-	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value uint64) (err error) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}

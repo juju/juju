@@ -223,10 +223,10 @@ func getPodSpec368() corev1.PodSpec {
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemRequestMiB)),
+					corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", 64)),
 				},
 				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", constants.CharmMemLimitMiB)),
+					corev1.ResourceMemory: k8sresource.MustParse(fmt.Sprintf("%dMi", 1024)),
 				},
 			},
 			SecurityContext: &corev1.SecurityContext{

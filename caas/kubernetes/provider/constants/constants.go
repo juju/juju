@@ -83,9 +83,9 @@ const (
 
 const (
 	// CharmMemRequestMiB is the charm container's memory request value in MiB.
-	CharmMemRequestMiB = uint64(64)
+	CharmMemRequestMiB = "64Mi"
 	// CharmMemLimitMiB is the charm container's memory limit value in MiB.
-	CharmMemLimitMiB = uint64(1024)
+	CharmMemLimitMiB = "1024Mi"
 )
 
 // DefaultPropagationPolicy returns the default propagation policy.

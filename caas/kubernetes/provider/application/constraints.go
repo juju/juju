@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
@@ -22,7 +21,7 @@ import (
 // ConstraintApplier defines a function type that applies a resource constraint
 // (e.g., memory or CPU) with the given value to the specified resource name
 // in the provided PodSpec.
-type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, value uint64) error
+type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, value string) error
 
 // ApplyWorkloadConstraints applies the specified constraints to the pod.
 func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraints.Value, configureConstraint ConstraintApplier) error {
@@ -30,13 +29,13 @@ func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraint
 	// For now we only do resource requests, one container is sufficient for
 	// scheduling purposes.
 	if mem := cons.Mem; mem != nil {
-		if err := configureConstraint(pod, core.ResourceMemory, *mem); err != nil {
-			return errors.Annotatef(err, "configuring workload container memory constraint for %s", appName)
+		if err := configureConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", *mem)); err != nil {
+			return errors.Annotatef(err, "configuring memory constraint for %s", appName)
 		}
 	}
 	if cpu := cons.CpuPower; cpu != nil {
-		if err := configureConstraint(pod, core.ResourceCPU, *cpu); err != nil {
-			return errors.Annotatef(err, "configuring workload container cpu constraint for %s", appName)
+		if err := configureConstraint(pod, core.ResourceCPU, fmt.Sprintf("%dm", *cpu)); err != nil {
+			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
 		}
 	}
 	nodeSelector := map[string]string(nil)
@@ -115,31 +114,31 @@ func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraint
 
 // ApplyCharmConstraints applies the specified charm constraints to the charm container.
 func ApplyCharmConstraints(pod *core.PodSpec, appName string,
-	charmContainerResourceRequirements caas.CharmContainerResourceRequirements) error {
+	charmContainerResourceRequirements CharmContainerResourceRequirements) error {
 
 	if len(pod.Containers) == 0 {
 		return nil
 	}
 
-	if charmContainerResourceRequirements.MemLimitMib == 0 {
+	if charmContainerResourceRequirements.MemLimitMib == "0Mi" {
 		return errors.NotValidf("mem limit value for charm container must be greater than 0")
 	}
 
-	if charmContainerResourceRequirements.MemRequestMib == 0 {
+	if charmContainerResourceRequirements.MemRequestMib == "0Mi" {
 		return errors.NotValidf("mem request value for charm container must be greater than 0")
 	}
 
-	requestValue := fmt.Sprintf("%dMi", charmContainerResourceRequirements.MemRequestMib)
-	limitValue := fmt.Sprintf("%dMi", charmContainerResourceRequirements.MemLimitMib)
+	requestValue := charmContainerResourceRequirements.MemRequestMib
+	limitValue := charmContainerResourceRequirements.MemLimitMib
 
-	requestResourceQty, err := resource.ParseQuantity(requestValue)
-	if err != nil {
-		return errors.Annotatef(err, "invalid charm container constraint value %q for %q", requestValue, core.ResourceMemory)
-	}
-	limitResourceQty, err := resource.ParseQuantity(limitValue)
-	if err != nil {
-		return errors.Annotatef(err, "invalid charm container constraint value %q for %q", requestValue, core.ResourceMemory)
-	}
+	// requestResourceQty, err := resource.ParseQuantity(requestValue)
+	// if err != nil {
+	// 	return errors.Annotatef(err, "invalid charm container constraint value %q for %q", requestValue, core.ResourceMemory)
+	// }
+	// limitResourceQty, err := resource.ParseQuantity(limitValue)
+	// if err != nil {
+	// 	return errors.Annotatef(err, "invalid charm container constraint value %q for %q", requestValue, core.ResourceMemory)
+	// }
 
 	charmContainerIndex := -1
 
@@ -154,12 +153,13 @@ func ApplyCharmConstraints(pod *core.PodSpec, appName string,
 	if charmContainerIndex == -1 {
 		return nil
 	}
+	var err error
 
-	if pod.Containers[charmContainerIndex].Resources.Requests, err = MergeConstraint(core.ResourceMemory, requestResourceQty, pod.Containers[charmContainerIndex].Resources.Requests); err != nil {
+	if pod.Containers[charmContainerIndex].Resources.Requests, err = MergeConstraint(core.ResourceMemory, requestValue, pod.Containers[charmContainerIndex].Resources.Requests); err != nil {
 		return errors.Annotatef(err, "merging request constraint %s=%s for charm container", core.ResourceMemory, requestValue)
 	}
 
-	if pod.Containers[charmContainerIndex].Resources.Limits, err = MergeConstraint(core.ResourceMemory, limitResourceQty, pod.Containers[charmContainerIndex].Resources.Limits); err != nil {
+	if pod.Containers[charmContainerIndex].Resources.Limits, err = MergeConstraint(core.ResourceMemory, limitValue, pod.Containers[charmContainerIndex].Resources.Limits); err != nil {
 		return errors.Annotatef(err, "merging limit constraint %s=%s for charm container", core.ResourceMemory, limitValue)
 	}
 
@@ -323,38 +323,18 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 	return nil
 }
 
-// configureWorkloadConstraint sets the resource limits for all containers,
-// and the resource request for the first workload container only.
-func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceName, value uint64) (err error) {
+func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
 	if len(pod.Containers) == 0 {
 		return nil
 	}
-	var unitSuffix string
-
-	switch resourceName {
-	case core.ResourceMemory:
-		unitSuffix = "Mi"
-	case core.ResourceCPU:
-		unitSuffix = "m"
-	default:
-		return errors.NotSupportedf("converting resource value for %q", resourceName)
-	}
-
-	resourceValStr := fmt.Sprintf("%d%s", value, unitSuffix)
-	resourceQty, err := resource.ParseQuantity(resourceValStr)
+	pod.Containers[0].Resources.Requests, err = MergeConstraint(resourceName, value, pod.Containers[0].Resources.Requests)
 	if err != nil {
-		return errors.Annotatef(err, "parsing constraint value %q for %q", value, resourceName)
+		return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
 	}
-	if len(pod.Containers) > 0 {
-		pod.Containers[0].Resources.Requests, err = MergeConstraint(resourceName, resourceQty, pod.Containers[0].Resources.Requests)
-	}
-	if err != nil {
-		return errors.Annotatef(err, "merging request constraint %s=%s for container %s", resourceName, resourceValStr, pod.Containers[0].Name)
-	}
-	for i, container := range pod.Containers {
-		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, resourceQty, container.Resources.Limits)
+	for i := range pod.Containers {
+		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, value, pod.Containers[i].Resources.Limits)
 		if err != nil {
-			return errors.Annotatef(err, "merging limit constraint %s=%s for container %s", resourceName, resourceValStr, container.Name)
+			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)
 		}
 	}
 	return nil
@@ -362,28 +342,9 @@ func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceNa
 
 // configureWorkloadConstraintV2 sets the resource limits and requests for all containers,
 // excluding the charm container.
-func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.ResourceName, value uint64) (err error) {
+func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
 	if len(pod.Containers) == 0 {
 		return nil
-	}
-
-	var unitSuffix string
-
-	if len(pod.Containers) > 1 {
-		switch resourceName {
-		case core.ResourceMemory:
-			unitSuffix = "Mi"
-		case core.ResourceCPU:
-			unitSuffix = "m"
-		default:
-			return errors.NotSupportedf("converting resource value for %q", resourceName)
-		}
-	}
-
-	resourceValStr := fmt.Sprintf("%d%s", value, unitSuffix)
-	limitResourceQty, err := resource.ParseQuantity(resourceValStr)
-	if err != nil {
-		return errors.Annotatef(err, "parsing constraint value %q for %q", value, resourceName)
 	}
 
 	for i, container := range pod.Containers {
@@ -392,15 +353,15 @@ func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.Resource
 			continue
 		}
 
-		pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, limitResourceQty, container.Resources.Requests)
+		pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, value, container.Resources.Requests)
 		if err != nil {
 			return errors.Annotatef(err,
-				"merging request constraint %s=%s for container %s", resourceName, resourceValStr, container.Name)
+				"merging request constraint %s=%s for container %s", resourceName, value, container.Name)
 		}
 
-		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, limitResourceQty, container.Resources.Limits)
+		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, value, container.Resources.Limits)
 		if err != nil {
-			return errors.Annotatef(err, "merging limit constraint %s=%s, for container %s", resourceName, resourceValStr, container.Name)
+			return errors.Annotatef(err, "merging limit constraint %s=%s, for container %s", resourceName, value, container.Name)
 		}
 
 	}
@@ -408,13 +369,17 @@ func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.Resource
 }
 
 // MergeConstraint merges constraint spec.
-func MergeConstraint(resourceName core.ResourceName, resourceQty resource.Quantity, resourcesList core.ResourceList) (core.ResourceList, error) {
+func MergeConstraint(resourceName core.ResourceName, value string, resourcesList core.ResourceList) (core.ResourceList, error) {
 	if resourcesList == nil {
 		resourcesList = core.ResourceList{}
 	}
 	if v, ok := resourcesList[resourceName]; ok {
 		return nil, errors.NotValidf("resource list for %q has already been set to %v", resourceName, v)
 	}
-	resourcesList[resourceName] = resourceQty
+	parsedValue, err := resource.ParseQuantity(value)
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid constraint value %q for %q", value, resourceName)
+	}
+	resourcesList[resourceName] = parsedValue
 	return resourcesList, nil
 }
