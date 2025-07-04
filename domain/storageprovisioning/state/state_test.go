@@ -14,6 +14,7 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -108,4 +109,31 @@ func (s *stateSuite) TestCheckNetNodeExists(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
+}
+
+// TestGetMachineNetNodeUUID tests that the [State.GetMachineNetNodeUUID]
+// returns the correct net node uuid for a machine.
+func (s *stateSuite) TestGetMachineNetNodeUUID(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	rval, err := st.GetMachineNetNodeUUID(
+		c.Context(), coremachine.UUID(machineUUID),
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
+}
+
+// TestGetMachineNetNodeUUIDNotFound tests that asking for the net node of a
+// machine that does not exist returns a [machineerrors.MachineNotFound] error
+// to the caller.
+func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
+	machineUUID := machinetesting.GenUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetMachineNetNodeUUID(
+		c.Context(), coremachine.UUID(machineUUID),
+	)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }

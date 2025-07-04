@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -70,7 +71,7 @@ func (st *State) CheckMachineIsDead(
 // uuid.
 func (st *State) GetMachineNetNodeUUID(
 	ctx context.Context, uuid machine.UUID,
-) (string, error) {
+) (domainnetwork.NetNodeUUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -81,7 +82,7 @@ func (st *State) GetMachineNetNodeUUID(
 		dbVal netNodeUUIDRef
 	)
 	stmt, err := st.Prepare(
-		"SELECT netNodeUUIDRef.* FROM machine WHERE uuid = $machineUUID.uuid",
+		"SELECT &netNodeUUIDRef.* FROM machine WHERE uuid = $machineUUID.uuid",
 		input, dbVal,
 	)
 	if err != nil {
@@ -102,7 +103,7 @@ func (st *State) GetMachineNetNodeUUID(
 		return "", errors.Capture(err)
 	}
 
-	return dbVal.UUID, nil
+	return domainnetwork.NetNodeUUID(dbVal.UUID), nil
 }
 
 func (st *State) NamespaceForWatchMachineCloudInstance() string {
