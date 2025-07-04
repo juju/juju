@@ -10,18 +10,61 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
-	schematesting "github.com/juju/juju/domain/schema/testing"
+	coremachine "github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
+	domainlife "github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // stateSuite provides a test suite for testing the commonality parts of [State].
 type stateSuite struct {
-	schematesting.ModelSuite
+	baseSuite
 }
 
 // TestStateSuite registers and runs all of the tests located in [stateSuite].
 func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
+}
+
+// TestCheckMachineIsDeadTrue tests that the [State.CheckMachineIsDead] method
+// returns true when the machine is dead.
+func (s *stateSuite) TestCheckMachineIsDeadTrue(c *tc.C) {
+	netNode := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNode)
+	s.changeMachineLife(c, machineUUID, domainlife.Dead)
+
+	st := NewState(s.TxnRunnerFactory())
+	isDead, err := st.CheckMachineIsDead(
+		c.Context(), coremachine.UUID(machineUUID),
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(isDead, tc.IsTrue)
+}
+
+// TestCheckMachineIsDeadTrue tests that the [State.CheckMachineIsDead] method
+// returns false when the machine is not dead.
+func (s *stateSuite) TestCheckMachineIsDeadFalse(c *tc.C) {
+	netNode := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNode)
+
+	st := NewState(s.TxnRunnerFactory())
+	isDead, err := st.CheckMachineIsDead(
+		c.Context(), coremachine.UUID(machineUUID),
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(isDead, tc.IsFalse)
+}
+
+// TestCheckMachineIsDeadNotFound tests that check if a non-existent machine
+// is dead results in a [machineerrors.MachineNotFound] error to the caller.
+func (s *stateSuite) TestCheckMachineIsDeadNotFound(c *tc.C) {
+	machineUUID := machinetesting.GenUUID(c)
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.CheckMachineIsDead(
+		c.Context(), machineUUID,
+	)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestCheckNetNodeNotExist tests that the [State.checkNetNodeExists] method

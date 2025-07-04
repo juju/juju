@@ -205,6 +205,57 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeNoResults(c *tc.C) {
 	c.Check(lives, tc.HasLen, 0)
 }
 
+// TestGetVolumeAttachmentPlanLifeFornetNode tests that the correct life is
+// reported for each volume attachment plan associated with the given net node.
+// We expect in this test that it is the volume id for the attachment plan
+// that is returned and not the uuid for the attachment plan.
+//
+// We also inject a life change during the test to make sure that it is
+// reflected.
+func (s *volumeSuite) TestGetVolumeAttachmentPlanLifeForNetNode(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	vsOneUUID, vOneID := s.newMachineVolume(c)
+	vsTwoUUID, vTwoID := s.newMachineVolume(c)
+	vsThreeUUID, vThreeID := s.newMachineVolume(c)
+	vsapOneUUID := s.newVolumeAttachmentPlan(c, vsOneUUID, netNodeUUID)
+	s.newVolumeAttachmentPlan(c, vsTwoUUID, netNodeUUID)
+	s.newVolumeAttachmentPlan(c, vsThreeUUID, netNodeUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	lives, err := st.GetVolumeAttachmentPlanLifeForNetNode(
+		c.Context(), netNodeUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(lives, tc.DeepEquals, map[string]domainlife.Life{
+		vOneID:   domainlife.Alive,
+		vTwoID:   domainlife.Alive,
+		vThreeID: domainlife.Alive,
+	})
+
+	// Apply a life change to one of the attachments and check the change comes
+	// out.
+	s.changeVolumeAttachmentPlanLife(c, vsapOneUUID, life.Dying)
+	lives, err = st.GetVolumeAttachmentPlanLifeForNetNode(
+		c.Context(), netNodeUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(lives, tc.DeepEquals, map[string]domainlife.Life{
+		vOneID:   domainlife.Dying,
+		vTwoID:   domainlife.Alive,
+		vThreeID: domainlife.Alive,
+	})
+}
+
+// TestGetVolumeAttachmentPlanLifeNoResults tests that when no attachment plan
+// lives exist for a net node an empty result is returned with no error.
+func (s *volumeSuite) TestGetVolumeAttachmentPlanLifeNoResults(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	st := NewState(s.TxnRunnerFactory())
+	lives, err := st.GetVolumeAttachmentPlanLifeForNetNode(c.Context(), netNodeUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(lives, tc.HasLen, 0)
+}
+
 // TestGetVolumeLifeForNetNode tests if we can get the volume life for
 // volumes attached to a specified machine's net node.
 func (s *volumeSuite) TestGetVolumeLifeForNetNode(c *tc.C) {
@@ -533,8 +584,7 @@ WHERE  uuid = ?
 }
 
 // changeVolumeAttachmentLife is a utility function for updating the life
-// value of a volume attachment. This is used to trigger an update trigger
-// for a volume attachment.
+// value of a volume attachment.
 func (s *volumeSuite) changeVolumeAttachmentLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
@@ -545,6 +595,21 @@ WHERE  uuid = ?
 `,
 		int(life), uuid)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// changeVolumeAttachmentPlanLife is a utility function for updating the life
+// value of a volume attachment plan.
+func (s *volumeSuite) changeVolumeAttachmentPlanLife(
+	c *tc.C, uuid string, life domainlife.Life,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_volume_attachment_plan
+SET    life_id = ?
+WHERE  uuid = ?
+`,
+		int(life), uuid)
+	c.Assert(err, tc.ErrorIsNil)
+
 }
 
 // newMachineVolume creates a new volume in the model with machine

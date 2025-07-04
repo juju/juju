@@ -38,7 +38,7 @@ func (st *State) CheckMachineIsDead(
 		machineLife machineLife
 	)
 	stmt, err := st.Prepare(
-		"SELECT $machineLife.* FROM machine WHERE uuid = machineUUIDVal.uuid",
+		"SELECT &machineLife.* FROM machine WHERE uuid = $machineUUID.uuid",
 		input, machineLife,
 	)
 	if err != nil {
