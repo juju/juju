@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -70,6 +72,151 @@ func (s *machineSuite) TestGetMachineLifeNotFound(c *tc.C) {
 
 	_, err := st.GetMachineLife(c.Context(), "some-unit-uuid")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *machineSuite) TestGetMachineNetworkInterfacesNoHardwareDevices(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	interfaces, err := st.GetMachineNetworkInterfaces(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(interfaces), tc.Equals, 0)
+}
+
+func (s *machineSuite) TestGetMachineNetworkInterfaces(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var netNodeUUID string
+		err := s.DB().QueryRowContext(ctx, `
+SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID.String()).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = s.DB().ExecContext(ctx, `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+
+	interfaces, err := st.GetMachineNetworkInterfaces(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(interfaces), tc.Equals, 1)
+	c.Check(interfaces, tc.DeepEquals, []string{"00:11:22:33:44:55"})
+}
+
+func (s *machineSuite) TestGetMachineNetworkInterfacesMultiple(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var netNodeUUID string
+		err := s.DB().QueryRowContext(ctx, `
+SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID.String()).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = s.DB().ExecContext(ctx, `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+		_, err = s.DB().ExecContext(ctx, `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "66:11:22:33:44:56", 0, 0)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+
+	interfaces, err := st.GetMachineNetworkInterfaces(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(interfaces), tc.Equals, 2)
+	c.Check(interfaces, tc.DeepEquals, []string{"00:11:22:33:44:55", "66:11:22:33:44:56"})
+}
+
+func (s *machineSuite) TestGetMachineNetworkInterfacesContainer(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID0 := s.createIAASApplication(c, svc, "some-app1", applicationservice.AddIAASUnitArg{})
+	appUUID1 := s.createIAASApplication(c, svc, "some-app2", applicationservice.AddIAASUnitArg{
+		AddUnitArg: applicationservice.AddUnitArg{
+			Placement: instance.MustParsePlacement("lxd:0"),
+		},
+	})
+	machineUUID0 := s.getMachineUUIDFromApp(c, appUUID0)
+	machineUUID1 := s.getMachineUUIDFromApp(c, appUUID1)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var netNodeUUID string
+		err := s.DB().QueryRowContext(ctx, `
+SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID0.String()).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = s.DB().ExecContext(ctx, `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-0", 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+
+		err = s.DB().QueryRowContext(ctx, `
+SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID1.String()).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = s.DB().ExecContext(ctx, `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-1", 1500, "11:11:22:33:44:66", 0, 0)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID0, life.Dying)
+	s.advanceMachineLife(c, machineUUID1, life.Dying)
+
+	interfaces, err := st.GetMachineNetworkInterfaces(c.Context(), machineUUID0.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(interfaces), tc.Equals, 1)
+	c.Check(interfaces, tc.DeepEquals, []string{"00:11:22:33:44:55"})
+
+	interfaces, err = st.GetMachineNetworkInterfaces(c.Context(), machineUUID1.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(interfaces), tc.Equals, 0)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {

@@ -216,20 +216,20 @@ func (s *Service) releaseProviderAddresses(ctx context.Context, machineUUID stri
 
 	// Get all the machines network interfaces, so that we can release them
 	// to the provider. This will only work on non-container machines.
-	interfaceInfos, err := s.st.GetMachineNetworkInterfaces(ctx, machineUUID)
+	addresses, err := s.st.GetMachineNetworkInterfaces(ctx, machineUUID)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Errorf("getting machine %q network interfaces: %w", machineUUID, err)
 	}
 
-	if len(interfaceInfos) == 0 {
+	if len(addresses) == 0 {
 		return nil
 	}
 
 	// If the provider supports the networking interface, but can't release
 	// addresses, then we need to handle the NotSupported error gracefully.
-	if err := provider.ReleaseContainerAddresses(ctx, interfaceInfos); errors.Is(err, coreerrors.NotSupported) {
+	if err := provider.ReleaseContainerAddresses(ctx, addresses); errors.Is(err, coreerrors.NotSupported) {
 		return nil
 	} else if err != nil {
 		return errors.Errorf("releasing machine %q network interfaces: %w", machineUUID, err)

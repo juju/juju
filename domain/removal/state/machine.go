@@ -276,19 +276,22 @@ func (st *State) GetMachineNetworkInterfaces(ctx context.Context, machineUUID st
 	}
 
 	selectStmt, err := st.Prepare(`
-SELECT lld.mac_Address AS &interface.hardwareAddress
-FROM   machine AS m
-JOIN   net_node AS n ON n.uuid = m.net_node_uuid
-JOIN   net_node_lld AS lld ON lld.net_node_uuid = n.uuid
-LEFT JOIN machine_parent AS mp ON mp.machine_uuid = m.uuid
-WHERE  m.uuid = $entityUUID.uuid
-AND    lld.mac_address IS NOT NULL
-AND    COUNT(mp.machine_uuid) = 0
-AND    m.life_id = 1`, entityUUID{UUID: machineUUID})
+SELECT    lld.mac_address AS &linkLayerDevice.hardware_address
+FROM      machine AS m
+JOIN      net_node AS n ON n.uuid = m.net_node_uuid
+LEFT JOIN link_layer_device AS lld ON lld.net_node_uuid = n.uuid
+WHERE     m.uuid = $entityUUID.uuid
+AND       m.life_id = 1
+AND       lld.mac_address IS NOT NULL
+AND       (
+	SELECT COUNT(*)
+	FROM   machine_parent
+	WHERE  machine_uuid = $entityUUID.uuid
+) == 0`, entityUUID{UUID: machineUUID}, linkLayerDevice{})
 	if err != nil {
 		return nil, errors.Errorf("preparing machine network interfaces selection: %w", err)
 	}
-	var interfaces []string
+	var interfaces []linkLayerDevice
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, selectStmt, entityUUID{UUID: machineUUID}).
 			GetAll(&interfaces)
@@ -300,7 +303,9 @@ AND    m.life_id = 1`, entityUUID{UUID: machineUUID})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return interfaces, nil
+	return transform.Slice(interfaces, func(v linkLayerDevice) string {
+		return v.HardwareAddress
+	}), nil
 }
 
 // MarkMachineAsDead marks the machine with the input UUID as dead.

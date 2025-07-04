@@ -83,3 +83,9 @@ type applicationUnitName struct {
 	// UnitName is the name of the unit.
 	UnitName string `db:"unit_name"`
 }
+
+type linkLayerDevice struct {
+	HardwareAddress string `db:"hardware_address"`
+	Count           int    `db:"count"`
+	UUID            string `db:"uuid"`
+}
