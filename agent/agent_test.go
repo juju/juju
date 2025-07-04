@@ -304,7 +304,6 @@ func stateServingInfo() controller.StateServingInfo {
 		CAPrivateKey:   "ca key",
 		StatePort:      69,
 		APIPort:        47,
-		SharedSecret:   "shared",
 		SystemIdentity: "identity",
 	}
 }
@@ -420,7 +419,6 @@ func (*suite) TestStateServingInfo(c *tc.C) {
 		Cert:           "new cert",
 		PrivateKey:     "new key",
 		CAPrivateKey:   "new ca key",
-		SharedSecret:   "new shared",
 		SystemIdentity: "new identity",
 	}
 	conf.SetStateServingInfo(newInfo)

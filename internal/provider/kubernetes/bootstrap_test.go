@@ -350,8 +350,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 
 	controllerStacker := s.controllerStackerGetter()
 
-	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
-
 	scName := "some-storage"
 	sc := k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
@@ -420,20 +418,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			},
 			ClusterIP:   svcPublicIP,
 			ExternalIPs: []string{"10.0.0.1"},
-		},
-	}
-
-	secretWithServerPEMAdded := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.namespace,
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
-		},
-		Type: core.SecretTypeOpaque,
-		Data: map[string][]byte{
-			"shared-secret": []byte(sharedSecret),
-			"server.pem":    []byte(sslKey),
 		},
 	}
 
@@ -556,36 +540,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 							Name: "apiserver-scratch",
 							VolumeSource: core.VolumeSource{
 								EmptyDir: &core.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "juju-controller-test-server-pem",
-							VolumeSource: core.VolumeSource{
-								Secret: &core.SecretVolumeSource{
-									SecretName:  "juju-controller-test-secret",
-									DefaultMode: pointer.Int32(0400),
-									Items: []core.KeyToPath{
-										{
-											Key:  "server.pem",
-											Path: "template-server.pem",
-										},
-									},
-								},
-							},
-						},
-						{
-							Name: "juju-controller-test-shared-secret",
-							VolumeSource: core.VolumeSource{
-								Secret: &core.SecretVolumeSource{
-									SecretName:  "juju-controller-test-secret",
-									DefaultMode: pointer.Int32(0660),
-									Items: []core.KeyToPath{
-										{
-											Key:  "shared-secret",
-											Path: "shared-secret",
-										},
-									},
-								},
 							},
 						},
 					},
@@ -730,7 +684,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			},
 			Args: []string{
 				"-c",
-				`printf 'args="--dbpath=/var/lib/juju/db --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --noauth --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nSHARED_SECRET_SRC="/var/lib/juju/shared-secret.temp"\nSHARED_SECRET_DST="/var/lib/juju/shared-secret"\nrm "${SHARED_SECRET_DST}" || true\ncp "${SHARED_SECRET_SRC}" "${SHARED_SECRET_DST}"\nchown 170:170 "${SHARED_SECRET_DST}"\nchmod 600 "${SHARED_SECRET_DST}"\nls -lah "${SHARED_SECRET_DST}"\nwhile [ ! -f "/var/lib/juju/server.pem" ]; do\n  echo "Waiting for /var/lib/juju/server.pem to be created..."\n  sleep 1\ndone\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
+				`printf 'args="--dbpath=/var/lib/juju/db --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --noauth --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
 			},
 			Ports: []core.ContainerPort{
 				{
@@ -793,18 +747,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 					ReadOnly:  false,
 					MountPath: "/var/lib/juju/db",
 					SubPath:   "db",
-				},
-				{
-					Name:      "juju-controller-test-server-pem",
-					ReadOnly:  true,
-					MountPath: "/var/lib/juju/template-server.pem",
-					SubPath:   "template-server.pem",
-				},
-				{
-					Name:      "juju-controller-test-shared-secret",
-					ReadOnly:  true,
-					MountPath: "/var/lib/juju/shared-secret.temp",
-					SubPath:   "shared-secret",
 				},
 			},
 			SecurityContext: &core.SecurityContext{
@@ -890,18 +832,6 @@ exec /opt/pebble run --http :38811 --verbose
 					ReadOnly:  true,
 					MountPath: "/var/lib/juju/agents/controller-0/template-agent.conf",
 					SubPath:   "controller-agent.conf",
-				},
-				{
-					Name:      "juju-controller-test-server-pem",
-					ReadOnly:  true,
-					MountPath: "/var/lib/juju/template-server.pem",
-					SubPath:   "template-server.pem",
-				},
-				{
-					Name:      "juju-controller-test-shared-secret",
-					ReadOnly:  true,
-					MountPath: "/var/lib/juju/shared-secret",
-					SubPath:   "shared-secret",
 				},
 				{
 					Name:      "juju-controller-test-bootstrap-params",
@@ -1213,11 +1143,7 @@ exec /opt/pebble run --http :38811 --verbose
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(svc, tc.DeepEquals, svcProvisioned)
 
-		secret, err := s.mockSecrets.Get(c.Context(), "juju-controller-test-secret", v1.GetOptions{})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(secret, tc.DeepEquals, secretWithServerPEMAdded)
-
-		secret, err = s.mockSecrets.Get(c.Context(), "juju-controller-test-application-config", v1.GetOptions{})
+		secret, err := s.mockSecrets.Get(c.Context(), "juju-controller-test-application-config", v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(secret, tc.DeepEquals, secretControllerAppConfig)
 

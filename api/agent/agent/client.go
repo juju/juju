@@ -73,7 +73,6 @@ func (st *Client) StateServingInfo(ctx context.Context) (controller.StateServing
 		Cert:           results.Cert,
 		PrivateKey:     results.PrivateKey,
 		CAPrivateKey:   results.CAPrivateKey,
-		SharedSecret:   results.SharedSecret,
 		SystemIdentity: results.SystemIdentity,
 	}, nil
 }

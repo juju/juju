@@ -54,7 +54,6 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/s3client"
@@ -415,9 +414,6 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 	si.Cert, si.PrivateKey = string(cert), string(privateKey)
 
-	if err := mongo.UpdateSSLKey(config.DataDir(), si.Cert, si.PrivateKey); err != nil {
-		return err
-	}
 	config.SetStateServingInfo(si)
 	return nil
 }
@@ -580,12 +576,12 @@ func (a *MachineAgent) makeEngineCreator(
 			// If the introspection worker failed to start, we just log error
 			// but continue. It is very unlikely to happen in the real world
 			// as the only issue is connecting to the abstract domain socket
-			// and the agent is controlled by by the OS to only have one.
+			// and the agent is controlled by the OS to only have one.
 			logger.Errorf(context.TODO(), "failed to start introspection worker: %v", err)
 		}
 		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, engine, controllerMetricsSink); err != nil {
 			// If the dependency engine metrics fail, continue on. This is unlikely
-			// to happen in the real world, but should't stop or bring down an
+			// to happen in the real world, but shouldn't stop or bring down an
 			// agent.
 			logger.Errorf(context.TODO(), "failed to start the dependency engine metrics %v", err)
 		}
@@ -696,7 +692,6 @@ func (a *MachineAgent) Restart() error {
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
 func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.APICaller) error {
-	// TODO(mjs) - more extensive checks to come.
 	var err error
 	// TODO(controlleragent) - add k8s controller check.
 	if !a.isCaasAgent {

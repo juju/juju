@@ -17,7 +17,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -46,7 +45,6 @@ type ControllerStackerForTest interface {
 	GetControllerAgentConfigContent(*tc.C) string
 	GetControllerUnitAgentConfigContent(*tc.C) string
 	GetControllerUnitAgentPassword() string
-	GetSharedSecretAndSSLKey(*tc.C) (string, string)
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 }
@@ -65,12 +63,6 @@ func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *tc.C) string {
 
 func (cs *controllerStack) GetControllerUnitAgentPassword() string {
 	return cs.unitAgentConfig.OldPassword()
-}
-
-func (cs *controllerStack) GetSharedSecretAndSSLKey(c *tc.C) (string, string) {
-	si, ok := cs.agentConfig.StateServingInfo()
-	c.Assert(ok, tc.IsTrue)
-	return si.SharedSecret, mongo.GenerateSSLKey(si.Cert, si.PrivateKey)
 }
 
 func (cs *controllerStack) GetStorageSize() resource.Quantity {

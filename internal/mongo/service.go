@@ -26,26 +26,15 @@ const (
 	// will be named.
 	ServiceName = "juju-db"
 
-	// SharedSecretFile is the name of the Mongo shared secret file
-	// located within the Juju data directory.
-	SharedSecretFile = "shared-secret"
-
 	// ReplicaSetName is the name of the replica set that juju uses for its
 	// controllers.
 	ReplicaSetName = "juju"
-
-	// LowCacheSize expressed in GB sets the max value Mongo WiredTiger cache can
-	// reach, down to 256MB.
-	LowCacheSize = 0.25
 
 	// flagMarker is an in-line comment for bash. If it somehow makes its way onto
 	// the command line, it will be ignored. See https://stackoverflow.com/a/1456019/395287
 	flagMarker = "`#flag: true` \\"
 
 	dataPathForJujuDbSnap = "/var/snap/juju-db/common"
-
-	// FileNameDBSSLKey is the file name of db ssl key file name.
-	FileNameDBSSLKey = "server.pem"
 )
 
 var dataPathForJuju = paths.DataDir(paths.CurrentOS())
@@ -58,14 +47,6 @@ var mongoULimits = map[string]string{
 	"memlock": "unlimited", // locked-in-memory size
 	"nofile":  "64000",     // open files
 	"nproc":   "64000",     // processes/threads
-}
-
-func sslKeyPath(dataDir string) string {
-	return filepath.Join(dataDir, FileNameDBSSLKey)
-}
-
-func sharedSecretPath(dataDir string) string {
-	return filepath.Join(dataDir, SharedSecretFile)
 }
 
 func logPath(dataDir string) string {

@@ -46,7 +46,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
-	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
@@ -144,11 +143,6 @@ func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 				agent.Dir(c.AgentConf.DataDir(), tag),
 				k8sconstants.TemplateFileNameAgentConf,
 			),
-		},
-		{
-			// ensure server.pem
-			to:   filepath.Join(c.AgentConf.DataDir(), mongo.FileNameDBSSLKey),
-			from: filepath.Join(c.AgentConf.DataDir(), k8sprovider.TemplateFileNameServerPEM),
 		},
 	} {
 		if err := copyFileFromTemplate(v.to, v.from); err != nil {
@@ -349,7 +343,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			AdminUser:                 adminTag,
 			StateInitializationParams: args,
 			BootstrapMachineAddresses: addrs,
-			SharedSecret:              info.SharedSecret,
 			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
 			MongoDialOpts:             dialOpts,
 			BootstrapDqlite:           c.DqliteInitializer,
@@ -427,13 +420,6 @@ func ensureKeys(
 
 	args.ControllerConfig[controller.SystemSSHKeys] = publicKey
 
-	// Generate a shared secret for the Mongo replica set, and write it out.
-	sharedSecret, err := mongo.GenerateSharedSecret()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	info.SharedSecret = sharedSecret
-
 	return nil
 }
 
@@ -477,7 +463,8 @@ func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs ne
 		}
 	}
 
-	peerAddr := mongo.SelectPeerAddress(addrs)
+	localAddr, _ := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
+	peerAddr := localAddr.Value
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}

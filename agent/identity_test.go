@@ -41,7 +41,6 @@ var servingInfo = controller.StateServingInfo{
 	CAPrivateKey:   "old ca key",
 	StatePort:      69,
 	APIPort:        47,
-	SharedSecret:   "shared",
 	SystemIdentity: "identity",
 }
 

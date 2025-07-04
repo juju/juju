@@ -5,10 +5,6 @@ package mongo
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -21,9 +17,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v4"
 
-	"github.com/juju/juju/core/network"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/packaging/dependency"
 	"github.com/juju/juju/internal/service/common"
@@ -37,9 +31,6 @@ var logger = internallogger.GetLogger("juju.mongo")
 type StorageEngine string
 
 const (
-	// JujuDbSnap is the snap of MongoDB that Juju uses.
-	JujuDbSnap = "juju-db"
-
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
 )
@@ -47,67 +38,6 @@ const (
 // JujuDbSnapMongodPath is the path that the juju-db snap
 // makes mongod available at
 var JujuDbSnapMongodPath = "/snap/bin/juju-db.mongod"
-
-// WithAddresses represents an entity that has a set of
-// addresses. e.g. a state Machine object
-type WithAddresses interface {
-	Addresses() network.SpaceAddresses
-}
-
-// IsMaster returns a boolean that represents whether the given
-// machine's peer address is the primary mongo host for the replicaset
-var IsMaster = isMaster
-
-func isMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
-	addrs := obj.Addresses()
-
-	masterHostPort, err := replicaset.MasterHostPort(session)
-
-	// If the replica set has not been configured, then we
-	// can have only one master and the caller must
-	// be that master.
-	if err == replicaset.ErrMasterNotConfigured {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	masterAddr, _, err := net.SplitHostPort(masterHostPort)
-	if err != nil {
-		return false, err
-	}
-
-	for _, addr := range addrs {
-		if addr.Value == masterAddr {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// SelectPeerAddress returns the address to use as the mongo replica set peer
-// address by selecting it from the given addresses.
-// If no addresses are available an empty string is returned.
-func SelectPeerAddress(addrs network.ProviderAddresses) string {
-	// The second bool result is ignored intentionally (we return an empty
-	// string if no suitable address is available.)
-	addr, _ := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
-	return addr.Value
-}
-
-// GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
-// for use with Mongo replica sets.
-func GenerateSharedSecret() (string, error) {
-	// "A key’s length must be between 6 and 1024 characters and may
-	// only contain characters in the base64 set."
-	//   -- http://docs.mongodb.org/manual/tutorial/generate-key-file/
-	buf := make([]byte, base64.StdEncoding.DecodedLen(1024))
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("cannot read random secret: %v", err)
-	}
-	return base64.StdEncoding.EncodeToString(buf), nil
-}
 
 /*
 Values set as per bug:
@@ -147,9 +77,6 @@ type EnsureServerParams struct {
 
 	// CAPrivateKey is the CA certificate's private key.
 	CAPrivateKey string
-
-	// SharedSecret is a secret shared between mongo servers.
-	SharedSecret string
 
 	// SystemIdentity is the identity of the system.
 	SystemIdentity string
@@ -315,16 +242,6 @@ func setupDataDirectory(args EnsureServerParams) error {
 		return errors.Annotate(err, "cannot create mongo database directory")
 	}
 
-	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
-	if err := UpdateSSLKey(args.MongoDataDir, args.Cert, args.PrivateKey); err != nil {
-		return errors.Trace(err)
-	}
-
-	err := utils.AtomicWriteFile(sharedSecretPath(args.MongoDataDir), []byte(args.SharedSecret), 0600)
-	if err != nil {
-		return errors.Annotatef(err, "cannot write mongod shared secret to %v", sharedSecretPath(args.MongoDataDir))
-	}
-
 	if err := os.MkdirAll(logPath(dbDir), 0755); err != nil {
 		return errors.Annotate(err, "cannot create mongodb logging directory")
 	}
@@ -352,17 +269,6 @@ func tweakSysctlForMongo(editables map[string]string) {
 			logger.Errorf(context.TODO(), "could not set the value of %q to %q because of: %v\n", editableFile, value, err)
 		}
 	}
-}
-
-// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
-func UpdateSSLKey(dataDir, cert, privateKey string) error {
-	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(GenerateSSLKey(cert, privateKey)), 0600)
-	return errors.Annotate(err, "cannot write SSL key")
-}
-
-// GenerateSSLKey combines cert and private key to generate the ssl key - server.pem.
-func GenerateSSLKey(cert, privateKey string) string {
-	return cert + "\n" + privateKey
 }
 
 func logVersion(mongoPath string) {
