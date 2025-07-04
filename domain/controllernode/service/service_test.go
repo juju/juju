@@ -438,7 +438,7 @@ func (s *serviceSuite) TestGetControllerIDsError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *serviceSuite) TestAllAPIAddresses(c *tc.C) {
+func (s *serviceSuite) TestGetAPIAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
@@ -462,6 +462,63 @@ func (s *serviceSuite) TestGetAPIAddressesError(c *tc.C) {
 	s.state.EXPECT().GetAPIAddresses(gomock.Any(), "1").Return(nil, internalerrors.Errorf("boom"))
 
 	_, err := svc.GetAPIAddresses(c.Context(), "1")
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestGetControllerAPIAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetControllerAPIAddresses(gomock.Any()).Return(map[string]controllernode.APIAddresses{
+		"0": {
+			{
+				Address: "10.0.0.1:17070",
+				Scope:   network.ScopeCloudLocal,
+			}, { // This address not in result, machine local.
+				Address: "10.0.0.2:17070",
+				Scope:   network.ScopeMachineLocal,
+			},
+		},
+		"1": {
+			{
+				Address: "10.0.0.43:17070",
+				Scope:   network.ScopePublic,
+			}, {
+				Address: "10.0.0.7:17070",
+				Scope:   network.ScopeCloudLocal,
+			},
+		},
+	}, nil)
+
+	apiAddrs, err := svc.GetControllerAPIAddresses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiAddrs, tc.DeepEquals, map[string]network.HostPorts{
+		"0": network.MachineHostPorts{
+			{
+				MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+				NetPort:        17070,
+			},
+		}.HostPorts(),
+		"1": network.MachineHostPorts{
+			{
+				MachineAddress: network.NewMachineAddress("10.0.0.43", network.WithScope(network.ScopePublic)),
+				NetPort:        17070,
+			},
+			{
+				MachineAddress: network.NewMachineAddress("10.0.0.7", network.WithScope(network.ScopeCloudLocal)),
+				NetPort:        17070,
+			},
+		}.HostPorts(),
+	})
+}
+
+func (s *serviceSuite) TestGetControllerAPIAddressesError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetControllerAPIAddresses(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetControllerAPIAddresses(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 

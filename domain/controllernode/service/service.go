@@ -73,22 +73,28 @@ type State interface {
 	// controller node.
 	GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error)
 
+	// GetControllerAPIAddresses returns all APIAddresses available for
+	// controllers to be used in HA. These are all APIAddresses independent of
+	// is_agent value.
+	GetControllerAPIAddresses(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+
 	// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
 	// their API addresses that are available for agents. The map is keyed by
 	// controller ID, and the values are slices of strings representing the API
 	// addresses for each controller node.
 	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
 
-	// GetAPIAddressesForAgents returns the list of API address strings including
-	// port for the provided controller node that are available for agents.
+	// GetAPIAddressesForAgents returns the list of API address strings
+	// including port for the provided controller node that are available for
+	// agents.
 	GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error)
 
-	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
-	// agents, divided by controller node.
+	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available
+	// for agents, divided by controller node.
 	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) ([]controllernode.APIAddresses, error)
 
-	// GetAllAPIAddressesWithScopeForClients returns all APIAddresses available for
-	// clients, divided by controller node.
+	// GetAllAPIAddressesWithScopeForClients returns all APIAddresses available
+	// for clients, divided by controller node.
 	GetAllAPIAddressesWithScopeForClients(ctx context.Context) ([]controllernode.APIAddresses, error)
 
 	// GetAllCloudLocalAPIAddresses returns a string slice of api
@@ -257,6 +263,24 @@ func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string,
 		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
 	}
 	return s.st.GetAPIAddresses(ctx, nodeID)
+}
+
+// GetControllerAPIAddresses returns the list of API addresses for all
+// controllers.
+func (s *Service) GetControllerAPIAddresses(ctx context.Context) (map[string]network.HostPorts, error) {
+	addresses, err := s.st.GetControllerAPIAddresses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]network.HostPorts, len(addresses))
+	for k, addr := range addresses {
+		result[k], err = addr.ToHostPortsNoMachineLocal()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+	return result, nil
 }
 
 // GetAPIHostPortsForAgents returns API HostPorts that are available for
