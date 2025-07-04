@@ -74,6 +74,33 @@ func (s *machineSuite) TestGetMachineLifeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *machineSuite) TestGetInstanceLifeSuccess(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	l, err := st.GetInstanceLife(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Alive)
+
+	// Set the unit to "dying" manually.
+	s.advanceInstanceLife(c, machineUUID, life.Dying)
+
+	l, err = st.GetInstanceLife(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dying)
+}
+
+func (s *machineSuite) TestGetInstanceLifeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetInstanceLife(c.Context(), "some-unit-uuid")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 func (s *machineSuite) TestGetMachineNetworkInterfacesNoHardwareDevices(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
 	svc := s.setupService(c, factory)

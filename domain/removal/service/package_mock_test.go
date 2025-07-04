@@ -622,6 +622,45 @@ func (c *MockStateGetApplicationNameAndUnitNameByUnitUUIDCall) DoAndReturn(f fun
 	return c
 }
 
+// GetInstanceLife mocks base method.
+func (m *MockState) GetInstanceLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetInstanceLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetInstanceLife indicates an expected call of GetInstanceLife.
+func (mr *MockStateMockRecorder) GetInstanceLife(arg0, arg1 any) *MockStateGetInstanceLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceLife", reflect.TypeOf((*MockState)(nil).GetInstanceLife), arg0, arg1)
+	return &MockStateGetInstanceLifeCall{Call: call}
+}
+
+// MockStateGetInstanceLifeCall wrap *gomock.Call
+type MockStateGetInstanceLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetInstanceLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetInstanceLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetInstanceLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockStateGetInstanceLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetInstanceLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockStateGetInstanceLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineLife mocks base method.
 func (m *MockState) GetMachineLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()

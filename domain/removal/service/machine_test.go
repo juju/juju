@@ -188,6 +188,19 @@ func (s *machineSuite) TestExecuteJobForMachineStillAlive(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 }
 
+func (s *machineSuite) TestExecuteJobForMachineInstanceDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newMachineJob(c)
+
+	exp := s.state.EXPECT()
+	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -195,6 +208,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddresses(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return(nil, machineerrors.MachineNotFound)
 	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
@@ -210,6 +224,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddressesNotSupported
 
 	exp := s.state.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
 	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
@@ -227,6 +242,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingDeleteMachine(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
 	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)

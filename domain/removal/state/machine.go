@@ -264,6 +264,24 @@ func (st *State) GetMachineLife(ctx context.Context, mUUID string) (life.Life, e
 	return life, errors.Capture(err)
 }
 
+// GetInstanceLife returns the life of the machine instance with the input UUID.
+func (st *State) GetInstanceLife(ctx context.Context, mUUID string) (life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var life life.Life
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		life, err = st.getInstanceLife(ctx, tx, mUUID)
+
+		return errors.Capture(err)
+	})
+
+	return life, errors.Capture(err)
+}
+
 // GetMachineNetworkInterfaces returns the network interfaces for the
 // machine with the input UUID. This is used to release any addresses that the
 // machine has allocated.

@@ -40,6 +40,9 @@ type MachineState interface {
 	// GetMachineLife returns the life of the machine with the input UUID.
 	GetMachineLife(ctx context.Context, mUUID string) (life.Life, error)
 
+	// GetInstanceLife returns the life of the machine instance with the input UUID.
+	GetInstanceLife(ctx context.Context, mUUID string) (life.Life, error)
+
 	// MarkMachineAsDead marks the machine with the input UUID as dead.
 	MarkMachineAsDead(ctx context.Context, mUUID string) error
 
@@ -185,6 +188,18 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 
 	if l == life.Alive {
 		return errors.Errorf("machine %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	}
+
+	l, err = s.st.GetInstanceLife(ctx, job.EntityUUID)
+	if err != nil && !errors.Is(err, machineerrors.MachineNotFound) {
+		return errors.Errorf("getting instance %q life: %w", job.EntityUUID, err)
+	}
+
+	// This instance hasn't yet been marked as dead, so we
+	// will not delete it yet.
+	if l != life.Dead {
+		return errors.Errorf("machine instance %q is not dead", job.EntityUUID).Add(
+			removalerrors.RemovalJobIncomplete)
 	}
 
 	// Do this before we delete the machine, so that we can release any
