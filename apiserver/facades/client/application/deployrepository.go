@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // DeployFromRepositoryValidator defines an deploy config validator.
@@ -59,7 +58,6 @@ type DeployFromRepository interface {
 // DeployFromRepositoryState defines a common set of functions for retrieving state
 // objects.
 type DeployFromRepositoryState interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	Machine(string) (Machine, error)
 }
 
@@ -118,33 +116,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	if dt.dryRun {
 		return info, nil, nil
 	}
-	// Queue async charm download.
-	// AddCharmMetadata returns no error if the charm
-	// has already been queue'd or downloaded.
-	stOrigin, err := StateCharmOrigin(dt.origin)
-	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-	}
-
-	_, err = api.state.AddApplication(state.AddApplicationArgs{
-		ApplicationConfig: dt.applicationConfig,
-		AttachStorage:     dt.attachStorage,
-		Charm:             dt.charm,
-		CharmURL:          dt.charmURL.String(),
-		CharmConfig:       dt.charmSettings,
-		CharmOrigin:       stOrigin,
-		Constraints:       dt.constraints,
-		Name:              dt.applicationName,
-		NumUnits:          dt.numUnits,
-		Placement:         dt.placement,
-		Storage:           stateStorageDirectives(dt.storage),
-	}, api.store)
-	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-	}
 
 	unitArgs := make([]applicationservice.AddIAASUnitArg, dt.numUnits)
-	for i := 0; i < dt.numUnits; i++ {
+	for i := range dt.numUnits {
 		var unitPlacement *instance.Placement
 		if i < len(dt.placement) {
 			unitPlacement = dt.placement[i]
@@ -184,6 +158,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Constraints: dt.constraints,
 	}
 
+	var err error
 	if api.modelType == model.IAAS {
 		_, err = api.applicationService.CreateIAASApplication(ctx, dt.applicationName, dt.charm, dt.origin,
 			applicationArg, unitArgs...)
