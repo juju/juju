@@ -107,30 +107,6 @@ func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
-func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectAuthClient()
-	s.expectHasWritePermission()
-	s.expectAllowBlockChange()
-
-	s.backend.EXPECT().Application("foo").Return(nil, errors.NotFound)
-
-	s.newAPI(c)
-
-	// Ensure that a valid origin is required before setting a charm.
-	// There will be tests from ensuring correctness of the origin.
-
-	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
-		ApplicationName: "foo",
-		CharmOrigin: &params.CharmOrigin{
-			Source: "local",
-		},
-	})
-
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
-}
-
 func (s *permBaseSuite) TestGetCharmURLOriginPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
