@@ -126,7 +126,6 @@ In Juju, the term "worker" is most commonly used to denote types whose instances
   - [`terminationworker`](#terminationworker)
   - [`toolsversionchecker`](#toolsversionchecker)
   - [`undertaker`](#undertaker)
-  - [`unitassigner`](#unitassigner)
   - [`uniter`](#uniter)
   - [`upgradedatabase`](#upgradedatabase)
   - [`upgrader`](#upgrader)
@@ -667,9 +666,6 @@ The `terminationworker` stops the agent when it has been signalled to do so.
 
 ## `undertaker`
 > See more: [`juju/worker/undertaker`](https://github.com/juju/juju/tree/3.3/worker/undertaker)
-
-## `unitassigner`
-> See more: [`juju/worker/unitassigner`](https://github.com/juju/juju/tree/3.3/worker/unitassigner)
 
 ## `uniter`
 
