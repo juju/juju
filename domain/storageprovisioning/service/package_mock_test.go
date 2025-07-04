@@ -17,6 +17,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	life "github.com/juju/juju/domain/life"
+	network "github.com/juju/juju/domain/network"
 	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -123,7 +124,7 @@ func (c *MockStateGetFilesystemAttachmentIDsCall) DoAndReturn(f func(context.Con
 }
 
 // GetFilesystemAttachmentLifeForNetNode mocks base method.
-func (m *MockState) GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error) {
+func (m *MockState) GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID network.NetNodeUUID) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilesystemAttachmentLifeForNetNode", ctx, netNodeUUID)
 	ret0, _ := ret[0].(map[string]life.Life)
@@ -150,19 +151,19 @@ func (c *MockStateGetFilesystemAttachmentLifeForNetNodeCall) Return(arg0 map[str
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetFilesystemAttachmentLifeForNetNodeCall) Do(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetFilesystemAttachmentLifeForNetNodeCall {
+func (c *MockStateGetFilesystemAttachmentLifeForNetNodeCall) Do(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetFilesystemAttachmentLifeForNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetFilesystemAttachmentLifeForNetNodeCall) DoAndReturn(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetFilesystemAttachmentLifeForNetNodeCall {
+func (c *MockStateGetFilesystemAttachmentLifeForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetFilesystemAttachmentLifeForNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetFilesystemLifeForNetNode mocks base method.
-func (m *MockState) GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error) {
+func (m *MockState) GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID network.NetNodeUUID) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilesystemLifeForNetNode", ctx, netNodeUUID)
 	ret0, _ := ret[0].(map[string]life.Life)
@@ -189,22 +190,22 @@ func (c *MockStateGetFilesystemLifeForNetNodeCall) Return(arg0 map[string]life.L
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetFilesystemLifeForNetNodeCall) Do(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetFilesystemLifeForNetNodeCall {
+func (c *MockStateGetFilesystemLifeForNetNodeCall) Do(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetFilesystemLifeForNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetFilesystemLifeForNetNodeCall) DoAndReturn(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetFilesystemLifeForNetNodeCall {
+func (c *MockStateGetFilesystemLifeForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetFilesystemLifeForNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetMachineNetNodeUUID mocks base method.
-func (m *MockState) GetMachineNetNodeUUID(arg0 context.Context, arg1 machine.UUID) (string, error) {
+func (m *MockState) GetMachineNetNodeUUID(arg0 context.Context, arg1 machine.UUID) (network.NetNodeUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineNetNodeUUID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(network.NetNodeUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -222,19 +223,19 @@ type MockStateGetMachineNetNodeUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineNetNodeUUIDCall) Return(arg0 string, arg1 error) *MockStateGetMachineNetNodeUUIDCall {
+func (c *MockStateGetMachineNetNodeUUIDCall) Return(arg0 network.NetNodeUUID, arg1 error) *MockStateGetMachineNetNodeUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineNetNodeUUIDCall) Do(f func(context.Context, machine.UUID) (string, error)) *MockStateGetMachineNetNodeUUIDCall {
+func (c *MockStateGetMachineNetNodeUUIDCall) Do(f func(context.Context, machine.UUID) (network.NetNodeUUID, error)) *MockStateGetMachineNetNodeUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineNetNodeUUIDCall) DoAndReturn(f func(context.Context, machine.UUID) (string, error)) *MockStateGetMachineNetNodeUUIDCall {
+func (c *MockStateGetMachineNetNodeUUIDCall) DoAndReturn(f func(context.Context, machine.UUID) (network.NetNodeUUID, error)) *MockStateGetMachineNetNodeUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -279,7 +280,7 @@ func (c *MockStateGetVolumeAttachmentIDsCall) DoAndReturn(f func(context.Context
 }
 
 // GetVolumeAttachmentLifeForNetNode mocks base method.
-func (m *MockState) GetVolumeAttachmentLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error) {
+func (m *MockState) GetVolumeAttachmentLifeForNetNode(ctx context.Context, netNodeUUID network.NetNodeUUID) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVolumeAttachmentLifeForNetNode", ctx, netNodeUUID)
 	ret0, _ := ret[0].(map[string]life.Life)
@@ -306,19 +307,19 @@ func (c *MockStateGetVolumeAttachmentLifeForNetNodeCall) Return(arg0 map[string]
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetVolumeAttachmentLifeForNetNodeCall) Do(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentLifeForNetNodeCall {
+func (c *MockStateGetVolumeAttachmentLifeForNetNodeCall) Do(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentLifeForNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetVolumeAttachmentLifeForNetNodeCall) DoAndReturn(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentLifeForNetNodeCall {
+func (c *MockStateGetVolumeAttachmentLifeForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentLifeForNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetVolumeAttachmentPlanLifeForNetNode mocks base method.
-func (m *MockState) GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error) {
+func (m *MockState) GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID network.NetNodeUUID) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVolumeAttachmentPlanLifeForNetNode", ctx, netNodeUUID)
 	ret0, _ := ret[0].(map[string]life.Life)
@@ -345,19 +346,19 @@ func (c *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall) Return(arg0 map[str
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall) Do(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall {
+func (c *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall) Do(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall) DoAndReturn(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall {
+func (c *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetVolumeLifeForNetNode mocks base method.
-func (m *MockState) GetVolumeLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error) {
+func (m *MockState) GetVolumeLifeForNetNode(ctx context.Context, netNodeUUID network.NetNodeUUID) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVolumeLifeForNetNode", ctx, netNodeUUID)
 	ret0, _ := ret[0].(map[string]life.Life)
@@ -384,19 +385,19 @@ func (c *MockStateGetVolumeLifeForNetNodeCall) Return(arg0 map[string]life.Life,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetVolumeLifeForNetNodeCall) Do(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetVolumeLifeForNetNodeCall {
+func (c *MockStateGetVolumeLifeForNetNodeCall) Do(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetVolumeLifeForNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetVolumeLifeForNetNodeCall) DoAndReturn(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetVolumeLifeForNetNodeCall {
+func (c *MockStateGetVolumeLifeForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetVolumeLifeForNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InitialWatchStatementMachineProvisionedFilesystemAttachments mocks base method.
-func (m *MockState) InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID string) (string, eventsource.Query[map[string]life.Life]) {
+func (m *MockState) InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life]) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementMachineProvisionedFilesystemAttachments", netNodeUUID)
 	ret0, _ := ret[0].(string)
@@ -423,19 +424,19 @@ func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCall) Do(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCall {
+func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCall) Do(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCall) DoAndReturn(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCall {
+func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCall) DoAndReturn(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedFilesystemAttachmentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InitialWatchStatementMachineProvisionedFilesystems mocks base method.
-func (m *MockState) InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID string) (string, eventsource.Query[map[string]life.Life]) {
+func (m *MockState) InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life]) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementMachineProvisionedFilesystems", netNodeUUID)
 	ret0, _ := ret[0].(string)
@@ -462,19 +463,19 @@ func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall) Return
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall) Do(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall {
+func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall) Do(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall) DoAndReturn(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall {
+func (c *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall) DoAndReturn(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedFilesystemsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InitialWatchStatementMachineProvisionedVolumeAttachments mocks base method.
-func (m *MockState) InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID string) (string, eventsource.Query[map[string]life.Life]) {
+func (m *MockState) InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life]) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementMachineProvisionedVolumeAttachments", netNodeUUID)
 	ret0, _ := ret[0].(string)
@@ -501,19 +502,19 @@ func (c *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall) Do(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall {
+func (c *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall) Do(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall) DoAndReturn(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall {
+func (c *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall) DoAndReturn(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedVolumeAttachmentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InitialWatchStatementMachineProvisionedVolumes mocks base method.
-func (m *MockState) InitialWatchStatementMachineProvisionedVolumes(netNodeUUID string) (string, eventsource.Query[map[string]life.Life]) {
+func (m *MockState) InitialWatchStatementMachineProvisionedVolumes(netNodeUUID network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life]) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementMachineProvisionedVolumes", netNodeUUID)
 	ret0, _ := ret[0].(string)
@@ -540,13 +541,13 @@ func (c *MockStateInitialWatchStatementMachineProvisionedVolumesCall) Return(arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementMachineProvisionedVolumesCall) Do(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedVolumesCall {
+func (c *MockStateInitialWatchStatementMachineProvisionedVolumesCall) Do(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedVolumesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementMachineProvisionedVolumesCall) DoAndReturn(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedVolumesCall {
+func (c *MockStateInitialWatchStatementMachineProvisionedVolumesCall) DoAndReturn(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementMachineProvisionedVolumesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -708,7 +709,7 @@ func (c *MockStateInitialWatchStatementModelProvisionedVolumesCall) DoAndReturn(
 }
 
 // InitialWatchStatementVolumeAttachmentPlans mocks base method.
-func (m *MockState) InitialWatchStatementVolumeAttachmentPlans(netNodeUUID string) (string, eventsource.Query[map[string]life.Life]) {
+func (m *MockState) InitialWatchStatementVolumeAttachmentPlans(netNodeUUID network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life]) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementVolumeAttachmentPlans", netNodeUUID)
 	ret0, _ := ret[0].(string)
@@ -735,13 +736,13 @@ func (c *MockStateInitialWatchStatementVolumeAttachmentPlansCall) Return(arg0 st
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementVolumeAttachmentPlansCall) Do(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementVolumeAttachmentPlansCall {
+func (c *MockStateInitialWatchStatementVolumeAttachmentPlansCall) Do(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementVolumeAttachmentPlansCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementVolumeAttachmentPlansCall) DoAndReturn(f func(string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementVolumeAttachmentPlansCall {
+func (c *MockStateInitialWatchStatementVolumeAttachmentPlansCall) DoAndReturn(f func(network.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementVolumeAttachmentPlansCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

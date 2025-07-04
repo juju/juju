@@ -15,7 +15,6 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // filesystemSuite provides a test suite for asserting the [Service] interface
@@ -77,10 +76,10 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
-		netNodeUUID.String(), nil,
+		netNodeUUID, nil,
 	)
 	s.state.EXPECT().InitialWatchStatementMachineProvisionedFilesystems(
-		netNodeUUID.String(),
+		netNodeUUID,
 	).Return(
 		"test_namespace", testNamespaceLifeQuery(c.T),
 	)
@@ -157,14 +156,14 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C
 func (s *filesystemSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID, err := uuid.NewUUID()
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
-		netNodeUUID.String(), nil,
+		netNodeUUID, nil,
 	)
 	s.state.EXPECT().InitialWatchStatementMachineProvisionedFilesystemAttachments(
-		netNodeUUID.String(),
+		netNodeUUID,
 	).Return(
 		"test_namespace", testNamespaceLifeQuery(c.T),
 	)

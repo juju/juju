@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
@@ -27,19 +28,19 @@ type VolumeState interface {
 	// attachment uuid to the current life value for each machine provisioned
 	// volume attachment that is to be provisioned by the machine owning the
 	// supplied net node.
-	GetVolumeAttachmentLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)
+	GetVolumeAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// GetVolumeAttachmentPlanLifeForNetNode returns a mapping of volume
 	// attachment plan volume id to the current life value for each volume
 	// attachment plan. The volume id of attachment plans is returned instead of
 	// the uuid because the caller for the watcher works off of this
 	// information.
-	GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)
+	GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// GetVolumeLifeForNetNode returns a mapping of volume id to current
 	// life value for each machine provisioned volume that is to be
 	// provisioned by the machine owning the supplied net node.
-	GetVolumeLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)
+	GetVolumeLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// InitialWatchStatementMachineProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
@@ -48,7 +49,7 @@ type VolumeState interface {
 	//
 	// Only volumes that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedVolumes(netNodeUUID string) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementMachineProvisionedVolumes(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 
 	// InitialWatchStatementModelProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
@@ -64,7 +65,7 @@ type VolumeState interface {
 	//
 	// Only volume attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID string) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 
 	// InitialWatchStatementModelProvisionedVolumeAttachments returns both
 	// the namespace for watching volume attachment life changes where the
@@ -77,7 +78,7 @@ type VolumeState interface {
 	// watching volume attachment plan life changes. On top of this the initial
 	// query for getting all volume attachment plan volume ids in the model that
 	// are for the given net node uuid.
-	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID string) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 }
 
 // GetVolumeAttachmentIDs returns the
@@ -138,7 +139,9 @@ func (s *Service) WatchMachineProvisionedVolumes(
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedVolumes(netNodeUUID)
 	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
-	filter := eventsource.PredicateFilter(ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID))
+	filter := eventsource.PredicateFilter(
+		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
 		initialQuery, mapper, filter)
@@ -186,7 +189,9 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID)
 	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
-	filter := eventsource.PredicateFilter(ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID))
+	filter := eventsource.PredicateFilter(
+		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filter)
 	if err != nil {
@@ -222,7 +227,9 @@ func (s *Service) WatchVolumeAttachmentPlans(
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementVolumeAttachmentPlans(netNodeUUID)
 	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
-	filter := eventsource.PredicateFilter(ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID))
+	filter := eventsource.PredicateFilter(
+		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filter)
 	if err != nil {

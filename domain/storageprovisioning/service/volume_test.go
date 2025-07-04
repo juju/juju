@@ -14,7 +14,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/internal/uuid"
+	domainnetwork "github.com/juju/juju/domain/network"
 )
 
 // volumeSuite provides a test suite for asserting the [Service] interface
@@ -72,14 +72,14 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 func (s *volumeSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID, err := uuid.NewUUID()
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
-		netNodeUUID.String(), nil,
+		netNodeUUID, nil,
 	)
 	s.state.EXPECT().InitialWatchStatementMachineProvisionedVolumes(
-		netNodeUUID.String(),
+		netNodeUUID,
 	).Return(
 		"test_namespace", testNamespaceLifeQuery(c.T),
 	)
@@ -156,14 +156,14 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID, err := uuid.NewUUID()
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
-		netNodeUUID.String(), nil,
+		netNodeUUID, nil,
 	)
 	s.state.EXPECT().InitialWatchStatementMachineProvisionedVolumeAttachments(
-		netNodeUUID.String(),
+		netNodeUUID,
 	).Return(
 		"test_namespace", testNamespaceLifeQuery(c.T),
 	)
@@ -216,14 +216,14 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachmentsNotFound(c *tc
 func (s *volumeSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID, err := uuid.NewUUID()
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
-		netNodeUUID.String(), nil,
+		netNodeUUID, nil,
 	)
 	s.state.EXPECT().InitialWatchStatementVolumeAttachmentPlans(
-		netNodeUUID.String(),
+		netNodeUUID,
 	).Return(
 		"test_namespace", testNamespaceLifeQuery(c.T),
 	)

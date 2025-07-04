@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -41,7 +42,7 @@ type State interface {
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 	// machine exists for the provided uuid.
-	GetMachineNetNodeUUID(context.Context, machine.UUID) (string, error)
+	GetMachineNetNodeUUID(context.Context, machine.UUID) (domainnetwork.NetNodeUUID, error)
 
 	// NamespaceForWatchMachineCloudInstance returns the change stream namespace
 	// for watching machine cloud instance changes.

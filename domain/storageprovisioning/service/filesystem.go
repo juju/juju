@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
@@ -29,12 +30,12 @@ type FilesystemState interface {
 	// attachment uuids to the current life value for each machine provisioned
 	// filesystem attachment that is to be provisioned by the machine owning the
 	// supplied net node.
-	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)
+	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// GetFilesystemLifeForNetNode returns a mapping of filesystem ids to current
 	// life value for each machine provisioned filesystem that is to be
 	// provisioned by the machine owning the supplied net node.
-	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID string) (map[string]life.Life, error)
+	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// InitialWatchStatementMachineProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
@@ -43,7 +44,7 @@ type FilesystemState interface {
 	//
 	// Only filesystems that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID string) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 
 	// InitialWatchStatementModelProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
@@ -59,7 +60,7 @@ type FilesystemState interface {
 	//
 	// Only filesystem attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID string) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 
 	// InitialWatchStatementModelProvisionedFilesystemAttachments returns both
 	// the namespace for watching filesystem attachment life changes where the
@@ -127,7 +128,9 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID)
 	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
-	filter := eventsource.PredicateFilter(ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID))
+	filter := eventsource.PredicateFilter(
+		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
 		initialQuery, mapper, filter)
@@ -175,7 +178,9 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID)
 	initialQuery, mapper := MakeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
-	filter := eventsource.PredicateFilter(ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID))
+	filter := eventsource.PredicateFilter(
+		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
 		initialQuery, mapper, filter)
