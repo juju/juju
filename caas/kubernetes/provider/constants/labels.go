@@ -99,7 +99,7 @@ const (
 	// For LegacyLabelVersion.
 	LegacyLabelKubernetesOperatorName = "juju-operator"
 
-	// LegacyLabelJujuStorageName is the legacy label key used for juju storage
+	// LegacyLabelStorageName is the legacy label key used for juju storage
 	// pvc. This purely exists to maintain backwards functionality.
 	// See https://bugs.launchpad.net/juju/+bug/1888513
 	// For LegacyLabelVersion.
