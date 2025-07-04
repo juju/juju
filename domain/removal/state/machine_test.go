@@ -144,8 +144,7 @@ VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "00:11:22:33:4
 
 	interfaces, err := st.GetMachineNetworkInterfaces(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(interfaces), tc.Equals, 1)
-	c.Check(interfaces, tc.DeepEquals, []string{"00:11:22:33:44:55"})
+	c.Check(len(interfaces), tc.Equals, 0)
 }
 
 func (s *machineSuite) TestGetMachineNetworkInterfacesMultiple(c *tc.C) {
@@ -184,8 +183,7 @@ VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "66:11:22:33:4
 
 	interfaces, err := st.GetMachineNetworkInterfaces(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(interfaces), tc.Equals, 2)
-	c.Check(interfaces, tc.DeepEquals, []string{"00:11:22:33:44:55", "66:11:22:33:44:56"})
+	c.Check(len(interfaces), tc.Equals, 0)
 }
 
 func (s *machineSuite) TestGetMachineNetworkInterfacesContainer(c *tc.C) {
@@ -238,12 +236,12 @@ VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-1", 1500, "11:11:22:33
 
 	interfaces, err := st.GetMachineNetworkInterfaces(c.Context(), machineUUID0.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(interfaces), tc.Equals, 1)
-	c.Check(interfaces, tc.DeepEquals, []string{"00:11:22:33:44:55"})
+	c.Check(len(interfaces), tc.Equals, 0)
 
 	interfaces, err = st.GetMachineNetworkInterfaces(c.Context(), machineUUID1.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(interfaces), tc.Equals, 0)
+	c.Check(len(interfaces), tc.Equals, 1)
+	c.Check(interfaces, tc.DeepEquals, []string{"11:11:22:33:44:66"})
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {

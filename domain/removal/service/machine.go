@@ -52,7 +52,7 @@ type MachineState interface {
 
 	// GetMachineNetworkInterfaces returns the network interfaces for the
 	// machine with the input UUID. This is used to release any addresses
-	// that the machine has allocated.
+	// that container machine has allocated.
 	GetMachineNetworkInterfaces(ctx context.Context, machineUUID string) ([]string, error)
 }
 
@@ -204,7 +204,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 
 	// Do this before we delete the machine, so that we can release any
 	// addresses that the machine has allocated.
-	if err := s.releaseProviderAddresses(ctx, job.EntityUUID); err != nil {
+	if err := s.releaseContainerAddresses(ctx, job.EntityUUID); err != nil {
 		return errors.Errorf("releasing addresses for machine %q: %w", job.EntityUUID, err)
 	}
 
@@ -219,7 +219,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 	return nil
 }
 
-func (s *Service) releaseProviderAddresses(ctx context.Context, machineUUID string) error {
+func (s *Service) releaseContainerAddresses(ctx context.Context, machineUUID string) error {
 	// Get the provider for releasing the machine addresses. If the provider
 	// does not support releasing addresses, we can return early.
 	provider, err := s.provider(ctx)
@@ -230,7 +230,7 @@ func (s *Service) releaseProviderAddresses(ctx context.Context, machineUUID stri
 	}
 
 	// Get all the machines network interfaces, so that we can release them
-	// to the provider. This will only work on non-container machines.
+	// to the provider. This will only work on container machines.
 	addresses, err := s.st.GetMachineNetworkInterfaces(ctx, machineUUID)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil
