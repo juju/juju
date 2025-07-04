@@ -15,8 +15,17 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
 )
+
+// ddlAssumptionsSuite provides a test suite for testing assumption relied on in
+// the DDL of the model. These tests exist to break when relied upon assumptions
+// in the DDL change over time. When a test in this suite fails, it means code
+// in this domain needs to be updated.
+type ddlAssumptionsSuite struct {
+	schematesting.ModelSuite
+}
 
 // stateSuite provides a test suite for testing the commonality parts of [State].
 type stateSuite struct {
@@ -136,4 +145,32 @@ func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
 		c.Context(), coremachine.UUID(machineUUID),
 	)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestMachineProvisionScopeValue tests that the value of machine provision
+// scope in the storage_provision_scope table is 1. This is an assumption that
+// is made in this state layer.
+func (s *ddlAssumptionsSuite) TestMachineProvisionScopeValue(c *tc.C) {
+	var idVal int
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id from storage_provision_scope WHERE scope = 'machine",
+	).Scan(&idVal)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(idVal, tc.Equals, 1)
+}
+
+// TestModelProvisionScopeValue tests that the value of model provision
+// scope in the storage_provision_scope table is 0. This is an assumption that
+// is made in this state layer.
+func (s *ddlAssumptionsSuite) TestModelProvisionScopeValue(c *tc.C) {
+	var idVal int
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id from storage_provision_scope WHERE scope = 'model",
+	).Scan(&idVal)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(idVal, tc.Equals, 0)
 }
