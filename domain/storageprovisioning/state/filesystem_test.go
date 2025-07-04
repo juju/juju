@@ -529,10 +529,10 @@ func (s *filesystemSuite) newMachineFilesystemAttachment(
 		c.Context(),
 		`
 INSERT INTO storage_filesystem_attachment (uuid,
-										   storage_filesystem_uuid,
-										   net_node_uuid,
-										   life_id,
-										   provision_scope_id)
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           provision_scope_id)
 VALUES (?, ?, ?, 0, 1)
 `,
 		attachmentUUID.String(), fsUUID, netNodeUUID)

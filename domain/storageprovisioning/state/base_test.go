@@ -7,7 +7,10 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/tc"
+
 	coremachine "github.com/juju/juju/core/machine"
+
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
@@ -15,7 +18,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/tc"
 )
 
 // baseSuite defines a set of common helper methods for storage provisioning

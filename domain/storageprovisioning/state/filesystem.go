@@ -9,6 +9,7 @@ import (
 	"maps"
 
 	"github.com/canonical/sqlair"
+
 	"github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
@@ -252,6 +253,10 @@ func (st *State) InitialWatchStatementModelProvisionedFilesystems() (string, eve
 	return "storage_filesystem_life_model_provisioning", query
 }
 
+// InitialWatchStatementModelProvisionedFilesystems returns both the namespace
+// for watching filesystem life changes where the filesystem is model
+// provisioned. On top of this the initial query for getting all filesystems
+// in the model that model provisioned is returned.
 func (st *State) InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`

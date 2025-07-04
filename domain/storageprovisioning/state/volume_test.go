@@ -661,10 +661,10 @@ func (s *volumeSuite) newMachineVolumeAttachment(
 		c.Context(),
 		`
 INSERT INTO storage_volume_attachment (uuid,
-									   storage_volume_uuid,
-									   net_node_uuid,
-									   life_id,
-									   provision_scope_id)
+                                       storage_volume_uuid,
+                                       net_node_uuid,
+                                       life_id,
+                                       provision_scope_id)
 VALUES (?, ?, ?, 0, 1)
 `,
 		attachmentUUID.String(), vsUUID, netNodeUUID)
@@ -710,10 +710,10 @@ func (s *volumeSuite) newVolumeAttachmentPlan(
 		c.Context(),
 		`
 INSERT INTO storage_volume_attachment_plan (uuid,
-									        storage_volume_uuid,
-									        net_node_uuid,
-									        life_id,
-									        provision_scope_id)
+                                            storage_volume_uuid,
+                                            net_node_uuid,
+                                            life_id,
+                                            provision_scope_id)
 VALUES (?, ?, ?, 0, 1)
 `,
 		attachmentUUID.String(), volumeUUID, netNodeUUID)
