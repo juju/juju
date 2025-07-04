@@ -23,7 +23,7 @@ import (
 // a machine provisioner cares about have had a life change.
 type EntityLifeGetter func(context.Context) (map[string]life.Life, error)
 
-// EntityLifeMapperFunc provides a watcher mapper that can be used to
+// entityLifeMapperFunc provides a watcher mapper that can be used to
 // take change events for one concern and translate this into a set of entity
 // life changes. Entity in this case is a storage entity that is associated
 // with the context of the current cocern.
@@ -42,7 +42,7 @@ type EntityLifeGetter func(context.Context) (map[string]life.Life, error)
 // called once on the first invocation of the returned mapper.
 //
 // The returned mapper is not thread safe.
-func EntityLifeMapperFunc(
+func entityLifeMapperFunc(
 	initialLife EntityLifeGetter,
 	lifeGetter EntityLifeGetter,
 ) eventsource.Mapper {
@@ -84,7 +84,7 @@ func EntityLifeMapperFunc(
 	}
 }
 
-// MakeEntityLifePrerequisites is a helper function for establishing the
+// makeEntityLifePrerequisites is a helper function for establishing the
 // prerequisites required for watching the life of storage entities associated
 // with a concern. A concern in this case is a machine being watched by a
 // provisioner.
@@ -101,7 +101,7 @@ func EntityLifeMapperFunc(
 //
 // This function returns a new initial query that can be supplied to the watcher
 // for seeding a set of initial values.
-func MakeEntityLifePrerequisites(
+func makeEntityLifePrerequisites(
 	initialQuery eventsource.Query[map[string]life.Life],
 	lifeGetter EntityLifeGetter,
 ) (eventsource.NamespaceQuery, eventsource.Mapper) {
@@ -140,6 +140,6 @@ func MakeEntityLifePrerequisites(
 		}
 	}
 
-	return shimmedInitialQuery, EntityLifeMapperFunc(
+	return shimmedInitialQuery, entityLifeMapperFunc(
 		initialLifeForMapper, lifeGetter)
 }

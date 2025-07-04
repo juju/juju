@@ -43,7 +43,7 @@ func initialEntityLifeQuery(data map[string]life.Life) eventsource.Query[map[str
 }
 
 // TestEntityLifeMapper is a test of tests for making sure that the
-// [EntityLifeMapperFunc] correctly handles changes in values over time. i.e the
+// [entityLifeMapperFunc] correctly handles changes in values over time. i.e the
 // caller is correctly notified of the right ids when change has occurred.
 func TestEntityLifeMapper(t *testing.T) {
 	test := []struct {
@@ -185,7 +185,7 @@ func TestEntityLifeMapper(t *testing.T) {
 			initialLifeFn := func(_ context.Context) (map[string]life.Life, error) {
 				return test.InitialLife, nil
 			}
-			mapper := EntityLifeMapperFunc(initialLifeFn, getter)
+			mapper := entityLifeMapperFunc(initialLifeFn, getter)
 
 			for _, expected := range test.Expected {
 				changes, err := mapper(t.Context(), nil)
@@ -197,7 +197,7 @@ func TestEntityLifeMapper(t *testing.T) {
 }
 
 // TestMakeEntityLifePrerequisites tests the common case of the mapper and
-// initial returned by [MakeEntityLifePrerequisites].
+// initial returned by [makeEntityLifePrerequisites].
 func TestMakeEntityLifePrerequisties(t *testing.T) {
 	lifeGetter, stop := entityLifeGetter(slices.Values([]map[string]life.Life{
 		{
@@ -218,7 +218,7 @@ func TestMakeEntityLifePrerequisties(t *testing.T) {
 		"l2": life.Dying,
 	}
 
-	initQuery, mapper := MakeEntityLifePrerequisites(
+	initQuery, mapper := makeEntityLifePrerequisites(
 		initialEntityLifeQuery(initData), lifeGetter,
 	)
 
@@ -236,7 +236,7 @@ func TestMakeEntityLifePrerequisties(t *testing.T) {
 }
 
 // TestMakeEntityLifePrerequisitesNoDeadLock tests that if the initial query
-// provided by [MakeEntityLifePrerequisites] does not get called so that the
+// provided by [makeEntityLifePrerequisites] does not get called so that the
 // initial values to the mapper are not available, the mapper keeps working and
 // starts from an empty set of values.
 func TestMakeEntityLifePrerequisitesNoDeadLock(t *testing.T) {
@@ -254,7 +254,7 @@ func TestMakeEntityLifePrerequisitesNoDeadLock(t *testing.T) {
 	}))
 	defer stop()
 
-	_, mapper := MakeEntityLifePrerequisites(
+	_, mapper := makeEntityLifePrerequisites(
 		initialEntityLifeQuery(nil), lifeGetter,
 	)
 
