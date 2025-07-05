@@ -303,7 +303,7 @@ func (st *State) SetAPIAddresses(ctx context.Context, addresses map[string]contr
 	checkControllerExistsStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count 
 FROM controller_node 
-WHERE controller_id = ($controllerIDs[:])
+WHERE controller_id IN ($controllerIDs[:])
 `, countResult{}, controllerIDs{})
 	if err != nil {
 		return errors.Capture(err)
@@ -312,7 +312,7 @@ WHERE controller_id = ($controllerIDs[:])
 	getExistingAddressesStmt, err := st.Prepare(`
 SELECT &controllerAPIAddress.* 
 FROM controller_api_address
-WHERE controller_id = ($controllerIDs[:])
+WHERE controller_id IN ($controllerIDs[:])
 `, controllerAPIAddress{}, controllerIDs{})
 	if err != nil {
 		return errors.Capture(err)
