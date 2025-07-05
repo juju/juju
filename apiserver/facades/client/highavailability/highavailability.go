@@ -14,9 +14,15 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
+	corecontroller "github.com/juju/juju/core/controller"
+	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/rpc/params"
@@ -27,10 +33,18 @@ type ControllerNodeService interface {
 	// GetControllerAPIAddresses returns the list of API addresses for all
 	// controllers.
 	GetControllerAPIAddresses(ctx context.Context) (map[string]network.HostPorts, error)
+	// GetControllerIDs returns the list of controller IDs from the controller node
+	// records.
+	GetControllerIDs(ctx context.Context) ([]string, error)
 }
 
 // ApplicationService instances add units to an application in dqlite state.
 type ApplicationService interface {
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	// AddIAASUnits adds the specified units to the IAAS application.
+	AddIAASUnits(ctx context.Context, appName string, units ...applicationservice.AddIAASUnitArg) ([]coreunit.Name, error)
 }
 
 // ControllerConfigService instances read the controller config.
@@ -101,6 +115,69 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(api.blockCommandService)
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
+	// Get the controller application first, everything else depends on it.
+	_, err := api.applicationService.GetApplicationIDByName(ctx, coreapplication.ControllerApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ControllersChanges{}, errors.NotFoundf("controller application %q", coreapplication.ControllerApplicationName)
+	} else if err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
+	numControllers := spec.NumControllers
+	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
+		return params.ControllersChanges{}, errors.New("number of controllers must be odd and non-negative")
+	} else if numControllers > corecontroller.MaxPeers {
+		return params.ControllersChanges{}, errors.Errorf("controller count is too large (allowed %d)", corecontroller.MaxPeers)
+	} else if numControllers == 0 {
+		// If the number of controllers requested is zero, this actually
+		// indicates that the user wants the default number of controllers,
+		// which is 3 (current default).
+		numControllers = corecontroller.DefaultControllerCount
+	}
+
+	// We need to check that the number of controllers is not less than the
+	// number of existing controllers.
+	controllerIDs, err := api.controllerNodeService.GetControllerIDs(ctx)
+	if err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+	if numControllers < len(controllerIDs) {
+		return params.ControllersChanges{}, errors.Errorf(
+			"cannot remove controllers with enable-ha, use remove-machine and chose the controller(s) to remove (active controllers: %d, requested: %d)",
+			len(controllerIDs), numControllers,
+		)
+	}
+
+	required := numControllers - len(controllerIDs)
+	if required == 0 {
+		// No changes are required, so we return an empty result.
+		return params.ControllersChanges{}, nil
+	}
+
+	args := make([]applicationservice.AddIAASUnitArg, 0, required)
+	for i := 0; i < required; i++ {
+		var placement *instance.Placement
+		if i < len(spec.Placement) {
+			placement, err = instance.ParsePlacement(spec.Placement[i])
+			if err != nil {
+				return params.ControllersChanges{}, errors.Trace(err)
+			}
+		}
+
+		args = append(args, applicationservice.AddIAASUnitArg{
+			AddUnitArg: applicationservice.AddUnitArg{
+				Placement: placement,
+			},
+		})
+	}
+
+	_, err = api.applicationService.AddIAASUnits(ctx, coreapplication.ControllerApplicationName, args...)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ControllersChanges{}, errors.NotFoundf("controller application %q", coreapplication.ControllerApplicationName)
+	} else if err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 

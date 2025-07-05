@@ -25,17 +25,11 @@ import (
 // units.
 type UnitState interface {
 	// AddIAASUnits adds the specified units to the application, returning their
-	// names. If the application is not found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
-	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
-	// is returned.
+	// names.
 	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddIAASUnitArg) ([]coreunit.Name, []coremachine.Name, error)
 
 	// AddCAASUnits adds the specified units to the application, returning their
-	// names. If the application is not found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
-	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
-	// is returned.
+	// names.
 	AddCAASUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
 
 	// InsertMigratingIAASUnits inserts the fully formed units for the specified
@@ -169,7 +163,7 @@ type UnitState interface {
 	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
 }
 
-func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, constraints constraints.Constraints) ([]application.AddIAASUnitArg, error) {
+func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, platform deployment.Platform, constraints constraints.Constraints) ([]application.AddIAASUnitArg, error) {
 	args := make([]application.AddIAASUnitArg, len(units))
 	for i, u := range units {
 		placement, err := deployment.ParsePlacement(u.Placement)
@@ -183,7 +177,8 @@ func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, constraints constrain
 				Placement:     placement,
 				UnitStatusArg: s.makeIAASUnitStatusArgs(),
 			},
-			Nonce: u.Nonce,
+			Platform: platform,
+			Nonce:    u.Nonce,
 		}
 		args[i] = arg
 	}

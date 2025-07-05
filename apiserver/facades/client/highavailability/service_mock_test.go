@@ -80,6 +80,45 @@ func (c *MockControllerNodeServiceGetControllerAPIAddressesCall) DoAndReturn(f f
 	return c
 }
 
+// GetControllerIDs mocks base method.
+func (m *MockControllerNodeService) GetControllerIDs(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerIDs", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerIDs indicates an expected call of GetControllerIDs.
+func (mr *MockControllerNodeServiceMockRecorder) GetControllerIDs(arg0 any) *MockControllerNodeServiceGetControllerIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerIDs", reflect.TypeOf((*MockControllerNodeService)(nil).GetControllerIDs), arg0)
+	return &MockControllerNodeServiceGetControllerIDsCall{Call: call}
+}
+
+// MockControllerNodeServiceGetControllerIDsCall wrap *gomock.Call
+type MockControllerNodeServiceGetControllerIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerNodeServiceGetControllerIDsCall) Return(arg0 []string, arg1 error) *MockControllerNodeServiceGetControllerIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerNodeServiceGetControllerIDsCall) Do(f func(context.Context) ([]string, error)) *MockControllerNodeServiceGetControllerIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerNodeServiceGetControllerIDsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockControllerNodeServiceGetControllerIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockBlockCommandService is a mock of BlockCommandService interface.
 type MockBlockCommandService struct {
 	ctrl     *gomock.Controller
