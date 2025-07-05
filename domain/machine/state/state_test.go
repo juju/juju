@@ -207,6 +207,21 @@ func (s *stateSuite) TestIsMachineControllerApplicationController(c *tc.C) {
 	c.Assert(isController, tc.IsTrue)
 }
 
+func (s *stateSuite) TestIsMachineControllerApplicationControllerMultiple(c *tc.C) {
+	machineName0 := s.createApplicationWithUnitAndMachine(c, true, false)
+	machineName1 := s.addUnit(c)
+
+	s.DumpTable(c, "machine")
+
+	isController, err := s.state.IsMachineController(c.Context(), machineName0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsTrue)
+
+	isController, err = s.state.IsMachineController(c.Context(), machineName1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isController, tc.IsTrue)
+}
+
 func (s *stateSuite) TestIsMachineControllerApplicationNonController(c *tc.C) {
 	machineName := s.createApplicationWithUnitAndMachine(c, false, false)
 
@@ -825,6 +840,42 @@ VALUES (?)`, "app-uuid")
 			}
 		}
 
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return machineName
+}
+
+func (s *stateSuite) addUnit(c *tc.C) machine.Name {
+	machineName := machine.Name("1")
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		netNodeUUID := uuid.MustNewUUID().String()
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO net_node (uuid)
+VALUES (?)
+`, netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, ?, ?, uuid, charm_uuid
+FROM application
+WHERE uuid = ?
+`, "unit-uuid-1", "foo/1", "0", netNodeUUID, "app-uuid")
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO machine (uuid, name, life_id, net_node_uuid)
+SELECT ?, ?, ?, net_node_uuid
+FROM unit
+WHERE uuid = ?
+`, "machine-uuid-1", machineName, 0, "unit-uuid-1")
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)

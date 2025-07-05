@@ -433,7 +433,7 @@ func (s *ModelState) IsMachineController(ctx context.Context, mName machine.Name
 
 	var result count
 	query := `
-SELECT &count.*
+SELECT 1 AS &count.count
 FROM   v_machine_is_controller
 WHERE  machine_uuid = $machineUUID.uuid
 `
