@@ -10,35 +10,43 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	jujuagent "github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 type config struct {
-	machineTag names.MachineTag
-	machiner   Machiner
-	logger     logger.Logger
+	machineTag  names.MachineTag
+	machiner    Machiner
+	agentClient Agent
+	agent       jujuagent.Agent
+	logger      logger.Logger
 }
 
 // NewConverter returns a new notify watch handler that will convert the given machine &
 // agent to a controller.
 func NewConverter(cfg config) watcher.NotifyHandler {
 	return &converter{
-		machiner:   cfg.machiner,
-		machineTag: cfg.machineTag,
-		logger:     cfg.logger,
+		machiner:    cfg.machiner,
+		machineTag:  cfg.machineTag,
+		agentClient: cfg.agentClient,
+		agent:       cfg.agent,
+		logger:      cfg.logger,
 	}
 }
 
 // converter is a NotifyWatchHandler that converts a unit hosting machine to a
 // state machine.
 type converter struct {
-	machineTag names.MachineTag
-	machiner   Machiner
-	machine    Machine
-	logger     logger.Logger
+	machineTag  names.MachineTag
+	machiner    Machiner
+	machine     Machine
+	agentClient Agent
+	agent       jujuagent.Agent
+	logger      logger.Logger
 }
 
 // wrapper is a wrapper around api/machiner.State to match the (local) machiner
@@ -81,6 +89,26 @@ func (c *converter) Handle(ctx context.Context) error {
 
 	if !isController {
 		return nil
+	}
+
+	// If the machine needs Client, grab the state serving info
+	// over the API and write it to the agent configuration.
+	info, err := c.agentClient.StateServingInfo(ctx)
+	if err != nil {
+		return internalerrors.Errorf("getting state serving info: %w", err)
+	}
+
+	err = c.agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
+		_, hasInfo := config.StateServingInfo()
+		if hasInfo {
+			return nil
+		}
+
+		config.SetStateServingInfo(info)
+		return nil
+	})
+	if err != nil {
+		return errors.Annotatef(err, "setting state serving info for %s", c.machineTag)
 	}
 
 	return fmt.Errorf("bounce agent to pick up new jobs%w", errors.Hide(agenterrors.FatalError))

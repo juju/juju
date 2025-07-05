@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -22,4 +23,10 @@ type Machiner interface {
 type Machine interface {
 	IsController(context.Context, string) (bool, error)
 	Watch(context.Context) (watcher.NotifyWatcher, error)
+}
+
+// Agent represents the necessary methods for this worker from the
+// agent api.
+type Agent interface {
+	StateServingInfo(ctx context.Context) (controller.StateServingInfo, error)
 }

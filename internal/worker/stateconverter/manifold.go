@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent/agent"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
@@ -79,11 +80,18 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
+	agentClient, err := cfg.newAgentClient(getter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	cfg.Logger.Tracef(ctx, "starting NotifyWorker for %s", mTag)
 	handlerCfg := config{
-		machineTag: mTag,
-		machiner:   machiner,
-		logger:     cfg.Logger,
+		machineTag:  mTag,
+		machiner:    machiner,
+		agentClient: agentClient,
+		agent:       a,
+		logger:      cfg.Logger,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: NewConverter(handlerCfg),
@@ -103,5 +111,20 @@ func (cfg ManifoldConfig) newMachiner(getter dependency.Getter) (Machiner, error
 	if err := getter.Get(cfg.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return wrapper{m: apimachiner.NewClient(apiConn)}, nil
+}
+
+func (cfg ManifoldConfig) newAgentClient(getter dependency.Getter) (Agent, error) {
+	var apiCaller base.APICaller
+	if err := getter.Get(cfg.APICallerName, &apiCaller); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	apiState, err := apiagent.NewClient(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return apiState, nil
 }
