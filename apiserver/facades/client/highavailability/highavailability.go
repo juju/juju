@@ -18,6 +18,7 @@ import (
 	corecontroller "github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	coreunit "github.com/juju/juju/core/unit"
@@ -36,6 +37,9 @@ type ControllerNodeService interface {
 	// GetControllerIDs returns the list of controller IDs from the controller node
 	// records.
 	GetControllerIDs(ctx context.Context) ([]string, error)
+	// CurateNodes modifies the known control plane by adding and removing
+	// controller node records according to the input slices.
+	CurateNodes(ctx context.Context, toAdd, toRemove []string) error
 }
 
 // ApplicationService instances add units to an application in dqlite state.
@@ -45,6 +49,8 @@ type ApplicationService interface {
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 	// AddIAASUnits adds the specified units to the IAAS application.
 	AddIAASUnits(ctx context.Context, appName string, units ...applicationservice.AddIAASUnitArg) ([]coreunit.Name, error)
+	// GetUnitMachineName gets the unit's machine name.
+	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error)
 }
 
 // ControllerConfigService instances read the controller config.
@@ -174,10 +180,25 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		})
 	}
 
-	_, err = api.applicationService.AddIAASUnits(ctx, coreapplication.ControllerApplicationName, args...)
+	unitNames, err := api.applicationService.AddIAASUnits(ctx, coreapplication.ControllerApplicationName, args...)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.ControllersChanges{}, errors.NotFoundf("controller application %q", coreapplication.ControllerApplicationName)
 	} else if err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
+	var machineNames []string
+	for _, unitName := range unitNames {
+		machineName, err := api.applicationService.GetUnitMachineName(ctx, unitName)
+		if err != nil {
+			return params.ControllersChanges{}, errors.Trace(err)
+		}
+		machineNames = append(machineNames, machineName.String())
+	}
+
+	if err := api.controllerNodeService.CurateNodes(ctx, machineNames, nil); err != nil {
+		// TODO (stickupkid): If this fails, we should remove the units that
+		// were added.
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 

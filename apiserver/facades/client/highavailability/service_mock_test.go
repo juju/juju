@@ -41,6 +41,44 @@ func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecor
 	return m.recorder
 }
 
+// CurateNodes mocks base method.
+func (m *MockControllerNodeService) CurateNodes(arg0 context.Context, arg1, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CurateNodes", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CurateNodes indicates an expected call of CurateNodes.
+func (mr *MockControllerNodeServiceMockRecorder) CurateNodes(arg0, arg1, arg2 any) *MockControllerNodeServiceCurateNodesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurateNodes", reflect.TypeOf((*MockControllerNodeService)(nil).CurateNodes), arg0, arg1, arg2)
+	return &MockControllerNodeServiceCurateNodesCall{Call: call}
+}
+
+// MockControllerNodeServiceCurateNodesCall wrap *gomock.Call
+type MockControllerNodeServiceCurateNodesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerNodeServiceCurateNodesCall) Return(arg0 error) *MockControllerNodeServiceCurateNodesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerNodeServiceCurateNodesCall) Do(f func(context.Context, []string, []string) error) *MockControllerNodeServiceCurateNodesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerNodeServiceCurateNodesCall) DoAndReturn(f func(context.Context, []string, []string) error) *MockControllerNodeServiceCurateNodesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetControllerAPIAddresses mocks base method.
 func (m *MockControllerNodeService) GetControllerAPIAddresses(arg0 context.Context) (map[string]network.HostPorts, error) {
 	m.ctrl.T.Helper()
