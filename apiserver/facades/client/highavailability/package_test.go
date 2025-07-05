@@ -6,13 +6,11 @@ package highavailability
 import (
 	"os"
 	stdtesting "testing"
-
-	"github.com/juju/juju/internal/testing"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -typed -package highavailability -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/highavailability ControllerNodeService,BlockCommandService
+//go:generate go run go.uber.org/mock/mockgen -typed -package highavailability -destination auth_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
+
 func TestMain(m *stdtesting.M) {
-	os.Exit(func() int {
-		defer testing.MgoTestMain()()
-		return m.Run()
-	}())
+	os.Exit(m.Run())
 }
