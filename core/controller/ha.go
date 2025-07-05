@@ -3,5 +3,11 @@
 
 package controller
 
-// MaxPeers defines the maximum number of peers that mongo supports.
-const MaxPeers = 7
+const (
+	// DefaultControllerCount defines the default number of controllers that
+	// HA supports.
+	DefaultControllerCount = 3
+
+	// MaxPeers defines the maximum number of peers that HA supports.
+	MaxPeers = 7
+)
