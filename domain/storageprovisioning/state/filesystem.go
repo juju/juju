@@ -16,14 +16,23 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
 // GetFilesystemAttachmentIDs returns the
-// [storageprovisioning.FilesystemAttachmentID] information for each filesystem
-// attachment uuid supplied. If a uuid does not exist or isn't attached to
-// either a machine or a unit then it will not exist in the result.
+// [storageprovisioning.FilesystemAttachmentID] information for each
+// filesystem attachment uuid supplied. If a uuid does not exist or isn't
+// attached to either a machine or a unit then it will not exist in the
+// result.
+//
+// It is not considered an error if a filesystem attachment uuid no longer
+// exists as it is expected the caller has already satisfied this
+// requirement themselves.
+//
+// All returned values will have either the machine name or unit name value
+// filled out in the [storageprovisioning.FilesystemAttachmentID] struct.
 func (st *State) GetFilesystemAttachmentIDs(
 	ctx context.Context, uuids []string,
 ) (map[string]storageprovisioning.FilesystemAttachmentID, error) {
@@ -34,6 +43,10 @@ func (st *State) GetFilesystemAttachmentIDs(
 
 	uuidInputs := filesystemAttachmentUUIDs(uuids)
 
+	// To statisfy the unit name column of this union query a filesystem attachment
+	// must be for a netnode uuid that is on a unit where that unit does not
+	// share a netnode with a machine. If units are for machines they share a
+	// netnode.
 	q := `
 SELECT &filesystemAttachmentIDs.* FROM (
 	SELECT sfa.uuid,
@@ -102,7 +115,7 @@ SELECT &filesystemAttachmentIDs.* FROM (
 // supplied net node.
 func (st *State) GetFilesystemAttachmentLifeForNetNode(
 	ctx context.Context,
-	netNodeUUID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -118,9 +131,9 @@ func (st *State) GetFilesystemAttachmentLifeForNetNode(
 func (st *State) getFilesystemAttachmentLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID}
+	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT &attachmentLife.*
 FROM            storage_filesystem_attachment
@@ -155,7 +168,7 @@ AND             net_node_uuid=$netNodeUUIDRef.net_node_uuid
 // provisioned by the machine owning the supplied net node.
 func (st *State) GetFilesystemLifeForNetNode(
 	ctx context.Context,
-	netNodeUUID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -170,16 +183,16 @@ func (st *State) GetFilesystemLifeForNetNode(
 func (st *State) getFilesystemLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID}
+	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT (sf.filesystem_id, sf.life_id) AS (&filesystemLife.*)
 FROM            storage_filesystem sf
 JOIN            storage_filesystem_attachment sfa ON sf.uuid=sfa.storage_filesystem_uuid
 WHERE           sf.provision_scope_id=1
 AND             sfa.net_node_uuid=$netNodeUUIDRef.net_node_uuid
-		`, filesystemLife{}, netNodeUUIDRef{})
+		`, filesystemLife{}, netNodeInput)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -211,7 +224,7 @@ AND             sfa.net_node_uuid=$netNodeUUIDRef.net_node_uuid
 // Only filesystems that can be provisioned by the machine connected to the
 // supplied net node will be emitted.
 func (st *State) InitialWatchStatementMachineProvisionedFilesystems(
-	netNodeUUID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) (string, eventsource.Query[map[string]life.Life]) {
 	query := func(ctx context.Context, db database.TxnRunner) (
 		map[string]life.Life, error,
@@ -228,8 +241,11 @@ func (st *State) InitialWatchStatementMachineProvisionedFilesystems(
 func (st *State) InitialWatchStatementModelProvisionedFilesystems() (string, eventsource.NamespaceQuery) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
-			SELECT &filesystemID.* FROM storage_filesystem WHERE provision_scope_id=0
-		`, filesystemID{})
+SELECT &filesystemID.*
+FROM storage_filesystem
+WHERE provision_scope_id=0
+`,
+			filesystemID{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -251,6 +267,22 @@ func (st *State) InitialWatchStatementModelProvisionedFilesystems() (string, eve
 		return rval, nil
 	}
 	return "storage_filesystem_life_model_provisioning", query
+}
+
+// InitialWatchStatementMachineProvisionedFilesystemAttachments returns
+// both the namespace for watching filesystem attachment life changes where
+// the filesystem attachment is machine provisioned and the initial query
+// for getting the current set of machine provisioned filesystem attachments.
+//
+// Only filesystem attachments that can be provisioned by the machine
+// connected to the supplied net node will be emitted.
+func (st *State) InitialWatchStatementMachineProvisionedFilesystemAttachments(
+	netNodeUUID domainnetwork.NetNodeUUID,
+) (string, eventsource.Query[map[string]life.Life]) {
+	query := func(ctx context.Context, db database.TxnRunner) (map[string]life.Life, error) {
+		return st.getFilesystemAttachmentLifeForNetNode(ctx, db, netNodeUUID)
+	}
+	return "storage_filesystem_attachment_life_machine_provisioning", query
 }
 
 // InitialWatchStatementModelProvisionedFilesystems returns both the namespace
@@ -285,13 +317,4 @@ WHERE  provision_scope_id=0
 		return rval, nil
 	}
 	return "storage_filesystem_attachment_life_model_provisioning", query
-}
-
-func (st *State) InitialWatchStatementMachineProvisionedFilesystemAttachments(
-	netNodeUUID string,
-) (string, eventsource.Query[map[string]life.Life]) {
-	query := func(ctx context.Context, db database.TxnRunner) (map[string]life.Life, error) {
-		return st.getFilesystemAttachmentLifeForNetNode(ctx, db, netNodeUUID)
-	}
-	return "storage_filesystem_attachment_life_machine_provisioning", query
 }

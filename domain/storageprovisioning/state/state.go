@@ -116,9 +116,9 @@ func (st *State) NamespaceForWatchMachineCloudInstance() string {
 func (st *State) checkNetNodeExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid string,
+	uuid domainnetwork.NetNodeUUID,
 ) (bool, error) {
-	input := netNodeUUID{UUID: uuid}
+	input := netNodeUUID{UUID: uuid.String()}
 
 	checkStmt, err := st.Prepare(
 		"SELECT &netNodeUUID.* FROM net_node WHERE uuid = $netNodeUUID.uuid",

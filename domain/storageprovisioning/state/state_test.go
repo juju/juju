@@ -16,7 +16,6 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // ddlAssumptionsSuite provides a test suite for testing assumption relied on in
@@ -80,7 +79,7 @@ func (s *stateSuite) TestCheckMachineIsDeadNotFound(c *tc.C) {
 // TestCheckNetNodeNotExist tests that the [State.checkNetNodeExists] method
 // returns false when the net node does not exist.
 func (s *stateSuite) TestCheckNetNodeNotExist(c *tc.C) {
-	netNodeUUID, err := uuid.NewUUID()
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -88,7 +87,7 @@ func (s *stateSuite) TestCheckNetNodeNotExist(c *tc.C) {
 	var exists bool
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		exists, err = st.checkNetNodeExists(ctx, tx, netNodeUUID.String())
+		exists, err = st.checkNetNodeExists(ctx, tx, netNodeUUID)
 		return err
 	})
 	c.Check(err, tc.ErrorIsNil)
@@ -98,7 +97,7 @@ func (s *stateSuite) TestCheckNetNodeNotExist(c *tc.C) {
 // TestCheckNetNodeExists tests that when a net node exists
 // [State.checkNetNodeExists] returns true.
 func (s *stateSuite) TestCheckNetNodeExists(c *tc.C) {
-	netNodeUUID, err := uuid.NewUUID()
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(
@@ -113,7 +112,7 @@ func (s *stateSuite) TestCheckNetNodeExists(c *tc.C) {
 	var exists bool
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		exists, err = st.checkNetNodeExists(ctx, tx, netNodeUUID.String())
+		exists, err = st.checkNetNodeExists(ctx, tx, netNodeUUID)
 		return err
 	})
 	c.Check(err, tc.ErrorIsNil)

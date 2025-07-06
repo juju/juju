@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
@@ -34,6 +35,10 @@ func (st *State) GetVolumeAttachmentIDs(
 
 	uuidInputs := volumeAttachmentUUIDs(uuids)
 
+	// To statisfy the unit name column of this union query a filesystem attachment
+	// must be for a netnode uuid that is on a unit where that unit does not
+	// share a netnode with a machine. If units are for machines they share a
+	// netnode.
 	q := `
 SELECT &volumeAttachmentIDs.* FROM (
 	SELECT sva.uuid,
@@ -101,7 +106,7 @@ SELECT &volumeAttachmentIDs.* FROM (
 // volume attachment that is to be provisioned by the machine owning the
 // supplied net node.
 func (st *State) GetVolumeAttachmentLifeForNetNode(
-	ctx context.Context, netNodeUUID string,
+	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -116,9 +121,9 @@ func (st *State) GetVolumeAttachmentLifeForNetNode(
 func (st *State) getVolumeAttachmentLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID}
+	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT &attachmentLife.*
 FROM            storage_volume_attachment
@@ -153,7 +158,7 @@ AND             net_node_uuid=$netNodeUUIDRef.net_node_uuid
 // attachment plan. The volume id of the attachment plans is returned instead of
 // the uuid because the caller for the watcher works off of this information.
 func (st *State) GetVolumeAttachmentPlanLifeForNetNode(
-	ctx context.Context, netNodeUUID string,
+	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -169,9 +174,9 @@ func (st *State) GetVolumeAttachmentPlanLifeForNetNode(
 func (st *State) getVolumeAttachmentPlanLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID}
+	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT (sv.volume_id, svap.life_id) AS (&volumeAttachmentPlanLife.*)
 FROM            storage_volume_attachment_plan svap
@@ -207,7 +212,7 @@ AND             svap.net_node_uuid=$netNodeUUIDRef.net_node_uuid
 // for each machine provisioned volume that is to be provisioned by the machine
 // owning the supplied net node.
 func (st *State) GetVolumeLifeForNetNode(
-	ctx context.Context, netNodeUUID string,
+	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -222,9 +227,9 @@ func (st *State) GetVolumeLifeForNetNode(
 func (st *State) getVolumeLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID}
+	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT (sv.volume_id, sv.life_id) AS (&volumeLife.*)
 FROM            storage_volume sv
@@ -262,7 +267,9 @@ AND             sva.net_node_uuid=$netNodeUUIDRef.net_node_uuid
 //
 // Only volumes that can be provisioned by the machine connected to the
 // supplied net node will be emitted.
-func (st *State) InitialWatchStatementMachineProvisionedVolumes(netNodeUUID string) (string, eventsource.Query[map[string]life.Life]) {
+func (st *State) InitialWatchStatementMachineProvisionedVolumes(
+	netNodeUUID domainnetwork.NetNodeUUID,
+) (string, eventsource.Query[map[string]life.Life]) {
 	query := func(
 		ctx context.Context,
 		db database.TxnRunner,
@@ -312,8 +319,12 @@ func (st *State) InitialWatchStatementModelProvisionedVolumes() (string, eventso
 //
 // Only volume attachments that can be provisioned by the machine connected to
 // the supplied net node will be emitted.
-func (st *State) InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID string) (string, eventsource.Query[map[string]life.Life]) {
-	query := func(ctx context.Context, db database.TxnRunner) (map[string]life.Life, error) {
+func (st *State) InitialWatchStatementMachineProvisionedVolumeAttachments(
+	netNodeUUID domainnetwork.NetNodeUUID,
+) (string, eventsource.Query[map[string]life.Life]) {
+	query := func(ctx context.Context,
+		db database.TxnRunner,
+	) (map[string]life.Life, error) {
 		return st.getVolumeAttachmentLifeForNetNode(ctx, db, netNodeUUID)
 	}
 	return "storage_volume_attachment_life_machine_provisioning", query
@@ -323,7 +334,9 @@ func (st *State) InitialWatchStatementMachineProvisionedVolumeAttachments(netNod
 // namespace for watching volume attachment life changes where the volume
 // attachment is model provisioned. On top of this the initial query for getting
 // all volume attachments in the model that are model provisioned is returned.
-func (st *State) InitialWatchStatementModelProvisionedVolumeAttachments() (string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementModelProvisionedVolumeAttachments() (
+	string, eventsource.NamespaceQuery,
+) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT &attachmentUUID.*
@@ -357,7 +370,9 @@ WHERE  provision_scope_id=0
 // watching volume attachment plan life changes. On top of this the initial
 // query for getting all volume attachment plan volume ids in the model that
 // are for the given net node uuid.
-func (st *State) InitialWatchStatementVolumeAttachmentPlans(netNodeUUID string) (string, eventsource.Query[map[string]life.Life]) {
+func (st *State) InitialWatchStatementVolumeAttachmentPlans(
+	netNodeUUID domainnetwork.NetNodeUUID,
+) (string, eventsource.Query[map[string]life.Life]) {
 	query := func(ctx context.Context, db database.TxnRunner) (map[string]life.Life, error) {
 		return st.getVolumeAttachmentPlanLifeForNetNode(ctx, db, netNodeUUID)
 	}

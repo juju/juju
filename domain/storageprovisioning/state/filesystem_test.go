@@ -173,7 +173,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentLifeForNetNode(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	lives, err := st.GetFilesystemAttachmentLifeForNetNode(
-		c.Context(), netNodeUUID,
+		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.DeepEquals, map[string]domainlife.Life{
@@ -186,7 +186,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentLifeForNetNode(c *tc.C) {
 	// out.
 	s.changeFilesystemAttachmentLife(c, fsaUUID1, life.Dying)
 	lives, err = st.GetFilesystemAttachmentLifeForNetNode(
-		c.Context(), netNodeUUID,
+		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.DeepEquals, map[string]domainlife.Life{
@@ -201,7 +201,9 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentLifeForNetNode(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemAttachmentLifeNoResults(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	st := NewState(s.TxnRunnerFactory())
-	lives, err := st.GetFilesystemAttachmentLifeForNetNode(c.Context(), netNodeUUID)
+	lives, err := st.GetFilesystemAttachmentLifeForNetNode(
+		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
+	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.HasLen, 0)
 }
@@ -227,7 +229,8 @@ func (s *filesystemSuite) TestGetFilesystemLifeForNetNode(c *tc.C) {
 	fsIDOtherMachine, _ := s.newMachineFilesystem(c)
 	_ = s.newMachineFilesystemAttachment(c, fsIDOtherMachine, s.newNetNode(c))
 
-	fsUUIDs, err := st.GetFilesystemLifeForNetNode(c.Context(), netNodeUUID)
+	fsUUIDs, err := st.GetFilesystemLifeForNetNode(
+		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(fsUUIDs, tc.DeepEquals, map[string]domainlife.Life{
 		fsOneID:   domainlife.Alive,
@@ -253,7 +256,9 @@ func (s *filesystemSuite) TestInitialWatchStatementMachineProvisionedFilesystems
 	fsIDOtherMachine, _ := s.newMachineFilesystem(c)
 	_ = s.newMachineFilesystemAttachment(c, fsIDOtherMachine, s.newNetNode(c))
 
-	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID)
+	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystems(
+		domainnetwork.NetNodeUUID(netNodeUUID),
+	)
 	c.Check(ns, tc.Equals, "storage_filesystem_life_machine_provisioning")
 
 	db := s.TxnRunner()
@@ -279,7 +284,9 @@ func (s *filesystemSuite) TestInitialWatchStatementMachineProvisionedFilesystems
 	fsIDOtherMachine, _ := s.newMachineFilesystem(c)
 	s.newMachineFilesystemAttachment(c, fsIDOtherMachine, s.newNetNode(c))
 
-	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID)
+	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystems(
+		domainnetwork.NetNodeUUID(netNodeUUID),
+	)
 	c.Check(ns, tc.Equals, "storage_filesystem_life_machine_provisioning")
 
 	db := s.TxnRunner()
@@ -296,7 +303,9 @@ func (s *filesystemSuite) TestInitialWatchStatementMachineProvisionedFilesystems
 
 	netNodeUUID := uuid.MustNewUUID().String()
 
-	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID)
+	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystems(
+		domainnetwork.NetNodeUUID(netNodeUUID),
+	)
 	c.Check(ns, tc.Equals, "storage_filesystem_life_machine_provisioning")
 
 	db := s.TxnRunner()
@@ -354,7 +363,9 @@ func (s *filesystemSuite) TestInitialWatchStatementMachineProvisionedFilesystemA
 	_ = s.newMachineFilesystemAttachment(c, fsIDOtherMachine, s.newNetNode(c))
 
 	st := NewState(s.TxnRunnerFactory())
-	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID)
+	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystemAttachments(
+		domainnetwork.NetNodeUUID(netNodeUUID),
+	)
 	c.Check(ns, tc.Equals, "storage_filesystem_attachment_life_machine_provisioning")
 
 	db := s.TxnRunner()
@@ -379,7 +390,9 @@ func (s *filesystemSuite) TestInitialWatchStatementMachineProvisionedFilesystemA
 	s.newMachineFilesystemAttachment(c, fsIDOtherMachine, s.newNetNode(c))
 
 	st := NewState(s.TxnRunnerFactory())
-	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID)
+	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystemAttachments(
+		domainnetwork.NetNodeUUID(netNodeUUID),
+	)
 	c.Check(ns, tc.Equals, "storage_filesystem_attachment_life_machine_provisioning")
 
 	db := s.TxnRunner()
@@ -397,7 +410,7 @@ func (s *filesystemSuite) TestInitialWatchStatementMachineProvisionedFilesystemA
 
 	st := NewState(s.TxnRunnerFactory())
 	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystemAttachments(
-		netNodeUUID.String(),
+		domainnetwork.NetNodeUUID(netNodeUUID),
 	)
 	c.Check(ns, tc.Equals, "storage_filesystem_attachment_life_machine_provisioning")
 
