@@ -36,6 +36,10 @@ import (
 func (st *State) GetFilesystemAttachmentIDs(
 	ctx context.Context, uuids []string,
 ) (map[string]storageprovisioning.FilesystemAttachmentID, error) {
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)

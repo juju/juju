@@ -28,6 +28,10 @@ import (
 func (st *State) GetVolumeAttachmentIDs(
 	ctx context.Context, uuids []string,
 ) (map[string]storageprovisioning.VolumeAttachmentID, error) {
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
