@@ -94,10 +94,9 @@ func (api *HighAvailabilityAPI) EnableHA(
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	if len(args.Specs) == 0 {
+	if numSpecs := len(args.Specs); numSpecs == 0 {
 		return results, nil
-	}
-	if len(args.Specs) > 1 {
+	} else if numSpecs > 1 {
 		return results, errors.New("only one controller spec is supported")
 	}
 
@@ -112,7 +111,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	params.ControllersChanges, error,
 ) {
 	if !api.isControllerModel {
-		return params.ControllersChanges{}, errors.New("unsupported with workload models")
+		return params.ControllersChanges{}, errors.NotSupportedf("workload models")
 	}
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(api.blockCommandService)
@@ -170,7 +169,13 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
-	return params.ControllersChanges{}, nil
+	// We don't support removal or converting an existing machine (hot standby)
+	// of controllers in this API, so we return just the added and existing
+	// controllers.
+	return params.ControllersChanges{
+		Added:      names,
+		Maintained: controllerIDs,
+	}, nil
 }
 
 // ControllerDetails is only available on V3 or later.
