@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/resource"
@@ -46,14 +45,12 @@ import (
 	"github.com/juju/juju/internal/charm/assumes"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type applicationSuite struct {
 	baseSuite
 
-	application *MockApplication
-	charm       *MockCharm
+	charm *MockCharm
 }
 
 func TestApplicationSuite(t *stdtesting.T) {
@@ -68,17 +65,12 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	// We should fix this when we refactor the application service.
 
 	s.setupAPI(c)
-	s.expectApplication(c, "foo")
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 1)
 	s.expectCharmAssumes(c)
 	s.expectCharmFormatCheck(c, "foo")
 
-	var result state.SetCharmConfig
-	s.expectSetCharm(c, "foo", func(c *tc.C, config state.SetCharmConfig) {
-		result = config
-	})
-	s.expectSetCharmWithTrust(c)
+	s.expectSetCharm(c, "foo")
 
 	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
@@ -103,21 +95,6 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 		ForceUnits:         true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
-		Type:     "charm",
-		Source:   "local",
-		Revision: ptr(42),
-		Channel: &state.Channel{
-			Track: "1.0",
-			Risk:  "stable",
-		},
-		Platform: &state.Platform{
-			OS:           "ubuntu",
-			Channel:      "24.04",
-			Architecture: "amd64",
-		},
-	})
 }
 
 func (s *applicationSuite) TestSetCharmInvalidCharmOrigin(c *tc.C) {
@@ -137,7 +114,11 @@ func (s *applicationSuite) TestSetCharmApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectApplicationNotFound(c, "foo")
+	s.expectCharm(c, "foo")
+	s.expectCharmConfig(c, 1)
+	s.expectCharmAssumes(c)
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "foo").
+		Return(applicationcharm.CharmLocator{}, applicationerrors.ApplicationNotFound)
 
 	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
@@ -162,7 +143,6 @@ func (s *applicationSuite) TestSetCharmGetCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectApplication(c, "foo")
 	s.expectCharmNotFound(c, "foo")
 
 	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
@@ -193,7 +173,6 @@ func (s *applicationSuite) TestSetCharmInvalidConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectApplication(c, "foo")
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 1)
 
@@ -225,16 +204,12 @@ func (s *applicationSuite) TestSetCharmWithoutTrust(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectApplication(c, "foo")
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 1)
 	s.expectCharmAssumes(c)
 	s.expectCharmFormatCheck(c, "foo")
 
-	var result state.SetCharmConfig
-	s.expectSetCharm(c, "foo", func(c *tc.C, config state.SetCharmConfig) {
-		result = config
-	})
+	s.expectSetCharm(c, "foo")
 
 	// There is no expectation that the trust is set on the application.
 
@@ -260,28 +235,12 @@ func (s *applicationSuite) TestSetCharmWithoutTrust(c *tc.C) {
 		ForceUnits:         true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(result.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
-		Type:     "charm",
-		Source:   "local",
-		Revision: ptr(42),
-		Channel: &state.Channel{
-			Track: "1.0",
-			Risk:  "stable",
-		},
-		Platform: &state.Platform{
-			OS:           "ubuntu",
-			Channel:      "24.04",
-			Architecture: "amd64",
-		},
-	})
 }
 
 func (s *applicationSuite) TestSetCharmFormatDowngrade(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectApplication(c, "foo")
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 1)
 	s.expectCharmAssumes(c)
@@ -318,7 +277,6 @@ func (s *applicationSuite) TestDeploy(c *tc.C) {
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 2)
 	s.expectCharmMeta("foo", nil, 8)
-	s.expectAddApplication()
 	s.expectCreateApplicationForDeploy("foo", nil)
 
 	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
@@ -363,7 +321,6 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *tc.C) {
 			Name: "bar",
 		},
 	}, 8)
-	s.expectAddApplication()
 	s.expectCreateApplicationForDeploy("foo", nil)
 
 	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
@@ -399,7 +356,6 @@ func (s *applicationSuite) TestDeployWithApplicationConfig(c *tc.C) {
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 2)
 	s.expectCharmMeta("foo", map[string]charmresource.Meta{}, 8)
-	s.expectAddApplication()
 	config := map[string]interface{}{"stringOption": "hey"}
 	s.expectCreateApplicationForDeployWithConfig(c, "foo", config, nil)
 
@@ -442,7 +398,6 @@ func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *tc.C) {
 	}, 8)
 	resourceUUID := testing.GenResourceUUID(c)
 	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
-	s.expectAddApplication()
 	s.expectCreateApplicationForDeploy("foo", errors.Errorf("fail test"))
 
 	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
@@ -830,8 +785,7 @@ func (s *applicationSuite) TestSetApplicationConstraints(c *tc.C) {
 	s.applicationService.EXPECT().SetApplicationConstraints(gomock.Any(), application.ID("app-foo"), constraints.Value{Mem: ptr(uint64(42))}).Return(nil)
 	// TODO(nvinuesa): Remove the double-write to mongodb once machines
 	// are fully migrated to dqlite domain.
-	s.expectApplication(c, "foo")
-	s.application.EXPECT().SetConstraints(constraints.Value{Mem: ptr(uint64(42))}).Return(nil)
+	// s.application.EXPECT().SetConstraints(constraints.Value{Mem: ptr(uint64(42))}).Return(nil)
 
 	err := s.api.SetConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "foo",
@@ -1535,7 +1489,6 @@ func (s *applicationSuite) TestSetRelationsSuspendedStub(c *tc.C) {
 func (s *applicationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.application = NewMockApplication(ctrl)
 	s.charm = NewMockCharm(ctrl)
 
 	return ctrl
@@ -1547,18 +1500,6 @@ func (s *applicationSuite) setupAPI(c *tc.C) {
 	s.expectAnyChangeOrRemoval()
 
 	s.newIAASAPI(c)
-}
-
-func (s *applicationSuite) expectApplication(c *tc.C, name string) {
-	s.backend.EXPECT().Application(name).Return(s.application, nil)
-}
-
-func (s *applicationSuite) expectApplicationNotFound(c *tc.C, name string) {
-	s.backend.EXPECT().Application(name).Return(nil, errors.NotFoundf("application %q", name))
-}
-
-func (s *applicationSuite) expectAddApplication() {
-	s.backend.EXPECT().AddApplication(gomock.Any(), s.objectStore).Return(s.application, nil)
 }
 
 // expectCreateApplicationForDeploy should only be used when calling
@@ -1689,12 +1630,7 @@ func (s *applicationSuite) expectCharmFormatCheckDowngrade(c *tc.C, name string)
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{}).Times(2)
 }
 
-func (s *applicationSuite) expectSetCharm(c *tc.C, name string, fn func(*tc.C, state.SetCharmConfig)) {
-	s.application.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(config state.SetCharmConfig, _ objectstore.ObjectStore) error {
-		fn(c, config)
-		return nil
-	})
-
+func (s *applicationSuite) expectSetCharm(c *tc.C, name string) {
 	// TODO (stickupkid): This isn't actually checking much here...
 	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), name, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, params domainapplication.UpdateCharmParams) error {
 		c.Assert(params.Charm, tc.DeepEquals, &domainCharm{
@@ -1709,15 +1645,6 @@ func (s *applicationSuite) expectSetCharm(c *tc.C, name string, fn func(*tc.C, s
 		c.Assert(params.CharmUpgradeOnError, tc.Equals, true)
 		return nil
 	})
-}
-
-func (s *applicationSuite) expectSetCharmWithTrust(c *tc.C) {
-	appSchema, appDefaults, err := ConfigSchema()
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.application.EXPECT().UpdateApplicationConfig(map[string]any{
-		"trust": true,
-	}, nil, appSchema, appDefaults).Return(nil)
 }
 
 func (s *applicationSuite) expectGetRelationUUIDForRemoval(c *tc.C, args relation.GetRelationUUIDForRemovalArgs, err error) corerelation.UUID {

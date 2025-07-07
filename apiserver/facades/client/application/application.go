@@ -212,14 +212,13 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 // DeployApplicationFunc is a function that deploys an application.
 type DeployApplicationFunc = func(
 	context.Context,
-	ApplicationDeployer,
 	model.ModelType,
 	ApplicationService,
 	objectstore.ObjectStore,
 	DeployApplicationParams,
 	corelogger.Logger,
 	clock.Clock,
-) (Application, error)
+) error
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
@@ -575,7 +574,7 @@ func (api *APIBase) deployApplication(
 	}
 
 	// TODO: replace model with model info/config services
-	_, err = api.deployApplicationFunc(ctx, api.backend, api.modelType, api.applicationService, api.store, DeployApplicationParams{
+	err = api.deployApplicationFunc(ctx, api.modelType, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             ch,
 		CharmOrigin:       origin,
@@ -825,7 +824,6 @@ func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]stri
 
 type setCharmParams struct {
 	AppName               string
-	Application           Application
 	CharmOrigin           *params.CharmOrigin
 	ConfigSettingsStrings map[string]string
 	ConfigSettingsYAML    string
@@ -867,16 +865,10 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	endpointBindings := transform.Map(args.EndpointBindings, func(k string, v string) (string, network.SpaceName) {
 		return k, network.SpaceName(v)
 	})
-
-	oneApplication, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	return api.setCharmWithAgentValidation(
 		ctx,
 		setCharmParams{
 			AppName:               args.ApplicationName,
-			Application:           oneApplication,
 			CharmOrigin:           args.CharmOrigin,
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
@@ -917,11 +909,6 @@ func (api *APIBase) setCharmWithAgentValidation(
 	params setCharmParams,
 	url string,
 ) error {
-	newOrigin, err := convertCharmOrigin(params.CharmOrigin)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	newLocator, err := apiservercharms.CharmLocatorFromURL(url)
 	if err != nil {
 		return errors.Trace(err)
@@ -953,18 +940,9 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		origin, err := StateCharmOrigin(newOrigin)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return api.applicationSetCharm(ctx, params, newCharm, origin)
 	}
 
-	origin, err := StateCharmOrigin(newOrigin)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return api.applicationSetCharm(ctx, params, newCharm, origin)
+	return api.applicationSetCharm(ctx, params, newCharm)
 }
 
 // applicationSetCharm sets the charm and updated config
@@ -973,9 +951,8 @@ func (api *APIBase) applicationSetCharm(
 	ctx context.Context,
 	params setCharmParams,
 	newCharm state.CharmRefFull,
-	newOrigin *state.CharmOrigin,
 ) error {
-	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
+	appConfig, _, _, _, err := parseCharmSettings(newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
 	if err != nil {
 		return errors.Annotate(err, "parsing config settings")
 	}
@@ -1006,20 +983,6 @@ func (api *APIBase) applicationSetCharm(
 		api.logger.Warningf(ctx, "proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
 	}
 
-	force := params.Force
-	cfg := state.SetCharmConfig{
-		Charm:              newCharm,
-		CharmOrigin:        newOrigin,
-		ForceBase:          force.ForceBase,
-		ForceUnits:         force.ForceUnits,
-		Force:              force.Force,
-		PendingResourceIDs: params.ResourceIDs,
-		StorageConstraints: stateStorageConstraints,
-	}
-	if len(charmSettings) > 0 {
-		cfg.ConfigSettings = charmSettings
-	}
-
 	// Disallow downgrading from a v2 charm to a v1 charm.
 	oldCharmLocator, err := api.getCharmLocatorByApplicationName(ctx, params.AppName)
 	if err != nil {
@@ -1032,10 +995,6 @@ func (api *APIBase) applicationSetCharm(
 	}
 	if charm.MetaFormat(oldCharm) >= charm.FormatV2 && charm.MetaFormat(newCharm) == charm.FormatV1 {
 		return errors.New("cannot downgrade from v2 charm format to v1")
-	}
-
-	if err := params.Application.SetCharm(cfg, api.store); err != nil {
-		return errors.Annotate(err, "updating charm config")
 	}
 
 	var storageDirectives map[string]storage.Directive
@@ -1053,6 +1012,7 @@ func (api *APIBase) applicationSetCharm(
 		}
 	}
 
+	// TODO: Update application config
 	if err := api.applicationService.SetApplicationCharm(ctx, params.AppName, application.UpdateCharmParams{
 		Charm:               newCharm,
 		Storage:             storageDirectives,
@@ -1060,9 +1020,6 @@ func (api *APIBase) applicationSetCharm(
 		EndpointBindings:    params.EndpointBindings,
 	}); err != nil {
 		return errors.Annotatef(err, "updating charm for application %q", params.AppName)
-	}
-	if attr := appConfig.Attributes(); len(attr) > 0 {
-		return params.Application.UpdateApplicationConfig(attr, nil, appSchema, appDefaults)
 	}
 	return nil
 }
@@ -1342,12 +1299,8 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 	} else if charmName == bootstrap.ControllerCharmName {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
 	}
-	charm, err := api.getCharm(ctx, locator)
-	if err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
 
-	units, err := api.addApplicationUnits(ctx, args, charm.Meta())
+	units, err := api.addApplicationUnits(ctx, args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1358,17 +1311,13 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 
 // addApplicationUnits adds a given number of units to an application.
 func (api *APIBase) addApplicationUnits(
-	ctx context.Context, args params.AddApplicationUnits, charmMeta *charm.Meta,
+	ctx context.Context, args params.AddApplicationUnits,
 ) ([]coreunit.Name, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
 
-	assignUnits := true
 	if api.modelType != model.IAAS {
-		// In a CAAS model, there are no machines for
-		// units to be assigned to.
-		assignUnits = false
 		if len(args.AttachStorage) > 0 {
 			return nil, errors.Errorf(
 				"AttachStorage may not be specified for %s models",
@@ -1396,19 +1345,11 @@ func (api *APIBase) addApplicationUnits(
 		}
 		attachStorage[i] = tag
 	}
-	oneApplication, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return api.addUnits(
 		ctx,
-		oneApplication,
 		args.ApplicationName,
 		args.NumUnits,
 		args.Placement,
-		attachStorage,
-		assignUnits,
-		charmMeta,
 	)
 }
 
@@ -1761,16 +1702,7 @@ func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstrain
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-
-	// TODO(nvinuesa): Remove the double-write to mongodb once machines
-	// are fully migrated to dqlite domain. We need the application
-	// constraints to be available for machines, which still read from
-	// mongodb.
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return err
-	}
-	return app.SetConstraints(args.Constraints)
+	return nil
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
@@ -1998,39 +1930,6 @@ func (api *APIBase) unsetApplicationConfig(ctx context.Context, arg params.Appli
 		return errors.NotFoundf("application %s", arg.ApplicationName)
 	} else if err != nil {
 		return errors.Trace(err)
-	}
-
-	app, err := api.backend.Application(arg.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	configSchema, defaults, err := ConfigSchema()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	appConfigFields := config.KnownConfigKeys(configSchema)
-
-	var appConfigKeys []string
-	charmSettings := make(charm.Settings)
-	for _, name := range arg.Options {
-		if appConfigFields.Contains(name) {
-			appConfigKeys = append(appConfigKeys, name)
-		} else {
-			charmSettings[name] = nil
-		}
-	}
-
-	if len(appConfigKeys) > 0 {
-		if err := app.UpdateApplicationConfig(nil, appConfigKeys, configSchema, defaults); err != nil {
-			return errors.Annotate(err, "updating application config values")
-		}
-	}
-
-	if len(charmSettings) > 0 {
-		if err := app.UpdateCharmConfig(charmSettings); err != nil {
-			return errors.Annotate(err, "updating application charm settings")
-		}
 	}
 	return nil
 }

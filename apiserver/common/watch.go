@@ -69,7 +69,7 @@ func (a *AgentEntityWatcher) Watch(ctx context.Context, args params.Entities) (p
 
 func (a *AgentEntityWatcher) watchEntity(ctx context.Context, tag names.Tag) (string, error) {
 	switch tag.Kind() {
-	case names.UnitTagKind, names.MachineTagKind:
+	case names.UnitTagKind, names.MachineTagKind, names.ApplicationTagKind:
 		return "", errors.NotSupportedf("watching %s", tag.Kind())
 	default:
 		return a.legacyWatchEntity(ctx, tag)

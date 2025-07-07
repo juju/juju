@@ -69,44 +69,36 @@ type DeployApplicationParams struct {
 	Force bool
 }
 
-type ApplicationDeployer interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-}
-
-type UnitAdder interface {
-	AddUnit(state.AddUnitParams) (Unit, error)
-}
-
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
-	ctx context.Context, st ApplicationDeployer,
+	ctx context.Context,
 	modelType coremodel.ModelType,
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
 	logger corelogger.Logger,
 	clock clock.Clock,
-) (Application, error) {
+) error {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if args.Charm.Meta().Name == bootstrap.ControllerCharmName {
-		return nil, errors.NotSupportedf("manual deploy of the controller charm")
+		return errors.NotSupportedf("manual deploy of the controller charm")
 	}
 	if args.Charm.Meta().Subordinate {
 		if args.NumUnits != 0 {
-			return nil, fmt.Errorf("subordinate application must be deployed without units")
+			return fmt.Errorf("subordinate application must be deployed without units")
 		}
 		if !constraints.IsEmpty(&args.Constraints) {
-			return nil, fmt.Errorf("subordinate application must be deployed without constraints")
+			return fmt.Errorf("subordinate application must be deployed without constraints")
 		}
 	}
 
 	// Enforce "assumes" requirements.
 	if err := assertCharmAssumptions(ctx, applicationService, args.Charm.Meta().Assumes); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !args.Force {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 
 		logger.Warningf(ctx, "proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
@@ -114,7 +106,7 @@ func DeployApplication(
 
 	if modelType == coremodel.CAAS {
 		if charm.MetaFormat(args.Charm) == charm.FormatV1 {
-			return nil, errors.NotSupportedf("deploying format v1 charm %q", args.ApplicationName)
+			return errors.NotSupportedf("deploying format v1 charm %q", args.ApplicationName)
 		}
 	}
 
@@ -123,7 +115,7 @@ func DeployApplication(
 
 	origin, err := StateCharmOrigin(args.CharmOrigin)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
@@ -143,89 +135,84 @@ func DeployApplication(
 		asa.Constraints = args.Constraints
 	}
 
-	app, err := st.AddApplication(asa, store)
+	chURL, err := charm.ParseURL(args.Charm.URL())
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	// Dual write storage directives to dqlite.
-	if err == nil {
-		chURL, err := charm.ParseURL(args.Charm.URL())
+	var downloadInfo *applicationcharm.DownloadInfo
+	if args.CharmOrigin.Source == corecharm.CharmHub {
+		locator, err := charms.CharmLocatorFromURL(args.Charm.URL())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
-
-		var downloadInfo *applicationcharm.DownloadInfo
-		if args.CharmOrigin.Source == corecharm.CharmHub {
-			locator, err := charms.CharmLocatorFromURL(args.Charm.URL())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, locator)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		pendingResources, err := transformToPendingResources(args.Resources)
+		downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, locator)
 		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		attrs := args.ApplicationConfig.Attributes()
-		trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
-
-		applicationArg := applicationservice.AddApplicationArgs{
-			ReferenceName:    chURL.Name,
-			Storage:          args.Storage,
-			DownloadInfo:     downloadInfo,
-			PendingResources: pendingResources,
-			EndpointBindings: args.EndpointBindings,
-			Devices:          args.Devices,
-			ApplicationStatus: &status.StatusInfo{
-				Status: status.Unset,
-				Since:  ptr(clock.Now()),
-			},
-			ApplicationConfig: config.ConfigAttributes(charmConfig),
-			ApplicationSettings: application.ApplicationSettings{
-				Trust: trust,
-			},
-			Constraints: args.Constraints,
-		}
-		if modelType == coremodel.CAAS {
-			unitArgs, err := makeCAASUnitArgs(args)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			_, err = applicationService.CreateCAASApplication(
-				ctx,
-				args.ApplicationName,
-				args.Charm,
-				args.CharmOrigin,
-				applicationArg,
-				unitArgs...,
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		} else {
-			unitArgs, err := makeIAASUnitArgs(args)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			_, err = applicationService.CreateIAASApplication(
-				ctx,
-				args.ApplicationName,
-				args.Charm,
-				args.CharmOrigin,
-				applicationArg,
-				unitArgs...,
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 	}
-	return app, errors.Trace(err)
+
+	pendingResources, err := transformToPendingResources(args.Resources)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	attrs := args.ApplicationConfig.Attributes()
+	trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
+
+	applicationArg := applicationservice.AddApplicationArgs{
+		ReferenceName:    chURL.Name,
+		Storage:          args.Storage,
+		DownloadInfo:     downloadInfo,
+		PendingResources: pendingResources,
+		EndpointBindings: args.EndpointBindings,
+		Devices:          args.Devices,
+		ApplicationStatus: &status.StatusInfo{
+			Status: status.Unset,
+			Since:  ptr(clock.Now()),
+		},
+		ApplicationConfig: config.ConfigAttributes(charmConfig),
+		ApplicationSettings: application.ApplicationSettings{
+			Trust: trust,
+		},
+		Constraints: args.Constraints,
+	}
+	if modelType == coremodel.CAAS {
+		unitArgs, err := makeCAASUnitArgs(args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = applicationService.CreateCAASApplication(
+			ctx,
+			args.ApplicationName,
+			args.Charm,
+			args.CharmOrigin,
+			applicationArg,
+			unitArgs...,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		unitArgs, err := makeIAASUnitArgs(args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = applicationService.CreateIAASApplication(
+			ctx,
+			args.ApplicationName,
+			args.Charm,
+			args.CharmOrigin,
+			applicationArg,
+			unitArgs...,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return errors.Trace(err)
 }
 
 func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAASUnitArg, error) {
@@ -284,70 +271,72 @@ func transformToPendingResources(argResources map[string]string) ([]coreresource
 // directives to allocate the machines.
 func (api *APIBase) addUnits(
 	ctx context.Context,
-	unitAdder UnitAdder,
 	appName string,
 	n int,
 	placement []*instance.Placement,
-	attachStorage []names.StorageTag,
-	assignUnits bool,
-	charmMeta *charm.Meta,
 ) ([]coreunit.Name, error) {
-	units := make([]coreunit.Name, 0, n)
 
-	allSpaces, err := api.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return nil, err
+	var (
+		unitNames []coreunit.Name
+		err       error
+	)
+	if api.modelType == coremodel.CAAS {
+		unitNames, err = api.addCAASUnits(ctx, appName, n, placement)
+	} else {
+		unitNames, err = api.addIAASUnits(ctx, appName, n, placement)
 	}
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	return unitNames, nil
+}
 
-	// TODO what do we do if we fail half-way through this process?
-	for i := 0; i < n; i++ {
-		unit, err := unitAdder.AddUnit(state.AddUnitParams{
-			AttachStorage: attachStorage,
-			CharmMeta:     charmMeta,
-		})
-		if err != nil {
-			return nil, internalerrors.Errorf("adding unit %d/%d to application %q: %w", i+1, n, appName, err)
-		}
-
+func (api *APIBase) addCAASUnits(
+	ctx context.Context,
+	appName string,
+	n int,
+	placement []*instance.Placement,
+) ([]coreunit.Name, error) {
+	unitArgs := make([]applicationservice.AddUnitArg, n)
+	for i := range n {
 		var unitPlacement *instance.Placement
 		if i < len(placement) {
 			unitPlacement = placement[i]
 		}
-
-		unitArg := applicationservice.AddUnitArg{
+		unitArgs[i] = applicationservice.AddUnitArg{
 			Placement: unitPlacement,
 		}
+	}
+	unitNames, err := api.applicationService.AddCAASUnits(ctx, appName, unitArgs...)
+	if err != nil {
+		return nil, internalerrors.Errorf("adding %d CAAS units to application %q: %w", n, appName, err)
+	}
+	return unitNames, nil
+}
 
-		var unitNames []coreunit.Name
-
-		if api.modelType == coremodel.CAAS {
-			unitNames, err = api.applicationService.AddCAASUnits(ctx, appName, unitArg)
-		} else {
-			unitNames, err = api.applicationService.AddIAASUnits(ctx, appName, applicationservice.AddIAASUnitArg{
-				AddUnitArg: unitArg,
-			})
+func (api *APIBase) addIAASUnits(
+	ctx context.Context,
+	appName string,
+	n int,
+	placement []*instance.Placement,
+) ([]coreunit.Name, error) {
+	unitArgs := make([]applicationservice.AddIAASUnitArg, n)
+	for i := range n {
+		var unitPlacement *instance.Placement
+		if i < len(placement) {
+			unitPlacement = placement[i]
 		}
-		if err != nil {
-			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
-		}
-		units = append(units, unitNames...)
-		if !assignUnits {
-			continue
-		}
-
-		// Are there still placement directives to use?
-		if i > len(placement)-1 {
-			if err := unit.AssignUnit(); err != nil {
-				return nil, internalerrors.Errorf("acquiring new machine to host unit: %w", err)
-			}
-		} else {
-			if err := unit.AssignWithPlacement(placement[i], allSpaces); err != nil {
-				return nil, internalerrors.Errorf("acquiring machine for placement %q to host unit: %w", placement[i], err)
-			}
+		unitArgs[i] = applicationservice.AddIAASUnitArg{
+			AddUnitArg: applicationservice.AddUnitArg{
+				Placement: unitPlacement,
+			},
 		}
 	}
-
-	return units, nil
+	unitNames, err := api.applicationService.AddIAASUnits(ctx, appName, unitArgs...)
+	if err != nil {
+		return nil, internalerrors.Errorf("adding %d IAAS units to application %q: %w", n, appName, err)
+	}
+	return unitNames, nil
 }
 
 func stateStorageDirectives(cons map[string]storage.Directive) map[string]state.StorageConstraints {
