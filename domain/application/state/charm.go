@@ -874,6 +874,12 @@ WHERE charm.uuid = $charmID.uuid;
 	return sha256, nil
 }
 
+// IsImportingModel returns true if the model is being imported.
+func (s *State) IsImportingModel(ctx context.Context) (bool, error) {
+	// TODO(modelmigration): check if this model is being imported.
+	return false, nil
+}
+
 // ResolveMigratingUploadedCharm resolves the charm that is migrating from
 // the uploaded state to the available state. If the charm is not found, a
 // [applicationerrors.CharmNotFound] error is returned.

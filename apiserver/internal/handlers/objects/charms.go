@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var (
@@ -47,11 +46,6 @@ const (
 	// or a controller config.
 	uploadTimeout = time.Minute * 5
 )
-
-// StateGetter is an interface for getting the model state.
-type StateGetter interface {
-	GetState(*http.Request) (State, error)
-}
 
 // ApplicationService is an interface for the application domain service.
 type ApplicationService interface {
@@ -79,19 +73,16 @@ type CharmURLMakerFunc func(locator applicationcharm.CharmLocator, includeArchit
 // ObjectsCharmHTTPHandler is an http.Handler for the "/objects/charms"
 // endpoint.
 type ObjectsCharmHTTPHandler struct {
-	stateGetter              StateGetter
 	applicationServiceGetter ApplicationServiceGetter
 	makeCharmURL             CharmURLMakerFunc
 }
 
 // NewObjectsCharmHTTPHandler returns a new ObjectsCharmHTTPHandler.
 func NewObjectsCharmHTTPHandler(
-	stateGetter StateGetter,
 	applicationServiceGetter ApplicationServiceGetter,
 	charmURLMaker CharmURLMakerFunc,
 ) http.Handler {
 	return &ObjectsCharmHTTPHandler{
-		stateGetter:              stateGetter,
 		applicationServiceGetter: applicationServiceGetter,
 		makeCharmURL:             charmURLMaker,
 	}
@@ -167,12 +158,6 @@ func (h *ObjectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 		return jujuerrors.BadRequestf("expected Content-Type: application/zip, got: %v", contentType)
 	}
 
-	st, err := h.stateGetter.GetState(r)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	defer st.Release()
-
 	ctx, cancel := context.WithTimeout(r.Context(), uploadTimeout)
 	defer cancel()
 
@@ -182,7 +167,7 @@ func (h *ObjectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Add a charm to the store provider.
-	charmURL, err := h.processPut(ctx, r, st, applicationService)
+	charmURL, err := h.processPut(ctx, r, applicationService)
 	if err != nil {
 		return jujuerrors.NewBadRequest(err, "")
 	}
@@ -192,7 +177,7 @@ func (h *ObjectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	return errors.Capture(sendStatusAndHeadersAndJSON(w, http.StatusOK, headers, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
-func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st State, applicationService ApplicationService) (*charm.URL, error) {
+func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, applicationService ApplicationService) (*charm.URL, error) {
 	name, shaFromQuery, err := splitNameAndSHAFromQuery(r.URL.Query())
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -207,17 +192,6 @@ func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		return nil, jujuerrors.BadRequestf("%q is not a valid charm url", curlStr)
 	}
 	curl.Name = name
-
-	// charmhub charms may only be uploaded into models which are being
-	// imported during model migrations. There's currently no other time
-	// where it makes sense to accept repository charms through this
-	// endpoint.
-	// TODO (stickupkid): This should be moved to the application service once
-	// model migration is complete.
-	isImporting, err := modelIsImporting(st)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 
 	var source corecharm.Source
 	switch curl.Schema {
@@ -239,11 +213,6 @@ func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		// Prevent an upload starvation attack by limiting the size of the
 		// charm that can be uploaded.
 		Reader: io.LimitReader(r.Body, maxUploadSize),
-
-		// Importing indicates that the charm is being uploaded during model
-		// migration import. This is useful to set the provenance of the charm
-		// correctly.
-		Importing: isImporting,
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, jujuerrors.NotFoundf("charm")
@@ -331,20 +300,6 @@ func sendJSONError(w http.ResponseWriter, err error) error {
 		ErrorCode: perr.Code,
 		ErrorInfo: perr.Info,
 	}))
-}
-
-// State is an interface for getting the model migration mode.
-type State interface {
-	MigrationMode() (state.MigrationMode, error)
-	Release() bool
-}
-
-func modelIsImporting(st State) (bool, error) {
-	mode, err := st.MigrationMode()
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	return mode == state.MigrationModeImporting, nil
 }
 
 func convertSource(source applicationcharm.CharmSource) (string, error) {
