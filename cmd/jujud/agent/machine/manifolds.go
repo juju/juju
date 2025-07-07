@@ -52,12 +52,12 @@ import (
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/machineactions"
+	"github.com/juju/juju/internal/worker/machineconverter"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	"github.com/juju/juju/internal/worker/reboot"
-	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
@@ -523,10 +523,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:   config.MachineLock,
 			ContainerType: instance.LXD,
 		})),
-		stateConverterName: ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        internallogger.GetLogger("juju.worker.stateconverter"),
+		machineConverterName: ifNotMigrating(machineconverter.Manifold(machineconverter.ManifoldConfig{
+			AgentName:        agentName,
+			APICallerName:    apiCallerName,
+			Logger:           internallogger.GetLogger("juju.worker.machineconverter"),
+			NewMachineClient: machineconverter.NewMachineClient,
+			NewAgentClient:   machineconverter.NewAgentClient,
+			NewConverter:     machineconverter.NewConverter,
 		})),
 	}
 
@@ -635,7 +638,7 @@ const (
 	hostKeyReporterName      = "host-key-reporter"
 	instanceMutaterName      = "instance-mutater"
 	auditConfigUpdaterName   = "audit-config-updater"
-	stateConverterName       = "state-converter"
+	machineConverterName     = "machine-converter"
 	lxdContainerProvisioner  = "lxd-container-provisioner"
 
 	traceName = "trace"
