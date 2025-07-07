@@ -3,22 +3,6 @@
 
 package stateconverter
 
-import (
-	"github.com/juju/names/v6"
-
-	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/watcher"
-)
-
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/machiner_mock.go github.com/juju/juju/internal/worker/stateconverter Machiner,Machine
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v4/dependency Getter
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
-
-func NewConverterForTest(machine Machine, machiner Machiner, logger logger.Logger) watcher.NotifyHandler {
-	return &converter{
-		machineTag: names.NewMachineTag("3"),
-		machiner:   machiner,
-		machine:    machine,
-		logger:     logger,
-	}
-}
+//go:generate go run go.uber.org/mock/mockgen -typed -package stateconverter -destination clients_mock_test.go github.com/juju/juju/internal/worker/stateconverter MachineClient,Machine,AgentClient
+//go:generate go run go.uber.org/mock/mockgen -typed -package stateconverter -destination dependency_mock_test.go github.com/juju/worker/v4/dependency Getter
+//go:generate go run go.uber.org/mock/mockgen -typed -package stateconverter -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
