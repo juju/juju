@@ -14,7 +14,7 @@ test_refresh() {
 	bootstrap "test-refresh-ctl" "${file}"
 
 	test_basic
-	#test_switch
+	test_switch
 
 	destroy_controller "test-refresh-ctl"
 }
