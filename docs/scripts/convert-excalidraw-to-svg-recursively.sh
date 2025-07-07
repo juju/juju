@@ -13,5 +13,6 @@ find . -type f -name '*.excalidraw' | while IFS= read -r file; do
         --dark-mode 0 \
         --scale 1 \
         --format svg \
+        --quite \
         -o "$out"
 done
