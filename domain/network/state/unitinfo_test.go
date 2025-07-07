@@ -5,7 +5,6 @@ package state
 
 import (
 	"testing"
-	"time"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
@@ -318,14 +317,6 @@ func (s *infoSuite) TestIsCaasUnit(c *tc.C) {
 }
 
 // Helper methods
-
-// addCharm inserts a new charm record into the database and returns its UUID as a string.
-func (s *infoSuite) addCharm(c *tc.C) string {
-	charmUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
-		charmUUID, charmUUID, time.Now())
-	return charmUUID
-}
 
 // addApplicationEndpoint creates a charm relation and an application endpoint
 // in the database, returning its UUID.
