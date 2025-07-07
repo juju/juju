@@ -126,7 +126,7 @@ Your cloud is set up and connected to a Juju controller. Time to deploy charmed 
 
 You have Juju, you've connected your cloud -- time to see the magic of charmed applications!
 
-### Deploy
+### Deploy, configure, integrate
 
 ```text
 # Create a new model:
