@@ -4,6 +4,10 @@
 package internal
 
 import (
+	"errors"
+
+	"github.com/juju/collections/transform"
+
 	corenetwork "github.com/juju/juju/core/network"
 )
 
@@ -30,4 +34,21 @@ type SpaceName struct {
 	UUID string
 	// Name is the human-readable name of the space.
 	Name string
+}
+
+// CheckableMachine represents an entity capable of processing network
+// topology information for validation or updates.
+type CheckableMachine interface {
+	// Accept processes a given collection of SpaceInfos and returns an error
+	// if the machine isn't acceptable in the new topology
+	Accept(topology corenetwork.SpaceInfos) error
+}
+
+// CheckableMachines represents a collection of CheckableMachine instances
+// providing batch topology validation.
+type CheckableMachines []CheckableMachine
+
+// Accept validates a collection of machines against the provided topology
+func (m CheckableMachines) Accept(topology corenetwork.SpaceInfos) error {
+	return errors.Join(transform.Slice(m, func(machine CheckableMachine) error { return machine.Accept(topology) })...)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/environs"
 )
 
@@ -85,6 +86,24 @@ type SpaceState interface {
 	// This method doesn't check if the provided space name exists, it returns
 	// false in that case.
 	IsSpaceUsedInConstraints(ctx context.Context, name network.SpaceName) (bool, error)
+
+	// GetMachinesBoundToSpaces retrieves the machines associated with the
+	// specified space identifiers.
+	//
+	// A machine is bound to a space if either one of both conditions happens:
+	//
+	//   - the machine runs a unit belonging to an application with a binding
+	//     to this space (through application binding or endpoint binding)
+	//   - the machine has a positive constraint on this space, which implies that
+	//     it should belong to this space.
+	GetMachinesBoundToSpaces(ctx context.Context, spaceUUIDs []string) (internal.CheckableMachines, error)
+
+	// GetMachinesAllergicToSpace retrieves a list of machines that are
+	// incompatible with the specified space given its UUID.
+	//
+	// A machine is not compatible with a space if it has a negative constraint
+	// against it.
+	GetMachinesAllergicToSpace(ctx context.Context, id string) (internal.CheckableMachines, error)
 }
 
 // SubnetState describes persistence layer methods for the subnet (sub-) domain.
@@ -95,6 +114,8 @@ type SubnetState interface {
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	// GetSubnet returns the subnet by UUID.
 	GetSubnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
+	// GetSubnets returns a list of subnets by UUID.
+	GetSubnets(ctx context.Context, uuids []string) (network.SubnetInfos, error)
 	// GetSubnetsByCIDR returns the subnets by CIDR.
 	// Deprecated: this method should be removed when we re-work the API
 	// for moving subnets.

@@ -628,6 +628,84 @@ func (c *MockStateGetMachineSpaceConstraintsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetMachinesAllergicToSpace mocks base method.
+func (m *MockState) GetMachinesAllergicToSpace(arg0 context.Context, arg1 string) (internal.CheckableMachines, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinesAllergicToSpace", arg0, arg1)
+	ret0, _ := ret[0].(internal.CheckableMachines)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinesAllergicToSpace indicates an expected call of GetMachinesAllergicToSpace.
+func (mr *MockStateMockRecorder) GetMachinesAllergicToSpace(arg0, arg1 any) *MockStateGetMachinesAllergicToSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesAllergicToSpace", reflect.TypeOf((*MockState)(nil).GetMachinesAllergicToSpace), arg0, arg1)
+	return &MockStateGetMachinesAllergicToSpaceCall{Call: call}
+}
+
+// MockStateGetMachinesAllergicToSpaceCall wrap *gomock.Call
+type MockStateGetMachinesAllergicToSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinesAllergicToSpaceCall) Return(arg0 internal.CheckableMachines, arg1 error) *MockStateGetMachinesAllergicToSpaceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinesAllergicToSpaceCall) Do(f func(context.Context, string) (internal.CheckableMachines, error)) *MockStateGetMachinesAllergicToSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinesAllergicToSpaceCall) DoAndReturn(f func(context.Context, string) (internal.CheckableMachines, error)) *MockStateGetMachinesAllergicToSpaceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachinesBoundToSpaces mocks base method.
+func (m *MockState) GetMachinesBoundToSpaces(arg0 context.Context, arg1 []string) (internal.CheckableMachines, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinesBoundToSpaces", arg0, arg1)
+	ret0, _ := ret[0].(internal.CheckableMachines)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinesBoundToSpaces indicates an expected call of GetMachinesBoundToSpaces.
+func (mr *MockStateMockRecorder) GetMachinesBoundToSpaces(arg0, arg1 any) *MockStateGetMachinesBoundToSpacesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesBoundToSpaces", reflect.TypeOf((*MockState)(nil).GetMachinesBoundToSpaces), arg0, arg1)
+	return &MockStateGetMachinesBoundToSpacesCall{Call: call}
+}
+
+// MockStateGetMachinesBoundToSpacesCall wrap *gomock.Call
+type MockStateGetMachinesBoundToSpacesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinesBoundToSpacesCall) Return(arg0 internal.CheckableMachines, arg1 error) *MockStateGetMachinesBoundToSpacesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinesBoundToSpacesCall) Do(f func(context.Context, []string) (internal.CheckableMachines, error)) *MockStateGetMachinesBoundToSpacesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinesBoundToSpacesCall) DoAndReturn(f func(context.Context, []string) (internal.CheckableMachines, error)) *MockStateGetMachinesBoundToSpacesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSpace mocks base method.
 func (m *MockState) GetSpace(arg0 context.Context, arg1 network.SpaceUUID) (*network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
@@ -741,6 +819,45 @@ func (c *MockStateGetSubnetCall) Do(f func(context.Context, string) (*network.Su
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetSubnetCall) DoAndReturn(f func(context.Context, string) (*network.SubnetInfo, error)) *MockStateGetSubnetCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetSubnets mocks base method.
+func (m *MockState) GetSubnets(arg0 context.Context, arg1 []string) (network.SubnetInfos, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSubnets", arg0, arg1)
+	ret0, _ := ret[0].(network.SubnetInfos)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSubnets indicates an expected call of GetSubnets.
+func (mr *MockStateMockRecorder) GetSubnets(arg0, arg1 any) *MockStateGetSubnetsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnets", reflect.TypeOf((*MockState)(nil).GetSubnets), arg0, arg1)
+	return &MockStateGetSubnetsCall{Call: call}
+}
+
+// MockStateGetSubnetsCall wrap *gomock.Call
+type MockStateGetSubnetsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetSubnetsCall) Return(arg0 network.SubnetInfos, arg1 error) *MockStateGetSubnetsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetSubnetsCall) Do(f func(context.Context, []string) (network.SubnetInfos, error)) *MockStateGetSubnetsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetSubnetsCall) DoAndReturn(f func(context.Context, []string) (network.SubnetInfos, error)) *MockStateGetSubnetsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

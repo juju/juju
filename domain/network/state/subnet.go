@@ -299,6 +299,10 @@ FROM   v_space_subnet`
 	return rows.ToSubnetInfos(), nil
 }
 
+func (st *State) GetSubnets(ctx context.Context, uuids []string) (network.SubnetInfos, error) {
+	return nil, errors.Errorf("not implemented")
+}
+
 // GetSubnet returns the subnet by UUID.
 func (st *State) GetSubnet(
 	ctx context.Context,
