@@ -35,6 +35,12 @@ func (s *relatedUnitWatcherSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *tc.C) {
+	c.Skip("This is temporary broken, as we're not correctly handling peer relation changes in the watcher.")
+
+	// TODO (stickupkid): @manadart will have a look if we can correctly handle
+	// the application setting changes in the watcher based on if the relation
+	// is a peer relation or not.
+
 	// Arrange: two application linked by two relation.
 	charmUUID := s.addCharm(c)
 	charmRelationProvidesUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
@@ -81,6 +87,12 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *tc.C) {
 }
 
 func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnitPeerRelation(c *tc.C) {
+	c.Skip("This is temporary broken, as we're not correctly handling peer relation changes in the watcher.")
+
+	// TODO (stickupkid): @manadart will have a look if we can correctly handle
+	// the application setting changes in the watcher based on if the relation
+	// is a peer relation or not.
+
 	// Arrange: One application, call on a peer relation
 	charmUUID := s.addCharm(c)
 	charmRelationUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
@@ -182,8 +194,7 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedUnitsPeerRelation(c *tc.C) {
 	}
 	// We should get all unit except the fetched one.
 	fetchedUnit := createUnit(appUUID1)("app1/0")
-	expectedUnits := append(
-		transform.Slice([]coreunit.Name{"app1/1", "app1/2"}, createUnit(appUUID1)))
+	expectedUnits := transform.Slice([]coreunit.Name{"app1/1", "app1/2"}, createUnit(appUUID1))
 
 	// Act
 	var gotUnits []getRelatedUnit

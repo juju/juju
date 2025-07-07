@@ -345,49 +345,45 @@ VALUES (?, ?, ?)
 
 	// Act: delete relation_unit for watched/0 (leave scope) => no event
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	DELETE FROM relation_unit
-	WHERE unit_uuid = ?`, config.watched0UUID)
+		s.act(c, `DELETE FROM relation_unit WHERE unit_uuid = ?`, config.watched0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
-	// Act: insert relation_unit for other/0 (enter scope) => event with other/0 unit_uuid
+	// Act: insert relation_unit for other/0 (enter scope) => event with other/0
+	// unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
-	VALUES (?, ?, ?)
-	`, relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.other0UUID)
+		s.act(c, `INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)`,
+			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID)),
 		)
 	})
 
-	// Act: delete relation_unit for other/0 (leave scope) => event with other/0 unit_uuid
+	// Act: delete relation_unit for other/0 (leave scope) => event with other/0
+	// unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	DELETE FROM relation_unit
-	WHERE unit_uuid = ?`, config.other0UUID)
+		s.act(c, `DELETE FROM relation_unit WHERE unit_uuid = ?`, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID)),
 		)
 	})
 
-	// Act: insert relation_unit for watched/1 (enter scope) => event with watched/1 unit_uuid
+	// Act: insert relation_unit for watched/1 (enter scope) => event with
+	// watched/1 unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
-	VALUES (?, ?, ?)
-	`, relationtesting.GenRelationUnitUUID(c), config.watchedRelationUUID, config.watched1UUID)
+		s.act(c, `INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)`,
+			relationtesting.GenRelationUnitUUID(c), config.watchedRelationUUID, config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID)),
 		)
 	})
 
-	// Act: delete relation_unit for watched/1 (leave scope) => event with watched/1 unit_uuid
+	// Act: delete relation_unit for watched/1 (leave scope) => event with
+	// watched/1 unit_uuid
 	harness.AddTest(func(c *tc.C) {
 		s.act(c, `
 	DELETE FROM relation_unit
@@ -421,8 +417,8 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitSettings(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	// Arrange: Add relation unit, before updating hash settings => will generate
-	// event for units except the watched one.
+	// Arrange: Add relation unit, before updating hash settings => will
+	// generate event for units except the watched one.
 	harness.AddTest(func(c *tc.C) {
 		s.arrange(c, `
 INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
@@ -441,32 +437,28 @@ VALUES (?,?,?),
 
 	// Act: update setting_hash in watched/0 unit setting => no event
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256)
-	VALUES (?, 'hash')
-	`, watchedRelUnit0UUID)
+		s.act(c, `INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')`,
+			watchedRelUnit0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
-	// Act: update setting_hash in other/0 unit setting => event with other/0 unit_uuid
+	// Act: update setting_hash in other/0 unit setting => event with other/0
+	// unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256)
-	VALUES (?, 'hash')
-	`, otherRelUnit0UUID)
+		s.act(c, `INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')`,
+			otherRelUnit0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID)),
 		)
 	})
 
-	// Act: update setting_hash in watched/1 unit setting => event with watched/1 unit_uuid
+	// Act: update setting_hash in watched/1 unit setting => event with
+	// watched/1 unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256)
-	VALUES (?, 'hash')
-	`, watchedRelUnit1UUID)
+		s.act(c, `INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')`,
+			watchedRelUnit1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID)),
@@ -492,9 +484,10 @@ type testWatchRelationUnit struct {
 func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit {
 	// Arrange:
 	// - 2 apps linked through a relation
-	//   - watched/0 : we will create a watcher on this unit
-	//   - watched/1 : second unit on the same app, required to verify watcher behavior
-	//   - other/0 : only one unit on the second app, no need more.
+	//   - watched/0: we will create a watcher on this unit
+	//   - watched/1: second unit on the same app, required to verify watcher
+	//                behavior
+	//   - other/0: only one unit on the second app, no need more.
 	config := testWatchRelationUnit{}
 	config.watchedUnit1 = "watched/0"
 	config.relationUUID = relationtesting.GenRelationUUID(c)
@@ -562,7 +555,8 @@ VALUES (?,?)
 `, subordinate, principal)
 }
 
-// addApplication adds a new application to the database with the specified UUID and name.
+// addApplication adds a new application to the database with the specified UUID
+// and name.
 func (s *watcherSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appUUID coreapplication.ID, appName string) {
 	s.arrange(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
@@ -570,7 +564,8 @@ VALUES (?, ?, ?, ?, ?)
 `, appUUID, appName, 0 /* alive */, charmUUID, network.AlphaSpaceId)
 }
 
-// addApplicationEndpoint inserts a new application endpoint into the database with the specified UUIDs and relation data.
+// addApplicationEndpoint inserts a new application endpoint into the database
+// with the specified UUIDs and relation data.
 func (s *watcherSuite) addApplicationEndpoint(c *tc.C, applicationEndpointUUID uuid.UUID, applicationUUID coreapplication.ID, charmRelationUUID uuid.UUID) {
 	s.arrange(c, `
 INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
@@ -578,7 +573,8 @@ VALUES (?, ?, ?, ?)
 `, applicationEndpointUUID.String(), applicationUUID, charmRelationUUID.String(), network.AlphaSpaceId)
 }
 
-// addCharm inserts a new charm into the database with a predefined UUID, reference name, and architecture ID.
+// addCharm inserts a new charm into the database with a predefined UUID,
+// reference name, and architecture ID.
 func (s *watcherSuite) addCharm(c *tc.C, charmUUID corecharm.ID, charmName string) {
 	s.arrange(c, `
 INSERT INTO charm (uuid, reference_name, architecture_id) 
@@ -586,7 +582,8 @@ VALUES (?, ?, 0)
 `, charmUUID, charmName)
 }
 
-// addCharmRelation inserts a new charm relation into the database with the given UUID and predefined attributes.
+// addCharmRelation inserts a new charm relation into the database with the
+// given UUID and predefined attributes.
 func (s *watcherSuite) addCharmRelation(c *tc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID, roleID int) {
 	name := fmt.Sprintf("fake-%d", roleID)
 	s.arrange(c, `
@@ -595,7 +592,8 @@ VALUES (?, ?, 0,?, ?)
 `, charmRelationUUID.String(), charmUUID, roleID, name)
 }
 
-// addRelation inserts a new relation into the database with the given UUID and default relation and life IDs.
+// addRelation inserts a new relation into the database with the given UUID and
+// default relation and life IDs.
 func (s *watcherSuite) addRelation(c *tc.C, relationUUID relation.UUID) {
 	s.arrange(c, `
 INSERT INTO relation (uuid, life_id, relation_id) 
@@ -604,7 +602,8 @@ VALUES (?,0,?)
 	s.relationCount++
 }
 
-// addRelationEndpoint inserts a relation endpoint into the database using the provided UUIDs for relation and endpoint.
+// addRelationEndpoint inserts a relation endpoint into the database using the
+// provided UUIDs for relation and endpoint.
 func (s *watcherSuite) addRelationEndpoint(c *tc.C, relationEndpointUUID relation.EndpointUUID, relationUUID relation.UUID, applicationEndpointUUID uuid.UUID) {
 	s.arrange(c, `
 INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
@@ -659,8 +658,9 @@ func (s *watcherSuite) act(c *tc.C, query string, args ...any) {
 	}, query, args...)
 }
 
-// query executes a database query within a standard transaction. If something goes wrong,
-// the assertion allows to define a specific error as comment interface.
+// query executes a database query within a standard transaction. If something
+// goes wrong, the assertion allows to define a specific error as comment
+// interface.
 func (s *watcherSuite) query(c *tc.C, comment func(error) tc.CommentInterface, query string, args ...any) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, query, args...)

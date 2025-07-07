@@ -170,8 +170,9 @@ func newUnitUUIDEvent(event changestream.ChangeEvent, uuid coreunit.UUID) masked
 	}
 }
 
-// getRelatedRelationEndpointForUnit fetches the related EndpointUUID linked to a
-// given unit and relation UUID. If there is no such endpoint, return an empty string.
+// getRelatedRelationEndpointForUnit fetches the related EndpointUUID linked to
+// a given unit and relation UUID. If there is no such endpoint, return an empty
+// string.
 func (st *State) getRelatedRelationEndpointForUnit(
 	ctx context.Context, tx *sqlair.TX,
 	name coreunit.Name,
@@ -183,13 +184,8 @@ SELECT
     ae.application_uuid AS &relationEndpoint.application_uuid
 FROM relation_endpoint AS re
 JOIN application_endpoint AS ae ON  re.endpoint_uuid = ae.uuid
-LEFT JOIN unit AS u 
-  ON ae.application_uuid = u.application_uuid 
-  AND u.name = $getRelationUnit.name
--- All units except the current one will have a NULL uuid due to the 
--- left join on unit table, filtered by the current unit name.
-WHERE u.uuid IS NULL
-AND re.relation_uuid = $getRelationUnit.relation_uuid
+LEFT JOIN unit AS u ON ae.application_uuid = u.application_uuid AND u.name = $getRelationUnit.name
+WHERE re.relation_uuid = $getRelationUnit.relation_uuid
 `, relationEndpoint{}, getRelationUnit{})
 	if err != nil {
 		return relationEndpoint{}, errors.Capture(err)
@@ -199,8 +195,8 @@ AND re.relation_uuid = $getRelationUnit.relation_uuid
 		RelationUUID: relationUUID,
 		Name:         name,
 	}).Get(&endpoint)
-	// if there is no row, we may be in a peer relation. Returning an empty string
-	// in this case will be ok, it will be discarded in the caller anyway
+	// if there is no row, we may be in a peer relation. Returning an empty
+	// string in this case will be ok, it will be discarded in the caller anyway
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return relationEndpoint{}, errors.Capture(err)
 	}
