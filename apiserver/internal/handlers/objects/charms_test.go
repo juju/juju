@@ -21,7 +21,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 const (
@@ -31,10 +30,6 @@ const (
 type objectsCharmHandlerSuite struct {
 	applicationsServiceGetter *MockApplicationServiceGetter
 	applicationsService       *MockApplicationService
-
-	// These will move to the model service.
-	stateGetter *MockStateGetter
-	state       *MockState
 
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
@@ -154,13 +149,11 @@ func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
-		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
 		makeCharmURL:             CharmURLFromLocator,
 	}
 
 	s.expectApplicationService()
-	s.expectModelState()
 
 	s.mux.AddHandler("PUT", charmsObjectsRoutePrefix, handlers)
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
@@ -184,13 +177,11 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
-		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
 		makeCharmURL:             CharmURLFromLocator,
 	}
 
 	s.expectApplicationService()
-	s.expectModelState()
 
 	s.mux.AddHandler("PUT", charmsObjectsRoutePrefix, handlers)
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
@@ -215,13 +206,11 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
-		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
 		makeCharmURL:             CharmURLFromLocator,
 	}
 
 	s.expectApplicationService()
-	s.expectModelState()
 
 	s.mux.AddHandler("PUT", charmsObjectsRoutePrefix, handlers)
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
@@ -246,13 +235,11 @@ func (s *objectsCharmHandlerSuite) TestServePut(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	handlers := &ObjectsCharmHTTPHandler{
-		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
 		makeCharmURL:             CharmURLFromLocator,
 	}
 
 	s.expectApplicationService()
-	s.expectModelState()
 
 	s.mux.AddHandler("PUT", charmsObjectsRoutePrefix, handlers)
 	defer s.mux.RemoveHandler("PUT", charmsObjectsRoutePrefix)
@@ -336,21 +323,11 @@ func (s *objectsCharmHandlerSuite) expectApplicationService() {
 	s.applicationsServiceGetter.EXPECT().Application(gomock.Any()).Return(s.applicationsService, nil)
 }
 
-func (s *objectsCharmHandlerSuite) expectModelState() {
-	s.stateGetter.EXPECT().GetState(gomock.Any()).Return(s.state, nil)
-	s.state.EXPECT().Release().Return(true)
-	s.state.EXPECT().MigrationMode().Return(state.MigrationModeNone, nil).AnyTimes()
-}
-
 func (s *objectsCharmHandlerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationsServiceGetter = NewMockApplicationServiceGetter(ctrl)
 	s.applicationsService = NewMockApplicationService(ctrl)
-
-	// These should be on the model service!
-	s.stateGetter = NewMockStateGetter(ctrl)
-	s.state = NewMockState(ctrl)
 
 	return ctrl
 }

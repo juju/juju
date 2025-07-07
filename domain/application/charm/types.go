@@ -138,10 +138,6 @@ type ResolveUploadCharm struct {
 	SHA256Prefix string
 	// Reader is the reader to read the charm from.
 	Reader io.Reader
-	// Importing indicates that the charm is being uploaded during model
-	// migration import. This is useful to set the provenance of the charm
-	// correctly.
-	Importing bool
 }
 
 // ResolvedMigratingUploadedCharm holds the arguments for the

@@ -3792,6 +3792,45 @@ func (c *MockStateIsControllerCharmCall) DoAndReturn(f func(context.Context, cha
 	return c
 }
 
+// IsImportingModel mocks base method.
+func (m *MockState) IsImportingModel(ctx context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsImportingModel", ctx)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsImportingModel indicates an expected call of IsImportingModel.
+func (mr *MockStateMockRecorder) IsImportingModel(ctx any) *MockStateIsImportingModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsImportingModel", reflect.TypeOf((*MockState)(nil).IsImportingModel), ctx)
+	return &MockStateIsImportingModelCall{Call: call}
+}
+
+// MockStateIsImportingModelCall wrap *gomock.Call
+type MockStateIsImportingModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsImportingModelCall) Return(arg0 bool, arg1 error) *MockStateIsImportingModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsImportingModelCall) Do(f func(context.Context) (bool, error)) *MockStateIsImportingModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsImportingModelCall) DoAndReturn(f func(context.Context) (bool, error)) *MockStateIsImportingModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsSubordinateApplication mocks base method.
 func (m *MockState) IsSubordinateApplication(arg0 context.Context, arg1 application.ID) (bool, error) {
 	m.ctrl.T.Helper()
