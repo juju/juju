@@ -127,6 +127,7 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 				AuthTag:         names.NewUserTag(spec.TargetUser).String(),
 				Password:        spec.TargetPassword,
 				Macaroons:       string(macsJSON),
+				Token:           spec.TargetToken,
 			},
 		}},
 	}
@@ -267,6 +268,7 @@ func makeSpec() controller.MigrationSpec {
 		TargetUser:            "someone",
 		TargetPassword:        "secret",
 		TargetMacaroons:       []macaroon.Slice{{mac}},
+		TargetToken:           "token",
 	}
 }
 
@@ -562,4 +564,30 @@ func (s *Suite) TestGetControllerAccess(c *tc.C) {
 	access, err := client.GetControllerAccess(c.Context(), "fred")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(access, tc.Equals, permission.SuperuserAccess)
+}
+
+func (s *Suite) TestValidateMigrationCredentials(c *tc.C) {
+	spec := makeSpec()
+	spec.TargetMacaroons = nil
+	spec.TargetPassword = ""
+	spec.TargetToken = ""
+	err := spec.Validate()
+	c.Assert(err, tc.ErrorMatches, "missing authentication secrets not valid")
+
+	// Valid with a macaroon.
+	spec.TargetMacaroons = []macaroon.Slice{{}}
+	err = spec.Validate()
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Valid with a password.
+	spec.TargetMacaroons = nil
+	spec.TargetPassword = "password"
+	err = spec.Validate()
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Valid with a token.
+	spec.TargetPassword = ""
+	spec.TargetToken = "token"
+	err = spec.Validate()
+	c.Assert(err, tc.ErrorIsNil)
 }

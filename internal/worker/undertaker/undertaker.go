@@ -84,8 +84,9 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 }
 
 type Undertaker struct {
-	catacomb catacomb.Catacomb
-	config   Config
+	catacomb       catacomb.Catacomb
+	config         Config
+	controllerUUID string
 }
 
 // Kill is part of the worker.Worker interface.
@@ -141,6 +142,7 @@ func (u *Undertaker) run() (errOut error) {
 		return errors.Trace(result.Error)
 	}
 	info := result.Result
+	u.controllerUUID = info.ControllerUUID
 
 	// Watch for changes to model destroy values, if so, cancel the context
 	// and restart the worker.
@@ -351,8 +353,9 @@ func (u *Undertaker) environ(ctx context.Context) (environs.CloudDestroyer, erro
 	}
 
 	environ, err := u.config.NewCloudDestroyerFunc(ctx, environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: modelConfig,
+		ControllerUUID: u.controllerUUID,
+		Cloud:          cloudSpec,
+		Config:         modelConfig,
 	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating environ for model %q (%s)", modelConfig.Name(), modelConfig.UUID())

@@ -79,6 +79,7 @@ TEST_NAMES="actions \
             spaces_ec2 \
             static_analysis \
             storage \
+            storage_k8s \
             upgrade \
             user"
 
