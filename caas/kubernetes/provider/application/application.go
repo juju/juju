@@ -79,11 +79,12 @@ const (
 )
 
 var (
-	containerAgentPebbleVersion = version.MustParse("2.9.37")
-	profileDirVersion           = version.MustParse("3.5-beta1")
-	pebbleCopyOnceVersion       = version.MustParse("3.5-beta1")
-	pebbleIdentitiesVersion     = version.MustParse("3.6-beta2")
-	startupProbeVersion         = version.MustParse("3.6-beta3")
+	containerAgentPebbleVersion   = version.MustParse("2.9.37")
+	profileDirVersion             = version.MustParse("3.5-beta1")
+	pebbleCopyOnceVersion         = version.MustParse("3.5-beta1")
+	pebbleIdentitiesVersion       = version.MustParse("3.6-beta2")
+	startupProbeVersion           = version.MustParse("3.6-beta3")
+	charmContainerResourceVersion = version.MustParse("3.6.8")
 )
 
 type app struct {
@@ -101,6 +102,13 @@ type app struct {
 	randomPrefix utils.RandomPrefixFunc
 
 	newApplier func() resources.Applier
+}
+
+// CharmContainerResourceRequirements defines the memory resource constraints
+// for the workload pod's charm container.
+type CharmContainerResourceRequirements struct {
+	MemRequestMi string
+	MemLimitMi   string
 }
 
 // NewApplication returns an application.
@@ -1789,9 +1797,26 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		},
 	}
-	err := ApplyConstraints(spec, a.name, config.Constraints, configureConstraint)
-	if err != nil {
-		return nil, errors.Annotate(err, "processing constraints")
+
+	if agentVersionNoBuild.Compare(charmContainerResourceVersion) >= 0 {
+		if err := ApplyWorkloadConstraints(spec, a.name, config.Constraints, configureWorkloadConstraintV2); err != nil {
+			return nil, errors.Annotate(err, "processing workload container constraints")
+		}
+		charmConstraints := CharmContainerResourceRequirements{
+			MemRequestMi: constants.CharmMemRequestMi,
+			MemLimitMi:   constants.CharmMemLimitMi,
+		}
+		if config.Constraints.Mem != nil {
+			charmConstraints.MemLimitMi = fmt.Sprintf("%dMi", *config.Constraints.Mem)
+		}
+
+		if err := ApplyCharmConstraints(spec, a.name, charmConstraints); err != nil {
+			return nil, errors.Annotate(err, "processing charm container constraints")
+		}
+	} else {
+		if err := ApplyWorkloadConstraints(spec, a.name, config.Constraints, configureWorkloadConstraint); err != nil {
+			return nil, errors.Annotate(err, "processing workload container constraints")
+		}
 	}
 
 	if requireSecurityContext {
