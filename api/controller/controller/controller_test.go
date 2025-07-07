@@ -186,7 +186,7 @@ func (s *Suite) TestHostedModelConfigs_CallError(c *tc.C) {
 }
 
 func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, tc.Equals, "Controller")
 		c.Assert(request, tc.Equals, "HostedModelConfigs")
 		c.Assert(arg, tc.IsNil)
@@ -208,16 +208,16 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 					Name:      "third",
 					Qualifier: "prod",
 					Config: map[string]interface{}{
-						"name": "third",
+						"name": "second",
 					},
 					CloudSpec: &params.CloudSpec{
-						Name: "third",
+						Name: "second",
 					},
 				},
 			},
 		}
 		return nil
-	})
+	}, BestVersion: 13}
 	client := controller.NewClient(apiCaller)
 	config, err := client.HostedModelConfigs(c.Context())
 	c.Assert(config, tc.HasLen, 2)
@@ -275,14 +275,14 @@ func randomUUID() string {
 }
 
 func (s *Suite) TestModelStatusEmpty(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "Controller")
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ModelStatus")
 		c.Check(result, tc.FitsTypeOf, &params.ModelStatusResults{})
 
 		return nil
-	})
+	}, BestVersion: 13}
 
 	client := controller.NewClient(apiCaller)
 	results, err := client.ModelStatus(c.Context())
@@ -292,7 +292,7 @@ func (s *Suite) TestModelStatusEmpty(c *tc.C) {
 
 func (s *Suite) TestModelStatus(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 4,
+		BestVersion: 13,
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 			c.Check(objType, tc.Equals, "Controller")
 			c.Check(id, tc.Equals, "")
@@ -433,7 +433,7 @@ func (s *Suite) TestDashboardConnectionInfo(c *tc.C) {
 
 func (s *Suite) TestAllModels(c *tc.C) {
 	now := time.Now()
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
 		c.Check(objType, tc.Equals, "Controller")
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "AllModels")
@@ -451,7 +451,7 @@ func (s *Suite) TestAllModels(c *tc.C) {
 			}},
 		}
 		return nil
-	})
+	}, BestVersion: 13}
 
 	client := controller.NewClient(apiCaller)
 	m, err := client.AllModels(c.Context())
