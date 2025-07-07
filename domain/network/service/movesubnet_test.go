@@ -327,10 +327,10 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceMachinesRejectTopology(c *tc.C)
 	// Create a mock CheckableMachine that rejects the topology
 	mockMachine := NewMockCheckableMachine(ctrl)
 	mockMachine.EXPECT().
-		Accept(newTopology).
+		Accept(gomock.Any(), newTopology).
 		Return(errors.New("topology rejected: error1"))
 	mockMachine.EXPECT().
-		Accept(newTopology).
+		Accept(gomock.Any(), newTopology).
 		Return(errors.New("topology rejected: error2"))
 
 	s.st.EXPECT().
@@ -398,12 +398,12 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceSuccess(c *tc.C) {
 	// Create a mock CheckableMachine that accept the topology
 	boundMachines := NewMockCheckableMachine(ctrl)
 	boundMachines.EXPECT().
-		Accept(newTopology).
+		Accept(gomock.Any(), newTopology).
 		Return(nil).
 		Times(2)
 	allergicMachines := NewMockCheckableMachine(ctrl)
 	allergicMachines.EXPECT().
-		Accept(newTopology).
+		Accept(gomock.Any(), newTopology).
 		Return(nil).
 		Times(1)
 

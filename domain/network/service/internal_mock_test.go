@@ -10,6 +10,7 @@
 package service
 
 import (
+	context "context"
 	reflect "reflect"
 
 	network "github.com/juju/juju/core/network"
@@ -40,17 +41,17 @@ func (m *MockCheckableMachine) EXPECT() *MockCheckableMachineMockRecorder {
 }
 
 // Accept mocks base method.
-func (m *MockCheckableMachine) Accept(arg0 network.SpaceInfos) error {
+func (m *MockCheckableMachine) Accept(arg0 context.Context, arg1 network.SpaceInfos) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Accept", arg0)
+	ret := m.ctrl.Call(m, "Accept", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Accept indicates an expected call of Accept.
-func (mr *MockCheckableMachineMockRecorder) Accept(arg0 any) *MockCheckableMachineAcceptCall {
+func (mr *MockCheckableMachineMockRecorder) Accept(arg0, arg1 any) *MockCheckableMachineAcceptCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accept", reflect.TypeOf((*MockCheckableMachine)(nil).Accept), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accept", reflect.TypeOf((*MockCheckableMachine)(nil).Accept), arg0, arg1)
 	return &MockCheckableMachineAcceptCall{Call: call}
 }
 
@@ -66,13 +67,13 @@ func (c *MockCheckableMachineAcceptCall) Return(arg0 error) *MockCheckableMachin
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCheckableMachineAcceptCall) Do(f func(network.SpaceInfos) error) *MockCheckableMachineAcceptCall {
+func (c *MockCheckableMachineAcceptCall) Do(f func(context.Context, network.SpaceInfos) error) *MockCheckableMachineAcceptCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCheckableMachineAcceptCall) DoAndReturn(f func(network.SpaceInfos) error) *MockCheckableMachineAcceptCall {
+func (c *MockCheckableMachineAcceptCall) DoAndReturn(f func(context.Context, network.SpaceInfos) error) *MockCheckableMachineAcceptCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -343,30 +342,4 @@ FROM (
 	}
 
 	return count.Count > 0, nil
-}
-
-// GetMachinesBoundToSpaces retrieves the machines associated with the
-// specified space identifiers.
-//
-// A machine is bound to a space if either one of both conditions happens:
-//
-//   - the machine runs a unit belonging to an application with a binding
-//     to this space (through application binding or endpoint binding)
-//   - the machine has a positive constraint on this space, which implies that
-//     it should belong to this space.
-func (st *State) GetMachinesBoundToSpaces(ctx context.Context, spaceUUIDs []string) (internal.CheckableMachines, error) {
-	// TODO(gfouillet): implement me (like this it will never perform any checks
-	//   when moving subnets
-	return nil, nil
-}
-
-// GetMachinesNotAllowedInSpace retrieves a list of machines that are
-// incompatible with the specified space given its UUID.
-//
-// A machine is not compatible with a space if it has a negative constraint
-// against it.
-func (st *State) GetMachinesNotAllowedInSpace(ctx context.Context, id string) (internal.CheckableMachines, error) {
-	// TODO(gfouillet): implement me (like this it will never perform any checks
-	//   when moving subnets
-	return nil, nil
 }

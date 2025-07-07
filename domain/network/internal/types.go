@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/collections/transform"
@@ -40,7 +41,7 @@ type SpaceName struct {
 type CheckableMachine interface {
 	// Accept processes a given collection of SpaceInfos and returns an error
 	// if the machine isn't acceptable in the new topology
-	Accept(topology corenetwork.SpaceInfos) error
+	Accept(ctx context.Context, topology corenetwork.SpaceInfos) error
 }
 
 // CheckableMachines represents a collection of CheckableMachine instances
@@ -48,6 +49,9 @@ type CheckableMachine interface {
 type CheckableMachines []CheckableMachine
 
 // Accept validates a collection of machines against the provided topology
-func (m CheckableMachines) Accept(topology corenetwork.SpaceInfos) error {
-	return errors.Join(transform.Slice(m, func(machine CheckableMachine) error { return machine.Accept(topology) })...)
+func (m CheckableMachines) Accept(ctx context.Context, topology corenetwork.SpaceInfos) error {
+	return errors.Join(transform.Slice(m, func(machine CheckableMachine) error {
+		return machine.Accept(
+			ctx, topology)
+	})...)
 }

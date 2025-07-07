@@ -67,8 +67,8 @@ func (s *Service) MoveSubnetsToSpace(
 		return nil, errors.Errorf("getting machines allergic to the destination space: %w", err)
 	}
 	err = errors.Join(
-		boundToSpaceMachines.Accept(newTopology),
-		notCompatibleToSpaceMachines.Accept(newTopology),
+		boundToSpaceMachines.Accept(ctx, newTopology),
+		notCompatibleToSpaceMachines.Accept(ctx, newTopology),
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
