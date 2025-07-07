@@ -17,7 +17,6 @@ import (
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
-	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -118,45 +117,6 @@ func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, unit.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchApplications mocks base method.
-func (m *MockApplicationService) WatchApplications(arg0 context.Context) (watcher.Watcher[[]string], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplications", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchApplications indicates an expected call of WatchApplications.
-func (mr *MockApplicationServiceMockRecorder) WatchApplications(arg0 any) *MockApplicationServiceWatchApplicationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplications", reflect.TypeOf((*MockApplicationService)(nil).WatchApplications), arg0)
-	return &MockApplicationServiceWatchApplicationsCall{Call: call}
-}
-
-// MockApplicationServiceWatchApplicationsCall wrap *gomock.Call
-type MockApplicationServiceWatchApplicationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceWatchApplicationsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockApplicationServiceWatchApplicationsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceWatchApplicationsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchApplicationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceWatchApplicationsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockApplicationServiceWatchApplicationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

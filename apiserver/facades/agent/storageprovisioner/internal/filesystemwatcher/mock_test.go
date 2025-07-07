@@ -54,20 +54,12 @@ func (b *mockBackend) VolumeAttachment(host names.Tag, v names.VolumeTag) (state
 	return nil, errors.NotFoundf("attachment for volume %s to host %s", v.Id(), host.Id())
 }
 
-func (b *mockBackend) WatchMachineFilesystems(tag names.MachineTag) state.StringsWatcher {
-	return b.machineFilesystemsW
-}
-
 func (b *mockBackend) WatchMachineFilesystemAttachments(tag names.MachineTag) state.StringsWatcher {
 	return b.machineFilesystemAttachmentsW
 }
 
 func (b *mockBackend) WatchUnitFilesystemAttachments(tag names.ApplicationTag) state.StringsWatcher {
 	return b.unitFilesystemAttachmentsW
-}
-
-func (b *mockBackend) WatchModelFilesystems() state.StringsWatcher {
-	return b.modelFilesystemsW
 }
 
 func (b *mockBackend) WatchModelFilesystemAttachments() state.StringsWatcher {

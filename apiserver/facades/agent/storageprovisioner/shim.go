@@ -24,14 +24,10 @@ type Backend interface {
 }
 
 type StorageBackend interface {
-	WatchModelFilesystems() state.StringsWatcher
 	WatchModelFilesystemAttachments() state.StringsWatcher
-	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
 	WatchMachineFilesystemAttachments(names.MachineTag) state.StringsWatcher
 	WatchUnitFilesystemAttachments(tag names.ApplicationTag) state.StringsWatcher
-	WatchModelVolumes() state.StringsWatcher
 	WatchModelVolumeAttachments() state.StringsWatcher
-	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
 	WatchUnitVolumeAttachments(tag names.ApplicationTag) state.StringsWatcher
 	WatchVolumeAttachment(names.Tag, names.VolumeTag) state.NotifyWatcher
