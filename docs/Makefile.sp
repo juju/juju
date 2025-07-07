@@ -24,7 +24,7 @@ SPHINX_PORT     ?= 8000
 
 .PHONY: sp-full-help sp-spellcheck-install sp-pa11y-install sp-install sp-run sp-html \
         sp-epub sp-serve sp-clean sp-clean-doc sp-spelling sp-spellcheck sp-linkcheck \
-        sp-allmetrics sp-pa11y sp-pdf-prep-force sp-pdf-prep sp-pdf Makefile.sp sp-vale sp-bash sp-excalidraw-install sp-convert-excalidraw-to-svg
+        sp-allmetrics sp-pa11y sp-pdf-prep-force sp-pdf-prep sp-pdf Makefile.sp sp-vale sp-bash sp-convert-excalidraw-to-svg
 
 sp-full-help: $(VENVDIR)
 	@. $(VENV); $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
@@ -67,15 +67,7 @@ sp-pa11y-install:
 			npm install --prefix $(SPHINXDIR) pa11y; \
 		}
 
-sp-excalidraw-install:
-	@type excalidraw-brute-export-cli >/dev/null 2>&1 || \
-	{ \
-		echo "Installing \"excalidraw-brute-export-cli\" from npm... \n"; \
-		mkdir -p $(SPHINXDIR)/node_modules/ ; \
-		npm install --prefix $(SPHINXDIR) excalidraw-brute-export-cli; \
-	}
-
-sp-convert-excalidraw-to-svg: sp-excalidraw-install
+sp-convert-excalidraw-to-svg:
 	bash scripts/convert-excalidraw-to-svg-recursively.sh
 
 sp-install: $(VENVDIR)

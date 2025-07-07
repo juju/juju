@@ -23,13 +23,14 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Build Juju client
         run: |
           go install -v -tags minimal ./cmd/juju
-
-      - name: Install Excalidraw dependencies
-        run: |
-          make docs-excalidraw-install
 
       - name: Install sphinx dependencies
         run: |
