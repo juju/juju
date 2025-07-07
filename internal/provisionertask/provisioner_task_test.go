@@ -1000,7 +1000,7 @@ func (s *ProvisionerTaskSuite) TestDedupStartInstance(c *tc.C) {
 		s.sendModelMachinesChange(c, "0")
 	}
 
-	// Allow StartInstance to complete.
+	// Allow StartInstance to complete, which will trigger deferred stop.
 	close(continueCh)
 
 	// Wait for StopInstances to be called.
