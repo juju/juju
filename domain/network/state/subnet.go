@@ -299,8 +299,47 @@ FROM   v_space_subnet`
 	return rows.ToSubnetInfos(), nil
 }
 
-func (st *State) GetSubnets(ctx context.Context, uuids []string) (network.SubnetInfos, error) {
-	return nil, errors.Errorf("not implemented")
+// GetSubnets retrieves subnet information for the provided list of subnet UUIDs
+// from the database.
+// Returns a collection of SubnetInfos corresponding to the input UUIDs,
+// or an error if the query or any operation fails.
+// Ensures the exact number of returned subnets matches the input.
+func (st *State) GetSubnets(ctx context.Context, subnetUUIDs []string) (network.SubnetInfos, error) {
+
+	if len(subnetUUIDs) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	q := `
+SELECT &SubnetRow.*
+FROM   v_space_subnet
+WHERE  subnet_uuid IN ($uuids[:])`
+
+	stmt, err := st.Prepare(q, SubnetRow{}, uuids{})
+	if err != nil {
+		return nil, errors.Errorf("preparing %q: %w", q, err)
+	}
+
+	var rows subnetRows
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uuids(subnetUUIDs)).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("querying subnets: %w", err)
+	}
+	if len(rows) != len(subnetUUIDs) {
+		return nil, errors.Errorf("expected %d subnets, got %d: %w", len(subnetUUIDs), len(rows), networkerrors.SubnetNotFound)
+	}
+
+	return rows.ToSubnetInfos(), nil
 }
 
 // GetSubnet returns the subnet by UUID.

@@ -7,10 +7,12 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -371,6 +373,97 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *tc.C) {
 	sn0, err := st.GetSubnet(c.Context(), subnetUUID0.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sn0, tc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestRetrieveSubnetByUUIDs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	err := st.AddSpace(c.Context(), spaceUUID, "test-space", "provider-space-id", []string{})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error on AddSpace"))
+
+	subnetUUID0, err := domainnetwork.NewSubnetUUID()
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error generating subnet UUID 0"))
+	subnetUUID1, err := domainnetwork.NewSubnetUUID()
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error generating subnet UUID 1"))
+
+	expectedSubnets := []network.SubnetInfo{
+		{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "192.168.1.0/24",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id-0",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0"},
+			SpaceID:           spaceUUID,
+			SpaceName:         "test-space",
+			ProviderSpaceId:   "provider-space-id",
+		}, {
+			ID:                network.Id(subnetUUID1.String()),
+			CIDR:              "192.168.2.0/24",
+			ProviderId:        "provider-id-1",
+			ProviderNetworkId: "provider-network-id-1",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az1"},
+			SpaceID:           spaceUUID,
+			SpaceName:         "test-space",
+			ProviderSpaceId:   "provider-space-id",
+		},
+	}
+	err = st.AddSubnet(c.Context(), expectedSubnets[0])
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error adding subnet 0"))
+	err = st.AddSubnet(c.Context(), expectedSubnets[1])
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("unexpected error adding subnet 1"))
+
+	tests := []struct {
+		name            string
+		subnetUUIDs     []string
+		expectedSubnets []int
+		expectError     bool
+		expectedErrMsg  string
+	}{
+		{
+			name:            "Valid single subnet UUID",
+			subnetUUIDs:     []string{subnetUUID0.String()},
+			expectedSubnets: []int{0},
+		},
+		{
+			name:            "Empty input - no subnets",
+			subnetUUIDs:     []string{},
+			expectedSubnets: nil,
+			expectError:     false,
+		},
+		{
+			name:           "Non-existent UUID",
+			subnetUUIDs:    []string{"non-existent-uuid"},
+			expectError:    true,
+			expectedErrMsg: "expected 1 subnets, got 0: subnet not found",
+		},
+		{
+			name:            "Valid multiple subnet UUIDs",
+			subnetUUIDs:     []string{subnetUUID0.String(), subnetUUID1.String()},
+			expectedSubnets: []int{0, 1},
+			expectError:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		c.Logf("Running TestGetSubnets: %s", tt.name)
+
+		// Act
+		subnets, err := st.GetSubnets(c.Context(), tt.subnetUUIDs)
+
+		// Assert
+		if tt.expectError {
+			c.Check(err, tc.ErrorMatches, tt.expectedErrMsg)
+		} else if c.Check(err, tc.ErrorIsNil) {
+			c.Check(subnets, tc.SameContents, network.SubnetInfos(transform.Slice(tt.expectedSubnets,
+				func(i int) network.SubnetInfo {
+					return expectedSubnets[i]
+				})))
+		}
+	}
 }
 
 func (s *stateSuite) TestRetrieveAllSubnets(c *tc.C) {
