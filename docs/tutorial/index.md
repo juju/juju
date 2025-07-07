@@ -33,13 +33,10 @@ In this tutorial your goal is to set up a chat service on a cloud.
 
 First, decide which cloud (i.e., anything that provides storage, compute, and networking) you want to use. Juju supports a long list of clouds; in this tutorial we will use a low-ops, minimal production Kubernetes called 'MicroK8s'. In a terminal, open a shell into your VM and verify that you already have MicroK8s installed (`microk8s version`).
 
-> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`
-
-
 Next, decide which charms (i.e., software operators) you want to use. Charmhub provides a large collection. For this tutorial we will use `mattermost-k8s`  for the chat service,  `postgresql-k8s` for its backing database, and `self-signed-certificates` to TLS-encrypt traffic from PostgreSQL.
 
 
-> See more: {ref}`charm`, [Charmhub](https://charmhub.io/), Charmhub | [`mattermost-k8s`](https://charmhub.io/mattermost-k8s), [`postgresql-k8s`](https://charmhub.io/postgresql-k8s), [`self-signed-certificates`](https://charmhub.io/self-signed-certificates)
+
 
 ## Deploy
 
@@ -60,7 +57,7 @@ Split your terminal window into three. In all, access your Multipass VM shell (`
 
 **Shell 1:** Keep using it as you've already been doing so far, namely to type the commands in this tutorial.
 
-**Shell 2:**  Run `juju status --relations --watch 1s` to watch your deployment status evolve. (Things are all right if your `App Status` and your `Unit - Workload` reach `active` and your `Unit - Agent` reaches `idle`. See more: {ref}`status`.
+**Shell 2:**  Run `juju status --relations --watch 1s` to watch your deployment status evolve. (Things are all right if your `App Status` and your `Unit - Workload` reach `active` and your `Unit - Agent` reaches `idle`.
 
 **Shell 3:** Run `juju debug-log` to watch all the details behind your deployment status. (Especially useful when things don't evolve as expected. In that case, please get in touch.)
 ```
@@ -192,7 +189,7 @@ Congratulations, your chat service is up and running!
 
 
 
-> See more: {ref}`set-things-up`, {ref}`manage-juju`, {ref}`manage-clouds`, {ref}`manage-credentials`, {ref}`manage-controllers`, {ref}`manage-models`, {ref}`manage-applications`
+
 
 ## Maintain
 
@@ -231,10 +228,9 @@ As you might have guessed, the result of scaling an application is that you have
 
 ```{caution} In a production scenario:
 You'll want to make sure that they are also properly distributed over multiple nodes. Our localhost MicroK8s doesn't allow us to do this (because we only have 1 node) but, if you clusterise MicroK8s, you can use it to explore this too!
-> See more: [MicroK8s | Create a multi-node cluster](https://microk8s.io/docs/clustering)
 ```
 
-> See more: {ref}`manage-applications` > Scale
+
 
 
 
@@ -311,17 +307,6 @@ postgres=# SELECT version();
 ```
 
 Type `exit` to get back to your unit shell and then again to return to your Multipass VM shell.
-
-
-
-
-
-> See more:
-> - [Charmhub | `postgresql-k8s` > Actions > `set-password`](https://charmhub.io/postgresql-k8s/actions#set-password) (or run `juju actions postgresql-k8s` followed by `juju show-action postgresql-k8s set-password`)
-> - {ref}`manage-actions`
-
-
-
 
 ### Upgrade
 
@@ -456,7 +441,6 @@ charm "self-signed-certificates": already up-to-date
 ```
 
 
-> See more: {ref}`juju-roadmap-and-releases`, {ref}`juju-cross-version-compatibility`, {ref}`upgrade-your-deployment`
 
 
 ### Observe
@@ -551,17 +535,10 @@ Make a change to your controller (e.g., run `juju add-model test` to add another
 
 Congratulations, you now have a functional observability setup! But your controller is not the only thing that you can monitor -- go ahead and try to monitor something else, for example, your PostgreSQL!
 
-
-
-
-> See more: {ref}`collect-metrics-about-a-controller`
-
-
 ## Tear down your test environment
-
 
 To tear things down, remove your entire Multipass Ubuntu VM, then uninstall Multipass.
 
-> See more: {ref}`tear-things-down`
+
 
 
