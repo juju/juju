@@ -41,20 +41,6 @@ Next, decide which charms (i.e., software operators) you want to use. Charmhub p
 
 > See more: {ref}`charm`, [Charmhub](https://charmhub.io/), Charmhub | [`mattermost-k8s`](https://charmhub.io/mattermost-k8s), [`postgresql-k8s`](https://charmhub.io/postgresql-k8s), [`self-signed-certificates`](https://charmhub.io/self-signed-certificates)
 
-
-
-
-```{dropdown} Look around
-**1. Learn more about your MicroK8s cloud.**<br>
-**1a.** Find out more about its snap: `snap info microk8s`.<br>
-**1b.** Find out the installed version: `microk8s version`.<br>
-**1c.** Check its enabled addons: `microk8s status`.<br>
-**1d.** Inspect its `.kube/config` file: `cat ~/.kube/config`.<br>
-**1e.** Try `microk8s kubectl`; you won't need it once you have Juju, but it's there anyway.<br>
-```
-
-
-
 ## Deploy
 
 
@@ -207,34 +193,6 @@ Congratulations, your chat service is up and running!
 
 
 > See more: {ref}`set-things-up`, {ref}`manage-juju`, {ref}`manage-clouds`, {ref}`manage-credentials`, {ref}`manage-controllers`, {ref}`manage-models`, {ref}`manage-applications`
-
-```{dropdown} Look around
-
-**1.** **Learn more about `juju`.** <br>
-**1a.** Find out more about its snap: `snap info juju`. <br>
-**1b.** Find out the installed version: `juju version`. <br>
-**1c.** Quickly preview all the commands: `juju help commands`. <br>
-**1d.** Filter by keyword: Use `juju help commands | grep <keyword>` to get a quick sense of the commands related to a particular keyword (e.g., "secret"). Try ` juju help commands | grep -v Alias` to exclude any aliases. <br>
-**1e.** Find out more about a specific command: `juju help <command>`.<br>
-**1f.** Inspect the files on your workstation associated with the client: `ls ~/.local/share/juju`.<br>
-**1g.** Learn about other Juju clients: [terraform-provider-juju](https://canonical-terraform-provider-juju.readthedocs-hosted.com/en/latest/tutorial/), [Python Libjuju](https://pythonlibjuju.readthedocs.io/en/latest/). <p>
-
-**2.** **Learn more about your cloud definition and credentials *in* Juju.** <br>
-**2a.** Find out more about the Juju notion of a cloud: {ref}`cloud`.<br>
-**2b.** Find out all the clouds whose definitions your client has already: `juju clouds`, `juju clouds --all`. <br>
-**2c.** Take a look at how Juju has defined your MicroK8s cloud: `juju show-cloud microk8s`, `juju credentials`, `juju show-credential microk8s microk8s --show-secrets`. :warning: In Juju, the term 'credential' is always about access to a cloud.<br>
-**2d.** Revisit the output for `juju clouds` or `juju credentials`. Notice the classification into client vs. controller. All this classification does is keep track of who is aware of a given cloud definition / credential -- the client, the controller, or both. However, this simple distinction has important implications -- can you guess which? You can use the same controllers to run multiple clouds and you can decide which cloud account to use.
-
-**3.** **Learn more about Juju controllers.** <br>
-**3a.** Find out all the controllers that your client is aware of already: `juju controllers`. Switch to the LXD cloud controller, then back: `juju switch lxd`, `juju switch microk8s`. Get more detail on each controller: `juju show-controller <controller name>`. Take a sneak peek at their current configuration: `cat ~/.local/share/juju/bootstrap-config.yaml`. <br>
-**3b.** Revisit the output for `juju controllers`. Note the `User` and `Access` columns. In Juju, a user is any person able to at least log in to a Juju controller. Run `juju whoami`, then `juju show-user admin` – as you can see, your user is called `admin` and has `superuser` access to the controller. <p>
-
-**4.** **Learn more about Juju models, applications, units.** <br>
-**4a.** Find out all the models on your `microk8s` controller: `juju models`. <br>
-**4b.** Find out more about your `chat` model: `juju show-model`, `juju status -m microk8s:chat`. What do you think a model is? A model is a logical abstraction. It denotes a workspace, a canvas where you deploy, integrate, and manage applications. On a Kubernetes cloud, a Juju model corresponds to a Kubernetes namespace. Run `microk8s kubectl get namespaces` to verify -- the output should show a namespace called `chat`, for your `chat` model, and also a namespace called `controller-microk8s`, for your `controller` model.<br>
-**4c.** Try to guess: What is the `controller` model about? Switch to it and check: `juju switch microk8s:controller`, then `juju status`. When you bootstrap a controller into a cloud, this by default creates the `controller` model and deploys to it the `juju-controller` charm, whose units (=running instances of a charm) form the `controller` application. Find out more about the controller charm: `juju info juju-controller` or [Charmhub | `juju-controller`](https://charmhub.io/juju-controller). Find out more about the controller application: `juju show-application controller`. SSH into a controller application unit: `juju ssh controller/0`, then poke around using [`ls`](https://man7.org/linux/man-pages/man1/ls.1.html), [`cd`](https://man7.org/linux/man-pages/man1/cd.1p.html), and [`cat`](https://man7.org/linux/man-pages/man1/cat.1.html) (type `exit` to exit the unit). On a Kubernetes cloud, a Juju unit corresponds to a pod: `microk8s kubectl -n controller-microk8s get pods` should show a `controller-0` pod, which is the Kubernetes pod corresponding to the `controller/0` unit. <br>
-**4d.** Switch back to the `chat` model. Tip: When you're on the same controller, you can skip the controller prefix when you specify the model to switch to.
-```
 
 ## Maintain
 
