@@ -92,31 +92,6 @@ func allCollections() CollectionSchema {
 		// destroy empty models.
 		modelEntityRefsC: {global: true},
 
-		// This collection is holds the parameters for model migrations.
-		migrationsC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "-attempt"},
-			}},
-		},
-
-		// This collection tracks the progress of model migrations.
-		migrationsStatusC: {global: true},
-
-		// This collection holds messages about the progress of model
-		// migrations. It is split from migrationsStatusC to prevent the
-		// messages triggering the status watcher.
-		migrationsStatusMessageC: {global: true},
-
-		// This collection records the model migrations which
-		// are currently in progress. It is used to ensure that only
-		// one model migration document exists per model.
-		migrationsActiveC: {global: true},
-
-		// This collection tracks migration progress reports from the
-		// migration minions.
-		migrationsMinionSyncC: {global: true},
-
 		// This collection is used as a unique key restraint. The _id field is
 		// a concatenation of multiple fields that form a compound index,
 		// allowing us to ensure users cannot have the same name for two
@@ -365,56 +340,51 @@ func allCollections() CollectionSchema {
 // it in allCollections, above; and please keep this list sorted for easy
 // inspection.
 const (
-	actionNotificationsC     = "actionnotifications"
-	actionresultsC           = "actionresults"
-	actionsC                 = "actions"
-	assignUnitC              = "assignUnits"
-	bakeryStorageItemsC      = "bakeryStorageItems"
-	blocksC                  = "blocks"
-	cleanupsC                = "cleanups"
-	cloudContainersC         = "cloudcontainers"
-	cloudServicesC           = "cloudservices"
-	constraintsC             = "constraints"
-	containerRefsC           = "containerRefs"
-	controllersC             = "controllers"
-	controllerNodesC         = "controllerNodes"
-	filesystemAttachmentsC   = "filesystemAttachments"
-	filesystemsC             = "filesystems"
-	globalClockC             = "globalclock"
-	globalRefcountsC         = "globalRefcounts"
-	globalSettingsC          = "globalSettings"
-	machinesC                = "machines"
-	machineRemovalsC         = "machineremovals"
-	migrationsActiveC        = "migrations.active"
-	migrationsC              = "migrations"
-	migrationsMinionSyncC    = "migrations.minionsync"
-	migrationsStatusC        = "migrations.status"
-	modelsC                  = "models"
-	modelEntityRefsC         = "modelEntityRefs"
-	operationsC              = "operations"
-	providerIDsC             = "providerIDs"
-	sequenceC                = "sequence"
-	applicationsC            = "applications"
-	endpointBindingsC        = "endpointbindings"
-	settingsC                = "settings"
-	refcountsC               = "refcounts"
-	sshHostKeysC             = "sshhostkeys"
-	statusesC                = "statuses"
-	storageAttachmentsC      = "storageattachments"
-	storageConstraintsC      = "storageconstraints"
-	storageInstancesC        = "storageinstances"
-	linkLayerDevicesC        = "linklayerdevices"
-	ipAddressesC             = "ip.addresses"
-	toolsmetadataC           = "toolsmetadata"
-	txnsC                    = "txns"
-	migrationsStatusMessageC = "migrations.statusmessage"
-	unitsC                   = "units"
-	unitStatesC              = "unitstates"
-	upgradeInfoC             = "upgradeInfo"
-	usermodelnameC           = "usermodelname"
-	volumeAttachmentsC       = "volumeattachments"
-	volumeAttachmentPlanC    = "volumeattachmentplan"
-	volumesC                 = "volumes"
+	actionNotificationsC   = "actionnotifications"
+	actionresultsC         = "actionresults"
+	actionsC               = "actions"
+	assignUnitC            = "assignUnits"
+	bakeryStorageItemsC    = "bakeryStorageItems"
+	blocksC                = "blocks"
+	cleanupsC              = "cleanups"
+	cloudContainersC       = "cloudcontainers"
+	cloudServicesC         = "cloudservices"
+	constraintsC           = "constraints"
+	containerRefsC         = "containerRefs"
+	controllersC           = "controllers"
+	controllerNodesC       = "controllerNodes"
+	filesystemAttachmentsC = "filesystemAttachments"
+	filesystemsC           = "filesystems"
+	globalClockC           = "globalclock"
+	globalRefcountsC       = "globalRefcounts"
+	globalSettingsC        = "globalSettings"
+	machinesC              = "machines"
+	machineRemovalsC       = "machineremovals"
+	modelsC                = "models"
+	modelEntityRefsC       = "modelEntityRefs"
+	operationsC            = "operations"
+	providerIDsC           = "providerIDs"
+	sequenceC              = "sequence"
+	applicationsC          = "applications"
+	endpointBindingsC      = "endpointbindings"
+	settingsC              = "settings"
+	refcountsC             = "refcounts"
+	sshHostKeysC           = "sshhostkeys"
+	statusesC              = "statuses"
+	storageAttachmentsC    = "storageattachments"
+	storageConstraintsC    = "storageconstraints"
+	storageInstancesC      = "storageinstances"
+	linkLayerDevicesC      = "linklayerdevices"
+	ipAddressesC           = "ip.addresses"
+	toolsmetadataC         = "toolsmetadata"
+	txnsC                  = "txns"
+	unitsC                 = "units"
+	unitStatesC            = "unitstates"
+	upgradeInfoC           = "upgradeInfo"
+	usermodelnameC         = "usermodelname"
+	volumeAttachmentsC     = "volumeattachments"
+	volumeAttachmentPlanC  = "volumeattachmentplan"
+	volumesC               = "volumes"
 )
 
 // watcherIgnoreList contains all the collections in mongo that should not be watched by the
