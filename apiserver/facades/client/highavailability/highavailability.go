@@ -7,6 +7,7 @@ import (
 	"context"
 	"sort"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -21,7 +22,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
@@ -44,13 +44,9 @@ type ControllerNodeService interface {
 
 // ApplicationService instances add units to an application in dqlite state.
 type ApplicationService interface {
-	// GetApplicationIDByName returns an application ID by application name. It
-	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
-	// AddIAASUnits adds the specified units to the IAAS application.
-	AddIAASUnits(ctx context.Context, appName string, units ...applicationservice.AddIAASUnitArg) ([]coreunit.Name, error)
-	// GetUnitMachineName gets the unit's machine name.
-	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error)
+	// AddControllerIAASUnits adds the specified controller units to the
+	// controller IAAS application.
+	AddControllerIAASUnits(ctx context.Context, controllerIDs []string, units []applicationservice.AddIAASUnitArg) ([]coremachine.Name, error)
 }
 
 // ControllerConfigService instances read the controller config.
@@ -124,45 +120,14 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
-	// Get the controller application first, everything else depends on it.
-	_, err := api.applicationService.GetApplicationIDByName(ctx, coreapplication.ControllerApplicationName)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.ControllersChanges{}, errors.NotFoundf("controller application %q", coreapplication.ControllerApplicationName)
-	} else if err != nil {
-		return params.ControllersChanges{}, errors.Trace(err)
-	}
-
-	numControllers := spec.NumControllers
-	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
-		return params.ControllersChanges{}, errors.New("number of controllers must be odd and non-negative")
-	} else if numControllers > corecontroller.MaxPeers {
-		return params.ControllersChanges{}, errors.Errorf("controller count is too large (allowed %d)", corecontroller.MaxPeers)
-	} else if numControllers == 0 {
-		// If the number of controllers requested is zero, this actually
-		// indicates that the user wants the default number of controllers,
-		// which is 3 (current default).
-		numControllers = corecontroller.DefaultControllerCount
-	}
-
-	// We need to check that the number of controllers is not less than the
-	// number of existing controllers.
-	controllerIDs, err := api.controllerNodeService.GetControllerIDs(ctx)
-	if err != nil {
-		return params.ControllersChanges{}, errors.Trace(err)
-	}
-	if numControllers < len(controllerIDs) {
-		return params.ControllersChanges{}, errors.Errorf(
-			"cannot remove controllers with enable-ha, use remove-machine and chose the controller(s) to remove (active controllers: %d, requested: %d)",
-			len(controllerIDs), numControllers,
-		)
-	}
-
-	required := numControllers - len(controllerIDs)
+	// The call to add controller units is purely additive, meaning that it will
+	// never remove any existing controllers.
+	required := spec.NumControllers
 	if required == 0 {
-		// No changes are required, so we return an empty result.
-		return params.ControllersChanges{}, nil
+		required = corecontroller.DefaultControllerCount
 	}
 
+	var err error
 	args := make([]applicationservice.AddIAASUnitArg, 0, required)
 	for i := 0; i < required; i++ {
 		var placement *instance.Placement
@@ -180,25 +145,28 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		})
 	}
 
-	unitNames, err := api.applicationService.AddIAASUnits(ctx, coreapplication.ControllerApplicationName, args...)
+	// We need to check that the number of controllers is not less than the
+	// number of existing controllers.
+	controllerIDs, err := api.controllerNodeService.GetControllerIDs(ctx)
+	if err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
+	machineNames, err := api.applicationService.AddControllerIAASUnits(ctx, controllerIDs, args)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.ControllersChanges{}, errors.NotFoundf("controller application %q", coreapplication.ControllerApplicationName)
 	} else if err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
-	var machineNames []string
-	for _, unitName := range unitNames {
-		machineName, err := api.applicationService.GetUnitMachineName(ctx, unitName)
-		if err != nil {
-			return params.ControllersChanges{}, errors.Trace(err)
-		}
-		machineNames = append(machineNames, machineName.String())
-	}
-
-	if err := api.controllerNodeService.CurateNodes(ctx, machineNames, nil); err != nil {
-		// TODO (stickupkid): If this fails, we should remove the units that
-		// were added.
+	names := transform.Slice(machineNames, func(name coremachine.Name) string {
+		return name.String()
+	})
+	if err := api.controllerNodeService.CurateNodes(ctx, names, nil); err != nil {
+		// TODO (stickupkid): We're in a bit of jam here. We could try and
+		// remove the units and machines, straight away, but we have to be
+		// careful not to remove any machines that are already in use by
+		// other applications/units.
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 

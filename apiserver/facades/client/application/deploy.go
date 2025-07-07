@@ -323,7 +323,7 @@ func (api *APIBase) addUnits(
 		if api.modelType == coremodel.CAAS {
 			unitNames, err = api.applicationService.AddCAASUnits(ctx, appName, unitArg)
 		} else {
-			unitNames, err = api.applicationService.AddIAASUnits(ctx, appName, applicationservice.AddIAASUnitArg{
+			unitNames, _, err = api.applicationService.AddIAASUnits(ctx, appName, applicationservice.AddIAASUnitArg{
 				AddUnitArg: unitArg,
 			})
 		}

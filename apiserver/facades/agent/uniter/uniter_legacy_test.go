@@ -455,7 +455,7 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
 	_, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.applicationService.AddIAASUnits(c.Context(), "mysql",
+	_, _, err = s.applicationService.AddIAASUnits(c.Context(), "mysql",
 		applicationservice.AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 
