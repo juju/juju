@@ -56,13 +56,12 @@ func newHighAvailabilityAPI(stdCtx context.Context, ctx facade.ModelContext) (*H
 	// For adding additional controller units, we don't need a storage registry.
 	applicationService := domainServices.Application()
 	return &HighAvailabilityAPI{
-		controllerTag:           names.NewControllerTag(ctx.ControllerUUID()),
-		isControllerModel:       ctx.IsControllerModelScoped(),
-		controllerNodeService:   domainServices.ControllerNode(),
-		applicationService:      applicationService,
-		controllerConfigService: domainServices.ControllerConfig(),
-		blockCommandService:     domainServices.BlockCommand(),
-		authorizer:              authorizer,
-		logger:                  ctx.Logger().Child("highavailability"),
+		controllerTag:         names.NewControllerTag(ctx.ControllerUUID()),
+		isControllerModel:     ctx.IsControllerModelScoped(),
+		controllerNodeService: domainServices.ControllerNode(),
+		applicationService:    applicationService,
+		blockCommandService:   domainServices.BlockCommand(),
+		authorizer:            authorizer,
+		logger:                ctx.Logger().Child("highavailability"),
 	}, nil
 }

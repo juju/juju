@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	corecontroller "github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
@@ -49,11 +48,6 @@ type ApplicationService interface {
 	AddControllerIAASUnits(ctx context.Context, controllerIDs []string, units []applicationservice.AddIAASUnitArg) ([]coremachine.Name, error)
 }
 
-// ControllerConfigService instances read the controller config.
-type ControllerConfigService interface {
-	ControllerConfig(ctx context.Context) (controller.Config, error)
-}
-
 // BlockCommandService defines methods for interacting with block commands.
 type BlockCommandService interface {
 	// GetBlockSwitchedOn returns the optional block message if it is switched
@@ -67,14 +61,13 @@ type BlockCommandService interface {
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	controllerTag           names.ControllerTag
-	isControllerModel       bool
-	controllerNodeService   ControllerNodeService
-	applicationService      ApplicationService
-	controllerConfigService ControllerConfigService
-	blockCommandService     BlockCommandService
-	authorizer              facade.Authorizer
-	logger                  corelogger.Logger
+	controllerTag         names.ControllerTag
+	isControllerModel     bool
+	controllerNodeService ControllerNodeService
+	applicationService    ApplicationService
+	blockCommandService   BlockCommandService
+	authorizer            facade.Authorizer
+	logger                corelogger.Logger
 }
 
 // HighAvailabilityAPIV2 implements v2 of the high availability facade.
