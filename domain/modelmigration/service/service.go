@@ -176,3 +176,8 @@ func (s *Service) CheckMachines(
 
 	return nil, nil
 }
+
+// ModelMigrationMode returns the current migration mode for the model.
+func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error) {
+	return modelmigration.MigrationModeNone, nil
+}

@@ -22,3 +22,20 @@ type MigrationMachineDiscrepancy struct {
 	// CloudInstanceId is the unique id given to an instance from the cloud.
 	CloudInstanceId instance.Id
 }
+
+// MigrationMode specifies where the Model is with respect to migration.
+type MigrationMode string
+
+const (
+	// MigrationModeNone is the default mode for a model and reflects
+	// that it isn't involved with a model migration.
+	MigrationModeNone = MigrationMode("")
+
+	// MigrationModeExporting reflects a model that is in the process of being
+	// exported from one controller to another.
+	MigrationModeExporting = MigrationMode("exporting")
+
+	// MigrationModeImporting reflects a model that is being imported into a
+	// controller, but is not yet fully active.
+	MigrationModeImporting = MigrationMode("importing")
+)
