@@ -257,7 +257,13 @@ func (s *ProviderService) AddControllerIAASUnits(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	newUnits := len(units)
+	// This can happen if we try and enable HA before the first controller
+	// machine is created and assigned a address.
+	if len(controllerIDs) == 0 {
+		return nil, errors.New("no existing controller IDs provided")
+	}
+
+	newUnits := len(units) + len(controllerIDs)
 	if newUnits != 0 && newUnits%2 != 1 {
 		return nil, errors.New("number of controllers must be odd and non-negative")
 	} else if newUnits > corecontroller.MaxPeers {
@@ -285,7 +291,7 @@ func (s *ProviderService) AddControllerIAASUnits(
 
 	// Calculate the offset for the new controllers. This is the new number
 	// minus the number of existing controllers.
-	required := newUnits - len(controllerIDs)
+	required := len(units) - len(controllerIDs)
 	if required == 0 {
 		// No changes are required, so we return an empty result.
 		return nil, nil

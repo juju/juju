@@ -99,8 +99,6 @@ func (s *clientSuite) TestEnableHANumControllersEmptySpec(c *tc.C) {
 		AddUnitArg: applicationservice.AddUnitArg{},
 	}, {
 		AddUnitArg: applicationservice.AddUnitArg{},
-	}, {
-		AddUnitArg: applicationservice.AddUnitArg{},
 	}}).Return([]coremachine.Name{"1", "2"}, nil)
 
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
@@ -160,7 +158,7 @@ func (s *clientSuite) TestEnableHANumControllersPlacement(c *tc.C) {
 	}
 	results, err := api.EnableHA(c.Context(), params.ControllersSpecs{
 		Specs: []params.ControllersSpec{{
-			NumControllers: 0,
+			NumControllers: 3,
 			Placement:      []string{"4", "model-uuid:zone=us-east-1a"},
 		}},
 	})

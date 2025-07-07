@@ -112,14 +112,20 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
+	// We need to check that the number of controllers is not less than the
+	// number of existing controllers.
+	controllerIDs, err := api.controllerNodeService.GetControllerIDs(ctx)
+	if err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
 	// The call to add controller units is purely additive, meaning that it will
 	// never remove any existing controllers.
 	required := spec.NumControllers
 	if required == 0 {
-		required = corecontroller.DefaultControllerCount
+		required = corecontroller.DefaultControllerCount - len(controllerIDs)
 	}
 
-	var err error
 	args := make([]applicationservice.AddIAASUnitArg, 0, required)
 	for i := 0; i < required; i++ {
 		var placement *instance.Placement
@@ -135,13 +141,6 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 				Placement: placement,
 			},
 		})
-	}
-
-	// We need to check that the number of controllers is not less than the
-	// number of existing controllers.
-	controllerIDs, err := api.controllerNodeService.GetControllerIDs(ctx)
-	if err != nil {
-		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
 	machineNames, err := api.applicationService.AddControllerIAASUnits(ctx, controllerIDs, args)

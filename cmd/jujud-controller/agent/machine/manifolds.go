@@ -1076,9 +1076,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// isNotControllerFlagName is only used for the machineconverter,
 		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
 		machineConverterName: ifNotController(ifNotMigrating(machineconverter.Manifold(machineconverter.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        internallogger.GetLogger("juju.worker.machineconverter"),
+			AgentName:        agentName,
+			APICallerName:    apiCallerName,
+			Logger:           internallogger.GetLogger("juju.worker.machineconverter"),
+			NewMachineClient: machineconverter.NewMachineClient,
+			NewAgentClient:   machineconverter.NewAgentClient,
+			NewConverter:     machineconverter.NewConverter,
 		}))),
 
 		// The machineSetupName manifold runs small tasks required
