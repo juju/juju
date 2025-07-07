@@ -10,6 +10,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -1287,4 +1288,16 @@ type getUnitMachine struct {
 type controllerApplication struct {
 	ApplicationID coreapplication.ID `db:"application_uuid"`
 	IsController  bool               `db:"is_controller"`
+}
+
+type count struct {
+	Count int `db:"count"`
+}
+
+type machineName struct {
+	Name machine.Name `db:"name"`
+}
+
+type machineUUID struct {
+	UUID machine.UUID `db:"uuid"`
 }

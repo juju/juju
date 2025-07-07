@@ -2152,22 +2152,9 @@ func (s *providerServiceSuite) TestAddControllerIAASUnitsApplicationNotFound(c *
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *providerServiceSuite) TestAddControllerIAASUnitsInvalidPlacement(c *tc.C) {
+func (s *providerServiceSuite) TestAddControllerIAASUnitsInvalidContainerPlacement(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
-
-	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), coreapplication.ControllerApplicationName).Return(appUUID, nil)
-	returnedCharm := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Subordinate: false,
-		},
-	}
-	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
-	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	placement := &instance.Placement{
 		Scope:     instance.MachineScope,
@@ -2180,7 +2167,27 @@ func (s *providerServiceSuite) TestAddControllerIAASUnitsInvalidPlacement(c *tc.
 		},
 	}
 	_, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{a})
-	c.Assert(err, tc.ErrorMatches, ".*invalid placement.*")
+	c.Assert(err, tc.ErrorMatches, "controller units cannot be placed on containers")
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsInvalidColocatedPlacement(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().IsMachineController(gomock.Any(), coremachine.Name("0")).Return(true, nil)
+
+	placement := &instance.Placement{
+		Scope:     instance.MachineScope,
+		Directive: "0",
+	}
+
+	a := AddIAASUnitArg{
+		AddUnitArg: AddUnitArg{
+			Placement: placement,
+		},
+	}
+	_, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{a})
+	c.Assert(err, tc.ErrorMatches, `controller units cannot be placed on controller machines "0"`)
 }
 
 func (s *providerServiceSuite) TestAddControllerIAASUnitsMachinePlacement(c *tc.C) {
@@ -2189,6 +2196,8 @@ func (s *providerServiceSuite) TestAddControllerIAASUnitsMachinePlacement(c *tc.
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().IsMachineController(gomock.Any(), coremachine.Name("0")).Return(false, nil)
 
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{
 		Platform: deployment.Platform{

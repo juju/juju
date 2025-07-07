@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
@@ -19,6 +20,7 @@ import (
 	coreconstraints "github.com/juju/juju/core/constraints"
 	corecontroller "github.com/juju/juju/core/controller"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -260,6 +262,25 @@ func (s *ProviderService) AddControllerIAASUnits(
 		return nil, errors.New("number of controllers must be odd and non-negative")
 	} else if newUnits > corecontroller.MaxPeers {
 		return nil, errors.Errorf("controller count is too large (allowed %d)", corecontroller.MaxPeers)
+	}
+
+	for _, unit := range units {
+		if unit.Placement == nil {
+			continue
+		}
+
+		// Machines cannot be placed on containers, so we check if the
+		// placement is a container machine and if so, return an error.
+		if unit.Placement.Scope == instance.MachineScope && names.IsContainerMachine(unit.Placement.Directive) {
+			return nil, errors.Errorf("controller units cannot be placed on containers").Add(coreerrors.NotSupported)
+		}
+
+		// Machines cannot be co-located on existing controller machines,
+		if controller, err := s.st.IsMachineController(ctx, coremachine.Name(unit.Placement.Directive)); err != nil {
+			return nil, errors.Errorf("checking if machine %q is a controller: %w", unit.Placement.Directive, err)
+		} else if controller {
+			return nil, errors.Errorf("controller units cannot be placed on controller machines %q", unit.Placement.Directive)
+		}
 	}
 
 	// Calculate the offset for the new controllers. This is the new number
