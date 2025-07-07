@@ -17,7 +17,6 @@ import (
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type containerSuite struct {
@@ -192,20 +191,6 @@ VALUES (?, ?, 0)
 	return charmUUID
 }
 
-// addCharmRelation inserts a new charm relation into the database with the
-// given UUID and attributes. Returns the relation UUID.
-func (s *containerSuite) addCharmRelation(c *tc.C, charmUUID corecharm.ID, r charm.Relation) string {
-	charmRelationUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id) 
-VALUES (?, ?, ?,
-       (SELECT id FROM charm_relation_role WHERE name = ?),
-       ?, ?, ?,
-       (SELECT id FROM charm_relation_scope WHERE name = ?))
-`, charmRelationUUID, charmUUID, r.Name, r.Role, r.Interface, r.Optional, r.Limit, r.Scope)
-	return charmRelationUUID
-}
-
 // addApplication adds a new application to the database with the specified
 // charm UUID and application name. It returns the application UUID.
 func (s *containerSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName string) coreapplication.ID {
@@ -215,18 +200,6 @@ INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
 VALUES (?, ?, ?, ?, ?)
 `, appUUID, appName, 0 /* alive */, charmUUID.String(), corenetwork.AlphaSpaceId)
 	return appUUID
-}
-
-// addApplicationEndpoint inserts a new application endpoint into the
-// database with the specified UUIDs. Returns the endpoint uuid.
-func (s *containerSuite) addApplicationEndpoint(
-	c *tc.C, applicationUUID coreapplication.ID, charmRelationUUID string, boundSpaceUUID string) string {
-	applicationEndpointUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
-VALUES (?, ?, ?, ?)
-`, applicationEndpointUUID, applicationUUID, charmRelationUUID, boundSpaceUUID)
-	return applicationEndpointUUID
 }
 
 // addUnit adds a new unit to the specified application in the database with
