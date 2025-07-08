@@ -11,7 +11,7 @@ What you'll need:
 - A workstation that has sufficient resources to launch a virtual machine with 4 CPUs, 8 GB RAM, and 50 GB disk space.
 
 What you'll do:
-- Get acquainted with the Juju paradigm for operations by deploying, configuring, integrate, and scaling a chat service based on [Mattermost](https://mattermost.com/) and backed by [PostgreSQL](https://www.postgresql.org/) using Juju and charms on a localhost Kubernetes cloud.
+- Install Juju, prepare and connect a cloud, then deploy, configure,integrate, scale, and observe a chat service based on Mattermost and PostgreSQL using Juju and charms.
 
 
 ## Set up an isolated test environment
@@ -55,11 +55,11 @@ In your VM, install the `juju` CLI client:
 sudo snap install juju
 ```
 
+This has installed the `juju` CLI client and also the agent binaries necessary to install the rest of the Juju machinery -- a Juju controller (i.e., control plane, which must be deployed) and Juju agents. We'll see that in a bit.
+
 ## Connect a cloud
 
-Juju supports a wide range of clouds -- whether traditional machine clouds or Kubernetes clusters.
-
-Among these is MicroK8s, a low-ops, minimal production Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster on your VM:
+Juju supports a wide range of clouds -- whether traditional machine clouds or Kubernetes clusters. Among these is MicroK8s, a low-ops, minimal production Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster. Let's set it up on your VM:
 
 ```text
 # Install MicroK8s package:
@@ -90,7 +90,7 @@ mkdir -p ~/.local/share
 
 ```
 
-The cloud is ready, but you need it to be connected to a Juju controller. If you had a controller that was ready deployed, at this point you could simply connect your cloud to it. You don't have that here, so connect your cloud to the client so it can deploy a controller, then connect to the controller to deploy further things:
+The cloud must be connected to Juju. This means the `juju` CLI client, if we need to boostrap a controller, and the Juju controller, if we want to deploy anything else. We don't yet have a controller, so let's use our client and cloud to deploy one and connect our cloud to it:
 
 ```text
 # Ensure you cloud is connected to your Juju client:
@@ -98,8 +98,7 @@ The cloud is ready, but you need it to be connected to a Juju controller. If you
 juju clouds --client
 juju credentials --client
 
-# Ensure your cloud is connected to a Juju controller
-# (because you don't have any ready controller you must bootstrap it):
+# Use the client to bootstrap a controller into the cloud:
 juju bootstrap microk8s my-first-microk8s-controller
 # When you do this all of the following happens:
 # 1.On the cluster / cloud side:
@@ -115,16 +114,17 @@ juju status
 # one of which holds a Juju unit agent and the Juju controller charm code,
 # one of which holds Pebble and the controller agent (that contains Juju's API server), and
 # one of which holds Juju's internal database
-# The bootstrap process also automatically makes your cloud known to the controller:
+
+# This will also make your cloud automatically known to the controller:
 juju clouds --controller
 juju credentials --controller
 ```
 
-Your cloud is set up and connected to a Juju controller. Time to deploy charmed applications!
+We now have a cloud that's ready and connected -- time to deploy some charmed applications!
 
 ## Use charmed applications
 
-You have Juju, you've connected your cloud -- time to see the magic of charmed applications!
+
 
 ### Deploy, configure, integrate
 
