@@ -3745,7 +3745,7 @@ func (s *relationSuite) TestIsPeerRelation(c *tc.C) {
 	_ = s.addRelationEndpoint(c, peerRelationUUID, applicationEndpointUUID3)
 
 	// Act
-	obtained, err := s.state.IsPeerRelation(c.Context(), peerRelationUUID)
+	obtained, err := s.state.IsPeerRelation(c.Context(), peerRelationUUID.String())
 
 	// Assert
 	c.Check(err, tc.ErrorIsNil)
@@ -3781,7 +3781,7 @@ func (s *relationSuite) TestIsPeerRelationNotPeer(c *tc.C) {
 	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint3)
 
 	// Act
-	obtained, err := s.state.IsPeerRelation(c.Context(), relUUID1)
+	obtained, err := s.state.IsPeerRelation(c.Context(), relUUID1.String())
 
 	// Assert
 	c.Check(err, tc.ErrorIsNil)
@@ -3789,13 +3789,7 @@ func (s *relationSuite) TestIsPeerRelationNotPeer(c *tc.C) {
 }
 
 func (s *relationSuite) TestIsPeerRelationNotFound(c *tc.C) {
-	// Arrange
-	relUUID := corerelationtesting.GenRelationUUID(c)
-
-	// Act
-	obtained, err := s.state.IsPeerRelation(c.Context(), relUUID)
-
-	// Assert
+	obtained, err := s.state.IsPeerRelation(c.Context(), "non-existent-relation-uuid")
 	c.Check(err, tc.ErrorIs, relationerrors.RelationNotFound)
 	c.Check(obtained, tc.IsFalse)
 }

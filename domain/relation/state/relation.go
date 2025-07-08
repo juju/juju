@@ -1235,7 +1235,7 @@ AND    re.relation_uuid = $getRelationUnit.relation_uuid`, args)
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] if the relation cannot be found.
-func (st *State) IsPeerRelation(ctx context.Context, relUUID corerelation.UUID) (bool, error) {
+func (st *State) IsPeerRelation(ctx context.Context, relUUID string) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Capture(err)
@@ -1244,14 +1244,14 @@ func (st *State) IsPeerRelation(ctx context.Context, relUUID corerelation.UUID) 
 	countStmt, err := st.Prepare(`
 SELECT count(*) AS &rows.count
 FROM   relation_endpoint
-WHERE  relation_uuid = $relationUUID.uuid`, rows{}, relationUUID{})
+WHERE  relation_uuid = $entityUUID.uuid`, rows{}, entityUUID{})
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
 	var found rows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err = tx.Query(ctx, countStmt, relationUUID{UUID: relUUID}).Get(&found); err != nil {
+		if err = tx.Query(ctx, countStmt, entityUUID{UUID: relUUID}).Get(&found); err != nil {
 			return errors.Errorf("querying relation endpoints for uuid %q: %w", relUUID, err)
 		}
 		return nil

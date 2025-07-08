@@ -16,6 +16,16 @@ import (
 	"github.com/juju/juju/internal/charm"
 )
 
+// TODO (manadart 2025-07-08): entityUUID (type agnostic) should be used in
+// place of the typed UUIDs. All other usages of typed identities/names should
+// be replaced with strings. This is the database layer, which to the greatest
+// extent possible should be aware only of simple types.
+
+// entityUUID is a container for a unique identifier.
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // applicationID is used to get the ID of an application.
 type applicationID struct {
 	ID application.ID `db:"uuid"`
