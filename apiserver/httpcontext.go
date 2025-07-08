@@ -219,6 +219,14 @@ func (a tagKindAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
 	return errors.NotValidf("tag kind %v", tagKind)
 }
 
+type entityWrapper struct {
+	user names.UserTag
+}
+
+func (e entityWrapper) Tag() names.Tag {
+	return e.user
+}
+
 type controllerAuthorizer struct{}
 
 // Authorize is part of the httpcontext.Authorizer interface.
@@ -241,12 +249,9 @@ func (a controllerAdminAuthorizer) Authorize(authInfo authentication.AuthInfo) e
 	}
 
 	has, err := common.HasPermission(
-		common.UserAccessFunc(func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
-			if entity.String() != userTag.String() {
-				return permission.NoAccess, fmt.Errorf("expected entity %q got %q", userTag.String(), entity.String())
-			}
-			return authInfo.SubjectPermissions(subject)
-		}),
+		func(user names.UserTag, subject names.Tag) (permission.Access, error) {
+			return authInfo.Delegator.SubjectPermissions(entityWrapper{user}, subject)
+		},
 		userTag, permission.SuperuserAccess, a.controllerTag,
 	)
 	if err != nil {
@@ -254,6 +259,36 @@ func (a controllerAdminAuthorizer) Authorize(authInfo authentication.AuthInfo) e
 	}
 	if !has {
 		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
+	}
+	return nil
+}
+
+// modelPermissionAuthorizer checks that the authenticated user
+// has the given permission on a model.
+type modelPermissionAuthorizer struct {
+	perm permission.Access
+}
+
+// Authorize is part of the httpcontext.Authorizer interface.
+func (a modelPermissionAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
+	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	if !ok {
+		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
+	}
+	if !names.IsValidModel(authInfo.ModelTag.Id()) {
+		return errors.Errorf("%q is not a valid model", authInfo.ModelTag.Id())
+	}
+	has, err := common.HasPermission(
+		func(user names.UserTag, subject names.Tag) (permission.Access, error) {
+			return authInfo.Delegator.SubjectPermissions(entityWrapper{user}, subject)
+		},
+		userTag, a.perm, authInfo.ModelTag,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !has {
+		return errors.Errorf("%s does not have %q permission", names.ReadableString(authInfo.Entity.Tag()), a.perm)
 	}
 	return nil
 }

@@ -7,7 +7,7 @@ run_prometheus() {
 
 	juju offer controller.controller:metrics-endpoint
 
-	juju deploy prometheus-k8s --trust
+	juju deploy prometheus-k8s --channel 1/stable --trust
 	juju relate prometheus-k8s controller.controller
 	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 0 0)"
 	retry 'check_prometheus_targets prometheus-k8s 0' 30
@@ -34,12 +34,12 @@ run_prometheus_multiple_units() {
 
 	juju offer controller.controller:metrics-endpoint
 
-	juju deploy prometheus-k8s p1 --trust
+	juju deploy prometheus-k8s --channel 1/stable p1 --trust
 	juju relate p1 controller.controller
 	wait_for "p1" "$(active_idle_condition "p1" 0 0)"
 	retry 'check_prometheus_targets p1 0' 30
 
-	juju deploy prometheus-k8s p2 --trust
+	juju deploy prometheus-k8s --channel 1/stable p2 --trust
 	juju relate p2 controller.controller
 	wait_for "p2" "$(active_idle_condition "p2" 1 0)"
 	retry 'check_prometheus_targets p2 0' 30
@@ -99,7 +99,7 @@ run_prometheus_cross_controller() {
 
 	juju offer -c "${CONTROLLER_NAME}" controller.controller:metrics-endpoint
 
-	juju deploy prometheus-k8s --trust
+	juju deploy prometheus-k8s --channel 1/stable --trust
 	juju relate prometheus-k8s "${CONTROLLER_NAME}:controller.controller"
 	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 0 0)"
 	retry 'check_prometheus_targets prometheus-k8s 0' 30

@@ -48,6 +48,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/worker/syslogger"
@@ -707,15 +708,20 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	healthHandler := srv.monitoredHandler(http.HandlerFunc(srv.healthHandler), "health")
 	logStreamHandler := srv.monitoredHandler(newLogStreamEndpointHandler(httpCtxt), "logstream")
 	embeddedCLIHandler := srv.monitoredHandler(newEmbeddedCLIHandler(httpCtxt), "commands")
+	controllerAdminAuthorizer := controllerAdminAuthorizer{
+		controllerTag: systemState.ControllerTag(),
+	}
+	var debuglogAuth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind},
+		controllerAdminAuthorizer,
+		modelPermissionAuthorizer{
+			perm: permission.ReadAccess,
+		},
+	}
 	debugLogHandler := srv.monitoredHandler(newDebugLogDBHandler(
 		httpCtxt,
 		httpAuthenticator,
-		tagKindAuthorizer{
-			names.MachineTagKind,
-			names.ControllerAgentTagKind,
-			names.UserTagKind,
-			names.ApplicationTagKind,
-		},
+		debuglogAuth,
 	), "log")
 	pubsubHandler := srv.monitoredHandler(newPubSubHandler(httpCtxt, srv.shared.centralHub), "pubsub")
 	logSinkHandler := logsink.NewHTTPHandler(
@@ -751,7 +757,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		PostHandler: modelCharmsHandler.ServePost,
 		GetHandler:  modelCharmsHandler.ServeGet,
 	}, "charms")
-	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+	var modelCharmsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		controllerAdminAuthorizer,
+		modelPermissionAuthorizer{
+			perm: permission.WriteAccess,
+		},
+	}
 
 	modelObjectsCharmsHandler := &objectsCharmHandler{
 		ctxt:          httpCtxt,
@@ -767,7 +778,12 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}, "tools")
-	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+	var modelToolsUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		controllerAdminAuthorizer,
+		modelPermissionAuthorizer{
+			perm: permission.AdminAccess,
+		},
+	}
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 	resourcesHandler := srv.monitoredHandler(&ResourcesHandler{
 		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag,
@@ -814,9 +830,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 	}, "units")
 
-	controllerAdminAuthorizer := controllerAdminAuthorizer{
-		controllerTag: systemState.ControllerTag(),
-	}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -971,7 +984,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		pattern:    "/tools",
 		handler:    modelToolsUploadHandler,
-		authorizer: modelToolsUploadAuthorizer,
+		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:         "/tools/:version",
 		handler:         modelToolsDownloadHandler,
