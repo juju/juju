@@ -124,6 +124,10 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	required := spec.NumControllers
 	if required == 0 {
 		required = corecontroller.DefaultControllerCount - len(controllerIDs)
+		if required <= 0 {
+			// If there are no controllers required, we return an empty result.
+			return params.ControllersChanges{}, nil
+		}
 	}
 
 	args := make([]applicationservice.AddIAASUnitArg, 0, required)
