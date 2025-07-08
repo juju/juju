@@ -98,7 +98,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st)
 	h.authInfo.Entity = entity
-	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{st}
+	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{st.UserPermission}
 	return h, hr
 }
 
