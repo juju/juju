@@ -1311,13 +1311,13 @@ WHERE  name = $getUnit.name
 		}
 
 		// Check the unit can enter scope in this relation.
-		err := st.checkUnitCanEnterScope(ctx, tx, relationUUID, unitArgs.UUID)
+		err := st.checkUnitCanEnterScope(ctx, tx, relationUUID.String(), unitArgs.UUID.String())
 		if err != nil {
 			return errors.Errorf("checking unit valid in relation: %w", err)
 		}
 
 		// Upsert the row recording that the unit has entered scope.
-		relationUnitUUID, err := st.insertRelationUnit(ctx, tx, relationUUID, unitArgs.UUID)
+		relationUnitUUID, err := st.insertRelationUnit(ctx, tx, relationUUID.String(), unitArgs.UUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1386,7 +1386,7 @@ func (st *State) NeedsSubordinateUnit(
 		}
 
 		// Check that we are in a container scoped relation.
-		scope, err := st.getRelationScope(ctx, tx, relationUUID)
+		scope, err := st.getRelationScope(ctx, tx, relationUUID.String())
 		if err != nil {
 			return errors.Errorf("getting relation scope: %w", err)
 		} else if scope != charm.ScopeContainer {
@@ -1510,14 +1510,9 @@ AND    up.principal_uuid  = $getSub.unit_uuid
 
 // checkUnitCanEnterScope checks that the unit can enter scope in the given
 // relation.
-func (st *State) checkUnitCanEnterScope(
-	ctx context.Context,
-	tx *sqlair.TX,
-	relationUUID corerelation.UUID,
-	unitUUID unit.UUID,
-) error {
+func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, relationUUID, unitUUID string) error {
 	// Check relation is alive.
-	relationLife, err := st.getLife(ctx, tx, "relation", relationUUID.String())
+	relationLife, err := st.getLife(ctx, tx, "relation", relationUUID)
 	if errors.Is(err, coreerrors.NotFound) {
 		return relationerrors.RelationNotFound
 	} else if err != nil {
@@ -1528,7 +1523,7 @@ func (st *State) checkUnitCanEnterScope(
 	}
 
 	// Check unit is alive.
-	unitLife, err := st.getLife(ctx, tx, "unit", unitUUID.String())
+	unitLife, err := st.getLife(ctx, tx, "unit", unitUUID)
 	if errors.Is(err, coreerrors.NotFound) {
 		return relationerrors.UnitNotFound
 	} else if err != nil {
@@ -1544,7 +1539,7 @@ func (st *State) checkUnitCanEnterScope(
 		return errors.Errorf("getting applications in relation: %w", err)
 	}
 
-	// Get the ID of the application of the unit trying to enter scope.
+	// Get the ID of the application for the unit trying to enter scope.
 	unitsAppID, err := st.getApplicationOfUnit(ctx, tx, unitUUID)
 	if err != nil {
 		return errors.Errorf("getting application of unit: %w", err)
@@ -1616,11 +1611,7 @@ WHERE  t.uuid = $getLife.uuid
 
 // getApplicationOfUnit returns the ID of the application associated with the
 // unit.
-func (st *State) getApplicationOfUnit(
-	ctx context.Context,
-	tx *sqlair.TX,
-	unitUUID unit.UUID,
-) (application.ID, error) {
+func (st *State) getApplicationOfUnit(ctx context.Context, tx *sqlair.TX, unitUUID string) (application.ID, error) {
 	args := getUnitApp{
 		UnitUUID: unitUUID,
 	}
@@ -1644,19 +1635,15 @@ WHERE  uuid = $getUnitApp.uuid
 
 // getApplicationsInRelation gets all the applications that are in the given
 // relation.
-func (st *State) getApplicationsInRelation(
-	ctx context.Context,
-	tx *sqlair.TX,
-	uuid corerelation.UUID,
-) ([]application.ID, error) {
-	relUUID := relationUUID{
+func (st *State) getApplicationsInRelation(ctx context.Context, tx *sqlair.TX, uuid string) ([]application.ID, error) {
+	relUUID := entityUUID{
 		UUID: uuid,
 	}
 	stmt, err := st.Prepare(`
 SELECT &applicationUUID.application_uuid
 FROM   relation_endpoint re 
 JOIN   application_endpoint ae ON re.endpoint_uuid = ae.uuid
-WHERE  re.relation_uuid = $relationUUID.uuid
+WHERE  re.relation_uuid = $entityUUID.uuid
 `, relUUID, applicationUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1697,11 +1684,7 @@ WHERE  re.relation_uuid = $relationUUID.uuid
 // they are the units of the new principal application, otherwise the error is
 // returned.
 func (st *State) checkSubordinateUnitCanEnterScope(
-	ctx context.Context,
-	tx *sqlair.TX,
-	relUUID corerelation.UUID,
-	unitUUID unit.UUID,
-	otherApplication application.ID,
+	ctx context.Context, tx *sqlair.TX, relUUID, unitUUID string, otherApplication application.ID,
 ) error {
 	// Check that the other application in the relation is not a subordinate
 	// application, if it is, we have a relation between two subordinates, which
@@ -1745,15 +1728,15 @@ func (st *State) checkSubordinateUnitCanEnterScope(
 func (st *State) getRelationScope(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid corerelation.UUID,
+	uuid string,
 ) (charm.RelationScope, error) {
-	relUUID := relationUUID{
+	relUUID := entityUUID{
 		UUID: uuid,
 	}
 	getScopeStmt, err := st.Prepare(`
 SELECT &getScope.*
 FROM   v_relation_endpoint
-WHERE  relation_uuid = $relationUUID.uuid
+WHERE  relation_uuid = $entityUUID.uuid
 `, relUUID, getScope{})
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1827,7 +1810,7 @@ WHERE  a.uuid = $getSubordinate.application_uuid
 func (st *State) getPrincipalApplicationOfUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
-	unitUUID unit.UUID,
+	unitUUID string,
 ) (application.ID, error) {
 	principal := getPrincipal{
 		UnitUUID: unitUUID,
@@ -1853,13 +1836,10 @@ WHERE  up.unit_uuid = $getPrincipal.unit_uuid
 	return principal.ApplicationUUID, nil
 }
 
-// insertRelationUnit inserts a relation unit record, if it doesn't exist.
+// insertRelationUnit inserts a relation unit record if it doesn't exist.
 func (st *State) insertRelationUnit(
-	ctx context.Context,
-	tx *sqlair.TX,
-	relationUUID corerelation.UUID,
-	unitUUID unit.UUID,
-) (corerelation.UnitUUID, error) {
+	ctx context.Context, tx *sqlair.TX, relationUUID, unitUUID string,
+) (string, error) {
 	// Check if a relation_unit record already exists for this unit.
 	getRelationUnit := relationUnit{
 		RelationUUID: relationUUID,
@@ -1891,7 +1871,7 @@ AND     ru.unit_uuid = $relationUnit.unit_uuid
 		return "", errors.Capture(err)
 	}
 	insertRelationUnit := relationUnit{
-		RelationUnitUUID: uuid,
+		RelationUnitUUID: uuid.String(),
 		RelationUUID:     relationUUID,
 		UnitUUID:         unitUUID,
 	}
@@ -1920,7 +1900,7 @@ AND    u.uuid = $relationUnit.unit_uuid
 		return "", errors.Errorf("expected 1 row inserted, got %d", num)
 	}
 
-	return uuid, nil
+	return uuid.String(), nil
 }
 
 // LeaveScope updates the given relation to indicate it is not in scope.
@@ -2144,7 +2124,7 @@ func (st *State) SetRelationApplicationAndUnitSettings(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.setRelationUnitSettings(ctx, tx, relationUnitUUID, unitSettings)
+		err := st.setRelationUnitSettings(ctx, tx, relationUnitUUID.String(), unitSettings)
 		if err != nil {
 			return errors.Errorf("setting relation unit settings: %w", err)
 		}
@@ -2192,7 +2172,7 @@ func (st *State) GetRelationUnitSettings(
 			return relationerrors.RelationUnitNotFound
 		}
 
-		settings, err = st.getRelationUnitSettings(ctx, tx, relationUnitUUID)
+		settings, err = st.getRelationUnitSettings(ctx, tx, relationUnitUUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -2226,7 +2206,7 @@ func (st *State) SetRelationUnitSettings(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.setRelationUnitSettings(ctx, tx, relationUnitUUID, settings)
+		return st.setRelationUnitSettings(ctx, tx, relationUnitUUID.String(), settings)
 	})
 	if err != nil {
 		return errors.Capture(err)
@@ -2238,12 +2218,12 @@ func (st *State) SetRelationUnitSettings(
 func (st *State) setRelationUnitSettings(
 	ctx context.Context,
 	tx *sqlair.TX,
-	relationUnitUUID corerelation.UnitUUID,
+	relationUnitUUID string,
 	settings map[string]string,
 ) error {
 
 	// Get the relation endpoint UUID.
-	exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID.String())
+	exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID)
 	if err != nil {
 		return errors.Errorf("checking relation unit exists: %w", err)
 	} else if !exists {
@@ -2407,15 +2387,13 @@ AND         key IN ($keys[:])
 }
 
 func (st *State) getRelationUnitSettings(
-	ctx context.Context,
-	tx *sqlair.TX,
-	relUnitUUID corerelation.UnitUUID,
+	ctx context.Context, tx *sqlair.TX, relUnitUUID string,
 ) ([]relationSetting, error) {
-	id := relationUnitUUID{RelationUnitUUID: relUnitUUID}
+	id := entityUUID{UUID: relUnitUUID}
 	stmt, err := st.Prepare(`
 SELECT &relationSetting.*
 FROM   relation_unit_setting
-WHERE  relation_unit_uuid = $relationUnitUUID.uuid
+WHERE  relation_unit_uuid = $entityUUID.uuid
 `, id, relationSetting{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2433,10 +2411,7 @@ WHERE  relation_unit_uuid = $relationUnitUUID.uuid
 // provided settings map. If the value of a setting is empty then the setting is
 // deleted, otherwise it is inserted/updated.
 func (st *State) updateUnitSettings(
-	ctx context.Context,
-	tx *sqlair.TX,
-	relUnitUUID corerelation.UnitUUID,
-	settings map[string]string,
+	ctx context.Context, tx *sqlair.TX, relUnitUUID string, settings map[string]string,
 ) error {
 	if len(settings) == 0 {
 		return nil
@@ -2475,10 +2450,10 @@ ON CONFLICT (relation_unit_uuid, key) DO UPDATE SET value = excluded.value
 
 	// Delete the keys to unset.
 	if len(unset) > 0 {
-		id := relationUnitUUID{RelationUnitUUID: relUnitUUID}
+		id := entityUUID{UUID: relUnitUUID}
 		deleteStmt, err := st.Prepare(`
 DELETE FROM relation_unit_setting
-WHERE       relation_unit_uuid = $relationUnitUUID.uuid
+WHERE       relation_unit_uuid = $entityUUID.uuid
 AND         key IN ($keys[:])
 `, id, unset)
 		if err != nil {
@@ -2493,12 +2468,7 @@ AND         key IN ($keys[:])
 	return nil
 }
 
-func (st *State) updateUnitSettingsHash(
-	ctx context.Context,
-	tx *sqlair.TX,
-	unitUUID corerelation.UnitUUID,
-	hash string,
-) error {
+func (st *State) updateUnitSettingsHash(ctx context.Context, tx *sqlair.TX, unitUUID string, hash string) error {
 	arg := unitSettingsHash{
 		RelationUnitUUID: unitUUID,
 		Hash:             hash,
@@ -2585,14 +2555,14 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 			return errors.Errorf("unit %s is dead", unitUUID).Add(relationerrors.UnitDead)
 		}
 		var principalUnit bool
-		principalAppID, err = st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
+		principalAppID, err = st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID.String())
 		if errors.Is(err, relationerrors.UnitPrincipalNotFound) {
 			principalUnit = true
 		} else if err != nil {
 			return errors.Errorf("getting principal application of unit: %w", err)
 		}
 
-		unitApplicationID, err := st.getApplicationIDByUnitUUID(ctx, tx, unitUUID)
+		unitApplicationID, err := st.getApplicationIDByUnitUUID(ctx, tx, unitUUID.String())
 		if err != nil {
 			return errors.Errorf("getting application of unit: %w", err)
 		}
@@ -2836,7 +2806,7 @@ FROM   relation r
 
 				allUnitSettings := make(map[string]map[string]any)
 				for _, relUnit := range relUnits {
-					unitSettings, err := st.getRelationUnitSettings(ctx, tx, relUnit.RelationUnitUUID)
+					unitSettings, err := st.getRelationUnitSettings(ctx, tx, relUnit.RelationUnitUUID.String())
 					if err != nil {
 						return errors.Errorf("getting relation unit settings: %w", err)
 					}
@@ -3348,9 +3318,7 @@ AND    e2.endpoint_uuid = $endpoint2.application_endpoint_uuid
 }
 
 func (st *State) getApplicationIDByUnitUUID(
-	ctx context.Context,
-	tx *sqlair.TX,
-	unitUUID unit.UUID,
+	ctx context.Context, tx *sqlair.TX, unitUUID string,
 ) (application.ID, error) {
 	getApplication := getPrincipal{
 		UnitUUID: unitUUID,

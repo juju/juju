@@ -70,29 +70,23 @@ type applicationPlatform struct {
 }
 
 type relationUnit struct {
-	RelationUnitUUID     corerelation.UnitUUID     `db:"uuid"`
-	RelationEndpointUUID corerelation.EndpointUUID `db:"relation_endpoint_uuid"`
-	RelationUUID         corerelation.UUID         `db:"relation_uuid"`
-	UnitUUID             unit.UUID                 `db:"unit_uuid"`
+	RelationUnitUUID     string `db:"uuid"`
+	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
+	RelationUUID         string `db:"relation_uuid"`
+	UnitUUID             string `db:"unit_uuid"`
 }
 
 // relationUnitWithUnit maps a unit to a relation unit and
 // includes the unit name.
 type relationUnitWithUnit struct {
-	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
-	UnitUUID         unit.UUID             `db:"unit_uuid"`
-	UnitName         unit.Name             `db:"unit_name"`
+	RelationUnitUUID string    `db:"uuid"`
+	UnitUUID         unit.UUID `db:"unit_uuid"`
+	UnitName         unit.Name `db:"unit_name"`
 }
 
 type getUnit struct {
 	UUID unit.UUID `db:"uuid"`
 	Name unit.Name `db:"name"`
-}
-
-type getRelatedUnit struct {
-	UUID             unit.UUID             `db:"uuid"`
-	Name             unit.Name             `db:"name"`
-	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
 }
 
 type relationUnitUUIDAndName struct {
@@ -114,7 +108,7 @@ type getLife struct {
 
 type getUnitApp struct {
 	ApplicationUUID application.ID `db:"application_uuid"`
-	UnitUUID        unit.UUID      `db:"uuid"`
+	UnitUUID        string         `db:"uuid"`
 }
 
 type getUnitRelAndApp struct {
@@ -134,7 +128,7 @@ type getSubordinate struct {
 
 // getPrincipal is used to get the principal application of a unit.
 type getPrincipal struct {
-	UnitUUID        unit.UUID      `db:"unit_uuid"`
+	UnitUUID        string         `db:"unit_uuid"`
 	ApplicationUUID application.ID `db:"application_uuid"`
 }
 
@@ -155,9 +149,9 @@ type relationApplicationSetting struct {
 }
 
 type relationUnitSetting struct {
-	UUID  corerelation.UnitUUID `db:"relation_unit_uuid"`
-	Key   string                `db:"key"`
-	Value string                `db:"value"`
+	UUID  string `db:"relation_unit_uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
 }
 
 type applicationSettingsHash struct {
@@ -166,8 +160,8 @@ type applicationSettingsHash struct {
 }
 
 type unitSettingsHash struct {
-	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
-	Hash             string                `db:"sha256"`
+	RelationUnitUUID string `db:"relation_unit_uuid"`
+	Hash             string `db:"sha256"`
 }
 
 type keys []string
