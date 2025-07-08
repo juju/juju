@@ -77,6 +77,8 @@ import (
 	statusstate "github.com/juju/juju/domain/status/state"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
+	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
+	storageprovisioningstate "github.com/juju/juju/domain/storageprovisioning/state"
 	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
@@ -324,6 +326,14 @@ func (s *ModelServices) Storage() *storageservice.Service {
 		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("storage"),
 		s.storageRegistry,
+	)
+}
+
+// StorageProvisioning returns the model's storage provisioning service.
+func (s *ModelServices) StorageProvisioning() *storageprovisioningservice.Service {
+	return storageprovisioningservice.NewService(
+		storageprovisioningstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.modelWatcherFactory("storageprovisioning"),
 	)
 }
 

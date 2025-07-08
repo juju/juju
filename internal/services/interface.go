@@ -46,6 +46,7 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
+	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
 	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -124,6 +125,8 @@ type ModelDomainServices interface {
 	Network() *networkservice.WatchableService
 	// Storage returns the storage service.
 	Storage() *storageservice.Service
+	// StorageProvisioning returns the storage provisioning service.
+	StorageProvisioning() *storageprovisioningservice.Service
 	// Secret returns the secret service.
 	Secret() *secretservice.WatchableService
 	// ModelInfo returns the model service for the model.
