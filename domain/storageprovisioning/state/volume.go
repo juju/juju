@@ -60,9 +60,10 @@ SELECT &volumeAttachmentIDs.* FROM (
                 u.name AS unit_name
     FROM        storage_volume_attachment sva
     JOIN        storage_volume sv ON sva.storage_volume_uuid = sv.uuid
-    LEFT JOIN   machine m ON sva.net_node_uuid != m.net_node_uuid
+    LEFT JOIN   machine m ON sva.net_node_uuid == m.net_node_uuid
     JOIN        unit u ON sva.net_node_uuid = u.net_node_uuid
     WHERE       sva.uuid IN ($volumeAttachmentUUIDs[:])
+    AND         m.net_node_uuid IS NULL
 )
 `
 

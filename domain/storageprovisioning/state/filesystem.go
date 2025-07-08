@@ -68,9 +68,10 @@ SELECT &filesystemAttachmentIDs.* FROM (
                u.name AS unit_name
     FROM       storage_filesystem_attachment sfa
     JOIN       storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
-    LEFT JOIN  machine m ON sfa.net_node_uuid != m.net_node_uuid
+    LEFT JOIN  machine m ON sfa.net_node_uuid == m.net_node_uuid
     JOIN       unit u ON sfa.net_node_uuid = u.net_node_uuid
     WHERE      sfa.uuid IN ($filesystemAttachmentUUIDs[:])
+    AND        m.net_node_uuid IS NULL
 )
 `
 
