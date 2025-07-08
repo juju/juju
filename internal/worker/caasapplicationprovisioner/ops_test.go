@@ -559,6 +559,12 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			StorageName: "data",
 			Size:        100,
 		}},
+		FilesystemUnitAttachments: map[string][]storage.KubernetesFilesystemUnitAttachmentParams{
+			"data": {
+				{
+					UnitName: "mysql/0", VolumeId: "pvc-foo"},
+			},
+		},
 		Devices: []devices.KubernetesDeviceParams{},
 	}
 	charmInfo := charmscommon.CharmInfo{
@@ -627,6 +633,12 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			StorageName: "data",
 			Size:        100,
 		}},
+		FilesystemUnitAttachments: map[string][]storage.KubernetesFilesystemUnitAttachmentParams{
+			"data": {
+				{
+					UnitName: "mysql/0", VolumeId: "pvc-foo"},
+			},
+		},
 		Devices:      []devices.KubernetesDeviceParams{},
 		Trust:        true,
 		InitialScale: 10,

@@ -129,6 +129,10 @@ type ApplicationConfig struct {
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams
 
+	// FilesystemUnitAttachment maps each storage name to the list of unit-attached storage
+	// that should be created.
+	FilesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams
+
 	// Devices is a set of parameters for Devices that is required.
 	Devices []devices.KubernetesDeviceParams
 

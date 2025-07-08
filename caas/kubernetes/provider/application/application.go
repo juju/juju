@@ -250,12 +250,13 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		applier.Apply(&resources.StorageClass{StorageClass: sc})
 		return nil
 	}
-	var configureStorage = func(storageUniqueID string, handlePVC handlePVCFunc) error {
+	var configureStorage = func(storageUniqueID string, handlePVC handlePVCFunc, handleVolumeAttachment handleVolumeAttachmentFunc) error {
 		err := a.configureStorage(
 			storageUniqueID,
 			config.Filesystems,
+			config.FilesystemUnitAttachments,
 			storageClasses,
-			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
+			handleVolume, handleVolumeMount, handlePVC, handleVolumeAttachment, handleStorageClass,
 		)
 		return errors.Trace(err)
 	}
@@ -321,6 +322,30 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					MountPath: mountPath,
 				}, nil
 			},
+			func(pvc corev1.PersistentVolumeClaim, pvcName string, volumeName string, storageName string) error {
+				pvc.ObjectMeta.Name = pvcName
+				pvc.ObjectMeta.Namespace = a.namespace
+				pvc.Spec.VolumeName = volumeName
+
+				persistentVolumeClaim := resources.PersistentVolumeClaim{PersistentVolumeClaim: pvc}
+				err := persistentVolumeClaim.Get(context.Background(), a.client)
+				if errors.Is(err, errors.NotFound) {
+					logger.Debugf("pvc %s not found, create pvc with VolumeName %s", pvcName, volumeName)
+					persistentVolumeClaim.Spec.VolumeName = volumeName
+					applier.Apply(&persistentVolumeClaim)
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+
+				expectedLabels := utils.LabelsMerge(
+					utils.LabelsJuju,
+					utils.LabelsForStorage(storageName, a.labelVersion),
+				)
+				if err := persistentVolumeClaim.Validate(nil, expectedLabels); err != nil {
+					return errors.Trace(err)
+				}
+				return nil
+			},
 		); err != nil {
 			return errors.Trace(err)
 		}
@@ -345,7 +370,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
+		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource, nil); err != nil {
 			return errors.Trace(err)
 		}
 		deployment := resources.Deployment{
@@ -382,7 +407,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Trace(err)
 		}
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
+		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource, nil); err != nil {
 			return errors.Trace(err)
 		}
 		daemonset := resources.DaemonSet{
@@ -1950,6 +1975,7 @@ func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (st
 
 type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
 type handlePVCFunc func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
+type handleVolumeAttachmentFunc func(pvc corev1.PersistentVolumeClaim, pvcName string, volumeName string, storageName string) error
 type handleVolumeMountFunc func(string, corev1.VolumeMount) error
 type handleStorageClassFunc func(storagev1.StorageClass) error
 
@@ -2008,10 +2034,12 @@ func (a *app) pvcNames(storagePrefix string) (map[string]string, error) {
 func (a *app) configureStorage(
 	storageUniqueID string,
 	filesystems []jujustorage.KubernetesFilesystemParams,
+	filesystemUnitAttachments map[string][]jujustorage.KubernetesFilesystemUnitAttachmentParams,
 	storageClasses []resources.StorageClass,
 	handleVolume handleVolumeFunc,
 	handleVolumeMount handleVolumeMountFunc,
 	handlePVC handlePVCFunc,
+	handleVolumeAttachment handleVolumeAttachmentFunc,
 	handleStorageClass handleStorageClassFunc,
 ) error {
 	storageClassMap := make(map[string]resources.StorageClass)
@@ -2080,6 +2108,19 @@ func (a *app) configureStorage(
 		if volumeMount != nil {
 			if err = handleVolumeMount(fs.StorageName, *volumeMount); err != nil {
 				return errors.Trace(err)
+			}
+		}
+
+		if unitAttachments, ok := filesystemUnitAttachments[fs.StorageName]; ok {
+			for _, attachment := range unitAttachments {
+				// Convert {appName}/{unitNumber} to {appName}-{storageName}-{uniqueId}-{appName}-{unitNumber}.
+				// The resulting pvcName will follow the naming convention used by StatefulSet volumeClaimTemplates,
+				// ensuring the created PVC is correctly bound to the application's StatefulSet.
+				pvcName := strings.Replace(attachment.UnitName, "/", "-", 1)
+				pvcName = pvc.ObjectMeta.Name + "-" + pvcName
+				if err = handleVolumeAttachment(*pvc, pvcName, attachment.VolumeId, fs.StorageName); err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 	}
