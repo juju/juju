@@ -5540,6 +5540,84 @@ func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	assertLife(c, s.app, state.Dying)
 }
 
+func (s *CAASApplicationSuite) TestGetUnitAttachmentInfosWithoutAttachStorage(c *gc.C) {
+	app := s.setupApplicationWithAttachStorage(c, 2, []names.StorageTag{})
+	infos, err := app.GetUnitAttachmentInfos()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infos, gc.HasLen, 0)
+}
+
+func (s *CAASApplicationSuite) TestGetUnitAttachmentInfosWithAttachStorage(c *gc.C) {
+	app := s.setupApplicationWithAttachStorage(c, 1, []names.StorageTag{names.NewStorageTag("database/0")})
+	infos, err := app.GetUnitAttachmentInfos()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infos, gc.DeepEquals, []state.UnitAttachmentInfo{{Unit: "cockroachdb/0", VolumeId: "pv-database-0", StorageId: "database/0"}})
+}
+
+func (s *CAASApplicationSuite) setupApplicationWithAttachStorage(c *gc.C, unitNum int, attachStorage []names.StorageTag) *state.Application {
+	registry := &storage.StaticProviderRegistry{
+		Providers: map[storage.ProviderType]storage.Provider{
+			"kubernetes": &dummy.StorageProvider{
+				StorageScope: storage.ScopeEnviron,
+				IsDynamic:    true,
+				IsReleasable: true,
+				SupportsFunc: func(k storage.StorageKind) bool {
+					return k == storage.StorageKindBlock
+				},
+			},
+		},
+	}
+
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		CloudName: "caascloud",
+	})
+	s.AddCleanup(func(_ *gc.C) { _ = st.Close() })
+
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	_, err := pm.Create("kubernetes", "kubernetes", map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return registry, nil
+		},
+	}
+
+	sb, err := state.NewStorageBackend(st)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i := 0; i <= unitNum; i++ {
+		fsInfo := state.FilesystemInfo{
+			Size: 100,
+			Pool: "kubernetes",
+		}
+		volumeInfo := state.VolumeInfo{
+			VolumeId:   fmt.Sprintf("pv-database-%d", i),
+			Size:       100,
+			Pool:       "kubernetes",
+			Persistent: true,
+		}
+		storageTag, err := sb.AddExistingFilesystem(fsInfo, &volumeInfo, "database")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(storageTag.Id(), gc.Equals, fmt.Sprintf("database/%d", i))
+	}
+
+	ch := state.AddTestingCharmForSeries(c, st, "quantal", "cockroachdb")
+	cockroachdb := state.AddTestingApplicationWithAttachStorage(c, st, "cockroachdb", ch, unitNum,
+		map[string]state.StorageConstraints{
+			"database": {
+				Pool:  "kubernetes",
+				Size:  100,
+				Count: 0,
+			},
+		},
+		attachStorage,
+	)
+	units, err := cockroachdb.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, unitNum)
+	return cockroachdb
+}
+
 func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
 	_, err := state.ApplicationOperatorStatus(s.State, s.mysql.Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
