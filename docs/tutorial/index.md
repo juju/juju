@@ -3,7 +3,7 @@
 
 In this tutorial your goal is to set up a chat service on a cloud.
 
-In traditional setups this can be quite a challenge; however, with charmed applications and their runtime Juju, it's plug-and-play from day 0 to Day n.
+In traditional setups this can be quite a challenge; however, with charms and Juju, it's plug-and-play from day 0 to Day n.
 
 Are you ready to take control of cloud? Let's get started!
 
@@ -47,19 +47,9 @@ If the VM launch fails, run `multipass delete --purge my-juju-vm` to clean up, t
 
 ```
 
-## Install Juju
+## Prepare a cloud
 
-In your VM, install the `juju` CLI client:
-
-```text
-sudo snap install juju
-```
-
-This has installed the `juju` CLI client and also the agent binaries necessary to install the rest of the Juju machinery -- a Juju controller (i.e., control plane, which must be deployed) and Juju agents. We'll see that in a bit.
-
-## Connect a cloud
-
-Juju supports a wide range of clouds -- whether traditional machine clouds or Kubernetes clusters. Among these is MicroK8s, a low-ops, minimal production Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster. Let's set it up on your VM:
+To Juju a cloud is anything that has an API where you can request compute, storage, and networking. This includes traditional machine clouds (Amazon AWS, Google GCE, Microsoft Azure, but also Equinix Metal, MAAS, OpenStack, Oracle OCI, and LXD) as well as Kubernetes clusters (Amazon EKS, Google GKE, Microsoft AKS but also Canonical Kubernetes or MicroK8s). Among these is MicroK8s, a low-ops, minimal production Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster ([see more](https://documentation.ubuntu.com/juju/3.6/reference/cloud/list-of-supported-clouds/the-microk8s-cloud-and-juju/)). Let's set it up on your VM:
 
 ```text
 # Install MicroK8s package:
@@ -90,49 +80,79 @@ mkdir -p ~/.local/share
 
 ```
 
-The cloud must be connected to Juju. This means the `juju` CLI client, if we need to boostrap a controller, and the Juju controller, if we want to deploy anything else. We don't yet have a controller, so let's use our client and cloud to deploy one and connect our cloud to it:
+Congratulations, your cloud is ready!
+
+## Install Juju
+
+Juju is a distributed system consisting of a controller that contains the API server and the database and which coordinates with clients and agents to orchestrate charmed applications on clouds. Let's install the `juju` CLI client and use it with our cloud to bootstrap a controller!
+
+In your VM, install the `juju` CLI client:
 
 ```text
-# Ensure you cloud is connected to your Juju client:
-# (for your localhost MicroK8s from a strictly installed snap this should hapepn automatically):
+sudo snap install juju
+```
+
+In your VM, ensure that the client knows about your cloud (for your localhost MicroK8s from a strictly installed snap this should happen automatically), then use it to bootstrap a controller into the cloud:
+
+```text
 juju clouds --client
 juju credentials --client
-
-# Use the client to bootstrap a controller into the cloud:
 juju bootstrap microk8s my-first-microk8s-controller
-# When you do this all of the following happens:
-# 1.On the cluster / cloud side:
-# The client will create a namespace and, in this namespace, resources for the controller.
-# The cluster will provision pods by pulling the specified container images etc.
-# 2. On the Juju side:
-# This creates a 'controller' model ( cf. namespace):
-juju models
-# Containing a 'controller' application (cf. service)
-# consisting of one 'controller/0' unit (cf. pod):
-juju status
-# This unit (pod) consists of three containers,
-# one of which holds a Juju unit agent and the Juju controller charm code,
-# one of which holds Pebble and the controller agent (that contains Juju's API server), and
-# one of which holds Juju's internal database
+```
 
-# This will also make your cloud automatically known to the controller:
+```{dropdown} What exactly does this do?
+When you use the `juju` CLI client to bootstrap a Juju controller into a Kubernetes cloud this, all of the following happens:
+
+1. On the cluster / cloud side:
+    1. The client will create a namespace and, in this namespace, resources for the controller.
+    1. The cluster will provision pods by pulling the specified container images etc.
+1. On the Juju side: This creates a 'controller' model (Kubernetes 'namespace'); verify: `juju models`. The model contains a 'controller' application (Kubernetes 'service') consisting of one 'controller/0' unit (a running instance of the application which, on Kubernets, is deployed to its own separate pod); verify: `juju status`. In the cloud this unit (pod) consists of three containers, one of which holds a Juju unit agent and the Juju controller charm code, one of which holds Pebble and the controller agent (that contains Juju's API server), and one of which holds Juju's internal database. You'll encounter the same basic setup when you deploy charmed applications too, as in its essence the 'controller' application is just a special kind of charmed application.
+```
+
+Congratulations, your Juju client and Juju controller are ready!
+
+## Connect a cloud
+
+Post-bootstrap, any operation you trigger through your client goes through the controller, and the controller needs to be able to reach your cloud(s). You can connect a cloud to a controller explicitly, if the controller already exists, or implicitly by bootstrapping a controller into it, like we did just now. Let's check that our implicit connection has indeed worked:
+
+```text
 juju clouds --controller
 juju credentials --controller
 ```
 
-We now have a cloud that's ready and connected -- time to deploy some charmed applications!
+Congratulations, your Juju client and your Juju controller are ready to deploy on your cloud!
 
 ## Use charmed applications
 
+Your controller can talk to your cloud to get resources -- but it can also talk to Charmhub to get charms to deploy on those cloud resources. And everything is grouped into models.
 
+A model is a logical grouping of provisioned resources and deployed charms (Kubernetes 'namespace') that is always associated with a specific controller (and owner) and a specific cloud (anything you do within a model draws resources from that cloud).
+
+A cloud resource is any form of storage, compute, and networking. For example, for a machine cloud, a bare metal machine, a virtual machine, or a system container; for Kubernetes, a pod. Juju provisions this implicitly whenever you deploy a charm (though you can also choose to provision the resource first and deploy to it explicitly later).
+
+A charm is a software package (some YAML and, these days, Python code) that, in its most prototypical form, describes how to install, configure, upgrade, etc., an application in a language that Juju can understand and make work on any suitable cloud. If with Juju and charms you can handle most application operations on most clouds, Juju is the bit that takes care of the cloud end, while charms take care of the application end.
+
+In what follows we'll use our client with our controller and its connected cloud to create models associated with this cloud and deploy to them, as needed, the charms that will make up our chat solution so its functional, scaled, and observed.
 
 ### Deploy, configure, integrate
 
+We want a chat service.
+
+A popular open source application for that is Mattermost ([see more](https://mattermost.com/)).  A search on Charmhub reveals there is already a suitable charm for this application, the `mattermost-k8s` charm ([see more](https://charmhub.io/mattermost-k8s)). Moreover, a quick look at this charm's docs shows that, to satisfy this application's dependency on PostgreSQL, this charm also supports easy integration with PostgreSQL through the `postgresql-k8s` charm ([see more](https://charmhub.io/postgresql-k8s)), though traffic from PostgreSQL must be TLS-encrypted, something that can be satisfied, for our tutorial purposes, through further integration with the application deployed from the `self-signed-certificates` charm ([see more](https://charmhub.io/self-signed-certificates)).
+
+Let's create a model and then use these charms and the applications deployed from them to stand up our Mattermost chat service!
+
+First, create a model. As it will hold all our chat applications, let's call it 'chat':
+
+
 ```text
-# Create a new model:
 ubuntu@my-juju-vm:~$ juju add-model chat
 Added 'chat' model on microk8s/localhost with credential 'microk8s' for user 'admin'
 
+
+Now, deploy, configure, and integrate `mattermost-k8s`, `postgresql-k8s`, and `self-signed-certificates` as `mattermost`, `postgresql`, and `self-signed-certificates`:
+
+```text
 # Deploy mattermost-k8s:
 ubuntu@tutorial-vm:~$ juju deploy mattermost-k8s
 Located charm "mattermost-k8s" in charm-hub, revision 27
@@ -153,7 +173,14 @@ ubuntu@tutorial-vm:~$ juju integrate self-signed-certificates postgresql-k8s
 
 # Integrate postgresql-k8s with mattermost-k8s:
 ubuntu@tutorial-vm:~$ juju integrate postgresql-k8s:db mattermost-k8s
+```
 
+While executing any of these commands returns automatically so you can execute the next, standing things up in the cloud takes a little bit of time. In
+
+
+Watch the progress of your deployment:
+
+```
 # Check your model's status:
 ubuntu@my-juju-vm:~$ juju status --relations
 Model  Controller  Cloud/Region        Version  SLA          Timestamp
