@@ -89,7 +89,7 @@ func (s *macaroonLoginSuite) setAPIAddresses(c *tc.C, info *api.Info) {
 			NetPort: network.NetPort(port),
 		}
 	}
-	c.Logf("heather %+v", addrs)
+
 	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
 		APIAddresses: map[string]network.SpaceHostPorts{
 			"0": addrs,
