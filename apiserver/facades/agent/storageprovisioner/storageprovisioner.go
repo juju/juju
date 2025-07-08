@@ -382,7 +382,8 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 		var w corewatcher.StringsWatcher
 		switch tag := tag.(type) {
 		case names.MachineTag:
-			machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+			var machineUUID machine.UUID
+			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
 			if errors.Is(err, machineerrors.MachineNotFound) {
 				return "", nil, errors.NotFoundf("machine %q", tag.Id())
 			}

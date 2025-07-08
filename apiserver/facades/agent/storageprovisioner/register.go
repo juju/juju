@@ -56,7 +56,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		registry,
 		storageService,
 		domainServices.Status(),
-		nil, // domainServices.StorageProvisioning(),
+		domainServices.StorageProvisioning(),
 		ctx.Logger().Child("storageprovisioner"),
 		modelInfo.UUID,
 		ctx.ControllerUUID(),
