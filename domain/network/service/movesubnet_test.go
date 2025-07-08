@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -39,8 +40,7 @@ func (s *moveSubnetSuite) setupMocks(c *tc.C) *gomock.Controller {
 // TestMoveSubnetToSpaceInvalidSubnetUUIDs tests that an error is returned when
 // invalid subnet UUIDs are provided.
 func (s *moveSubnetSuite) TestMoveSubnetToSpaceInvalidSubnetUUIDs(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Invalid UUID format
 	result, err := s.service.MoveSubnetToSpace(
@@ -56,8 +56,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceInvalidSubnetUUIDs(c *tc.C) {
 // TestMoveSubnetToSpaceGetAllSpacesError tests that an error is returned when
 // getting all spaces fails.
 func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetAllSpacesError(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	subnetUUID := s.newSubnetUUID(c)
@@ -81,8 +80,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetAllSpacesError(c *tc.C) {
 // TestMoveSubnetToSpaceSpaceNotFound tests that an error is returned when
 // the destination space is not found.
 func (s *moveSubnetSuite) TestMoveSubnetToSpaceSpaceNotFound(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	subnetUUID := s.newSubnetUUID(c)
@@ -107,8 +105,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSpaceNotFound(c *tc.C) {
 // TestMoveSubnetToSpaceGetSubnetsError tests that an error is returned when
 // getting subnets fails.
 func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetSubnetsError(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	subnetUUID := s.newSubnetUUID(c)
@@ -142,8 +139,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetSubnetsError(c *tc.C) {
 // TestMoveSubnetToSpaceSubnetNotFound tests that an error is returned when
 // a subnet is not found in the topology.
 func (s *moveSubnetSuite) TestMoveSubnetToSpaceSubnetNotFound(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	subnetUUID := s.newSubnetUUID(c)
@@ -183,8 +179,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSubnetNotFound(c *tc.C) {
 // TestMoveSubnetToSpaceMachinesBoundToSpacesError tests that an error is returned when
 // getting machines bound to spaces fails.
 func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesBoundToSpacesError(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	subnetUUID := s.newSubnetUUID(c)
@@ -236,8 +231,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesBoundToSpacesError(c *tc.
 // TestMoveSubnetToSpaceMachinesAllergicToSpaceError tests that an error is returned when
 // getting machines allergic to the destination space fails.
 func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesAllergicToSpaceError(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	subnetUUID := s.newSubnetUUID(c)
@@ -366,29 +360,39 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSuccess(c *tc.C) {
 	defer ctrl.Finish()
 
 	// Arrange
-	subnetUUID := s.newSubnetUUID(c)
-	subnetID := network.Id(subnetUUID.String())
-	subnet := network.SubnetInfo{
-		ID:        subnetID,
+	subnetUUID1 := s.newSubnetUUID(c)
+	subnetUUID2 := s.newSubnetUUID(c)
+	subnetID1 := network.Id(subnetUUID1.String())
+	subnetID2 := network.Id(subnetUUID2.String())
+	subnets := []network.SubnetInfo{{
+		ID:        subnetID1,
 		CIDR:      "192.168.2.0/24",
 		SpaceID:   "space2-id",
 		SpaceName: "space2",
-	}
+	}, {
+		ID:        subnetID2,
+		CIDR:      "192.192.2.0/24",
+		SpaceID:   "space3-id",
+		SpaceName: "space3",
+	}}
 	spaces := network.SpaceInfos{
 		{
 			ID:   "space1-id",
 			Name: "space1",
 		},
 		{
-			ID:   "space2-id",
-			Name: "space2",
-			Subnets: []network.SubnetInfo{
-				subnet,
-			},
+			ID:      "space2-id",
+			Name:    "space2",
+			Subnets: subnets[0:1],
+		},
+		{
+			ID:      "space3-id",
+			Name:    "space3",
+			Subnets: subnets[1:],
 		},
 	}
 
-	newTopology, err := spaces.MoveSubnets(network.MakeIDSet(subnetID), "space1")
+	newTopology, err := spaces.MoveSubnets(network.MakeIDSet(subnetID1, subnetID2), "space1")
 	c.Assert(err, tc.IsNil)
 
 	// Create a mock CheckableMachine that accept the topology
@@ -408,11 +412,11 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSuccess(c *tc.C) {
 		Return(spaces, nil)
 
 	s.st.EXPECT().
-		GetSubnets(gomock.Any(), []string{subnetUUID.String()}).
-		Return(network.SubnetInfos{subnet}, nil)
+		GetSubnets(gomock.Any(), []string{subnetUUID1.String(), subnetUUID2.String()}).
+		Return(subnets, nil)
 
 	s.st.EXPECT().
-		GetMachinesBoundToSpaces(gomock.Any(), []string{"space2-id"}).
+		GetMachinesBoundToSpaces(gomock.Any(), []string{"space2-id", "space3-id"}).
 		Return(internal.CheckableMachines{boundMachines, boundMachines}, nil)
 
 	s.st.EXPECT().
@@ -420,26 +424,33 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSuccess(c *tc.C) {
 		Return(internal.CheckableMachines{allergicMachines}, nil)
 
 	// Expect UpdateSubnet to be called for the moved subnet
-	upserted := subnet
-	upserted.SpaceID = "space1-id"
-	upserted.SpaceName = "space1"
+	upserted := transform.Slice(subnets, func(subnet network.SubnetInfo) network.SubnetInfo {
+		subnet.SpaceID = "space1-id"
+		subnet.SpaceName = "space1"
+		return subnet
+	})
 	s.st.EXPECT().
-		UpsertSubnets(gomock.Any(), network.SubnetInfos{upserted}).
+		UpsertSubnets(gomock.Any(), upserted).
 		Return(nil)
 
 	// Act
 	result, err := s.service.MoveSubnetToSpace(
 		c.Context(),
-		[]domainnetwork.SubnetUUID{subnetUUID},
+		[]domainnetwork.SubnetUUID{subnetUUID1, subnetUUID2},
 		"space1",
 	)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.SameContents, []domainnetwork.MovedSubnets{{
-		UUID:      subnetUUID,
-		CIDR:      subnet.CIDR,
+		UUID:      subnetUUID1,
+		CIDR:      subnets[0].CIDR,
 		FromSpace: "space2",
+		ToSpace:   "space1",
+	}, {
+		UUID:      subnetUUID2,
+		CIDR:      subnets[1].CIDR,
+		FromSpace: "space3",
 		ToSpace:   "space1",
 	}})
 }
