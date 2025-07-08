@@ -389,14 +389,16 @@ type ApplicationState interface {
 	//     doesn't exist.
 	GetApplicationEndpointNames(context.Context, coreapplication.ID) ([]string, error)
 
-	// ValidateEndpointBindingsForApplication
-	ValidateEndpointBindingsForApplication(context.Context, coreapplication.ID, map[string]network.SpaceName) error
-
 	// MergeApplicationEndpointBindings merge the provided bindings into the bindings
-	// for the specified application.
+	// for the specified application.  If the force flag is false, verify that all
+	// units of the application have devices in the given spaces.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	MergeApplicationEndpointBindings(context.Context, coreapplication.ID, map[string]network.SpaceName) error
+	//   - [applicationerrors.EndpointNotFound] if the endpoints changing do not exist
+	//     for the application's charm
+	//   - [networkerrors.SpaceNotFound] if the spaces provided do not exist, or the
+	//     application's units do not have addresses in the space.
+	MergeApplicationEndpointBindings(context.Context, coreapplication.ID, map[string]network.SpaceName, bool) error
 
 	// NamespaceForWatchNetNodeAddress returns the namespace identifier for
 	// net node address changes, which is the ip_address table.
@@ -1488,6 +1490,9 @@ func (s *Service) GetApplicationsBoundToSpace(ctx context.Context, uuid network.
 //   - [applicationerrors.ApplicationNotFound] is returned if the application
 //     doesn't exist.
 func (s *Service) GetApplicationEndpointNames(ctx context.Context, appUUID coreapplication.ID) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := appUUID.Validate(); err != nil {
 		return nil, errors.Errorf("validating application UUID: %w", err)
 	}
@@ -1497,24 +1502,33 @@ func (s *Service) GetApplicationEndpointNames(ctx context.Context, appUUID corea
 }
 
 // MergeApplicationEndpointBindings merge the provided bindings into the bindings
-// for the specified application.
+// for the specified application after validating that the endpoints and spaces
+// exist and all units of the application have devices in the new spaces. Force
+// may be used to avoid the last check.
 // The following errors may be returned:
-// - [applicationerrors.ApplicationNotFound] if the application does not exist
-func (s *Service) MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID, bindings map[string]network.SpaceName, force bool) error {
+//   - [applicationerrors.ApplicationNotFound] if the application does not exist
+//   - [applicationerrors.EndpointNotFound] if the endpoints changing do not exist
+//     for the application's charm
+//   - [networkerrors.SpaceNotFound] if the spaces provided do not exist, or the
+//     application's units do not have addresses in the space.
+func (s *Service) MergeApplicationEndpointBindings(
+	ctx context.Context,
+	appID coreapplication.ID,
+	bindings map[string]network.SpaceName,
+	force bool,
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if len(bindings) == 0 {
+		return nil
+	}
 
 	if err := appID.Validate(); err != nil {
 		return errors.Errorf("validating application ID: %w", err)
 	}
 
-	if !force {
-		if err := s.st.ValidateEndpointBindingsForApplication(ctx, appID, bindings); err != nil {
-			return errors.Errorf("validating endpoint bindings: %w", err)
-		}
-	}
-
-	return s.st.MergeApplicationEndpointBindings(ctx, appID, bindings)
+	return s.st.MergeApplicationEndpointBindings(ctx, appID, bindings, force)
 }
 
 // GetDeviceConstraints returns the device constraints for an application.

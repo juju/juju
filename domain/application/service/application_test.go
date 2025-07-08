@@ -1184,8 +1184,7 @@ func (s *applicationServiceSuite) TestMergeApplicationEndpointBindings(c *tc.C) 
 		"bar": "beta",
 	}
 
-	s.state.EXPECT().ValidateEndpointBindingsForApplication(gomock.Any(), appID, bindings).Return(nil)
-	s.state.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, bindings).Return(nil)
+	s.state.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, bindings, false).Return(nil)
 
 	err := s.service.MergeApplicationEndpointBindings(c.Context(), appID, bindings, false)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1200,7 +1199,7 @@ func (s *applicationServiceSuite) TestMergeApplicationEndpointBindingsForce(c *t
 		"bar": "beta",
 	}
 
-	s.state.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, bindings).Return(nil)
+	s.state.EXPECT().MergeApplicationEndpointBindings(gomock.Any(), appID, bindings, true).Return(nil)
 
 	err := s.service.MergeApplicationEndpointBindings(c.Context(), appID, bindings, true)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1215,7 +1214,7 @@ func (s *applicationServiceSuite) TestMergeApplicationEndpointBindingsInvalid(c 
 		"bar": "beta",
 	}
 
-	s.state.EXPECT().ValidateEndpointBindingsForApplication(gomock.Any(), appID, bindings).Return(errors.Errorf("boom"))
+	s.state.EXPECT().MergeApplicationEndpointBindings(c.Context(), appID, bindings, false).Return(errors.Errorf("boom"))
 
 	err := s.service.MergeApplicationEndpointBindings(c.Context(), appID, bindings, false)
 	c.Assert(err, tc.ErrorMatches, ".*boom.*")

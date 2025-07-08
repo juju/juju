@@ -292,7 +292,9 @@ type ApplicationService interface {
 	GetApplicationEndpointNames(context.Context, coreapplication.ID) ([]string, error)
 
 	// MergeApplicationEndpointBindings merge the provided bindings into the bindings
-	// for the specified application.
+	// for the specified application after validating that the endpoints and spaces
+	// exist and all units of the application have devices in the new spaces. Force
+	// may be used to avoid the last check.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
 	MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID, bindings map[string]network.SpaceName, force bool) error
