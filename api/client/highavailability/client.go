@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,34 +29,6 @@ type Client struct {
 func NewClient(caller base.APICallCloser, options ...Option) *Client {
 	frontend, backend := base.NewClientFacade(caller, "HighAvailability", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
-}
-
-// EnableHA ensures the availability of Juju controllers.
-func (c *Client) EnableHA(
-	ctx context.Context,
-	numControllers int, cons constraints.Value, placement []string,
-) (params.ControllersChanges, error) {
-
-	var results params.ControllersChangeResults
-	arg := params.ControllersSpecs{
-		Specs: []params.ControllersSpec{{
-			NumControllers: numControllers,
-			Constraints:    cons,
-			Placement:      placement,
-		}}}
-
-	err := c.facade.FacadeCall(ctx, "EnableHA", arg, &results)
-	if err != nil {
-		return params.ControllersChanges{}, err
-	}
-	if len(results.Results) != 1 {
-		return params.ControllersChanges{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return params.ControllersChanges{}, result.Error
-	}
-	return result.Result, nil
 }
 
 // ControllerDetails holds details of a controller.

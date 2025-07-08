@@ -589,101 +589,6 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "controller nodes .* do not exist")
 }
 
-<<<<<<< HEAD
-=======
-func (s *stateSuite) TestGetAPIAddresses(c *tc.C) {
-	var controllerIDs []string
-	for i := 0; i < 3; i++ {
-		controllerID := strconv.Itoa(i)
-		nodeID := uint64(1523785546583723502 + i)
-
-		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
-		c.Assert(err, tc.ErrorIsNil)
-
-		controllerIDs = append(controllerIDs, controllerID)
-	}
-
-	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true},
-		{Address: "192.168.0.1:17070", IsAgent: false},
-	}
-
-	err := s.state.SetAPIAddresses(
-		c.Context(),
-		map[string]controllernode.APIAddresses{
-			"0": addrs,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	expectedAddresses := []string{
-		"10.0.0.1:17070",
-		"192.168.0.1:17070",
-	}
-	resultAddresses, err := s.state.GetAPIAddresses(c.Context(), "0")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resultAddresses, tc.DeepEquals, expectedAddresses)
-}
-
-func (s *stateSuite) TestGetAPIAddressesEmpty(c *tc.C) {
-	for i := 0; i < 3; i++ {
-		controllerID := strconv.Itoa(i)
-		nodeID := uint64(1523785546583723502 + i)
-
-		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-
-	_, err := s.state.GetAPIAddresses(c.Context(), "42")
-	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
-}
-
-func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
-	for i := 0; i < 3; i++ {
-		controllerID := strconv.Itoa(i)
-		nodeID := uint64(1523785546583723502 + i)
-
-		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-
-	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
-		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
-		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
-	}
-
-	err := s.state.SetAPIAddresses(
-		c.Context(),
-		map[string]controllernode.APIAddresses{
-			"0": addrs,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	expectedAddresses := []string{
-		"10.0.0.1:17070",
-		"10.0.0.2:17070",
-	}
-	resultAddresses, err := s.state.GetAPIAddressesForAgents(c.Context(), "0")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resultAddresses, tc.DeepEquals, expectedAddresses)
-}
-
-func (s *stateSuite) TestGetAPIAddressesForAgentsEmpty(c *tc.C) {
-	for i := 0; i < 3; i++ {
-		controllerID := strconv.Itoa(i)
-		nodeID := uint64(1523785546583723502 + i)
-
-		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
-		c.Assert(err, tc.ErrorIsNil)
-	}
-
-	_, err := s.state.GetAPIAddressesForAgents(c.Context(), "42")
-	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
-}
-
->>>>>>> 61370002eb (feat: remove curated nodes)
 func (s *stateSuite) TestGetControllerIDs(c *tc.C) {
 	for i := 0; i < 3; i++ {
 		controllerID := strconv.Itoa(i)
@@ -753,8 +658,8 @@ func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
 	// The order of the addresses coming from the db cannot be guaranteed.
 	// That's okay in this case as the caller will order the addresses as
 	// required.
-	c.Assert(result[ctrlID1], tc.SameContents, controllernode.APIAddresses(addrs1[:2]))
-	c.Assert(result[ctrlID2], tc.SameContents, controllernode.APIAddresses(addrs2[1:]))
+	c.Assert(result[controllerID1], tc.SameContents, controllernode.APIAddresses(addrs1[:2]))
+	c.Assert(result[controllerID2], tc.SameContents, controllernode.APIAddresses(addrs2[1:]))
 }
 
 func (s *stateSuite) TestGetAllAPIAddressesWithScopeForClients(c *tc.C) {
