@@ -518,6 +518,12 @@ func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepo
 	if err := v.caasPrecheckFunc(dt); err != nil {
 		errs = append(errs, err)
 	}
+
+	attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, dt.numUnits)
+	if len(attachStorageErrs) > 0 {
+		errs = append(errs, attachStorageErrs...)
+	}
+	dt.attachStorage = attachStorage
 	return dt, errs
 }
 

@@ -232,6 +232,7 @@ type mockApplication struct {
 	watcher              *statetesting.MockNotifyWatcher
 	charmPending         bool
 	provisioningState    *state.ApplicationProvisioningState
+	unitAttachmentInfos  []state.UnitAttachmentInfo
 }
 
 func (a *mockApplication) CharmPendingToBeDownloaded() bool {
@@ -375,6 +376,11 @@ func (a *mockApplication) SetProvisioningState(ps state.ApplicationProvisioningS
 func (a *mockApplication) ProvisioningState() *state.ApplicationProvisioningState {
 	a.MethodCall(a, "ProvisioningState")
 	return a.provisioningState
+}
+
+func (a *mockApplication) GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, error) {
+	a.MethodCall(a, "GetUnitAttachmentInfos")
+	return a.unitAttachmentInfos, a.NextErr()
 }
 
 type mockCharm struct {

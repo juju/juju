@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,6 +65,13 @@ func (exp ExposedEndpoint) AllowTrafficFromAnyNetwork() bool {
 	}
 
 	return false
+}
+
+// UnitAttachmentInfo represents the information about the unit attachement.
+type UnitAttachmentInfo struct {
+	Unit      string
+	VolumeId  string
+	StorageId string
 }
 
 // Application represents the state of an application.
@@ -3122,6 +3130,98 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
+}
+
+// GetUnitAttachmentInfos returns storage attachment info for units not yet provisioned,
+// based on DesiredScale and UnitCount.
+// This is only used for CAAS models.
+//
+// This is called by the same worker loop that deploy application && updates scales.
+// So consistency checks can be avoided since provisioning and scale updates are interleaved.
+func (a *Application) GetUnitAttachmentInfos() (unitAttachmentInfos []UnitAttachmentInfo, err error) {
+	// Skips if scaling down or already at desired scale (except initial 1-unit deploy).
+	// Note: Attaching storage is not allowed during deployment if DesiredScale > 1, so that case is ignored.
+	scaleUp := a.doc.DesiredScale > a.doc.UnitCount
+	initialDeploy := a.doc.UnitCount == 1 && a.doc.DesiredScale == 1
+	if !scaleUp && !initialDeploy {
+		return unitAttachmentInfos, nil
+	}
+
+	// The unit ids follow the rules of statefulset created or scale up behaviour which allocates new ids in
+	// ascending order of their ordinal(0, 1, 2, etc.).
+	unitIds := []string{"0"} // initialDeploy == true
+	if !initialDeploy {
+		unitIds = []string{}
+		for i := a.doc.UnitCount; i < a.doc.DesiredScale; i++ {
+			unitIds = append(unitIds, strconv.Itoa(i))
+		}
+	}
+
+	idReg := strings.Join(unitIds, "|")
+	storageAttachmentDocs, err := getstorageAttachmentDocs(
+		a.st.db(),
+		bson.D{{"unitid", 1}, {"storageid", 1}},
+		bson.M{
+			"unitid": bson.RegEx{
+				Pattern: fmt.Sprintf(
+					`^%s/(?:%s)$`,
+					regexp.QuoteMeta(a.doc.Name),
+					idReg,
+				),
+				Options: "",
+			},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var storageIds []string
+	storageAttachmentDocByStorageId := make(map[string]storageAttachmentDoc)
+	for _, stDoc := range storageAttachmentDocs {
+		storageIds = append(
+			storageIds,
+			stDoc.StorageInstance,
+		)
+		storageAttachmentDocByStorageId[stDoc.StorageInstance] = stDoc
+	}
+
+	volumeDocs, err := getVolumeDocs(
+		a.st.db(),
+		bson.M{
+			"info":      bson.M{"$ne": nil},
+			"storageid": bson.M{"$in": storageIds},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for _, volDoc := range volumeDocs {
+		if stDoc, ok := storageAttachmentDocByStorageId[volDoc.StorageId]; ok {
+			unitAttachmentInfos = append(
+				unitAttachmentInfos,
+				UnitAttachmentInfo{
+					Unit:      stDoc.Unit,
+					StorageId: volDoc.StorageId,
+					VolumeId:  volDoc.Info.VolumeId,
+				},
+			)
+		}
+	}
+	return unitAttachmentInfos, nil
+}
+
+func getstorageAttachmentDocs(db Database, fields interface{}, query interface{}) ([]storageAttachmentDoc, error) {
+	coll, cleanup := db.GetCollection(storageAttachmentsC)
+	defer cleanup()
+
+	var docs []storageAttachmentDoc
+	err := coll.Find(query).Select(fields).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "querying storageattachments")
+	}
+	return docs, nil
 }
 
 // Relations returns a Relation for every relation the application is in.
