@@ -44,6 +44,18 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 >
 >  April 2028: expected end of security fix support
 
+### 🔸 **Juju 2.9.52** - 07 July 2025
+
+🛠️ Fixes:
+
+- Fix [CVE-2025-0928](https://github.com/juju/juju/security/advisories/GHSA-4vc8-wvhw-m5gv)
+- Fix [CVE-2025-53512](https://github.com/juju/juju/security/advisories/GHSA-r64v-82fh-xc63)
+- Fix [CVE-2025-53513](https://github.com/juju/juju/security/advisories/GHSA-24ch-w38v-xmh8)
+- fix: 2.9 pki for go 1.24.4 by @jameinel in https://github.com/juju/juju/pull/19972
+- fix(apiserver): avoid splitting untrusted data by @jub0bs in https://github.com/juju/juju/pull/18970
+- fix: static-analysis by @jack-w-shaw in https://github.com/juju/juju/pull/19353
+
+See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.52).
 
 ### 🔸 **Juju 2.9.51** - 30 August 2024
 
