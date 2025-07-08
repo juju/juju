@@ -1330,17 +1330,9 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
 
-	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment
-	// Remove this check before 3.0 when enable-ha is refactored.
 	locator, err := api.getCharmLocatorByApplicationName(ctx, args.ApplicationName)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
-	charmName, err := api.getCharmName(ctx, locator)
-	if err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	} else if charmName == bootstrap.ControllerCharmName {
-		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
 	}
 	charm, err := api.getCharm(ctx, locator)
 	if err != nil {

@@ -3,4 +3,4 @@
 
 package agentconfigupdater_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package agentconfigupdater_test -destination service_mock_test.go github.com/juju/juju/internal/worker/agentconfigupdater ControllerDomainServices,ControllerNodeService,ControllerConfigService
+//go:generate go run go.uber.org/mock/mockgen -typed -package agentconfigupdater_test -destination service_mock_test.go github.com/juju/juju/internal/worker/agentconfigupdater ControllerDomainServices,ControllerConfigService

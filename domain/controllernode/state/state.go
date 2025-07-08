@@ -33,57 +33,10 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// CurateNodes accepts slices of controller IDs to insert
-// and delete from the controller node table.
-func (st *State) CurateNodes(ctx context.Context, insert, delete []string) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Single dbControllerNode object created here and reused.
-	controllerNode := dbControllerNode{}
-
-	// These are never going to be many at a time. Just repeat as required.
-	insertStmt, err := st.Prepare(`
-INSERT INTO controller_node (controller_id)
-VALUES      ($dbControllerNode.*)`, controllerNode)
-	if err != nil {
-		return errors.Errorf("preparing insert controller node statement: %w", err)
-	}
-	deleteStmt, err := st.Prepare(`
-DELETE FROM controller_node 
-WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
-	if err != nil {
-		return errors.Errorf("preparing delete controller node statement: %w", err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, cID := range insert {
-			controllerNode.ControllerID = cID
-			if err := tx.Query(ctx, insertStmt, controllerNode).Run(); err != nil {
-				return errors.Errorf("inserting controller node %q: %w", cID, err)
-			}
-		}
-
-		for _, cID := range delete {
-			controllerNode.ControllerID = cID
-			if err := tx.Query(ctx, deleteStmt, controllerNode).Run(); err != nil {
-				return errors.Errorf("deleting controller node %q: %w", cID, err)
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("curating controller nodes: %w", err)
-	}
-	return nil
-}
-
-// UpdateDqliteNode sets the Dqlite node ID and bind address for the input
-// controller ID. It is a no-op if they are already set to the same values.
-func (st *State) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
+// AddDqliteNode adds the Dqlite node ID and bind address for the input
+// controller ID. If the controller ID already exists, it updates the
+// Dqlite node ID and bind address.
+func (st *State) AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -101,10 +54,12 @@ func (st *State) UpdateDqliteNode(ctx context.Context, controllerID string, node
 	}
 
 	q := `
-UPDATE controller_node 
-SET    dqlite_node_id = $dbControllerNode.dqlite_node_id,
-       dqlite_bind_address = $dbControllerNode.dqlite_bind_address 
-WHERE  controller_id = $dbControllerNode.controller_id`
+INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
+VALUES      ($dbControllerNode.*)
+ON CONFLICT (controller_id) DO
+UPDATE SET  dqlite_node_id = excluded.dqlite_node_id,
+            dqlite_bind_address = excluded.dqlite_bind_address;
+`
 	stmt, err := st.Prepare(q, controllerNode)
 	if err != nil {
 		return errors.Errorf("preparing update controller node statement: %w", err)
@@ -114,7 +69,39 @@ WHERE  controller_id = $dbControllerNode.controller_id`
 		err := tx.Query(ctx, stmt, controllerNode).Run()
 		return errors.Capture(err)
 	}))
+}
 
+// DeleteDqliteNodes removes controller nodes from the controller_node table.
+func (st *State) DeleteDqliteNodes(ctx context.Context, delete []string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Single dbControllerNode object created here and reused.
+	controllerNode := dbControllerNode{}
+
+	deleteStmt, err := st.Prepare(`
+DELETE FROM controller_node 
+WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
+	if err != nil {
+		return errors.Errorf("preparing delete controller node statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for _, cID := range delete {
+			controllerNode.ControllerID = cID
+			if err := tx.Query(ctx, deleteStmt, controllerNode).Run(); err != nil {
+				return errors.Errorf("deleting controller node %q: %w", cID, err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("curating controller nodes: %w", err)
+	}
+	return nil
 }
 
 // SelectDatabaseNamespace is responsible for selecting and returning the

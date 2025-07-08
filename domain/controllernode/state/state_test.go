@@ -44,14 +44,23 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.state = NewState(s.TxnRunnerFactory())
 }
 
-func (s *stateSuite) TestCurateNodes(c *tc.C) {
+func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 	db := s.DB()
+
+	// This
+	controllerID0 := "0"
 
 	_, err := db.ExecContext(c.Context(), "INSERT INTO controller_node (controller_id) VALUES ('0')")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.CurateNodes(
-		c.Context(), []string{"1", "2"}, []string{"0"})
+	nodeID1 := uint64(15237855465837235027)
+	controllerID1 := "1"
+	err = s.state.AddDqliteNode(c.Context(), controllerID1, nodeID1, "10.0.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	nodeID2 := uint64(15237855465837235026)
+	controllerID2 := "2"
+	err = s.state.AddDqliteNode(c.Context(), controllerID2, nodeID2, "10.0.0.2")
 	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err := db.QueryContext(c.Context(), "SELECT controller_id FROM controller_node")
@@ -65,10 +74,11 @@ func (s *stateSuite) TestCurateNodes(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		ids.Add(addr)
 	}
-	c.Check(ids.Values(), tc.HasLen, 2)
+	c.Assert(ids.Values(), tc.HasLen, 3)
 
-	c.Check(ids.Contains("1"), tc.IsTrue)
-	c.Check(ids.Contains("2"), tc.IsTrue)
+	c.Check(ids.Contains(controllerID0), tc.IsTrue)
+	c.Check(ids.Contains(controllerID1), tc.IsTrue)
+	c.Check(ids.Contains(controllerID2), tc.IsTrue)
 }
 
 func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
@@ -76,12 +86,10 @@ func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 	// tried to pass it directly as a uint64 query parameter.
 	nodeID := uint64(15237855465837235027)
 	controllerID := "0"
-	err := s.state.CurateNodes(
-		c.Context(), []string{controllerID}, nil)
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.UpdateDqliteNode(
-		c.Context(), controllerID, nodeID, "192.168.5.60")
+	err = s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "192.168.5.60")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
@@ -114,13 +122,14 @@ func (s *stateSuite) TestSelectDatabaseNamespace(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *tc.C) {
-	controllerID := "1"
 	ver := coreagentbinary.Version{
 		Number: jujuversion.Current,
 		Arch:   corearch.ARM64,
 	}
 
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	nodeID := uint64(15237855465837235027)
+	controllerID := "1"
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Tests insert running agent binary version.
@@ -186,13 +195,14 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetRunningAgentBinaryVersionControllerNodeNotFound(c *tc.C) {
-	controllerID := "1"
 	ver := coreagentbinary.Version{
 		Number: jujuversion.Current,
 		Arch:   corearch.ARM64,
 	}
 
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	nodeID := uint64(15237855465837235027)
+	controllerID := "1"
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetRunningAgentBinaryVersion(
@@ -204,13 +214,14 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionControllerNodeNotFound(c *t
 }
 
 func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *tc.C) {
-	controllerID := "1"
 	ver := coreagentbinary.Version{
 		Number: jujuversion.Current,
 		Arch:   corearch.UnsupportedArches[0],
 	}
 
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	nodeID := uint64(15237855465837235027)
+	controllerID := "1"
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetRunningAgentBinaryVersion(
@@ -221,25 +232,10 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *stateSuite) TestIsControllerNode(c *tc.C) {
-	controllerID := "1"
-
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	isControllerNode, err := s.state.IsControllerNode(c.Context(), controllerID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isControllerNode, tc.Equals, true)
-
-	isControllerNode, err = s.state.IsControllerNode(c.Context(), "99")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isControllerNode, tc.Equals, false)
-}
-
 func (s *stateSuite) TestSetAPIAddressesToAddOnly(c *tc.C) {
+	nodeID := uint64(15237855465837235027)
 	controllerID := "1"
-
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := []controllernode.APIAddress{
@@ -258,9 +254,9 @@ func (s *stateSuite) TestSetAPIAddressesToAddOnly(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetAPIAddressesToDeleteOnly(c *tc.C) {
+	nodeID := uint64(15237855465837235027)
 	controllerID := "1"
-
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert 3 addresses.
@@ -286,9 +282,9 @@ func (s *stateSuite) TestSetAPIAddressesToDeleteOnly(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetAPIAddressesAddsDeletes(c *tc.C) {
+	nodeID := uint64(15237855465837235027)
 	controllerID := "1"
-
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert 3 addresses.
@@ -315,9 +311,9 @@ func (s *stateSuite) TestSetAPIAddressesAddsDeletes(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetAPIAddressesNoDelta(c *tc.C) {
+	nodeID := uint64(15237855465837235027)
 	controllerID := "1"
-
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Insert 3 addresses.
@@ -427,9 +423,9 @@ func (s *stateSuite) TestDeltaAddressesAllChanges(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetAPIAddressControllerNodeExists(c *tc.C) {
+	nodeID := uint64(15237855465837235027)
 	controllerID := "1"
-
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := []controllernode.APIAddress{
@@ -484,11 +480,13 @@ func (s *stateSuite) TestGetAllAPIAddressesForAgent(c *tc.C) {
 	var controllerIDs []string
 	for i := 1; i < 5; i++ {
 		controllerID := strconv.Itoa(i)
+		nodeID := uint64(1523785546583723502 + i)
+
+		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
+		c.Assert(err, tc.ErrorIsNil)
+
 		controllerIDs = append(controllerIDs, controllerID)
 	}
-
-	err := s.state.CurateNodes(c.Context(), controllerIDs, nil)
-	c.Assert(err, tc.ErrorIsNil)
 
 	for i, controllerID := range controllerIDs {
 		addrs := []controllernode.APIAddress{
@@ -534,11 +532,13 @@ func (s *stateSuite) TestGetAllAPIAddressesForAgentEmptyAddress(c *tc.C) {
 	var controllerIDs []string
 	for i := 1; i < 5; i++ {
 		controllerID := strconv.Itoa(i)
+		nodeID := uint64(1523785546583723502 + i)
+
+		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
+		c.Assert(err, tc.ErrorIsNil)
+
 		controllerIDs = append(controllerIDs, controllerID)
 	}
-
-	err := s.state.CurateNodes(c.Context(), controllerIDs, nil)
-	c.Assert(err, tc.ErrorIsNil)
 
 	for i, controllerID := range controllerIDs {
 		var addrs []controllernode.APIAddress
@@ -589,9 +589,109 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "controller nodes .* do not exist")
 }
 
-func (s *stateSuite) TestGetControllerIDs(c *tc.C) {
-	err := s.state.CurateNodes(c.Context(), []string{"0", "1", "2"}, nil)
+<<<<<<< HEAD
+=======
+func (s *stateSuite) TestGetAPIAddresses(c *tc.C) {
+	var controllerIDs []string
+	for i := 0; i < 3; i++ {
+		controllerID := strconv.Itoa(i)
+		nodeID := uint64(1523785546583723502 + i)
+
+		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		controllerIDs = append(controllerIDs, controllerID)
+	}
+
+	addrs := []controllernode.APIAddress{
+		{Address: "10.0.0.1:17070", IsAgent: true},
+		{Address: "192.168.0.1:17070", IsAgent: false},
+	}
+
+	err := s.state.SetAPIAddresses(
+		c.Context(),
+		map[string]controllernode.APIAddresses{
+			"0": addrs,
+		},
+	)
 	c.Assert(err, tc.ErrorIsNil)
+
+	expectedAddresses := []string{
+		"10.0.0.1:17070",
+		"192.168.0.1:17070",
+	}
+	resultAddresses, err := s.state.GetAPIAddresses(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resultAddresses, tc.DeepEquals, expectedAddresses)
+}
+
+func (s *stateSuite) TestGetAPIAddressesEmpty(c *tc.C) {
+	for i := 0; i < 3; i++ {
+		controllerID := strconv.Itoa(i)
+		nodeID := uint64(1523785546583723502 + i)
+
+		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	_, err := s.state.GetAPIAddresses(c.Context(), "42")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
+}
+
+func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
+	for i := 0; i < 3; i++ {
+		controllerID := strconv.Itoa(i)
+		nodeID := uint64(1523785546583723502 + i)
+
+		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	addrs := []controllernode.APIAddress{
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
+		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+	}
+
+	err := s.state.SetAPIAddresses(
+		c.Context(),
+		map[string]controllernode.APIAddresses{
+			"0": addrs,
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	expectedAddresses := []string{
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+	}
+	resultAddresses, err := s.state.GetAPIAddressesForAgents(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resultAddresses, tc.DeepEquals, expectedAddresses)
+}
+
+func (s *stateSuite) TestGetAPIAddressesForAgentsEmpty(c *tc.C) {
+	for i := 0; i < 3; i++ {
+		controllerID := strconv.Itoa(i)
+		nodeID := uint64(1523785546583723502 + i)
+
+		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	_, err := s.state.GetAPIAddressesForAgents(c.Context(), "42")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
+}
+
+>>>>>>> 61370002eb (feat: remove curated nodes)
+func (s *stateSuite) TestGetControllerIDs(c *tc.C) {
+	for i := 0; i < 3; i++ {
+		controllerID := strconv.Itoa(i)
+		nodeID := uint64(1523785546583723502 + i)
+
+		err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0."+controllerID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
 
 	controllerIDs, err := s.state.GetControllerIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -607,9 +707,11 @@ func (s *stateSuite) TestGetControllerIDsEmpty(c *tc.C) {
 
 func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
 	// Arrange: 2 controller nodes
-	ctrlID1 := "1"
-	err := s.state.CurateNodes(c.Context(), []string{ctrlID1}, nil)
+	controllerID1 := "1"
+	nodeID1 := uint64(15237855465837235027)
+	err := s.state.AddDqliteNode(c.Context(), controllerID1, nodeID1, "10.0.0."+controllerID1)
 	c.Assert(err, tc.ErrorIsNil)
+
 	addrs1 := []controllernode.APIAddress{
 		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
 		{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
@@ -618,23 +720,26 @@ func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
 	err = s.state.SetAPIAddresses(
 		c.Context(),
 		map[string]controllernode.APIAddresses{
-			ctrlID1: addrs1,
+			controllerID1: addrs1,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ctrlID2 := "2"
-	err = s.state.CurateNodes(c.Context(), []string{ctrlID2}, nil)
+	controllerID2 := "2"
+	nodeID2 := uint64(15237855465837235026)
+	err = s.state.AddDqliteNode(c.Context(), controllerID2, nodeID2, "10.0.0."+controllerID2)
 	c.Assert(err, tc.ErrorIsNil)
+
 	addrs2 := []controllernode.APIAddress{
 		{Address: "192.168.10.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
 		{Address: "10.0.34.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
 		{Address: "10.0.0.3:18080", IsAgent: true, Scope: network.ScopePublic},
 	}
+
 	err = s.state.SetAPIAddresses(
 		c.Context(),
 		map[string]controllernode.APIAddresses{
-			ctrlID2: addrs2,
+			controllerID2: addrs2,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -655,9 +760,11 @@ func (s *stateSuite) TestGetAPIAddressesForAgents(c *tc.C) {
 func (s *stateSuite) TestGetAllAPIAddressesWithScopeForClients(c *tc.C) {
 	// Arrange
 	// Arrange: 2 controller nodes
-	ctrlID1 := "1"
-	err := s.state.CurateNodes(c.Context(), []string{ctrlID1}, nil)
+	controllerID1 := "1"
+	nodeID1 := uint64(15237855465837235027)
+	err := s.state.AddDqliteNode(c.Context(), controllerID1, nodeID1, "10.0.0."+controllerID1)
 	c.Assert(err, tc.ErrorIsNil)
+
 	addrs1 := []controllernode.APIAddress{
 		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
 		{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
@@ -666,14 +773,16 @@ func (s *stateSuite) TestGetAllAPIAddressesWithScopeForClients(c *tc.C) {
 	err = s.state.SetAPIAddresses(
 		c.Context(),
 		map[string]controllernode.APIAddresses{
-			ctrlID1: addrs1,
+			controllerID1: addrs1,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	ctrlID2 := "2"
-	err = s.state.CurateNodes(c.Context(), []string{ctrlID2}, nil)
+	controllerID2 := "2"
+	nodeID2 := uint64(15237855465837235026)
+	err = s.state.AddDqliteNode(c.Context(), controllerID2, nodeID2, "10.0.0."+controllerID2)
 	c.Assert(err, tc.ErrorIsNil)
+
 	addrs2 := []controllernode.APIAddress{
 		{Address: "192.168.10.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
 		{Address: "10.0.34.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
@@ -682,7 +791,7 @@ func (s *stateSuite) TestGetAllAPIAddressesWithScopeForClients(c *tc.C) {
 	err = s.state.SetAPIAddresses(
 		c.Context(),
 		map[string]controllernode.APIAddresses{
-			ctrlID2: addrs2,
+			controllerID2: addrs2,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -696,15 +805,15 @@ func (s *stateSuite) TestGetAllAPIAddressesWithScopeForClients(c *tc.C) {
 	// The order of the addresses coming from the db cannot be guaranteed.
 	// That's okay in this case as the caller will order the addresses as
 	// required.
-	c.Assert(result[ctrlID1], tc.SameContents, controllernode.APIAddresses(addrs1))
-	c.Assert(result[ctrlID2], tc.SameContents, controllernode.APIAddresses(addrs2))
+	c.Assert(result[controllerID1], tc.SameContents, controllernode.APIAddresses(addrs1))
+	c.Assert(result[controllerID2], tc.SameContents, controllernode.APIAddresses(addrs2))
 }
 
 func (s *stateSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
 	// Arrange
-	controllerID := "1"
-
-	err := s.state.CurateNodes(c.Context(), []string{controllerID}, nil)
+	controllerID1 := "1"
+	nodeID1 := uint64(15237855465837235027)
+	err := s.state.AddDqliteNode(c.Context(), controllerID1, nodeID1, "10.0.0."+controllerID1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := controllernode.APIAddresses{
@@ -716,7 +825,7 @@ func (s *stateSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
 	err = s.state.SetAPIAddresses(
 		c.Context(),
 		map[string]controllernode.APIAddresses{
-			controllerID: addrs,
+			controllerID1: addrs,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)

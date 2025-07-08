@@ -43,40 +43,78 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// CurateNodes mocks base method.
-func (m *MockState) CurateNodes(arg0 context.Context, arg1, arg2 []string) error {
+// AddDqliteNode mocks base method.
+func (m *MockState) AddDqliteNode(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CurateNodes", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddDqliteNode", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CurateNodes indicates an expected call of CurateNodes.
-func (mr *MockStateMockRecorder) CurateNodes(arg0, arg1, arg2 any) *MockStateCurateNodesCall {
+// AddDqliteNode indicates an expected call of AddDqliteNode.
+func (mr *MockStateMockRecorder) AddDqliteNode(arg0, arg1, arg2, arg3 any) *MockStateAddDqliteNodeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurateNodes", reflect.TypeOf((*MockState)(nil).CurateNodes), arg0, arg1, arg2)
-	return &MockStateCurateNodesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddDqliteNode", reflect.TypeOf((*MockState)(nil).AddDqliteNode), arg0, arg1, arg2, arg3)
+	return &MockStateAddDqliteNodeCall{Call: call}
 }
 
-// MockStateCurateNodesCall wrap *gomock.Call
-type MockStateCurateNodesCall struct {
+// MockStateAddDqliteNodeCall wrap *gomock.Call
+type MockStateAddDqliteNodeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCurateNodesCall) Return(arg0 error) *MockStateCurateNodesCall {
+func (c *MockStateAddDqliteNodeCall) Return(arg0 error) *MockStateAddDqliteNodeCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCurateNodesCall) Do(f func(context.Context, []string, []string) error) *MockStateCurateNodesCall {
+func (c *MockStateAddDqliteNodeCall) Do(f func(context.Context, string, uint64, string) error) *MockStateAddDqliteNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCurateNodesCall) DoAndReturn(f func(context.Context, []string, []string) error) *MockStateCurateNodesCall {
+func (c *MockStateAddDqliteNodeCall) DoAndReturn(f func(context.Context, string, uint64, string) error) *MockStateAddDqliteNodeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteDqliteNodes mocks base method.
+func (m *MockState) DeleteDqliteNodes(arg0 context.Context, arg1 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteDqliteNodes", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteDqliteNodes indicates an expected call of DeleteDqliteNodes.
+func (mr *MockStateMockRecorder) DeleteDqliteNodes(arg0, arg1 any) *MockStateDeleteDqliteNodesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDqliteNodes", reflect.TypeOf((*MockState)(nil).DeleteDqliteNodes), arg0, arg1)
+	return &MockStateDeleteDqliteNodesCall{Call: call}
+}
+
+// MockStateDeleteDqliteNodesCall wrap *gomock.Call
+type MockStateDeleteDqliteNodesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteDqliteNodesCall) Return(arg0 error) *MockStateDeleteDqliteNodesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteDqliteNodesCall) Do(f func(context.Context, []string) error) *MockStateDeleteDqliteNodesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteDqliteNodesCall) DoAndReturn(f func(context.Context, []string) error) *MockStateDeleteDqliteNodesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -502,44 +540,6 @@ func (c *MockStateSetRunningAgentBinaryVersionCall) Do(f func(context.Context, s
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetRunningAgentBinaryVersionCall) DoAndReturn(f func(context.Context, string, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UpdateDqliteNode mocks base method.
-func (m *MockState) UpdateDqliteNode(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateDqliteNode", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateDqliteNode indicates an expected call of UpdateDqliteNode.
-func (mr *MockStateMockRecorder) UpdateDqliteNode(arg0, arg1, arg2, arg3 any) *MockStateUpdateDqliteNodeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDqliteNode", reflect.TypeOf((*MockState)(nil).UpdateDqliteNode), arg0, arg1, arg2, arg3)
-	return &MockStateUpdateDqliteNodeCall{Call: call}
-}
-
-// MockStateUpdateDqliteNodeCall wrap *gomock.Call
-type MockStateUpdateDqliteNodeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateUpdateDqliteNodeCall) Return(arg0 error) *MockStateUpdateDqliteNodeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateDqliteNodeCall) Do(f func(context.Context, string, uint64, string) error) *MockStateUpdateDqliteNodeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateDqliteNodeCall) DoAndReturn(f func(context.Context, string, uint64, string) error) *MockStateUpdateDqliteNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

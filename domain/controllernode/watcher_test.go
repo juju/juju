@@ -45,29 +45,26 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 
 	// Ensure that we get the controller node created event.
 	harness.AddTest(func(c *tc.C) {
-		svc.CurateNodes(ctx, []string{"controller0"}, nil)
+		err := svc.AddDqliteNode(ctx, "0", uint64(1), "10.0.0.1")
+		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	// Ensure that we get the second and third controller nodes created event.
+	// Ensure that we get the update controller node event.
 	harness.AddTest(func(c *tc.C) {
-		svc.CurateNodes(ctx, []string{"controller1", "controller2"}, nil)
+		err := svc.AddDqliteNode(ctx, "0", uint64(1), "10.0.0.2")
+		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	// Ensure that we get the removed controllers event.
+	// Ensure that we get a new controller node.
 	harness.AddTest(func(c *tc.C) {
-		svc.CurateNodes(ctx, nil, []string{"controller1", "controller2"})
+		err := svc.AddDqliteNode(ctx, "0", uint64(2), "10.0.0.3")
+		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
-	})
-
-	// Nothing happens so no change.
-	harness.AddTest(func(c *tc.C) {
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertNoChange()
 	})
 
 	harness.Run(c, struct{}{})
@@ -107,7 +104,8 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 
 	// Ensure that we get the controller api address added event.
 	harness.AddTest(func(c *tc.C) {
-		svc.CurateNodes(ctx, []string{"1"}, nil)
+		err := svc.AddDqliteNode(ctx, "1", uint64(1), "10.0.0.1")
+		c.Assert(err, jc.ErrorIsNil)
 		args := controllernode.SetAPIAddressArgs{
 			APIAddresses: map[string]network.SpaceHostPorts{
 				"1": addrs,

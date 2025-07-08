@@ -26,18 +26,13 @@ import (
 // State describes retrieval and persistence
 // methods for controller node concerns.
 type State interface {
-	// CurateNodes adds and removes controller node records according to the
-	// input slices.
-	CurateNodes(context.Context, []string, []string) error
+	// AddDqliteNode adds the Dqlite node ID and bind address for the input
+	// controller ID. If the controller ID already exists, it updates the
+	// Dqlite node ID and bind address.
+	AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error
 
-	// UpdateDqliteNode sets the Dqlite node ID and bind address
-	// for the input controller ID.
-	// The controller ID must be a valid controller node.
-	UpdateDqliteNode(context.Context, string, uint64, string) error
-
-	// IsControllerNode returns true if the supplied nodeID is a controller
-	// node.
-	IsControllerNode(context.Context, string) (bool, error)
+	// DeleteDqliteNodes removes controller nodes from the controller_node table.
+	DeleteDqliteNodes(ctx context.Context, delete []string) error
 
 	// SelectDatabaseNamespace returns the database namespace for the supplied
 	// namespace.
@@ -99,26 +94,27 @@ func NewService(st State, logger logger.Logger) *Service {
 	}
 }
 
-// CurateNodes modifies the known control plane by adding and removing
-// controller node records according to the input slices.
-func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) error {
+// AddDqliteNode adds the Dqlite node ID and bind address for the input
+// controller ID. If the controller ID already exists, it updates the
+// Dqlite node ID and bind address.
+func (s *Service) AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.st.CurateNodes(ctx, toAdd, toRemove); err != nil {
-		return errors.Errorf("curating controller codes; adding %v, removing %v: %w", toAdd, toRemove, err)
+	if err := s.st.AddDqliteNode(ctx, controllerID, nodeID, addr); err != nil {
+		return errors.Errorf("adding Dqlite node details for %q: %w", controllerID, err)
 	}
 	return nil
 }
 
-// UpdateDqliteNode sets the Dqlite node ID and bind address for the input
+// DeleteDqliteNodes deletes the Dqlite node ID and bind address for the input
 // controller ID.
-func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
+func (s *Service) DeleteDqliteNodes(ctx context.Context, controllerIDs []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.st.UpdateDqliteNode(ctx, controllerID, nodeID, addr); err != nil {
-		return errors.Errorf("updating Dqlite node details for %q: %w", controllerID, err)
+	if err := s.st.DeleteDqliteNodes(ctx, controllerIDs); err != nil {
+		return errors.Errorf("deleting Dqlite node details for %q: %w", controllerIDs, err)
 	}
 	return nil
 }
@@ -168,19 +164,6 @@ func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, con
 	}
 
 	return nil
-}
-
-// IsControllerNode returns true if the supplied nodeID is a controller node.
-func (s *Service) IsControllerNode(ctx context.Context, nodeID string) (bool, error) {
-	if nodeID == "" {
-		return false, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
-	}
-
-	isController, err := s.st.IsControllerNode(ctx, nodeID)
-	if err != nil {
-		return false, errors.Errorf("checking is controller node: %w", err)
-	}
-	return isController, nil
 }
 
 // SetAPIAddresses sets the provided addresses associated with the provided
