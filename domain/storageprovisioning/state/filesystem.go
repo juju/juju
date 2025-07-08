@@ -53,24 +53,24 @@ func (st *State) GetFilesystemAttachmentIDs(
 	// netnode.
 	q := `
 SELECT &filesystemAttachmentIDs.* FROM (
-	SELECT sfa.uuid,
-	       sf.filesystem_id,
-		   m.name AS machine_name,
-		   NULL AS unit_name
-	FROM   storage_filesystem_attachment sfa
-	JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
-	JOIN   machine m ON sfa.net_node_uuid = m.net_node_uuid
-	WHERE  sfa.uuid IN ($filesystemAttachmentUUIDs[:])
-	UNION
-	SELECT      sfa.uuid,
-	            sf.filesystem_id,
-		        NULL AS machine_name,
-		        u.name AS unit_name
-	FROM        storage_filesystem_attachment sfa
-	JOIN        storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
-	LEFT JOIN   machine m ON sfa.net_node_uuid != m.net_node_uuid
-	JOIN        unit u ON sfa.net_node_uuid = u.net_node_uuid
-	WHERE       sfa.uuid IN ($filesystemAttachmentUUIDs[:])
+    SELECT sfa.uuid,
+           sf.filesystem_id,
+           m.name AS machine_name,
+           NULL AS unit_name
+    FROM   storage_filesystem_attachment sfa
+    JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+    JOIN   machine m ON sfa.net_node_uuid = m.net_node_uuid
+    WHERE  sfa.uuid IN ($filesystemAttachmentUUIDs[:])
+    UNION
+    SELECT     sfa.uuid,
+               sf.filesystem_id,
+               NULL AS machine_name,
+               u.name AS unit_name
+    FROM       storage_filesystem_attachment sfa
+    JOIN       storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN  machine m ON sfa.net_node_uuid != m.net_node_uuid
+    JOIN       unit u ON sfa.net_node_uuid = u.net_node_uuid
+    WHERE      sfa.uuid IN ($filesystemAttachmentUUIDs[:])
 )
 `
 

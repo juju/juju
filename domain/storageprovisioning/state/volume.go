@@ -45,24 +45,24 @@ func (st *State) GetVolumeAttachmentIDs(
 	// netnode.
 	q := `
 SELECT &volumeAttachmentIDs.* FROM (
-	SELECT sva.uuid,
-	       sv.volume_id,
-		   m.name AS machine_name,
-		   NULL AS unit_name
-	FROM   storage_volume_attachment sva
-	JOIN   storage_volume sv ON sva.storage_volume_uuid = sv.uuid
-	JOIN   machine m ON sva.net_node_uuid = m.net_node_uuid
-	WHERE  sva.uuid IN ($volumeAttachmentUUIDs[:])
-	UNION
-	SELECT      sva.uuid,
-	            sv.volume_id,
-		        NULL AS machine_name,
-		        u.name AS unit_name
-	FROM        storage_volume_attachment sva
-	JOIN        storage_volume sv ON sva.storage_volume_uuid = sv.uuid
-	LEFT JOIN   machine m ON sva.net_node_uuid != m.net_node_uuid
-	JOIN        unit u ON sva.net_node_uuid = u.net_node_uuid
-	WHERE       sva.uuid IN ($volumeAttachmentUUIDs[:])
+    SELECT sva.uuid,
+           sv.volume_id,
+           m.name AS machine_name,
+           NULL AS unit_name
+    FROM   storage_volume_attachment sva
+    JOIN   storage_volume sv ON sva.storage_volume_uuid = sv.uuid
+    JOIN   machine m ON sva.net_node_uuid = m.net_node_uuid
+    WHERE  sva.uuid IN ($volumeAttachmentUUIDs[:])
+    UNION
+    SELECT      sva.uuid,
+                sv.volume_id,
+                NULL AS machine_name,
+                u.name AS unit_name
+    FROM        storage_volume_attachment sva
+    JOIN        storage_volume sv ON sva.storage_volume_uuid = sv.uuid
+    LEFT JOIN   machine m ON sva.net_node_uuid != m.net_node_uuid
+    JOIN        unit u ON sva.net_node_uuid = u.net_node_uuid
+    WHERE       sva.uuid IN ($volumeAttachmentUUIDs[:])
 )
 `
 
