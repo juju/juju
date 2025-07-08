@@ -10,7 +10,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -1295,9 +1294,9 @@ type count struct {
 }
 
 type machineName struct {
-	Name machine.Name `db:"name"`
+	Name coremachine.Name `db:"name"`
 }
 
 type machineUUID struct {
-	UUID machine.UUID `db:"uuid"`
+	UUID coremachine.UUID `db:"uuid"`
 }

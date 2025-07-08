@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -85,7 +84,7 @@ func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, erro
 
 // IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *State) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
+func (s *State) IsMachineController(ctx context.Context, mName coremachine.Name) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, errors.Capture(err)
@@ -123,7 +122,7 @@ WHERE  machine_uuid = $machineUUID.uuid
 	return result.Count == 1, nil
 }
 
-func (s *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (machineUUID, error) {
+func (s *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName coremachine.Name) (machineUUID, error) {
 	machineNameParam := machineName{Name: mName}
 	machineUUIDoutput := machineUUID{}
 	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
