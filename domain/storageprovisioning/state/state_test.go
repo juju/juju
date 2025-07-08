@@ -31,6 +31,12 @@ type stateSuite struct {
 	baseSuite
 }
 
+// TestDDLAssumptionSuite registers and runs all of the tests located in
+// [ddlAssumptionsSuite].
+func TestDDLAssumptionsSuite(t *testing.T) {
+	tc.Run(t, &ddlAssumptionsSuite{})
+}
+
 // TestStateSuite registers and runs all of the tests located in [stateSuite].
 func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
@@ -141,7 +147,7 @@ func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetMachineNetNodeUUID(
-		c.Context(), coremachine.UUID(machineUUID),
+		c.Context(), machineUUID,
 	)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -153,7 +159,7 @@ func (s *ddlAssumptionsSuite) TestMachineProvisionScopeValue(c *tc.C) {
 	var idVal int
 	err := s.DB().QueryRowContext(
 		c.Context(),
-		"SELECT id from storage_provision_scope WHERE scope = 'machine",
+		"SELECT id from storage_provision_scope WHERE scope = 'machine'",
 	).Scan(&idVal)
 
 	c.Check(err, tc.ErrorIsNil)
@@ -167,7 +173,7 @@ func (s *ddlAssumptionsSuite) TestModelProvisionScopeValue(c *tc.C) {
 	var idVal int
 	err := s.DB().QueryRowContext(
 		c.Context(),
-		"SELECT id from storage_provision_scope WHERE scope = 'model",
+		"SELECT id from storage_provision_scope WHERE scope = 'model'",
 	).Scan(&idVal)
 
 	c.Check(err, tc.ErrorIsNil)
