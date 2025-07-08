@@ -1388,13 +1388,9 @@ func (api *APIBase) addApplicationUnits(
 		}
 		attachStorage[i] = tag
 	}
-	oneApplication, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	return api.addUnits(
 		ctx,
-		oneApplication,
 		args.ApplicationName,
 		args.NumUnits,
 		args.Placement,

@@ -274,7 +274,7 @@ func (s *AgentConfigUpdaterSuite) setupManifold(c *tc.C, isControllerNode func()
 				ControllerConfigService: s.controllerConfigService,
 			}, nil
 		},
-		IsControllerAgentFn: func(g dependency.Getter, s string, t names.Tag) (bool, error) {
+		IsControllerAgentFn: func(ctx context.Context, g dependency.Getter, s string, m names.ModelTag, t names.Tag) (bool, error) {
 			return isControllerNode()
 		},
 	})

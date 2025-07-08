@@ -18,6 +18,7 @@ import (
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
@@ -38,7 +39,7 @@ type GetControllerDomainServicesFunc func(dependency.Getter, string) (Controller
 
 // IsControllerAgentFunc is a function that checks if the agent is a controller
 // agent based on the tag.
-type IsControllerAgentFunc func(dependency.Getter, string, names.Tag) (bool, error)
+type IsControllerAgentFunc func(context.Context, dependency.Getter, string, names.ModelTag, names.Tag) (bool, error)
 
 // ManifoldConfig provides the dependencies for the agent config updater
 // manifold.
@@ -78,8 +79,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Grab the tag and ensure that it's for a controller.
 			tag := currentConfig.Tag()
+			modelTag := currentConfig.Model()
 
-			if isControllerNode, err := config.IsControllerAgentFn(getter, config.DomainServicesName, tag); err != nil {
+			if isControllerNode, err := config.IsControllerAgentFn(ctx, getter, config.DomainServicesName, modelTag, tag); err != nil {
 				return nil, errors.Errorf("checking is controller agent: %w", err)
 			} else if !isControllerNode {
 				// Not a controller agent, nothing to do.
@@ -104,7 +106,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Capture(err)
 			}
 
-			tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("agentconfigupdater", currentConfig.Model().Id()))
+			tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("agentconfigupdater", modelTag.Id()))
 			if err != nil {
 				tracer = coretrace.NoopTracer{}
 			}
@@ -302,7 +304,7 @@ func GetControllerDomainServices(getter dependency.Getter, name string) (Control
 
 // IAASIsControllerAgent checks if the agent is a controller node based on the
 // tag.
-func IAASIsControllerAgent(getter dependency.Getter, name string, tag names.Tag) (bool, error) {
+func IAASIsControllerAgent(ctx context.Context, getter dependency.Getter, name string, modelTag names.ModelTag, tag names.Tag) (bool, error) {
 	// All controller agents will be controller agents, so we can just check the
 	// tag kind.
 	switch tag.Kind() {
@@ -311,14 +313,16 @@ func IAASIsControllerAgent(getter dependency.Getter, name string, tag names.Tag)
 		return false, nil
 	}
 
-	domainService, err := coredependency.GetDependencyByName(getter, name, func(s services.DomainServices) services.DomainServices {
-		return s
-	})
-	if err != nil {
-		return false, errors.Errorf("getting domain services: %w", err)
+	var domainServicesGetter services.DomainServicesGetter
+	if err := getter.Get(name, &domainServicesGetter); err != nil {
+		return false, errors.Errorf("getting domain services getter: %w", err)
 	}
 
-	isController, err := domainService.Machine().IsMachineController(context.Background(), machine.Name(tag.Id()))
+	domainservices, err := domainServicesGetter.ServicesForModel(ctx, model.UUID(modelTag.Id()))
+	if err != nil {
+		return false, errors.Errorf("getting domain services for model %q: %w", modelTag.Id(), err)
+	}
+	isController, err := domainservices.Machine().IsMachineController(ctx, machine.Name(tag.Id()))
 	if err != nil {
 		return false, errors.Errorf("checking if machine is controller: %w", err)
 	}
@@ -327,7 +331,7 @@ func IAASIsControllerAgent(getter dependency.Getter, name string, tag names.Tag)
 
 // CAASIsControllerAgent checks if the agent is a controller node based on the
 // tag.
-func CAASIsControllerAgent(getter dependency.Getter, name string, tag names.Tag) (bool, error) {
+func CAASIsControllerAgent(ctx context.Context, getter dependency.Getter, name string, modelTag names.ModelTag, tag names.Tag) (bool, error) {
 	// All controller agents will be controller agents, so we can just check the
 	// tag kind.
 	switch tag.Kind() {
