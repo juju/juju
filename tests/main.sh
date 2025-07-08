@@ -53,10 +53,10 @@ TEST_NAMES="agents \
             deploy \
             deploy_aks \
             deploy_caas \
-			firewall \
+            firewall \
             hooks \
             hooktools \
-			kubeflow \
+            kubeflow \
             machine \
             magma \
             manual \
@@ -272,6 +272,7 @@ cleanup() {
 
 	archive_logs "partial"
 
+	cleanup_pids
 	cleanup_jujus
 	cleanup_funcs
 

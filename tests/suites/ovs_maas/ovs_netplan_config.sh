@@ -7,7 +7,7 @@ run_ovs_netplan_config() {
 	# an address in 'space1'.
 	# - The third NIC is assigned an address in 'space2'.
 	juju switch controller
-	juju deploy cs:~juju-qa/space-invader --constraints='tags=ovs' --to lxd:0 --bind 'space1 invade-b=space2' --series focal
+	juju deploy juju-qa-space-invader --series focal --constraints='tags=ovs' --to lxd:0 --bind 'space1 invade-b=space2'
 	unit_index=$(get_unit_index "space-invader")
 	wait_for "space-invader" "$(idle_condition "space-invader" 0 "${unit_index}")"
 

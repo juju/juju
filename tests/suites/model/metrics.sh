@@ -9,7 +9,7 @@ run_model_metrics() {
 	ensure "${testname}" "${file}"
 
 	# deploy ubuntu with a different name, check that the metric send the charm name, not the application name.
-	juju deploy ubuntu app-one
+	juju deploy ubuntu app-one --series focal
 	juju deploy juju-qa-test
 	juju deploy ntp
 	juju relate ntp app-one

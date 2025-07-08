@@ -166,6 +166,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 			return httpcontext.AuthInfo{}, errors.NewUnauthorized(err, "")
 		}
 	}
+	authInfo.ModelTag = names.NewModelTag(modelUUID)
 	return authInfo, nil
 }
 

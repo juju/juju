@@ -56,6 +56,18 @@ idle_condition() {
 	echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current != \"error\")) | keys[$app_index]"
 }
 
+active_idle_condition() {
+	local name app_index unit_index
+
+	name=${1}
+	app_index=${2:-0}
+	unit_index=${3:-0}
+
+	path=".[\"$name\"] | .units | .[\"$name/$unit_index\"]"
+
+	echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current == \"active\")) | keys[$app_index]"
+}
+
 idle_subordinate_condition() {
 	local name parent unit_index
 
@@ -318,4 +330,51 @@ wait_for_storage() {
 		# breathe period to ensure things have actually settled.
 		sleep "${SHORT_TIMEOUT}"
 	fi
+}
+
+# wait_for_aws_ingress_cidrs_for_port_range blocks until the expected CIDRs
+# are present in the AWS security group rules for the specified port range.
+wait_for_aws_ingress_cidrs_for_port_range() {
+	local from_port to_port exp_cidrs cidr_type
+
+	from_port=${1}
+	to_port=${2}
+	exp_cidrs=${3}
+	cidr_type=${4}
+
+	ipV6Suffix=""
+	if [ "$cidr_type" = "ipv6" ]; then
+		ipV6Suffix="v6"
+	fi
+
+	# shellcheck disable=SC2086
+	secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
+	# print the security group rules
+	# shellcheck disable=SC2086
+	got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
+
+	attempt=0
+	# shellcheck disable=SC2046,SC2143
+	while [ "$attempt" -lt "3" ]; do
+		echo "[+] (attempt ${attempt}) polling security group rules"
+		# shellcheck disable=SC2086
+		secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
+		# shellcheck disable=SC2086
+		got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
+		sleep "${SHORT_TIMEOUT}"
+
+		if [ "$got_cidrs" == "$exp_cidrs" ]; then
+			break
+		fi
+
+		attempt=$((attempt + 1))
+	done
+
+	if [ "$got_cidrs" != "$exp_cidrs" ]; then
+		# shellcheck disable=SC2046
+		echo $(red "expected generated EC2 ${cidr_type} ingress CIDRs for range [${from_port}, ${to_port}] to be:\n${exp_cidrs}\nGOT:\n${got_cidrs}")
+		exit 1
+	fi
+
+	echo "[+] security group rules for port range [${from_port}, ${to_port}] and CIDRs ${exp_cidrs} updated"
 }

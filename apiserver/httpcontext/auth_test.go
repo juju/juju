@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/rpc/params"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type BasicAuthHandlerSuite struct {
@@ -48,7 +50,8 @@ func (s *BasicAuthHandlerSuite) SetUpTest(c *gc.C) {
 	}
 	s.server = httptest.NewServer(s.handler)
 	s.authInfo = httpcontext.AuthInfo{
-		Entity: &mockEntity{tag: names.NewUserTag("bob")},
+		Entity:   &mockEntity{tag: names.NewUserTag("bob")},
+		ModelTag: jujutesting.ModelTag,
 	}
 }
 
@@ -130,4 +133,53 @@ type mockEntity struct {
 
 func (e *mockEntity) Tag() names.Tag {
 	return e.tag
+}
+
+type CompositeAuthSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&CompositeAuthSuite{})
+
+type stubAuthorizer struct {
+	expected httpcontext.AuthInfo
+	err      error
+}
+
+func (a stubAuthorizer) Authorize(info httpcontext.AuthInfo) error {
+	if !reflect.DeepEqual(a.expected, info) {
+		return errors.New("wrong auth info")
+	}
+	return a.err
+}
+
+func (s *CompositeAuthSuite) TestAuthorizeSuccess(c *gc.C) {
+	authInfo := httpcontext.AuthInfo{Controller: true}
+	var auth httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		stubAuthorizer{
+			expected: authInfo,
+			err:      errors.New("unauthorized"),
+		},
+		stubAuthorizer{
+			expected: authInfo,
+		},
+	}
+	err := auth.Authorize(authInfo)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CompositeAuthSuite) TestAuthorizeFail(c *gc.C) {
+	authInfo := httpcontext.AuthInfo{Controller: true}
+	var auth httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		stubAuthorizer{
+			expected: authInfo,
+			err:      errors.New("unauthorized"),
+		},
+		stubAuthorizer{
+			expected: authInfo,
+			err:      errors.New("unauthorized"),
+		},
+	}
+	err := auth.Authorize(authInfo)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

@@ -26,12 +26,12 @@ func (s archSuite) TestContains(c *gc.C) {
 
 func (s archSuite) TestStringList(c *gc.C) {
 	arches := arch.AllArches()
-	c.Assert(arches.StringList(), jc.DeepEquals, []string{"amd64", "arm64", "armhf", "i386", "ppc64el", "s390x"})
+	c.Assert(arches.StringList(), jc.DeepEquals, []string{"amd64", "arm64", "armhf", "i386", "ppc64el", "riscv64", "s390x"})
 }
 
 func (s archSuite) TestString(c *gc.C) {
 	arches := arch.AllArches()
-	c.Assert(arches.String(), gc.Equals, "amd64,arm64,armhf,i386,ppc64el,s390x")
+	c.Assert(arches.String(), gc.Equals, "amd64,arm64,armhf,i386,ppc64el,riscv64,s390x")
 }
 
 func (s archSuite) TestConstraintArch(c *gc.C) {

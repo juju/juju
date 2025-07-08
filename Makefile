@@ -1,3 +1,10 @@
+.PHONY: help
+help:
+	@echo "Usage: \n"
+	@sed -n 's/^## //p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
+
+# Export this first, incase we want to change it in the included makefiles.
+export CGO_ENABLED=0
 
 # Makefile for juju-core.
 #
@@ -22,8 +29,7 @@ JUJU_VERSION=$(shell go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_N
 # BUILD_DIR is the directory relative to this project where we place build
 # artifacts created by this Makefile.
 BUILD_DIR ?= $(PROJECT_DIR)/_build
-
-BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
+BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
 # JUJU_METADATA_SOURCE is the directory where we place simple streams archives
 # for built juju binaries.
@@ -32,9 +38,6 @@ JUJU_METADATA_SOURCE ?= ${BUILD_DIR}/simplestreams
 # TEST_PACKAGE_LIST is the path to a file that is a newline delimited list of
 # packages to test. This file must be sorted.
 TEST_PACKAGE_LIST ?=
-
-# Explicitly tell GO that we don't want CGO in our builds
-export CGO_ENABLED ?= 0
 
 # bin_platform_path calculates the bin directory path for build artifacts for
 # the list of Go style platforms passed to this macro. For example
@@ -68,9 +71,18 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 # Example: BUILD_TAGS="minimal provider_kubernetes"
 BUILD_TAGS ?=
 
+# EXTRA_BUILD_TAGS is not passed in, but built up from context.
+EXTRA_BUILD_TAGS =
+# Enable coverage collection.
+ifneq ($(COVERAGE_COLLECT_URL),)
+    EXTRA_BUILD_TAGS += cover
+endif
+
+# FINAL_BUILD_TAGS is the final list of build tags.
+FINAL_BUILD_TAGS=$(shell echo "$(BUILD_TAGS) $(EXTRA_BUILD_TAGS)" | awk '{$$1=$$1};1' | tr ' ' ',')
+
 # GIT_COMMIT the current git commit of this repository
 GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
-
 
 # Build flag passed to go -mod defaults to readonly to support go workspaces.
 # CI should set this to vendor
@@ -80,9 +92,9 @@ JUJU_GOMOD_MODE ?= readonly
 # if the tree that is checked out is dirty (modified) or clean.
 GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-tree 2>/dev/null | grep -e 'true'),$(if $(shell git -C $(PROJECT_DIR) status --porcelain),dirty,clean),archive)
 
-# BUILD_AGENT_TARGETS is a list of make targets the get built that fall under
-# the category of Juju agents. These targets are also the ones we are more then
-# likely wanting to cross compile.
+# BUILD_AGENT_TARGETS is a list of make targets that get built, that fall under
+# the category of Juju agents. These targets are also the ones
+# we are more then likely wanting to cross compile.
 # NOTES:
 # - We filter pebble here for only linux builds as that is only what it will
 #   compile for at the moment.
@@ -116,24 +128,28 @@ define INSTALL_TARGETS
 	juju \
 	jujuc \
 	jujud \
+	containeragent \
 	juju-metadata \
 	juju-wait-for
 endef
+
+# Windows doesn't support the agent binaries
+ifeq ($(GOOS), windows)
+    INSTALL_TARGETS = juju \
+                      juju-metadata \
+                      juju-wait-for
+endif
 
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
 	INSTALL_TARGETS += pebble
 endif
 
-ifneq ($(GOOS), windows)
-	INSTALL_TARGETS += containeragent
-endif
-
 # Allow the tests to take longer on restricted platforms.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
-	TEST_TIMEOUT := 5400s
+    TEST_TIMEOUT ?= 5400s
 else
-	TEST_TIMEOUT := 1800s
+    TEST_TIMEOUT ?= 2700s
 endif
 TEST_TIMEOUT:=$(TEST_TIMEOUT)
 
@@ -143,27 +159,32 @@ ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
 	TEST_ARGS += -p 4
 endif
 
-# Enable coverage testing.
-ifeq ($(COVERAGE_CHECK), 1)
-	TEST_ARGS += -coverprofile=coverage.txt -covermode=atomic
-endif
-
 # Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
 	CHECK_ARGS = -v
 endif
 
+define link_flags_version
+-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
+-X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
+-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
+-X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS) \
+-X $(PROJECT)/internal/debug/coveruploader.putURL=$(COVERAGE_COLLECT_URL)
+endef
+
+# Enable coverage collection.
+ifneq ($(COVERAGE_COLLECT_URL),)
+    COVER_COMPILE_FLAGS = -cover -covermode=atomic
+    COVER_LINK_FLAGS = -checklinkname=0
+endif
+
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
-    COMPILE_FLAGS = -gcflags "all=-N -l"
-    CGO_ENABLED = 0
-    LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    COMPILE_FLAGS = $(COVER_COMPILE_FLAGS) -gcflags "all=-N -l"
+    LINK_FLAGS = "$(COVER_LINK_FLAGS) $(link_flags_version)"
 else
-    EXTRA_LD_FLAGS=-extldflags '-static'
-    ifeq ($(CGO_ENABLED), 1)
-        EXTRA_LD_FLAGS=
-    endif
-    LINK_FLAGS = -ldflags "-s -w $(EXTRA_LD_FLAGS) -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
+    LINK_FLAGS = "$(COVER_LINK_FLAGS) -s -w -extldflags '-static' $(link_flags_version)"
 endif
 
 define DEPENDENCIES
@@ -179,10 +200,10 @@ endef
 # local variable defined for PACKAGE. An example of PACKAGE would be
 # PACKAGE=github.com/juju/juju
 # 
-# This canned commaned also allows building for architectures defined as
+# This canned command also allows building for architectures defined as
 # ppc64el. Because of legacy Juju we use the arch ppc64el over the go defined
 # arch of ppc64le. This canned command will do a last minute transformation of
-# the string we build the "correct" go archiecture. However the build result
+# the string we build the "correct" go architecture. However the build result
 # will still be placed at the expected location with names matching ppc64el.
 define run_go_build
 	$(eval OS = $(word 1,$(subst _, ,$*)))
@@ -191,20 +212,28 @@ define run_go_build
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env GOOS=${OS} GOARCH=${BUILD_ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
+	@env GOOS=${OS} \
+		GOARCH=${BUILD_ARCH} \
+		go build \
+			-mod=$(JUJU_GOMOD_MODE) \
+			-tags=$(FINAL_BUILD_TAGS) \
+			-o ${BBIN_DIR} \
+			$(COMPILE_FLAGS) \
+			-ldflags $(LINK_FLAGS) \
+			-v ${PACKAGE}
 endef
 
 define run_go_install
 	@echo "Installing ${PACKAGE}"
-	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
+	@go install \
+		-mod=$(JUJU_GOMOD_MODE) \
+		-tags=$(FINAL_BUILD_TAGS) \
+		$(COMPILE_FLAGS) \
+		-ldflags $(LINK_FLAGS) \
+		-v ${PACKAGE}
 endef
 
 default: build
-
-.PHONY: help
-help:
-	@echo "Usage: \n"
-	@sed -n 's/^##//p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
 
 .PHONY: juju
 juju: PACKAGE = github.com/juju/juju/cmd/juju
@@ -250,17 +279,16 @@ pebble:
 
 .PHONY: phony_explicit
 phony_explicit:
-## phone_explicit is a dummy target that can be added to pattern targets to
-## them phony make.
+# phone_explicit: is a dummy target that can be added to pattern targets to phony make.
 
 ${BUILD_DIR}/%/bin/juju: PACKAGE = github.com/juju/juju/cmd/juju
 ${BUILD_DIR}/%/bin/juju: phony_explicit
-## build for juju
+# build for juju
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujuc: PACKAGE = github.com/juju/juju/cmd/jujuc
 ${BUILD_DIR}/%/bin/jujuc: phony_explicit
-## build for jujuc
+# build for jujuc
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
@@ -288,7 +316,7 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 # build for pebble
 	$(run_go_build)
 
-${JUJU_METADATA_SOURCE}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS)
+${JUJU_METADATA_SOURCE}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju go-agent-build
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
 	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/released
 	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) jujud jujuc
@@ -300,19 +328,20 @@ simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
 
 .PHONY: build
 build: rebuild-schema go-build
-## build builds all the targets specified by BUILD_AGENT_TARGETS and
-## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
+## build: builds all the targets including rebuilding a new schema.
+
+.PHONY: go-agent-build
+go-agent-build: $(BUILD_AGENT_TARGETS)
 
 .PHONY: go-client-build
 go-client-build: $(BUILD_CLIENT_TARGETS)
 
 .PHONY: go-build
-go-build: $(BUILD_AGENT_TARGETS) $(BUILD_CLIENT_TARGETS)
-## build builds all the targets specified by BUILD_AGENT_TARGETS and
-## BUILD_CLIENT_TARGETS.
+go-build: go-agent-build go-client-build
+## go-build: builds all the targets without rebuilding a new schema.
 
 .PHONY: release-build
-release-build: $(BUILD_MAIN_TARGETS) $(BUILD_AGENT_TARGETS)
+release-build: go-agent-build
 ## release-build: Construct Juju binaries, without building schema
 
 .PHONY: release-install
@@ -338,15 +367,37 @@ race-test:
 ## race-test: Verify Juju code using unit tests with the race detector enabled
 	+make run-tests CGO_ENABLED=1 TEST_ARGS="$(TEST_ARGS) -race"
 
-.PHONY: run-tests
+.PHONY: cover-test
+cover-test:
+	+make run-tests TEST_ARGS="$(TEST_ARGS) -cover -covermode=atomic" TEST_EXTRA_ARGS="$(TEST_EXTRA_ARGS) -test.gocoverdir=${GOCOVERDIR}"
+
+.PHONY: run-tests run-go-tests go-test-alias
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests:
 ## run-tests: Run the unit tests
+	$(eval OS = $(shell go env GOOS))
+	$(eval ARCH = $(shell go env GOARCH))
+	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
-	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
-	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+	$(eval TEST_PACKAGES := $(shell make -s test-packages))
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v $(TEST_EXTRA_ARGS)'
+	@TMPDIR=$(TMP) \
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
+
+.PHONY: test-packages
+test-packages:
+## test-packages: List all the packages that should be tested
+# How this line selects packages to test:
+# 1. List all the project packages with json output.
+# 2. Filter out packages without test files and select their package import path.
+# 3. Sort the list for comm.
+# 4. If there is a list of packages in TEST_PACKAGE_LIST, use it as a filter.
+# 5. Filter out vendored packages.
+# 6. Filter out packages in the generate directory.
+# 7. Filter out packages in the mocks directory.
+# 8. Filter out all mocks.
+	@go list -json $(PROJECT)/... | jq -s -r '[.[] | if (.TestGoFiles | length) + (.XTestGoFiles | length) > 0 then .ImportPath else null end]|del(..|nulls).[]' | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v $(PROJECT)/mocks/ | grep -v mocks
 
 .PHONY: install
 install: rebuild-schema go-install
@@ -385,9 +436,10 @@ rebuild-schema:
 	@echo "Generating facade schema..."
 # GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
 ifdef SCHEMA_PATH
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades "$(SCHEMA_PATH)"
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)/schema.json"
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent "$(SCHEMA_PATH)/agent-schema.json"
 else
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=client \
 		./apiserver/facades/schema.json
 endif
 
@@ -480,7 +532,7 @@ image-check: $(image_check_prereq)
 
 .PHONY: image-check-build
 image-check-build:
-	CLIENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" AGENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" make build
+	CLIENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" AGENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" make go-build
 
 .PHONY: image-check-build-skip
 image-check-build-skip:
@@ -488,8 +540,7 @@ image-check-build-skip:
 
 .PHONY: docker-builder
 docker-builder:
-## docker-builder: Makes sure that there is a buildx context for building the
-## oci images
+## docker-builder: Makes sure that there is a buildx context for building the oci images
 ifeq ($(OCI_BUILDER),docker)
 	-@docker buildx create --name ${DOCKER_BUILDX_CONTEXT}
 endif
@@ -529,7 +580,7 @@ seed-repository:
 
 .PHONY: host-install
 host-install:
-## install juju for host os/architecture
+## host-install: installs juju for host os/architecture
 	+GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make juju
 
 .PHONY: minikube-operator-update

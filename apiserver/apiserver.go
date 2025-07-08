@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/feature"
@@ -689,9 +690,20 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	healthHandler := http.HandlerFunc(srv.healthHandler)
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
+	var debuglogAuth httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind},
+		controllerAdminAuthorizer{
+			st: systemState,
+		},
+		modelPermissionAuthorizer{
+			userAccess: systemState.UserPermission,
+			perm:       permission.ReadAccess,
+		},
+	}
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
-		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind, names.ApplicationTagKind})
+		debuglogAuth,
+	)
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.apiServerLoggers),
@@ -727,12 +739,28 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		PostHandler: modelCharmsHandler.ServePost,
 		GetHandler:  modelCharmsHandler.ServeGet,
 	}
-	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+	var modelCharmsUploadAuthorizer httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		controllerAdminAuthorizer{
+			st: systemState,
+		},
+		modelPermissionAuthorizer{
+			userAccess: systemState.UserPermission,
+			perm:       permission.WriteAccess,
+		},
+	}
 	modelToolsUploadHandler := &toolsUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
-	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
+	var modelToolsUploadAuthorizer httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		controllerAdminAuthorizer{
+			st: systemState,
+		},
+		modelPermissionAuthorizer{
+			userAccess: systemState.UserPermission,
+			perm:       permission.AdminAccess,
+		},
+	}
 	modelToolsDownloadHandler := newToolsDownloadHandler(httpCtxt)
 	resourcesHandler := &ResourcesHandler{
 		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
@@ -917,7 +945,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		pattern:    "/tools",
 		handler:    modelToolsUploadHandler,
-		authorizer: modelToolsUploadAuthorizer,
+		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:         "/tools/:version",
 		handler:         modelToolsDownloadHandler,

@@ -14,6 +14,7 @@ import (
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing/factory"
 )
@@ -59,16 +60,17 @@ func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
 	conn, _, err := s.dialWebsocketInternal(c, nil, header)
 	c.Assert(err, jc.ErrorIsNil)
 
-	websockettest.AssertJSONError(c, conn, "authorization failed: tag kind unit not valid")
+	websockettest.AssertJSONError(c, conn, "authorization failed: permission denied")
 	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 var noResultsPlease = url.Values{"maxLines": {"0"}, "noTail": {"true"}}
 
-func (s *debugLogDBSuite) TestUserLoginsAccepted(c *gc.C) {
+func (s *debugLogDBSuite) TestUserLoginAccepted(c *gc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:     "oryx",
 		Password: "gardener",
+		Access:   permission.ReadAccess,
 	})
 	header := jujuhttp.BasicAuthHeader(u.Tag().String(), "gardener")
 	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header)
@@ -78,6 +80,20 @@ func (s *debugLogDBSuite) TestUserLoginsAccepted(c *gc.C) {
 
 	result := websockettest.ReadJSONErrorLine(c, conn)
 	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *debugLogDBSuite) TestUserLoginRejected(c *gc.C) {
+	u := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "oryx",
+		Password:    "gardener",
+		NoModelUser: true,
+	})
+	header := jujuhttp.BasicAuthHeader(u.Tag().String(), "gardener")
+	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header)
+	c.Assert(err, jc.ErrorIsNil)
+
+	websockettest.AssertJSONError(c, conn, "authorization failed: permission denied")
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *debugLogDBSuite) TestMachineLoginsAccepted(c *gc.C) {

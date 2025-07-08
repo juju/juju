@@ -19,6 +19,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/exec"
 
+	"github.com/juju/juju/internal/debug/coveruploader"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -166,6 +167,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 }
 
 func main() {
+	coveruploader.Enable()
 	os.Exit(Main(os.Args))
 }
 

@@ -24,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -177,7 +178,7 @@ func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
 	s.assertJSONErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
-func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
+func (s *toolsSuite) TestAuthRejectsNonsUser(c *gc.C) {
 	// Add a machine and try to login.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,12 +198,32 @@ func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	})
 	s.assertPlainErrorResponse(
 		c, resp, http.StatusForbidden,
-		"authorization failed: tag kind machine not valid",
+		"authorization failed: permission denied",
 	)
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+}
+
+func (s *toolsSuite) TestAuthRejectsUserWithoutPermission(c *gc.C) {
+	u := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:     "oryx",
+		Password: "gardener",
+		Access:   permission.WriteAccess,
+	})
+
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Tag:      u.Tag().String(),
+		Password: "gardener",
+		Method:   "POST",
+		URL:      s.toolsURI(""),
+		Nonce:    "fake_nonce",
+	})
+	s.assertPlainErrorResponse(
+		c, resp, http.StatusForbidden,
+		"authorization failed: permission denied",
+	)
 }
 
 func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {

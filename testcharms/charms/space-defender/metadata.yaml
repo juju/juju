@@ -1,0 +1,14 @@
+name: space-defender
+summary: Defend your spaces against invaders
+maintainer: juju QA <juju-qa@canonical.com>
+description: |
+  Defend your spaces against invaders
+tags:
+  - security
+series:
+  - focal
+provides:
+  defend-a:
+    interface: http
+  defend-b:
+    interface: http
