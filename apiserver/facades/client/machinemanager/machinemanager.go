@@ -22,12 +22,14 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/config"
@@ -121,37 +123,23 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 		return results, errors.Trace(err)
 	}
 
-	allSpaces, err := mm.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
 	for i, p := range args.MachineParams {
-		m, err := mm.addOneMachine(ctx, p, allSpaces)
+		machineName, err := mm.addOneMachine(ctx, p)
 		results.Machines[i].Error = apiservererrors.ServerError(err)
 		if err == nil {
-			results.Machines[i].Machine = m.Id()
+			results.Machines[i].Machine = machineName.String()
 		}
 	}
 	return results, nil
 }
 
-func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMachineParams, allSpaces network.SpaceInfos) (result Machine, err error) {
+func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMachineParams) (coremachine.Name, error) {
 	if p.ParentId != "" && p.ContainerType == "" {
-		return nil, fmt.Errorf("parent machine specified without container type")
+		return "", internalerrors.New("parent machine specified without container type")
 	}
 	if p.ContainerType != "" && p.Placement != nil {
-		return nil, fmt.Errorf("container type and placement are mutually exclusive")
+		return "", internalerrors.New("container type and placement are mutually exclusive")
 	}
-	if p.Placement != nil {
-		// Extract container type and parent from container placement directives.
-		containerType, err := instance.ParseContainerType(p.Placement.Scope)
-		if err == nil {
-			p.ContainerType = containerType
-			p.ParentId = p.Placement.Directive
-			p.Placement = nil
-		}
-	}
-
 	if p.ContainerType != "" || p.Placement != nil {
 		// Guard against dubious client by making sure that
 		// the following attributes can only be set when we're
@@ -166,29 +154,30 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	if p.Base == nil {
 		conf, err := mm.modelConfigService.ModelConfig(ctx)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 		base = config.PreferredBase(conf)
 	} else {
 		var err error
 		base, err = corebase.ParseBase(p.Base.Name, p.Base.Channel)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 	}
 
-	var placementDirective string
-	if p.Placement != nil {
-		if p.Placement.Scope != mm.modelUUID.String() {
-			return nil, fmt.Errorf("invalid model id %q", p.Placement.Scope)
-		}
-		placementDirective = p.Placement.Directive
+	// Check if the model exists in case of model scope placement.
+	parsedPlacement, err := deployment.ParsePlacement(p.Placement)
+	if err != nil {
+		return "", internalerrors.Errorf("invalid placement: %w", err)
+	}
+	if parsedPlacement.Type == deployment.PlacementTypeProvider && parsedPlacement.Directive != mm.modelUUID.String() {
+		return "", internalerrors.Errorf("invalid model id %q", parsedPlacement.Directive)
 	}
 
 	volumes := make([]state.HostVolumeParams, 0, len(p.Disks))
 	for _, cons := range p.Disks {
 		if cons.Count == 0 {
-			return nil, errors.Errorf("invalid volume params: count not specified")
+			return "", errors.Errorf("invalid volume params: count not specified")
 		}
 		// Pool and Size are validated by AddMachineX.
 		volumeParams := state.VolumeParams{
@@ -203,50 +192,34 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 		}
 	}
 
-	// Convert the params to provider addresses, then convert those to
-	// space addresses by looking up the spaces.
-	pas := params.ToProviderAddresses(p.Addrs...)
-	sAddrs, err := pas.ToSpaceAddresses(allSpaces)
+	var n *string
+	if p.Nonce != "" {
+		n = &p.Nonce
+	}
+	osType, err := encodeOSType(base.OS)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", internalerrors.Errorf("invalid placement: %w", err)
 	}
+	addedMachine, err := mm.machineService.AddMachine(ctx, domainmachine.AddMachineArgs{
+		Nonce:       n,
+		Constraints: constraints.DecodeConstraints(p.Constraints),
+		Platform: deployment.Platform{
+			Channel: base.Channel.String(),
+			OSType:  osType,
+		},
+		Directive: parsedPlacement,
+	})
 
-	template := state.MachineTemplate{
-		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
-		Constraints:             p.Constraints,
-		Volumes:                 volumes,
-		InstanceId:              p.InstanceId,
-		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               sAddrs,
-		Placement:               placementDirective,
-	}
-
-	defer func() {
-		if err == nil {
-			// Ensure machine(s) exist in dqlite.
-			err = mm.saveMachineInfo(ctx, p.Nonce)
-		}
-	}()
-
-	if p.ContainerType == "" {
-		return mm.st.AddOneMachine(template)
-	}
-	if p.ParentId != "" {
-		return mm.st.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
-	}
-	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
+	return addedMachine.MachineName, err
 }
 
-func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, nonce string) error {
-	// This is temporary - just insert the machine id all al the parent ones.
-	var n *string
-	if nonce != "" {
-		n = &nonce
+func encodeOSType(os string) (deployment.OSType, error) {
+	switch ostype.OSTypeForName(os) {
+	case ostype.Ubuntu:
+		return deployment.Ubuntu, nil
+	default:
+		return 0, errors.Errorf("unknown os type %q, expected ubuntu", os)
 	}
-	_, err := mm.machineService.AddMachine(ctx, domainmachine.AddMachineArgs{
-		Nonce: n,
-	})
-	return errors.Trace(err)
 }
 
 // ProvisioningScript returns a shell script that, when run,

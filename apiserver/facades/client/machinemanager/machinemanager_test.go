@@ -28,7 +28,9 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -130,40 +132,20 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	m2 := NewMockMachine(ctrl)
 	m2.EXPECT().Id().Return("667/lxd/1").AnyTimes()
 
-	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("22.04"),
-		Volumes: []state.HostVolumeParams{
-			{
-				Volume:     state.VolumeParams{Pool: "", Size: 1},
-				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
-			},
-			{
-				Volume:     state.VolumeParams{Pool: "", Size: 1},
-				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
-			},
-			{
-				Volume:     state.VolumeParams{Pool: "", Size: 2},
-				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
-			},
-		},
-	}).Return(m1, nil)
 	// Machine 666.
-	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{})
-	// Machine 667.
-	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{})
-	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("22.04"),
-		Volumes: []state.HostVolumeParams{
-			{
-				Volume:     state.VolumeParams{Pool: "three", Size: 1},
-				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
-			},
-			{
-				Volume:     state.VolumeParams{Pool: "three", Size: 1},
-				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
-			},
+	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "22.04/stable",
+			OSType:  deployment.Ubuntu,
 		},
-	}).Return(m2, nil)
+	})
+	// Machine 667.
+	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "22.04/stable",
+			OSType:  deployment.Ubuntu,
+		},
+	})
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	machines, err := s.api.AddMachines(c.Context(), params.AddMachines{MachineParams: apiParams})
@@ -174,7 +156,12 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.st.EXPECT().AddOneMachine(gomock.Any()).Return(nil, errors.New("boom"))
+	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "22.04/stable",
+			OSType:  deployment.Ubuntu,
+		},
+	}).Return(machineservice.AddMachineResults{}, errors.New("boom"))
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	results, err := s.api.AddMachines(c.Context(), params.AddMachines{
