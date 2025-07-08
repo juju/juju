@@ -262,12 +262,23 @@ func (s *ProviderService) AddControllerIAASUnits(
 	if len(controllerIDs) == 0 {
 		return nil, errors.New("no existing controller IDs provided")
 	}
+	if len(units) == 0 {
+		return nil, nil
+	}
 
 	newUnits := len(units) + len(controllerIDs)
 	if newUnits != 0 && newUnits%2 != 1 {
 		return nil, errors.New("number of controllers must be odd and non-negative")
 	} else if newUnits > corecontroller.MaxPeers {
 		return nil, errors.Errorf("controller count is too large (allowed %d)", corecontroller.MaxPeers)
+	}
+
+	// Calculate the offset for the new controllers. This is the new number
+	// minus the number of existing controllers.
+	required := len(units) - len(controllerIDs)
+	if required == 0 {
+		// No changes are required, so we return an empty result.
+		return nil, nil
 	}
 
 	for _, unit := range units {
@@ -287,14 +298,6 @@ func (s *ProviderService) AddControllerIAASUnits(
 		} else if controller {
 			return nil, errors.Errorf("controller units cannot be placed on controller machines %q", unit.Placement.Directive)
 		}
-	}
-
-	// Calculate the offset for the new controllers. This is the new number
-	// minus the number of existing controllers.
-	required := len(units) - len(controllerIDs)
-	if required == 0 {
-		// No changes are required, so we return an empty result.
-		return nil, nil
 	}
 
 	// Add the required number of units to the controller application.
