@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -15,7 +16,7 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"gopkg.in/tomb.v2"
+	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -97,7 +98,13 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 		requests: make(chan request),
 	}
 
-	s.tomb.Go(s.loop)
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "file-object-store",
+		Site: &s.catacomb,
+		Work: s.loop,
+	}); err != nil {
+		return nil, errors.Errorf("starting file object store: %w", err)
+	}
 
 	return s, nil
 }
@@ -122,8 +129,8 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opGet,
 		path:     path,
@@ -134,8 +141,8 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
@@ -161,8 +168,8 @@ func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.Re
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opGetBySHA256,
 		sha256:   sha256,
@@ -173,8 +180,8 @@ func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.Re
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
@@ -202,8 +209,8 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opGetBySHA256Prefix,
 		sha256:   sha256Prefix,
@@ -214,8 +221,8 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return nil, -1, t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
@@ -230,8 +237,8 @@ func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, siz
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-t.tomb.Dying():
-		return "", tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return "", t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:            opPut,
 		path:          path,
@@ -245,8 +252,8 @@ func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, siz
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-t.tomb.Dying():
-		return "", tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return "", t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return "", errors.Errorf("putting blob: %w", resp.err)
@@ -262,8 +269,8 @@ func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-t.tomb.Dying():
-		return "", tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return "", t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:            opPut,
 		path:          path,
@@ -277,8 +284,8 @@ func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-t.tomb.Dying():
-		return "", tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return "", t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return "", errors.Errorf("putting blob and check hash: %w", resp.err)
@@ -293,8 +300,8 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-t.tomb.Dying():
-		return tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opRemove,
 		path:     path,
@@ -305,8 +312,8 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-t.tomb.Dying():
-		return tomb.ErrDying
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
 			return errors.Errorf("removing blob: %w", resp.err)
@@ -331,14 +338,23 @@ func (t *fileObjectStore) loop() error {
 		return errors.Errorf("cleaning up temp files: %w", err)
 	}
 
+	watcher, err := t.metadataService.Watch()
+	if err != nil {
+		return errors.Errorf("creating metadata watcher: %w", err)
+	}
+
+	if err := t.catacomb.Add(watcher); err != nil {
+		return errors.Errorf("adding watcher to catacomb: %w", err)
+	}
+
 	timer := t.clock.NewTimer(jitter(defaultPruneInterval))
 	defer timer.Stop()
 
 	// Sequence the get request with the put, remove requests.
 	for {
 		select {
-		case <-t.tomb.Dying():
-			return tomb.ErrDying
+		case <-t.catacomb.Dying():
+			return t.catacomb.ErrDying()
 
 		case req := <-t.requests:
 			switch req.op {
@@ -346,8 +362,8 @@ func (t *fileObjectStore) loop() error {
 				reader, size, err := t.get(ctx, req.path, RemoteFallback)
 
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					reader: reader,
@@ -360,8 +376,8 @@ func (t *fileObjectStore) loop() error {
 				reader, size, err := t.getBySHA256(ctx, req.sha256)
 
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					reader: reader,
@@ -374,8 +390,8 @@ func (t *fileObjectStore) loop() error {
 				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256, RemoteFallback)
 
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					reader: reader,
@@ -388,8 +404,8 @@ func (t *fileObjectStore) loop() error {
 				uuid, err := t.put(ctx, req.path, req.reader, req.size, req.hashValidator)
 
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					uuid: uuid,
@@ -399,8 +415,8 @@ func (t *fileObjectStore) loop() error {
 
 			case opRemove:
 				select {
-				case <-t.tomb.Dying():
-					return tomb.ErrDying
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
 
 				case req.response <- response{
 					err: t.remove(ctx, req.path),
@@ -411,6 +427,8 @@ func (t *fileObjectStore) loop() error {
 				return errors.Errorf("unknown request type %d", req.op)
 			}
 
+		case changes := <-watcher.Changes():
+			fmt.Println("received changes from metadata watcher:", changes)
 		case <-timer.Chan():
 
 			// Reset the timer, as we've jittered the interval at the start of

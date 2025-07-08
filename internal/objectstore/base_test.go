@@ -48,7 +48,7 @@ func (s *baseObjectStoreSuite) TestScopedContextTomb(c *tc.C) {
 	ctx, _ := w.scopedContext()
 	c.Assert(ctx.Err(), tc.IsNil)
 
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 
 	c.Assert(ctx.Err(), tc.ErrorIs, context.Canceled)
 }
