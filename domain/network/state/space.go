@@ -360,12 +360,12 @@ func (st *State) GetMachinesBoundToSpaces(ctx context.Context, spaceUUIDs []stri
 	return nil, nil
 }
 
-// GetMachinesAllergicToSpace retrieves a list of machines that are
+// GetMachinesNotAllowedInSpace retrieves a list of machines that are
 // incompatible with the specified space given its UUID.
 //
 // A machine is not compatible with a space if it has a negative constraint
 // against it.
-func (st *State) GetMachinesAllergicToSpace(ctx context.Context, id string) (internal.CheckableMachines, error) {
+func (st *State) GetMachinesNotAllowedInSpace(ctx context.Context, id string) (internal.CheckableMachines, error) {
 	// TODO(gfouillet): implement me (like this it will never perform any checks
 	//   when moving subnets
 	return nil, nil

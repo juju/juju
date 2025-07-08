@@ -269,7 +269,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesAllergicToSpaceError(c *t
 		Return(internal.CheckableMachines{}, nil)
 
 	s.st.EXPECT().
-		GetMachinesAllergicToSpace(gomock.Any(), "space1-id").
+		GetMachinesNotAllowedInSpace(gomock.Any(), "space1-id").
 		Return(nil, errors.New("boom"))
 
 	// Act
@@ -338,7 +338,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesRejectTopology(c *tc.C) {
 		Return(internal.CheckableMachines{mockMachine}, nil)
 
 	s.st.EXPECT().
-		GetMachinesAllergicToSpace(gomock.Any(), "space1-id").
+		GetMachinesNotAllowedInSpace(gomock.Any(), "space1-id").
 		Return(internal.CheckableMachines{mockMachine}, nil)
 
 	// Act
@@ -420,7 +420,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSuccess(c *tc.C) {
 		Return(internal.CheckableMachines{boundMachines, boundMachines}, nil)
 
 	s.st.EXPECT().
-		GetMachinesAllergicToSpace(gomock.Any(), "space1-id").
+		GetMachinesNotAllowedInSpace(gomock.Any(), "space1-id").
 		Return(internal.CheckableMachines{allergicMachines}, nil)
 
 	// Expect UpdateSubnet to be called for the moved subnet
@@ -496,7 +496,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceUpdateSubnetError(c *tc.C) {
 		Return(internal.CheckableMachines{}, nil)
 
 	s.st.EXPECT().
-		GetMachinesAllergicToSpace(gomock.Any(), "space1-id").
+		GetMachinesNotAllowedInSpace(gomock.Any(), "space1-id").
 		Return(internal.CheckableMachines{}, nil)
 
 	// Expect UpsertSubnets to fail

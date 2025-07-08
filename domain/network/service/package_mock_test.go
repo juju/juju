@@ -628,45 +628,6 @@ func (c *MockStateGetMachineSpaceConstraintsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// GetMachinesAllergicToSpace mocks base method.
-func (m *MockState) GetMachinesAllergicToSpace(arg0 context.Context, arg1 string) (internal.CheckableMachines, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachinesAllergicToSpace", arg0, arg1)
-	ret0, _ := ret[0].(internal.CheckableMachines)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMachinesAllergicToSpace indicates an expected call of GetMachinesAllergicToSpace.
-func (mr *MockStateMockRecorder) GetMachinesAllergicToSpace(arg0, arg1 any) *MockStateGetMachinesAllergicToSpaceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesAllergicToSpace", reflect.TypeOf((*MockState)(nil).GetMachinesAllergicToSpace), arg0, arg1)
-	return &MockStateGetMachinesAllergicToSpaceCall{Call: call}
-}
-
-// MockStateGetMachinesAllergicToSpaceCall wrap *gomock.Call
-type MockStateGetMachinesAllergicToSpaceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachinesAllergicToSpaceCall) Return(arg0 internal.CheckableMachines, arg1 error) *MockStateGetMachinesAllergicToSpaceCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachinesAllergicToSpaceCall) Do(f func(context.Context, string) (internal.CheckableMachines, error)) *MockStateGetMachinesAllergicToSpaceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachinesAllergicToSpaceCall) DoAndReturn(f func(context.Context, string) (internal.CheckableMachines, error)) *MockStateGetMachinesAllergicToSpaceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetMachinesBoundToSpaces mocks base method.
 func (m *MockState) GetMachinesBoundToSpaces(arg0 context.Context, arg1 []string) (internal.CheckableMachines, error) {
 	m.ctrl.T.Helper()
@@ -702,6 +663,45 @@ func (c *MockStateGetMachinesBoundToSpacesCall) Do(f func(context.Context, []str
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachinesBoundToSpacesCall) DoAndReturn(f func(context.Context, []string) (internal.CheckableMachines, error)) *MockStateGetMachinesBoundToSpacesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachinesNotAllowedInSpace mocks base method.
+func (m *MockState) GetMachinesNotAllowedInSpace(arg0 context.Context, arg1 string) (internal.CheckableMachines, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinesNotAllowedInSpace", arg0, arg1)
+	ret0, _ := ret[0].(internal.CheckableMachines)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinesNotAllowedInSpace indicates an expected call of GetMachinesNotAllowedInSpace.
+func (mr *MockStateMockRecorder) GetMachinesNotAllowedInSpace(arg0, arg1 any) *MockStateGetMachinesNotAllowedInSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesNotAllowedInSpace", reflect.TypeOf((*MockState)(nil).GetMachinesNotAllowedInSpace), arg0, arg1)
+	return &MockStateGetMachinesNotAllowedInSpaceCall{Call: call}
+}
+
+// MockStateGetMachinesNotAllowedInSpaceCall wrap *gomock.Call
+type MockStateGetMachinesNotAllowedInSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinesNotAllowedInSpaceCall) Return(arg0 internal.CheckableMachines, arg1 error) *MockStateGetMachinesNotAllowedInSpaceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinesNotAllowedInSpaceCall) Do(f func(context.Context, string) (internal.CheckableMachines, error)) *MockStateGetMachinesNotAllowedInSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinesNotAllowedInSpaceCall) DoAndReturn(f func(context.Context, string) (internal.CheckableMachines, error)) *MockStateGetMachinesNotAllowedInSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

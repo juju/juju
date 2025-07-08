@@ -62,13 +62,13 @@ func (s *Service) MoveSubnetToSpace(
 	if err != nil {
 		return nil, errors.Errorf("getting machines bound to the source spaces: %w", err)
 	}
-	allergicToSpaceMachines, err := s.st.GetMachinesAllergicToSpace(ctx, spaceTo.ID.String())
+	notCompatibleToSpaceMachines, err := s.st.GetMachinesNotAllowedInSpace(ctx, spaceTo.ID.String())
 	if err != nil {
 		return nil, errors.Errorf("getting machines allergic to the destination space: %w", err)
 	}
 	err = errors.Join(
 		boundToSpaceMachines.Accept(newTopology),
-		allergicToSpaceMachines.Accept(newTopology),
+		notCompatibleToSpaceMachines.Accept(newTopology),
 	)
 	if err != nil {
 		return nil, errors.Capture(err)

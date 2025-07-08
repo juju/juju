@@ -98,12 +98,12 @@ type SpaceState interface {
 	//     it should belong to this space.
 	GetMachinesBoundToSpaces(ctx context.Context, spaceUUIDs []string) (internal.CheckableMachines, error)
 
-	// GetMachinesAllergicToSpace retrieves a list of machines that are
+	// GetMachinesNotAllowedInSpace retrieves a list of machines that are
 	// incompatible with the specified space given its UUID.
 	//
 	// A machine is not compatible with a space if it has a negative constraint
 	// against it.
-	GetMachinesAllergicToSpace(ctx context.Context, id string) (internal.CheckableMachines, error)
+	GetMachinesNotAllowedInSpace(ctx context.Context, id string) (internal.CheckableMachines, error)
 }
 
 // SubnetState describes persistence layer methods for the subnet (sub-) domain.
