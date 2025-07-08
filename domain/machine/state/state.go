@@ -47,6 +47,35 @@ func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.
 	}
 }
 
+// PlaceMachine places the net node and machines if required, depending
+// on the placement.
+// It returns the net node UUID for the machine and a list of child
+// machine names that were created as part of the placement.
+//
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the parent machine (for container
+// placement) does not exist.
+func (st *State) PlaceMachine(ctx context.Context, args domainmachine.PlaceMachineArgs) (string, []machine.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", nil, errors.Capture(err)
+	}
+
+	var (
+		machineNames []machine.Name
+		netNodeUUID  string
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		netNodeUUID, machineNames, err = PlaceMachine(ctx, tx, st, st.clock, args)
+		return err
+	})
+	if err != nil {
+		return "", nil, errors.Capture(err)
+	}
+
+	return netNodeUUID, machineNames, nil
+}
+
 // CreateMachine creates or updates the specified machine.
 // Adds a row to machine table, as well as a row to the net_node table.
 func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMachineArgs) (machine.Name, error) {
@@ -65,98 +94,6 @@ func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMac
 	}
 
 	return machineName, nil
-}
-
-// CreateMachineWithParent creates or updates the specified machine with a
-// parent.
-// Adds a row to machine table, as well as a row to the net_node table, and adds
-// a row to the machine_parent table for associating with the specified parent.
-// It returns a MachineNotFound error if the parent machine does not exist.
-// It returns a MachineAlreadyExists error if a machine with the same name
-// already exists.
-func (st *State) CreateMachineWithParent(ctx context.Context, args domainmachine.CreateMachineArgs, parentUUID string) (machine.Name, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	parentIdent := machineUUID{UUID: parentUUID}
-	checkParentExistsStmt, err := st.Prepare(
-		`SELECT COUNT(*) AS &count.count FROM machine WHERE uuid=$machineUUID.uuid`,
-		count{},
-		parentIdent)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var (
-		machineName machine.Name
-		parentCount count
-	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// First check if the parent machine exists.
-		err := tx.Query(ctx, checkParentExistsStmt, parentIdent).Get(&parentCount)
-		if err != nil {
-			return errors.Errorf("checking parent machine %q existence: %w", parentUUID, err)
-		}
-		if parentCount.Count == 0 {
-			return errors.Errorf("parent machine %q not found", parentUUID).Add(machineerrors.MachineNotFound)
-		}
-		// Create the machine.
-		_, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
-		if err != nil {
-			return errors.Errorf("creating machine with parent %q: %w", parentUUID, err)
-		}
-		// Associate a parent machine if parentName is provided.
-		return st.createParentMachineLink(ctx, tx, args.MachineUUID.String(), parentUUID)
-	})
-	if err != nil {
-		return "", errors.Errorf("creating machine with parent %q: %w", parentUUID, err)
-	}
-
-	return machineName, nil
-}
-
-func (st *State) createParentMachineLink(ctx context.Context, tx *sqlair.TX, mUUID, parentUUID string) error {
-	// Prepare query for associating/verifying parent machine.
-	associateParentParam := machineParent{
-		MachineUUID: mUUID,
-		ParentUUID:  parentUUID,
-	}
-	associateParentQuery := `
-INSERT INTO machine_parent (machine_uuid, parent_uuid)
-VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
-`
-	associateParentStmt, err := st.Prepare(associateParentQuery, associateParentParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	parentIdent := machineUUID{UUID: parentUUID}
-	parentResult := machineParent{}
-	parentQuery := `
-SELECT &machineParent.*
-FROM   machine_parent 
-WHERE  machine_uuid = $machineUUID.uuid`
-	parentQueryStmt, err := st.Prepare(parentQuery, parentResult, parentIdent)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Protect against grand-parenting.
-	if err := tx.Query(ctx, parentQueryStmt, parentIdent).Get(&parentResult); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("querying for grandparent UUID for machine %q: %w", mUUID, err)
-	} else if err == nil {
-		// No error means we found a grandparent.
-		return errors.Errorf("machine %q already has parent machine %q", parentUUID, parentResult.ParentUUID).Add(machineerrors.GrandParentNotSupported)
-	}
-
-	// Run query to associate parent machine.
-	if err := tx.Query(ctx, associateParentStmt, associateParentParam).Run(); err != nil {
-		return errors.Errorf("associating parent machine %q for machine %q: %w", parentUUID, mUUID, err)
-	}
-
-	return nil
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.

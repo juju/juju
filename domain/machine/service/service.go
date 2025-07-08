@@ -29,15 +29,11 @@ import (
 
 // State describes retrieval and persistence methods for machines.
 type State interface {
-	// CreateMachine persists the input machine entity.
-	CreateMachine(context.Context, domainmachine.CreateMachineArgs) (machine.Name, error)
-
-	// CreateMachineWithparent persists the input machine entity, associating it
-	// with the parent machine.
-	// It returns a MachineAlreadyExists error if a machine with the same name
-	// already exists.
-	// It returns a MachineNotFound error if the parent machine does not exist.
-	CreateMachineWithParent(context.Context, domainmachine.CreateMachineArgs, string) (machine.Name, error)
+	// PlaceMachine places the net node and machines if required, depending
+	// on the placement.
+	// It returns the net node UUID for the machine and a list of child
+	// machine names that were created as part of the placement.
+	PlaceMachine(ctx context.Context, args domainmachine.PlaceMachineArgs) (string, []machine.Name, error)
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, machine.Name) error

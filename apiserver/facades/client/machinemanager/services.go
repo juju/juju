@@ -11,12 +11,13 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockcommand"
-	machineservice "github.com/juju/juju/domain/machine/service"
+	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -95,8 +96,12 @@ type Authorizer interface {
 
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
-	// CreateMachine creates a machine with the given name.
-	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (coremachine.UUID, coremachine.Name, error)
+	// PlaceMachine places the net node and machines if required, depending
+	// on the placement.
+	// It returns the net node UUID for the machine and a list of child
+	// machine names that were created as part of the placement.
+	PlaceMachine(ctx context.Context, args domainmachine.PlaceMachineArgs) (string, []machine.Name, error)
+
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 

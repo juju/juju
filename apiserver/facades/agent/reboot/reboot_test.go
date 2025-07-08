@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/deployment"
+	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -57,17 +59,26 @@ func TestRebootSuite(t *testing.T) {
 }
 
 func (s *rebootSuite) createMachine(c *tc.C) *testMachine {
-	uuid, name, err := s.machineService.CreateMachine(c.Context(), service.CreateMachineArgs{})
+	_, mNames, err := s.machineService.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	uuid, err := s.machineService.GetMachineUUID(c.Context(), mNames[0])
 	c.Assert(err, tc.ErrorIsNil)
 
-	return s.setupMachine(c, names.NewMachineTag(name.String()), err, uuid)
+	return s.setupMachine(c, names.NewMachineTag(mNames[0].String()), err, uuid)
 }
 
-func (s *rebootSuite) createMachineWithParent(c *tc.C, parent *testMachine) *testMachine {
-	uuid, name, err := s.machineService.CreateMachineWithParent(c.Context(), service.CreateMachineArgs{}, coremachine.Name(parent.tag.Id()))
+func (s *rebootSuite) createContainer(c *tc.C, parent *testMachine) *testMachine {
+	_, mNames, err := s.machineService.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Directive: parent.tag.Id(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	uuid, err := s.machineService.GetMachineUUID(c.Context(), mNames[1])
 	c.Assert(err, tc.ErrorIsNil)
 
-	return s.setupMachine(c, names.NewMachineTag(name.String()), err, uuid)
+	return s.setupMachine(c, names.NewMachineTag(mNames[1].String()), err, uuid)
 }
 
 func (s *rebootSuite) setupMachine(c *tc.C, tag names.MachineTag, err error, uuid coremachine.UUID) *testMachine {
@@ -164,7 +175,7 @@ func (s *rebootSuite) TearDownSuite(c *tc.C) {
 // and asserts that the child machine receives the reboot event while the parent machine does not.
 func (s *rebootSuite) TestWatchForRebootEventFromChild(c *tc.C) {
 	parent := s.createMachine(c)
-	child := s.createMachineWithParent(c, parent)
+	child := s.createContainer(c, parent)
 
 	_, err := child.rebootAPI.RequestReboot(c.Context(), child.args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -178,7 +189,7 @@ func (s *rebootSuite) TestWatchForRebootEventFromChild(c *tc.C) {
 // and asserts that both the parent machine and child receives a reboot event.
 func (s *rebootSuite) TestWatchForRebootEventFromParent(c *tc.C) {
 	parent := s.createMachine(c)
-	child := s.createMachineWithParent(c, parent)
+	child := s.createContainer(c, parent)
 
 	_, err := parent.rebootAPI.RequestReboot(c.Context(), parent.args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -257,7 +268,7 @@ func (s *rebootSuite) TestClearReboot(c *tc.C) {
 // It also verifies that the proper rebootEvent are sent.
 func (s *rebootSuite) TestRebootRequestFromParent(c *tc.C) {
 	parent := s.createMachine(c)
-	child := s.createMachineWithParent(c, parent)
+	child := s.createContainer(c, parent)
 	// Request reboot on the root machine: all machines should see it
 	// parent should reboot
 	// child should shutdown
@@ -304,7 +315,7 @@ func (s *rebootSuite) TestRebootRequestFromParent(c *tc.C) {
 // It also check that the correct events are sent.
 func (s *rebootSuite) TestRebootRequestFromChild(c *tc.C) {
 	parent := s.createMachine(c)
-	child := s.createMachineWithParent(c, parent)
+	child := s.createContainer(c, parent)
 
 	// Request reboot on the container: container and nested container should see it
 	// parent should do nothing

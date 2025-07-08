@@ -133,67 +133,6 @@ func (s *stateSuite) TestCreateMachineWithNonce(c *tc.C) {
 	c.Check(instanceStatusInfo.Status, tc.Equals, status.InstanceStatusPending)
 }
 
-// TestCreateMachineWithParentSuccess asserts the happy path of
-// CreateMachineWithParent at the state layer.
-func (s *stateSuite) TestCreateMachineWithParentSuccess(c *tc.C) {
-	// Create the parent first.
-	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "parent-uuid",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Create the machine with the created parent.
-	mName, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, "parent-uuid")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Make sure the newly created machine with parent has been created.
-	var (
-		obtainedMachineName string
-	)
-	parentStmt := `
-SELECT  name
-FROM    machine
-        LEFT JOIN machine_parent AS parent
-	ON        parent.machine_uuid = machine.uuid
-WHERE   parent.parent_uuid = ?
-	`
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, parentStmt, "parent-uuid").Scan(&obtainedMachineName)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedMachineName, tc.Equals, mName.String())
-}
-
-// TestCreateMachineWithParentNotFound asserts that a NotFound error is returned
-// when the parent machine is not found.
-func (s *stateSuite) TestCreateMachineWithParentNotFound(c *tc.C) {
-	_, err := s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, "unknown-parent-uuid")
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestGetMachineParentUUIDGrandParentNotAllowed asserts that a
-// GrandParentNotAllowed error is returned when a grandparent is detected for a
-// machine.
-func (s *stateSuite) TestCreateMachineWithGrandParentNotAllowed(c *tc.C) {
-	// Create the parent machine first.
-	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "grand-parent-uuid",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	// Create the machine with the created parent.
-	_, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "parent-uuid",
-	}, "grand-parent-uuid")
-	c.Assert(err, tc.ErrorIsNil)
-	// This fails.
-	_, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{}, "parent-uuid")
-	c.Assert(err, tc.ErrorIs, machineerrors.GrandParentNotSupported)
-}
-
 // TestDeleteMachine asserts the happy path of DeleteMachine at the state layer.
 func (s *stateSuite) TestDeleteMachine(c *tc.C) {
 	machineName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{})
@@ -412,27 +351,6 @@ VALUES ((SELECT uuid FROM machine WHERE name=?))
 func (s *stateSuite) TestIsMachineManuallyProvisionedNotFound(c *tc.C) {
 	_, err := s.state.IsMachineManuallyProvisioned(c.Context(), machine.Name("666"))
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestGetMachineParentUUIDSuccess asserts the happy path of
-// GetMachineParentUUID at the state layer.
-func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *tc.C) {
-	// Create the parent machine first.
-	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "parent-uuid",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Create the machine with the created parent.
-	_, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "child-uuid",
-	}, "parent-uuid")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Get the parent UUID of the machine.
-	obtainedParentUUID, err := s.state.GetMachineParentUUID(c.Context(), "child-uuid")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedParentUUID.String(), tc.Equals, "parent-uuid")
 }
 
 // TestGetMachineParentUUIDNotFound asserts that a NotFound error is returned
@@ -911,34 +829,26 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
-	parentName, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "parent-uuid",
+	_, mNames, err := s.state.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		Directive: deployment.Placement{
+			Type: deployment.PlacementTypeContainer,
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.state.CreateMachineWithParent(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "child-uuid",
-	}, "parent-uuid")
+	parentUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+	childUUID, err := s.state.GetMachineUUID(c.Context(), mNames[1])
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), "child-uuid", instance.Id("123"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), childUUID.String(), instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef2", instance.Id("124"), "", "nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// err = s.TxnRunner().Txn(c.Context(), func(c context.Context, tx *sqlair.TX) error {
-	// 	return s.state.createParentMachineLink(c, tx, createMachineArgs{
-	// 		name:        "666/lxd/667",
-	// 		machineUUID: "deadbeef2",
-	// 		netNodeUUID: "abc1",
-	// 	})
-	// })
-	err = s.state.SetMachineCloudInstance(c.Context(), "parent-uuid", instance.Id("124"), "", "nonce", nil)
+	err = s.state.SetMachineCloudInstance(c.Context(), parentUUID.String(), instance.Id("124"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	machineInstances, err := s.state.GetAllProvisionedMachineInstanceID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machineInstances, tc.DeepEquals, map[machine.Name]string{
-		parentName: "124",
+		mNames[0]: "124",
 	})
 }
 

@@ -29,6 +29,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -1052,13 +1053,13 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	)
 	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
-	_, mn0, err := machineSvc.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	_, mNames0, err := machineSvc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
-	_, mn1, err := machineSvc.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	_, mNames1, err := machineSvc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
-	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, mn0)
+	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, mNames0[0])
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -1067,17 +1068,17 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn0.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mNames0[0].String()},
 				},
 			},
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn1.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mNames1[0].String()},
 				},
 			},
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn0.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mNames0[0].String()},
 				},
 			},
 		)
@@ -1141,13 +1142,13 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	)
 	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
-	_, mn0, err := machineSvc.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	_, mNames0, err := machineSvc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
-	_, mn1, err := machineSvc.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	_, mNames1, err := machineSvc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
-	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, mn0)
+	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, mNames0[0])
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -1156,12 +1157,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn0.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mNames0[0].String()},
 				},
 			},
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn1.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mNames1[0].String()},
 				},
 			},
 		)

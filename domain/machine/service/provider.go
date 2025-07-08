@@ -8,11 +8,14 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
+	domainconstraints "github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
@@ -51,85 +54,51 @@ func NewProviderService(
 	}
 }
 
-// CreateMachine creates the specified machine. The nonce is an optional
-// parameter and is used only used during bootstrapping to ensure that
-// the machine is created with a unique name.
-func (s *ProviderService) CreateMachine(ctx context.Context, args CreateMachineArgs) (machine.UUID, machine.Name, error) {
+// PlaceMachine places the net node and machines if required, depending
+// on the placement.
+// It returns the net node UUID for the machine and a list of child
+// machine names that were created as part of the placement.
+//
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the parent machine (for container
+// placement) does not exist.
+func (s *ProviderService) PlaceMachine(ctx context.Context, args domainmachine.PlaceMachineArgs) (string, []machine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	provider, err := s.providerGetter(ctx)
 	if err != nil {
-		return "", "", errors.Errorf("getting provider for create machine: %w", err)
+		return "", nil, errors.Errorf("getting provider for create machine: %w", err)
 	}
-	if err := provider.PrecheckInstance(ctx, environs.PrecheckInstanceParams{}); err != nil {
-		return "", "", errors.Errorf("prechecking instance for create machine: %w", err)
-	}
-
-	// Make new UUIDs for the machine.
-	// We want to do this in the service layer so that if retries are invoked at
-	// the state layer we don't keep regenerating.
-	machineUUID, err := machine.NewUUID()
+	os, err := encodeOSType(args.Platform.OSType)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", nil, errors.Capture(err)
 	}
-
-	stateArgs, err := s.makeCreateMachineArgs(args, machineUUID)
+	base, err := base.ParseBase(os, args.Platform.Channel)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", nil, errors.Capture(err)
 	}
-	machineName, err := s.st.CreateMachine(ctx, stateArgs)
+	precheckInstanceParams := environs.PrecheckInstanceParams{
+		Base:        base,
+		Constraints: domainconstraints.EncodeConstraints(args.Constraints),
+		Placement:   args.Directive.Directive,
+	}
+	if err := provider.PrecheckInstance(ctx, precheckInstanceParams); err != nil {
+		return "", nil, errors.Errorf("prechecking instance for create machine: %w", err)
+	}
+
+	nodeUUID, machineNames, err := s.st.PlaceMachine(ctx, args)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", nil, errors.Capture(err)
 	}
 
-	if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, machineName, s.clock); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+	for _, machineName := range machineNames {
+		if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, machineName, s.clock); err != nil {
+			s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+		}
 	}
 
-	return machineUUID, machineName, nil
-}
-
-// CreateMachineWithParent creates the specified machine with the specified
-// parent.
-// It returns a MachineNotFound error if the parent machine does not exist.
-func (s *ProviderService) CreateMachineWithParent(ctx context.Context, args CreateMachineArgs, parentName machine.Name) (machine.UUID, machine.Name, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	provider, err := s.providerGetter(ctx)
-	if err != nil {
-		return "", "", errors.Errorf("getting provider for create machine with parent %q: %w", parentName, err)
-	}
-	if err := provider.PrecheckInstance(ctx, environs.PrecheckInstanceParams{}); err != nil {
-		return "", "", errors.Errorf("prechecking instance for create machine with parent %q: %w", parentName, err)
-	}
-
-	// Make new UUIDs for the machine.
-	// We want to do this in the service layer so that if retries are invoked at
-	// the state layer we don't keep regenerating.
-	machineUUID, err := machine.NewUUID()
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	parentUUID, err := s.st.GetMachineUUID(ctx, parentName)
-	if err != nil {
-		return "", "", errors.Errorf("getting parent UUID for machine %q: %w", parentName, err)
-	}
-	stateArgs, err := s.makeCreateMachineArgs(args, machineUUID)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	machineName, err := s.st.CreateMachineWithParent(ctx, stateArgs, parentUUID.String())
-	if err != nil {
-		return "", "", errors.Errorf("creating machine with parent %q: %w", parentName, err)
-	}
-
-	if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, machineName, s.clock); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
-	}
-
-	return machineUUID, machineName, nil
+	return nodeUUID, machineNames, nil
 }
 
 func (s *ProviderService) makeCreateMachineArgs(args CreateMachineArgs, machineUUID machine.UUID) (domainmachine.CreateMachineArgs, error) {
@@ -140,6 +109,15 @@ func (s *ProviderService) makeCreateMachineArgs(args CreateMachineArgs, machineU
 		Directive:   args.Directive,
 		Constraints: args.Constraints,
 	}, nil
+}
+
+func encodeOSType(ostype deployment.OSType) (string, error) {
+	switch ostype {
+	case deployment.Ubuntu:
+		return base.UbuntuOS, nil
+	default:
+		return "", errors.Errorf("unknown os type %q", ostype)
+	}
 }
 
 // GetBootstrapEnviron returns the bootstrap environ.
