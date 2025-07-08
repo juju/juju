@@ -39,8 +39,9 @@ import (
 	service23 "github.com/juju/juju/domain/secretbackend/service"
 	service24 "github.com/juju/juju/domain/status/service"
 	service25 "github.com/juju/juju/domain/storage/service"
+	service26 "github.com/juju/juju/domain/storageprovisioning/service"
 	stub "github.com/juju/juju/domain/stub"
-	service26 "github.com/juju/juju/domain/unitstate/service"
+	service27 "github.com/juju/juju/domain/unitstate/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -1169,6 +1170,44 @@ func (c *MockModelDomainServicesStorageCall) DoAndReturn(f func() *service25.Ser
 	return c
 }
 
+// StorageProvisioning mocks base method.
+func (m *MockModelDomainServices) StorageProvisioning() *service26.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StorageProvisioning")
+	ret0, _ := ret[0].(*service26.Service)
+	return ret0
+}
+
+// StorageProvisioning indicates an expected call of StorageProvisioning.
+func (mr *MockModelDomainServicesMockRecorder) StorageProvisioning() *MockModelDomainServicesStorageProvisioningCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageProvisioning", reflect.TypeOf((*MockModelDomainServices)(nil).StorageProvisioning))
+	return &MockModelDomainServicesStorageProvisioningCall{Call: call}
+}
+
+// MockModelDomainServicesStorageProvisioningCall wrap *gomock.Call
+type MockModelDomainServicesStorageProvisioningCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDomainServicesStorageProvisioningCall) Return(arg0 *service26.Service) *MockModelDomainServicesStorageProvisioningCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDomainServicesStorageProvisioningCall) Do(f func() *service26.Service) *MockModelDomainServicesStorageProvisioningCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDomainServicesStorageProvisioningCall) DoAndReturn(f func() *service26.Service) *MockModelDomainServicesStorageProvisioningCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Stub mocks base method.
 func (m *MockModelDomainServices) Stub() *stub.StubService {
 	m.ctrl.T.Helper()
@@ -1208,10 +1247,10 @@ func (c *MockModelDomainServicesStubCall) DoAndReturn(f func() *stub.StubService
 }
 
 // UnitState mocks base method.
-func (m *MockModelDomainServices) UnitState() *service26.Service {
+func (m *MockModelDomainServices) UnitState() *service27.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitState")
-	ret0, _ := ret[0].(*service26.Service)
+	ret0, _ := ret[0].(*service27.Service)
 	return ret0
 }
 
@@ -1228,19 +1267,19 @@ type MockModelDomainServicesUnitStateCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDomainServicesUnitStateCall) Return(arg0 *service26.Service) *MockModelDomainServicesUnitStateCall {
+func (c *MockModelDomainServicesUnitStateCall) Return(arg0 *service27.Service) *MockModelDomainServicesUnitStateCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesUnitStateCall) Do(f func() *service26.Service) *MockModelDomainServicesUnitStateCall {
+func (c *MockModelDomainServicesUnitStateCall) Do(f func() *service27.Service) *MockModelDomainServicesUnitStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesUnitStateCall) DoAndReturn(f func() *service26.Service) *MockModelDomainServicesUnitStateCall {
+func (c *MockModelDomainServicesUnitStateCall) DoAndReturn(f func() *service27.Service) *MockModelDomainServicesUnitStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
