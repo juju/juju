@@ -26,6 +26,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -381,7 +382,14 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 		var w corewatcher.StringsWatcher
 		switch tag := tag.(type) {
 		case names.MachineTag:
-			w, err = watchMachineStorage(ctx, machine.UUID(tag.Id()))
+			machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				return "", nil, errors.NotFoundf("machine %q", tag.Id())
+			}
+			if err != nil {
+				return "", nil, internalerrors.Capture(err)
+			}
+			w, err = watchMachineStorage(ctx, machineUUID)
 		case names.ModelTag:
 			w, err = watchModelStorage(ctx)
 		default:
@@ -391,7 +399,7 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 			return "", nil, errors.Trace(err)
 		}
 
-		id, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, s.watcherRegistry, w)
+		id, changes, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
