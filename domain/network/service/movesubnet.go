@@ -32,7 +32,6 @@ func (s *Service) MoveSubnetToSpace(
 		return nil, errors.Errorf("invalid subnet UUIDs: %w", err)
 	}
 
-	// Create the new topology + space from & space to.
 	currentTopology, err := s.st.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting current topology: %w", err)

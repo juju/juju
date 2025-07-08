@@ -36,8 +36,7 @@ type SpaceName struct {
 	Name string
 }
 
-// CheckableMachine represents an entity capable of processing network
-// topology information for validation or updates.
+// CheckableMachine is used to validate machines against a new network topology.
 type CheckableMachine interface {
 	// Accept processes a given collection of SpaceInfos and returns an error
 	// if the machine isn't acceptable in the new topology
