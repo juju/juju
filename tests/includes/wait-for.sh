@@ -29,6 +29,10 @@ wait_for() {
 		elapsed=$(date -u +%s)-$start_time
 		if [[ ${elapsed} -ge ${timeout} ]]; then
 			echo "[-] $(red 'timed out waiting for')" "$(red "${name}")"
+			echo "    (controller) juju debug-log output"
+			juju debug-log -m controller --replay --no-tail 2>&1 | sed 's/^/    | /g'
+			echo "    (model) juju debug-log output"
+			juju debug-log --replay --no-tail 2>&1 | sed 's/^/    | /g'
 			exit 1
 		fi
 
