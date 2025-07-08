@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -184,7 +183,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentLifeForNetNode(c *tc.C) {
 
 	// Apply a life change to one of the attachments and check the change comes
 	// out.
-	s.changeFilesystemAttachmentLife(c, fsaUUID1, life.Dying)
+	s.changeFilesystemAttachmentLife(c, fsaUUID1, domainlife.Dying)
 	lives, err = st.GetFilesystemAttachmentLifeForNetNode(
 		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
 	)
@@ -410,14 +409,14 @@ func (s *filesystemSuite) TestInitialWatchStatementMachineProvisionedFilesystemA
 
 	st := NewState(s.TxnRunnerFactory())
 	ns, initialQuery := st.InitialWatchStatementMachineProvisionedFilesystemAttachments(
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		netNodeUUID,
 	)
 	c.Check(ns, tc.Equals, "storage_filesystem_attachment_life_machine_provisioning")
 
 	db := s.TxnRunner()
 	_, err = initialQuery(c.Context(), db)
 	// We don't focus on what the error is as no specific error type is offered
-	// as part of the contract. We just care that an error occured.
+	// as part of the contract. We just care that an error occurred.
 	c.Assert(err, tc.NotNil)
 }
 

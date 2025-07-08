@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 
 	coremachine "github.com/juju/juju/core/machine"
-
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"

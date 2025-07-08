@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/juju/juju/domain/life"
+	"github.com/juju/tc"
+
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/tc"
 )
 
 // volumeSuite provides a set of tests for asserting the state interface for
@@ -183,7 +183,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeForNetNode(c *tc.C) {
 
 	// Apply a life change to one of the attachments and check the change comes
 	// out.
-	s.changeVolumeAttachmentLife(c, vsaUUID1, life.Dying)
+	s.changeVolumeAttachmentLife(c, vsaUUID1, domainlife.Dying)
 	lives, err = st.GetVolumeAttachmentLifeForNetNode(
 		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
 	)
@@ -236,7 +236,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlanLifeForNetNode(c *tc.C) {
 
 	// Apply a life change to one of the attachments and check the change comes
 	// out.
-	s.changeVolumeAttachmentPlanLife(c, vsapOneUUID, life.Dying)
+	s.changeVolumeAttachmentPlanLife(c, vsapOneUUID, domainlife.Dying)
 	lives, err = st.GetVolumeAttachmentPlanLifeForNetNode(
 		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
 	)
@@ -470,7 +470,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumeAttachmen
 	db := s.TxnRunner()
 	_, err = initialQuery(c.Context(), db)
 	// We don't focus on what the error is as no specific error type is offered
-	// as part of the contract. We just care that an error occured.
+	// as part of the contract. We just care that an error occurred.
 	c.Assert(err, tc.NotNil)
 }
 
@@ -585,7 +585,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumeAttachmen
 	db := s.TxnRunner()
 	_, err = initialQuery(c.Context(), db)
 	// We don't focus on what the error is as no specific error type is offered
-	// as part of the contract. We just care that an error occured.
+	// as part of the contract. We just care that an error occurred.
 	c.Assert(err, tc.NotNil)
 }
 
