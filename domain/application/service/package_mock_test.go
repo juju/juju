@@ -60,7 +60,7 @@ func (m *MockMachineState) EXPECT() *MockMachineStateMockRecorder {
 }
 
 // IsMachineController mocks base method.
-func (m *MockMachineState) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
+func (m *MockMachineState) IsMachineController(ctx context.Context, mName string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsMachineController", ctx, mName)
 	ret0, _ := ret[0].(bool)
@@ -87,13 +87,13 @@ func (c *MockMachineStateIsMachineControllerCall) Return(arg0 bool, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineStateIsMachineControllerCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockMachineStateIsMachineControllerCall {
+func (c *MockMachineStateIsMachineControllerCall) Do(f func(context.Context, string) (bool, error)) *MockMachineStateIsMachineControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineStateIsMachineControllerCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockMachineStateIsMachineControllerCall {
+func (c *MockMachineStateIsMachineControllerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockMachineStateIsMachineControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3855,7 +3855,7 @@ func (c *MockStateIsControllerCharmCall) DoAndReturn(f func(context.Context, cha
 }
 
 // IsMachineController mocks base method.
-func (m *MockState) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
+func (m *MockState) IsMachineController(ctx context.Context, mName string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsMachineController", ctx, mName)
 	ret0, _ := ret[0].(bool)
@@ -3882,13 +3882,13 @@ func (c *MockStateIsMachineControllerCall) Return(arg0 bool, arg1 error) *MockSt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateIsMachineControllerCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockStateIsMachineControllerCall {
+func (c *MockStateIsMachineControllerCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsMachineControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsMachineControllerCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockStateIsMachineControllerCall {
+func (c *MockStateIsMachineControllerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsMachineControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

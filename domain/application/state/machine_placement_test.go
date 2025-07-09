@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -123,10 +122,10 @@ func (s *machinePlacementSuite) createUnit(c *tc.C) unit.Name {
 	return unitName
 }
 
-func (s *machinePlacementSuite) createMachine(c *tc.C) machine.Name {
+func (s *machinePlacementSuite) createMachine(c *tc.C) string {
 	unitName := s.createUnit(c)
 
-	var machineName machine.Name
+	var machineName string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
 SELECT m.name

@@ -48,7 +48,7 @@ import (
 type MachineState interface {
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
-	IsMachineController(ctx context.Context, mName machine.Name) (bool, error)
+	IsMachineController(ctx context.Context, mName string) (bool, error)
 }
 
 // State represents a type for interacting with the underlying state.

@@ -293,7 +293,7 @@ func (s *ProviderService) AddControllerIAASUnits(
 		}
 
 		// Machines cannot be co-located on existing controller machines,
-		if controller, err := s.st.IsMachineController(ctx, coremachine.Name(unit.Placement.Directive)); err != nil {
+		if controller, err := s.st.IsMachineController(ctx, unit.Placement.Directive); err != nil {
 			return nil, errors.Errorf("checking if machine %q is a controller: %w", unit.Placement.Directive, err)
 		} else if controller {
 			return nil, errors.Errorf("controller units cannot be placed on controller machines %q", unit.Placement.Directive)

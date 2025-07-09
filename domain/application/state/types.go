@@ -19,7 +19,17 @@ import (
 	"github.com/juju/juju/domain/life"
 )
 
-// These structs represent the persistent block device entity schema in the database.
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type entityName struct {
+	Name string `db:"name"`
+}
+
+type count struct {
+	Count int `db:"count"`
+}
 
 type modelInfo struct {
 	ModelType string `db:"type"`
@@ -1287,16 +1297,4 @@ type getUnitMachine struct {
 type controllerApplication struct {
 	ApplicationID coreapplication.ID `db:"application_uuid"`
 	IsController  bool               `db:"is_controller"`
-}
-
-type count struct {
-	Count int `db:"count"`
-}
-
-type machineName struct {
-	Name coremachine.Name `db:"name"`
-}
-
-type machineUUID struct {
-	UUID coremachine.UUID `db:"uuid"`
 }

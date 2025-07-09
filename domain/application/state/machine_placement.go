@@ -84,7 +84,7 @@ func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, erro
 
 // IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *State) IsMachineController(ctx context.Context, mName coremachine.Name) (bool, error) {
+func (s *State) IsMachineController(ctx context.Context, mName string) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, errors.Capture(err)
@@ -94,9 +94,9 @@ func (s *State) IsMachineController(ctx context.Context, mName coremachine.Name)
 	query := `
 SELECT 1 AS &count.count
 FROM   v_machine_is_controller
-WHERE  machine_uuid = $machineUUID.uuid
+WHERE  machine_uuid = $entityUUID.uuid
 `
-	queryStmt, err := s.Prepare(query, machineUUID{}, result)
+	queryStmt, err := s.Prepare(query, entityUUID{}, result)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -122,19 +122,19 @@ WHERE  machine_uuid = $machineUUID.uuid
 	return result.Count == 1, nil
 }
 
-func (s *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName coremachine.Name) (machineUUID, error) {
-	machineNameParam := machineName{Name: mName}
-	machineUUIDoutput := machineUUID{}
-	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
+func (s *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName string) (entityUUID, error) {
+	machineNameParam := entityName{Name: mName}
+	machineUUIDoutput := entityUUID{}
+	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE name = $entityName.name`
 	queryStmt, err := s.Prepare(query, machineNameParam, machineUUIDoutput)
 	if err != nil {
-		return machineUUID{}, errors.Capture(err)
+		return entityUUID{}, errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput); errors.Is(err, sqlair.ErrNoRows) {
-		return machineUUID{}, errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+		return entityUUID{}, errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
 	} else if err != nil {
-		return machineUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
+		return entityUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
 	}
 	return machineUUIDoutput, nil
 }

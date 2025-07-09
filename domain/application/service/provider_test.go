@@ -2174,7 +2174,7 @@ func (s *providerServiceSuite) TestAddControllerIAASUnitsInvalidColocatedPlaceme
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().IsMachineController(gomock.Any(), coremachine.Name("0")).Return(true, nil)
+	s.state.EXPECT().IsMachineController(gomock.Any(), "0").Return(true, nil)
 
 	placement := &instance.Placement{
 		Scope:     instance.MachineScope,
@@ -2197,7 +2197,7 @@ func (s *providerServiceSuite) TestAddControllerIAASUnitsMachinePlacement(c *tc.
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.state.EXPECT().IsMachineController(gomock.Any(), coremachine.Name("0")).Return(false, nil)
+	s.state.EXPECT().IsMachineController(gomock.Any(), "0").Return(false, nil)
 
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{
 		Platform: deployment.Platform{
