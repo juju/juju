@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -1265,6 +1266,121 @@ WHERE machine_uuid = $machineUUID.uuid;
 	}
 
 	return decodeConstraints(result), nil
+}
+
+// GetModelConstraints returns the currently set constraints for the model.
+// The following error types can be expected:
+// - [modelerrors.NotFound]: when no model exists to set constraints for.
+// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
+// set for the model.
+// Note: This method should mirror the model domain method of the same name.
+func (st *State) GetModelConstraints(
+	ctx context.Context,
+) (constraints.Constraints, error) {
+	db, err := st.DB()
+	if err != nil {
+		return constraints.Constraints{}, errors.Capture(err)
+	}
+
+	selectTagStmt, err := st.Prepare(
+		"SELECT &dbConstraintTag.* FROM v_model_constraint_tag", dbConstraintTag{},
+	)
+	if err != nil {
+		return constraints.Constraints{}, errors.Capture(err)
+	}
+
+	selectSpaceStmt, err := st.Prepare(
+		"SELECT &dbConstraintSpace.* FROM v_model_constraint_space", dbConstraintSpace{},
+	)
+	if err != nil {
+		return constraints.Constraints{}, errors.Capture(err)
+	}
+
+	selectZoneStmt, err := st.Prepare(
+		"SELECT &dbConstraintZone.* FROM v_model_constraint_zone", dbConstraintZone{})
+	if err != nil {
+		return constraints.Constraints{}, errors.Capture(err)
+	}
+
+	var (
+		cons   dbConstraint
+		tags   []dbConstraintTag
+		spaces []dbConstraintSpace
+		zones  []dbConstraintZone
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := modelExists(ctx, st, tx); err != nil {
+			return errors.Capture(err)
+		}
+
+		cons, err = st.getModelConstraints(ctx, tx)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, selectTagStmt).GetAll(&tags)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting constraint tags: %w", err)
+		}
+		err = tx.Query(ctx, selectSpaceStmt).GetAll(&spaces)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting constraint spaces: %w", err)
+		}
+		err = tx.Query(ctx, selectZoneStmt).GetAll(&zones)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting constraint zones: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return constraints.Constraints{}, errors.Capture(err)
+	}
+
+	return cons.toValue(tags, spaces, zones)
+}
+
+// getModelConstraints returns the values set in the constraints table for the
+// current model. If no constraints are currently set
+// for the model an error satisfying [modelerrors.ConstraintsNotFound] will be
+// returned.
+func (st *State) getModelConstraints(
+	ctx context.Context,
+	tx *sqlair.TX,
+) (dbConstraint, error) {
+	var constraint dbConstraint
+
+	stmt, err := st.Prepare("SELECT &dbConstraint.* FROM v_model_constraint", constraint)
+	if err != nil {
+		return dbConstraint{}, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&constraint)
+	if errors.Is(err, sql.ErrNoRows) {
+		return dbConstraint{}, errors.New(
+			"no constraints set for model",
+		).Add(modelerrors.ConstraintsNotFound)
+	}
+	if err != nil {
+		return dbConstraint{}, errors.Errorf("getting model constraints: %w", err)
+	}
+	return constraint, nil
+}
+
+func modelExists(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) error {
+	var modelUUID dbUUID
+	stmt, err := preparer.Prepare(`SELECT &dbUUID.uuid FROM model;`, modelUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&modelUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("model does not exist").Add(modelerrors.NotFound)
+	}
+	if err != nil {
+		return errors.Errorf("checking model if model exists: %w", err)
+	}
+
+	return nil
 }
 
 // GetMachineBase returns the base for the given machine.

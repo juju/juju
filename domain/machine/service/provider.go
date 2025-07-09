@@ -10,12 +10,14 @@ import (
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 )
@@ -77,9 +79,13 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 	if err != nil {
 		return AddMachineResults{}, errors.Capture(err)
 	}
+	mergedCons, err := s.mergeMachineAndModelConstraints(ctx, args.Constraints)
+	if err != nil {
+		return AddMachineResults{}, errors.Capture(err)
+	}
 	precheckInstanceParams := environs.PrecheckInstanceParams{
 		Base:        base,
-		Constraints: domainconstraints.EncodeConstraints(args.Constraints),
+		Constraints: mergedCons,
 		Placement:   args.Directive.Directive,
 	}
 	if err := provider.PrecheckInstance(ctx, precheckInstanceParams); err != nil {
@@ -113,6 +119,54 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 	default:
 		return "", errors.Errorf("unknown os type %q", ostype)
 	}
+}
+
+func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, cons domainconstraints.Constraints) (constraints.Value, error) {
+	// If the provider doesn't support constraints validation, then we can
+	// just return the zero value.
+	validator, err := s.constraintsValidator(ctx)
+	if err != nil || validator == nil {
+		return constraints.Value{}, errors.Capture(err)
+	}
+
+	modelCons, err := s.st.GetModelConstraints(ctx)
+	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
+		return constraints.Value{}, errors.Errorf("retrieving model constraints constraints: %w	", err)
+	}
+
+	mergedCons, err := validator.Merge(domainconstraints.EncodeConstraints(cons), domainconstraints.EncodeConstraints(modelCons))
+	if err != nil {
+		return constraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
+	}
+
+	// Always ensure that we snapshot the constraint's architecture when adding
+	// the machine. If no architecture in the constraints, then look at
+	// the model constraints. If no architecture is found in the model, use the
+	// default architecture (amd64).
+	snapshotCons := mergedCons
+	if !snapshotCons.HasArch() {
+		a := constraints.ArchOrDefault(snapshotCons, nil)
+		snapshotCons.Arch = &a
+	}
+
+	return snapshotCons, nil
+}
+
+func (s *ProviderService) constraintsValidator(ctx context.Context) (constraints.Validator, error) {
+	provider, err := s.providerGetter(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		// Not validating constraints, as the provider doesn't support it.
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	validator, err := provider.ConstraintsValidator(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return validator, nil
 }
 
 // GetBootstrapEnviron returns the bootstrap environ.

@@ -203,6 +203,10 @@ type State interface {
 	// Since the machine_platform table is populated when creating a machine, there
 	// should always be a base for a machine.
 	GetMachineBase(ctx context.Context, mName string) (base.Base, error)
+
+	// GetModelConstraints returns the currently set constraints for the model.
+	// Note: This method should mirror the model domain method of the same name.
+	GetModelConstraints(ctx context.Context) (constraints.Constraints, error)
 }
 
 // StatusHistory records status information into a generalized way.
