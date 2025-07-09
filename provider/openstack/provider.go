@@ -154,9 +154,16 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+const (
+	// provider version 1 introduces tags to security groups.
+	providerVersion1 = 1
+
+	currentProviderVersion = providerVersion1
+)
+
 // Version is part of the EnvironProvider interface.
 func (EnvironProvider) Version() int {
-	return 0
+	return currentProviderVersion
 }
 
 func (p EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
