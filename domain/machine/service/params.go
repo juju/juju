@@ -3,15 +3,11 @@
 
 package service
 
-import (
-	"github.com/juju/juju/domain/constraints"
-	"github.com/juju/juju/domain/deployment"
-)
+import "github.com/juju/juju/core/machine"
 
-// CreateMachineArgs contains arguments for creating a machine.
-type CreateMachineArgs struct {
-	Constraints constraints.Constraints
-	Directive   deployment.Placement
-	Platform    deployment.Platform
-	Nonce       *string
+// AddMachineResults contains the results of adding a machine, i.e. the
+// machine's name along with a (optional) child machine name.
+type AddMachineResults struct {
+	MachineName      machine.Name
+	ChildMachineName *machine.Name
 }

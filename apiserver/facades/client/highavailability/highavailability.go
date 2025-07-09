@@ -14,13 +14,11 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
-	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,13 +27,6 @@ type NodeService interface {
 	// CurateNodes modifies the control place by adding and
 	// removing node entries based on the input slices.
 	CurateNodes(context.Context, []string, []string) error
-}
-
-// MachineService is the interface that is used to interact with the machine
-// domain.
-type MachineService interface {
-	// CreateMachine creates the specified machine.
-	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (machine.UUID, machine.Name, error)
 }
 
 // ApplicationService instances add units to an application in dqlite state.
@@ -76,7 +67,6 @@ type HighAvailabilityAPI struct {
 	controllerTag           names.ControllerTag
 	isControllerModel       bool
 	nodeService             NodeService
-	machineService          MachineService
 	applicationService      ApplicationService
 	controllerConfigService ControllerConfigService
 	networkService          NetworkService

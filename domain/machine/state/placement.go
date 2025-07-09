@@ -36,7 +36,7 @@ func PlaceMachine(
 	tx *sqlair.TX,
 	preparer domain.Preparer,
 	clock clock.Clock,
-	args domainmachine.PlaceMachineArgs,
+	args domainmachine.AddMachineArgs,
 ) (string, []coremachine.Name, error) {
 	switch args.Directive.Type {
 	case deployment.PlacementTypeUnset:

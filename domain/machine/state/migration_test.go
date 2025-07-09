@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -35,8 +36,7 @@ func (s *migrationStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *migrationStateSuite) TestCreateMachine(c *tc.C) {
-	_, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{})
-	c.Assert(err, tc.ErrorIsNil)
+	s.addMachine(c)
 
 	machines, err := s.state.GetMachinesForExport(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -44,12 +44,9 @@ func (s *migrationStateSuite) TestCreateMachine(c *tc.C) {
 }
 
 func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNonce(c *tc.C) {
-	_, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, machineName := s.addMachine(c)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", "foo", "", "nonce", nil)
+	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), "foo", "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
@@ -63,20 +60,17 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNonce(c *tc.C) {
 	c.Check(machines, tc.HasLen, 1)
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
-			Name:  coremachine.Name("0"),
-			UUID:  "deadbeef",
+			Name:  machineName,
+			UUID:  machineUUID,
 			Nonce: "nonce",
 		},
 	})
 }
 
 func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) {
-	_, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, machineName := s.addMachine(c)
 
-	err = s.state.SetMachineCloudInstance(c.Context(), "deadbeef", "foo", "", "", nil)
+	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), "foo", "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	machines, err := s.state.GetMachinesForExport(c.Context())
@@ -84,21 +78,31 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) 
 	c.Check(machines, tc.HasLen, 1)
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
-			Name:  coremachine.Name("0"),
-			UUID:  "deadbeef",
+			Name:  machineName,
+			UUID:  machineUUID,
 			Nonce: "",
 		},
 	})
 }
 
 func (s *migrationStateSuite) TestInsertImportingMachineAlreadyExists(c *tc.C) {
-	machineName, err := s.state.CreateMachine(c.Context(), machine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, machineName := s.addMachine(c)
 
-	err = s.state.InsertMigratingMachine(c.Context(), machineName.String(), machine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
+	err := s.state.InsertMigratingMachine(c.Context(), machineName.String(), machine.CreateMachineArgs{
+		MachineUUID: machineUUID,
 	})
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
+}
+
+func (s *migrationStateSuite) addMachine(c *tc.C) (coremachine.UUID, coremachine.Name) {
+	_, mNames, err := s.state.AddMachine(c.Context(), machine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID, mNames[0]
 }

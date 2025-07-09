@@ -29,6 +29,8 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -1052,13 +1054,23 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	)
 	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
-	_, mn0, err := machineSvc.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	res0, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, mn1, err := machineSvc.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	res1, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
-	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, mn0)
+	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, res0.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -1067,17 +1079,17 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn0.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: res0.MachineName.String()},
 				},
 			},
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn1.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: res1.MachineName.String()},
 				},
 			},
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn0.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: res0.MachineName.String()},
 				},
 			},
 		)
@@ -1141,13 +1153,23 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	)
 	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
-	_, mn0, err := machineSvc.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	res0, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, mn1, err := machineSvc.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	res1, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
-	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, mn0)
+	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, res0.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -1156,12 +1178,12 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn0.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: res0.MachineName.String()},
 				},
 			},
 			service.AddIAASUnitArg{
 				AddUnitArg: service.AddUnitArg{
-					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: mn1.String()},
+					Placement: &instance.Placement{Scope: instance.MachineScope, Directive: res1.MachineName.String()},
 				},
 			},
 		)

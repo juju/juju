@@ -30,7 +30,6 @@ import (
 	application0 "github.com/juju/juju/domain/application"
 	charm0 "github.com/juju/juju/domain/application/charm"
 	service "github.com/juju/juju/domain/application/service"
-	service0 "github.com/juju/juju/domain/machine/service"
 	relation0 "github.com/juju/juju/domain/relation"
 	removal "github.com/juju/juju/domain/removal"
 	resolve "github.com/juju/juju/domain/resolve"
@@ -527,46 +526,6 @@ func NewMockMachineService(ctrl *gomock.Controller) *MockMachineService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
-}
-
-// CreateMachine mocks base method.
-func (m *MockMachineService) CreateMachine(arg0 context.Context, arg1 service0.CreateMachineArgs) (machine.UUID, machine.Name, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1)
-	ret0, _ := ret[0].(machine.UUID)
-	ret1, _ := ret[1].(machine.Name)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// CreateMachine indicates an expected call of CreateMachine.
-func (mr *MockMachineServiceMockRecorder) CreateMachine(arg0, arg1 any) *MockMachineServiceCreateMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockMachineService)(nil).CreateMachine), arg0, arg1)
-	return &MockMachineServiceCreateMachineCall{Call: call}
-}
-
-// MockMachineServiceCreateMachineCall wrap *gomock.Call
-type MockMachineServiceCreateMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceCreateMachineCall) Return(arg0 machine.UUID, arg1 machine.Name, arg2 error) *MockMachineServiceCreateMachineCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceCreateMachineCall) Do(f func(context.Context, service0.CreateMachineArgs) (machine.UUID, machine.Name, error)) *MockMachineServiceCreateMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceCreateMachineCall) DoAndReturn(f func(context.Context, service0.CreateMachineArgs) (machine.UUID, machine.Name, error)) *MockMachineServiceCreateMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // GetHardwareCharacteristics mocks base method.

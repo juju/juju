@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockcommand"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -95,8 +96,12 @@ type Authorizer interface {
 
 // MachineService is the interface that is used to interact with the machines.
 type MachineService interface {
-	// CreateMachine creates a machine with the given name.
-	CreateMachine(ctx context.Context, args machineservice.CreateMachineArgs) (coremachine.UUID, coremachine.Name, error)
+	// AddMachine creates the net node and machines if required, depending
+	// on the placement.
+	// It returns the net node UUID for the machine and a list of child
+	// machine names that were created as part of the placement.
+	AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (machineservice.AddMachineResults, error)
+
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 

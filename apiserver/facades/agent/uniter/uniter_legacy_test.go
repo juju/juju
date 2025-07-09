@@ -19,6 +19,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	portservice "github.com/juju/juju/domain/port/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -451,7 +452,7 @@ func (s *uniterLegacySuite) TestStorageAttachments(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
-	_, _, err := s.machineService.CreateMachine(c.Context(), machineservice.CreateMachineArgs{})
+	_, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.applicationService.AddIAASUnits(c.Context(), "mysql",

@@ -28,8 +28,8 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/rpc/params"
@@ -245,10 +245,9 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, nonce string) 
 	if nonce != "" {
 		n = &nonce
 	}
-	createMachineArgs := machineservice.CreateMachineArgs{
+	_, err := mm.machineService.AddMachine(ctx, domainmachine.AddMachineArgs{
 		Nonce: n,
-	}
-	_, _, err := mm.machineService.CreateMachine(ctx, createMachineArgs)
+	})
 	return errors.Trace(err)
 }
 

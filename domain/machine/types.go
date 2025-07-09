@@ -28,8 +28,8 @@ type CreateMachineArgs struct {
 	Nonce       *string
 }
 
-// PlaceMachineArgs contains arguments for placing a machine.
-type PlaceMachineArgs struct {
+// AddMachineArgs contains arguments for adding a machine.
+type AddMachineArgs struct {
 	Constraints constraints.Constraints
 	Directive   deployment.Placement
 	Platform    deployment.Platform

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corerelation "github.com/juju/juju/core/relation"
@@ -2483,14 +2482,16 @@ func (s *modelStateSuite) addRelationToApplication(c *tc.C, appUUID coreapplicat
 
 func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.Name) {
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	mUUID := machinetesting.GenUUID(c)
-	name, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
+
+	_, machineNames, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Architecture: architecture.AMD64,
 		},
-		MachineUUID: mUUID,
 	})
+	c.Assert(err, tc.ErrorIsNil)
+	name := machineNames[0]
+	mUUID, err := machineState.GetMachineUUID(c.Context(), name)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = machineState.SetMachineCloudInstance(

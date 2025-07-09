@@ -59,7 +59,6 @@ func newHighAvailabilityAPI(stdCtx context.Context, ctx facade.ModelContext) (*H
 		controllerTag:           names.NewControllerTag(ctx.ControllerUUID()),
 		isControllerModel:       ctx.IsControllerModelScoped(),
 		nodeService:             domainServices.ControllerNode(),
-		machineService:          domainServices.Machine(),
 		applicationService:      applicationService,
 		controllerConfigService: domainServices.ControllerConfig(),
 		networkService:          domainServices.Network(),
