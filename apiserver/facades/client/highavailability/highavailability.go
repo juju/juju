@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -32,7 +31,7 @@ import (
 type ControllerNodeService interface {
 	// GetControllerAPIAddresses returns the list of API addresses for all
 	// controllers.
-	GetControllerAPIAddresses(ctx context.Context) (map[string]network.HostPorts, error)
+	GetAPIAddressesByControllerIDForClients(ctx context.Context) (map[string][]string, error)
 	// GetControllerIDs returns the list of controller IDs from the controller node
 	// records.
 	GetControllerIDs(ctx context.Context) ([]string, error)
@@ -188,7 +187,7 @@ func (api *HighAvailabilityAPI) ControllerDetails(
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	hostPorts, err := api.controllerNodeService.GetControllerAPIAddresses(ctx)
+	controllerAddresses, err := api.controllerNodeService.GetAPIAddressesByControllerIDForClients(ctx)
 	if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
 		// If there are no API addresses, we return an empty result.
 		return results, nil
@@ -196,11 +195,11 @@ func (api *HighAvailabilityAPI) ControllerDetails(
 		return results, apiservererrors.ServerError(errors.Trace(err))
 	}
 
-	details := make([]params.ControllerDetails, 0, len(hostPorts))
-	for id, hostPort := range hostPorts {
+	details := make([]params.ControllerDetails, 0, len(controllerAddresses))
+	for id, addresses := range controllerAddresses {
 		details = append(details, params.ControllerDetails{
 			ControllerId: id,
-			APIAddresses: hostPort.FilterUnusable().Unique().Strings(),
+			APIAddresses: addresses,
 		})
 	}
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"sort"
 	"strconv"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -69,33 +70,13 @@ type State interface {
 	// node records.
 	GetControllerIDs(ctx context.Context) ([]string, error)
 
-	// GetAPIAddresses returns the list of API addresses for the provided
-	// controller node.
-	GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error)
-
-	// GetControllerAPIAddresses returns all APIAddresses available for
-	// controllers to be used in HA. These are all APIAddresses independent of
-	// is_agent value.
-	GetControllerAPIAddresses(ctx context.Context) (map[string]controllernode.APIAddresses, error)
-
-	// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
-	// their API addresses that are available for agents. The map is keyed by
-	// controller ID, and the values are slices of strings representing the API
-	// addresses for each controller node.
-	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
-
-	// GetAPIAddressesForAgents returns the list of API address strings
-	// including port for the provided controller node that are available for
-	// agents.
-	GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error)
-
-	// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available
+	// GetAPIAddressesForAgents returns all APIAddresses available
 	// for agents, divided by controller node.
-	GetAllAPIAddressesWithScopeForAgents(ctx context.Context) ([]controllernode.APIAddresses, error)
+	GetAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
-	// GetAllAPIAddressesWithScopeForClients returns all APIAddresses available
+	// GetAPIAddressesForClients returns all APIAddresses available
 	// for clients, divided by controller node.
-	GetAllAPIAddressesWithScopeForClients(ctx context.Context) ([]controllernode.APIAddresses, error)
+	GetAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
 	// GetAllCloudLocalAPIAddresses returns a string slice of api
 	// addresses available for clients. The list only contains cloud
@@ -256,48 +237,22 @@ func (s *Service) GetControllerIDs(ctx context.Context) ([]string, error) {
 	return res, nil
 }
 
-// GetAPIAddresses returns the list of API addresses for the provided controller
-// node.
-func (s *Service) GetAPIAddresses(ctx context.Context, nodeID string) ([]string, error) {
-	if nodeID == "" {
-		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
-	}
-	return s.st.GetAPIAddresses(ctx, nodeID)
-}
-
-// GetControllerAPIAddresses returns the list of API addresses for all
-// controllers.
-func (s *Service) GetControllerAPIAddresses(ctx context.Context) (map[string]network.HostPorts, error) {
-	addresses, err := s.st.GetControllerAPIAddresses(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	result := make(map[string]network.HostPorts, len(addresses))
-	for k, addr := range addresses {
-		result[k], err = addr.ToHostPortsNoMachineLocal()
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-	}
-	return result, nil
-}
-
 // GetAPIHostPortsForAgents returns API HostPorts that are available for
 // agents. HostPorts are grouped by controller node, though each specific
 // controller is not identified.
 func (s *Service) GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostPorts, error) {
-	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
+	agentAddrs, err := s.st.GetAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	result := make([]network.HostPorts, len(agentAddrs))
-	for i, addr := range agentAddrs {
-		result[i], err = addr.ToHostPortsNoMachineLocal()
+	var result []network.HostPorts
+	for _, addr := range agentAddrs {
+		address, err := addr.ToHostPortsNoMachineLocal()
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
+		result = append(result, address)
 	}
 	return result, nil
 }
@@ -306,18 +261,26 @@ func (s *Service) GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostP
 // clients. HostPorts are grouped by controller node, though each specific
 // controller is not identified.
 func (s *Service) GetAPIHostPortsForClients(ctx context.Context) ([]network.HostPorts, error) {
-	clientAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
+	clientAddrs, err := s.st.GetAPIAddressesForClients(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	result := make([]network.HostPorts, len(clientAddrs))
-	for i, addr := range clientAddrs {
+	ids := mapKeyOrder(clientAddrs)
+
+	var result []network.HostPorts
+	for _, id := range ids {
+		addr := clientAddrs[id]
+		if len(addr) == 0 {
+			continue
+		}
+
 		// todo - skip machine local
-		result[i], err = addr.ToHostPortsNoMachineLocal()
+		address, err := addr.ToHostPortsNoMachineLocal()
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
+		result = append(result, address)
 	}
 	return result, nil
 }
@@ -327,19 +290,53 @@ func (s *Service) GetAPIHostPortsForClients(ctx context.Context) ([]network.Host
 // controller ID, and the values are slices of strings representing the API
 // addresses for each controller node.
 func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
-	return s.st.GetAPIAddressesByControllerIDForAgents(ctx)
+	addresses, err := s.st.GetAPIAddressesForAgents(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string][]string, len(addresses))
+	for controllerID, addrs := range addresses {
+		result[controllerID] = addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)
+	}
+
+	return result, nil
+}
+
+// GetAPIAddressesByControllerIDForClients returns a map of controller IDs to
+// their API addresses that are available for clients. The map is keyed by
+// controller ID, and the values are slices of strings representing the API
+// addresses for each controller node.
+func (s *Service) GetAPIAddressesByControllerIDForClients(ctx context.Context) (map[string][]string, error) {
+	addresses, err := s.st.GetAPIAddressesForClients(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string][]string, len(addresses))
+	for controllerID, addrs := range addresses {
+		result[controllerID] = addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)
+	}
+
+	return result, nil
 }
 
 // GetAllAPIAddressesForAgents returns a string slice of api
 // addresses available for agents ordered to prefer local-cloud scoped
 // addresses and IPv4 over IPv6 for each machine.
 func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error) {
-	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
+	agentAddrs, err := s.st.GetAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	orderedAddrs := make([]string, 0)
-	for _, addrs := range agentAddrs {
+	ids := mapKeyOrder(agentAddrs)
+
+	var orderedAddrs []string
+	for _, id := range ids {
+		addrs := agentAddrs[id]
+		if len(addrs) == 0 {
+			continue
+		}
 		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)...)
 	}
 	return orderedAddrs, nil
@@ -348,14 +345,22 @@ func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) ([]string, er
 // GetAllNoProxyAPIAddressesForAgents returns a sorted, comma separated string
 // of agent API addresses suitable for no proxy settings.
 func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (string, error) {
-	agentAddrs, err := s.st.GetAllAPIAddressesWithScopeForAgents(ctx)
+	agentAddrs, err := s.st.GetAPIAddressesForAgents(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	orderedAddrs := make(controllernode.APIAddresses, 0)
-	for _, addrs := range agentAddrs {
+
+	ids := mapKeyOrder(agentAddrs)
+
+	var orderedAddrs controllernode.APIAddresses
+	for _, id := range ids {
+		addrs := agentAddrs[id]
+		if len(addrs) == 0 {
+			continue
+		}
 		orderedAddrs = append(orderedAddrs, addrs...)
 	}
+
 	return orderedAddrs.ToNoProxyString(), nil
 }
 
@@ -363,12 +368,19 @@ func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (strin
 // addresses available for agents ordered to prefer public scoped
 // addresses and IPv4 over IPv6 for each machine.
 func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
-	clientAddrs, err := s.st.GetAllAPIAddressesWithScopeForClients(ctx)
+	clientAddrs, err := s.st.GetAPIAddressesForClients(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
+	ids := mapKeyOrder(clientAddrs)
+
 	orderedAddrs := make([]string, 0)
-	for _, addrs := range clientAddrs {
+	for _, id := range ids {
+		addrs := clientAddrs[id]
+		if len(addrs) == 0 {
+			continue
+		}
 		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
 	}
 	return orderedAddrs, nil
@@ -392,15 +404,6 @@ func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, e
 		returnAddrs[i] = ip.Addr().String()
 	}
 	return returnAddrs, nil
-}
-
-// GetAPIAddressesForAgents returns the list of API address strings including
-// port for the provided controller node that are available for agents.
-func (s *Service) GetAPIAddressesForAgents(ctx context.Context, nodeID string) ([]string, error) {
-	if nodeID == "" {
-		return nil, errors.Errorf("node ID %q is %w, cannot be empty", nodeID, coreerrors.NotValid)
-	}
-	return s.st.GetAPIAddressesForAgents(ctx, nodeID)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -457,4 +460,18 @@ func (s *WatchableService) WatchControllerAPIAddresses(ctx context.Context) (wat
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerAPIAddresses(), changestream.All),
 	)
+}
+
+func mapKeyOrder(m map[string]controllernode.APIAddresses) []string {
+	if len(m) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(m))
+	for controllerID := range m {
+		ids = append(ids, controllerID)
+	}
+
+	sort.Strings(ids)
+	return ids
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
@@ -188,7 +187,7 @@ func (s *clientSuite) TestControllerDetailsEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.LoginAccess, gomock.Any()).Return(nil)
-	s.controllerNodeService.EXPECT().GetControllerAPIAddresses(gomock.Any()).Return(map[string]network.HostPorts{}, controllernodeerrors.EmptyAPIAddresses)
+	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForClients(gomock.Any()).Return(map[string][]string{}, controllernodeerrors.EmptyAPIAddresses)
 
 	api := HighAvailabilityAPI{
 		controllerNodeService: s.controllerNodeService,
@@ -203,23 +202,9 @@ func (s *clientSuite) TestControllerDetails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.LoginAccess, gomock.Any()).Return(nil)
-	s.controllerNodeService.EXPECT().GetControllerAPIAddresses(gomock.Any()).Return(map[string]network.HostPorts{
-		"0": network.MachineHostPorts{
-			{
-				MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
-				NetPort:        17070,
-			},
-		}.HostPorts(),
-		"1": network.MachineHostPorts{
-			{
-				MachineAddress: network.NewMachineAddress("10.0.0.43", network.WithScope(network.ScopePublic)),
-				NetPort:        17070,
-			},
-			{
-				MachineAddress: network.NewMachineAddress("10.0.0.7", network.WithScope(network.ScopeCloudLocal)),
-				NetPort:        17070,
-			},
-		}.HostPorts(),
+	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForClients(gomock.Any()).Return(map[string][]string{
+		"0": {"10.0.0.1:17070"},
+		"1": {"10.0.0.43:17070", "10.0.0.7:17070"},
 	}, nil)
 
 	api := HighAvailabilityAPI{
