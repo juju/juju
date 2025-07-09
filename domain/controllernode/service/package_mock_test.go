@@ -81,97 +81,19 @@ func (c *MockStateCurateNodesCall) DoAndReturn(f func(context.Context, []string,
 	return c
 }
 
-// GetAPIAddresses mocks base method.
-func (m *MockState) GetAPIAddresses(arg0 context.Context, arg1 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAPIAddresses", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAPIAddresses indicates an expected call of GetAPIAddresses.
-func (mr *MockStateMockRecorder) GetAPIAddresses(arg0, arg1 any) *MockStateGetAPIAddressesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIAddresses", reflect.TypeOf((*MockState)(nil).GetAPIAddresses), arg0, arg1)
-	return &MockStateGetAPIAddressesCall{Call: call}
-}
-
-// MockStateGetAPIAddressesCall wrap *gomock.Call
-type MockStateGetAPIAddressesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetAPIAddressesCall) Return(arg0 []string, arg1 error) *MockStateGetAPIAddressesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetAPIAddressesCall) Do(f func(context.Context, string) ([]string, error)) *MockStateGetAPIAddressesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAPIAddressesCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetAPIAddressesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetAPIAddressesByControllerIDForAgents mocks base method.
-func (m *MockState) GetAPIAddressesByControllerIDForAgents(arg0 context.Context) (map[string][]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAPIAddressesByControllerIDForAgents", arg0)
-	ret0, _ := ret[0].(map[string][]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAPIAddressesByControllerIDForAgents indicates an expected call of GetAPIAddressesByControllerIDForAgents.
-func (mr *MockStateMockRecorder) GetAPIAddressesByControllerIDForAgents(arg0 any) *MockStateGetAPIAddressesByControllerIDForAgentsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIAddressesByControllerIDForAgents", reflect.TypeOf((*MockState)(nil).GetAPIAddressesByControllerIDForAgents), arg0)
-	return &MockStateGetAPIAddressesByControllerIDForAgentsCall{Call: call}
-}
-
-// MockStateGetAPIAddressesByControllerIDForAgentsCall wrap *gomock.Call
-type MockStateGetAPIAddressesByControllerIDForAgentsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetAPIAddressesByControllerIDForAgentsCall) Return(arg0 map[string][]string, arg1 error) *MockStateGetAPIAddressesByControllerIDForAgentsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetAPIAddressesByControllerIDForAgentsCall) Do(f func(context.Context) (map[string][]string, error)) *MockStateGetAPIAddressesByControllerIDForAgentsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAPIAddressesByControllerIDForAgentsCall) DoAndReturn(f func(context.Context) (map[string][]string, error)) *MockStateGetAPIAddressesByControllerIDForAgentsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetAPIAddressesForAgents mocks base method.
-func (m *MockState) GetAPIAddressesForAgents(arg0 context.Context, arg1 string) ([]string, error) {
+func (m *MockState) GetAPIAddressesForAgents(arg0 context.Context) (map[string]controllernode.APIAddresses, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAPIAddressesForAgents", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret := m.ctrl.Call(m, "GetAPIAddressesForAgents", arg0)
+	ret0, _ := ret[0].(map[string]controllernode.APIAddresses)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAPIAddressesForAgents indicates an expected call of GetAPIAddressesForAgents.
-func (mr *MockStateMockRecorder) GetAPIAddressesForAgents(arg0, arg1 any) *MockStateGetAPIAddressesForAgentsCall {
+func (mr *MockStateMockRecorder) GetAPIAddressesForAgents(arg0 any) *MockStateGetAPIAddressesForAgentsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIAddressesForAgents", reflect.TypeOf((*MockState)(nil).GetAPIAddressesForAgents), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIAddressesForAgents", reflect.TypeOf((*MockState)(nil).GetAPIAddressesForAgents), arg0)
 	return &MockStateGetAPIAddressesForAgentsCall{Call: call}
 }
 
@@ -181,97 +103,58 @@ type MockStateGetAPIAddressesForAgentsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAPIAddressesForAgentsCall) Return(arg0 []string, arg1 error) *MockStateGetAPIAddressesForAgentsCall {
+func (c *MockStateGetAPIAddressesForAgentsCall) Return(arg0 map[string]controllernode.APIAddresses, arg1 error) *MockStateGetAPIAddressesForAgentsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAPIAddressesForAgentsCall) Do(f func(context.Context, string) ([]string, error)) *MockStateGetAPIAddressesForAgentsCall {
+func (c *MockStateGetAPIAddressesForAgentsCall) Do(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetAPIAddressesForAgentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAPIAddressesForAgentsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetAPIAddressesForAgentsCall {
+func (c *MockStateGetAPIAddressesForAgentsCall) DoAndReturn(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetAPIAddressesForAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// GetAllAPIAddressesWithScopeForAgents mocks base method.
-func (m *MockState) GetAllAPIAddressesWithScopeForAgents(arg0 context.Context) ([]controllernode.APIAddresses, error) {
+// GetAPIAddressesForClients mocks base method.
+func (m *MockState) GetAPIAddressesForClients(arg0 context.Context) (map[string]controllernode.APIAddresses, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllAPIAddressesWithScopeForAgents", arg0)
-	ret0, _ := ret[0].([]controllernode.APIAddresses)
+	ret := m.ctrl.Call(m, "GetAPIAddressesForClients", arg0)
+	ret0, _ := ret[0].(map[string]controllernode.APIAddresses)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAllAPIAddressesWithScopeForAgents indicates an expected call of GetAllAPIAddressesWithScopeForAgents.
-func (mr *MockStateMockRecorder) GetAllAPIAddressesWithScopeForAgents(arg0 any) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
+// GetAPIAddressesForClients indicates an expected call of GetAPIAddressesForClients.
+func (mr *MockStateMockRecorder) GetAPIAddressesForClients(arg0 any) *MockStateGetAPIAddressesForClientsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesWithScopeForAgents", reflect.TypeOf((*MockState)(nil).GetAllAPIAddressesWithScopeForAgents), arg0)
-	return &MockStateGetAllAPIAddressesWithScopeForAgentsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIAddressesForClients", reflect.TypeOf((*MockState)(nil).GetAPIAddressesForClients), arg0)
+	return &MockStateGetAPIAddressesForClientsCall{Call: call}
 }
 
-// MockStateGetAllAPIAddressesWithScopeForAgentsCall wrap *gomock.Call
-type MockStateGetAllAPIAddressesWithScopeForAgentsCall struct {
+// MockStateGetAPIAddressesForClientsCall wrap *gomock.Call
+type MockStateGetAPIAddressesForClientsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) Return(arg0 []controllernode.APIAddresses, arg1 error) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
+func (c *MockStateGetAPIAddressesForClientsCall) Return(arg0 map[string]controllernode.APIAddresses, arg1 error) *MockStateGetAPIAddressesForClientsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) Do(f func(context.Context) ([]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
+func (c *MockStateGetAPIAddressesForClientsCall) Do(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetAPIAddressesForClientsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllAPIAddressesWithScopeForAgentsCall) DoAndReturn(f func(context.Context) ([]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForAgentsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetAllAPIAddressesWithScopeForClients mocks base method.
-func (m *MockState) GetAllAPIAddressesWithScopeForClients(arg0 context.Context) ([]controllernode.APIAddresses, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllAPIAddressesWithScopeForClients", arg0)
-	ret0, _ := ret[0].([]controllernode.APIAddresses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllAPIAddressesWithScopeForClients indicates an expected call of GetAllAPIAddressesWithScopeForClients.
-func (mr *MockStateMockRecorder) GetAllAPIAddressesWithScopeForClients(arg0 any) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAPIAddressesWithScopeForClients", reflect.TypeOf((*MockState)(nil).GetAllAPIAddressesWithScopeForClients), arg0)
-	return &MockStateGetAllAPIAddressesWithScopeForClientsCall{Call: call}
-}
-
-// MockStateGetAllAPIAddressesWithScopeForClientsCall wrap *gomock.Call
-type MockStateGetAllAPIAddressesWithScopeForClientsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) Return(arg0 []controllernode.APIAddresses, arg1 error) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) Do(f func(context.Context) ([]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllAPIAddressesWithScopeForClientsCall) DoAndReturn(f func(context.Context) ([]controllernode.APIAddresses, error)) *MockStateGetAllAPIAddressesWithScopeForClientsCall {
+func (c *MockStateGetAPIAddressesForClientsCall) DoAndReturn(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetAPIAddressesForClientsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

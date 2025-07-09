@@ -5,50 +5,46 @@ package highavailability
 
 import (
 	"context"
+	"sort"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
+	corecontroller "github.com/juju/juju/core/controller"
+	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
-// NodeService describes the maintenance of controller entries.
-type NodeService interface {
-	// CurateNodes modifies the control place by adding and
-	// removing node entries based on the input slices.
-	CurateNodes(context.Context, []string, []string) error
+// ControllerNodeService describes the maintenance of controller entries.
+type ControllerNodeService interface {
+	// GetControllerAPIAddresses returns the list of API addresses for all
+	// controllers.
+	GetAPIAddressesByControllerIDForClients(ctx context.Context) (map[string][]string, error)
+	// GetControllerIDs returns the list of controller IDs from the controller node
+	// records.
+	GetControllerIDs(ctx context.Context) ([]string, error)
+	// CurateNodes modifies the known control plane by adding and removing
+	// controller node records according to the input slices.
+	CurateNodes(ctx context.Context, toAdd, toRemove []string) error
 }
 
 // ApplicationService instances add units to an application in dqlite state.
 type ApplicationService interface {
-	// AddIAASUnits adds units to the application with the given name.
-	AddIAASUnits(
-		ctx context.Context,
-		name string,
-		units ...applicationservice.AddIAASUnitArg,
-	) ([]unit.Name, error)
-}
-
-// ControllerConfigService instances read the controller config.
-type ControllerConfigService interface {
-	ControllerConfig(ctx context.Context) (controller.Config, error)
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// AddControllerIAASUnits adds the specified controller units to the
+	// controller IAAS application.
+	AddControllerIAASUnits(ctx context.Context, controllerIDs []string, units []applicationservice.AddIAASUnitArg) ([]coremachine.Name, error)
 }
 
 // BlockCommandService defines methods for interacting with block commands.
@@ -64,15 +60,13 @@ type BlockCommandService interface {
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	controllerTag           names.ControllerTag
-	isControllerModel       bool
-	nodeService             NodeService
-	applicationService      ApplicationService
-	controllerConfigService ControllerConfigService
-	networkService          NetworkService
-	blockCommandService     BlockCommandService
-	authorizer              facade.Authorizer
-	logger                  corelogger.Logger
+	controllerTag         names.ControllerTag
+	isControllerModel     bool
+	controllerNodeService ControllerNodeService
+	applicationService    ApplicationService
+	blockCommandService   BlockCommandService
+	authorizer            facade.Authorizer
+	logger                corelogger.Logger
 }
 
 // HighAvailabilityAPIV2 implements v2 of the high availability facade.
@@ -92,10 +86,9 @@ func (api *HighAvailabilityAPI) EnableHA(
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	if len(args.Specs) == 0 {
+	if numSpecs := len(args.Specs); numSpecs == 0 {
 		return results, nil
-	}
-	if len(args.Specs) > 1 {
+	} else if numSpecs > 1 {
 		return results, errors.New("only one controller spec is supported")
 	}
 
@@ -110,7 +103,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	params.ControllersChanges, error,
 ) {
 	if !api.isControllerModel {
-		return params.ControllersChanges{}, errors.New("unsupported with workload models")
+		return params.ControllersChanges{}, errors.NotSupportedf("workload models")
 	}
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(api.blockCommandService)
@@ -118,7 +111,66 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
-	return params.ControllersChanges{}, nil
+	// We need to check that the number of controllers is not less than the
+	// number of existing controllers.
+	controllerIDs, err := api.controllerNodeService.GetControllerIDs(ctx)
+	if err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
+	// The call to add controller units is purely additive, meaning that it will
+	// never remove any existing controllers.
+	required := spec.NumControllers
+	if required == 0 {
+		required = corecontroller.DefaultControllerCount - len(controllerIDs)
+		if required <= 0 {
+			// If there are no controllers required, we return an empty result.
+			return params.ControllersChanges{}, nil
+		}
+	}
+
+	args := make([]applicationservice.AddIAASUnitArg, 0, required)
+	for i := 0; i < required; i++ {
+		var placement *instance.Placement
+		if i < len(spec.Placement) {
+			placement, err = instance.ParsePlacement(spec.Placement[i])
+			if err != nil {
+				return params.ControllersChanges{}, errors.Trace(err)
+			}
+		}
+
+		args = append(args, applicationservice.AddIAASUnitArg{
+			AddUnitArg: applicationservice.AddUnitArg{
+				Placement: placement,
+			},
+		})
+	}
+
+	machineNames, err := api.applicationService.AddControllerIAASUnits(ctx, controllerIDs, args)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ControllersChanges{}, errors.NotFoundf("controller application %q", coreapplication.ControllerApplicationName)
+	} else if err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
+	names := transform.Slice(machineNames, func(name coremachine.Name) string {
+		return name.String()
+	})
+	if err := api.controllerNodeService.CurateNodes(ctx, names, nil); err != nil {
+		// TODO (stickupkid): We're in a bit of jam here. We could try and
+		// remove the units and machines, straight away, but we have to be
+		// careful not to remove any machines that are already in use by
+		// other applications/units.
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
+	// We don't support removal or converting an existing machine (hot standby)
+	// of controllers in this API, so we return just the added and existing
+	// controllers.
+	return params.ControllersChanges{
+		Added:      names,
+		Maintained: controllerIDs,
+	}, nil
 }
 
 // ControllerDetails is only available on V3 or later.
@@ -134,6 +186,28 @@ func (api *HighAvailabilityAPI) ControllerDetails(
 	if err != nil {
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
+
+	controllerAddresses, err := api.controllerNodeService.GetAPIAddressesByControllerIDForClients(ctx)
+	if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
+		// If there are no API addresses, we return an empty result.
+		return results, nil
+	} else if err != nil {
+		return results, apiservererrors.ServerError(errors.Trace(err))
+	}
+
+	details := make([]params.ControllerDetails, 0, len(controllerAddresses))
+	for id, addresses := range controllerAddresses {
+		details = append(details, params.ControllerDetails{
+			ControllerId: id,
+			APIAddresses: addresses,
+		})
+	}
+
+	sort.Slice(details, func(i, j int) bool {
+		return details[i].ControllerId < details[j].ControllerId
+	})
+
+	results.Results = details
 
 	return results, nil
 }

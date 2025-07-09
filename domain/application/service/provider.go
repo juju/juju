@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
@@ -16,9 +18,12 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
+	corecontroller "github.com/juju/juju/core/controller"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
@@ -116,7 +121,9 @@ func (s *ProviderService) CreateIAASApplication(
 	}
 
 	// Precheck any instances that are being created.
-	if err := s.precheckInstances(ctx, appArg.Platform, unitArgs); err != nil {
+	if err := s.precheckInstances(ctx, appArg.Platform, transform.Slice(unitArgs, func(arg application.AddIAASUnitArg) application.AddUnitArg {
+		return arg.AddUnitArg
+	})); err != nil {
 		return "", errors.Errorf("prechecking instances: %w", err)
 	}
 
@@ -157,6 +164,11 @@ func (s *ProviderService) CreateCAASApplication(
 		return "", errors.Errorf("preparing CAAS application args: %w", err)
 	}
 
+	// Precheck any instances that are being created.
+	if err := s.precheckInstances(ctx, appArg.Platform, unitArgs); err != nil {
+		return "", errors.Errorf("prechecking instances: %w", err)
+	}
+
 	appID, err := s.st.CreateCAASApplication(ctx, appName, appArg, unitArgs)
 	if err != nil {
 		return "", errors.Errorf("creating CAAS application %q: %w", appName, err)
@@ -171,271 +183,6 @@ func (s *ProviderService) CreateCAASApplication(
 	}
 
 	return appID, nil
-}
-
-func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
-	name string,
-	charm internalcharm.Charm,
-	origin corecharm.Origin,
-	args AddApplicationArgs,
-	units ...AddIAASUnitArg,
-) (string, application.AddIAASApplicationArg, []application.AddIAASUnitArg, error) {
-	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
-	if err != nil {
-		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
-	}
-
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints), charm.Meta().Subordinate)
-	if err != nil {
-		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("merging IAAS application and model constraints: %w", err)
-	}
-
-	unitArgs, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
-	if err != nil {
-		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
-	}
-
-	return appName, application.AddIAASApplicationArg{
-		BaseAddApplicationArg: arg,
-	}, unitArgs, nil
-}
-
-func (s *ProviderService) makeCAASApplicationArg(
-	ctx context.Context,
-	name string,
-	charm internalcharm.Charm,
-	origin corecharm.Origin,
-	args AddApplicationArgs,
-	units ...AddUnitArg,
-) (string, application.AddCAASApplicationArg, []application.AddUnitArg, error) {
-	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
-	if err != nil {
-		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
-	}
-
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints), charm.Meta().Subordinate)
-	if err != nil {
-		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
-	}
-
-	unitArgs, err := s.makeCAASUnitArgs(units, constraints.DecodeConstraints(cons))
-	if err != nil {
-		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("making CAAS unit args: %w", err)
-	}
-	return appName, application.AddCAASApplicationArg{
-		BaseAddApplicationArg: arg,
-		Scale:                 len(units),
-	}, unitArgs, nil
-}
-
-func (s *ProviderService) makeApplicationArg(
-	ctx context.Context,
-	name string,
-	charm internalcharm.Charm,
-	origin corecharm.Origin,
-	args AddApplicationArgs,
-) (string, application.BaseAddApplicationArg, error) {
-	if err := validateCharmAndApplicationParams(
-		name,
-		args.ReferenceName,
-		charm,
-		origin,
-	); err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("invalid application args: %w", err)
-	}
-
-	if err := validateDownloadInfoParams(origin.Source, args.DownloadInfo); err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("invalid application args: %w", err)
-	}
-
-	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("create application: %w", err)
-	}
-
-	if err := validateDeviceConstraints(args.Devices, charm.Meta()); err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("validating device constraints: %w", err)
-	}
-
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("getting model type: %w", err)
-	}
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
-	if err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
-	}
-	// We know that the charm name is valid, so we can use it as the application
-	// name if that is not provided.
-	if name == "" {
-		// Annoyingly this should be the reference name, but that's not
-		// true in the previous code. To keep compatibility, we'll use the
-		// charm name.
-		name = appArg.Charm.Metadata.Name
-	}
-
-	// Adding units with storage needs to know the kind of storage supported
-	// by the underlying provider so gather that here as it needs to be
-	// done outside a transaction.
-	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return "", application.BaseAddApplicationArg{}, err
-	}
-
-	if len(appArg.Storage) > 0 {
-		appArg.StoragePoolKind = make(map[string]storage.StorageKind)
-	}
-	for _, arg := range appArg.Storage {
-		p, err := s.poolStorageProvider(ctx, registry, arg.PoolNameOrType)
-		if err != nil {
-			return "", application.BaseAddApplicationArg{}, err
-		}
-		if p.Supports(storage.StorageKindFilesystem) {
-			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindFilesystem
-		}
-		if p.Supports(storage.StorageKindBlock) {
-			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindBlock
-		}
-	}
-	return name, appArg, nil
-}
-
-func makeCreateApplicationArgs(
-	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelType coremodel.ModelType,
-	charm internalcharm.Charm,
-	origin corecharm.Origin,
-	args AddApplicationArgs,
-) (application.BaseAddApplicationArg, error) {
-	storageDirectives := make(map[string]storage.Directive)
-	for n, sc := range args.Storage {
-		storageDirectives[n] = sc
-	}
-
-	meta := charm.Meta()
-
-	var err error
-	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
-	}
-	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
-	}
-
-	// When encoding the charm, this will also validate the charm metadata,
-	// when parsing it.
-	ch, _, err := encodeCharm(charm)
-	if err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm: %w", err)
-	}
-
-	revision := -1
-	if origin.Revision != nil {
-		revision = *origin.Revision
-	}
-
-	source, err := encodeCharmSource(origin.Source)
-	if err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm source: %w", err)
-	}
-
-	ch.Source = source
-	ch.ReferenceName = args.ReferenceName
-	ch.Revision = revision
-	ch.Hash = origin.Hash
-	ch.ArchivePath = args.CharmStoragePath
-	ch.ObjectStoreUUID = args.CharmObjectStoreUUID
-	ch.Architecture = encodeArchitecture(origin.Platform.Architecture)
-
-	// If we have a storage path, then we know the charm is available.
-	// This is passive for now, but once we update the application, the presence
-	// of the object store UUID will be used to determine if the charm is
-	// available.
-	ch.Available = args.CharmStoragePath != ""
-
-	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
-	if err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm origin: %w", err)
-	}
-
-	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
-	if err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("encoding application config: %w", err)
-	}
-
-	applicationStatus, err := encodeWorkloadStatus(args.ApplicationStatus)
-	if err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf("encoding application status: %w", err)
-	}
-
-	return application.BaseAddApplicationArg{
-		Charm:             ch,
-		CharmDownloadInfo: args.DownloadInfo,
-		Platform:          platformArg,
-		Channel:           channelArg,
-		EndpointBindings:  args.EndpointBindings,
-		Resources:         makeResourcesArgs(args.ResolvedResources),
-		PendingResources:  args.PendingResources,
-		Storage:           makeStorageArgs(storageDirectives),
-		Config:            applicationConfig,
-		Settings:          args.ApplicationSettings,
-		Status:            applicationStatus,
-		Devices:           args.Devices,
-		IsController:      args.IsController,
-	}, nil
-}
-
-func (s *ProviderService) precheckInstances(
-	ctx context.Context,
-	platform deployment.Platform,
-	unitArgs []application.AddIAASUnitArg,
-) error {
-	provider, err := s.provider(ctx)
-	if err != nil {
-		return errors.Errorf("getting provider: %w", err)
-	}
-
-	base, err := encodeApplicationBase(platform)
-	if err != nil {
-		return errors.Errorf("encoding application base: %w", err)
-	}
-
-	for _, unitArg := range unitArgs {
-		if err := provider.PrecheckInstance(ctx, environs.PrecheckInstanceParams{
-			Base:        base,
-			Placement:   encodeUnitPlacement(unitArg.Placement),
-			Constraints: constraints.EncodeConstraints(unitArg.Constraints),
-		}); err != nil {
-			return errors.Errorf("pre-checking instances: %w", err)
-		}
-	}
-	return nil
-}
-
-func encodeApplicationBase(platform deployment.Platform) (corebase.Base, error) {
-	var osName string
-	switch platform.OSType {
-	case deployment.Ubuntu:
-		osName = "ubuntu"
-	default:
-		return corebase.Base{}, errors.Errorf("unsupported OS type %q", platform.OSType)
-	}
-
-	return corebase.Base{
-		OS:      osName,
-		Channel: corebase.Channel{Track: platform.Channel},
-	}, nil
-}
-
-func encodeUnitPlacement(placement deployment.Placement) string {
-	// We only support provider placements, so if the placement type is not
-	// a provider, we return an empty string.
-	if placement.Type != deployment.PlacementTypeProvider {
-		return ""
-	}
-
-	return placement.Directive
 }
 
 // GetSupportedFeatures returns the set of features that the model makes
@@ -497,86 +244,125 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
 }
 
-func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstraints.Validator, error) {
-	provider, err := s.provider(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		// Not validating constraints, as the provider doesn't support it.
+// AddControllerIAASUnits adds the specified number of controller units to
+// the controller application. It expects to only operate on the controller
+// model, thus there should always be a controller application.
+// This is additive, meaning that it will never remove any existing
+// controllers.
+func (s *ProviderService) AddControllerIAASUnits(
+	ctx context.Context,
+	controllerIDs []string,
+	units []AddIAASUnitArg,
+) ([]coremachine.Name, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// This can happen if we try and enable HA before the first controller
+	// machine is created and assigned a address.
+	if len(controllerIDs) == 0 {
+		return nil, errors.New("no existing controller IDs provided")
+	}
+	if len(units) == 0 {
 		return nil, nil
-	} else if err != nil {
-		return nil, errors.Capture(err)
 	}
 
-	validator, err := provider.ConstraintsValidator(ctx)
+	newUnits := len(units) + len(controllerIDs)
+	if newUnits != 0 && newUnits%2 != 1 {
+		return nil, errors.New("number of controllers must be odd and non-negative")
+	} else if newUnits > corecontroller.MaxPeers {
+		return nil, errors.Errorf("controller count is too large (allowed %d)", corecontroller.MaxPeers)
+	}
+
+	// Calculate the offset for the new controllers. This is the new number
+	// minus the number of existing controllers.
+	required := len(units) - len(controllerIDs)
+	if required == 0 {
+		// No changes are required, so we return an empty result.
+		return nil, nil
+	}
+
+	for _, unit := range units {
+		if unit.Placement == nil {
+			continue
+		}
+
+		// Machines cannot be placed on containers, so we check if the
+		// placement is a container machine and if so, return an error.
+		if unit.Placement.Scope == instance.MachineScope && names.IsContainerMachine(unit.Placement.Directive) {
+			return nil, errors.Errorf("controller units cannot be placed on containers").Add(coreerrors.NotSupported)
+		}
+
+		// Machines cannot be co-located on existing controller machines,
+		if controller, err := s.st.IsMachineController(ctx, unit.Placement.Directive); err != nil {
+			return nil, errors.Errorf("checking if machine %q is a controller: %w", unit.Placement.Directive, err)
+		} else if controller {
+			return nil, errors.Errorf("controller units cannot be placed on controller machines %q", unit.Placement.Directive)
+		}
+	}
+
+	// Add the required number of units to the controller application.
+	_, machineNames, err := s.AddIAASUnits(ctx, coreapplication.ControllerApplicationName, units...)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf("adding IAAS units to controller application: %w", err)
 	}
-
-	return validator, nil
+	return machineNames, nil
 }
 
 // AddIAASUnits adds the specified units to the IAAS application, returning an
 // error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application doesn't exist. If no units are provided, it will return nil.
-func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddIAASUnitArg) ([]coreunit.Name, error) {
+func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddIAASUnitArg) ([]coreunit.Name, []coremachine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	if len(units) == 0 {
-		return []coreunit.Name{}, nil
+		return nil, nil, nil
 	}
 
 	if !isValidApplicationName(appName) {
-		return nil, applicationerrors.ApplicationNameNotValid
+		return nil, nil, applicationerrors.ApplicationNameNotValid
 	}
 
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return nil, errors.Errorf("getting application %q id: %w", appName, err)
+		return nil, nil, errors.Errorf("getting application %q id: %w", appName, err)
 	}
 
-	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
+	cons, err := s.makeApplicationConstraints(ctx, appUUID)
 	if err != nil {
-		return nil, errors.Errorf("getting application %q constraints: %w", appName, err)
+		return nil, nil, errors.Errorf("making application %q constraints: %w", appName, err)
 	}
 
 	origin, err := s.st.GetApplicationCharmOrigin(ctx, appUUID)
 	if err != nil {
-		return nil, errors.Errorf("getting application %q platform: %w", appName, err)
+		return nil, nil, errors.Errorf("getting application %q platform: %w", appName, err)
 	}
 
-	// We must get the charm to know if it's a subordinate.
-	charm, err := s.st.GetCharmByApplicationID(ctx, appUUID)
+	args, err := s.makeIAASUnitArgs(units, origin.Platform, constraints.DecodeConstraints(cons))
 	if err != nil {
-		return nil, errors.Errorf("getting application %q charm for subordinate: %w", appName, err)
+		return nil, nil, errors.Errorf("making IAAS unit args: %w", err)
 	}
 
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons, charm.Metadata.Subordinate)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	args, err := s.makeIAASUnitArgs(units, constraints.DecodeConstraints(cons))
-	if err != nil {
-		return nil, errors.Errorf("making IAAS unit args: %w", err)
-	}
-
-	if err := s.precheckInstances(ctx, origin.Platform, args); err != nil {
-		return nil, errors.Errorf("pre-checking instances: %w", err)
+	if err := s.precheckInstances(ctx, origin.Platform, transform.Slice(args, func(arg application.AddIAASUnitArg) application.AddUnitArg {
+		return arg.AddUnitArg
+	})); err != nil {
+		return nil, nil, errors.Errorf("pre-checking instances: %w", err)
 	}
 
 	unitNames, machineNames, err := s.st.AddIAASUnits(ctx, appUUID, args...)
 	if err != nil {
-		return nil, errors.Errorf("adding IAAS units to application %q: %w", appName, err)
+		return nil, nil, errors.Errorf("adding IAAS units to application %q: %w", appName, err)
 	}
 
 	for i, name := range unitNames {
 		arg := args[i]
 		if err := s.recordUnitStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
-			return nil, errors.Errorf("recording status history: %w", err)
+			return nil, nil, errors.Errorf("recording status history: %w", err)
 		}
 	}
 	s.recordInitMachinesStatusHistory(ctx, machineNames)
 
-	return unitNames, nil
+	return unitNames, machineNames, nil
 }
 
 // AddCAASUnits adds the specified units to the CAAS application, returning an
@@ -585,6 +371,7 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, units ...AddUnitArg) ([]coreunit.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	if len(units) == 0 {
 		return []coreunit.Name{}, nil
 	}
@@ -598,25 +385,22 @@ func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, unit
 		return nil, errors.Errorf("getting application %q id: %w", appName, err)
 	}
 
-	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
+	cons, err := s.makeApplicationConstraints(ctx, appUUID)
 	if err != nil {
-		return nil, errors.Errorf("getting application %q constraints: %w", appName, err)
-	}
-
-	// We must get the charm to know if it's a subordinate.
-	charm, err := s.st.GetCharmByApplicationID(ctx, appUUID)
-	if err != nil {
-		return nil, errors.Errorf("getting application %q charm for subordinate: %w", appName, err)
-	}
-
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons, charm.Metadata.Subordinate)
-	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf("making application %q constraints: %w", appName, err)
 	}
 
 	args, err := s.makeCAASUnitArgs(units, constraints.DecodeConstraints(cons))
 	if err != nil {
 		return nil, errors.Errorf("making CAAS unit args: %w", err)
+	}
+
+	origin, err := s.st.GetApplicationCharmOrigin(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting application platform: %w", err)
+	}
+	if err := s.precheckInstances(ctx, origin.Platform, args); err != nil {
+		return nil, errors.Errorf("pre-checking instances: %w", err)
 	}
 
 	unitNames, err := s.st.AddCAASUnits(ctx, appUUID, args...)
@@ -766,6 +550,196 @@ func (s *ProviderService) RegisterCAASUnit(
 	return unitName, pass, nil
 }
 
+func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+	units ...AddIAASUnitArg,
+) (string, application.AddIAASApplicationArg, []application.AddIAASUnitArg, error) {
+	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
+	if err != nil {
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints), charm.Meta().Subordinate)
+	if err != nil {
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("merging IAAS application and model constraints: %w", err)
+	}
+
+	unitArgs, err := s.makeIAASUnitArgs(units, arg.Platform, constraints.DecodeConstraints(cons))
+	if err != nil {
+		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
+	}
+
+	return appName, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: arg,
+	}, unitArgs, nil
+}
+
+func (s *ProviderService) makeCAASApplicationArg(
+	ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+	units ...AddUnitArg,
+) (string, application.AddCAASApplicationArg, []application.AddUnitArg, error) {
+	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
+	if err != nil {
+		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints), charm.Meta().Subordinate)
+	if err != nil {
+		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
+	}
+
+	unitArgs, err := s.makeCAASUnitArgs(units, constraints.DecodeConstraints(cons))
+	if err != nil {
+		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("making CAAS unit args: %w", err)
+	}
+	return appName, application.AddCAASApplicationArg{
+		BaseAddApplicationArg: arg,
+		Scale:                 len(units),
+	}, unitArgs, nil
+}
+
+func (s *ProviderService) makeApplicationArg(
+	ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+) (string, application.BaseAddApplicationArg, error) {
+	if err := validateCharmAndApplicationParams(
+		name,
+		args.ReferenceName,
+		charm,
+		origin,
+	); err != nil {
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("invalid application args: %w", err)
+	}
+
+	if err := validateDownloadInfoParams(origin.Source, args.DownloadInfo); err != nil {
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("invalid application args: %w", err)
+	}
+
+	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("create application: %w", err)
+	}
+
+	if err := validateDeviceConstraints(args.Devices, charm.Meta()); err != nil {
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("validating device constraints: %w", err)
+	}
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("getting model type: %w", err)
+	}
+	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
+	if err != nil {
+		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
+	}
+	// We know that the charm name is valid, so we can use it as the application
+	// name if that is not provided.
+	if name == "" {
+		// Annoyingly this should be the reference name, but that's not
+		// true in the previous code. To keep compatibility, we'll use the
+		// charm name.
+		name = appArg.Charm.Metadata.Name
+	}
+
+	// Adding units with storage needs to know the kind of storage supported
+	// by the underlying provider so gather that here as it needs to be
+	// done outside a transaction.
+	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return "", application.BaseAddApplicationArg{}, err
+	}
+
+	if len(appArg.Storage) > 0 {
+		appArg.StoragePoolKind = make(map[string]storage.StorageKind)
+	}
+	for _, arg := range appArg.Storage {
+		p, err := s.poolStorageProvider(ctx, registry, arg.PoolNameOrType)
+		if err != nil {
+			return "", application.BaseAddApplicationArg{}, err
+		}
+		if p.Supports(storage.StorageKindFilesystem) {
+			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindFilesystem
+		}
+		if p.Supports(storage.StorageKindBlock) {
+			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindBlock
+		}
+	}
+	return name, appArg, nil
+}
+
+func (s *ProviderService) precheckInstances(
+	ctx context.Context,
+	platform deployment.Platform,
+	unitArgs []application.AddUnitArg,
+) error {
+	provider, err := s.provider(ctx)
+	if err != nil {
+		return errors.Errorf("getting provider: %w", err)
+	}
+
+	base, err := encodeApplicationBase(platform)
+	if err != nil {
+		return errors.Errorf("encoding application base: %w", err)
+	}
+
+	for _, unitArg := range unitArgs {
+		if err := provider.PrecheckInstance(ctx, environs.PrecheckInstanceParams{
+			Base:        base,
+			Placement:   encodeUnitPlacement(unitArg.Placement),
+			Constraints: constraints.EncodeConstraints(unitArg.Constraints),
+		}); err != nil {
+			return errors.Errorf("pre-checking instances: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *ProviderService) makeApplicationConstraints(ctx context.Context, appUUID coreapplication.ID) (coreconstraints.Value, error) {
+	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
+	if err != nil {
+		return coreconstraints.Value{}, errors.Errorf("getting application constraints: %w", err)
+	}
+
+	// We must get the charm to know if it's a subordinate.
+	charm, err := s.st.GetCharmByApplicationID(ctx, appUUID)
+	if err != nil {
+		return coreconstraints.Value{}, errors.Errorf("getting application charm for subordinate: %w", err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons, charm.Metadata.Subordinate)
+	if err != nil {
+		return coreconstraints.Value{}, errors.Capture(err)
+	}
+
+	return cons, nil
+}
+
+func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstraints.Validator, error) {
+	provider, err := s.provider(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		// Not validating constraints, as the provider doesn't support it.
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	validator, err := provider.ConstraintsValidator(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return validator, nil
+}
+
 func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appCons constraints.Constraints, isSubordinate bool) (coreconstraints.Value, error) {
 	// If the provider doesn't support constraints validation, then we can
 	// just return the zero value.
@@ -816,7 +790,7 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 	return nil
 }
 
-func (s *Service) poolStorageProvider(
+func (s *ProviderService) poolStorageProvider(
 	ctx context.Context,
 	registry storage.ProviderRegistry,
 	poolNameOrType string,
@@ -846,4 +820,116 @@ func (s *Service) poolStorageProvider(
 		return nil, errors.Capture(err)
 	}
 	return aProvider, nil
+}
+
+func makeCreateApplicationArgs(
+	ctx context.Context,
+	state State,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	modelType coremodel.ModelType,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+) (application.BaseAddApplicationArg, error) {
+	storageDirectives := make(map[string]storage.Directive)
+	for n, sc := range args.Storage {
+		storageDirectives[n] = sc
+	}
+
+	meta := charm.Meta()
+
+	var err error
+	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
+	}
+	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
+	}
+
+	// When encoding the charm, this will also validate the charm metadata,
+	// when parsing it.
+	ch, _, err := encodeCharm(charm)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm: %w", err)
+	}
+
+	revision := -1
+	if origin.Revision != nil {
+		revision = *origin.Revision
+	}
+
+	source, err := encodeCharmSource(origin.Source)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm source: %w", err)
+	}
+
+	ch.Source = source
+	ch.ReferenceName = args.ReferenceName
+	ch.Revision = revision
+	ch.Hash = origin.Hash
+	ch.ArchivePath = args.CharmStoragePath
+	ch.ObjectStoreUUID = args.CharmObjectStoreUUID
+	ch.Architecture = encodeArchitecture(origin.Platform.Architecture)
+
+	// If we have a storage path, then we know the charm is available.
+	// This is passive for now, but once we update the application, the presence
+	// of the object store UUID will be used to determine if the charm is
+	// available.
+	ch.Available = args.CharmStoragePath != ""
+
+	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm origin: %w", err)
+	}
+
+	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding application config: %w", err)
+	}
+
+	applicationStatus, err := encodeWorkloadStatus(args.ApplicationStatus)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf("encoding application status: %w", err)
+	}
+
+	return application.BaseAddApplicationArg{
+		Charm:             ch,
+		CharmDownloadInfo: args.DownloadInfo,
+		Platform:          platformArg,
+		Channel:           channelArg,
+		EndpointBindings:  args.EndpointBindings,
+		Resources:         makeResourcesArgs(args.ResolvedResources),
+		PendingResources:  args.PendingResources,
+		Storage:           makeStorageArgs(storageDirectives),
+		Config:            applicationConfig,
+		Settings:          args.ApplicationSettings,
+		Status:            applicationStatus,
+		Devices:           args.Devices,
+		IsController:      args.IsController,
+	}, nil
+}
+
+func encodeApplicationBase(platform deployment.Platform) (corebase.Base, error) {
+	var osName string
+	switch platform.OSType {
+	case deployment.Ubuntu:
+		osName = "ubuntu"
+	default:
+		return corebase.Base{}, errors.Errorf("unsupported OS type %q", platform.OSType)
+	}
+
+	return corebase.Base{
+		OS:      osName,
+		Channel: corebase.Channel{Track: platform.Channel},
+	}, nil
+}
+
+func encodeUnitPlacement(placement deployment.Placement) string {
+	// We only support provider placements, so if the placement type is not
+	// a provider, we return an empty string.
+	if placement.Type != deployment.PlacementTypeProvider {
+		return ""
+	}
+
+	return placement.Directive
 }

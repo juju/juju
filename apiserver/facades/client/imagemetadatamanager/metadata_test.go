@@ -118,7 +118,7 @@ func (s *metadataSuite) TestSaveEmpty(c *tc.C) {
 func (s *metadataSuite) TestSave(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(func(v any) (*config.Config, error) {
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (*config.Config, error) {
 		return config.New(config.UseDefaults, coretesting.FakeConfig())
 	})
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(

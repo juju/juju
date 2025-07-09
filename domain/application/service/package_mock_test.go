@@ -36,6 +36,68 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockMachineState is a mock of MachineState interface.
+type MockMachineState struct {
+	ctrl     *gomock.Controller
+	recorder *MockMachineStateMockRecorder
+}
+
+// MockMachineStateMockRecorder is the mock recorder for MockMachineState.
+type MockMachineStateMockRecorder struct {
+	mock *MockMachineState
+}
+
+// NewMockMachineState creates a new mock instance.
+func NewMockMachineState(ctrl *gomock.Controller) *MockMachineState {
+	mock := &MockMachineState{ctrl: ctrl}
+	mock.recorder = &MockMachineStateMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMachineState) EXPECT() *MockMachineStateMockRecorder {
+	return m.recorder
+}
+
+// IsMachineController mocks base method.
+func (m *MockMachineState) IsMachineController(ctx context.Context, mName string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineController", ctx, mName)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineController indicates an expected call of IsMachineController.
+func (mr *MockMachineStateMockRecorder) IsMachineController(ctx, mName any) *MockMachineStateIsMachineControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineController", reflect.TypeOf((*MockMachineState)(nil).IsMachineController), ctx, mName)
+	return &MockMachineStateIsMachineControllerCall{Call: call}
+}
+
+// MockMachineStateIsMachineControllerCall wrap *gomock.Call
+type MockMachineStateIsMachineControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineStateIsMachineControllerCall) Return(arg0 bool, arg1 error) *MockMachineStateIsMachineControllerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineStateIsMachineControllerCall) Do(f func(context.Context, string) (bool, error)) *MockMachineStateIsMachineControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineStateIsMachineControllerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockMachineStateIsMachineControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockState is a mock of State interface.
 type MockState struct {
 	ctrl     *gomock.Controller
@@ -3788,6 +3850,45 @@ func (c *MockStateIsControllerCharmCall) Do(f func(context.Context, charm.ID) (b
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateIsControllerCharmCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockStateIsControllerCharmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsMachineController mocks base method.
+func (m *MockState) IsMachineController(ctx context.Context, mName string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineController", ctx, mName)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineController indicates an expected call of IsMachineController.
+func (mr *MockStateMockRecorder) IsMachineController(ctx, mName any) *MockStateIsMachineControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineController", reflect.TypeOf((*MockState)(nil).IsMachineController), ctx, mName)
+	return &MockStateIsMachineControllerCall{Call: call}
+}
+
+// MockStateIsMachineControllerCall wrap *gomock.Call
+type MockStateIsMachineControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsMachineControllerCall) Return(arg0 bool, arg1 error) *MockStateIsMachineControllerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsMachineControllerCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsMachineControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsMachineControllerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsMachineControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -87,6 +87,7 @@ import (
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsink"
 	"github.com/juju/juju/internal/worker/machineactions"
+	"github.com/juju/juju/internal/worker/machineconverter"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
@@ -106,7 +107,6 @@ import (
 	"github.com/juju/juju/internal/worker/sshserver"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
-	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/storageregistry"
 	"github.com/juju/juju/internal/worker/terminationworker"
@@ -1073,12 +1073,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:   config.MachineLock,
 			ContainerType: instance.LXD,
 		})),
-		// isNotControllerFlagName is only used for the stateconverter,
+		// isNotControllerFlagName is only used for the machineconverter,
 		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
-		stateConverterName: ifNotController(ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        internallogger.GetLogger("juju.worker.stateconverter"),
+		machineConverterName: ifNotController(ifNotMigrating(machineconverter.Manifold(machineconverter.ManifoldConfig{
+			AgentName:        agentName,
+			APICallerName:    apiCallerName,
+			Logger:           internallogger.GetLogger("juju.worker.machineconverter"),
+			NewMachineClient: machineconverter.NewMachineClient,
+			NewAgentClient:   machineconverter.NewAgentClient,
+			NewConverter:     machineconverter.NewConverter,
 		}))),
 
 		// The machineSetupName manifold runs small tasks required
@@ -1322,7 +1325,7 @@ const (
 	rebootName                    = "reboot-executor"
 	secretBackendRotateName       = "secret-backend-rotate"
 	sshServerName                 = "ssh-server"
-	stateConverterName            = "state-converter"
+	machineConverterName          = "machine-converter"
 	storageProvisionerName        = "storage-provisioner"
 	storageRegistryName           = "storage-registry"
 	toolsVersionCheckerName       = "tools-version-checker"

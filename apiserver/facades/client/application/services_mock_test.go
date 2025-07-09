@@ -674,7 +674,7 @@ func (c *MockApplicationServiceAddCAASUnitsCall) DoAndReturn(f func(context.Cont
 }
 
 // AddIAASUnits mocks base method.
-func (m *MockApplicationService) AddIAASUnits(arg0 context.Context, arg1 string, arg2 ...service.AddIAASUnitArg) ([]unit.Name, error) {
+func (m *MockApplicationService) AddIAASUnits(arg0 context.Context, arg1 string, arg2 ...service.AddIAASUnitArg) ([]unit.Name, []machine.Name, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
@@ -682,8 +682,9 @@ func (m *MockApplicationService) AddIAASUnits(arg0 context.Context, arg1 string,
 	}
 	ret := m.ctrl.Call(m, "AddIAASUnits", varargs...)
 	ret0, _ := ret[0].([]unit.Name)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].([]machine.Name)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // AddIAASUnits indicates an expected call of AddIAASUnits.
@@ -700,19 +701,19 @@ type MockApplicationServiceAddIAASUnitsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceAddIAASUnitsCall) Return(arg0 []unit.Name, arg1 error) *MockApplicationServiceAddIAASUnitsCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockApplicationServiceAddIAASUnitsCall) Return(arg0 []unit.Name, arg1 []machine.Name, arg2 error) *MockApplicationServiceAddIAASUnitsCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceAddIAASUnitsCall) Do(f func(context.Context, string, ...service.AddIAASUnitArg) ([]unit.Name, error)) *MockApplicationServiceAddIAASUnitsCall {
+func (c *MockApplicationServiceAddIAASUnitsCall) Do(f func(context.Context, string, ...service.AddIAASUnitArg) ([]unit.Name, []machine.Name, error)) *MockApplicationServiceAddIAASUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceAddIAASUnitsCall) DoAndReturn(f func(context.Context, string, ...service.AddIAASUnitArg) ([]unit.Name, error)) *MockApplicationServiceAddIAASUnitsCall {
+func (c *MockApplicationServiceAddIAASUnitsCall) DoAndReturn(f func(context.Context, string, ...service.AddIAASUnitArg) ([]unit.Name, []machine.Name, error)) *MockApplicationServiceAddIAASUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

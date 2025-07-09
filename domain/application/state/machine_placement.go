@@ -10,6 +10,7 @@ import (
 
 	coremachine "github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
@@ -79,4 +80,61 @@ func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, erro
 	}
 
 	return netNodeUUID.NetNodeUUID, nil
+}
+
+// IsMachineController returns whether the machine is a controller machine.
+// It returns a NotFound if the given machine doesn't exist.
+func (s *State) IsMachineController(ctx context.Context, mName string) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result count
+	query := `
+SELECT COUNT(*) AS &count.count
+FROM   v_machine_is_controller
+WHERE  machine_uuid = $entityUUID.uuid
+`
+	queryStmt, err := s.Prepare(query, entityUUID{}, result)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		mUUID, err := s.getMachineUUIDFromName(ctx, tx, mName)
+		if err != nil {
+			return err
+		}
+
+		if err := tx.Query(ctx, queryStmt, mUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			// If no rows are returned, the machine is not a controller.
+			return nil
+		} else if err != nil {
+			return errors.Errorf("querying if machine %q is a controller: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Errorf("checking if machine %q is a controller: %w", mName, err)
+	}
+
+	return result.Count == 1, nil
+}
+
+func (s *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName string) (entityUUID, error) {
+	machineNameParam := entityName{Name: mName}
+	machineUUIDoutput := entityUUID{}
+	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE name = $entityName.name`
+	queryStmt, err := s.Prepare(query, machineNameParam, machineUUIDoutput)
+	if err != nil {
+		return entityUUID{}, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput); errors.Is(err, sqlair.ErrNoRows) {
+		return entityUUID{}, errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+	} else if err != nil {
+		return entityUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
+	}
+	return machineUUIDoutput, nil
 }

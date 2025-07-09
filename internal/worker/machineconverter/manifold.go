@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package stateconverter
+package machineconverter
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent/agent"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
@@ -26,10 +27,9 @@ type ManifoldConfig struct {
 	APICallerName string
 	Logger        logger.Logger
 
-	// A constructor for the machiner API which can be overridden
-	// during testing. If omitted, the default client for the machiner
-	// facade will be automatically used.
-	NewMachinerAPI func(base.APICaller) Machiner
+	NewMachineClient func(dependency.Getter, string) (MachineClient, error)
+	NewAgentClient   func(dependency.Getter, string) (AgentClient, error)
+	NewConverter     func(Config) (watcher.NotifyHandler, error)
 }
 
 // Manifold returns a Manifold that encapsulates the stateconverter worker.
@@ -54,6 +54,15 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if cfg.NewMachineClient == nil {
+		return errors.NotValidf("nil NewMachineClient")
+	}
+	if cfg.NewAgentClient == nil {
+		return errors.NotValidf("nil NewAgentClient")
+	}
+	if cfg.NewConverter == nil {
+		return errors.NotValidf("nil NewConverter")
+	}
 	return nil
 }
 
@@ -74,19 +83,29 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.NotValidf("%q machine tag", a)
 	}
 
-	machiner, err := cfg.newMachiner(getter)
+	machineClient, err := cfg.NewMachineClient(getter, cfg.APICallerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cfg.Logger.Tracef(ctx, "starting NotifyWorker for %s", mTag)
-	handlerCfg := config{
-		machineTag: mTag,
-		machiner:   machiner,
-		logger:     cfg.Logger,
+	agentClient, err := cfg.NewAgentClient(getter, cfg.APICallerName)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	handler, err := cfg.NewConverter(Config{
+		machineTag:    mTag,
+		agent:         a,
+		machineClient: machineClient,
+		agentClient:   agentClient,
+		logger:        cfg.Logger,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
-		Handler: NewConverter(handlerCfg),
+		Handler: handler,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start controller promoter worker")
@@ -94,14 +113,29 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 	return w, nil
 }
 
-func (cfg ManifoldConfig) newMachiner(getter dependency.Getter) (Machiner, error) {
-	if cfg.NewMachinerAPI != nil {
-		machiner := cfg.NewMachinerAPI(nil)
-		return machiner, nil
-	}
+// NewMachineClient returns a new MachineClient that can be used to
+// interact with the machiner API.
+func NewMachineClient(getter dependency.Getter, apiCallerName string) (MachineClient, error) {
 	var apiConn api.Connection
-	if err := getter.Get(cfg.APICallerName, &apiConn); err != nil {
+	if err := getter.Get(apiCallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return wrapper{m: apimachiner.NewClient(apiConn)}, nil
+}
+
+// NewAgentClient returns a new AgentClient that can be used to
+// interact with the agent API.
+func NewAgentClient(getter dependency.Getter, apiCallerName string) (AgentClient, error) {
+	var apiCaller base.APICaller
+	if err := getter.Get(apiCallerName, &apiCaller); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	apiState, err := apiagent.NewClient(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return apiState, nil
 }

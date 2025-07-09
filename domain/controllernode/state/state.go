@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/database"
@@ -303,7 +302,7 @@ func (st *State) SetAPIAddresses(ctx context.Context, addresses map[string]contr
 	checkControllerExistsStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count 
 FROM controller_node 
-WHERE controller_id = ($controllerIDs[:])
+WHERE controller_id IN ($controllerIDs[:])
 `, countResult{}, controllerIDs{})
 	if err != nil {
 		return errors.Capture(err)
@@ -312,7 +311,7 @@ WHERE controller_id = ($controllerIDs[:])
 	getExistingAddressesStmt, err := st.Prepare(`
 SELECT &controllerAPIAddress.* 
 FROM controller_api_address
-WHERE controller_id = ($controllerIDs[:])
+WHERE controller_id IN ($controllerIDs[:])
 `, controllerAPIAddress{}, controllerIDs{})
 	if err != nil {
 		return errors.Capture(err)
@@ -387,137 +386,43 @@ AND address = $controllerAPIAddress.address
 	}))
 }
 
-// GetAPIAddresses returns the list of API addresses for the provided controller
-// node.
-func (st *State) GetAPIAddresses(ctx context.Context, ctrlID string) ([]string, error) {
+// GetAPIAddressesForAgents returns APIAddresses available for agents.
+func (st *State) GetAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	ident := controllerID{ID: ctrlID}
-
-	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddressStr.* 
-FROM controller_api_address
-WHERE controller_id = $controllerID.controller_id
-`, controllerAPIAddressStr{}, ident)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddressStr
+	var controllerAddresses []controllerAPIAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, ident).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return controllernodeerrors.EmptyAPIAddresses
-		} else if err != nil {
-			return errors.Errorf("getting api addresses for controller node %q: %w", ctrlID, err)
-		}
-		return nil
-	}); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return decodeAPIAddresses(result), nil
-}
-
-// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
-// their API addresses that are available for agents. The map is keyed by
-// controller ID, and the values are slices of strings representing the API
-// addresses for each controller node.
-func (st *State) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddress
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = st.getAllAPIAddressesForAgents(ctx, tx)
+		var err error
+		controllerAddresses, err = st.getAllAPIAddressesForAgents(ctx, tx)
 		return err
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return decodeAllAPIAddresses(result), nil
+	return decodeAPIAddresses(controllerAddresses), nil
 }
 
-func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
-	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddress.* 
-FROM controller_api_address
-WHERE is_agent = true
-`, controllerAPIAddress{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddress
-	err = tx.Query(ctx, stmt).GetAll(&result)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, controllernodeerrors.EmptyAPIAddresses
-	} else if err != nil {
-		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
-	}
-	return result, nil
-}
-
-// GetAllAPIAddressesWithScopeForAgents returns all APIAddresses available for
-// agents.
-func (st *State) GetAllAPIAddressesWithScopeForAgents(ctx context.Context) ([]controllernode.APIAddresses, error) {
+// GetAPIAddressesForClients returns APIAddresses available for clients. These are
+// APIAddresses independent of is_agent value.
+func (st *State) GetAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result []controllerAPIAddress
+	var controllerAddresses []controllerAPIAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = st.getAllAPIAddressesForAgents(ctx, tx)
+		var err error
+		controllerAddresses, err = st.getAllAPIAddressesForClients(ctx, tx)
 		return err
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return decodeAllScopedAPIAddresses(result), nil
-}
-
-// GetAllAPIAddressesWithScopeForClients returns all APIAddresses available for
-// clients. These are all APIAddresses independent of is_agent value.
-func (st *State) GetAllAPIAddressesWithScopeForClients(ctx context.Context) ([]controllernode.APIAddresses, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddress
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = st.getAllAPIAddressesForClients(ctx, tx)
-		return err
-	}); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return decodeAllScopedAPIAddresses(result), nil
-}
-
-func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
-	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddress.* 
-FROM controller_api_address
-`, controllerAPIAddress{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddress
-	err = tx.Query(ctx, stmt).GetAll(&result)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, controllernodeerrors.EmptyAPIAddresses
-	} else if err != nil {
-		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
-	}
-	return result, nil
+	return decodeAPIAddresses(controllerAddresses), nil
 }
 
 // GetAllCloudLocalAPIAddresses returns a string slice of api
@@ -559,42 +464,6 @@ WHERE  scope = "local-cloud"
 	return returnStrings, nil
 }
 
-// GetAPIAddressesForAgents returns the list of API address strings including
-// port for the provided controller node that are available for agents.
-func (st *State) GetAPIAddressesForAgents(ctx context.Context, ctrlID string) ([]string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	ident := controllerID{ID: ctrlID}
-
-	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddressStr.* 
-FROM controller_api_address
-WHERE controller_id = $controllerID.controller_id
-AND is_agent = true
-`, controllerAPIAddressStr{}, ident)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddressStr
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, ident).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return controllernodeerrors.EmptyAPIAddresses
-		} else if err != nil {
-			return errors.Errorf("getting api addresses for controller node %q: %w", ctrlID, err)
-		}
-		return nil
-	}); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return decodeAPIAddresses(result), nil
-}
-
 // GetControllerIDs returns the list of controller IDs from the controller node
 // records.
 func (st *State) GetControllerIDs(ctx context.Context) ([]string, error) {
@@ -629,6 +498,45 @@ FROM controller_node
 		res[i] = c.ID
 	}
 	return res, nil
+}
+
+func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
+	stmt, err := st.Prepare(`
+SELECT &controllerAPIAddress.* 
+FROM controller_api_address
+`, controllerAPIAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddress
+	err = tx.Query(ctx, stmt).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, controllernodeerrors.EmptyAPIAddresses
+	} else if err != nil {
+		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
+	}
+	return result, nil
+}
+
+func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
+	stmt, err := st.Prepare(`
+SELECT &controllerAPIAddress.* 
+FROM controller_api_address
+WHERE is_agent = true
+`, controllerAPIAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddress
+	err = tx.Query(ctx, stmt).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, controllernodeerrors.EmptyAPIAddresses
+	} else if err != nil {
+		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
+	}
+	return result, nil
 }
 
 // calculateAddressDeltas returns the list of addresses to add, remove, and
@@ -671,8 +579,8 @@ func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []contr
 	return toAdd, toUpdate, toRemove
 }
 
-func decodeAllAPIAddresses(addrs []controllerAPIAddress) map[string][]string {
-	result := make(map[string][]string)
+func decodeAPIAddresses(addrs []controllerAPIAddress) map[string]controllernode.APIAddresses {
+	result := make(map[string]controllernode.APIAddresses, 0)
 	for _, addr := range addrs {
 		if addr.Address == "" {
 			continue
@@ -680,46 +588,17 @@ func decodeAllAPIAddresses(addrs []controllerAPIAddress) map[string][]string {
 
 		controllerID := addr.ControllerID
 		if _, ok := result[controllerID]; !ok {
-			result[controllerID] = []string{}
+			result[controllerID] = controllernode.APIAddresses{}
 		}
-		result[controllerID] = append(result[controllerID], addr.Address)
-	}
-	return result
-}
 
-func decodeAllScopedAPIAddresses(addrs []controllerAPIAddress) []controllernode.APIAddresses {
-	ids := set.NewStrings()
-	interimResult := make(map[string][]controllernode.APIAddress, 0)
-	for _, addr := range addrs {
-		if addr.Address == "" {
-			continue
-		}
-		controllerID := addr.ControllerID
-		if _, ok := interimResult[controllerID]; !ok {
-			interimResult[controllerID] = controllernode.APIAddresses{}
-		}
-		controllernodeAddr := controllernode.APIAddress{
+		controllerNodeAddr := controllernode.APIAddress{
 			Address: addr.Address,
 			IsAgent: addr.IsAgent,
 			Scope:   network.Scope(addr.Scope),
 		}
-		interimResult[controllerID] = append(interimResult[controllerID], controllernodeAddr)
-		ids.Add(controllerID)
+		result[controllerID] = append(result[controllerID], controllerNodeAddr)
 	}
 
-	result := make([]controllernode.APIAddresses, ids.Size())
-	for i, id := range ids.SortedValues() {
-		result[i] = interimResult[id]
-	}
-
-	return result
-}
-
-func decodeAPIAddresses(addrs []controllerAPIAddressStr) []string {
-	result := make([]string, 0, len(addrs))
-	for _, addr := range addrs {
-		result = append(result, addr.Address)
-	}
 	return result
 }
 

@@ -31,7 +31,7 @@ func newHighAvailabilityAPIV2(stdCtx context.Context, ctx facade.ModelContext) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &HighAvailabilityAPIV2{*v3}, nil
+	return &HighAvailabilityAPIV2{HighAvailabilityAPI: *v3}, nil
 }
 
 // newHighAvailabilityAPI creates a new server-side highavailability API end point.
@@ -56,14 +56,12 @@ func newHighAvailabilityAPI(stdCtx context.Context, ctx facade.ModelContext) (*H
 	// For adding additional controller units, we don't need a storage registry.
 	applicationService := domainServices.Application()
 	return &HighAvailabilityAPI{
-		controllerTag:           names.NewControllerTag(ctx.ControllerUUID()),
-		isControllerModel:       ctx.IsControllerModelScoped(),
-		nodeService:             domainServices.ControllerNode(),
-		applicationService:      applicationService,
-		controllerConfigService: domainServices.ControllerConfig(),
-		networkService:          domainServices.Network(),
-		blockCommandService:     domainServices.BlockCommand(),
-		authorizer:              authorizer,
-		logger:                  ctx.Logger().Child("highavailability"),
+		controllerTag:         names.NewControllerTag(ctx.ControllerUUID()),
+		isControllerModel:     ctx.IsControllerModelScoped(),
+		controllerNodeService: domainServices.ControllerNode(),
+		applicationService:    applicationService,
+		blockCommandService:   domainServices.BlockCommand(),
+		authorizer:            authorizer,
+		logger:                ctx.Logger().Child("highavailability"),
 	}, nil
 }

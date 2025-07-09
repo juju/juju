@@ -88,7 +88,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"reboot-executor",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
-			"state-converter",
+			"machine-converter",
 			"storage-provisioner",
 			"termination-signal-handler",
 			"tools-version-checker",
@@ -609,7 +609,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"state-converter": {
+	"machine-converter": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

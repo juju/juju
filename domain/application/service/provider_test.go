@@ -17,6 +17,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
+	corecontroller "github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -72,6 +73,9 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
+		},
+		Constraints: constraints.Constraints{
+			Arch: ptr(arch.AMD64),
 		},
 	}}
 	ch := applicationcharm.Charm{
@@ -133,7 +137,17 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 		Scale: 1,
 	}
 
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Constraints: coreconstraints.MustParse("arch=amd64"),
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+	}).Return(nil)
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -924,6 +938,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 				},
 			},
 		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
 	}}
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -1047,6 +1065,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 					Since:   now,
 				},
 			},
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
 		},
 	}}
 	ch := applicationcharm.Charm{
@@ -1177,6 +1199,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 				},
 			},
 		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
 	}}
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -1302,6 +1328,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 					Since:   now,
 				},
 			},
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
 		},
 	}}
 	ch := applicationcharm.Charm{
@@ -1744,6 +1774,13 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 		},
 	}
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: corebase.Base{
+			OS: "ubuntu",
+		},
+		Constraints: coreconstraints.MustParse("arch=amd64"),
+	}).Return(nil)
 	s.expectEmptyUnitConstraints(c, appUUID)
 
 	var received []application.AddUnitArg
@@ -1808,6 +1845,13 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 		},
 	}
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: corebase.Base{
+			OS: "ubuntu",
+		},
+		Constraints: coreconstraints.MustParse("arch=amd64 container=lxd cores=4 instance-role=instance-role instance-type=instance-type mem=1024M root-disk=1024M root-disk-source=root-disk-source tags=tag1,tag2 spaces=space1 virt-type=virt-type zones=zone1,zone2 allocate-public-ip=true"),
+	}).Return(nil)
 	s.expectAppConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
@@ -1871,6 +1915,13 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 		},
 	}
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: corebase.Base{
+			OS: "ubuntu",
+		},
+		Constraints: coreconstraints.MustParse("arch=amd64 container=lxd cores=4 instance-role=instance-role instance-type=instance-type mem=1024M root-disk=1024M root-disk-source=root-disk-source tags=tag1,tag2 spaces=space1 virt-type=virt-type zones=zone1,zone2 allocate-public-ip=true"),
+	}).Return(nil)
 	s.expectModelConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
@@ -1919,6 +1970,13 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 		},
 	}
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: corebase.Base{
+			OS: "ubuntu",
+		},
+		Constraints: coreconstraints.MustParse("arch=amd64 cores=4 cpu-power=75"),
+	}).Return(nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
@@ -1938,7 +1996,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	_, err := s.service.AddIAASUnits(c.Context(), "!!!", AddIAASUnitArg{})
+	_, _, err := s.service.AddIAASUnits(c.Context(), "!!!", AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -1946,7 +2004,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsNoUnits(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	units, err := s.service.AddIAASUnits(c.Context(), "foo")
+	units, _, err := s.service.AddIAASUnits(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(units, tc.HasLen, 0)
 }
@@ -1959,7 +2017,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
 
-	_, err := s.service.AddIAASUnits(c.Context(), "ubuntu", AddIAASUnitArg{})
+	_, _, err := s.service.AddIAASUnits(c.Context(), "ubuntu", AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1990,7 +2048,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 			Placement: placement,
 		},
 	}
-	_, err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
+	_, _, err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorMatches, ".*invalid placement.*")
 }
 
@@ -2038,7 +2096,147 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 			Placement: placement,
 		},
 	}
-	_, err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
+	_, _, err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsNoUnits(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	_, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsNothingRequired(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	machineNames, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineNames, tc.HasLen, 0)
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsEvenUnits(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	machineNames, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{{}, {}})
+	c.Assert(err, tc.ErrorMatches, `number of controllers must be odd.*`)
+	c.Check(machineNames, tc.HasLen, 0)
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsTooManyUnits(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	units := make([]AddIAASUnitArg, corecontroller.MaxPeers+2)
+	for i := range units {
+		units[i] = AddIAASUnitArg{}
+	}
+
+	machineNames, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, units)
+	c.Assert(err, tc.ErrorMatches, `controller count is too large.*`)
+	c.Check(machineNames, tc.HasLen, 0)
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsApplicationNotFound(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), coreapplication.ControllerApplicationName).Return(appUUID, applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{{}})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsInvalidContainerPlacement(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	placement := &instance.Placement{
+		Scope:     instance.MachineScope,
+		Directive: "0/kvm/0",
+	}
+
+	a := AddIAASUnitArg{
+		AddUnitArg: AddUnitArg{
+			Placement: placement,
+		},
+	}
+	_, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{a})
+	c.Assert(err, tc.ErrorMatches, "controller units cannot be placed on containers")
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsInvalidColocatedPlacement(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().IsMachineController(gomock.Any(), "0").Return(true, nil)
+
+	placement := &instance.Placement{
+		Scope:     instance.MachineScope,
+		Directive: "0",
+	}
+
+	a := AddIAASUnitArg{
+		AddUnitArg: AddUnitArg{
+			Placement: placement,
+		},
+	}
+	_, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{a})
+	c.Assert(err, tc.ErrorMatches, `controller units cannot be placed on controller machines "0"`)
+}
+
+func (s *providerServiceSuite) TestAddControllerIAASUnitsMachinePlacement(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().IsMachineController(gomock.Any(), "0").Return(false, nil)
+
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	}, nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+	}).Return(nil)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), coreapplication.ControllerApplicationName).Return(appUUID, nil)
+	returnedCharm := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Subordinate: false,
+		},
+	}
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.expectFullConstraints(c, unitUUID, appUUID)
+
+	s.state.EXPECT().AddIAASUnits(gomock.Any(), appUUID, gomock.Any()).Return([]coreunit.Name{"foo/0"}, nil, nil)
+
+	placement := &instance.Placement{
+		Scope:     instance.MachineScope,
+		Directive: "0",
+	}
+
+	a := AddIAASUnitArg{
+		AddUnitArg: AddUnitArg{
+			Placement: placement,
+		},
+	}
+	_, err := s.service.AddControllerIAASUnits(c.Context(), []string{"a", "b"}, []AddIAASUnitArg{a})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
