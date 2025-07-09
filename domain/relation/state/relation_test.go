@@ -3931,6 +3931,101 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsFailGetUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestInsertRelationUnitHappyPath(c *tc.C) {
+	// Arrange: Add a relation with endpoints
+	relationUUID := s.addRelation(c)
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add a unit to the application
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Act: Insert relation unit
+	db, err := s.state.DB()
+	c.Assert(err, tc.ErrorIsNil)
+
+	var relationUnitUUID corerelation.UnitUUID
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var insertErr error
+		relationUnitUUID, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID, unitUUID)
+		return insertErr
+	})
+
+	// Assert: No error and valid UUID
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relationUnitUUID, tc.Not(tc.Equals), "")
+	c.Assert(relationUnitUUID.Validate(), tc.ErrorIsNil)
+
+	// Assert: Relation unit exists in the database
+	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID), tc.IsTrue)
+}
+
+func (s *relationSuite) TestInsertRelationUnitRelationUUIDDoesntExist(c *tc.C) {
+	// Arrange: Create a non-existent relation UUID
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Arrange: Add a unit to an application
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Act: Insert relation unit with non-existent relation UUID
+	db, err := s.state.DB()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var insertErr error
+		_, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID, unitUUID)
+		return insertErr
+	})
+
+	// Assert: Error is returned
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}
+
+func (s *relationSuite) TestInsertRelationUnitUnitUUIDDoesntExist(c *tc.C) {
+	// Arrange: Add a relation with endpoints
+	relationUUID := s.addRelation(c)
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Create a non-existent unit UUID
+	unitUUID := coreunittesting.GenUnitUUID(c)
+
+	// Act: Insert relation unit with non-existent unit UUID
+	db, err := s.state.DB()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var insertErr error
+		_, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID, unitUUID)
+		return insertErr
+	})
+
+	// Assert: Error is returned
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}
+
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSetting(c *tc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {

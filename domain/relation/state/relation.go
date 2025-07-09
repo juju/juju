@@ -1909,7 +1909,18 @@ AND    u.uuid = $relationUnit.unit_uuid
 		return "", errors.Capture(err)
 	}
 
-	return uuid, tx.Query(ctx, insertStmt, insertRelationUnit).Run()
+	var outcome sqlair.Outcome
+	if err := tx.Query(ctx, insertStmt, insertRelationUnit).Get(&outcome); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if num, err := outcome.Result().RowsAffected(); err != nil {
+		return "", errors.Capture(err)
+	} else if num != 1 {
+		return "", errors.Errorf("expected 1 row inserted, got %d", num)
+	}
+
+	return uuid, nil
 }
 
 // LeaveScope updates the given relation to indicate it is not in scope.
