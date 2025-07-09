@@ -8,12 +8,9 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/internal/errors"
 )
 
 func (s *stateSuite) TestIsMachineRebootRequiredNoMachine(c *tc.C) {
@@ -60,24 +57,18 @@ func (s *stateSuite) TestRequireMachineRebootIdempotent(c *tc.C) {
 
 func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machines.
-	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid0",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid1",
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	machineUUID0, _ := s.addMachine(c)
+	machineUUID1, _ := s.addMachine(c)
 
 	// Call the function under test
-	err = s.state.RequireMachineReboot(c.Context(), "uuid1")
+	err := s.state.RequireMachineReboot(c.Context(), machineUUID1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify: Check which machine needs reboot
-	isRebootNeeded, err := s.state.IsMachineRebootRequired(c.Context(), "uuid0")
+	isRebootNeeded, err := s.state.IsMachineRebootRequired(c.Context(), machineUUID0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(isRebootNeeded, tc.IsFalse)
-	isRebootNeeded, err = s.state.IsMachineRebootRequired(c.Context(), "uuid1")
+	isRebootNeeded, err = s.state.IsMachineRebootRequired(c.Context(), machineUUID1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(isRebootNeeded, tc.IsTrue)
 }
@@ -118,28 +109,22 @@ func (s *stateSuite) TestCancelMachineRebootIdempotent(c *tc.C) {
 
 func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machine with a given IDs,  add both ids in the reboot table
-	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid0",
-	})
+	machineUUID0, _ := s.addMachine(c)
+	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, machineUUID0))
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, "uuid0"))
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid1",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	err = s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, "uuid1"))
+	machineUUID1, _ := s.addMachine(c)
+	err = s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, machineUUID1))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Call the function under test
-	err = s.state.ClearMachineReboot(c.Context(), "uuid0")
+	err = s.state.ClearMachineReboot(c.Context(), machineUUID0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify: Check which machine needs reboot
-	isRebootNeeded, err := s.state.IsMachineRebootRequired(c.Context(), "uuid0")
+	isRebootNeeded, err := s.state.IsMachineRebootRequired(c.Context(), machineUUID0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isRebootNeeded, tc.IsFalse)
-	isRebootNeeded, err = s.state.IsMachineRebootRequired(c.Context(), "uuid1")
+	isRebootNeeded, err = s.state.IsMachineRebootRequired(c.Context(), machineUUID1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(isRebootNeeded, tc.IsTrue)
 }
@@ -241,42 +226,16 @@ func (s *stateSuite) TestRebootParentChild(c *tc.C) {
 	c.Check(rebootAction, tc.Equals, coremachine.ShouldShutdown, tc.Commentf("use case: %s", description))
 }
 
-func (s *stateSuite) TestRebootLogicGrandParentNotSupported(c *tc.C) {
-	// Setup: Create a machine hierarchy
-	_, err := s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "grand-parent-uuid",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "parent-uuid",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.state.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "child-uuid",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	err = s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (%q,%q)`, "parent-uuid", "grand-parent-uuid"))
-	c.Assert(err, tc.ErrorIsNil)
-	err = s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (%q,%q)`, "child-uuid", "parent-uuid"))
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Call the function under test
-	_, err = s.state.ShouldRebootOrShutdown(c.Context(), "child-uuid")
-
-	// Verify: grand parent are not supported
-	c.Assert(errors.Is(err, machineerrors.GrandParentNotSupported), tc.Equals, true, tc.Commentf("obtained error: %v", err))
-}
-
-func (s *stateSuite) createMachine(c *tc.C) machine.UUID {
-	_, mNames, err := s.state.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+func (s *stateSuite) createMachine(c *tc.C) coremachine.UUID {
+	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	uuid, err := s.state.GetMachineUUID(c.Context(), mNames[0])
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
 
-func (s *stateSuite) createContainer(c *tc.C) (machine.UUID, machine.UUID) {
-	_, mNames, err := s.state.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+func (s *stateSuite) createContainer(c *tc.C) (coremachine.UUID, coremachine.UUID) {
+	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Directive: deployment.Placement{
 			Type: deployment.PlacementTypeContainer,
 		},

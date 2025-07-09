@@ -153,9 +153,9 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 		},
 	}).Return(m1, nil)
 	// Machine 666.
-	s.machineService.EXPECT().PlaceMachine(gomock.Any(), domainmachine.PlaceMachineArgs{})
+	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{})
 	// Machine 667.
-	s.machineService.EXPECT().PlaceMachine(gomock.Any(), domainmachine.PlaceMachineArgs{})
+	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{})
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
 		Volumes: []state.HostVolumeParams{

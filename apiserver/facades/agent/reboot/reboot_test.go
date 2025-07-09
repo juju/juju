@@ -59,7 +59,12 @@ func TestRebootSuite(t *testing.T) {
 }
 
 func (s *rebootSuite) createMachine(c *tc.C) *testMachine {
-	_, mNames, err := s.machineService.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, mNames, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	uuid, err := s.machineService.GetMachineUUID(c.Context(), mNames[0])
 	c.Assert(err, tc.ErrorIsNil)
@@ -68,10 +73,14 @@ func (s *rebootSuite) createMachine(c *tc.C) *testMachine {
 }
 
 func (s *rebootSuite) createContainer(c *tc.C, parent *testMachine) *testMachine {
-	_, mNames, err := s.machineService.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mNames, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Directive: deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Directive: parent.tag.Id(),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)

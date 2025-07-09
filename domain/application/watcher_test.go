@@ -29,6 +29,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
@@ -1053,9 +1054,19 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	)
 	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
-	_, mNames0, err := machineSvc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, mNames0, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, mNames1, err := machineSvc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, mNames1, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
@@ -1142,9 +1153,19 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	)
 	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
-	_, mNames0, err := machineSvc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, mNames0, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, mNames1, err := machineSvc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, mNames1, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()

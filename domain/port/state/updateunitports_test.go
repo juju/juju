@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	porterrors "github.com/juju/juju/domain/port/errors"
@@ -52,17 +53,27 @@ func (s *updateUnitPortsSuite) SetUpTest(c *tc.C) {
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid0",
+	netNodeUUID0, machineNames0, err := machineSt.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid1",
+	machineUUID0, err := machineSt.GetMachineUUID(c.Context(), machineNames0[0])
+	c.Assert(err, tc.ErrorIsNil)
+	netNodeUUID1, machineNames1, err := machineSt.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
 	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID1, err := machineSt.GetMachineUUID(c.Context(), machineNames1[0])
 	c.Assert(err, tc.ErrorIsNil)
 
-	machineUUIDs = []string{"uuid0", "uuid1"}
-	netNodeUUIDs = []string{s.getNetNodeUUID(c, "uuid0"), s.getNetNodeUUID(c, "uuid1")}
+	machineUUIDs = []string{machineUUID0.String(), machineUUID1.String()}
+	netNodeUUIDs = []string{netNodeUUID0, netNodeUUID1}
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
 	s.unitUUID, s.unitName = s.createUnit(c, netNodeUUIDs[0], appNames[0])

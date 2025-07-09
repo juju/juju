@@ -33,7 +33,7 @@ type State interface {
 	// on the placement.
 	// It returns the net node UUID for the machine and a list of child
 	// machine names that were created as part of the placement.
-	PlaceMachine(ctx context.Context, args domainmachine.PlaceMachineArgs) (string, []machine.Name, error)
+	AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (string, []machine.Name, error)
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, machine.Name) error

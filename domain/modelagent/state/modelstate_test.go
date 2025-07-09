@@ -65,13 +65,17 @@ func (s *modelStateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	machineUUID := coremachinetesting.GenUUID(c)
-	machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: machineUUID,
+	_, machineNames, err := machineSt.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := machineSt.GetMachineUUID(c.Context(), machineNames[0])
+	c.Assert(err, tc.ErrorIsNil)
 
-	return machineUUID, machineName
+	return machineUUID, machineNames[0]
 }
 
 // addMachineWithBase adds a new machine to the model using the provided base.
@@ -568,18 +572,15 @@ func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	machineName, err := machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "deadbeef",
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, machineName := s.addMachine(c)
 
-	err = machineSt.SetMachineLife(c.Context(), machineName, life.Dead)
+	err := machineSt.SetMachineLife(c.Context(), machineName, life.Dead)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
 	err = st.SetMachineRunningAgentBinaryVersion(
 		c.Context(),
-		"deadbeef",
+		machineUUID.String(),
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.Arch("noexist"),

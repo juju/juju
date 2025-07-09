@@ -1159,7 +1159,7 @@ func (st *State) insertIAASUnit(
 	}
 
 	// Handle the placement of the net node and machines accompanying the unit.
-	placeMachineArgs := domainmachine.PlaceMachineArgs{
+	placeMachineArgs := domainmachine.AddMachineArgs{
 		Constraints: args.Constraints,
 		Directive:   args.Placement,
 		Platform:    args.Platform,

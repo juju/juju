@@ -87,30 +87,27 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid0",
+	netNodeUUID0, machineNames0, err := machineSt.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machineSt.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid1",
+	machineUUID0, err := machineSt.GetMachineUUID(c.Context(), machineNames0[0])
+	c.Assert(err, tc.ErrorIsNil)
+	netNodeUUID1, machineNames1, err := machineSt.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
 	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID1, err := machineSt.GetMachineUUID(c.Context(), machineNames1[0])
 	c.Assert(err, tc.ErrorIsNil)
 
-	machineUUIDs = []string{"uuid0", "uuid1"}
-	netNodeUUIDs = []string{s.getNetNodeUUID(c, "uuid0"), s.getNetNodeUUID(c, "uuid1")}
-}
-
-func (s *watcherSuite) getNetNodeUUID(c *tc.C, mUUID machine.UUID) string {
-	var netNodeUUID string
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE uuid = ?", mUUID).Scan(&netNodeUUID)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return netNodeUUID
+	machineUUIDs = []string{machineUUID0.String(), machineUUID1.String()}
+	netNodeUUIDs = []string{netNodeUUID0, netNodeUUID1}
 }
 
 func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.ID {

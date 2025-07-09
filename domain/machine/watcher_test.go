@@ -64,7 +64,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	// Should fire when a machine is created.
 	var mName0 []machine.Name
 	harness.AddTest(func(c *tc.C) {
-		_, mName0, err = s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		_, mName0, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
@@ -77,7 +77,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	})
 	var mName1 []machine.Name
 	harness.AddTest(func(c *tc.C) {
-		_, mName1, err = s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		_, mName1, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
@@ -97,7 +97,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	})
 	// Should not fire on containers.
 	harness.AddTest(func(c *tc.C) {
-		_, _, err = s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		_, _, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
@@ -125,7 +125,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
-	_, mName0, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mName0, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -178,7 +178,7 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
 // }
 
 func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) {
-	_, mName0, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mName0, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -204,7 +204,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 	var mName0 []machine.Name
 	harness.AddTest(func(c *tc.C) {
 		var err error
-		_, mName0, err = s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		_, mName0, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
@@ -245,7 +245,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
-	_, mNames, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mNames, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -278,7 +278,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 	// Create a machineUUID and set its cloud instance.
-	_, mNames, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mNames, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -313,7 +313,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
-	_, mNames0, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mNames0, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -325,7 +325,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 	err = s.svc.SetMachineCloudInstance(c.Context(), machineUUIDm0, instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, mNames1, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mNames1, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -378,7 +378,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 // The tests are run using the watchertest harness.
 func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	// Create machine hierarchy to reboot from parent, with a child (which will be watched) and a control child
-	_, mNames, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mNames, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -393,7 +393,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	childUUID, err := s.svc.GetMachineUUID(c.Context(), mNames[1])
 	c.Assert(err, tc.ErrorIsNil)
-	_, controlContainerNames, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, controlContainerNames, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -474,7 +474,7 @@ func (s *watcherSuite) TestWatchMachineLife(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *tc.C) {
-		_, _, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		_, _, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
@@ -487,7 +487,7 @@ func (s *watcherSuite) TestWatchMachineLife(c *tc.C) {
 
 	// Create a second machine, make sure it doesn't trigger a change.
 	harness.AddTest(func(c *tc.C) {
-		_, _, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		_, _, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
@@ -516,7 +516,7 @@ func (s *watcherSuite) TestWatchMachineContainerLifeInit(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchMachineContainerLifeInitMachine(c *tc.C) {
-	_, mName, err := s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+	_, mName, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -598,7 +598,7 @@ func (s *watcherSuite) TestWatchMachineContainerLifeNoDispatch(c *tc.C) {
 
 	harness.AddTest(func(c *tc.C) {
 		var err error
-		_, _, err = s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		_, _, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
@@ -610,7 +610,7 @@ func (s *watcherSuite) TestWatchMachineContainerLifeNoDispatch(c *tc.C) {
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		_, _, err = s.svc.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
+		_, _, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,

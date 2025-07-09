@@ -1369,6 +1369,46 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
+// AddMachine mocks base method.
+func (m *MockMachineService) AddMachine(arg0 context.Context, arg1 machine0.AddMachineArgs) (string, []machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddMachine", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].([]machine.Name)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// AddMachine indicates an expected call of AddMachine.
+func (mr *MockMachineServiceMockRecorder) AddMachine(arg0, arg1 any) *MockMachineServiceAddMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachine", reflect.TypeOf((*MockMachineService)(nil).AddMachine), arg0, arg1)
+	return &MockMachineServiceAddMachineCall{Call: call}
+}
+
+// MockMachineServiceAddMachineCall wrap *gomock.Call
+type MockMachineServiceAddMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceAddMachineCall) Return(arg0 string, arg1 []machine.Name, arg2 error) *MockMachineServiceAddMachineCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceAddMachineCall) Do(f func(context.Context, machine0.AddMachineArgs) (string, []machine.Name, error)) *MockMachineServiceAddMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceAddMachineCall) DoAndReturn(f func(context.Context, machine0.AddMachineArgs) (string, []machine.Name, error)) *MockMachineServiceAddMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteMachine mocks base method.
 func (m *MockMachineService) DeleteMachine(arg0 context.Context, arg1 machine.Name) error {
 	m.ctrl.T.Helper()
@@ -1559,46 +1599,6 @@ func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// PlaceMachine mocks base method.
-func (m *MockMachineService) PlaceMachine(arg0 context.Context, arg1 machine0.PlaceMachineArgs) (string, []machine.Name, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PlaceMachine", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].([]machine.Name)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// PlaceMachine indicates an expected call of PlaceMachine.
-func (mr *MockMachineServiceMockRecorder) PlaceMachine(arg0, arg1 any) *MockMachineServicePlaceMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PlaceMachine", reflect.TypeOf((*MockMachineService)(nil).PlaceMachine), arg0, arg1)
-	return &MockMachineServicePlaceMachineCall{Call: call}
-}
-
-// MockMachineServicePlaceMachineCall wrap *gomock.Call
-type MockMachineServicePlaceMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServicePlaceMachineCall) Return(arg0 string, arg1 []machine.Name, arg2 error) *MockMachineServicePlaceMachineCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServicePlaceMachineCall) Do(f func(context.Context, machine0.PlaceMachineArgs) (string, []machine.Name, error)) *MockMachineServicePlaceMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServicePlaceMachineCall) DoAndReturn(f func(context.Context, machine0.PlaceMachineArgs) (string, []machine.Name, error)) *MockMachineServicePlaceMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

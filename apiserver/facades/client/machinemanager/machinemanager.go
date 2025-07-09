@@ -245,7 +245,7 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, nonce string) 
 	if nonce != "" {
 		n = &nonce
 	}
-	_, _, err := mm.machineService.PlaceMachine(ctx, domainmachine.PlaceMachineArgs{
+	_, _, err := mm.machineService.AddMachine(ctx, domainmachine.AddMachineArgs{
 		Nonce: n,
 	})
 	return errors.Trace(err)

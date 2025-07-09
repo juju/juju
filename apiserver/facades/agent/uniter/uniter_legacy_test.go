@@ -452,7 +452,7 @@ func (s *uniterLegacySuite) TestStorageAttachments(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
-	_, _, err := s.machineService.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, _, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.applicationService.AddIAASUnits(c.Context(), "mysql",

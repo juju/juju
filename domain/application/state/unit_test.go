@@ -1041,7 +1041,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		placeMachineArgs := domainmachine.PlaceMachineArgs{
+		placeMachineArgs := domainmachine.AddMachineArgs{
 			Directive: deployment.Placement{
 				Type: deployment.PlacementTypeUnset,
 			},

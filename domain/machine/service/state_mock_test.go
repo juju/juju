@@ -48,6 +48,46 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// AddMachine mocks base method.
+func (m *MockState) AddMachine(ctx context.Context, args machine0.AddMachineArgs) (string, []machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddMachine", ctx, args)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].([]machine.Name)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// AddMachine indicates an expected call of AddMachine.
+func (mr *MockStateMockRecorder) AddMachine(ctx, args any) *MockStateAddMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachine", reflect.TypeOf((*MockState)(nil).AddMachine), ctx, args)
+	return &MockStateAddMachineCall{Call: call}
+}
+
+// MockStateAddMachineCall wrap *gomock.Call
+type MockStateAddMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAddMachineCall) Return(arg0 string, arg1 []machine.Name, arg2 error) *MockStateAddMachineCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAddMachineCall) Do(f func(context.Context, machine0.AddMachineArgs) (string, []machine.Name, error)) *MockStateAddMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAddMachineCall) DoAndReturn(f func(context.Context, machine0.AddMachineArgs) (string, []machine.Name, error)) *MockStateAddMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AllMachineNames mocks base method.
 func (m *MockState) AllMachineNames(arg0 context.Context) ([]machine.Name, error) {
 	m.ctrl.T.Helper()
@@ -1286,46 +1326,6 @@ func (c *MockStateNamespaceForWatchMachineRebootCall) Do(f func() string) *MockS
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateNamespaceForWatchMachineRebootCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchMachineRebootCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// PlaceMachine mocks base method.
-func (m *MockState) PlaceMachine(ctx context.Context, args machine0.PlaceMachineArgs) (string, []machine.Name, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PlaceMachine", ctx, args)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].([]machine.Name)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// PlaceMachine indicates an expected call of PlaceMachine.
-func (mr *MockStateMockRecorder) PlaceMachine(ctx, args any) *MockStatePlaceMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PlaceMachine", reflect.TypeOf((*MockState)(nil).PlaceMachine), ctx, args)
-	return &MockStatePlaceMachineCall{Call: call}
-}
-
-// MockStatePlaceMachineCall wrap *gomock.Call
-type MockStatePlaceMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStatePlaceMachineCall) Return(arg0 string, arg1 []machine.Name, arg2 error) *MockStatePlaceMachineCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStatePlaceMachineCall) Do(f func(context.Context, machine0.PlaceMachineArgs) (string, []machine.Name, error)) *MockStatePlaceMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatePlaceMachineCall) DoAndReturn(f func(context.Context, machine0.PlaceMachineArgs) (string, []machine.Name, error)) *MockStatePlaceMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

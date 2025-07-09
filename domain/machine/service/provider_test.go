@@ -11,9 +11,11 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
@@ -60,7 +62,7 @@ func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *providerServiceSuite) TestPlaceMachineProviderNotSupported(c *tc.C) {
+func (s *providerServiceSuite) TestAddMachineProviderNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerGetter := func(ctx context.Context) (Provider, error) {
@@ -68,62 +70,105 @@ func (s *providerServiceSuite) TestPlaceMachineProviderNotSupported(c *tc.C) {
 	}
 
 	service := NewProviderService(s.state, s.statusHistory, providerGetter, clock.WallClock, loggertesting.WrapCheckLog(c))
-	_, _, err := service.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, _, err := service.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
-func (s *providerServiceSuite) TestPlaceMachineProviderFailed(c *tc.C) {
+func (s *providerServiceSuite) TestAddMachineProviderFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(errors.Errorf("boom"))
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: base.Base{
+			OS:      "ubuntu",
+			Channel: base.Channel{Risk: base.Stable, Track: "22.04"},
+		},
+	}).Return(errors.Errorf("boom"))
 
-	_, _, err := s.service.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, _, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
-func (s *providerServiceSuite) TestPlaceMachine(c *tc.C) {
+func (s *providerServiceSuite) TestAddMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
-	s.state.EXPECT().PlaceMachine(gomock.Any(), gomock.Any()).Return("netNodeUUID", []machine.Name{"name"}, nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: base.Base{
+			OS:      "ubuntu",
+			Channel: base.Channel{Risk: base.Stable, Track: "22.04"},
+		},
+	}).Return(nil)
+	s.state.EXPECT().AddMachine(gomock.Any(), gomock.Any()).Return("netNodeUUID", []machine.Name{"name"}, nil)
 
 	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
 
-	netNodeUUID, obtainedNames, err := s.service.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(netNodeUUID, tc.Equals, "netNodeUUID")
-	c.Check(obtainedNames[0], tc.Equals, machine.Name("name"))
-}
-
-func (s *providerServiceSuite) TestPlaceMachineSuccessNonce(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
-	s.state.EXPECT().PlaceMachine(gomock.Any(), domainmachine.PlaceMachineArgs{
-		Nonce: ptr("foo"),
-	}).Return("netNodeUUID", []machine.Name{"name"}, nil)
-
-	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
-
-	netNodeUUID, obtainedNames, err := s.service.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{
-		Nonce: ptr("foo"),
+	netNodeUUID, obtainedNames, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(netNodeUUID, tc.Equals, "netNodeUUID")
 	c.Check(obtainedNames[0], tc.Equals, machine.Name("name"))
 }
 
-// TestPlaceMachineError asserts that an error coming from the state layer is
-// preserved, passed over to the service layer to be maintained there.
-func (s *providerServiceSuite) TestPlaceMachineError(c *tc.C) {
+func (s *providerServiceSuite) TestAddMachineSuccessNonce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{}).Return(nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: base.Base{
+			OS:      "ubuntu",
+			Channel: base.Channel{Risk: base.Stable, Track: "22.04"},
+		},
+	}).Return(nil)
+	s.state.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Nonce: ptr("foo"),
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	}).Return("netNodeUUID", []machine.Name{"name"}, nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+
+	netNodeUUID, obtainedNames, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Nonce: ptr("foo"),
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(netNodeUUID, tc.Equals, "netNodeUUID")
+	c.Check(obtainedNames[0], tc.Equals, machine.Name("name"))
+}
+
+// TestAddMachineError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
+func (s *providerServiceSuite) TestAddMachineError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Base: base.Base{
+			OS:      "ubuntu",
+			Channel: base.Channel{Risk: base.Stable, Track: "22.04"},
+		},
+	}).Return(nil)
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().PlaceMachine(gomock.Any(), gomock.Any()).Return("", nil, rErr)
+	s.state.EXPECT().AddMachine(gomock.Any(), gomock.Any()).Return("", nil, rErr)
 
-	_, _, err := s.service.PlaceMachine(c.Context(), domainmachine.PlaceMachineArgs{})
+	_, _, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
 	c.Assert(err, tc.ErrorIs, rErr)
 }
 

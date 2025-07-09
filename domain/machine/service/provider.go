@@ -54,7 +54,7 @@ func NewProviderService(
 	}
 }
 
-// PlaceMachine places the net node and machines if required, depending
+// AddMachine creates the net node and machines if required, depending
 // on the placement.
 // It returns the net node UUID for the machine and a list of child
 // machine names that were created as part of the placement.
@@ -62,7 +62,7 @@ func NewProviderService(
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the parent machine (for container
 // placement) does not exist.
-func (s *ProviderService) PlaceMachine(ctx context.Context, args domainmachine.PlaceMachineArgs) (string, []machine.Name, error) {
+func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (string, []machine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -87,7 +87,7 @@ func (s *ProviderService) PlaceMachine(ctx context.Context, args domainmachine.P
 		return "", nil, errors.Errorf("prechecking instance for create machine: %w", err)
 	}
 
-	nodeUUID, machineNames, err := s.st.PlaceMachine(ctx, args)
+	nodeUUID, machineNames, err := s.st.AddMachine(ctx, args)
 	if err != nil {
 		return "", nil, errors.Capture(err)
 	}
@@ -99,16 +99,6 @@ func (s *ProviderService) PlaceMachine(ctx context.Context, args domainmachine.P
 	}
 
 	return nodeUUID, machineNames, nil
-}
-
-func (s *ProviderService) makeCreateMachineArgs(args CreateMachineArgs, machineUUID machine.UUID) (domainmachine.CreateMachineArgs, error) {
-	return domainmachine.CreateMachineArgs{
-		Nonce:       args.Nonce,
-		MachineUUID: machineUUID,
-		Platform:    args.Platform,
-		Directive:   args.Directive,
-		Constraints: args.Constraints,
-	}, nil
 }
 
 func encodeOSType(ostype deployment.OSType) (string, error) {

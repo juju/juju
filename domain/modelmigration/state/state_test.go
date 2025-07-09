@@ -15,6 +15,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/model"
@@ -76,17 +77,23 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	_, err := machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid0",
+	_, machineNames0, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	machineUUID0, err := machineState.GetMachineUUID(c.Context(), machineNames0[0])
+	c.Assert(err, tc.ErrorIsNil)
+
 	// Add a reference AZ.
-	_, err = db.ExecContext(c.Context(), fmt.Sprintf("INSERT INTO availability_zone VALUES(%q, 'az-1')", "uuid0"))
+	_, err = db.ExecContext(c.Context(), fmt.Sprintf("INSERT INTO availability_zone VALUES(%q, 'az-1')", machineUUID0.String()))
 	c.Assert(err, tc.ErrorIsNil)
 	arch := "arm64"
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
-		"uuid0",
+		machineUUID0.String(),
 		instance.Id("instance-0"),
 		"",
 		"nonce",
@@ -95,13 +102,20 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = machineState.CreateMachine(c.Context(), domainmachine.CreateMachineArgs{
-		MachineUUID: "uuid1",
+
+	_, machineNames1, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	machineUUID1, err := machineState.GetMachineUUID(c.Context(), machineNames1[0])
+	c.Assert(err, tc.ErrorIsNil)
+
 	err = machineState.SetMachineCloudInstance(
 		c.Context(),
-		"uuid1",
+		machineUUID1.String(),
 		instance.Id("instance-1"),
 		"",
 		"nonce",

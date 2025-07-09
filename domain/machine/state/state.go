@@ -47,7 +47,7 @@ func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.
 	}
 }
 
-// PlaceMachine places the net node and machines if required, depending
+// AddMachine creates the net node and machines if required, depending
 // on the placement.
 // It returns the net node UUID for the machine and a list of child
 // machine names that were created as part of the placement.
@@ -55,7 +55,7 @@ func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the parent machine (for container
 // placement) does not exist.
-func (st *State) PlaceMachine(ctx context.Context, args domainmachine.PlaceMachineArgs) (string, []machine.Name, error) {
+func (st *State) AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (string, []machine.Name, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", nil, errors.Capture(err)
@@ -74,26 +74,6 @@ func (st *State) PlaceMachine(ctx context.Context, args domainmachine.PlaceMachi
 	}
 
 	return netNodeUUID, machineNames, nil
-}
-
-// CreateMachine creates or updates the specified machine.
-// Adds a row to machine table, as well as a row to the net_node table.
-func (st *State) CreateMachine(ctx context.Context, args domainmachine.CreateMachineArgs) (machine.Name, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var machineName machine.Name
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, machineName, err = CreateMachine(ctx, tx, st, st.clock, args)
-		return err
-	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return machineName, nil
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
