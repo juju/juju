@@ -14,6 +14,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	jujustorage "github.com/juju/juju/storage"
 )
@@ -79,6 +83,53 @@ func (s *ImportFilesystemSuite) TestImportError(c *gc.C) {
 
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `importing "bar" from storage pool "foo" as storage "baz"`+"\n")
+}
+
+func (s *ImportFilesystemSuite) TestImportSuccessCAAS(c *gc.C) {
+	s.SetFeatureFlags(feature.K8SAttachStorage)
+
+	store := jujuclienttesting.MinimalStore()
+	store.Models["arthur"] = &jujuclient.ControllerModels{
+		CurrentModel: "king/sword",
+		Models: map[string]jujuclient.ModelDetails{"king/sword": {
+			ModelType: model.CAAS,
+		}},
+	}
+	s.store = store
+
+	ctx, err := s.run(c, "foo", "bar", "baz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+importing "bar" from storage pool "foo" as storage "baz"
+imported storage baz/0
+`[1:])
+
+	s.importer.CheckCalls(c, []testing.StubCall{
+		{"ImportStorage", []interface{}{
+			jujustorage.StorageKindFilesystem,
+			"foo", "bar", "baz",
+		}},
+		{"Close", nil},
+	})
+}
+
+func (s *ImportFilesystemSuite) TestImportErrorCAASNotSupport(c *gc.C) {
+	store := jujuclienttesting.MinimalStore()
+	store.Models["arthur"] = &jujuclient.ControllerModels{
+		CurrentModel: "king/sword",
+		Models: map[string]jujuclient.ModelDetails{"king/sword": {
+			ModelType: model.CAAS,
+		}},
+	}
+	s.store = store
+
+	ctx, err := s.run(c, "foo", "bar", "baz")
+	c.Assert(err, gc.ErrorMatches, "Juju command \"import-filesystem\" not supported on container models")
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *ImportFilesystemSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
