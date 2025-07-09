@@ -36,10 +36,10 @@ func TestManifoldSuite(t *testing.T) {
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = ManifoldConfig{
-		AgentName:          "agent",
-		DomainServicesName: "domain-services",
-		Clock:              clock.WallClock,
-		Logger:             loggertesting.WrapCheckLog(c),
+		AgentName:               "agent",
+		ObjectStoreServicesName: "object-store-services",
+		Clock:                   clock.WallClock,
+		Logger:                  loggertesting.WrapCheckLog(c),
 		NewWorker: func(wc WorkerConfig) (worker.Worker, error) {
 			return &fakeWorker{}, nil
 		},
@@ -47,7 +47,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent", "domain-services"})
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent", "object-store-services"})
 }
 
 func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
@@ -62,8 +62,8 @@ func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 
 func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
-		"agent":           &fakeAgent{},
-		"domain-services": dependency.ErrMissing,
+		"agent":                 &fakeAgent{},
+		"object-store-services": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold().Start(c.Context(), getter)
@@ -73,8 +73,8 @@ func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 
 func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
-		"agent":           &fakeAgent{missingAPIinfo: true},
-		"domain-services": domainServices{},
+		"agent":                 &fakeAgent{missingAPIinfo: true},
+		"object-store-services": objectStoreServices{},
 	})
 
 	worker, err := s.manifold().Start(c.Context(), getter)
@@ -92,8 +92,8 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	}
 
 	getter := dt.StubGetter(map[string]interface{}{
-		"agent":           &fakeAgent{tag: names.NewMachineTag("42")},
-		"domain-services": domainServices{},
+		"agent":                 &fakeAgent{tag: names.NewMachineTag("42")},
+		"object-store-services": objectStoreServices{},
 	})
 
 	worker, err := s.manifold().Start(c.Context(), getter)
@@ -111,11 +111,11 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 	return Manifold(s.config)
 }
 
-type domainServices struct {
-	services.DomainServices
+type objectStoreServices struct {
+	services.ObjectStoreServices
 }
 
-func (d domainServices) ControllerNode() *controllernodeservice.WatchableService {
+func (d objectStoreServices) ControllerNode() *controllernodeservice.WatchableService {
 	return &controllernodeservice.WatchableService{}
 }
 

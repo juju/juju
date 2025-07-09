@@ -22,6 +22,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/apiremotecaller"
 	"github.com/juju/juju/internal/worker/trace"
 )
 
@@ -68,6 +69,7 @@ type ManifoldConfig struct {
 	ObjectStoreServicesName string
 	LeaseManagerName        string
 	S3ClientName            string
+	APIRemoteCallerName     string
 
 	Clock                      clock.Clock
 	Logger                     logger.Logger
@@ -103,6 +105,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.S3ClientName == "" {
 		return errors.NotValidf("empty S3ClientName")
 	}
+	if cfg.APIRemoteCallerName == "" {
+		return errors.NotValidf("empty APIRemoteCallerName")
+	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -124,6 +129,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreServicesName,
 			config.LeaseManagerName,
 			config.S3ClientName,
+			config.APIRemoteCallerName,
 		},
 		Output: output,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -165,6 +171,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var apiRemoteCaller apiremotecaller.APIRemoteCallers
+			if err := getter.Get(config.APIRemoteCallerName, &apiRemoteCaller); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -185,6 +196,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NewObjectStoreWorker:       config.NewObjectStoreWorker,
 				ObjectStoreType:            controllerConfig.ObjectStoreType(),
 				S3Client:                   s3Client,
+				APIRemoteCaller:            apiRemoteCaller,
 				ControllerMetadataService:  metadataService,
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{servicesGetter: objectStoreServicesGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},

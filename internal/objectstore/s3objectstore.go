@@ -364,6 +364,18 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
+// Report returns a map of internal state for the s3 object store.
+func (t *s3ObjectStore) Report() map[string]any {
+	report := make(map[string]any)
+
+	report["namespace"] = t.namespace
+	report["path"] = t.path
+	report["rootBucket"] = t.rootBucket
+	report["allowDraining"] = t.allowDraining
+
+	return report
+}
+
 func (t *s3ObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {

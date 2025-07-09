@@ -30,8 +30,8 @@ type APIRemoteCallers interface {
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	AgentName          string
-	DomainServicesName string
+	AgentName               string
+	ObjectStoreServicesName string
 
 	Clock  clock.Clock
 	Logger logger.Logger
@@ -44,8 +44,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if config.DomainServicesName == "" {
-		return errors.NotValidf("empty DomainServicesName")
+	if config.ObjectStoreServicesName == "" {
+		return errors.NotValidf("empty ObjectStoreServicesName")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -65,7 +65,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.DomainServicesName,
+			config.ObjectStoreServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -83,8 +83,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrMissing
 			}
 
-			var services services.ControllerDomainServices
-			if err := getter.Get(config.DomainServicesName, &services); err != nil {
+			var services services.ControllerObjectStoreServices
+			if err := getter.Get(config.ObjectStoreServicesName, &services); err != nil {
 				return nil, errors.Trace(err)
 			}
 

@@ -15,6 +15,15 @@ import (
 	"github.com/juju/juju/internal/worker/apiremotecaller"
 )
 
+// ReportableWorker is an interface that extends the worker.Worker interface
+// to include a Report method. This method returns a map of internal state for
+// the worker, which can be used for debugging or monitoring purposes.
+type ReportableWorker interface {
+	worker.Worker
+	// Report returns a map of internal state for the worker.
+	Report() map[string]any
+}
+
 // remoteFileObjectStore is a facade for the object store that uses a remote
 // worker to perform operations. The remoteFileObjectStore is a
 // TrackedObjectStore that ties the lifecycle of the objectStore and
@@ -24,13 +33,15 @@ import (
 type remoteFileObjectStore struct {
 	catacomb catacomb.Catacomb
 
-	objectStore TrackedObjectStore
+	objectStore  TrackedObjectStore
+	remoteWorker ReportableWorker
 }
 
 // newRemoteFileObjectStore returns a new remoteFileObjectStore.
-func newRemoteFileObjectStore(objectStore TrackedObjectStore, remoteWorker worker.Worker) (*remoteFileObjectStore, error) {
+func newRemoteFileObjectStore(objectStore TrackedObjectStore, remoteWorker ReportableWorker) (*remoteFileObjectStore, error) {
 	w := &remoteFileObjectStore{
-		objectStore: objectStore,
+		objectStore:  objectStore,
+		remoteWorker: remoteWorker,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -95,11 +106,17 @@ func (c *remoteFileObjectStore) Remove(ctx context.Context, path string) error {
 	return c.objectStore.Remove(ctx, path)
 }
 
+// Report returns a map of internal state for the remoteFileObjectStore.
+func (c *remoteFileObjectStore) Report() map[string]any {
+	report := make(map[string]any)
+	report["object-store"] = c.objectStore.Report()
+	report["remote-worker"] = c.remoteWorker.Report()
+	return report
+}
+
 func (c *remoteFileObjectStore) loop() error {
-	select {
-	case <-c.catacomb.Dying():
-		return c.catacomb.ErrDying()
-	}
+	<-c.catacomb.Dying()
+	return c.catacomb.ErrDying()
 }
 
 type noopAPIRemoteCallers struct{}

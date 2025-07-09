@@ -17,7 +17,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
-	corecontroller "github.com/juju/juju/core/controller"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
@@ -235,42 +234,6 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 	}
 
 	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
-}
-
-// AddControllerIAASUnits adds the specified number of controller units to
-// the controller application. It expects to only operate on the controller
-// model, thus there should always be a controller application.
-// This is additive, meaning that it will never remove any existing
-// controllers.
-func (s *ProviderService) AddControllerIAASUnits(
-	ctx context.Context,
-	controllerIDs []string,
-	units []AddIAASUnitArg,
-) ([]coremachine.Name, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	newUnits := len(units)
-	if newUnits != 0 && newUnits%2 != 1 {
-		return nil, errors.New("number of controllers must be odd and non-negative")
-	} else if newUnits > corecontroller.MaxPeers {
-		return nil, errors.Errorf("controller count is too large (allowed %d)", corecontroller.MaxPeers)
-	}
-
-	// Calculate the offset for the new controllers. This is the new number
-	// minus the number of existing controllers.
-	required := newUnits - len(controllerIDs)
-	if required == 0 {
-		// No changes are required, so we return an empty result.
-		return nil, nil
-	}
-
-	// Add the required number of units to the controller application.
-	_, machineNames, err := s.AddIAASUnits(ctx, coreapplication.ControllerApplicationName, units...)
-	if err != nil {
-		return nil, errors.Errorf("adding IAAS units to controller application: %w", err)
-	}
-	return machineNames, nil
 }
 
 // AddIAASUnits adds the specified units to the IAAS application, returning an

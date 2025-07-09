@@ -167,6 +167,14 @@ func (w *remoteWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report returns a map of internal state for the remoteWorker.
+func (w *remoteWorker) Report() map[string]any {
+	report := make(map[string]any)
+	report["origin"] = w.cfg.Origin.Id()
+	report["runner"] = w.runner.Report()
+	return report
+}
+
 func (w *remoteWorker) loop() error {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
