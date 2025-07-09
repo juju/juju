@@ -23,7 +23,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
