@@ -707,7 +707,7 @@ WHERE  uuid = ?
 }
 
 // changeFilesystemProviderID is a utility function for changing the provider id
-// of a filesystem to a value choosen by this func. The purpose of this is to
+// of a filesystem to a value chosen by this func. The purpose of this is to
 // change something about a filesystem that isn't the life.
 func (s *watcherSuite) changeFilesystemProviderID(
 	c *tc.C, uuid string,
@@ -722,7 +722,7 @@ WHERE  uuid = ?
 }
 
 // changeMachineCloudInstanceDisplayName is a utility function for changing the
-// display name of a machine cloud instance to a value choosen by this func. The
+// display name of a machine cloud instance to a value chosen by this func. The
 // purpose of this is to change something about a machine cloud instance to test
 // watchers.
 func (s *watcherSuite) changeMachineCloudInstanceDisplayName(
@@ -738,7 +738,7 @@ WHERE  machine_uuid = ?
 }
 
 // changeVolumeProviderID is a utility function for changing the provider id
-// of a filesystem to a value choosen by this func. The purpose of this is to
+// of a filesystem to a value chosen by this func. The purpose of this is to
 // change something about a filesystem that isn't the life.
 func (s *watcherSuite) changeVolumeProviderID(
 	c *tc.C, uuid string,
