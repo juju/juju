@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -67,11 +68,13 @@ type NetworkService interface {
 	// Subnet returns the subnet identified by the input UUID,
 	// or an error if it is not found.
 	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
-
-	// UpdateSubnet updates the spaceUUID of the subnet identified by the input
-	// UUID.
-	UpdateSubnet(ctx context.Context, uuid string, spaceUUID network.SpaceUUID) error
-
+	// MoveSubnetsToSpace moves a list of subnets identified by their UUIDs to a
+	// specified network space.
+	// It validates input, computes a new topology, checks its integrity, and
+	// applies changes if valid.
+	// Returns the list of moved subnets or an error if any step fails.
+	MoveSubnetsToSpace(ctx context.Context,
+		subnets []domainnetwork.SubnetUUID, space network.SpaceName, force bool) ([]domainnetwork.MovedSubnets, error)
 	// SupportsSpaces returns whether the current environment supports spaces.
 	SupportsSpaces(context.Context) (bool, error)
 

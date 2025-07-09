@@ -18,6 +18,7 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
+	network0 "github.com/juju/juju/domain/network"
 	txn "github.com/juju/mgo/v3/txn"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -713,6 +714,45 @@ func (c *MockNetworkServiceGetMachineAddressesCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// MoveSubnetsToSpace mocks base method.
+func (m *MockNetworkService) MoveSubnetsToSpace(arg0 context.Context, arg1 []network0.SubnetUUID, arg2 network.SpaceName, arg3 bool) ([]network0.MovedSubnets, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MoveSubnetsToSpace", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]network0.MovedSubnets)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MoveSubnetsToSpace indicates an expected call of MoveSubnetsToSpace.
+func (mr *MockNetworkServiceMockRecorder) MoveSubnetsToSpace(arg0, arg1, arg2, arg3 any) *MockNetworkServiceMoveSubnetsToSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveSubnetsToSpace", reflect.TypeOf((*MockNetworkService)(nil).MoveSubnetsToSpace), arg0, arg1, arg2, arg3)
+	return &MockNetworkServiceMoveSubnetsToSpaceCall{Call: call}
+}
+
+// MockNetworkServiceMoveSubnetsToSpaceCall wrap *gomock.Call
+type MockNetworkServiceMoveSubnetsToSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceMoveSubnetsToSpaceCall) Return(arg0 []network0.MovedSubnets, arg1 error) *MockNetworkServiceMoveSubnetsToSpaceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceMoveSubnetsToSpaceCall) Do(f func(context.Context, []network0.SubnetUUID, network.SpaceName, bool) ([]network0.MovedSubnets, error)) *MockNetworkServiceMoveSubnetsToSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceMoveSubnetsToSpaceCall) DoAndReturn(f func(context.Context, []network0.SubnetUUID, network.SpaceName, bool) ([]network0.MovedSubnets, error)) *MockNetworkServiceMoveSubnetsToSpaceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ReloadSpaces mocks base method.
 func (m *MockNetworkService) ReloadSpaces(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -1023,44 +1063,6 @@ func (c *MockNetworkServiceUpdateSpaceCall) Do(f func(context.Context, network.S
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkServiceUpdateSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID, network.SpaceName) error) *MockNetworkServiceUpdateSpaceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UpdateSubnet mocks base method.
-func (m *MockNetworkService) UpdateSubnet(arg0 context.Context, arg1 string, arg2 network.SpaceUUID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSubnet", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateSubnet indicates an expected call of UpdateSubnet.
-func (mr *MockNetworkServiceMockRecorder) UpdateSubnet(arg0, arg1, arg2 any) *MockNetworkServiceUpdateSubnetCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSubnet", reflect.TypeOf((*MockNetworkService)(nil).UpdateSubnet), arg0, arg1, arg2)
-	return &MockNetworkServiceUpdateSubnetCall{Call: call}
-}
-
-// MockNetworkServiceUpdateSubnetCall wrap *gomock.Call
-type MockNetworkServiceUpdateSubnetCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockNetworkServiceUpdateSubnetCall) Return(arg0 error) *MockNetworkServiceUpdateSubnetCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceUpdateSubnetCall) Do(f func(context.Context, string, network.SpaceUUID) error) *MockNetworkServiceUpdateSubnetCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceUpdateSubnetCall) DoAndReturn(f func(context.Context, string, network.SpaceUUID) error) *MockNetworkServiceUpdateSubnetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

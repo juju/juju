@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// APISuite tests API calls using mocked model operations.
+// APIBaseSuite tests API calls using mocked model operations.
 // TODO (manadart 2020-03-24): This should be broken up into separate
 // suites for each command. See move_tests.go.
 type APISuite struct {
-	spaces.APISuite
+	spaces.APIBaseSuite
 }
 
 func TestAPISuite(t *stdtesting.T) {
