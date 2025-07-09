@@ -316,6 +316,44 @@ func (c *MockTrackedObjectStoreRemoveCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// Report mocks base method.
+func (m *MockTrackedObjectStore) Report() map[string]any {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Report")
+	ret0, _ := ret[0].(map[string]any)
+	return ret0
+}
+
+// Report indicates an expected call of Report.
+func (mr *MockTrackedObjectStoreMockRecorder) Report() *MockTrackedObjectStoreReportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockTrackedObjectStore)(nil).Report))
+	return &MockTrackedObjectStoreReportCall{Call: call}
+}
+
+// MockTrackedObjectStoreReportCall wrap *gomock.Call
+type MockTrackedObjectStoreReportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTrackedObjectStoreReportCall) Return(arg0 map[string]any) *MockTrackedObjectStoreReportCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTrackedObjectStoreReportCall) Do(f func() map[string]any) *MockTrackedObjectStoreReportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTrackedObjectStoreReportCall) DoAndReturn(f func() map[string]any) *MockTrackedObjectStoreReportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Wait mocks base method.
 func (m *MockTrackedObjectStore) Wait() error {
 	m.ctrl.T.Helper()

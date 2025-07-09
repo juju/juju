@@ -8,25 +8,38 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/retry"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	"github.com/juju/juju/internal/objectstore/remote"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
 	defaultFileDirectory = "objectstore"
+
+	// shortRemoteTimeout is the default timeout for retrieving blobs from
+	// remote API servers when it's from a get request.
+	shortRemoteTimeout = time.Second * 30
+
+	// longRemoteTimeout is the default timeout for retrieving blobs from
+	// remote API servers when it's from a change request.
+	longRemoteTimeout = time.Minute * 5
 )
 
 // FallBackStrategy is the strategy to use when there is no local file to
@@ -74,6 +87,7 @@ type fileObjectStore struct {
 	baseObjectStore
 	fs              fs.FS
 	remoteRetriever RemoteRetriever
+	remoteRunner    *worker.Runner
 	namespace       string
 	requests        chan request
 }
@@ -81,6 +95,21 @@ type fileObjectStore struct {
 // NewFileObjectStore returns a new object store worker based on the file
 // storage.
 func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "file-object-store-remote-runner",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return false
+		},
+		Clock:  cfg.Clock,
+		Logger: internalworker.WrapLogger(cfg.Logger),
+	})
+	if err != nil {
+		return nil, errors.Errorf("creating remote runner: %w", err)
+	}
+
 	path := basePath(cfg.RootDir, cfg.Namespace)
 
 	s := &fileObjectStore{
@@ -93,7 +122,9 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 		},
 		fs:              os.DirFS(path),
 		remoteRetriever: cfg.RemoteRetriever,
-		namespace:       cfg.Namespace,
+		remoteRunner:    runner,
+
+		namespace: cfg.Namespace,
 
 		requests: make(chan request),
 	}
@@ -102,6 +133,9 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 		Name: "file-object-store",
 		Site: &s.catacomb,
 		Work: s.loop,
+		Init: []worker.Worker{
+			s.remoteRunner,
+		},
 	}); err != nil {
 		return nil, errors.Errorf("starting file object store: %w", err)
 	}
@@ -322,6 +356,16 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
+func (t *fileObjectStore) Report() map[string]any {
+	report := make(map[string]any)
+
+	report["namespace"] = t.namespace
+	report["path"] = t.path
+	report["remote"] = t.remoteRunner.Report()
+
+	return report
+}
+
 func (t *fileObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
@@ -427,8 +471,29 @@ func (t *fileObjectStore) loop() error {
 				return errors.Errorf("unknown request type %d", req.op)
 			}
 
-		case changes := <-watcher.Changes():
-			fmt.Println("received changes from metadata watcher:", changes)
+		case changes, ok := <-watcher.Changes():
+			if !ok {
+				select {
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
+				default:
+					return errors.Errorf("metadata watcher closed")
+				}
+			}
+
+			if len(changes) == 0 {
+				// No changes, so we can skip processing.
+				continue
+			}
+
+			if err := t.handleMetadataChanges(ctx, changes); err != nil {
+				// For now, we'll just log the error and continue. We might want
+				// to consider retrying the operation. We don't need to fail the
+				// worker, as the get request will retry the operation when
+				// required.
+				t.logger.Errorf(ctx, "handling metadata changes: %v", err)
+			}
+
 		case <-timer.Chan():
 
 			// Reset the timer, as we've jittered the interval at the start of
@@ -448,7 +513,11 @@ func (t *fileObjectStore) get(ctx context.Context, path string, fallbackStrategy
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
-		return nil, -1, errors.Errorf("get metadata: %w", objectstoreerrors.ObjectNotFound)
+		if fallbackStrategy != RemoteFallback {
+			return nil, -1, errors.Errorf("get metadata: %w", objectstoreerrors.ObjectNotFound)
+		}
+
+		return t.getFromRemote(ctx, metadata)
 	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata: %w", err)
 	}
@@ -483,7 +552,11 @@ func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string, 
 
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
-		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", objectstoreerrors.ObjectNotFound)
+		if fallbackStrategy != RemoteFallback {
+			return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", objectstoreerrors.ObjectNotFound)
+		}
+
+		return t.getFromRemote(ctx, metadata)
 	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", err)
 	}
@@ -742,4 +815,190 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 // typically: /var/lib/juju/objectstore/<namespace>
 func basePath(rootDir, namespace string) string {
 	return filepath.Join(rootDir, defaultFileDirectory, namespace)
+}
+
+// getFromRemote fetches the object from the remote API server, writes it to
+// the file store, and then retrieves the object from the file store.
+func (t *fileObjectStore) getFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, shortRemoteTimeout)
+	defer cancel()
+
+	reader, size, err := t.fetchReaderFromRemote(ctx, metadata)
+	if err != nil {
+		return nil, -1, errors.Errorf("fetching blob from remote: %w", err)
+	}
+
+	// We need to now put the blob into the file store, so that we can
+	// retrieve it from the file store next time.
+	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, reader, size)
+	if err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+	defer func() {
+		_ = tmpFileCleanup()
+	}()
+
+	// Persist the temporary file to the final location.
+	if err := t.withLock(ctx, metadata.SHA384, func(ctx context.Context) error {
+		return t.persistTmpFile(ctx, tmpFileName, metadata.SHA384, size)
+	}); err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+
+	// Now that we've written the file, we can get the file from the file store.
+	return t.getWithMetadata(ctx, metadata, NoFallback)
+}
+
+func (t *fileObjectStore) handleMetadataChanges(ctx context.Context, changes []string) error {
+	t.logger.Debugf(ctx, "handling metadata changes: %v", changes)
+	// In theory this could be done in parallel, but we're dealing with paths
+	// and not SHA hashes, so we need to ensure that we're not writing to the
+	// same file at the same time.
+	for _, path := range changes {
+		if err := t.handleMetadataChange(ctx, path); err != nil {
+			return errors.Errorf("handling metadata change for %q: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string) error {
+	metadata, err := t.metadataService.GetMetadata(ctx, path)
+	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
+		// We could potentially remove the file here, but
+		// we would need to ensure that nothing else is either writing to
+		// the underlying hash or linked to the underlying hash.
+		// For now, we'll log that it should be cleaned up in the future either
+		// by the pruner operation in this worker, or the orphaned file cleanup
+		// operation in the object store.
+		t.logger.Debugf(ctx, "metadata for path %q not found, file should be cleaned up", path)
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting metadata for path %q: %w", path, err)
+	}
+
+	// If the file already exists for the hash, we don't need to do anything,
+	// we've already written the file.
+	hash := selectFileHash(metadata)
+	_, err = os.Stat(t.filePath(hash))
+	if err == nil {
+		t.logger.Debugf(ctx, "file for path %q already exists, nothing to do", path)
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
+	}
+
+	// Spawn a worker to fetch the file from the remotes.
+	// We don't want to block the main loop, as we could potentially be
+	// fetching multiple files from the remote API servers.
+	err = t.remoteRunner.StartWorker(ctx, hash, func(ctx context.Context) (worker.Worker, error) {
+		return newFetchWorker(t, metadata), nil
+	})
+	if errors.Is(err, jujuerrors.AlreadyExists) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("starting block sync worker for %q: %w", hash, err)
+	}
+
+	return nil
+}
+
+func (t *fileObjectStore) fetchReaderFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+	t.logger.Tracef(ctx, "fetching object %q from remote %q", metadata.Path, metadata.SHA256)
+
+	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
+	if errors.Is(err, remote.NoRemoteConnections) ||
+		errors.Is(err, remote.BlobNotFound) {
+		return nil, -1, objectstoreerrors.ObjectNotFound
+	} else if err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+
+	if size != metadata.Size {
+		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
+	}
+
+	return reader, size, nil
+}
+
+type fetchWorker struct {
+	tomb tomb.Tomb
+	t    *fileObjectStore
+	m    objectstore.Metadata
+}
+
+func newFetchWorker(t *fileObjectStore, m objectstore.Metadata) *fetchWorker {
+	w := &fetchWorker{
+		t: t,
+		m: m,
+	}
+
+	w.tomb.Go(w.loop)
+
+	return w
+}
+
+func (w *fetchWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *fetchWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *fetchWorker) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	var (
+		reader io.ReadCloser
+		size   int64
+	)
+	if err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			var err error
+			reader, size, err = w.t.fetchReaderFromRemote(ctx, w.m)
+			if err != nil {
+				return errors.Errorf("fetching blob from remote: %w", err)
+			}
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, remote.NoRemoteConnections)
+		},
+		Clock:       w.t.clock,
+		Stop:        w.tomb.Dying(),
+		Attempts:    10,
+		Delay:       time.Second * 5,
+		MaxDelay:    time.Minute,
+		BackoffFunc: retry.DoubleDelay,
+	}); err != nil {
+		return errors.Errorf("retrieving blob from remote: %w", err)
+	}
+	defer reader.Close()
+
+	tmpFileName, tmpFileCleanup, err := w.t.writeToTmpFile(w.t.path, reader, size)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	defer func() {
+		_ = tmpFileCleanup()
+	}()
+
+	// Persist the temporary file to the final location.
+	if err := w.t.withLock(ctx, w.m.SHA384, func(ctx context.Context) error {
+		return w.t.persistTmpFile(ctx, tmpFileName, w.m.SHA384, size)
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *fetchWorker) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.tomb.Context(ctx), cancel
 }

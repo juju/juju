@@ -8,6 +8,8 @@ import (
 	"github.com/juju/juju/core/logger"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
+	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	controllernodestate "github.com/juju/juju/domain/controllernode/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 )
@@ -41,6 +43,15 @@ func (s *ObjectStoreServices) ControllerConfig() *controllerconfigservice.Watcha
 	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.controllerWatcherFactory("controllerconfig"),
+	)
+}
+
+// ControllerNode returns the controller node service.
+func (s *ObjectStoreServices) ControllerNode() *controllernodeservice.WatchableService {
+	return controllernodeservice.NewWatchableService(
+		controllernodestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.controllerWatcherFactory("controllernode"),
+		s.logger.Child("controllernode"),
 	)
 }
 
