@@ -189,7 +189,9 @@ FROM   relation_endpoint re
        JOIN unit u ON ae.application_uuid = u.application_uuid
        LEFT JOIN relation_unit ru ON u.uuid = ru.unit_uuid
                                   AND re.uuid = ru.relation_endpoint_uuid
-WHERE  re.relation_uuid = $relationUnit.relation_uuid`
+WHERE  re.relation_uuid = $relationUnit.relation_uuid
+-- This aids the domain-level integration tests.
+ORDER BY u.uuid`
 
 	stmt, err := st.Prepare(q, relUnit)
 	if err != nil {
@@ -204,6 +206,8 @@ WHERE  re.relation_uuid = $relationUnit.relation_uuid`
 		}
 		return nil
 	})
+
+	st.logger.Tracef(ctx, "units in relation: %#v", units)
 
 	return units, errors.Capture(err)
 }

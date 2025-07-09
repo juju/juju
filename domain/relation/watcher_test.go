@@ -328,7 +328,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 	config := s.setupTestWatchRelationUnit(c)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watchedUnit1, config.relationUUID)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watched0UUID, config.relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -357,7 +357,7 @@ VALUES (?, ?, ?)
 			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID)),
+			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String())),
 		)
 	})
 
@@ -367,7 +367,7 @@ VALUES (?, ?, ?)
 		s.act(c, `DELETE FROM relation_unit WHERE unit_uuid = ?`, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID)),
+			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String())),
 		)
 	})
 
@@ -378,7 +378,7 @@ VALUES (?, ?, ?)
 			relationtesting.GenRelationUnitUUID(c), config.watchedRelationUUID, config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID)),
+			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
 		)
 	})
 
@@ -390,18 +390,18 @@ VALUES (?, ?, ?)
 	WHERE unit_uuid = ?`, config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID)),
+			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
 		)
 	})
 
 	// Act: run test harness.
 	// Assert: initial events are related units
 	harness.Run(c, transform.Slice(config.initialEvents, func(uuid coreunit.UUID) string {
-		return domainrelation.EncodeUnitUUID(uuid)
+		return domainrelation.EncodeUnitUUID(uuid.String())
 	}))
 }
 
-func (s *watcherSuite) TestWatchRelatedUnitsUnitSettings(c *tc.C) {
+func (s *watcherSuite) TestWatchRelatedUnitsSettings(c *tc.C) {
 	// Arrange:
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_unit_settings_hash")
 	config := s.setupTestWatchRelationUnit(c)
@@ -412,7 +412,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitSettings(c *tc.C) {
 	otherRelUnit0UUID := relationtesting.GenRelationUnitUUID(c)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watchedUnit1, config.relationUUID)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watched0UUID, config.relationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -430,8 +430,8 @@ VALUES (?,?,?),
 			otherRelUnit0UUID, config.otherRelationUUID, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID),
-				domainrelation.EncodeUnitUUID(config.watched1UUID)),
+			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String()),
+				domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
 		)
 	})
 
@@ -450,7 +450,7 @@ VALUES (?,?,?),
 			otherRelUnit0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID)),
+			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String())),
 		)
 	})
 
@@ -461,21 +461,93 @@ VALUES (?,?,?),
 			watchedRelUnit1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID)),
+			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
+		)
+	})
+
+	// Act: update settings hash for "other" application => event with other app UUID.
+	harness.AddTest(func(c *tc.C) {
+		s.act(c, `
+	INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
+	VALUES (?, 'hash')
+	`, config.otherRelationUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert[string](domainrelation.EncodeApplicationUUID(config.otherUUID.String())),
+		)
+	})
+
+	// Act: update settings hash for watched application => no event.
+	harness.AddTest(func(c *tc.C) {
+		s.act(c, `
+	INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
+	VALUES (?, 'hash')
+	`, config.watchedRelationUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act: run test harness.
+	// Assert: initial events are related units
+	harness.Run(c, transform.Slice(config.initialEvents, func(uuid coreunit.UUID) string {
+		return domainrelation.EncodeUnitUUID(uuid.String())
+	}))
+}
+
+func (s *watcherSuite) TestWatchRelatedUnitsPeerAppSettings(c *tc.C) {
+	// Arrange:
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_unit_settings_hash")
+	config := s.setupTestWatchPeerRelationUnit(c)
+
+	// Relation units UUID
+	watchedRelUnit0UUID := relationtesting.GenRelationUnitUUID(c)
+	watchedRelUnit1UUID := relationtesting.GenRelationUnitUUID(c)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watched0UUID, config.relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Arrange: Add relation unit, before updating hash settings => will generate
+	// event for units except the watched one.
+	harness.AddTest(func(c *tc.C) {
+		s.arrange(c, `
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+VALUES (?,?,?),
+       (?,?,?)`,
+			watchedRelUnit0UUID, config.watchedRelationUUID, config.watched0UUID,
+			watchedRelUnit1UUID, config.watchedRelationUUID, config.watched1UUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert[string](
+				domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
+		)
+	})
+
+	// Act: update settings hash for watched application => event with watched app UUID.
+	harness.AddTest(func(c *tc.C) {
+		s.act(c, `
+	INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
+	VALUES (?, 'hash')
+	`, config.watchedRelationUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert[string](domainrelation.EncodeApplicationUUID(config.watchedUUID.String())),
 		)
 	})
 
 	// Act: run test harness.
 	// Assert: initial events are related units
 	harness.Run(c, transform.Slice(config.initialEvents, func(uuid coreunit.UUID) string {
-		return domainrelation.EncodeUnitUUID(uuid)
+		return domainrelation.EncodeUnitUUID(uuid.String())
 	}))
 }
 
 type testWatchRelationUnit struct {
 	watchedUnit1                           coreunit.Name
 	relationUUID                           relation.UUID
-	other0UUID, watched1UUID, watched0UUID coreunit.UUID
+	other0UUID, watched0UUID, watched1UUID coreunit.UUID
 	otherRelationUUID, watchedRelationUUID relation.EndpointUUID
 	otherUUID                              coreapplication.ID
 	initialEvents                          []coreunit.UUID
@@ -520,6 +592,46 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 
 	config.initialEvents = []coreunit.UUID{config.other0UUID, config.watched1UUID}
 	sort.Slice(config.initialEvents, func(i, j int) bool { return config.initialEvents[i] < config.initialEvents[j] })
+
+	return config
+}
+
+type testWatchPeerRelationUnit struct {
+	watchedUnit1               coreunit.Name
+	relationUUID               relation.UUID
+	watched0UUID, watched1UUID coreunit.UUID
+	watchedRelationUUID        relation.EndpointUUID
+	watchedUUID                coreapplication.ID
+	initialEvents              []coreunit.UUID
+}
+
+func (s *watcherSuite) setupTestWatchPeerRelationUnit(c *tc.C) testWatchPeerRelationUnit {
+	// Arrange:
+	// - 2 apps linked through a relation
+	//   - watched/0 : we will create a watcher on this unit
+	//   - watched/1 : second unit on the same app, required to verify watcher behavior
+	//   - other/0 : only one unit on the second app, no need more.
+	config := testWatchPeerRelationUnit{}
+	config.watchedUnit1 = "watched/0"
+	config.relationUUID = relationtesting.GenRelationUUID(c)
+
+	charmUUID := charmtesting.GenCharmID(c)
+	config.watchedUUID = applicationtesting.GenApplicationUUID(c)
+	config.watched0UUID = unittesting.GenUnitUUID(c)
+	config.watched1UUID = unittesting.GenUnitUUID(c)
+	charmRelationPeerUUID := uuid.MustNewUUID()
+	watchedEndpointUUID := uuid.MustNewUUID()
+	config.watchedRelationUUID = relationtesting.GenEndpointUUID(c)
+	s.addCharm(c, charmUUID, "whatever")
+	s.addCharmRelation(c, charmUUID, charmRelationPeerUUID, 2)
+	s.addApplication(c, charmUUID, config.watchedUUID, "watched")
+	s.addUnit(c, config.watched0UUID, config.watchedUnit1, config.watchedUUID, charmUUID)
+	s.addUnit(c, config.watched1UUID, "watched/1", config.watchedUUID, charmUUID)
+	s.addApplicationEndpoint(c, watchedEndpointUUID, config.watchedUUID, charmRelationPeerUUID)
+	s.addRelation(c, config.relationUUID)
+	s.addRelationEndpoint(c, config.watchedRelationUUID, config.relationUUID, watchedEndpointUUID)
+
+	config.initialEvents = []coreunit.UUID{config.watched1UUID}
 
 	return config
 }
