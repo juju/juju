@@ -23,6 +23,7 @@ func (s *Service) MoveSubnetsToSpace(
 	ctx context.Context,
 	subnetUUIDs []domainnetwork.SubnetUUID,
 	spaceName network.SpaceName,
+	force bool,
 ) ([]domainnetwork.MovedSubnets, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -58,7 +59,7 @@ func (s *Service) MoveSubnetsToSpace(
 	}
 
 	// Check the changes are ok
-	boundToSpaceMachines, err := s.st.GetMachinesBoundToSpaces(ctx, movingSubnets.SpaceIDs().Values())
+	boundToSpaceMachines, err := s.st.GetMachinesBoundToSpaces(ctx, movingSubnets.SpaceIDs().SortedValues())
 	if err != nil {
 		return nil, errors.Errorf("getting machines bound to the source spaces: %w", err)
 	}
@@ -70,7 +71,7 @@ func (s *Service) MoveSubnetsToSpace(
 		boundToSpaceMachines.Accept(ctx, newTopology),
 		notCompatibleToSpaceMachines.Accept(ctx, newTopology),
 	)
-	if err != nil {
+	if err != nil && !force {
 		return nil, errors.Capture(err)
 	}
 

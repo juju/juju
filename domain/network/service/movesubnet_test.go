@@ -47,6 +47,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceInvalidSubnetUUIDs(c *tc.C) {
 		c.Context(),
 		[]domainnetwork.SubnetUUID{"invalid-uuid"},
 		"space1",
+		false,
 	)
 
 	c.Assert(err, tc.ErrorMatches, "invalid subnet UUIDs:.*")
@@ -70,6 +71,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceGetAllSpacesError(c *tc.C) {
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
+		false,
 	)
 
 	// Assert
@@ -95,6 +97,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceSpaceNotFound(c *tc.C) {
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"some-unknown-space",
+		false,
 	)
 
 	// Assert
@@ -129,6 +132,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceGetSubnetsError(c *tc.C) {
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
+		false,
 	)
 
 	// Assert
@@ -169,6 +173,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceSubnetNotFound(c *tc.C) {
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
+		false,
 	)
 
 	// Assert
@@ -221,6 +226,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceMachinesBoundToSpacesError(c *t
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
+		false,
 	)
 
 	// Assert
@@ -277,6 +283,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceMachinesAllergicToSpaceError(c 
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
+		false,
 	)
 
 	// Assert
@@ -346,11 +353,116 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceMachinesRejectTopology(c *tc.C)
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
+		false,
 	)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "topology rejected: error1\ntopology rejected: error2")
 	c.Assert(result, tc.IsNil)
+}
+
+// TestMoveSubnetsToSpaceSuccessForcedWithRejectedTopology tests that subnets are
+// successfully moved to the destination space, when forced even if the topology
+// has been rejected.
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceSuccessForcedWithRejectedTopology(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	subnetUUID1 := s.newSubnetUUID(c)
+	subnetUUID2 := s.newSubnetUUID(c)
+	subnetID1 := network.Id(subnetUUID1.String())
+	subnetID2 := network.Id(subnetUUID2.String())
+	subnets := []network.SubnetInfo{{
+		ID:        subnetID1,
+		CIDR:      "192.168.2.0/24",
+		SpaceID:   "space2-id",
+		SpaceName: "space2",
+	}, {
+		ID:        subnetID2,
+		CIDR:      "192.192.2.0/24",
+		SpaceID:   "space3-id",
+		SpaceName: "space3",
+	}}
+	spaces := network.SpaceInfos{
+		{
+			ID:   "space1-id",
+			Name: "space1",
+		},
+		{
+			ID:      "space2-id",
+			Name:    "space2",
+			Subnets: subnets[0:1],
+		},
+		{
+			ID:      "space3-id",
+			Name:    "space3",
+			Subnets: subnets[1:],
+		},
+	}
+
+	newTopology, err := spaces.MoveSubnets(network.MakeIDSet(subnetID1, subnetID2), "space1")
+	c.Assert(err, tc.IsNil)
+
+	// Create a mock CheckableMachine that accept the topology
+	boundMachines := NewMockCheckableMachine(ctrl)
+	boundMachines.EXPECT().
+		Accept(gomock.Any(), newTopology).
+		Return(nil).
+		Times(2)
+	allergicMachines := NewMockCheckableMachine(ctrl)
+	allergicMachines.EXPECT().
+		Accept(gomock.Any(), newTopology).
+		Return(errors.New("topology rejected: error1")).
+		Times(1)
+
+	s.st.EXPECT().
+		GetAllSpaces(gomock.Any()).
+		Return(spaces, nil)
+
+	s.st.EXPECT().
+		GetSubnets(gomock.Any(), []string{subnetUUID1.String(), subnetUUID2.String()}).
+		Return(subnets, nil)
+
+	s.st.EXPECT().
+		GetMachinesBoundToSpaces(gomock.Any(), []string{"space2-id", "space3-id"}).
+		Return(internal.CheckableMachines{boundMachines, boundMachines}, nil)
+
+	s.st.EXPECT().
+		GetMachinesNotAllowedInSpace(gomock.Any(), "space1-id").
+		Return(internal.CheckableMachines{allergicMachines}, nil)
+
+	// Expect UpdateSubnet to be called for the moved subnet
+	upserted := transform.Slice(subnets, func(subnet network.SubnetInfo) network.SubnetInfo {
+		subnet.SpaceID = "space1-id"
+		subnet.SpaceName = "space1"
+		return subnet
+	})
+	s.st.EXPECT().
+		UpsertSubnets(gomock.Any(), upserted).
+		Return(nil)
+
+	// Act
+	result, err := s.service.MoveSubnetsToSpace(
+		c.Context(),
+		[]domainnetwork.SubnetUUID{subnetUUID1, subnetUUID2},
+		"space1",
+		true,
+	)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.SameContents, []domainnetwork.MovedSubnets{{
+		UUID:      subnetUUID1,
+		CIDR:      subnets[0].CIDR,
+		FromSpace: "space2",
+		ToSpace:   "space1",
+	}, {
+		UUID:      subnetUUID2,
+		CIDR:      subnets[1].CIDR,
+		FromSpace: "space3",
+		ToSpace:   "space1",
+	}})
 }
 
 // TestMoveSubnetsToSpaceSuccess tests that subnets are successfully moved to the
@@ -438,6 +550,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceSuccess(c *tc.C) {
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID1, subnetUUID2},
 		"space1",
+		false,
 	)
 
 	// Assert
@@ -509,6 +622,7 @@ func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceUpdateSubnetError(c *tc.C) {
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
+		false,
 	)
 
 	// Assert
