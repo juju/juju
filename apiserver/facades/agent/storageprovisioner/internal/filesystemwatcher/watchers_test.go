@@ -61,23 +61,6 @@ func (s *WatchersSuite) SetUpTest(c *tc.C) {
 	s.watchers.Backend = s.backend
 }
 
-func (s *WatchersSuite) TestWatchModelManagedFilesystems(c *tc.C) {
-	w := s.watchers.WatchModelManagedFilesystems()
-	defer workertest.CleanKill(c, w)
-	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
-
-	// Filesystem 1 has a backing volume, so should not be reported.
-	wc := watchertest.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0")
-	wc.AssertNoChange()
-}
-
-func (s *WatchersSuite) TestWatchModelManagedFilesystemsWatcherErrorsPropagate(c *tc.C) {
-	w := s.watchers.WatchModelManagedFilesystems()
-	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
-}
-
 func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *tc.C) {
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
 	defer workertest.CleanKill(c, w)
@@ -93,84 +76,6 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsWatcherErrorsP
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
 	s.backend.modelFilesystemAttachmentsW.T.Kill(errors.New("rah"))
 	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
-}
-
-func (s *WatchersSuite) TestWatchMachineManagedFilesystems(c *tc.C) {
-	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	defer workertest.CleanKill(c, w)
-	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
-	s.backend.machineFilesystemsW.C <- []string{"0/2", "0/3"}
-	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
-
-	wc := watchertest.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0/2", "0/3", "1")
-	wc.AssertNoChange()
-}
-
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemsErrorsPropagate(c *tc.C) {
-	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
-}
-
-// TestWatchMachineManagedFilesystemsVolumeAttachedFirst is the same as
-// TestWatchMachineManagedFilesystems, but the order of volume attachment
-// and model filesystem events is swapped.
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedFirst(c *tc.C) {
-	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	defer workertest.CleanKill(c, w)
-	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
-	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
-	s.backend.machineFilesystemsW.C <- []string{"0/2", "0/3"}
-
-	wc := watchertest.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0/2", "0/3", "1")
-	wc.AssertNoChange()
-}
-
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedLater(c *tc.C) {
-	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	defer workertest.CleanKill(c, w)
-	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
-	s.backend.machineFilesystemsW.C <- []string{"0/2", "0/3"}
-	// No volumes are attached to begin with.
-	s.backend.modelVolumeAttachmentsW.C <- []string{}
-
-	wc := watchertest.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0/2", "0/3")
-	wc.AssertNoChange()
-
-	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
-	wc.AssertChangeInSingleEvent("1")
-	wc.AssertNoChange()
-}
-
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c *tc.C) {
-	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	defer workertest.CleanKill(c, w)
-
-	s.backend.machineFilesystemsW.C <- []string{}
-	// Volume-backed filesystems 1 and 2 change.
-	s.backend.modelFilesystemsW.C <- []string{"1", "2"}
-	// The volumes are attached initially...
-	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2"}
-	// ... but before the client consumes the event, the backing volume
-	// attachments 0:1 and 0:2 become Dead and removed respectively,
-	// negating the previous change.
-	<-s.backend.volumeAttachmentRequested
-	<-s.backend.volumeAttachmentRequested
-	s.backend.volumeAttachments["1"].life = state.Dead
-	delete(s.backend.volumeAttachments, "2")
-	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2"}
-
-	// In order to not start the watcher until it has finished processing
-	// the previous event, we send another empty list through the channel
-	// which does nothing.
-	s.backend.modelVolumeAttachmentsW.C <- []string{}
-
-	wc := watchertest.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent()
-	wc.AssertNoChange()
 }
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachments(c *tc.C) {

@@ -23,8 +23,10 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	corewatcher "github.com/juju/juju/core/watcher"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -39,24 +41,25 @@ type StorageProvisionerAPIv4 struct {
 
 	watcherRegistry facade.WatcherRegistry
 
-	st                       Backend
-	sb                       StorageBackend
-	blockDeviceService       BlockDeviceService
-	resources                facade.Resources
-	authorizer               facade.Authorizer
-	registry                 storage.ProviderRegistry
-	storagePoolGetter        StoragePoolGetter
-	storageStatusService     StorageStatusService
-	modelConfigService       ModelConfigService
-	machineService           MachineService
-	applicationService       ApplicationService
-	getScopeAuthFunc         common.GetAuthFunc
-	getStorageEntityAuthFunc common.GetAuthFunc
-	getMachineAuthFunc       common.GetAuthFunc
-	getBlockDevicesAuthFunc  common.GetAuthFunc
-	getAttachmentAuthFunc    func(context.Context) (func(names.Tag, names.Tag) bool, error)
-	logger                   logger.Logger
-	clock                    clock.Clock
+	st                         Backend
+	sb                         StorageBackend
+	blockDeviceService         BlockDeviceService
+	resources                  facade.Resources
+	authorizer                 facade.Authorizer
+	registry                   storage.ProviderRegistry
+	storagePoolGetter          StoragePoolGetter
+	storageStatusService       StorageStatusService
+	storageProvisioningService StorageProvisioningService
+	modelConfigService         ModelConfigService
+	machineService             MachineService
+	applicationService         ApplicationService
+	getScopeAuthFunc           common.GetAuthFunc
+	getStorageEntityAuthFunc   common.GetAuthFunc
+	getMachineAuthFunc         common.GetAuthFunc
+	getBlockDevicesAuthFunc    common.GetAuthFunc
+	getAttachmentAuthFunc      func(context.Context) (func(names.Tag, names.Tag) bool, error)
+	logger                     logger.Logger
+	clock                      clock.Clock
 
 	controllerUUID string
 	modelUUID      model.UUID
@@ -78,6 +81,7 @@ func NewStorageProvisionerAPIv4(
 	registry storage.ProviderRegistry,
 	storagePoolGetter StoragePoolGetter,
 	storageStatusService StorageStatusService,
+	storageProvisioningService StorageProvisioningService,
 	logger logger.Logger,
 	modelUUID model.UUID,
 	controllerUUID string,
@@ -236,24 +240,25 @@ func NewStorageProvisionerAPIv4(
 
 		watcherRegistry: watcherRegistry,
 
-		st:                       st,
-		sb:                       sb,
-		resources:                resources,
-		authorizer:               authorizer,
-		registry:                 registry,
-		storagePoolGetter:        storagePoolGetter,
-		storageStatusService:     storageStatusService,
-		modelConfigService:       modelConfigService,
-		machineService:           machineService,
-		applicationService:       applicationService,
-		getScopeAuthFunc:         getScopeAuthFunc,
-		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
-		getAttachmentAuthFunc:    getAttachmentAuthFunc,
-		getMachineAuthFunc:       getMachineAuthFunc,
-		getBlockDevicesAuthFunc:  getBlockDevicesAuthFunc,
-		blockDeviceService:       blockDeviceService,
-		logger:                   logger,
-		clock:                    clock,
+		st:                         st,
+		sb:                         sb,
+		resources:                  resources,
+		authorizer:                 authorizer,
+		registry:                   registry,
+		storagePoolGetter:          storagePoolGetter,
+		storageStatusService:       storageStatusService,
+		storageProvisioningService: storageProvisioningService,
+		modelConfigService:         modelConfigService,
+		machineService:             machineService,
+		applicationService:         applicationService,
+		getScopeAuthFunc:           getScopeAuthFunc,
+		getStorageEntityAuthFunc:   getStorageEntityAuthFunc,
+		getAttachmentAuthFunc:      getAttachmentAuthFunc,
+		getMachineAuthFunc:         getMachineAuthFunc,
+		getBlockDevicesAuthFunc:    getBlockDevicesAuthFunc,
+		blockDeviceService:         blockDeviceService,
+		logger:                     logger,
+		clock:                      clock,
 
 		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
@@ -339,26 +344,28 @@ func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchVolumes(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(ctx, args, s.sb.WatchModelVolumes, s.sb.WatchMachineVolumes)
+	return s.watchStorageEntities(
+		ctx, args,
+		s.storageProvisioningService.WatchModelProvisionedVolumes,
+		s.storageProvisioningService.WatchMachineProvisionedVolumes,
+	)
 }
 
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchFilesystems(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	w := filesystemwatcher.Watchers{Backend: s.sb}
 	return s.watchStorageEntities(
-		ctx,
-		args,
-		w.WatchModelManagedFilesystems,
-		w.WatchMachineManagedFilesystems,
+		ctx, args,
+		s.storageProvisioningService.WatchModelProvisionedFilesystems,
+		s.storageProvisioningService.WatchMachineProvisionedFilesystems,
 	)
 }
 
 func (s *StorageProvisionerAPIv4) watchStorageEntities(
 	ctx context.Context,
 	args params.Entities,
-	watchEnvironStorage func() state.StringsWatcher,
-	watchMachineStorage func(names.MachineTag) state.StringsWatcher,
+	watchModelStorage func(context.Context) (corewatcher.StringsWatcher, error),
+	watchMachineStorage func(context.Context, machine.UUID) (corewatcher.StringsWatcher, error),
 ) (params.StringsWatchResults, error) {
 	canAccess, err := s.getScopeAuthFunc(ctx)
 	if err != nil {
@@ -372,20 +379,32 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 		if err != nil || !canAccess(tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		var w state.StringsWatcher
+		var w corewatcher.StringsWatcher
 		switch tag := tag.(type) {
 		case names.MachineTag:
-			w = watchMachineStorage(tag)
+			var machineUUID machine.UUID
+			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				return "", nil, errors.NotFoundf("machine %q", tag.Id())
+			}
+			if err != nil {
+				return "", nil, internalerrors.Capture(err)
+			}
+			w, err = watchMachineStorage(ctx, machineUUID)
 		case names.ModelTag:
-			w = watchEnvironStorage()
+			w, err = watchModelStorage(ctx)
 		default:
-			return "", nil, apiservererrors.ServerError(errors.NotSupportedf("watching storage for %v", tag))
+			return "", nil, errors.NotSupportedf("watching storage for %v", tag)
+		}
+		if err != nil {
+			return "", nil, errors.Trace(err)
 		}
 
-		if changes, ok := <-w.Changes(); ok {
-			return s.resources.Register(w), changes, nil
+		id, changes, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
+		if err != nil {
+			return "", nil, errors.Trace(err)
 		}
-		return "", nil, watcher.EnsureErr(w)
+		return id, changes, nil
 	}
 	for i, arg := range args.Entities {
 		var result params.StringsWatchResult

@@ -183,65 +183,7 @@ func (st *State) WatchModelLives() StringsWatcher {
 	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }
 
-// WatchModelVolumes returns a StringsWatcher that notifies of changes to
-// the lifecycles of all model-scoped volumes.
-func (sb *storageBackend) WatchModelVolumes() StringsWatcher {
-	return sb.watchModelHostStorage(volumesC)
-}
-
-// WatchModelFilesystems returns a StringsWatcher that notifies of changes
-// to the lifecycles of all model-scoped filesystems.
-func (sb *storageBackend) WatchModelFilesystems() StringsWatcher {
-	return sb.watchModelHostStorage(filesystemsC)
-}
-
 var machineOrUnitSnippet = "(" + names.NumberSnippet + "|" + names.UnitSnippet + ")"
-
-func (sb *storageBackend) watchModelHostStorage(collection string) StringsWatcher {
-	mb := sb.mb
-	pattern := fmt.Sprintf("^%s$", mb.docID(machineOrUnitSnippet))
-	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	filter := func(id interface{}) bool {
-		k, err := mb.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		return !strings.Contains(k, "/")
-	}
-	return newLifecycleWatcher(mb, collection, members, filter, nil)
-}
-
-// WatchMachineVolumes returns a StringsWatcher that notifies of changes to
-// the lifecycles of all volumes scoped to the specified machine.
-func (sb *storageBackend) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
-	return sb.watchHostStorage(m, volumesC)
-}
-
-// WatchMachineFilesystems returns a StringsWatcher that notifies of changes
-// to the lifecycles of all filesystems scoped to the specified machine.
-func (sb *storageBackend) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
-	return sb.watchHostStorage(m, filesystemsC)
-}
-
-func (sb *storageBackend) watchHostStorage(host names.Tag, collection string) StringsWatcher {
-	mb := sb.mb
-	// The regexp patterns below represent either machine or unit attached storage, <hostid>/<number>.
-	// For machines, it can be something like 4/6.
-	// For units the pattern becomes something like mariadb/0/6.
-	// The host parameter passed into this method is the application name, any of whose units we are interested in.
-	pattern := fmt.Sprintf("^%s(/%s)?/%s$", mb.docID(host.Id()), names.NumberSnippet, names.NumberSnippet)
-	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	prefix := fmt.Sprintf("%s(/%s)?/.*", host.Id(), names.NumberSnippet)
-	matchExp := regexp.MustCompile(prefix)
-	filter := func(id interface{}) bool {
-		k, err := mb.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		return matchExp.MatchString(k)
-	}
-	return newLifecycleWatcher(mb, collection, members, filter, nil)
-}
 
 // WatchMachineAttachmentsPlans returns a StringsWatcher that notifies machine agents
 // that a volume has been attached to their instance by the environment provider.

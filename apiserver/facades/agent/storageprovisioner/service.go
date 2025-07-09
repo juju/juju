@@ -74,9 +74,6 @@ type StoragePoolGetter interface {
 type ApplicationService interface {
 	// GetUnitLife returns the life status of a unit identified by its name.
 	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
-	// WatchApplications returns a watcher that emits application uuids
-	// when applications are added or removed.
-	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
 	// GetApplicationLifeByName looks up the life of the specified application, returning
 	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application is not found.
@@ -94,4 +91,38 @@ type StorageStatusService interface {
 	// current status data. If returns an error satisfying
 	// [storageerrors.VolumeNotFound] if the volume doesn't exist.
 	SetVolumeStatus(ctx context.Context, volumeID string, statusInfo corestatus.StatusInfo) error
+}
+
+// StorageProvisioningService provides methods to watch and manage storage
+// provisioning related resources.
+type StorageProvisioningService interface {
+	// WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,
+	// whenever the given machine's provisioned filsystem's life changes.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the supplied machine uuid
+	// is not valid.
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+	// machine exists for the provided machine uuid.
+	WatchMachineProvisionedFilesystems(
+		ctx context.Context, machineUUID machine.UUID,
+	) (watcher.StringsWatcher, error)
+
+	// WatchModelProvisionedFilesystems returns a watcher that emits filesystem IDs,
+	// whenever a model provisioned filsystem's life changes.
+	WatchModelProvisionedFilesystems(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// WatchModelProvisionedVolumes returns a watcher that emits volume IDs,
+	// whenever a model provisioned volume's life changes.
+	WatchModelProvisionedVolumes(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// WatchMachineProvisionedVolumes returns a watcher that emits volume IDs,
+	// whenever the given machine's provisioned volume life changes.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
+	// is not valid.
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+	// machine exists for the provided machine UUUID.
+	WatchMachineProvisionedVolumes(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error)
 }
