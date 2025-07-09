@@ -304,7 +304,9 @@ type State interface {
 
 	// InitialWatchRelatedUnits initializes a watch for changes related to the
 	// specified unit in the given relation.
-	InitialWatchRelatedUnits(name unit.Name, uuid corerelation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper)
+	InitialWatchRelatedUnits(
+		ctx context.Context, unitUUID, relUUID string,
+	) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error)
 }
 
 // LeadershipService provides the API for working with the statuses of applications
