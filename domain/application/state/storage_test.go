@@ -86,7 +86,7 @@ func (s *storageSuite) createStoragePoolWithType(
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(
-		"INSERT INTO storage_pool VALUES (?, ?, ?)",
+		"INSERT INTO storage_pool VALUES (?, ?, ?, 1)",
 		poolUUID, "test-pool", providerType,
 	)
 	c.Assert(err, tc.ErrorIsNil)

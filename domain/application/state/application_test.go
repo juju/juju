@@ -1839,29 +1839,6 @@ func (s *applicationStateSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestStorageDefaultsNone(c *tc.C) {
-	defaults, err := s.state.StorageDefaults(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(defaults, tc.DeepEquals, domainstorage.StorageDefaults{})
-}
-
-func (s *applicationStateSuite) TestStorageDefaults(c *tc.C) {
-	db := s.DB()
-	_, err := db.ExecContext(c.Context(), "INSERT INTO model_config (key, value) VALUES (?, ?)",
-		"storage-default-block-source", "ebs-fast")
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = db.ExecContext(c.Context(), "INSERT INTO model_config (key, value) VALUES (?, ?)",
-		"storage-default-filesystem-source", "elastic-fs")
-	c.Assert(err, tc.ErrorIsNil)
-
-	defaults, err := s.state.StorageDefaults(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(defaults, tc.DeepEquals, domainstorage.StorageDefaults{
-		DefaultBlockSource:      ptr("ebs-fast"),
-		DefaultFilesystemSource: ptr("elastic-fs"),
-	})
-}
-
 func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *tc.C) {
 	expectedMetadata := charm.Metadata{
 		Name:           "ubuntu",
