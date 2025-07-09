@@ -1983,12 +1983,12 @@ func (u *UniterAPI) watchOneRelationUnit(
 		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
 	}
 
-	_, err = u.applicationService.GetUnitUUID(ctx, coreunit.Name(unitTag.Id()))
+	unitUUID, err := u.applicationService.GetUnitUUID(ctx, coreunit.Name(unitTag.Id()))
 	if err != nil {
 		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
 	}
 
-	watch, err := newRelationUnitsWatcher(unitTag, relUUID, u.relationService)
+	watch, err := newRelationUnitsWatcher(unitUUID, relUUID, u.relationService)
 	if err != nil {
 		return params.RelationUnitsWatchResult{},
 			internalerrors.Capture(internalerrors.Errorf("starting related units watcher: %w", err))
