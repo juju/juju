@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -33,8 +31,6 @@ import (
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -389,10 +385,6 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.svc = service.NewProviderService(
 		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domaintesting.NoopLeaderEnsurer(),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return provider.CommonStorageProviders()
-		}),
-		model.UUID(s.ModelUUID()),
 		nil,
 		func(ctx context.Context) (service.Provider, error) {
 			return serviceProvider{}, nil
