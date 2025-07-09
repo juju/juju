@@ -519,3 +519,42 @@ func (c *MockStorageProvisioningServiceWatchModelProvisionedVolumesCall) DoAndRe
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// WatchVolumeAttachmentPlans mocks base method.
+func (m *MockStorageProvisioningService) WatchVolumeAttachmentPlans(arg0 context.Context, arg1 machine.UUID) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchVolumeAttachmentPlans", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchVolumeAttachmentPlans indicates an expected call of WatchVolumeAttachmentPlans.
+func (mr *MockStorageProvisioningServiceMockRecorder) WatchVolumeAttachmentPlans(arg0, arg1 any) *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchVolumeAttachmentPlans", reflect.TypeOf((*MockStorageProvisioningService)(nil).WatchVolumeAttachmentPlans), arg0, arg1)
+	return &MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall{Call: call}
+}
+
+// MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall wrap *gomock.Call
+type MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall) Do(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall) DoAndReturn(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

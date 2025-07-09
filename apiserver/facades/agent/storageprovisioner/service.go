@@ -121,4 +121,15 @@ type StorageProvisioningService interface {
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 	// machine exists for the provided machine UUUID.
 	WatchMachineProvisionedVolumes(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error)
+
+	// WatchVolumeAttachmentPlans returns a watcher that emits volume attachment
+	// plan volume ids, whenever the given machine's volume attachment plan life
+	// changes.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
+	// is not valid.
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+	// machine exists for the provided machine UUUID.
+	WatchVolumeAttachmentPlans(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error)
 }

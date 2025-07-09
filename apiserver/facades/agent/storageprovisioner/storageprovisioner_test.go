@@ -247,3 +247,62 @@ func (s *provisionerSuite) TestWatchFilesystemsForMachineNotFound(c *tc.C) {
 	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
 }
+
+func (s *provisionerSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	attachmentChanged := make(chan []string, 1)
+	attachmentChanged <- []string{"1", "2"}
+	machineUUID := machinetesting.GenUUID(c)
+	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		WatchVolumeAttachmentPlans(gomock.Any(), machineUUID).
+		Return(sourceWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+
+	results, err := s.api.WatchVolumeAttachmentPlans(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag(s.machineName.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.MachineStorageIdsWatcherId, tc.Equals, "66")
+	c.Assert(result.Changes, tc.DeepEquals, []params.MachineStorageId{
+		{
+			MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+			AttachmentTag: names.NewVolumeTag("1").String(),
+		},
+		{
+			MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+			AttachmentTag: names.NewVolumeTag("2").String(),
+		},
+	})
+}
+
+func (s *provisionerSuite) TestWatchVolumeAttachmentPlansMachineNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return("", machineerrors.MachineNotFound)
+
+	results, err := s.api.WatchVolumeAttachmentPlans(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag(s.machineName.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}

@@ -471,21 +471,45 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(ctx context.Context
 		if err != nil || !canAccess(tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		var w state.StringsWatcher
-		if tag, ok := tag.(names.MachineTag); ok {
-			w = s.sb.WatchMachineAttachmentsPlans(tag)
-		} else {
+		tag, ok := tag.(names.MachineTag)
+		if !ok {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		if stringChanges, ok := <-w.Changes(); ok {
-			changes, err := storagecommon.ParseVolumeAttachmentIds(stringChanges)
-			if err != nil {
-				_ = w.Stop()
-				return "", nil, err
-			}
-			return s.resources.Register(w), changes, nil
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return "", nil, errors.NotFoundf("machine %q", tag.Id())
 		}
-		return "", nil, watcher.EnsureErr(w)
+		if err != nil {
+			return "", nil, internalerrors.Capture(err)
+		}
+		sourceWatcher, err := s.storageProvisioningService.WatchVolumeAttachmentPlans(ctx, machineUUID)
+		if err != nil {
+			return "", nil, internalerrors.Capture(err)
+		}
+		w, err := newAttachmentWatcher(
+			sourceWatcher,
+			func(_ context.Context, volumeIDs ...string) ([]params.MachineStorageId, error) {
+				if len(volumeIDs) == 0 {
+					return nil, nil
+				}
+				out := make([]params.MachineStorageId, len(volumeIDs))
+				for i, volumeID := range volumeIDs {
+					out[i] = params.MachineStorageId{
+						MachineTag:    tag.String(),
+						AttachmentTag: names.NewVolumeTag(volumeID).String(),
+					}
+				}
+				return out, nil
+			},
+		)
+		if err != nil {
+			return "", nil, internalerrors.Capture(err)
+		}
+		id, changes, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
+		if err != nil {
+			return "", nil, internalerrors.Capture(err)
+		}
+		return id, changes, nil
 	}
 	for i, arg := range args.Entities {
 		var result params.MachineStorageIdsWatchResult
