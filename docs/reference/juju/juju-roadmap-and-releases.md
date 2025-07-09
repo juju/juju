@@ -66,6 +66,30 @@ ADD WHEN FIXED.
 Juju 3.6 series is LTS
 ```
 
+### 🔸 **Juju 3.6.8**
+🗓️ 07 July 2025
+
+🛠️ Fixes:
+* Fix [CVE-2025-0928](https://github.com/juju/juju/security/advisories/GHSA-4vc8-wvhw-m5gv)
+* Fix [CVE-2025-53512](https://github.com/juju/juju/security/advisories/GHSA-r64v-82fh-xc63)
+* Fix [CVE-2025-53513](https://github.com/juju/juju/security/advisories/GHSA-24ch-w38v-xmh8)
+* fix: static-analysis by @jack-w-shaw in https://github.com/juju/juju/pull/19353
+* fix: associate DNS config with interfaces as appropriate by @manadart in https://github.com/juju/juju/pull/19890
+* fix: solve a model destroy issue on k8s by @wallyworld in https://github.com/juju/juju/pull/19923
+* fix: include architecture and base in machine/unit metrics by @jameinel in https://github.com/juju/juju/pull/19930
+* fix: 2.9 pki for go 1.24.4 by @jameinel in https://github.com/juju/juju/pull/19972
+* fix: speed up status with lots of subordinates by @jameinel in https://github.com/juju/juju/pull/19964
+* fix: avoid rereading controller config for every Charm by @jameinel in https://github.com/juju/juju/pull/19963
+* fix: add status caching from 2.9 into 3.6 by @jameinel in https://github.com/juju/juju/pull/20012
+* fix: set controller UUID in environ by @adisazhar123 in https://github.com/juju/juju/pull/19973
+
+⚙️ Features:
+* feat: token auth for migrations by @kian99 in https://github.com/juju/juju/pull/19935
+
+🗒️ Docs:
+* docs: remove bundle phase out caveat by @tmihoc in https://github.com/juju/juju/pull/19838
+* docs: combine manage deployment docs into a single doc by @tmihoc in https://github.com/juju/juju/pull/19608
+
 ### 🔸 **Juju 3.6.7**
 🗓️ 09 June 2025
 
@@ -915,6 +939,18 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 >
 >  April 2028: expected end of security fix support
 
+### 🔸 **Juju 2.9.52** - 07 July 2025
+
+🛠️ Fixes:
+
+- Fix [CVE-2025-0928](https://github.com/juju/juju/security/advisories/GHSA-4vc8-wvhw-m5gv)
+- Fix [CVE-2025-53512](https://github.com/juju/juju/security/advisories/GHSA-r64v-82fh-xc63)
+- Fix [CVE-2025-53513](https://github.com/juju/juju/security/advisories/GHSA-24ch-w38v-xmh8)
+- fix: 2.9 pki for go 1.24.4 by @jameinel in https://github.com/juju/juju/pull/19972
+- fix(apiserver): avoid splitting untrusted data by @jub0bs in https://github.com/juju/juju/pull/18970
+- fix: static-analysis by @jack-w-shaw in https://github.com/juju/juju/pull/19353
+
+See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.52).
 
 ### 🔸 **Juju 2.9.51** - 30 August 2024
 

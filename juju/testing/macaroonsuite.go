@@ -90,6 +90,13 @@ func (s *MacaroonSuite) DischargerLocation() string {
 // user to the current model.
 // It will panic if the user is local.
 func (s *MacaroonSuite) AddModelUser(c *tc.C, username user.Name) {
+	s.AddModelUserWithPermission(c, username, permission.WriteAccess)
+}
+
+// AddModelUserWithPermission is a convenience function that adds an external
+// user to the current model abd gives them the specified permission.
+// It will panic if the user is local.
+func (s *MacaroonSuite) AddModelUserWithPermission(c *tc.C, username user.Name, perm permission.Access) {
 	if username.IsLocal() {
 		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
@@ -103,7 +110,7 @@ func (s *MacaroonSuite) AddModelUser(c *tc.C, username user.Name) {
 				ObjectType: permission.Model,
 				Key:        s.ControllerModelUUID(),
 			},
-			Access: permission.WriteAccess,
+			Access: perm,
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)

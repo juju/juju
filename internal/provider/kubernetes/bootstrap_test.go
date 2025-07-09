@@ -604,7 +604,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			Args:            []string{"run", "--http", ":38812", "--verbose"},
 			Resources: core.ResourceRequirements{
 				Requests: core.ResourceList{
-					core.ResourceMemory: resource.MustParse("4000Mi"),
+					core.ResourceMemory: resource.MustParse("64Mi"),
 				},
 				Limits: core.ResourceList{
 					core.ResourceMemory: resource.MustParse("4000Mi"),

@@ -2954,6 +2954,49 @@ func (s *applicationSuite) TestLimits(c *tc.C) {
 	)
 }
 
+func (s *applicationSuite) TestEnsureUpdatedConstraints(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000"), true, true, "3.6.8", func() {
+			ps := getPodSpec368()
+			charmResourceMemRequest := corev1.ResourceList{
+				corev1.ResourceMemory: k8sresource.MustParse(constants.CharmMemRequestMi),
+			}
+			charmResourceMemLimit := corev1.ResourceList{
+				corev1.ResourceMemory: k8sresource.MustParse(constants.CharmMemLimitMi),
+			}
+
+			workloadResourceLimits := corev1.ResourceList{
+				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
+				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
+			}
+
+			for i, container := range ps.Containers {
+				if container.Name == constants.ApplicationCharmContainer {
+					continue
+				}
+				ps.Containers[i].Resources.Requests = workloadResourceLimits
+				ps.Containers[i].Resources.Limits = workloadResourceLimits
+			}
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, tc.ErrorIsNil)
+			for _, ctr := range ss.Spec.Template.Spec.Containers {
+				if ctr.Name == constants.ApplicationCharmContainer {
+					c.Assert(ctr.Resources.Requests, tc.DeepEquals, charmResourceMemRequest)
+					c.Assert(ctr.Resources.Limits, tc.DeepEquals, charmResourceMemLimit)
+					continue
+				}
+
+				c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadResourceLimits.Cpu()), tc.IsTrue)
+				c.Check(ctr.Resources.Requests.Memory().Equal(*workloadResourceLimits.Memory()), tc.IsTrue)
+
+				c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadResourceLimits.Cpu()), tc.IsTrue)
+				c.Check(ctr.Resources.Requests.Memory().Equal(*workloadResourceLimits.Memory()), tc.IsTrue)
+			}
+		},
+	)
+}
+
 func int64Ptr(a int64) *int64 {
 	return &a
 }

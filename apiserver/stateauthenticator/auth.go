@@ -202,10 +202,13 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	serverHost string,
 	modelUUID model.UUID,
 	authParams authentication.AuthParams,
-) (_ authentication.AuthInfo, err error) {
+) (authInfo authentication.AuthInfo, err error) {
 	defer func() {
 		if errors.Is(err, apiservererrors.ErrNoCreds) {
 			err = errors.NewNotSupported(err, "")
+		}
+		if err == nil {
+			authInfo.ModelTag = names.NewModelTag(modelUUID.String())
 		}
 	}()
 
@@ -215,7 +218,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	}
 
 	authenticator := a.authContext.authenticatorForModel(serverHost, agentPasswordService)
-	authInfo, err := a.checkCreds(ctx, modelUUID, authParams, authenticator, agentPasswordService)
+	authInfo, err = a.checkCreds(ctx, modelUUID, authParams, authenticator, agentPasswordService)
 	if err == nil {
 		return authInfo, nil
 	}

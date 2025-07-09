@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/juju/names/v6"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/internal/testhelpers"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type BasicAuthHandlerSuite struct {
@@ -49,7 +51,8 @@ func (s *BasicAuthHandlerSuite) SetUpTest(c *tc.C) {
 	}
 	s.server = httptest.NewServer(s.handler)
 	s.authInfo = authentication.AuthInfo{
-		Entity: &mockEntity{tag: names.NewUserTag("bob")},
+		Entity:   &mockEntity{tag: names.NewUserTag("bob")},
+		ModelTag: jujutesting.ModelTag,
 	}
 }
 
@@ -133,4 +136,55 @@ type mockEntity struct {
 
 func (e *mockEntity) Tag() names.Tag {
 	return e.tag
+}
+
+type CompositeAuthSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func TestCompositeAuthSuite(t *testing.T) {
+	tc.Run(t, &CompositeAuthSuite{})
+}
+
+type stubAuthorizer struct {
+	expected authentication.AuthInfo
+	err      error
+}
+
+func (a stubAuthorizer) Authorize(ctx context.Context, info authentication.AuthInfo) error {
+	if !reflect.DeepEqual(a.expected, info) {
+		return errors.New("wrong auth info")
+	}
+	return a.err
+}
+
+func (s *CompositeAuthSuite) TestAuthorizeSuccess(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: true}
+	var auth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		stubAuthorizer{
+			expected: authInfo,
+			err:      errors.New("unauthorized"),
+		},
+		stubAuthorizer{
+			expected: authInfo,
+		},
+	}
+	err := auth.Authorize(context.Background(), authInfo)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *CompositeAuthSuite) TestAuthorizeFail(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: true}
+	var auth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		stubAuthorizer{
+			expected: authInfo,
+			err:      errors.New("unauthorized"),
+		},
+		stubAuthorizer{
+			expected: authInfo,
+			err:      errors.New("unauthorized"),
+		},
+	}
+	err := auth.Authorize(context.Background(), authInfo)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

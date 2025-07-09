@@ -121,7 +121,7 @@ type ApplicationConfig struct {
 	ResourceTags map[string]string
 
 	// Constraints is a set of constraints on
-	// the pod to create.
+	// the workload containers.
 	Constraints constraints.Value
 
 	// Filesystems is a set of parameters for filesystems that should be created.
