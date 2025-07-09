@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"fmt"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -25,7 +24,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -253,45 +251,47 @@ WHERE sa.unit_uuid = ? AND sa.storage_instance_uuid = ?`,
 
 }
 
-func (s *baseStorageSuite) assertFilesystemAttachment(c *tc.C, unitUUID coreunit.UUID, storageUUID corestorage.UUID, expected filesystemAttachment) {
-	var (
-		mountPoint string
-		readOnly   bool
-	)
-	// Check that the filesystem attachment row exists.
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT sfa.mount_point, sfa.read_only FROM storage_filesystem_attachment sfa
-JOIN unit ON unit.uuid = ?
-JOIN net_node ON net_node.uuid = sfa.net_node_uuid
-JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sfa.storage_filesystem_uuid
-WHERE sif.storage_instance_uuid = ?`,
-			unitUUID, storageUUID).Scan(&mountPoint, &readOnly)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(mountPoint, tc.Equals, expected.MountPoint)
-	c.Assert(readOnly, tc.Equals, expected.ReadOnly)
+// TODO (tlm) add back in
+//func (s *baseStorageSuite) assertFilesystemAttachment(c *tc.C, unitUUID coreunit.UUID, storageUUID corestorage.UUID, expected filesystemAttachment) {
+//	var (
+//		mountPoint string
+//		readOnly   bool
+//	)
+//	// Check that the filesystem attachment row exists.
+//	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+//		err := tx.QueryRowContext(ctx, `
+//SELECT sfa.mount_point, sfa.read_only FROM storage_filesystem_attachment sfa
+//JOIN unit ON unit.uuid = ?
+//JOIN net_node ON net_node.uuid = sfa.net_node_uuid
+//JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sfa.storage_filesystem_uuid
+//WHERE sif.storage_instance_uuid = ?`,
+//			unitUUID, storageUUID).Scan(&mountPoint, &readOnly)
+//		return err
+//	})
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(mountPoint, tc.Equals, expected.MountPoint)
+//	c.Assert(readOnly, tc.Equals, expected.ReadOnly)
+//
+//}
 
-}
-
-func (s *baseStorageSuite) assertVolumeAttachment(c *tc.C, unitUUID coreunit.UUID, storageUUID corestorage.UUID, expected volumeAttachment) {
-	var readOnly bool
-	// Check that the volume attachment row exists.
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT sva.read_only FROM storage_volume_attachment sva
-JOIN unit ON unit.uuid = ?
-JOIN net_node ON net_node.uuid = sva.net_node_uuid
-JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
-WHERE siv.storage_instance_uuid = ?`,
-			unitUUID, storageUUID).Scan(&readOnly)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(readOnly, tc.Equals, expected.ReadOnly)
-
-}
+// TODO (tlm) add back in
+//func (s *baseStorageSuite) assertVolumeAttachment(c *tc.C, unitUUID coreunit.UUID, storageUUID corestorage.UUID, expected volumeAttachment) {
+//	var readOnly bool
+//	// Check that the volume attachment row exists.
+//	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+//		err := tx.QueryRowContext(ctx, `
+//SELECT sva.read_only FROM storage_volume_attachment sva
+//JOIN unit ON unit.uuid = ?
+//JOIN net_node ON net_node.uuid = sva.net_node_uuid
+//JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sva.storage_volume_uuid
+//WHERE siv.storage_instance_uuid = ?`,
+//			unitUUID, storageUUID).Scan(&readOnly)
+//		return err
+//	})
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(readOnly, tc.Equals, expected.ReadOnly)
+//
+//}
 
 type filesystemAttachmentArg struct {
 	unitUUID   coreunit.UUID
@@ -369,117 +369,119 @@ VALUES (?, ?)`, storageUUID, volumeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-type storageInstanceFilesystemArg struct {
-	// Instance.
-	StorageID         corestorage.ID
-	StorageName       corestorage.Name
-	LifeID            life.Life
-	StoragePoolOrType string
-	SizeMIB           uint64
-	// Filesystem.
-	FilesystemLifeID life.Life
-	FilesystemID     string
-	// Status
-	Status status.StorageFilesystemStatusType
-}
+// TODO (tlm) add back in
+//type storageInstanceFilesystemArg struct {
+//	// Instance.
+//	StorageID         corestorage.ID
+//	StorageName       corestorage.Name
+//	LifeID            life.Life
+//	StoragePoolOrType string
+//	SizeMIB           uint64
+//	// Filesystem.
+//	FilesystemLifeID life.Life
+//	FilesystemID     string
+//	// Status
+//	Status status.StorageFilesystemStatusType
+//}
+//
+//func (s *baseStorageSuite) assertFilesystems(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceFilesystemArg) {
+//	expectedStatusTimeBefore := time.Now()
+//
+//	var results []storageInstanceFilesystemArg
+//	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+//		var row storageInstanceFilesystemArg
+//		rows, err := tx.QueryContext(ctx, `
+//SELECT
+//    sf.life_id AS filesystem_life_id, sf.filesystem_id,
+//    sfs.status_id, sfs.updated_at,
+//    si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib
+//FROM storage_filesystem sf
+//JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
+//JOIN storage_filesystem_status sfs ON sf.uuid = sfs.filesystem_uuid
+//JOIN v_storage_instance si ON si.uuid = sif.storage_instance_uuid
+//WHERE si.charm_uuid = ?`,
+//			charmUUID)
+//		if err != nil {
+//			return err
+//		}
+//		defer func() { _ = rows.Close() }()
+//		for rows.Next() {
+//			var since time.Time
+//			err = rows.Scan(&row.FilesystemLifeID, &row.FilesystemID,
+//				&row.Status, &since,
+//				&row.StorageID, &row.StorageName, &row.StoragePoolOrType,
+//				&row.SizeMIB)
+//			if err != nil {
+//				return err
+//			}
+//			if since.IsZero() || since.After(expectedStatusTimeBefore) {
+//				return errors.Errorf("invalid status 'since' value: %s", since)
+//			}
+//			results = append(results, row)
+//		}
+//		return nil
+//	})
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(results, tc.SameContents, expected)
+//
+//}
 
-func (s *baseStorageSuite) assertFilesystems(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceFilesystemArg) {
-	expectedStatusTimeBefore := time.Now()
-
-	var results []storageInstanceFilesystemArg
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var row storageInstanceFilesystemArg
-		rows, err := tx.QueryContext(ctx, `
-SELECT
-    sf.life_id AS filesystem_life_id, sf.filesystem_id,
-    sfs.status_id, sfs.updated_at,
-    si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib
-FROM storage_filesystem sf
-JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
-JOIN storage_filesystem_status sfs ON sf.uuid = sfs.filesystem_uuid
-JOIN v_storage_instance si ON si.uuid = sif.storage_instance_uuid
-WHERE si.charm_uuid = ?`,
-			charmUUID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
-			var since time.Time
-			err = rows.Scan(&row.FilesystemLifeID, &row.FilesystemID,
-				&row.Status, &since,
-				&row.StorageID, &row.StorageName, &row.StoragePoolOrType,
-				&row.SizeMIB)
-			if err != nil {
-				return err
-			}
-			if since.IsZero() || since.After(expectedStatusTimeBefore) {
-				return errors.Errorf("invalid status 'since' value: %s", since)
-			}
-			results = append(results, row)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.SameContents, expected)
-
-}
-
-type storageInstanceVolumeArg struct {
-	// Instance.
-	StorageID   corestorage.ID
-	StorageName corestorage.Name
-	LifeID      life.Life
-	StoragePool string
-	SizeMIB     uint64
-	// Volume.
-	VolumeLifeID life.Life
-	VolumeID     string
-	// Status
-	Status status.StorageVolumeStatusType
-}
-
-func (s *baseStorageSuite) assertVolumes(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceVolumeArg) {
-	expectedStatusTimeBefore := time.Now()
-
-	var results []storageInstanceVolumeArg
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var row storageInstanceVolumeArg
-		rows, err := tx.QueryContext(ctx, `
-SELECT
-    sv.life_id AS volume_life_id, sv.volume_id,
-    svs.status_id, svs.updated_at,
-    si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib
-FROM storage_volume sv
-JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
-JOIN storage_volume_status svs ON sv.uuid = svs.volume_uuid
-JOIN v_storage_instance si ON si.uuid = siv.storage_instance_uuid
-WHERE si.charm_uuid = ?`,
-			charmUUID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-		for rows.Next() {
-			var since time.Time
-			err = rows.Scan(&row.VolumeLifeID, &row.VolumeID,
-				&row.Status, &since,
-				&row.StorageID,
-				&row.StorageName, &row.StoragePool, &row.SizeMIB)
-			if err != nil {
-				return err
-			}
-			if since.IsZero() || since.After(expectedStatusTimeBefore) {
-				return errors.Errorf("invalid status 'since' value: %s", since)
-			}
-			results = append(results, row)
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.SameContents, expected)
-
-}
+// TODO (tlm) add back in
+//type storageInstanceVolumeArg struct {
+//	// Instance.
+//	StorageID   corestorage.ID
+//	StorageName corestorage.Name
+//	LifeID      life.Life
+//	StoragePool string
+//	SizeMIB     uint64
+//	// Volume.
+//	VolumeLifeID life.Life
+//	VolumeID     string
+//	// Status
+//	Status status.StorageVolumeStatusType
+//}
+//
+//func (s *baseStorageSuite) assertVolumes(c *tc.C, charmUUID corecharm.ID, expected []storageInstanceVolumeArg) {
+//	expectedStatusTimeBefore := time.Now()
+//
+//	var results []storageInstanceVolumeArg
+//	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+//		var row storageInstanceVolumeArg
+//		rows, err := tx.QueryContext(ctx, `
+//SELECT
+//    sv.life_id AS volume_life_id, sv.volume_id,
+//    svs.status_id, svs.updated_at,
+//    si.storage_id, si.storage_name, si.storage_pool, si.requested_size_mib
+//FROM storage_volume sv
+//JOIN storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
+//JOIN storage_volume_status svs ON sv.uuid = svs.volume_uuid
+//JOIN v_storage_instance si ON si.uuid = siv.storage_instance_uuid
+//WHERE si.charm_uuid = ?`,
+//			charmUUID)
+//		if err != nil {
+//			return err
+//		}
+//		defer func() { _ = rows.Close() }()
+//		for rows.Next() {
+//			var since time.Time
+//			err = rows.Scan(&row.VolumeLifeID, &row.VolumeID,
+//				&row.Status, &since,
+//				&row.StorageID,
+//				&row.StorageName, &row.StoragePool, &row.SizeMIB)
+//			if err != nil {
+//				return err
+//			}
+//			if since.IsZero() || since.After(expectedStatusTimeBefore) {
+//				return errors.Errorf("invalid status 'since' value: %s", since)
+//			}
+//			results = append(results, row)
+//		}
+//		return nil
+//	})
+//	c.Assert(err, tc.ErrorIsNil)
+//	c.Assert(results, tc.SameContents, expected)
+//
+//}
 
 // TestCreateApplicationWithResources tests creation of an application with
 // specified resources.

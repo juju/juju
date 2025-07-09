@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domaintesting "github.com/juju/juju/domain/testing"
-	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -84,7 +83,7 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *tc.C) {
 
 	ch, locator, err := s.service.GetCharmByApplicationID(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ch.Meta(), tc.DeepEquals, &charm.Meta{
+	c.Check(ch.Meta(), tc.DeepEquals, &internalcharm.Meta{
 		Name: "foo",
 
 		// Notice that the RunAs field becomes empty string when being returned.
@@ -900,8 +899,8 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 		ApplicationConfig: config.ConfigAttributes{
 			"foo": "bar",
 		},
-		CharmConfig: charm.Config{
-			Options: map[string]charm.Option{
+		CharmConfig: internalcharm.Config{
+			Options: map[string]internalcharm.Option{
 				"foo": {
 					Type:    "string",
 					Default: "baz",
@@ -918,8 +917,8 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 				Channel:      "stable",
 				OS:           "Ubuntu",
 			},
-			Channel: &charm.Channel{
-				Risk: charm.Stable,
+			Channel: &internalcharm.Channel{
+				Risk: internalcharm.Stable,
 			},
 		},
 	})
@@ -977,8 +976,8 @@ func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *tc.C) {
 			Channel:      "stable",
 			OS:           "Ubuntu",
 		},
-		Channel: &charm.Channel{
-			Risk: charm.Stable,
+		Channel: &internalcharm.Channel{
+			Risk: internalcharm.Stable,
 		},
 	})
 }
@@ -1048,8 +1047,8 @@ func (s *applicationServiceSuite) TestDecodeChannel(c *tc.C) {
 		Risk: deployment.RiskStable,
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ch, tc.DeepEquals, &charm.Channel{
-		Risk: charm.Stable,
+	c.Check(ch, tc.DeepEquals, &internalcharm.Channel{
+		Risk: internalcharm.Stable,
 	})
 }
 
@@ -1063,23 +1062,23 @@ func (s *applicationServiceSuite) TestDecodeChannelInvalidRisk(c *tc.C) {
 func (s *applicationServiceSuite) TestDecodeRisk(c *tc.C) {
 	tests := []struct {
 		risk     deployment.ChannelRisk
-		expected charm.Risk
+		expected internalcharm.Risk
 	}{
 		{
 			risk:     deployment.RiskStable,
-			expected: charm.Stable,
+			expected: internalcharm.Stable,
 		},
 		{
 			risk:     deployment.RiskCandidate,
-			expected: charm.Candidate,
+			expected: internalcharm.Candidate,
 		},
 		{
 			risk:     deployment.RiskBeta,
-			expected: charm.Beta,
+			expected: internalcharm.Beta,
 		},
 		{
 			risk:     deployment.RiskEdge,
-			expected: charm.Edge,
+			expected: internalcharm.Edge,
 		},
 	}
 	for i, test := range tests {

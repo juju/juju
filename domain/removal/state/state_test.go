@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"

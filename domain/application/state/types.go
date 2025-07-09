@@ -177,10 +177,6 @@ type cloudServiceDevice struct {
 	VirtualPortTypeID int    `db:"virtual_port_type_id"`
 }
 
-type applicationCharmUUID struct {
-	CharmUUID corecharm.ID `db:"charm_uuid"`
-}
-
 type cloudContainerDevice struct {
 	UUID              string `db:"uuid"`
 	Name              string `db:"name"`
@@ -702,11 +698,6 @@ type resourceToAdd struct {
 	CreatedAt time.Time    `db:"created_at"`
 }
 
-type storagePool struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
-}
-
 // storagePoolType is used to represent the type value of a storage pool record.
 type storagePoolType struct {
 	Type string `db:"type"`
@@ -928,11 +919,6 @@ type unitCharmStorage struct {
 	StorageName corestorage.Name `db:"name"`
 }
 
-type appCharmStorage struct {
-	ApplicationUUID coreapplication.ID `db:"uuid"`
-	StorageName     corestorage.Name   `db:"name"`
-}
-
 type storageCount struct {
 	StorageUUID corestorage.UUID `db:"uuid"`
 	StorageName corestorage.Name `db:"storage_name"`
@@ -954,50 +940,6 @@ type filesystemUUID struct {
 type volumeUUID struct {
 	UUID       corestorage.VolumeUUID `db:"uuid"`
 	AttachedTo *string                `db:"net_node_uuid"`
-}
-
-type filesystem struct {
-	UUID         corestorage.FilesystemUUID `db:"uuid"`
-	LifeID       life.Life                  `db:"life_id"`
-	FilesystemID string                     `db:"filesystem_id"`
-	ProviderID   string                     `db:"provider_id"`
-	SizeMIB      uint64                     `db:"size_mib"`
-}
-
-type filesystemStatus struct {
-	FilesystemUUID string     `db:"filesystem_uuid"`
-	StatusID       int        `db:"status_id"`
-	Message        string     `db:"message"`
-	UpdatedAt      *time.Time `db:"updated_at"`
-}
-
-type storageInstanceFilesystem struct {
-	StorageUUID    corestorage.UUID           `db:"storage_instance_uuid"`
-	FilesystemUUID corestorage.FilesystemUUID `db:"storage_filesystem_uuid"`
-}
-
-type volume struct {
-	UUID         corestorage.VolumeUUID `db:"uuid"`
-	LifeID       life.Life              `db:"life_id"`
-	VolumeID     string                 `db:"volume_id"`
-	ProviderID   string                 `db:"provider_id"`
-	SizeMIB      uint64                 `db:"size_mib"`
-	Name         string                 `db:"name"`
-	HardwareIDID string                 `db:"hardware_id"`
-	WWN          string                 `db:"wwn"`
-	Persistent   bool                   `db:"persistent"`
-}
-
-type volumeStatus struct {
-	VolumeUUID string     `db:"volume_uuid"`
-	StatusID   int        `db:"status_id"`
-	Message    string     `db:"message"`
-	UpdatedAt  *time.Time `db:"updated_at"`
-}
-
-type storageInstanceVolume struct {
-	StorageUUID corestorage.UUID       `db:"storage_instance_uuid"`
-	VolumeUUID  corestorage.VolumeUUID `db:"storage_volume_uuid"`
 }
 
 type filesystemAttachment struct {

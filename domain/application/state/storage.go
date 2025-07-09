@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
-	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
@@ -35,28 +33,6 @@ const (
 	volumeNamespace     = domainsequence.StaticNamespace("volume")
 	storageNamespace    = domainsequence.StaticNamespace("storage")
 )
-
-func (st *State) loadStoragePoolUUIDByName(ctx context.Context, tx *sqlair.TX, poolNames []string) (map[string]string, error) {
-	type poolnames []string
-	storageQuery, err := st.Prepare(`
-SELECT &storagePool.*
-FROM   storage_pool
-WHERE  name IN ($poolnames[:])
-`, storagePool{}, poolnames{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var dbPools []storagePool
-	err = tx.Query(ctx, storageQuery, poolnames(poolNames)).GetAll(&dbPools)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Errorf("querying storage pools: %w", err)
-	}
-	poolsByName := make(map[string]string)
-	for _, p := range dbPools {
-		poolsByName[p.Name] = p.UUID
-	}
-	return poolsByName, nil
-}
 
 // insertApplicationStorageDirectives inserts all of the storage directives for
 // a new application. This func checks to make sure that the caller has supplied
@@ -628,36 +604,6 @@ WHERE  uuid = $storageInstance.uuid
 	return inst, nil
 }
 
-const charmStorageNotFound = errors.ConstError("charm storage not found")
-
-func (st *State) getApplicationCharmStorageByName(ctx context.Context, tx *sqlair.TX, uuid coreapplication.ID, name corestorage.Name) (charmStorage, error) {
-	storageSpec := appCharmStorage{
-		ApplicationUUID: uuid,
-		StorageName:     name,
-	}
-	var result charmStorage
-	stmt, err := st.Prepare(`
-SELECT cs.* AS &charmStorage.*
-FROM   v_charm_storage cs
-JOIN   application ON application.charm_uuid = cs.charm_uuid
-WHERE  application.uuid = $appCharmStorage.uuid
-AND    cs.name = $appCharmStorage.name
-`, storageSpec, result)
-	if err != nil {
-		return result, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, storageSpec).Get(&result)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return result, charmStorageNotFound
-	}
-	if err != nil {
-		return result, errors.Errorf("failed to select charm storage: %w", err)
-	}
-
-	return result, nil
-}
-
 func (st *State) getUnitCharmStorageByName(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID, name corestorage.Name) (charmStorage, error) {
 	storageSpec := unitCharmStorage{
 		UnitUUID:    uuid,
@@ -1025,171 +971,174 @@ INSERT INTO storage_volume_attachment (*) VALUES ($volumeAttachment.*)
 	return nil
 }
 
-func (st *State) createFilesystem(
-	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
-) (corestorage.FilesystemUUID, error) {
-	filesystemId, err := sequencestate.NextValue(ctx, st, tx, filesystemNamespace)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
+// TODO (tlm) add back in
+//func (st *State) createFilesystem(
+//	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
+//) (corestorage.FilesystemUUID, error) {
+//	filesystemId, err := sequencestate.NextValue(ctx, st, tx, filesystemNamespace)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	filesystemUUID, err := corestorage.NewFilesystemUUID()
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	fs := filesystem{
+//		UUID:         filesystemUUID,
+//		FilesystemID: fmt.Sprint(filesystemId),
+//		LifeID:       life.Alive,
+//	}
+//	insertFilesystemStmt, err := st.Prepare(`
+//INSERT INTO storage_filesystem (uuid, filesystem_id, life_id) VALUES ($filesystem.*)
+//`, fs)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	sif := storageInstanceFilesystem{
+//		FilesystemUUID: filesystemUUID,
+//		StorageUUID:    storageUUID,
+//	}
+//	insertStorageFilesystemStmt, err := st.Prepare(`
+//INSERT INTO storage_instance_filesystem (*) VALUES ($storageInstanceFilesystem.*)
+//`, sif)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	err = tx.Query(ctx, insertFilesystemStmt, fs).Run()
+//	if err != nil {
+//		return "", errors.Errorf("creating filesystem %q for node %q: %w", filesystemUUID, netNodeUUID, err)
+//	}
+//
+//	err = tx.Query(ctx, insertStorageFilesystemStmt, sif).Run()
+//	if err != nil {
+//		return "", errors.Errorf("creating storage instance filesystem %q for storage %q: %w", filesystemUUID, storageUUID, err)
+//	}
+//
+//	sts := status.StatusInfo[status.StorageFilesystemStatusType]{
+//		Status: status.StorageFilesystemStatusTypePending,
+//		Since:  ptr(st.clock.Now()),
+//	}
+//	if err := st.insertFilesystemStatus(ctx, tx, filesystemUUID, sts); err != nil {
+//		return "", errors.Errorf("inserting status for filesystem %q: %w", filesystemUUID, err)
+//	}
+//
+//	return filesystemUUID, nil
+//}
 
-	filesystemUUID, err := corestorage.NewFilesystemUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
+// TODO (tlm) add back in
+//func (st *State) insertFilesystemStatus(
+//	ctx context.Context,
+//	tx *sqlair.TX,
+//	fsUUID corestorage.FilesystemUUID,
+//	sts status.StatusInfo[status.StorageFilesystemStatusType],
+//) error {
+//	statusID, err := status.EncodeStorageFilesystemStatus(sts.Status)
+//	if err != nil {
+//		return errors.Errorf("encoding status: %w", err)
+//	}
+//	fsStatus := filesystemStatus{
+//		FilesystemUUID: fsUUID.String(),
+//		StatusID:       statusID,
+//		UpdatedAt:      sts.Since,
+//	}
+//	insertStmt, err := st.Prepare(`
+//INSERT INTO storage_filesystem_status (*) VALUES ($filesystemStatus.*);
+//`, fsStatus)
+//	if err != nil {
+//		return errors.Errorf("preparing insert query: %w", err)
+//	}
+//
+//	if err := tx.Query(ctx, insertStmt, fsStatus).Run(); err != nil {
+//		return errors.Errorf("inserting status: %w", err)
+//	}
+//	return nil
+//}
 
-	fs := filesystem{
-		UUID:         filesystemUUID,
-		FilesystemID: fmt.Sprint(filesystemId),
-		LifeID:       life.Alive,
-	}
-	insertFilesystemStmt, err := st.Prepare(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id) VALUES ($filesystem.*)
-`, fs)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	sif := storageInstanceFilesystem{
-		FilesystemUUID: filesystemUUID,
-		StorageUUID:    storageUUID,
-	}
-	insertStorageFilesystemStmt, err := st.Prepare(`
-INSERT INTO storage_instance_filesystem (*) VALUES ($storageInstanceFilesystem.*)
-`, sif)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, insertFilesystemStmt, fs).Run()
-	if err != nil {
-		return "", errors.Errorf("creating filesystem %q for node %q: %w", filesystemUUID, netNodeUUID, err)
-	}
-
-	err = tx.Query(ctx, insertStorageFilesystemStmt, sif).Run()
-	if err != nil {
-		return "", errors.Errorf("creating storage instance filesystem %q for storage %q: %w", filesystemUUID, storageUUID, err)
-	}
-
-	sts := status.StatusInfo[status.StorageFilesystemStatusType]{
-		Status: status.StorageFilesystemStatusTypePending,
-		Since:  ptr(st.clock.Now()),
-	}
-	if err := st.insertFilesystemStatus(ctx, tx, filesystemUUID, sts); err != nil {
-		return "", errors.Errorf("inserting status for filesystem %q: %w", filesystemUUID, err)
-	}
-
-	return filesystemUUID, nil
-}
-
-func (st *State) insertFilesystemStatus(
-	ctx context.Context,
-	tx *sqlair.TX,
-	fsUUID corestorage.FilesystemUUID,
-	sts status.StatusInfo[status.StorageFilesystemStatusType],
-) error {
-	statusID, err := status.EncodeStorageFilesystemStatus(sts.Status)
-	if err != nil {
-		return errors.Errorf("encoding status: %w", err)
-	}
-	fsStatus := filesystemStatus{
-		FilesystemUUID: fsUUID.String(),
-		StatusID:       statusID,
-		UpdatedAt:      sts.Since,
-	}
-	insertStmt, err := st.Prepare(`
-INSERT INTO storage_filesystem_status (*) VALUES ($filesystemStatus.*);
-`, fsStatus)
-	if err != nil {
-		return errors.Errorf("preparing insert query: %w", err)
-	}
-
-	if err := tx.Query(ctx, insertStmt, fsStatus).Run(); err != nil {
-		return errors.Errorf("inserting status: %w", err)
-	}
-	return nil
-}
-
-func (st *State) createVolume(
-	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
-) (corestorage.VolumeUUID, error) {
-	volumeId, err := sequencestate.NextValue(ctx, st, tx, volumeNamespace)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	volumeUUID, err := corestorage.NewVolumeUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	vol := volume{
-		UUID:     volumeUUID,
-		VolumeID: fmt.Sprint(volumeId),
-		LifeID:   life.Alive,
-	}
-	insertVolumeStmt, err := st.Prepare(`
-INSERT INTO storage_volume (uuid, volume_id, life_id) VALUES ($volume.*)
-`, vol)
-	if err != nil {
-		return "", errors.Errorf("creating storage volume: %w", err)
-	}
-
-	siv := storageInstanceVolume{
-		VolumeUUID:  volumeUUID,
-		StorageUUID: storageUUID,
-	}
-	insertStorageVolumeStmt, err := st.Prepare(`
-INSERT INTO storage_instance_volume (*) VALUES ($storageInstanceVolume.*)
-`, siv)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, insertVolumeStmt, vol).Run()
-	if err != nil {
-		return "", errors.Errorf("creating volume %q for node %q: %w", volumeUUID, netNodeUUID, err)
-	}
-
-	err = tx.Query(ctx, insertStorageVolumeStmt, siv).Run()
-	if err != nil {
-		return "", errors.Errorf("creating storage instance volume %q for storage %q: %w", volumeUUID, storageUUID, err)
-	}
-
-	sts := status.StatusInfo[status.StorageVolumeStatusType]{
-		Status: status.StorageVolumeStatusTypePending,
-		Since:  ptr(st.clock.Now()),
-	}
-	if err := st.insertVolumeStatus(ctx, tx, volumeUUID, sts); err != nil {
-		return "", errors.Errorf("inserting status for volume %q: %w", volumeUUID, err)
-	}
-
-	return volumeUUID, nil
-}
-
-func (st *State) insertVolumeStatus(
-	ctx context.Context,
-	tx *sqlair.TX,
-	volUUID corestorage.VolumeUUID,
-	sts status.StatusInfo[status.StorageVolumeStatusType],
-) error {
-	statusID, err := status.EncodeStorageVolumeStatus(sts.Status)
-	if err != nil {
-		return errors.Errorf("encoding status: %w", err)
-	}
-	volStatus := volumeStatus{
-		VolumeUUID: volUUID.String(),
-		StatusID:   statusID,
-		UpdatedAt:  sts.Since,
-	}
-	insertStmt, err := st.Prepare(`
-INSERT INTO storage_volume_status (*) VALUES ($volumeStatus.*);
-`, volStatus)
-	if err != nil {
-		return errors.Errorf("preparing insert query: %w", err)
-	}
-
-	if err := tx.Query(ctx, insertStmt, volStatus).Run(); err != nil {
-		return errors.Errorf("inserting status: %w", err)
-	}
-	return nil
-}
+// TODO (tlm) add back in
+//func (st *State) createVolume(
+//	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
+//) (corestorage.VolumeUUID, error) {
+//	volumeId, err := sequencestate.NextValue(ctx, st, tx, volumeNamespace)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//	volumeUUID, err := corestorage.NewVolumeUUID()
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	vol := volume{
+//		UUID:     volumeUUID,
+//		VolumeID: fmt.Sprint(volumeId),
+//		LifeID:   life.Alive,
+//	}
+//	insertVolumeStmt, err := st.Prepare(`
+//INSERT INTO storage_volume (uuid, volume_id, life_id) VALUES ($volume.*)
+//`, vol)
+//	if err != nil {
+//		return "", errors.Errorf("creating storage volume: %w", err)
+//	}
+//
+//	siv := storageInstanceVolume{
+//		VolumeUUID:  volumeUUID,
+//		StorageUUID: storageUUID,
+//	}
+//	insertStorageVolumeStmt, err := st.Prepare(`
+//INSERT INTO storage_instance_volume (*) VALUES ($storageInstanceVolume.*)
+//`, siv)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	err = tx.Query(ctx, insertVolumeStmt, vol).Run()
+//	if err != nil {
+//		return "", errors.Errorf("creating volume %q for node %q: %w", volumeUUID, netNodeUUID, err)
+//	}
+//
+//	err = tx.Query(ctx, insertStorageVolumeStmt, siv).Run()
+//	if err != nil {
+//		return "", errors.Errorf("creating storage instance volume %q for storage %q: %w", volumeUUID, storageUUID, err)
+//	}
+//
+//	sts := status.StatusInfo[status.StorageVolumeStatusType]{
+//		Status: status.StorageVolumeStatusTypePending,
+//		Since:  ptr(st.clock.Now()),
+//	}
+//	if err := st.insertVolumeStatus(ctx, tx, volumeUUID, sts); err != nil {
+//		return "", errors.Errorf("inserting status for volume %q: %w", volumeUUID, err)
+//	}
+//
+//	return volumeUUID, nil
+//}
+//
+//func (st *State) insertVolumeStatus(
+//	ctx context.Context,
+//	tx *sqlair.TX,
+//	volUUID corestorage.VolumeUUID,
+//	sts status.StatusInfo[status.StorageVolumeStatusType],
+//) error {
+//	statusID, err := status.EncodeStorageVolumeStatus(sts.Status)
+//	if err != nil {
+//		return errors.Errorf("encoding status: %w", err)
+//	}
+//	volStatus := volumeStatus{
+//		VolumeUUID: volUUID.String(),
+//		StatusID:   statusID,
+//		UpdatedAt:  sts.Since,
+//	}
+//	insertStmt, err := st.Prepare(`
+//INSERT INTO storage_volume_status (*) VALUES ($volumeStatus.*);
+//`, volStatus)
+//	if err != nil {
+//		return errors.Errorf("preparing insert query: %w", err)
+//	}
+//
+//	if err := tx.Query(ctx, insertStmt, volStatus).Run(); err != nil {
+//		return errors.Errorf("inserting status: %w", err)
+//	}
+//	return nil
+//}
