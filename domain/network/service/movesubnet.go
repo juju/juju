@@ -14,12 +14,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// MoveSubnetToSpace moves a list of subnets identified by their UUIDs to a
+// MoveSubnetsToSpace moves a list of subnets identified by their UUIDs to a
 // specified network space.
 // It validates input, computes a new topology, checks its integrity, and
 // applies changes if valid.
 // Returns the list of moved subnets or an error if any step fails.
-func (s *Service) MoveSubnetToSpace(
+func (s *Service) MoveSubnetsToSpace(
 	ctx context.Context,
 	subnetUUIDs []domainnetwork.SubnetUUID,
 	spaceName network.SpaceName,

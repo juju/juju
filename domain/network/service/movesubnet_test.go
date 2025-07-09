@@ -19,31 +19,31 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-type moveSubnetSuite struct {
+type moveSubnetsSuite struct {
 	testhelpers.IsolationSuite
 
 	service *Service
 	st      *MockState
 }
 
-func TestMoveSubnetSuite(t *testing.T) {
-	tc.Run(t, &moveSubnetSuite{})
+func TestMoveSubnetsSuite(t *testing.T) {
+	tc.Run(t, &moveSubnetsSuite{})
 }
 
-func (s *moveSubnetSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *moveSubnetsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.st = NewMockState(ctrl)
 	s.service = NewService(s.st, loggertesting.WrapCheckLog(c))
 	return ctrl
 }
 
-// TestMoveSubnetToSpaceInvalidSubnetUUIDs tests that an error is returned when
+// TestMoveSubnetsToSpaceInvalidSubnetUUIDs tests that an error is returned when
 // invalid subnet UUIDs are provided.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceInvalidSubnetUUIDs(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceInvalidSubnetUUIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Invalid UUID format
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{"invalid-uuid"},
 		"space1",
@@ -53,9 +53,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceInvalidSubnetUUIDs(c *tc.C) {
 	c.Assert(result, tc.IsNil)
 }
 
-// TestMoveSubnetToSpaceGetAllSpacesError tests that an error is returned when
+// TestMoveSubnetsToSpaceGetAllSpacesError tests that an error is returned when
 // getting all spaces fails.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetAllSpacesError(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceGetAllSpacesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -66,7 +66,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetAllSpacesError(c *tc.C) {
 		Return(nil, errors.New("boom"))
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
@@ -77,9 +77,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetAllSpacesError(c *tc.C) {
 	c.Assert(result, tc.IsNil)
 }
 
-// TestMoveSubnetToSpaceSpaceNotFound tests that an error is returned when
+// TestMoveSubnetsToSpaceSpaceNotFound tests that an error is returned when
 // the destination space is not found.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceSpaceNotFound(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceSpaceNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -91,7 +91,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSpaceNotFound(c *tc.C) {
 		Return(spaces, nil)
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"some-unknown-space",
@@ -102,9 +102,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSpaceNotFound(c *tc.C) {
 	c.Assert(result, tc.IsNil)
 }
 
-// TestMoveSubnetToSpaceGetSubnetsError tests that an error is returned when
+// TestMoveSubnetsToSpaceGetSubnetsError tests that an error is returned when
 // getting subnets fails.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetSubnetsError(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceGetSubnetsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -125,7 +125,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetSubnetsError(c *tc.C) {
 		Return(nil, errors.New("boom"))
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
@@ -136,9 +136,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceGetSubnetsError(c *tc.C) {
 	c.Assert(result, tc.IsNil)
 }
 
-// TestMoveSubnetToSpaceSubnetNotFound tests that an error is returned when
+// TestMoveSubnetsToSpaceSubnetNotFound tests that an error is returned when
 // a subnet is not found in the topology.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceSubnetNotFound(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceSubnetNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -165,7 +165,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSubnetNotFound(c *tc.C) {
 		Return(subnets, nil)
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
@@ -176,9 +176,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSubnetNotFound(c *tc.C) {
 	c.Assert(result, tc.IsNil)
 }
 
-// TestMoveSubnetToSpaceMachinesBoundToSpacesError tests that an error is returned when
+// TestMoveSubnetsToSpaceMachinesBoundToSpacesError tests that an error is returned when
 // getting machines bound to spaces fails.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesBoundToSpacesError(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceMachinesBoundToSpacesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -217,7 +217,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesBoundToSpacesError(c *tc.
 		Return(nil, errors.New("boom"))
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
@@ -228,9 +228,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesBoundToSpacesError(c *tc.
 	c.Assert(result, tc.IsNil)
 }
 
-// TestMoveSubnetToSpaceMachinesAllergicToSpaceError tests that an error is returned when
+// TestMoveSubnetsToSpaceMachinesAllergicToSpaceError tests that an error is returned when
 // getting machines allergic to the destination space fails.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesAllergicToSpaceError(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceMachinesAllergicToSpaceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -273,7 +273,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesAllergicToSpaceError(c *t
 		Return(nil, errors.New("boom"))
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
@@ -284,9 +284,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesAllergicToSpaceError(c *t
 	c.Assert(result, tc.IsNil)
 }
 
-// TestMoveSubnetToSpaceMachinesRejectTopology tests that an error is returned when
+// TestMoveSubnetsToSpaceMachinesRejectTopology tests that an error is returned when
 // machines reject the new topology.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesRejectTopology(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceMachinesRejectTopology(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -342,7 +342,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesRejectTopology(c *tc.C) {
 		Return(internal.CheckableMachines{mockMachine}, nil)
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
@@ -353,9 +353,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceMachinesRejectTopology(c *tc.C) {
 	c.Assert(result, tc.IsNil)
 }
 
-// TestMoveSubnetToSpaceSuccess tests that subnets are successfully moved to the
+// TestMoveSubnetsToSpaceSuccess tests that subnets are successfully moved to the
 // destination space.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceSuccess(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceSuccess(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -434,7 +434,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSuccess(c *tc.C) {
 		Return(nil)
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID1, subnetUUID2},
 		"space1",
@@ -455,9 +455,9 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceSuccess(c *tc.C) {
 	}})
 }
 
-// TestMoveSubnetToSpaceUpdateSubnetError tests that an error is returned when
+// TestMoveSubnetsToSpaceUpdateSubnetError tests that an error is returned when
 // updating a subnet fails.
-func (s *moveSubnetSuite) TestMoveSubnetToSpaceUpdateSubnetError(c *tc.C) {
+func (s *moveSubnetsSuite) TestMoveSubnetsToSpaceUpdateSubnetError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -505,7 +505,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceUpdateSubnetError(c *tc.C) {
 		Return(errors.New("boom"))
 
 	// Act
-	result, err := s.service.MoveSubnetToSpace(
+	result, err := s.service.MoveSubnetsToSpace(
 		c.Context(),
 		[]domainnetwork.SubnetUUID{subnetUUID},
 		"space1",
@@ -518,7 +518,7 @@ func (s *moveSubnetSuite) TestMoveSubnetToSpaceUpdateSubnetError(c *tc.C) {
 
 // newSubnetUUID generates a new valid SubnetUUID and asserts that no error
 // occurs during its creation.
-func (s *moveSubnetSuite) newSubnetUUID(c *tc.C) domainnetwork.SubnetUUID {
+func (s *moveSubnetsSuite) newSubnetUUID(c *tc.C) domainnetwork.SubnetUUID {
 	subnetUUID, err := domainnetwork.NewSubnetUUID()
 	c.Assert(err, tc.IsNil)
 	return subnetUUID
