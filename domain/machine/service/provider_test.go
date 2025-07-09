@@ -70,7 +70,7 @@ func (s *providerServiceSuite) TestAddMachineProviderNotSupported(c *tc.C) {
 	}
 
 	service := NewProviderService(s.state, s.statusHistory, providerGetter, clock.WallClock, loggertesting.WrapCheckLog(c))
-	_, _, err := service.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
+	_, err := service.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -84,7 +84,7 @@ func (s *providerServiceSuite) TestAddMachineProviderFailed(c *tc.C) {
 		},
 	}).Return(errors.Errorf("boom"))
 
-	_, _, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+	_, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
 			Channel: "22.04",
@@ -106,15 +106,14 @@ func (s *providerServiceSuite) TestAddMachine(c *tc.C) {
 
 	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
 
-	netNodeUUID, obtainedNames, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
 			Channel: "22.04",
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(netNodeUUID, tc.Equals, "netNodeUUID")
-	c.Check(obtainedNames[0], tc.Equals, machine.Name("name"))
+	c.Check(res.MachineName, tc.Equals, machine.Name("name"))
 }
 
 func (s *providerServiceSuite) TestAddMachineSuccessNonce(c *tc.C) {
@@ -136,7 +135,7 @@ func (s *providerServiceSuite) TestAddMachineSuccessNonce(c *tc.C) {
 
 	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
 
-	netNodeUUID, obtainedNames, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Nonce: ptr("foo"),
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
@@ -144,8 +143,7 @@ func (s *providerServiceSuite) TestAddMachineSuccessNonce(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(netNodeUUID, tc.Equals, "netNodeUUID")
-	c.Check(obtainedNames[0], tc.Equals, machine.Name("name"))
+	c.Check(res.MachineName, tc.Equals, machine.Name("name"))
 }
 
 // TestAddMachineError asserts that an error coming from the state layer is
@@ -163,7 +161,7 @@ func (s *providerServiceSuite) TestAddMachineError(c *tc.C) {
 	rErr := errors.New("boom")
 	s.state.EXPECT().AddMachine(gomock.Any(), gomock.Any()).Return("", nil, rErr)
 
-	_, _, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+	_, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
 			Channel: "22.04",

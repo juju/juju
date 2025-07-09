@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	domainconstraints "github.com/juju/juju/domain/constraints"
@@ -62,21 +61,21 @@ func NewProviderService(
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the parent machine (for container
 // placement) does not exist.
-func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (string, []machine.Name, error) {
+func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (AddMachineResults, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	provider, err := s.providerGetter(ctx)
 	if err != nil {
-		return "", nil, errors.Errorf("getting provider for create machine: %w", err)
+		return AddMachineResults{}, errors.Errorf("getting provider for create machine: %w", err)
 	}
 	os, err := encodeOSType(args.Platform.OSType)
 	if err != nil {
-		return "", nil, errors.Capture(err)
+		return AddMachineResults{}, errors.Capture(err)
 	}
 	base, err := base.ParseBase(os, args.Platform.Channel)
 	if err != nil {
-		return "", nil, errors.Capture(err)
+		return AddMachineResults{}, errors.Capture(err)
 	}
 	precheckInstanceParams := environs.PrecheckInstanceParams{
 		Base:        base,
@@ -84,12 +83,12 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 		Placement:   args.Directive.Directive,
 	}
 	if err := provider.PrecheckInstance(ctx, precheckInstanceParams); err != nil {
-		return "", nil, errors.Errorf("prechecking instance for create machine: %w", err)
+		return AddMachineResults{}, errors.Errorf("prechecking instance for create machine: %w", err)
 	}
 
-	nodeUUID, machineNames, err := s.st.AddMachine(ctx, args)
+	_, machineNames, err := s.st.AddMachine(ctx, args)
 	if err != nil {
-		return "", nil, errors.Capture(err)
+		return AddMachineResults{}, errors.Capture(err)
 	}
 
 	for _, machineName := range machineNames {
@@ -98,7 +97,13 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 		}
 	}
 
-	return nodeUUID, machineNames, nil
+	res := AddMachineResults{
+		MachineName: machineNames[0],
+	}
+	if len(machineNames) > 1 {
+		res.ChildMachineName = &machineNames[1]
+	}
+	return res, nil
 }
 
 func encodeOSType(ostype deployment.OSType) (string, error) {

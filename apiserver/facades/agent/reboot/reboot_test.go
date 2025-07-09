@@ -59,21 +59,21 @@ func TestRebootSuite(t *testing.T) {
 }
 
 func (s *rebootSuite) createMachine(c *tc.C) *testMachine {
-	_, mNames, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+	res, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
 			Channel: "22.04",
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	uuid, err := s.machineService.GetMachineUUID(c.Context(), mNames[0])
+	uuid, err := s.machineService.GetMachineUUID(c.Context(), res.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return s.setupMachine(c, names.NewMachineTag(mNames[0].String()), err, uuid)
+	return s.setupMachine(c, names.NewMachineTag(res.MachineName.String()), err, uuid)
 }
 
 func (s *rebootSuite) createContainer(c *tc.C, parent *testMachine) *testMachine {
-	_, mNames, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+	res, err := s.machineService.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Directive: deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Directive: parent.tag.Id(),
@@ -84,10 +84,12 @@ func (s *rebootSuite) createContainer(c *tc.C, parent *testMachine) *testMachine
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	uuid, err := s.machineService.GetMachineUUID(c.Context(), mNames[1])
+	c.Assert(res.ChildMachineName, tc.NotNil)
+	childMachineName := *res.ChildMachineName
+	uuid, err := s.machineService.GetMachineUUID(c.Context(), childMachineName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return s.setupMachine(c, names.NewMachineTag(mNames[1].String()), err, uuid)
+	return s.setupMachine(c, names.NewMachineTag(childMachineName.String()), err, uuid)
 }
 
 func (s *rebootSuite) setupMachine(c *tc.C, tag names.MachineTag, err error, uuid coremachine.UUID) *testMachine {

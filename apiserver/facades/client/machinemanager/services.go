@@ -17,6 +17,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockcommand"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -99,7 +100,7 @@ type MachineService interface {
 	// on the placement.
 	// It returns the net node UUID for the machine and a list of child
 	// machine names that were created as part of the placement.
-	AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (string, []coremachine.Name, error)
+	AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (machineservice.AddMachineResults, error)
 
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error

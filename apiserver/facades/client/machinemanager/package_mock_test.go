@@ -25,6 +25,7 @@ import (
 	service "github.com/juju/juju/domain/agentbinary/service"
 	blockcommand "github.com/juju/juju/domain/blockcommand"
 	machine0 "github.com/juju/juju/domain/machine"
+	service0 "github.com/juju/juju/domain/machine/service"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	charmhub "github.com/juju/juju/internal/charmhub"
@@ -1370,13 +1371,12 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 }
 
 // AddMachine mocks base method.
-func (m *MockMachineService) AddMachine(arg0 context.Context, arg1 machine0.AddMachineArgs) (string, []machine.Name, error) {
+func (m *MockMachineService) AddMachine(arg0 context.Context, arg1 machine0.AddMachineArgs) (service0.AddMachineResults, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddMachine", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].([]machine.Name)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(service0.AddMachineResults)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AddMachine indicates an expected call of AddMachine.
@@ -1392,19 +1392,19 @@ type MockMachineServiceAddMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceAddMachineCall) Return(arg0 string, arg1 []machine.Name, arg2 error) *MockMachineServiceAddMachineCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockMachineServiceAddMachineCall) Return(arg0 service0.AddMachineResults, arg1 error) *MockMachineServiceAddMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceAddMachineCall) Do(f func(context.Context, machine0.AddMachineArgs) (string, []machine.Name, error)) *MockMachineServiceAddMachineCall {
+func (c *MockMachineServiceAddMachineCall) Do(f func(context.Context, machine0.AddMachineArgs) (service0.AddMachineResults, error)) *MockMachineServiceAddMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceAddMachineCall) DoAndReturn(f func(context.Context, machine0.AddMachineArgs) (string, []machine.Name, error)) *MockMachineServiceAddMachineCall {
+func (c *MockMachineServiceAddMachineCall) DoAndReturn(f func(context.Context, machine0.AddMachineArgs) (service0.AddMachineResults, error)) *MockMachineServiceAddMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
