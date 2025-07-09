@@ -272,12 +272,9 @@ CREATE VIEW v_machine_is_controller AS
 SELECT m.uuid AS machine_uuid
 FROM machine AS m
 JOIN net_node AS n ON m.net_node_uuid = n.uuid
-LEFT JOIN unit AS u ON n.uuid = u.net_node_uuid
-LEFT JOIN application AS a ON u.application_uuid = a.uuid
-WHERE (
-    SELECT 1 FROM application_controller AS ac
-    WHERE ac.application_uuid = a.uuid
-) IS NOT NULL;
+JOIN unit AS u ON n.uuid = u.net_node_uuid
+JOIN application AS a ON u.application_uuid = a.uuid
+JOIN application_controller AS ac ON a.uuid = ac.application_uuid;
 
 CREATE VIEW v_machine_constraint AS
 SELECT

@@ -211,8 +211,6 @@ func (s *stateSuite) TestIsMachineControllerApplicationControllerMultiple(c *tc.
 	machineName0 := s.createApplicationWithUnitAndMachine(c, true, false)
 	machineName1 := s.addUnit(c)
 
-	s.DumpTable(c, "machine")
-
 	isController, err := s.state.IsMachineController(c.Context(), machineName0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(isController, tc.IsTrue)
