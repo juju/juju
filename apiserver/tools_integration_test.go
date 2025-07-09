@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -88,7 +89,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) SetUpTest(c *tc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 
 	s.userName = usertesting.GenNewName(c, "bob@authhttpsuite")
-	s.AddModelUser(c, s.userName)
+	s.AddModelUserWithPermission(c, s.userName, permission.AdminAccess)
 	s.AddControllerUser(c, s.userName, permission.LoginAccess)
 
 	apiInfo := s.APIInfo(c)
@@ -146,6 +147,18 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *tc.C) 
 				Key:        s.ControllerUUID,
 			},
 		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = accessService.UpdatePermission(c.Context(), access.UpdatePermissionArgs{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        s.modelUUID,
+			},
+			Access: permission.AdminAccess,
+		},
+		Change:  permission.Grant,
+		Subject: userName,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

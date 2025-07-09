@@ -82,3 +82,26 @@ func RequestAuthInfo(ctx context.Context) (authentication.AuthInfo, bool) {
 	authInfo, ok := ctx.Value(authInfoKey{}).(authentication.AuthInfo)
 	return authInfo, ok
 }
+
+// CompositeAuthorizer invokes the underlying authorizers and
+// returns success (nil) when the first one succeeds.
+// If none are successful, returns [apiservererrors.ErrPerm].
+type CompositeAuthorizer []authentication.Authorizer
+
+// Authorize is part of the [Authorizer] interface.
+func (c CompositeAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
+	for _, a := range c {
+		if err := a.Authorize(ctx, authInfo); err == nil {
+			return nil
+		}
+	}
+	return apiservererrors.ErrPerm
+}
+
+// AuthorizerFunc is a function type implementing Authorizer.
+type AuthorizerFunc func(authentication.AuthInfo) error
+
+// Authorize is part of the Authorizer interface.
+func (f AuthorizerFunc) Authorize(info authentication.AuthInfo) error {
+	return f(info)
+}

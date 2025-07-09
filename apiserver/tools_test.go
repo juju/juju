@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	httptest "net/http/httptest"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -83,6 +83,8 @@ added back in:
 
 # Overall
 - Test only supported method are allowed for each handler.
+- Test upload agent binaries rejects non users.
+- Test only users with correct permission can upload agent binaries.
 
 # ToolsDownloader
 - Test download happy path.

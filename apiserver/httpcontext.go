@@ -250,10 +250,7 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 
 	has, err := common.HasPermission(ctx,
 		func(ctx context.Context, userName user.Name, subject permission.ID) (permission.Access, error) {
-			if userName.Name() != userTag.Id() {
-				return permission.NoAccess, fmt.Errorf("expected user %q got %q", userTag.String(), userName)
-			}
-			return authInfo.SubjectPermissions(ctx, subject)
+			return authInfo.Delegator.SubjectPermissions(ctx, userName.String(), subject)
 		},
 		userTag, permission.SuperuserAccess, a.controllerTag,
 	)
@@ -262,6 +259,36 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 	}
 	if !has {
 		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
+	}
+	return nil
+}
+
+// modelPermissionAuthorizer checks that the authenticated user
+// has the given permission on a model.
+type modelPermissionAuthorizer struct {
+	perm permission.Access
+}
+
+// Authorize is part of the httpcontext.Authorizer interface.
+func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
+	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	if !ok {
+		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
+	}
+	if !names.IsValidModel(authInfo.ModelTag.Id()) {
+		return errors.Errorf("%q is not a valid model", authInfo.ModelTag.Id())
+	}
+	has, err := common.HasPermission(ctx,
+		func(ctx context.Context, user user.Name, subject permission.ID) (permission.Access, error) {
+			return authInfo.Delegator.SubjectPermissions(ctx, user.String(), subject)
+		},
+		userTag, a.perm, authInfo.ModelTag,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !has {
+		return errors.Errorf("%s does not have %q permission", names.ReadableString(authInfo.Entity.Tag()), a.perm)
 	}
 	return nil
 }

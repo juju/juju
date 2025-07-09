@@ -23,6 +23,19 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Excalidraw CLI dependencies
+        run: |
+          # Note: The playwright installation is a little heavy, so it might take some time. But it is necessary for the
+          #       excalidraw-brute-export-cli to work. This the only way to export excalidraw files to SVG, saving the fonts and
+          #       other assets in the SVG file, all other tools do not provide this feature.
+          npx playwright install
+          npx playwright install-deps
+
       - name: Install sphinx dependencies
         run: |
           python -m venv venv

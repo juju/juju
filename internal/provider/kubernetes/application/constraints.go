@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -15,13 +16,16 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
-// ConstraintApplier defines the function type for configuring constraint for a pod.
+// ConstraintApplier defines a function type that applies a resource constraint
+// (e.g., memory or CPU) with the given value to the specified resource name
+// in the provided PodSpec.
 type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, value string) error
 
-// ApplyConstraints applies the specified constraints to the pod.
-func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value, configureConstraint ConstraintApplier) error {
+// ApplyWorkloadConstraints applies the specified constraints to the pod.
+func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraints.Value, configureConstraint ConstraintApplier) error {
 	// TODO(allow resource limits to be applied to each container).
 	// For now we only do resource requests, one container is sufficient for
 	// scheduling purposes.
@@ -106,6 +110,63 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 				Values:   zones,
 			})
 	}
+	return nil
+}
+
+func isMemResourceValueValid(memVal string) bool {
+	if !strings.HasSuffix(memVal, "Mi") {
+		return false
+	}
+	val := strings.TrimSuffix(memVal, "Mi")
+	num, err := strconv.Atoi(val)
+	if err != nil {
+		return false
+	}
+	return num > 0
+}
+
+// ApplyCharmConstraints applies the specified charm constraints to the charm container.
+func ApplyCharmConstraints(pod *core.PodSpec, appName string,
+	charmContainerResourceRequirements CharmContainerResourceRequirements) error {
+
+	if len(pod.Containers) == 0 {
+		return nil
+	}
+
+	if !isMemResourceValueValid(charmContainerResourceRequirements.MemLimitMi) {
+		return errors.NotValidf("charm container mem limit value")
+	}
+
+	if !isMemResourceValueValid(charmContainerResourceRequirements.MemRequestMi) {
+		return errors.NotValidf("charm container mem request value")
+	}
+
+	requestValue := charmContainerResourceRequirements.MemRequestMi
+	limitValue := charmContainerResourceRequirements.MemLimitMi
+
+	charmContainerIndex := -1
+
+	for i, container := range pod.Containers {
+		if container.Name == constants.ApplicationCharmContainer {
+			charmContainerIndex = i
+			break
+		}
+	}
+
+	// If the charm container is not found, we do not apply the constraints.
+	if charmContainerIndex == -1 {
+		return nil
+	}
+	var err error
+
+	if pod.Containers[charmContainerIndex].Resources.Requests, err = MergeConstraint(core.ResourceMemory, requestValue, pod.Containers[charmContainerIndex].Resources.Requests); err != nil {
+		return errors.Annotatef(err, "merging request constraint %s=%s for charm container", core.ResourceMemory, requestValue)
+	}
+
+	if pod.Containers[charmContainerIndex].Resources.Limits, err = MergeConstraint(core.ResourceMemory, limitValue, pod.Containers[charmContainerIndex].Resources.Limits); err != nil {
+		return errors.Annotatef(err, "merging limit constraint %s=%s for charm container", core.ResourceMemory, limitValue)
+	}
+
 	return nil
 }
 
@@ -266,7 +327,7 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 	return nil
 }
 
-func configureConstraint(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
+func configureWorkloadConstraint(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
 	if len(pod.Containers) == 0 {
 		return nil
 	}
@@ -279,6 +340,34 @@ func configureConstraint(pod *core.PodSpec, resourceName core.ResourceName, valu
 		if err != nil {
 			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)
 		}
+	}
+	return nil
+}
+
+// configureWorkloadConstraintV2 sets the resource limits and requests for all containers,
+// excluding the charm container.
+func configureWorkloadConstraintV2(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
+	if len(pod.Containers) == 0 {
+		return nil
+	}
+
+	for i, container := range pod.Containers {
+		isCharmContainer := container.Name == constants.ApplicationCharmContainer
+		if isCharmContainer {
+			continue
+		}
+
+		pod.Containers[i].Resources.Requests, err = MergeConstraint(resourceName, value, container.Resources.Requests)
+		if err != nil {
+			return errors.Annotatef(err,
+				"merging request constraint %s=%s for container %s", resourceName, value, container.Name)
+		}
+
+		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, value, container.Resources.Limits)
+		if err != nil {
+			return errors.Annotatef(err, "merging limit constraint %s=%s, for container %s", resourceName, value, container.Name)
+		}
+
 	}
 	return nil
 }
