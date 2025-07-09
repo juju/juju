@@ -274,13 +274,6 @@ func (e Endpoint) toEndpointIdentifier() corerelation.EndpointIdentifier {
 	}
 }
 
-type relationEndpoint struct {
-	// UUID is a unique identifier for the relation endpoint
-	UUID corerelation.EndpointUUID `db:"uuid"`
-	// ApplicationUUID is a unique identifier for the application associated with the endpoint.
-	ApplicationUUID application.ID `db:"application_uuid"`
-}
-
 // setRelationEndpoint represents the mapping to insert a new relation endpoint
 // to the table `relation_endpoint`
 type setRelationEndpoint struct {

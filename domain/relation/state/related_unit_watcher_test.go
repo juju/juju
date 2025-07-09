@@ -8,19 +8,15 @@ import (
 	"testing"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/application"
-	corerelation "github.com/juju/juju/core/relation"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/charm"
 )
 
-// relatedUnitWatcherSuite is a test suite dedicated to check function used in the
-// related unit watcher, which rely on several state method to filter events.
-// It extends baseRelationSuite to leverage common setup and utility methods
-// for relation-related testing and provides more builder dedicated for this
+// relatedUnitWatcherSuite is a test suite for checking functions used in
+// the related unit watcher, which relies on some state methods to filter events.
+// It extends baseRelationSuite to lever common setup and utility methods
+// for relation-related testing and provides more builders dedicated for this
 // specific context.
 type relatedUnitWatcherSuite struct {
 	baseRelationSuite
@@ -34,14 +30,9 @@ func (s *relatedUnitWatcherSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 }
 
-func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *tc.C) {
-	c.Skip("This is temporary broken, as we're not correctly handling peer relation changes in the watcher.")
-
-	// TODO (stickupkid): @manadart will have a look if we can correctly handle
-	// the application setting changes in the watcher based on if the relation
-	// is a peer relation or not.
-
-	// Arrange: two application linked by two relation.
+func (s *relatedUnitWatcherSuite) TestGetUnitsInRelation(c *tc.C) {
+	// Arrange: two applications linked by a relation, with a few units,
+	// one of which is in scope.
 	charmUUID := s.addCharm(c)
 	charmRelationProvidesUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
 		Name:  "provides",
@@ -53,158 +44,118 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnit(c *tc.C) {
 		Role:  charm.RoleRequirer,
 		Scope: charm.ScopeGlobal,
 	})
+
 	appUUID1 := s.addApplication(c, charmUUID, "app1")
 	appUUID2 := s.addApplication(c, charmUUID, "app2")
-	app1ReqUUID := s.addApplicationEndpoint(c, appUUID1, charmRelationRequiresUUID)
-	app1ProvUUID := s.addApplicationEndpoint(c, appUUID1, charmRelationProvidesUUID)
-	app2ReqUUID := s.addApplicationEndpoint(c, appUUID2, charmRelationRequiresUUID)
-	app2ProvUUID := s.addApplicationEndpoint(c, appUUID2, charmRelationProvidesUUID)
-	otherRelationUUID := s.addRelation(c)
-	s.addRelationEndpoint(c, otherRelationUUID, app2ReqUUID)
-	s.addRelationEndpoint(c, otherRelationUUID, app1ProvUUID)
 
-	// We create a units on both side, and a relation in which we are interested
-	s.addUnit(c, "app1/0", appUUID1, charmUUID)
-	s.addUnit(c, "app2/0", appUUID2, charmUUID)
-	relationUUID := s.addRelation(c)
-	s.addRelationEndpoint(c, relationUUID, app1ReqUUID)
-	expectedEndpoint := s.addRelationEndpoint(c, relationUUID, app2ProvUUID)
-
-	// Act
-	var gotEndpoint relationEndpoint
-	var err error
-	err = s.Txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		gotEndpoint, err = s.state.getRelatedRelationEndpointForUnit(ctx, tx, "app1/0", relationUUID)
-		return err
-	})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotEndpoint, tc.Equals, relationEndpoint{
-		UUID:            corerelation.EndpointUUID(expectedEndpoint),
-		ApplicationUUID: appUUID2,
-	})
-}
-
-func (s *relatedUnitWatcherSuite) TestGetRelatedEndpointUUIDForUnitPeerRelation(c *tc.C) {
-	c.Skip("This is temporary broken, as we're not correctly handling peer relation changes in the watcher.")
-
-	// TODO (stickupkid): @manadart will have a look if we can correctly handle
-	// the application setting changes in the watcher based on if the relation
-	// is a peer relation or not.
-
-	// Arrange: One application, call on a peer relation
-	charmUUID := s.addCharm(c)
-	charmRelationUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
-		Name:  "peer",
-		Role:  charm.RolePeer,
-		Scope: charm.ScopeGlobal,
-	})
-	appUUID1 := s.addApplication(c, charmUUID, "app1")
-
-	// We create a unit, and the peer relation
-	s.addUnit(c, "app1/0", appUUID1, charmUUID)
-	relationUUID := s.addRelation(c)
-	s.addRelationEndpoint(c, relationUUID, s.addApplicationEndpoint(c, appUUID1, charmRelationUUID))
-
-	// Act
-	var gotEndpointUUID relationEndpoint
-	var err error
-	err = s.Txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		gotEndpointUUID, err = s.state.getRelatedRelationEndpointForUnit(ctx, tx, "app1/0", relationUUID)
-		return err
-	})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotEndpointUUID, tc.Equals, relationEndpoint{})
-}
-
-func (s *relatedUnitWatcherSuite) TestGetRelatedUnits(c *tc.C) {
-	// Arrange: two application linked by a relation, with few units
-	charmUUID := s.addCharm(c)
-	charmRelationProvidesUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
-		Name:  "provides",
-		Role:  charm.RoleProvider,
-		Scope: charm.ScopeGlobal,
-	})
-	charmRelationRequiresUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
-		Name:  "requires",
-		Role:  charm.RoleRequirer,
-		Scope: charm.ScopeGlobal,
-	})
-	appUUID1 := s.addApplication(c, charmUUID, "app1")
-	appUUID2 := s.addApplication(c, charmUUID, "app2")
 	app1ReqUUID := s.addApplicationEndpoint(c, appUUID1, charmRelationRequiresUUID)
 	app2ProvUUID := s.addApplicationEndpoint(c, appUUID2, charmRelationProvidesUUID)
+
 	relationUUID := s.addRelation(c)
-	s.addRelationEndpoint(c, relationUUID, app1ReqUUID)
-	s.addRelationEndpoint(c, relationUUID, app2ProvUUID)
+	re1UUID := s.addRelationEndpoint(c, relationUUID, app1ReqUUID)
+	re2UUID := s.addRelationEndpoint(c, relationUUID, app2ProvUUID)
 
-	// create some units
-	createUnit := func(appID application.ID) func(name coreunit.Name) getRelatedUnit {
-		return func(name coreunit.Name) getRelatedUnit {
-			return getRelatedUnit{
-				UUID: s.addUnit(c, name, appID, charmUUID),
-				Name: name,
-			}
-		}
-	}
-	// We should get all unit except the fetched one.
-	fetchedUnit := createUnit(appUUID1)("app1/0")
-	expectedUnits := append(
-		transform.Slice([]coreunit.Name{"app1/1", "app1/2"}, createUnit(appUUID1)),
-		transform.Slice([]coreunit.Name{"app2/0", "app2/1", "app2/3", "app2/2"}, createUnit(appUUID2))...)
+	u10UUID := s.addUnit(c, "app1/0", appUUID1, charmUUID)
+	u11UUID := s.addUnit(c, "app1/1", appUUID1, charmUUID)
+	u20UUID := s.addUnit(c, "app2/0", appUUID2, charmUUID)
 
-	// Act
-	var gotUnits []getRelatedUnit
-	var err error
-	err = s.Txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		gotUnits, err = s.state.getRelatedUnits(ctx, tx, fetchedUnit.Name, relationUUID)
+	var relationUnitUUID string
+	err := s.Txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		relationUnitUUID, err = s.state.insertRelationUnit(c.Context(), tx, relationUUID.String(), u10UUID.String())
 		return err
 	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	related, err := s.state.getUnitsInRelation(c.Context(), relationUUID.String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotUnits, tc.SameContents, expectedUnits)
+	c.Check(related, tc.SameContents, []relationUnit{
+		{
+			RelationEndpointUUID: re1UUID,
+			UnitUUID:             u10UUID.String(),
+			RelationUnitUUID:     relationUnitUUID,
+		},
+		{
+			RelationEndpointUUID: re1UUID,
+			UnitUUID:             u11UUID.String(),
+		},
+		{
+			RelationEndpointUUID: re2UUID,
+			UnitUUID:             u20UUID.String(),
+		},
+	})
 }
 
 func (s *relatedUnitWatcherSuite) TestGetRelatedUnitsPeerRelation(c *tc.C) {
-	// Arrange: two application linked by a relation, with few units
+	// Arrange: two units in a peer relation, and one from another application,
+	// which should be ignored.
 	charmUUID := s.addCharm(c)
 	charmRelationUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
 		Name:  "peer",
 		Role:  charm.RolePeer,
 		Scope: charm.ScopeGlobal,
 	})
+
 	appUUID1 := s.addApplication(c, charmUUID, "app1")
+	appUUID2 := s.addApplication(c, charmUUID, "app2")
 
-	// We create a unit, and the peer relation
 	relationUUID := s.addRelation(c)
-	s.addRelationEndpoint(c, relationUUID, s.addApplicationEndpoint(c, appUUID1, charmRelationUUID))
+	re1UUID := s.addRelationEndpoint(c, relationUUID, s.addApplicationEndpoint(c, appUUID1, charmRelationUUID))
 
-	// create some units
-	createUnit := func(appID application.ID) func(name coreunit.Name) getRelatedUnit {
-		return func(name coreunit.Name) getRelatedUnit {
-			return getRelatedUnit{
-				UUID: s.addUnit(c, name, appID, charmUUID),
-				Name: name,
-			}
-		}
-	}
-	// We should get all unit except the fetched one.
-	fetchedUnit := createUnit(appUUID1)("app1/0")
-	expectedUnits := transform.Slice([]coreunit.Name{"app1/1", "app1/2"}, createUnit(appUUID1))
+	u10UUID := s.addUnit(c, "app1/0", appUUID1, charmUUID)
+	u11UUID := s.addUnit(c, "app1/1", appUUID1, charmUUID)
+	_ = s.addUnit(c, "app2/0", appUUID2, charmUUID)
 
 	// Act
-	var gotUnits []getRelatedUnit
-	var err error
-	err = s.Txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		gotUnits, err = s.state.getRelatedUnits(ctx, tx, fetchedUnit.Name, relationUUID)
-		return err
-	})
+	related, err := s.state.getUnitsInRelation(c.Context(), relationUUID.String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotUnits, tc.SameContents, expectedUnits)
+	c.Check(related, tc.SameContents, []relationUnit{
+		{
+			RelationEndpointUUID: re1UUID,
+			UnitUUID:             u10UUID.String(),
+		},
+		{
+			RelationEndpointUUID: re1UUID,
+			UnitUUID:             u11UUID.String(),
+		},
+	})
+}
+
+func (s *relatedUnitWatcherSuite) TestGetRelatedAppEndpoints(c *tc.C) {
+	// Arrange: two applications linked by a relation, with a few endpoints,
+	// one of which is in scope.
+	charmUUID := s.addCharm(c)
+	charmRelationProvidesUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
+		Name:  "provides",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	})
+	charmRelationRequiresUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
+		Name:  "requires",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	})
+
+	appUUID1 := s.addApplication(c, charmUUID, "app1")
+	appUUID2 := s.addApplication(c, charmUUID, "app2")
+
+	app1ReqUUID := s.addApplicationEndpoint(c, appUUID1, charmRelationRequiresUUID)
+	app2ProvUUID := s.addApplicationEndpoint(c, appUUID2, charmRelationProvidesUUID)
+
+	relationUUID := s.addRelation(c)
+	re1UUID := s.addRelationEndpoint(c, relationUUID, app1ReqUUID)
+	re2UUID := s.addRelationEndpoint(c, relationUUID, app2ProvUUID)
+
+	// Act
+	appByEndpoint, err := s.state.getRelationAppEndpoints(c.Context(), relationUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(appByEndpoint[re1UUID], tc.Equals, appUUID1.String())
+	c.Check(appByEndpoint[re2UUID], tc.Equals, appUUID2.String())
 }
