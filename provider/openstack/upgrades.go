@@ -17,7 +17,7 @@ import (
 )
 
 // PreparePrechecker is part of the environs.JujuUpgradePrechecker
-// interface. It is called to to give an Environ a chance to perform
+// interface. It is called to give an Environ a chance to perform
 // interactive operations that are required for prechecking
 // an upgrade.
 func (e *Environ) PreparePrechecker() error {
