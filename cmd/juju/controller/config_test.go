@@ -57,13 +57,13 @@ func (s *ConfigSuite) TestInit(c *tc.C) {
 		err:  "cannot specify multiple keys to get",
 	}, {
 		desc: "set one key",
-		args: []string{"juju-ha-space=value"},
+		args: []string{"juju-mgt-space=value"},
 	}, {
 		desc: "set two keys",
-		args: []string{"juju-ha-space=value", "juju-mgmt-space=value"},
+		args: []string{"juju-mgt-space=value", "api-port=value"},
 	}, {
 		desc: "can't mix setting and getting",
-		args: []string{"juju-ha-space=value", "hey2"},
+		args: []string{"juju-mgt-space=value", "hey2"},
 		err:  "cannot get value and set key=value pairs simultaneously",
 	}, {
 		desc: "can't reset",
@@ -171,13 +171,13 @@ func (s *ConfigSuite) TestError(c *tc.C) {
 
 func (s *ConfigSuite) TestSettingKey(c *tc.C) {
 	var api fakeControllerAPI
-	context, err := s.runWithAPI(c, &api, "juju-ha-space=value")
+	context, err := s.runWithAPI(c, &api, "public-dns-address=value")
 	c.Assert(err, tc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
 
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
+	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"public-dns-address": "value"})
 }
 
 func (s *ConfigSuite) TestSettingDuration(c *tc.C) {
@@ -192,7 +192,7 @@ func (s *ConfigSuite) TestSettingDuration(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestSettingFromFile(c *tc.C) {
-	path := writeFile(c, "yaml", "juju-ha-space: value\n")
+	path := writeFile(c, "yaml", "public-dns-address: value\n")
 	var api fakeControllerAPI
 	context, err := s.runWithAPI(c, &api, "--file", path)
 	c.Assert(err, tc.ErrorIsNil)
@@ -200,12 +200,12 @@ func (s *ConfigSuite) TestSettingFromFile(c *tc.C) {
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
 
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
+	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"public-dns-address": "value"})
 }
 
 func (s *ConfigSuite) TestSettingFromStdin(c *tc.C) {
 	ctx := cmdtesting.Context(c)
-	ctx.Stdin = strings.NewReader("juju-ha-space: value\n")
+	ctx.Stdin = strings.NewReader("public-dns-address: value\n")
 	var api fakeControllerAPI
 	code := cmd.Main(controller.NewConfigCommandForTest(&api, s.store), ctx,
 		[]string{"--file", "-"})
@@ -215,11 +215,11 @@ func (s *ConfigSuite) TestSettingFromStdin(c *tc.C) {
 	c.Assert(output, tc.Equals, "")
 	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
 	c.Assert(stderr, tc.Equals, "")
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
+	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"public-dns-address": "value"})
 }
 
 func (s *ConfigSuite) TestOverrideFileFromArgs(c *tc.C) {
-	path := writeFile(c, "yaml", "juju-ha-space: value\naudit-log-max-backups: 2\n")
+	path := writeFile(c, "yaml", "public-dns-address: value\naudit-log-max-backups: 2\n")
 	var api fakeControllerAPI
 	context, err := s.runWithAPI(c, &api, "--file", path, "audit-log-max-backups=4")
 	c.Assert(err, tc.ErrorIsNil)
@@ -228,7 +228,7 @@ func (s *ConfigSuite) TestOverrideFileFromArgs(c *tc.C) {
 	c.Assert(output, tc.Equals, "")
 
 	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{
-		"juju-ha-space":         "value",
+		"public-dns-address":    "value",
 		"audit-log-max-backups": 4,
 	})
 }
@@ -251,11 +251,11 @@ func (s *ConfigSuite) TestSetReadOnlyInvalidControllerName(c *tc.C) {
 
 func (s *ConfigSuite) TestErrorOnSetting(c *tc.C) {
 	api := fakeControllerAPI{err: errors.Errorf("kablooie")}
-	context, err := s.runWithAPI(c, &api, "juju-ha-space=value")
+	context, err := s.runWithAPI(c, &api, "public-dns-address=value")
 	c.Assert(err, tc.ErrorMatches, "kablooie")
 
 	c.Assert(strings.TrimSpace(cmdtesting.Stdout(context)), tc.Equals, "")
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
+	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"public-dns-address": "value"})
 }
 
 func writeFile(c *tc.C, name, content string) string {

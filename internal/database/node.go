@@ -57,7 +57,7 @@ type NodeManager struct {
 //
 // If isLoopbackPreferred is true, we bind Dqlite to 127.0.0.1 and eschew TLS
 // termination. This is useful primarily in unit testing and a temporary
-// workaround for CAAS, which does not yet support enable-ha.
+// workaround for CAAS, which does not yet support high availability.
 //
 // If it is false, we attempt to identify a unique local-cloud address.
 // If we find one, we use it as the bind address. Otherwise, we fall back
@@ -81,7 +81,7 @@ func NewNodeManager(cfg agent.Config, isLoopbackPreferred bool, logger logger.Lo
 // IsLoopbackPreferred returns true if we should prefer to bind Dqlite
 // to the loopback IP address.
 // This is currently true for CAAS and unit testing. Once CAAS supports
-// enable-ha we'll have to revisit this.
+// high availability we'll have to revisit this.
 func (m *NodeManager) IsLoopbackPreferred() bool {
 	return m.isLoopbackPreferred
 }

@@ -244,7 +244,8 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 		c.configBase.KeysToGet[0], controllerName)
 }
 
-// filterOutReadOnly removes in-situ read-only attributes from the provided configuration attributes map.
+// filterOutReadOnly removes in-situ read-only attributes from the provided
+// configuration attributes map.
 func (c *configCommand) filterOutReadOnly(attrs config.Attrs) error {
 	extraValues := set.NewStrings()
 	for k := range attrs {

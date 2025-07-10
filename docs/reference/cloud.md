@@ -53,7 +53,7 @@ While the user experience is still mostly the same -- bootstrap a Juju controlle
 and, occasionally
 
 - what operations you may perform, e.g.,
-    - `enable-ha` is currently supported just for machine controllers
+    - Highly Availability is currently supported just for machine controllers
     - scaling an application is done via `add-unit` on machines and via `scale-application` on K8s).
 
 > See more:  {ref}`tutorial`, {ref}`how-to-guides`

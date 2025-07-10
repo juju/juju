@@ -5,7 +5,6 @@
 :hidden:
 
 controller-config-audit-log-exclude-methods
-controller-config-juju-ha-space
 controller-config-juju-mgmt-space
 ```
 
@@ -305,17 +304,6 @@ snaps for focal or later. The value is ignored for older releases.
 **Default value:** 4.4/stable
 
 **Can be changed after bootstrap:** no
-
-
-(controller-config-juju-ha-space)=
-## `juju-ha-space`
-
-`juju-ha-space` is the network space within which the MongoDB replica-set
-should communicate.
-
-**Type:** string
-
-**Can be changed after bootstrap:** yes
 
 
 (controller-config-juju-mgmt-space)=

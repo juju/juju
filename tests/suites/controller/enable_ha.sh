@@ -33,7 +33,7 @@ run_enable_ha() {
 
 	enable_microceph_backed_storage
 
-	juju enable-ha
+	juju add-unit -m controller controller -n 2
 
 	wait_for_controller_machines 3
 	wait_for_ha 3

@@ -10,7 +10,6 @@ Displays log messages for a model.
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--color` | false | Force use of ANSI color codes |
-| `--controller` |  | A specific controller from which to display logs, or 'all' for interleaved logs from all controllers. |
 | `--date` | false | Show dates as well as times |
 | `--exclude-labels` |  | Do not show log messages for these logging label key values |
 | `--exclude-module` |  | Do not show log messages for these logging modules |

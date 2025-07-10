@@ -5,7 +5,6 @@
 :hidden:
 
 controller-config-audit-log-exclude-methods
-controller-config-juju-ha-space
 controller-config-juju-mgmt-space
 ```
 

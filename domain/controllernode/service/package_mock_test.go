@@ -236,45 +236,6 @@ func (c *MockStateGetAllCloudLocalAPIAddressesCall) DoAndReturn(f func(context.C
 	return c
 }
 
-// GetControllerAPIAddresses mocks base method.
-func (m *MockState) GetControllerAPIAddresses(arg0 context.Context) (map[string]controllernode.APIAddresses, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerAPIAddresses", arg0)
-	ret0, _ := ret[0].(map[string]controllernode.APIAddresses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetControllerAPIAddresses indicates an expected call of GetControllerAPIAddresses.
-func (mr *MockStateMockRecorder) GetControllerAPIAddresses(arg0 any) *MockStateGetControllerAPIAddressesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerAPIAddresses", reflect.TypeOf((*MockState)(nil).GetControllerAPIAddresses), arg0)
-	return &MockStateGetControllerAPIAddressesCall{Call: call}
-}
-
-// MockStateGetControllerAPIAddressesCall wrap *gomock.Call
-type MockStateGetControllerAPIAddressesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetControllerAPIAddressesCall) Return(arg0 map[string]controllernode.APIAddresses, arg1 error) *MockStateGetControllerAPIAddressesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetControllerAPIAddressesCall) Do(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetControllerAPIAddressesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetControllerAPIAddressesCall) DoAndReturn(f func(context.Context) (map[string]controllernode.APIAddresses, error)) *MockStateGetControllerAPIAddressesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetControllerIDs mocks base method.
 func (m *MockState) GetControllerIDs(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -310,45 +271,6 @@ func (c *MockStateGetControllerIDsCall) Do(f func(context.Context) ([]string, er
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetControllerIDsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateGetControllerIDsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsControllerNode mocks base method.
-func (m *MockState) IsControllerNode(arg0 context.Context, arg1 string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsControllerNode", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsControllerNode indicates an expected call of IsControllerNode.
-func (mr *MockStateMockRecorder) IsControllerNode(arg0, arg1 any) *MockStateIsControllerNodeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerNode", reflect.TypeOf((*MockState)(nil).IsControllerNode), arg0, arg1)
-	return &MockStateIsControllerNodeCall{Call: call}
-}
-
-// MockStateIsControllerNodeCall wrap *gomock.Call
-type MockStateIsControllerNodeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateIsControllerNodeCall) Return(arg0 bool, arg1 error) *MockStateIsControllerNodeCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateIsControllerNodeCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsControllerNodeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsControllerNodeCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsControllerNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

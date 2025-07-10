@@ -330,14 +330,14 @@ Note that this does not destroy the controller (though, to regain access to it, 
 
 > See also: {ref}`high-availability`
 
-To make a controller highly available, use the `enable-ha` command:
+To make a controller highly available, use the `juju add-unit` command:
 
 ```{caution}
 Currently only supported for controllers on a machine cloud.
 ```
 
 ```text
-juju enable-ha
+juju add-unit -m controller controller -n 2
 ```
 
 This will make sure that the number of controllers increases to the default minimum of 3. Sample output:
@@ -356,11 +356,6 @@ The number of controllers must be an odd number in order for a master to be "vot
 
 
 If a controller is misbehaving, or if you've decided that you don't need as many controllers for HA after all, you can remove them. To remove a controller, remove its  machine from the controller model via the `remove-machine` command.
-
-
-```{important}
-The `enable-ha` command cannot be used to remove machines from the cluster.
-```
 
 For example, below we remove controller 1 by removing machine 1 from the controller model:
 

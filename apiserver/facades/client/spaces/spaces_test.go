@@ -471,7 +471,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *tc.C) {
 
 	s.Backing.EXPECT().IsController().Return(true)
 
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: spaceName})
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuManagementSpace: spaceName})
 	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
 	s.Backing.EXPECT().ConstraintsBySpaceName(spaceName.String()).Return(nil, nil)
 
@@ -547,7 +547,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *tc.C) {
 
 	s.Backing.EXPECT().IsController().Return(true)
 
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: spaceName})
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuManagementSpace: spaceName})
 	s.ControllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(currentConfig, nil)
 
 	cApp, cModel := s.expectAllTags(spaceName)
