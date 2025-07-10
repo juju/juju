@@ -104,7 +104,7 @@ func (t tagExistingSecurityGroupsStep) Description() string {
 // Run is part of the environs.UpgradeStep interface.
 func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) error {
 	// TODO(@adisazhar123): skip if not a controller
-	logger.Debugf("starting upgrade step to tag existing security groups")
+	logger.Infof("starting upgrade step to tag existing security groups")
 
 	// get all security groups
 	neutronClient := t.env.neutron()
@@ -137,7 +137,7 @@ func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) erro
 		// In addition to the new tags, we still include old tags so that we don't lose them.
 		tags := append([]string{}, securityGroup.Tags...)
 		tags = append(tags, "juju-controller="+controllerUUID, "juju-model="+modelUUID)
-		logger.Debugf("adding tags %v for security group: %s", tags, securityGroup.Name)
+		logger.Infof("adding tags %v for security group: %s", tags, securityGroup.Name)
 
 		// Add the tags.
 		err := retry.Call(t.replaceTagsWithRetry(ctx, neutronClient, securityGroup.Id, tags))
