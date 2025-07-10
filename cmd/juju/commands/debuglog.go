@@ -25,7 +25,6 @@ import (
 	"github.com/mattn/go-isatty"
 
 	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/api/client/highavailability"
 	"github.com/juju/juju/api/common"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -233,8 +232,6 @@ type debugLogCommand struct {
 
 	includeLabels []string
 	excludeLabels []string
-
-	controllerIdOrAll string
 }
 
 func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -247,8 +244,6 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "Do not show log messages for these logging modules")
 	f.Var(cmd.NewAppendStringsValue(&c.includeLabels), "include-labels", "Only show log messages for these logging label key values")
 	f.Var(cmd.NewAppendStringsValue(&c.excludeLabels), "exclude-labels", "Do not show log messages for these logging label key values")
-
-	f.StringVar(&c.controllerIdOrAll, "controller", "", "A specific controller from which to display logs, or 'all' for interleaved logs from all controllers.")
 
 	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
 	f.StringVar(&c.level, "level", "", "")
@@ -386,12 +381,6 @@ type DebugLogAPI interface {
 	Close() error
 }
 
-// ControllerDetailsAPI provides access to the high availability facade.
-type ControllerDetailsAPI interface {
-	ControllerDetails(ctx context.Context) (map[string]highavailability.ControllerDetails, error)
-	BestAPIVersion() int
-}
-
 var getDebugLogAPI = func(ctx context.Context, c *debugLogCommand, addr []string) (DebugLogAPI, error) {
 	root, err := c.NewAPIRootWithAddressOverride(ctx, addr)
 	if err != nil {
@@ -400,20 +389,12 @@ var getDebugLogAPI = func(ctx context.Context, c *debugLogCommand, addr []string
 	return apiclient.NewClient(root, logger), nil
 }
 
-var getControllerDetailsClient = func(ctx context.Context, c *debugLogCommand) (ControllerDetailsAPI, error) {
-	root, err := c.NewAPIRoot(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return highavailability.NewClient(root), nil
-}
-
 func isTerminal(f interface{}) bool {
-	f_, ok := f.(*os.File)
+	file, ok := f.(*os.File)
 	if !ok {
 		return false
 	}
-	return isatty.IsTerminal(f_.Fd())
+	return isatty.IsTerminal(file.Fd())
 }
 
 type logFunc func([]corelogger.LogRecord) error
@@ -422,37 +403,18 @@ func (f logFunc) Log(r []corelogger.LogRecord) error {
 	return f(r)
 }
 
-func (c *debugLogCommand) getControllerAddresses(ctx context.Context) ([][]string, error) {
-	if c.controllerIdOrAll == "" {
-		return nil, nil
-	}
-
-	api, err := getControllerDetailsClient(ctx, c)
+func (c *debugLogCommand) getControllerAddresses(ctx context.Context) ([]string, error) {
+	controllerName, err := c.ClientStore().CurrentController()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting controller HA client")
+		return nil, errors.Annotatef(err, "getting controller details")
 	}
-	if api.BestAPIVersion() < 3 {
-		return nil, fmt.Errorf("debug log controller selection not supported with this version of Juju")
-	}
-	controllerDetails, err := api.ControllerDetails(ctx)
+
+	details, err := c.ClientStore().ControllerByName(controllerName)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting controller details")
+		return nil, errors.Annotatef(err, "getting controller details")
 	}
 
-	var controllerAddr [][]string
-	if c.controllerIdOrAll == "all" {
-		for _, ctrl := range controllerDetails {
-			controllerAddr = append(controllerAddr, ctrl.APIEndpoints)
-		}
-
-	} else {
-		ctrl, ok := controllerDetails[c.controllerIdOrAll]
-		if !ok {
-			return nil, fmt.Errorf("controller %q %w", c.controllerIdOrAll, errors.NotFound)
-		}
-		controllerAddr = append(controllerAddr, ctrl.APIEndpoints)
-	}
-	return controllerAddr, nil
+	return details.APIEndpoints, nil
 }
 
 // Run retrieves the debug log via the API.
@@ -468,7 +430,7 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Get the controller addresses to connect to.
-	controllerAddr, err := c.getControllerAddresses(ctx)
+	controllerAddrs, err := c.getControllerAddresses(ctx)
 	if err != nil {
 		return err
 	}
@@ -476,14 +438,15 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	// The default log buffer size is 1 for a single controller
 	// (stream log entries as they arrive).
 	bufferSize := 1
-	// If we are connecting to multiple controllers, adjust the buffer size so that
-	// we have a chance of ordering incoming records by timestamp.
-	// Replaying the logs will likely stream many initially so use a larger buffer size
-	// to account for controllers having potentially divergent log entry timestamps.
-	// This is best effort so it's ok if some log entries are printed out of order.
-	// Ideally we'd have a variable flush timeout depending on the rate of incoming messages
-	// but the buffered logger doesn't support that.
-	if len(controllerAddr) > 1 {
+	// If we are connecting to multiple controllers, adjust the buffer size so
+	// that we have a chance of ordering incoming records by timestamp.
+	// Replaying the logs will likely stream many initially so use a larger
+	// buffer size to account for controllers having potentially divergent log
+	// entry timestamps. This is best effort so it's ok if some log entries are
+	// printed out of order. Ideally we'd have a variable flush timeout
+	// depending on the rate of incoming messages but the buffered logger
+	// doesn't support that.
+	if len(controllerAddrs) > 1 {
 		if c.params.Replay || c.params.NoTail {
 			bufferSize = 500
 		} else {
@@ -499,10 +462,7 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	}), bufferSize, time.Second, clock.WallClock)
 
 	// Start one log streamer per controller.
-	numStreams := 1
-	if n := len(controllerAddr); n > 0 {
-		numStreams = n
-	}
+	numStreams := len(controllerAddrs)
 	// Size of errors channel and wait group needs to match the number of debug log streams.
 	var (
 		errs = make(chan error, numStreams)
@@ -511,18 +471,11 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	wg.Add(numStreams)
 
 	pollCtx, cancel := context.WithCancel(ctx)
-	if len(controllerAddr) == 0 {
-		go func() {
-			c.streamLogs(pollCtx, nil, buf, errs)
+	for _, addr := range controllerAddrs {
+		go func(addr string) {
+			c.streamLogs(pollCtx, []string{addr}, buf, errs)
 			wg.Done()
-		}()
-	} else {
-		for _, addr := range controllerAddr {
-			go func(addr []string) {
-				c.streamLogs(pollCtx, addr, buf, errs)
-				wg.Done()
-			}(addr)
-		}
+		}(addr)
 	}
 
 	// Wait for the streams to exit.

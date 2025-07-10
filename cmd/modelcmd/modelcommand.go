@@ -382,10 +382,7 @@ func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string
 
 	// Keep the not-found error from the store if we have one.
 	// This will preserve the user-qualified model identifier.
-	if err == nil {
-		err = errors.NotFoundf("model %s:%s", controllerName, modelIdentifier)
-	}
-	return "", nil, errors.Trace(err)
+	return "", nil, errors.NotFoundf("model %s:%s", controllerName, modelIdentifier)
 }
 
 // NewAPIRoot returns a new connection to the API server for the environment
