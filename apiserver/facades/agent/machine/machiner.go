@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -73,10 +74,6 @@ type NetworkService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	// No error is returned if the provided machine doesn't exist, just nothing
-	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(context.Context, machine.Name) (bool, error)
@@ -113,6 +110,16 @@ type StatusService interface {
 	SetMachineStatus(context.Context, machine.Name, status.StatusInfo) error
 }
 
+// RemovalService defines the methods that the facade assumes from the Removal
+// service.
+type RemovalService interface {
+	// MarkMachineAsDead marks the machine as dead. It will not remove the machine as
+	// that is a separate operation. This will advance the machines's life to dead
+	// and will not allow it to be transitioned back to alive.
+	// Returns an error if the machine does not exist.
+	MarkMachineAsDead(context.Context, machine.UUID) error
+}
+
 // ModelInfoService is the interface that is used to ask questions about the
 // current model.
 type ModelInfoService interface {
@@ -123,12 +130,12 @@ type ModelInfoService interface {
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter
-	*common.DeadEnsurer
 	*common.APIAddresser
 
 	networkService          NetworkService
 	machineService          MachineService
 	statusService           StatusService
+	removalService          RemovalService
 	st                      *state.State
 	controllerConfigService ControllerConfigService
 	auth                    facade.Authorizer
@@ -153,6 +160,7 @@ func NewMachinerAPIForState(
 	applicationService ApplicationService,
 	machineService MachineService,
 	statusService StatusService,
+	removalService RemovalService,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	logger logger.Logger,
@@ -167,11 +175,11 @@ func NewMachinerAPIForState(
 
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(applicationService, machineService, st, getCanAccess, logger),
-		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		networkService:          networkService,
 		machineService:          machineService,
 		statusService:           statusService,
+		removalService:          removalService,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
 		auth:                    authorizer,
@@ -180,6 +188,56 @@ func NewMachinerAPIForState(
 		watcherRegistry:         watcherRegistry,
 		clock:                   clock,
 	}, nil
+}
+
+// EnsureDead marks the specified machines as dead.
+func (api *MachinerAPI) EnsureDead(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return results, nil
+	}
+	canModify, err := api.getCanModify(ctx)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canModify(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = api.removalService.MarkMachineAsDead(ctx, machineUUID)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
+			continue
+		} else if errors.Is(err, removalerrors.MachineHasContainers) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeMachineHasContainers, "machine %q hosts containers", tag.Id())
+			continue
+		} else if errors.Is(err, removalerrors.MachineHasUnits) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeHasAssignedUnits, "machine %q hosts units", tag.Id())
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
 }
 
 // SetObservedNetworkConfig updates network interfaces

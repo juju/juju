@@ -110,70 +110,6 @@ func (s *serviceSuite) TestGetLifeNotFoundError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
-// TestSetMachineLifeSuccess asserts the happy path of the SetMachineLife
-// service.
-func (s *serviceSuite) TestSetMachineLifeSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().SetMachineLife(gomock.Any(), machine.Name("666"), life.Alive).Return(nil)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetMachineLife(c.Context(), "666", life.Alive)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestSetMachineLifeError asserts that an error coming from the state layer is
-// preserved, and passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestSetMachineLifeError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().SetMachineLife(gomock.Any(), machine.Name("666"), life.Alive).Return(rErr)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetMachineLife(c.Context(), "666", life.Alive)
-	c.Assert(err, tc.ErrorIs, rErr)
-	c.Check(err, tc.ErrorMatches, `setting life status for machine "666": boom`)
-}
-
-// TestSetMachineLifeMachineDoNotExist asserts that the state layer returns a
-// NotFound Error if a machine is not found with the given machineName, and that
-// error is preserved and passed on to the service layer to be handled there.
-func (s *serviceSuite) TestSetMachineLifeMachineDoNotExist(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().SetMachineLife(gomock.Any(), machine.Name("nonexistent"), life.Alive).Return(coreerrors.NotFound)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		SetMachineLife(c.Context(), "nonexistent", life.Alive)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
-}
-
-// TestEnsureDeadMachineSuccess asserts the happy path of the EnsureDeadMachine
-// service function.
-func (s *serviceSuite) TestEnsureDeadMachineSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().SetMachineLife(gomock.Any(), machine.Name("666"), life.Dead).Return(nil)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		EnsureDeadMachine(c.Context(), "666")
-	c.Check(err, tc.ErrorIsNil)
-}
-
-// TestEnsureDeadMachineError asserts that an error coming from the state layer
-// is preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestEnsureDeadMachineError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().SetMachineLife(gomock.Any(), machine.Name("666"), life.Dead).Return(rErr)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		EnsureDeadMachine(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, rErr)
-}
-
 func (s *serviceSuite) TestListAllMachinesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -552,71 +488,6 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownError(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `getting if the machine with uuid "u-u-i-d" need to reboot or shutdown: boom`)
 }
 
-// TestMarkMachineForRemovalSuccess asserts the happy path of the
-// MarkMachineForRemoval service.
-func (s *serviceSuite) TestMarkMachineForRemovalSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().MarkMachineForRemoval(gomock.Any(), machine.Name("666")).Return(nil)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		MarkMachineForRemoval(c.Context(), machine.Name("666"))
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestMarkMachineForRemovalMachineNotFoundError asserts that the state layer
-// returns a MachineNotFound Error if a machine is not found, and that error is
-// preserved and passed on to the service layer to be handled there.
-func (s *serviceSuite) TestMarkMachineForRemovalMachineNotFoundError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().MarkMachineForRemoval(gomock.Any(), machine.Name("666")).Return(machineerrors.MachineNotFound)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		MarkMachineForRemoval(c.Context(), machine.Name("666"))
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestMarkMachineForRemovalError asserts that an error coming from the state
-// layer is preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestMarkMachineForRemovalError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().MarkMachineForRemoval(gomock.Any(), machine.Name("666")).Return(rErr)
-
-	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		MarkMachineForRemoval(c.Context(), machine.Name("666"))
-	c.Assert(err, tc.ErrorIs, rErr)
-}
-
-// TestGetAllMachineRemovalsSuccess asserts the happy path of the
-// GetAllMachineRemovals service.
-func (s *serviceSuite) TestGetAllMachineRemovalsSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().GetAllMachineRemovals(gomock.Any()).Return([]machine.UUID{"666"}, nil)
-
-	machineRemovals, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetAllMachineRemovals(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(machineRemovals, tc.DeepEquals, []machine.UUID{"666"})
-}
-
-// TestGetAllMachineRemovalsError asserts that an error coming from the state
-// layer is preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestGetAllMachineRemovalsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().GetAllMachineRemovals(gomock.Any()).Return(nil, rErr)
-
-	machineRemovals, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetAllMachineRemovals(c.Context())
-	c.Assert(err, tc.ErrorIs, rErr)
-	c.Check(machineRemovals, tc.IsNil)
-}
-
 // TestGetMachineUUIDSuccess asserts the happy path of the
 // GetMachineUUID.
 func (s *serviceSuite) TestGetMachineUUIDSuccess(c *tc.C) {
@@ -767,6 +638,39 @@ func (s *serviceSuite) TestGetSupportedContainersTypesError(c *tc.C) {
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetSupportedContainersTypes(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
+}
+
+func (s *serviceSuite) TestGetMachineContainers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachineContainers(gomock.Any(), machineName.String()).Return([]string{"0/lxd/1", "0/lxd/2"}, nil)
+
+	containers, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineContainers(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containers, tc.DeepEquals, []machine.Name{"0/lxd/1", "0/lxd/2"})
+}
+
+func (s *serviceSuite) TestGetMachineContainersInvalidMachineName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineContainers(c.Context(), "invalid")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestGetMachineContainersError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+
+	s.state.EXPECT().GetMachineContainers(gomock.Any(), machineName.String()).Return(nil, errors.Errorf("boom"))
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineContainers(c.Context(), machineName)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
 

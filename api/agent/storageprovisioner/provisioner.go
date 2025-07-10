@@ -480,25 +480,6 @@ func (st *Client) AttachmentLife(ctx context.Context, ids []params.MachineStorag
 	return results.Results, nil
 }
 
-// EnsureDead progresses the entities with the specified tags to the Dead
-// life cycle state, if they are Alive or Dying.
-func (st *Client) EnsureDead(ctx context.Context, tags []names.Tag) ([]params.ErrorResult, error) {
-	var results params.ErrorResults
-	args := params.Entities{
-		Entities: make([]params.Entity, len(tags)),
-	}
-	for i, tag := range tags {
-		args.Entities[i].Tag = tag.String()
-	}
-	if err := st.facade.FacadeCall(ctx, "EnsureDead", args, &results); err != nil {
-		return nil, err
-	}
-	if len(results.Results) != len(tags) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
-	}
-	return results.Results, nil
-}
-
 // Remove removes the entities with the specified tags from state.
 func (st *Client) Remove(ctx context.Context, tags []names.Tag) ([]params.ErrorResult, error) {
 	var results params.ErrorResults

@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/description/v10"
 	"github.com/juju/errors"
@@ -49,8 +48,6 @@ type Machine interface {
 	Id() string
 	ContainerType() instance.ContainerType
 	Life() state.Life
-	ForceDestroy(time.Duration) error
-	Destroy(objectstore.ObjectStore) error
 }
 
 // Model defines methods provided by a state.Model instance.

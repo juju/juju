@@ -18,12 +18,12 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type machinerSuite struct {
@@ -36,6 +36,7 @@ type machinerSuite struct {
 	machineService     *MockMachineService
 	applicationService *MockApplicationService
 	statusService      *MockStatusService
+	removalService     *MockRemovalService
 	watcherRegistry    *MockWatcherRegistry
 }
 
@@ -52,6 +53,7 @@ func (s *machinerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
 
 	c.Cleanup(func() {
 		s.clock = nil
@@ -60,6 +62,7 @@ func (s *machinerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.machineService = nil
 		s.applicationService = nil
 		s.statusService = nil
+		s.removalService = nil
 	})
 
 	return ctrl
@@ -77,6 +80,7 @@ func (s *machinerSuite) makeAPI(c *tc.C) {
 		s.applicationService,
 		s.machineService,
 		s.statusService,
+		s.removalService,
 		s.watcherRegistry,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
@@ -100,6 +104,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 		s.applicationService,
 		s.machineService,
 		s.statusService,
+		s.removalService,
 		s.watcherRegistry,
 		anAuthorizer,
 		loggertesting.WrapCheckLog(c),
@@ -107,6 +112,42 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 	c.Assert(err, tc.NotNil)
 	c.Assert(aMachiner, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
+
+func (s *machinerSuite) TestEnsureDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
+	machineName := coremachine.Name("1")
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
+	s.removalService.EXPECT().MarkMachineAsDead(gomock.Any(), machineUUID).Return(nil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+	}}
+	result, err := s.machiner.EnsureDead(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+}
+
+func (s *machinerSuite) TestEnsureDeadMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.makeAPI(c)
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).Return("", machineerrors.MachineNotFound)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+	}}
+	result, err := s.machiner.EnsureDead(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *machinerSuite) TestSetStatus(c *tc.C) {
@@ -192,52 +233,6 @@ func (s *machinerSuite) TestLife(c *tc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
-}
-
-func (s *machinerSuite) TestEnsureDead(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.makeAPI(c)
-
-	c.Assert(s.machine0.Life(), tc.Equals, state.Alive)
-	c.Assert(s.machine1.Life(), tc.Equals, state.Alive)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-1"},
-		{Tag: "machine-0"},
-		{Tag: "machine-42"},
-	}}
-	s.machineService.EXPECT().EnsureDeadMachine(gomock.Any(), coremachine.Name("1")).Return(nil).Times(2)
-	result, err := s.machiner.EnsureDead(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	err = s.machine0.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.machine0.Life(), tc.Equals, state.Alive)
-	err = s.machine1.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
-
-	// Try it again on a Dead machine; should work.
-	args = params.Entities{
-		Entities: []params.Entity{{Tag: "machine-1"}},
-	}
-	result, err = s.machiner.EnsureDead(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-
-	// Verify Life is unchanged.
-	err = s.machine1.Refresh()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.machine1.Life(), tc.Equals, state.Dead)
 }
 
 func (s *machinerSuite) TestWatch(c *tc.C) {

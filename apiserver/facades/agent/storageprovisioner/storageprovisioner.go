@@ -36,7 +36,6 @@ import (
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
 	*common.LifeGetter
-	*common.DeadEnsurer
 	*common.InstanceIdGetter
 
 	watcherRegistry facade.WatcherRegistry
@@ -235,7 +234,6 @@ func NewStorageProvisionerAPIv4(
 	}
 	return &StorageProvisionerAPIv4{
 		LifeGetter:       common.NewLifeGetter(applicationService, machineService, st, getLifeAuthFunc, logger),
-		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc, machineService),
 		InstanceIdGetter: common.NewInstanceIdGetter(machineService, getMachineAuthFunc),
 
 		watcherRegistry: watcherRegistry,
@@ -263,6 +261,17 @@ func NewStorageProvisionerAPIv4(
 		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
 	}, nil
+}
+
+// EnsureDead ensures that the specified entities are dead.
+//
+// Deprecated: This facade endpoint has not been in use since before 3.6, and
+// should be removed on the next facade bump.
+func (s *StorageProvisionerAPIv4) EnsureDead(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	return results, nil
 }
 
 // WatchBlockDevices watches for changes to the specified machines' block devices.

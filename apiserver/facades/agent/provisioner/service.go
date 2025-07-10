@@ -212,6 +212,24 @@ type ApplicationService interface {
 	GetApplicationEndpointBindings(ctx context.Context, appName string) (map[string]network.SpaceUUID, error)
 }
 
+// RemovalService provides access to the removal service.
+type RemovalService interface {
+	// MarkMachineAsDead marks the machine as dead. It will not remove the machine as
+	// that is a separate operation. This will advance the machines's life to dead
+	// and will not allow it to be transitioned back to alive.
+	// Returns an error if the machine does not exist.
+	MarkMachineAsDead(context.Context, coremachine.UUID) error
+
+	// DeleteMachine attempts to delete the specified machine from state entirely.
+	DeleteMachine(context.Context, coremachine.UUID) error
+
+	// MarkInstanceAsDead marks the machine's cloud instance as dead. It will not
+	// remove the instance as that is a separate operation. This will advance the
+	// instance's life to dead and will not allow it to be transitioned back to
+	// alive.
+	MarkInstanceAsDead(context.Context, coremachine.UUID) error
+}
+
 // CloudImageMetadataService manages cloud image metadata for provisionning
 type CloudImageMetadataService interface {
 

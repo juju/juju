@@ -4,8 +4,6 @@
 package machinemanager
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -42,11 +40,7 @@ type Pool interface {
 type Machine interface {
 	Id() string
 	Tag() names.Tag
-	Destroy(objectstore.ObjectStore) error
-	ForceDestroy(time.Duration) error
 	Base() state.Base
-	Containers() ([]string, error)
-	Principals() []string
 }
 
 type stateShim struct {

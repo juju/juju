@@ -502,60 +502,6 @@ func (sb *storageBackend) filesystemAttachments(query bson.D) ([]FilesystemAttac
 	return attachments, nil
 }
 
-// removeMachineFilesystemsOps returns txn.Ops to remove non-persistent filesystems
-// attached to the specified machine. This is used when the given machine is
-// being removed from state.
-func (sb *storageBackend) removeMachineFilesystemsOps(m *Machine) ([]txn.Op, error) {
-	// A machine cannot transition to Dead if it has any detachable storage
-	// attached, so any attachments are for machine-bound storage.
-	//
-	// Even if a filesystem is "non-detachable", there still exist filesystem
-	// attachments, and they may be removed independently of the filesystem.
-	// For example, the user may request that the filesystem be destroyed.
-	// This will cause the filesystem to become Dying, and the attachment
-	// to be Dying, then Dead, and finally removed. Only once the attachment
-	// is removed will the filesystem transition to Dead and then be removed.
-	// Therefore, there may be filesystems that are bound, but not attached,
-	// to the machine.
-	machineFilesystems, err := sb.filesystems(bson.D{{"hostid", m.Id()}})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops := make([]txn.Op, 0, 2*len(machineFilesystems)+len(m.doc.Filesystems))
-	for _, filesystemId := range m.doc.Filesystems {
-		ops = append(ops, txn.Op{
-			C:      filesystemAttachmentsC,
-			Id:     filesystemAttachmentId(m.Id(), filesystemId),
-			Assert: txn.DocExists,
-			Remove: true,
-		})
-	}
-	for _, f := range machineFilesystems {
-		if f.doc.StorageId != "" {
-			// The volume is assigned to a storage instance;
-			// make sure we also remove the storage instance.
-			// There should be no storage attachments remaining,
-			// as the units must have been removed before the
-			// machine can be; and the storage attachments must
-			// have been removed before the unit can be.
-			ops = append(ops,
-				txn.Op{
-					C:      storageInstancesC,
-					Id:     f.doc.StorageId,
-					Assert: txn.DocExists,
-					Remove: true,
-				},
-			)
-		}
-		fsOps, err := removeFilesystemOps(sb, f, f.doc.Releasing, false, nil)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, fsOps...)
-	}
-	return ops, nil
-}
-
 // isDetachableFilesystemTag reports whether or not the filesystem with the
 // specified tag is detachable.
 func isDetachableFilesystemTag(db Database, tag names.FilesystemTag) (bool, error) {

@@ -6,8 +6,6 @@ package state
 import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-
-	"github.com/juju/juju/core/container"
 )
 
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.
@@ -38,27 +36,4 @@ func insertNewContainerRefOp(mb modelBackend, machineId string, children ...stri
 			Children: children,
 		},
 	}
-}
-
-// removeContainerRefOps returns the txn.Op's necessary to remove a machine container record.
-// These include removing the record itself and updating the host machine's children property.
-func removeContainerRefOps(mb modelBackend, machineId string) []txn.Op {
-	removeRefOp := txn.Op{
-		C:      containerRefsC,
-		Id:     mb.docID(machineId),
-		Assert: txn.DocExists,
-		Remove: true,
-	}
-	// If the machine is a container, figure out its parent host.
-	parentId := container.ParentId(machineId)
-	if parentId == "" {
-		return []txn.Op{removeRefOp}
-	}
-	removeParentRefOp := txn.Op{
-		C:      containerRefsC,
-		Id:     mb.docID(parentId),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$pull", bson.D{{"children", machineId}}}},
-	}
-	return []txn.Op{removeRefOp, removeParentRefOp}
 }

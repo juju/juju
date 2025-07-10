@@ -37,6 +37,7 @@ func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerA
 		domainServices.Application(),
 		domainServices.Machine(),
 		domainServices.Status(),
+		domainServices.Removal(),
 		ctx.WatcherRegistry(),
 		ctx.Auth(),
 		ctx.Logger(),

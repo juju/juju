@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -44,12 +43,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	}
 	pool := &poolShim{ctx.StatePool()}
 
-	var leadership Leadership
-	leadership, err := common.NewLeadershipPinningFromContext(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	logger := ctx.Logger().Child("machinemanager")
 
 	modelType, err := ctx.DomainServices().ModelInfo().GetModelType(stdCtx)
@@ -78,12 +71,12 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		StatusService:           domainServices.Status(),
 		ModelConfigService:      domainServices.Config(),
 		NetworkService:          domainServices.Network(),
+		RemovalService:          domainServices.Removal(),
 	}
 
 	return NewMachineManagerAPI(
 		ctx.ModelUUID(),
 		backend,
-		ctx.ObjectStore(),
 		ctx.ControllerObjectStore(),
 		storageAccess,
 		pool,
@@ -92,7 +85,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 			Authorizer: ctx.Auth(),
 		},
 		ctx.Resources(),
-		leadership,
 		logger,
 		ctx.Clock(),
 		services,

@@ -35,6 +35,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/container"
@@ -51,7 +52,6 @@ import (
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.ControllerConfigAPI
-	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.APIAddresser
@@ -71,6 +71,7 @@ type ProvisionerAPI struct {
 	machineService            MachineService
 	statusService             StatusService
 	applicationService        ApplicationService
+	removalService            RemovalService
 	resources                 facade.Resources
 	authorizer                facade.Authorizer
 	storageProviderRegistry   storage.ProviderRegistry
@@ -141,6 +142,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	agentService := domainServices.Agent()
 	agentBinaryService := domainServices.AgentBinary()
 	applicationService := domainServices.Application()
+	removalService := domainServices.Removal()
 	machineService := domainServices.Machine()
 	statusService := domainServices.Status()
 	modelInfoService := domainServices.ModelInfo()
@@ -190,7 +192,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	resources := ctx.Resources()
 
 	api := &ProvisionerAPI{
-		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, machineService),
 		PasswordChanger:      common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(applicationService, machineService, st, getAuthFunc, ctx.Logger()),
 		APIAddresser:         common.NewAPIAddresser(controllerNodeService, watcherRegistry),
@@ -213,6 +214,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		machineService:            machineService,
 		statusService:             statusService,
 		applicationService:        applicationService,
+		removalService:            removalService,
 		resources:                 resources,
 		authorizer:                authorizer,
 		configGetter:              configGetter,
@@ -311,6 +313,55 @@ func (api *ProvisionerAPI) watchOneMachineContainers(ctx context.Context, arg pa
 		StringsWatcherId: watcherID,
 		Changes:          changes,
 	}, nil
+}
+
+func (api *ProvisionerAPI) EnsureDead(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return results, nil
+	}
+	canAccess, err := api.getAuthFunc(ctx)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(tag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = api.removalService.MarkMachineAsDead(ctx, machineUUID)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
+			continue
+		} else if errors.Is(err, removalerrors.MachineHasContainers) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeMachineHasContainers, "machine %q hosts containers", tag.Id())
+			continue
+		} else if errors.Is(err, removalerrors.MachineHasUnits) {
+			results.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeHasAssignedUnits, "machine %q hosts units", tag.Id())
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
 }
 
 // WatchContainers starts a StringsWatcher to watch containers deployed to
@@ -1493,21 +1544,40 @@ func (api *ProvisionerAPI) MarkMachinesForRemoval(ctx context.Context, machines 
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, machine := range machines.Entities {
-		results[i].Error = apiservererrors.ServerError(api.markOneMachineForRemoval(machine.Tag, canAccess))
+		mTag, err := names.ParseMachineTag(machine.Tag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canAccess(mTag) {
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(mTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", mTag.Id())
+			continue
+		} else if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = api.removalService.MarkInstanceAsDead(ctx, machineUUID)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", mTag.Id())
+			continue
+		} else if errors.Is(err, removalerrors.MachineHasContainers) {
+			results[i].Error = apiservererrors.ParamsErrorf(params.CodeMachineHasContainers, "machine %q hosts containers", mTag.Id())
+			continue
+		} else if errors.Is(err, removalerrors.MachineHasUnits) {
+			results[i].Error = apiservererrors.ParamsErrorf(params.CodeHasAssignedUnits, "machine %q hosts units", mTag.Id())
+			continue
+		} else if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return params.ErrorResults{Results: results}, nil
-}
-
-func (api *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess common.AuthFunc) error {
-	mTag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := api.getMachine(canAccess, mTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.MarkForRemoval()
 }
 
 func (api *ProvisionerAPI) SetHostMachineNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
@@ -1613,20 +1683,28 @@ func (api *ProvisionerAPI) Remove(ctx context.Context, args params.Entities) (pa
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := api.getMachine(canModify, tag)
-		if err != nil {
+		if !canModify(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineName := coremachine.Name(tag.Id())
+		machineUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
+			continue
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		// Only remove machines that are not Alive.
-		if life := machine.Life(); life == state.Alive {
-			err := fmt.Errorf("cannot remove machine %q: still alive", tag.String())
+		err = api.removalService.DeleteMachine(ctx, machineUUID)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
+			continue
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
-		}
-		if err := machine.Remove(); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil

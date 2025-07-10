@@ -444,11 +444,6 @@ func (u *Unit) destroyHostOps(a *Application, op *forcedOperation) (ops []txn.Op
 	var cleanupOps []txn.Op
 	if machineCheck && containerCheck {
 		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
-		if !op.Force {
-			cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, op.Force)}
-		} else {
-			cleanupOps = []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, op.MaxWait)}
-		}
 	}
 
 	ops = append(ops, txn.Op{

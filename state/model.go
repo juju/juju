@@ -852,9 +852,6 @@ func (m *Model) destroyOps(
 		// that case we'll get errors if we try to enqueue model
 		// cleanups, because the cleanups collection is non-global.
 		ops = append(ops, newCleanupOp(cleanupApplicationsForDyingModel, modelUUID, args))
-		if m.Type() == ModelTypeIAAS {
-			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID, args))
-		}
 		if args.DestroyStorage != nil {
 			// The user has specified that the storage should be destroyed
 			// or released, which we can do in a cleanup. If the user did
@@ -1046,10 +1043,6 @@ func noNewStorageModelEntityRefs(doc *modelEntityRefsDoc) []txn.Op {
 
 func addModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
 	return addModelEntityRefOp(mb, "machines", machineId)
-}
-
-func removeModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
-	return removeModelEntityRefOp(mb, "machines", machineId)
 }
 
 func addModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {

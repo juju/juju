@@ -34,10 +34,6 @@ type ModelConfigService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	// No error is returned if the provided machine doesn't exist, just nothing
-	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error)
 	// GetInstanceID returns the cloud specific instance id for this machine.

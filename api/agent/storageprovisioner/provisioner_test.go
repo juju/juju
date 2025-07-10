@@ -988,12 +988,6 @@ func (s *provisionerSuite) TestRemove(c *tc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestEnsureDead(c *tc.C) {
-	s.testOpWithTags(c, "EnsureDead", func(st *storageprovisioner.Client, tags []names.Tag) ([]params.ErrorResult, error) {
-		return st.EnsureDead(c.Context(), tags)
-	})
-}
-
 func (s *provisionerSuite) TestLife(c *tc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -1088,13 +1082,6 @@ func (s *provisionerSuite) TestRemoveAttachmentsClientError(c *tc.C) {
 func (s *provisionerSuite) TestSetVolumeInfoClientError(c *tc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
 		_, err := st.SetVolumeInfo(c.Context(), nil)
-		return err
-	})
-}
-
-func (s *provisionerSuite) TestEnsureDeadClientError(c *tc.C) {
-	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.EnsureDead(c.Context(), nil)
 		return err
 	})
 }
@@ -1255,12 +1242,6 @@ func (s *provisionerSuite) testServerError(c *tc.C, apiCall func(*storageprovisi
 func (s *provisionerSuite) TestRemoveServerError(c *tc.C) {
 	s.testServerError(c, func(st *storageprovisioner.Client, tags []names.Tag) ([]params.ErrorResult, error) {
 		return st.Remove(c.Context(), tags)
-	})
-}
-
-func (s *provisionerSuite) TestEnsureDeadServerError(c *tc.C) {
-	s.testServerError(c, func(st *storageprovisioner.Client, tags []names.Tag) ([]params.ErrorResult, error) {
-		return st.EnsureDead(c.Context(), tags)
 	})
 }
 

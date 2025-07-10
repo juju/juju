@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/deployment"
-	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
+	removalstate "github.com/juju/juju/domain/removal/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -60,6 +60,8 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
+	removalSt := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
 	// Should fire when a machine is created.
 	var res0 service.AddMachineResults
 	harness.AddTest(func(c *tc.C) {
@@ -89,7 +91,9 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	})
 	// Should fire when the machine life changes.
 	harness.AddTest(func(c *tc.C) {
-		err := s.svc.SetMachineLife(c.Context(), res1.MachineName, life.Dying)
+		mUUID, err := s.svc.GetMachineUUID(c.Context(), res1.MachineName)
+		c.Assert(err, tc.ErrorIsNil)
+		_, _, err = removalSt.EnsureMachineNotAliveCascade(c.Context(), mUUID.String(), true)
 		c.Assert(err, tc.IsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{res1.MachineName.String()}))
@@ -196,6 +200,8 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) 
 }
 
 func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
+	removalSt := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
 	watcher, err := s.svc.WatchModelMachineLifeAndStartTimes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -216,7 +222,9 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 	})
 
 	harness.AddTest(func(c *tc.C) {
-		err := s.svc.SetMachineLife(c.Context(), res.MachineName, life.Dying)
+		mUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
+		c.Assert(err, tc.ErrorIsNil)
+		_, _, err = removalSt.EnsureMachineNotAliveCascade(c.Context(), mUUID.String(), true)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{res.MachineName.String()}))

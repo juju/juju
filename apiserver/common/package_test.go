@@ -4,15 +4,10 @@
 package common_test
 
 import (
-	"fmt"
 	"os"
 	stdtesting "testing"
 
-	"github.com/juju/errors"
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/state"
 )
 
 // TODO: Move all generated mocks out of the mocks directory and directly into
@@ -20,7 +15,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/authorizer_mock.go github.com/juju/juju/apiserver/common Authorizer
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCommandService,CloudService,ControllerConfigState,ControllerConfigService,ExternalControllerService,ToolsFinder,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,ModelAgentService,MachineRebootService,EnsureDeadMachineService,WatchableMachineService,UnitStateService,ApplicationService,MachineService,StatusService,LeadershipPinningBackend,LeadershipMachine,AgentPasswordService,AgentBinaryService
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCommandService,CloudService,ControllerConfigState,ControllerConfigService,ExternalControllerService,ToolsFinder,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,ModelAgentService,MachineRebootService,WatchableMachineService,UnitStateService,ApplicationService,MachineService,StatusService,AgentPasswordService,AgentBinaryService
 //go:generate go run go.uber.org/mock/mockgen -typed -package common -destination package_mock.go github.com/juju/juju/apiserver/common APIAddressAccessor
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/binarystorage StorageCloser
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mocks.go github.com/juju/juju/state EntityFinder,Entity
@@ -34,33 +29,4 @@ func TestMain(m *stdtesting.M) {
 		defer testing.MgoTestMain()()
 		return m.Run()
 	}())
-}
-
-type entityWithError interface {
-	state.Entity
-	error() error
-}
-
-type fakeState struct {
-	entities map[names.Tag]entityWithError
-}
-
-func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
-	entity, ok := st.entities[tag]
-	if !ok {
-		return nil, errors.NotFoundf("entity %q", tag)
-	}
-	if err := entity.error(); err != nil {
-		return nil, err
-	}
-	return entity, nil
-}
-
-type fetchError string
-
-func (f fetchError) error() error {
-	if f == "" {
-		return nil
-	}
-	return fmt.Errorf("%s", string(f))
 }

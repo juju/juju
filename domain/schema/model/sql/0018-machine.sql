@@ -216,16 +216,6 @@ SELECT
 FROM machine_status AS ms
 JOIN machine_status_value AS msv ON ms.status_id = msv.id;
 
--- machine_removals table is a table which represents machines that are marked
--- for removal.
--- Being added to this table means that the machine is marked for removal,
-CREATE TABLE machine_removals (
-    machine_uuid TEXT NOT NULL PRIMARY KEY,
-    CONSTRAINT fk_machine_removals_machine
-    FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid)
-);
-
 -- machine_lxd_profile table keeps track of the lxd profiles (previously
 -- charm-profiles) for a machine.
 CREATE TABLE machine_lxd_profile (

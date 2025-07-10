@@ -56,7 +56,7 @@ WHERE  uuid = $entityUUID.uuid`, machineUUID)
 // running on the same parent machine. The returned units and child machines
 // uuids can then be used to ensure the units and machines are correctly
 // cascaded to the dying state.
-func (st *State) EnsureMachineNotAliveCascade(ctx context.Context, mUUID string) (units, childMachines []string, err error) {
+func (st *State) EnsureMachineNotAliveCascade(ctx context.Context, mUUID string, force bool) (units, childMachines []string, err error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, nil, errors.Capture(err)
@@ -89,7 +89,8 @@ AND    life_id = 0;`, machineUUID)
 SELECT    mp.machine_uuid AS &entityUUID.uuid
 FROM      machine_parent AS mp
 JOIN      machine AS m ON mp.parent_uuid = m.uuid
-WHERE     mp.parent_uuid = $entityUUID.uuid;`, machineUUID)
+WHERE     mp.parent_uuid = $entityUUID.uuid
+AND       m.life_id = 0;`, machineUUID)
 	if err != nil {
 		return nil, nil, errors.Errorf("preparing container machine selection query: %w", err)
 	}
@@ -116,8 +117,7 @@ AND    life_id = 0;`, uuids{})
 	selectUnitStmt, err := st.Prepare(`
 SELECT u.uuid AS &entityUUID.uuid
 FROM   unit AS u
-JOIN   net_node AS n ON n.uuid = u.net_node_uuid
-JOIN   machine  AS m ON m.net_node_uuid = n.uuid
+JOIN   machine  AS m ON m.net_node_uuid = u.net_node_uuid
 WHERE  m.uuid IN ($uuids[:])
 AND    u.life_id = 0;`, machineUUID, uuids{})
 	if err != nil {
@@ -138,6 +138,25 @@ AND    life_id = 0;`, uuids{})
 		machineUUIDs []entityUUID
 	)
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Remove any container machines that are on the same parent machine
+		// as the input machine.
+		if err := tx.Query(ctx, selectContainerMachines, machineUUID).GetAll(&machineUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting container machines: %w", err)
+		}
+
+		if !force && len(machineUUIDs) > 0 {
+			return errors.Errorf("cannot set machine %q to dying without force: %w", mUUID, removalerrors.MachineHasContainers)
+		}
+
+		var parentUnitUUIDs []entityUUID
+		if err := tx.Query(ctx, selectUnitStmt, uuids{machineUUID.UUID}).GetAll(&parentUnitUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting parent units: %w", err)
+		}
+
+		if !force && len(parentUnitUUIDs) > 0 {
+			return errors.Errorf("cannot set machine %q to dying without force: %w", mUUID, removalerrors.MachineHasUnits)
+		}
+
 		if err := tx.Query(ctx, updateMachineStmt, machineUUID).Run(); err != nil {
 			return errors.Errorf("advancing machine life: %w", err)
 		}
@@ -146,14 +165,7 @@ AND    life_id = 0;`, uuids{})
 			return errors.Errorf("advancing machine cloud instance life: %w", err)
 		}
 
-		// Remove any container machines that are on the same parent machine
-		// as the input machine.
-		if err := tx.Query(ctx, selectContainerMachines, machineUUID).GetAll(&machineUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("selecting container machines: %w", err)
-		}
-
-		var parentUnitUUIDs, childUnitUUIDs []entityUUID
-
+		var childUnitUUIDs []entityUUID
 		if len(machineUUIDs) > 0 {
 			s := transform.Slice(machineUUIDs, func(u entityUUID) string {
 				return u.UUID
@@ -167,13 +179,12 @@ AND    life_id = 0;`, uuids{})
 
 			// If there are any container machines, we also need to
 			// select any units that are on those machines.
+			//
+			// NOTE(jack-w-shaw): we know implicitly here that force must be
+			// true, so no need to perform a force check.
 			if err := tx.Query(ctx, selectUnitStmt, uuids(s)).GetAll(&childUnitUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("selecting container units: %w", err)
 			}
-		}
-
-		if err := tx.Query(ctx, selectUnitStmt, uuids{machineUUID.UUID}).GetAll(&parentUnitUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("selecting parent units: %w", err)
 		}
 
 		numAffected := len(parentUnitUUIDs) + len(childUnitUUIDs)
@@ -323,6 +334,11 @@ AND     lld.mac_address IS NOT NULL;`, entityUUID{UUID: machineUUID}, linkLayerD
 }
 
 // MarkMachineAsDead marks the machine with the input UUID as dead.
+// The following errors are returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [removalerrors.EntityStillAlive] if the machine is alive.
+// - [removalerrors.MachineHasContainers] if the machine hosts containers.
+// - [removalerrors.MachineHasUnits] if the machine hosts units.
 func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB()
 	if err != nil {
@@ -347,6 +363,11 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
+		err = st.checkNoDependents(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		err := tx.Query(ctx, updateStmt, machineUUID).Run()
 		if err != nil {
 			return errors.Errorf("marking machine as dead: %w", err)
@@ -358,6 +379,11 @@ AND    life_id = 1`, machineUUID)
 
 // MarkInstanceAsDead marks the machine cloud instance with the input UUID as
 // dead.
+// The following errors are returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [removalerrors.EntityStillAlive] if the machine is alive.
+// - [removalerrors.MachineHasContainers] if the machine hosts containers.
+// - [removalerrors.MachineHasUnits] if the machine hosts units.
 func (st *State) MarkInstanceAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB()
 	if err != nil {
@@ -371,20 +397,25 @@ SET    life_id = 2
 WHERE  machine_uuid = $entityUUID.uuid
 AND    life_id = 1`, machineUUID)
 	if err != nil {
-		return errors.Errorf("preparing machine life update: %w", err)
+		return errors.Errorf("preparing instance life update: %w", err)
 	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if l, err := st.getMachineLife(ctx, tx, mUUID); err != nil {
-			return errors.Errorf("getting machine life: %w", err)
+		if l, err := st.getInstanceLife(ctx, tx, mUUID); err != nil {
+			return errors.Errorf("getting machine instance life: %w", err)
 		} else if l == life.Dead {
 			return nil
 		} else if l == life.Alive {
 			return removalerrors.EntityStillAlive
 		}
 
+		err = st.checkNoDependents(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		err := tx.Query(ctx, updateStmt, machineUUID).Run()
 		if err != nil {
-			return errors.Errorf("marking machine as dead: %w", err)
+			return errors.Errorf("marking machine instance as dead: %w", err)
 		}
 
 		return nil
@@ -446,6 +477,11 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("waiting for instance to be removed before deletion").Add(removalerrors.RemovalJobIncomplete)
 		}
 
+		err = st.checkNoDependents(ctx, tx, machineUUIDParam)
+		if err != nil {
+			return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
+		}
+
 		// Remove all basic machine data associated with the machine.
 		if err := st.removeBasicMachineData(ctx, tx, machineUUIDParam.UUID); err != nil {
 			return errors.Errorf("removing basic machine data: %w", err)
@@ -472,6 +508,47 @@ DELETE FROM net_node WHERE uuid IN
 	if err != nil {
 		return errors.Errorf("deleting machine: %w", err)
 	}
+	return nil
+}
+
+func (st *State) checkNoDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
+	countContainersOnMachine, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM machine_parent
+WHERE parent_uuid = $entityUUID.uuid
+`, count{}, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	countUnitsOnMachine, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM unit
+JOIN machine ON machine.net_node_uuid = unit.net_node_uuid
+WHERE machine.uuid = $entityUUID.uuid
+`, count{}, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var containerCount count
+	err = tx.Query(ctx, countContainersOnMachine, machineUUIDParam).Get(&containerCount)
+	if err != nil {
+		return errors.Errorf("getting container count: %w", err)
+	} else if containerCount.Count > 0 {
+		return errors.Errorf("cannot delete machine %q, it hosts has %d container(s)", machineUUIDParam.UUID, containerCount.Count).
+			Add(removalerrors.MachineHasContainers)
+	}
+
+	var unitCount count
+	err = tx.Query(ctx, countUnitsOnMachine, machineUUIDParam).Get(&unitCount)
+	if err != nil {
+		return errors.Errorf("getting unit count: %w", err)
+	} else if unitCount.Count > 0 {
+		return errors.Errorf("cannot delete machine %q, it hosts has %d unit(s)", machineUUIDParam.UUID, unitCount.Count).
+			Add(removalerrors.MachineHasUnits)
+	}
+
 	return nil
 }
 
