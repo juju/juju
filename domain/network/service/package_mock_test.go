@@ -1099,6 +1099,45 @@ func (c *MockStateMergeLinkLayerDeviceCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// MoveSubnetsToSpace mocks base method.
+func (m *MockState) MoveSubnetsToSpace(arg0 context.Context, arg1 []string, arg2 string, arg3 bool) ([]network0.MovedSubnets, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MoveSubnetsToSpace", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]network0.MovedSubnets)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MoveSubnetsToSpace indicates an expected call of MoveSubnetsToSpace.
+func (mr *MockStateMockRecorder) MoveSubnetsToSpace(arg0, arg1, arg2, arg3 any) *MockStateMoveSubnetsToSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveSubnetsToSpace", reflect.TypeOf((*MockState)(nil).MoveSubnetsToSpace), arg0, arg1, arg2, arg3)
+	return &MockStateMoveSubnetsToSpaceCall{Call: call}
+}
+
+// MockStateMoveSubnetsToSpaceCall wrap *gomock.Call
+type MockStateMoveSubnetsToSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMoveSubnetsToSpaceCall) Return(arg0 []network0.MovedSubnets, arg1 error) *MockStateMoveSubnetsToSpaceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMoveSubnetsToSpaceCall) Do(f func(context.Context, []string, string, bool) ([]network0.MovedSubnets, error)) *MockStateMoveSubnetsToSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMoveSubnetsToSpaceCall) DoAndReturn(f func(context.Context, []string, string, bool) ([]network0.MovedSubnets, error)) *MockStateMoveSubnetsToSpaceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NICsInSpaces mocks base method.
 func (m *MockState) NICsInSpaces(arg0 context.Context, arg1 string) (map[string][]network0.NetInterface, error) {
 	m.ctrl.T.Helper()
