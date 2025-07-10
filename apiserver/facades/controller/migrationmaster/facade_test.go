@@ -120,13 +120,14 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	targetInfo := coremigration.TargetInfo{
-		ControllerTag: names.NewControllerTag(s.controllerUUID),
-		Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
-		CACert:        "trust me",
-		AuthTag:       names.NewUserTag("admin"),
-		Password:      password,
-		Macaroons:     []macaroon.Slice{{mac}},
-		Token:         token,
+		ControllerTag:  names.NewControllerTag(s.controllerUUID),
+		Addrs:          []string{"1.1.1.1:1", "2.2.2.2:2"},
+		CACert:         "trust me",
+		AuthTag:        names.NewUserTag("admin"),
+		Password:       password,
+		Macaroons:      []macaroon.Slice{{mac}},
+		Token:          token,
+		SkipUserChecks: true,
 	}
 
 	exp := mig.EXPECT()
@@ -147,13 +148,14 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 		Spec: params.MigrationSpec{
 			ModelTag: names.NewModelTag(s.modelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: names.NewControllerTag(s.controllerUUID).String(),
-				Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
-				CACert:        "trust me",
-				AuthTag:       names.NewUserTag("admin").String(),
-				Password:      password,
-				Macaroons:     `[[{"l":"location","i":"id","s64":"qYAr8nQmJzPWKDppxigFtWaNv0dbzX7cJaligz98LLo"}]]`,
-				Token:         token,
+				ControllerTag:  names.NewControllerTag(s.controllerUUID).String(),
+				Addrs:          []string{"1.1.1.1:1", "2.2.2.2:2"},
+				CACert:         "trust me",
+				AuthTag:        names.NewUserTag("admin").String(),
+				Password:       password,
+				Macaroons:      `[[{"l":"location","i":"id","s64":"qYAr8nQmJzPWKDppxigFtWaNv0dbzX7cJaligz98LLo"}]]`,
+				Token:          token,
+				SkipUserChecks: true,
 			},
 		},
 		MigrationId:      "ID",

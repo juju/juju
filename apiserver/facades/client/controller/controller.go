@@ -670,6 +670,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		AuthTag:         authTag,
 		Password:        specTarget.Password,
 		Macaroons:       macs,
+		SkipUserChecks:  specTarget.SkipUserChecks,
 		Token:           specTarget.Token,
 	}
 
@@ -846,9 +847,7 @@ var runMigrationPreChecks = func(
 	}
 	defer targetConn.Close()
 
-	// Token is optional, but if set, we are migrating to a JIMM controller
-	// which doesn't support local users, so we need to skip this check.
-	if targetInfo.Token != "" {
+	if !targetInfo.SkipUserChecks {
 		dstUserList, err := getTargetControllerUsers(targetConn)
 		if err != nil {
 			return errors.Trace(err)

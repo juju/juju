@@ -46,9 +46,13 @@ type TargetInfo struct {
 
 	// Token holds an optional token string to use for authentication
 	// specifically with a JIMM controller.
-	// If set, the apiserver will skip validation of local users on the
-	// target controller.
 	Token string
+
+	// SkipUserChecks indicates whether pre-check validation should
+	// skip checks for the existence of users on the target controller.
+	// This is useful for migrations to a JIMM controller, where
+	// no local users will exist.
+	SkipUserChecks bool
 }
 
 // Validate returns an error if the TargetInfo contains bad data. Nil
