@@ -148,9 +148,6 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 		},
 	}).Return(nil)
 
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
-	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-
 	var receivedArgs []application.AddUnitArg
 	s.state.EXPECT().CreateCAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddCAASApplicationArg, args []application.AddUnitArg) (coreapplication.ID, error) {
 		c.Assert(a, tc.DeepEquals, app)
@@ -1448,6 +1445,12 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	platform := deployment.Platform{
+		Channel:      "24.04",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.AMD64,
+	}
+
 	now := ptr(s.clock.Now())
 	us := []application.AddIAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
@@ -1463,6 +1466,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 				},
 			},
 		},
+		Platform: platform,
 	}}
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -1482,11 +1486,6 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 		Source:        applicationcharm.CharmHubSource,
 		Revision:      42,
 		Architecture:  architecture.AMD64,
-	}
-	platform := deployment.Platform{
-		Channel:      "24.04",
-		OSType:       deployment.Ubuntu,
-		Architecture: architecture.AMD64,
 	}
 	app := application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
