@@ -20,8 +20,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalstorage "github.com/juju/juju/internal/storage"
+	loggertesting "github.com/juju/juju/internal/logger/test	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
