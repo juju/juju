@@ -439,15 +439,15 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(ctx context.Context, ar
 			if len(volumeAttachmentUUIDs) == 0 {
 				return nil, nil
 			}
-			IDs, err := s.storageProvisioningService.GetVolumeAttachmentIDs(ctx, volumeAttachmentUUIDs)
+			attachmentIDs, err := s.storageProvisioningService.GetVolumeAttachmentIDs(ctx, volumeAttachmentUUIDs)
 			if err != nil {
 				return nil, internalerrors.Capture(err)
 			}
-			if len(IDs) == 0 {
+			if len(attachmentIDs) == 0 {
 				return nil, nil
 			}
-			out := make([]params.MachineStorageId, 0, len(IDs))
-			for _, id := range IDs {
+			out := make([]params.MachineStorageId, 0, len(attachmentIDs))
+			for _, id := range attachmentIDs {
 				if id.MachineName == nil && id.UnitName == nil {
 					// This should never happen.
 					continue
@@ -478,15 +478,15 @@ func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(ctx context.Context
 			if len(filesystemAttachmentUUIDs) == 0 {
 				return nil, nil
 			}
-			IDs, err := s.storageProvisioningService.GetFilesystemAttachmentIDs(ctx, filesystemAttachmentUUIDs)
+			attachmentIDs, err := s.storageProvisioningService.GetFilesystemAttachmentIDs(ctx, filesystemAttachmentUUIDs)
 			if err != nil {
 				return nil, internalerrors.Capture(err)
 			}
-			if len(IDs) == 0 {
+			if len(attachmentIDs) == 0 {
 				return nil, nil
 			}
-			out := make([]params.MachineStorageId, 0, len(IDs))
-			for _, id := range IDs {
+			out := make([]params.MachineStorageId, 0, len(attachmentIDs))
+			for _, id := range attachmentIDs {
 				if id.MachineName == nil && id.UnitName == nil {
 					// This should never happen.
 					continue
@@ -610,7 +610,7 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context
 func (s *StorageProvisionerAPIv4) watchAttachments(
 	ctx context.Context,
 	args params.Entities,
-	watchEnvironAttachments func(context.Context) (corewatcher.StringsWatcher, error),
+	watchModelAttachments func(context.Context) (corewatcher.StringsWatcher, error),
 	watchMachineAttachments func(context.Context, machine.UUID) (corewatcher.StringsWatcher, error),
 	parseAttachmentIds func(context.Context, ...string) ([]params.MachineStorageId, error),
 ) (params.MachineStorageIdsWatchResults, error) {
@@ -639,7 +639,7 @@ func (s *StorageProvisionerAPIv4) watchAttachments(
 			}
 			sourceWatcher, err = watchMachineAttachments(ctx, machineUUID)
 		case names.ModelTag:
-			sourceWatcher, err = watchEnvironAttachments(ctx)
+			sourceWatcher, err = watchModelAttachments(ctx)
 		default:
 			return "", nil, errors.NotSupportedf("watching attachments for %v", tag)
 		}

@@ -205,13 +205,6 @@ func (sb *storageBackend) watchMachineVolumeAttachmentPlans(m names.MachineTag) 
 	return newLifecycleWatcher(mb, volumeAttachmentPlanC, members, filter, nil)
 }
 
-// WatchModelVolumeAttachments returns a StringsWatcher that notifies of
-// changes to the lifecycles of all volume attachments related to environ-
-// scoped volumes.
-func (sb *storageBackend) WatchModelVolumeAttachments() StringsWatcher {
-	return sb.watchModelHostStorageAttachments(volumeAttachmentsC)
-}
-
 // WatchModelFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
@@ -237,26 +230,11 @@ func (sb *storageBackend) watchModelHostStorageAttachments(collection string) St
 	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
 
-// WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
-// changes to the lifecycles of all volume attachments related to the specified
-// machine, for volumes scoped to the machine.
-func (sb *storageBackend) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
-	return sb.watchHostStorageAttachments(m, volumeAttachmentsC)
-}
-
 // WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all filesystem attachments related to the specified
 // machine, for filesystems scoped to the machine.
 func (sb *storageBackend) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
 	return sb.watchHostStorageAttachments(m, filesystemAttachmentsC)
-}
-
-// WatchUnitVolumeAttachments returns a StringsWatcher that notifies of
-// changes to the lifecycles of all volume attachments related to the specified
-// application's units, for volumes scoped to the application's units.
-// TODO(caas) - currently untested since units don't directly support attached volumes
-func (sb *storageBackend) WatchUnitVolumeAttachments(app names.ApplicationTag) StringsWatcher {
-	return sb.watchHostStorageAttachments(app, volumeAttachmentsC)
 }
 
 // WatchUnitFilesystemAttachments returns a StringsWatcher that notifies of
