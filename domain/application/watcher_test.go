@@ -20,6 +20,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -43,6 +44,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -1670,13 +1672,19 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		return nil, coreerrors.NotSupported
 	}
 
+	registryGetter := corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
+		return internalstorage.NotImplementedProviderRegistry{}
+	})
+	state := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	return service.NewWatchableService(
-		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		state,
 		domaintesting.NoopLeaderEnsurer(),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,
 		providerGetter,
 		caasProviderGetter,
+		service.NewStorageProviderValidator(registryGetter, state),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

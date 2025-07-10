@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationservicetest "github.com/juju/juju/domain/application/service/testing"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/secret/service"
@@ -974,6 +975,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
+		applicationservicetest.StorageProviderValidator{},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

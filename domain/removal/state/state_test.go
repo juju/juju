@@ -178,6 +178,7 @@ func (s *baseSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBF
 		providerGetter,
 		caasProviderGetter,
 		nil,
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),

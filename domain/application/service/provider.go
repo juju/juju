@@ -72,6 +72,7 @@ func NewProviderService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
+	storageProviderValidator StorageProviderValidator,
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -86,9 +87,10 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		agentVersionGetter:      agentVersionGetter,
-		provider:                provider,
-		caasApplicationProvider: caasApplicationProvider,
+		agentVersionGetter:       agentVersionGetter,
+		provider:                 provider,
+		caasApplicationProvider:  caasApplicationProvider,
+		storageProviderValidator: storageProviderValidator,
 	}
 }
 
