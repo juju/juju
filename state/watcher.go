@@ -1090,69 +1090,6 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 	}
 }
 
-// machineAddressesWatcher notifies about changes to a machine's addresses.
-//
-// The first event emitted contains the addresses currently assigned to the
-// machine. From then on, a new event is emitted whenever the machine's
-// addresses change.
-type machineAddressesWatcher struct {
-	commonWatcher
-	machine *Machine
-	out     chan struct{}
-}
-
-var _ Watcher = (*machineAddressesWatcher)(nil)
-
-// WatchAddresses returns a new NotifyWatcher watching m's addresses.
-func (m *Machine) WatchAddresses() NotifyWatcher {
-	return newMachineAddressesWatcher(m)
-}
-
-func newMachineAddressesWatcher(m *Machine) NotifyWatcher {
-	w := &machineAddressesWatcher{
-		commonWatcher: newCommonWatcher(m.st),
-		out:           make(chan struct{}),
-		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
-	}
-	w.tomb.Go(func() error {
-		defer close(w.out)
-		return w.loop()
-	})
-	return w
-}
-
-// Changes returns the event channel for w.
-func (w *machineAddressesWatcher) Changes() <-chan struct{} {
-	return w.out
-}
-
-func (w *machineAddressesWatcher) loop() error {
-	machineCh := make(chan watcher.Change)
-	w.watcher.Watch(machinesC, w.machine.doc.DocID, machineCh)
-	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
-	addresses := w.machine.Addresses()
-	out := w.out
-	for {
-		select {
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-machineCh:
-			if err := w.machine.Refresh(); err != nil {
-				return err
-			}
-			newAddresses := w.machine.Addresses()
-			if !addressesEqual(newAddresses, addresses) {
-				addresses = newAddresses
-				out = w.out
-			}
-		case out <- struct{}{}:
-			out = nil
-		}
-	}
-}
-
 // WatchCleanups starts and returns a CleanupWatcher.
 func (st *State) WatchCleanups() NotifyWatcher {
 	return newNotifyCollWatcher(st, cleanupsC, isLocalID(st))

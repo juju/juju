@@ -18,7 +18,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
@@ -278,19 +277,6 @@ func (m *Machine) setAgentVersionOps(v semversion.Binary) ([]txn.Op, *tools.Tool
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
 	return ops, tools, nil
-}
-
-func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
-	if m.doc.Life == Dead {
-		return nil, stateerrors.ErrDead
-	}
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
-	}}
-	return ops, nil
 }
 
 // PasswordValid returns whether the given password is valid
@@ -866,15 +852,6 @@ func (m *Machine) Addresses() (addresses network.SpaceAddresses) {
 	return network.MergedAddresses(networkAddresses(m.doc.MachineAddresses), networkAddresses(m.doc.Addresses))
 }
 
-func containsAddress(addresses []address, address address) bool {
-	for _, addr := range addresses {
-		if addr.Value == address.Value {
-			return true
-		}
-	}
-	return false
-}
-
 // PublicAddress returns a public address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
 func (m *Machine) PublicAddress() (network.SpaceAddress, error) {
@@ -886,54 +863,6 @@ func (m *Machine) PublicAddress() (network.SpaceAddress, error) {
 	return publicAddress, err
 }
 
-// maybeGetNewAddress determines if the current address is the most appropriate
-// match, and if not it selects the best from the slice of all available
-// addresses. It returns the new address and a bool indicating if a different
-// one was picked.
-func maybeGetNewAddress(
-	addr address,
-	providerAddresses,
-	machineAddresses []address,
-	getAddr func([]address) network.SpaceAddress,
-	checkScope func(address) bool,
-) (address, bool) {
-	// For picking the best address, try provider addresses first.
-	var newAddr address
-	netAddr := getAddr(providerAddresses)
-	if netAddr.Value == "" {
-		netAddr = getAddr(machineAddresses)
-		newAddr = fromNetworkAddress(netAddr, network.OriginMachine)
-	} else {
-		newAddr = fromNetworkAddress(netAddr, network.OriginProvider)
-	}
-	// The order of these checks is important. If the stored address is
-	// empty we *always* want to check for a new address so we do that
-	// first. If the stored address is unavailable we also *must* check for
-	// a new address so we do that next. If the original is a machine
-	// address and a provider address is available we want to switch to
-	// that. Finally we check to see if a better match on scope from the
-	// same origin is available.
-	if addr.Value == "" {
-		return newAddr, newAddr.Value != ""
-	}
-	if !containsAddress(providerAddresses, addr) && !containsAddress(machineAddresses, addr) {
-		return newAddr, true
-	}
-	if network.Origin(addr.Origin) != network.OriginProvider &&
-		network.Origin(newAddr.Origin) == network.OriginProvider {
-		return newAddr, true
-	}
-	if !checkScope(addr) {
-		// If addr.Origin is machine and newAddr.Origin is provider we will
-		// have already caught that, and for the inverse we don't want to
-		// replace the address.
-		if addr.Origin == newAddr.Origin {
-			return newAddr, checkScope(newAddr)
-		}
-	}
-	return addr, false
-}
-
 // PrivateAddress returns a private address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
 func (m *Machine) PrivateAddress() (network.SpaceAddress, error) {
@@ -943,220 +872,6 @@ func (m *Machine) PrivateAddress() (network.SpaceAddress, error) {
 		err = network.NoAddressError("private")
 	}
 	return privateAddress, err
-}
-
-func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
-	fieldName := "preferredprivateaddress"
-	current := m.doc.PreferredPrivateAddress
-	if isPublic {
-		fieldName = "preferredpublicaddress"
-		current = m.doc.PreferredPublicAddress
-	}
-	// Assert that the field is either missing (never been set) or is
-	// unchanged from its previous value.
-
-	// Since using a struct in the assert also asserts ordering, and we know that mgo
-	// can change the ordering, we assert on the dotted values, effectively checking each
-	// of the attributes of the address.
-	currentD := []bson.D{
-		{{fieldName + ".value", current.Value}},
-		{{fieldName + ".addresstype", current.AddressType}},
-	}
-	// Since scope, origin, and space have omitempty, we don't add them if they are empty.
-	if current.Scope != "" {
-		currentD = append(currentD, bson.D{{fieldName + ".networkscope", current.Scope}})
-	}
-	if current.Origin != "" {
-		currentD = append(currentD, bson.D{{fieldName + ".origin", current.Origin}})
-	}
-	if current.SpaceID != "" {
-		currentD = append(currentD, bson.D{{fieldName + ".spaceid", current.SpaceID}})
-	}
-
-	assert := bson.D{{"$or", []bson.D{
-		{{"$and", currentD}},
-		{{fieldName, nil}}}}}
-
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
-		Assert: assert,
-	}}
-	logger.Tracef(context.TODO(), "setting preferred address to %v (isPublic %#v)", addr, isPublic)
-	return ops
-}
-
-func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, *address) {
-	publicAddress := m.doc.PreferredPublicAddress
-	logger.Tracef(context.TODO(),
-		"machine %v: current public address: %#v \nprovider addresses: %#v \nmachine addresses: %#v",
-		m.Id(), publicAddress, providerAddresses, machineAddresses)
-
-	// Always prefer an exact match if available.
-	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
-	}
-	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) network.SpaceAddress {
-		addr, _ := networkAddresses(addresses).OneMatchingScope(network.ScopeMatchPublic)
-		return addr
-	}
-
-	newAddr, changed := maybeGetNewAddress(publicAddress, providerAddresses, machineAddresses, getAddr, checkScope)
-	if !changed {
-		// No change, so no ops.
-		return []txn.Op{}, nil
-	}
-
-	ops := m.setPreferredAddressOps(newAddr, true)
-	return ops, &newAddr
-}
-
-func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, *address) {
-	privateAddress := m.doc.PreferredPrivateAddress
-	// Always prefer an exact match if available.
-	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(
-			addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal, network.ScopeFanLocal)
-	}
-	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) network.SpaceAddress {
-		addr, _ := networkAddresses(addresses).OneMatchingScope(network.ScopeMatchCloudLocal)
-		return addr
-	}
-
-	newAddr, changed := maybeGetNewAddress(privateAddress, providerAddresses, machineAddresses, getAddr, checkScope)
-	if !changed {
-		// No change, so no ops.
-		return []txn.Op{}, nil
-	}
-	ops := m.setPreferredAddressOps(newAddr, false)
-	return ops, &newAddr
-}
-
-// SetProviderAddresses records any addresses related to the machine, sourced
-// by asking the provider.
-func (m *Machine) SetProviderAddresses(controllerConfig controller.Config, addresses ...network.SpaceAddress) error {
-	err := m.setAddresses(controllerConfig, nil, &addresses)
-	return errors.Annotatef(err, "cannot set addresses of machine %v", m)
-}
-
-// ProviderAddresses returns any hostnames and ips associated with a machine,
-// as determined by asking the provider.
-func (m *Machine) ProviderAddresses() (addresses network.SpaceAddresses) {
-	for _, address := range m.doc.Addresses {
-		addresses = append(addresses, address.networkAddress())
-	}
-	return
-}
-
-// MachineAddresses returns any hostnames and ips associated with a machine,
-// determined by asking the machine itself.
-func (m *Machine) MachineAddresses() (addresses network.SpaceAddresses) {
-	for _, address := range m.doc.MachineAddresses {
-		addresses = append(addresses, address.networkAddress())
-	}
-	return
-}
-
-// SetMachineAddresses records any addresses related to the machine, sourced
-// by asking the machine.
-func (m *Machine) SetMachineAddresses(controllerConfig controller.Config, addresses ...network.SpaceAddress) error {
-	err := m.setAddresses(controllerConfig, &addresses, nil)
-	return errors.Annotatef(err, "cannot set machine addresses of machine %v", m)
-}
-
-// setAddresses updates the machine's addresses (either Addresses or
-// MachineAddresses, depending on the field argument). Changes are
-// only predicated on the machine not being Dead; concurrent address
-// changes are ignored.
-func (m *Machine) setAddresses(controllerConfig controller.Config, machineAddresses, providerAddresses *[]network.SpaceAddress) error {
-	var (
-		machineStateAddresses, providerStateAddresses []address
-		newPrivate, newPublic                         *address
-		err                                           error
-	)
-	machine := m
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt != 0 {
-			if machine, err = machine.st.Machine(machine.doc.Id); err != nil {
-				return nil, err
-			}
-		}
-		var ops []txn.Op
-		ops, machineStateAddresses, providerStateAddresses, newPrivate, newPublic, err = machine.setAddressesOps(
-			machineAddresses, providerAddresses,
-		)
-		if err != nil {
-			return nil, err
-		}
-		return ops, nil
-	}
-	if err := m.st.db().Run(buildTxn); err != nil {
-		return errors.Trace(err)
-	}
-
-	m.doc.MachineAddresses = machineStateAddresses
-	m.doc.Addresses = providerStateAddresses
-	if newPrivate != nil {
-		oldPrivate := m.doc.PreferredPrivateAddress.networkAddress()
-		m.doc.PreferredPrivateAddress = *newPrivate
-		logger.Infof(context.TODO(),
-			"machine %q preferred private address changed from %q to %q",
-			m.Id(), oldPrivate, newPrivate.networkAddress(),
-		)
-	}
-	if newPublic != nil {
-		oldPublic := m.doc.PreferredPublicAddress.networkAddress()
-		m.doc.PreferredPublicAddress = *newPublic
-		logger.Infof(context.TODO(),
-			"machine %q preferred public address changed from %q to %q",
-			m.Id(), oldPublic, newPublic.networkAddress(),
-		)
-	}
-	return nil
-}
-
-func (m *Machine) setAddressesOps(
-	machineAddresses, providerAddresses *[]network.SpaceAddress,
-) (_ []txn.Op, machineStateAddresses, providerStateAddresses []address, newPrivate, newPublic *address, _ error) {
-
-	if m.doc.Life == Dead {
-		return nil, nil, nil, nil, nil, stateerrors.ErrDead
-	}
-
-	fromNetwork := func(in network.SpaceAddresses, origin network.Origin) []address {
-		sorted := make(network.SpaceAddresses, len(in))
-		copy(sorted, in)
-		sort.Sort(sorted)
-		return fromNetworkAddresses(sorted, origin)
-	}
-
-	var set bson.D
-	machineStateAddresses = m.doc.MachineAddresses
-	providerStateAddresses = m.doc.Addresses
-	if machineAddresses != nil {
-		machineStateAddresses = fromNetwork(*machineAddresses, network.OriginMachine)
-		set = append(set, bson.DocElem{Name: "machineaddresses", Value: machineStateAddresses})
-	}
-	if providerAddresses != nil {
-		providerStateAddresses = fromNetwork(*providerAddresses, network.OriginProvider)
-		set = append(set, bson.DocElem{Name: "addresses", Value: providerStateAddresses})
-	}
-
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", set}},
-	}}
-
-	setPrivateAddressOps, newPrivate := m.setPrivateAddressOps(providerStateAddresses, machineStateAddresses)
-	setPublicAddressOps, newPublic := m.setPublicAddressOps(providerStateAddresses, machineStateAddresses)
-	ops = append(ops, setPrivateAddressOps...)
-	ops = append(ops, setPublicAddressOps...)
-	return ops, machineStateAddresses, providerStateAddresses, newPrivate, newPublic, nil
 }
 
 // String returns a unique description of this machine.
@@ -1174,33 +889,6 @@ func (m *Machine) Placement() string {
 // an instance for the machine.
 func (m *Machine) Constraints() (constraints.Value, error) {
 	return readConstraints(m.st, m.globalKey())
-}
-
-// SetConstraints sets the exact constraints to apply when provisioning an
-// instance for the machine. It will fail if the machine is Dead.
-func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
-	op := m.UpdateOperation()
-	op.Constraints = &cons
-	return m.st.ApplyOperation(op)
-}
-
-func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
-	if m.doc.Life != Alive {
-		return nil, machineNotAliveErr
-	}
-
-	notSetYet := bson.D{{"nonce", ""}}
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: append(isAliveDoc, notSetYet...),
-	}}
-	mcons, err := m.st.resolveMachineConstraints(cons)
-	if err != nil {
-		return nil, err
-	}
-	ops = append(ops, setConstraintsOp(m.globalKey(), mcons))
-	return ops, nil
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.
@@ -1326,71 +1014,4 @@ func (m *Machine) AgentStartTime() time.Time {
 // Hostname returns the hostname reported by the machine agent.
 func (m *Machine) Hostname() string {
 	return m.doc.Hostname
-}
-
-// UpdateOperation returns a model operation that will update the machine.
-func (m *Machine) UpdateOperation() *UpdateMachineOperation {
-	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
-}
-
-// UpdateMachineOperation is a model operation for updating a machine.
-type UpdateMachineOperation struct {
-	// m holds the machine to update.
-	m *Machine
-
-	AgentVersion      *semversion.Binary
-	Constraints       *constraints.Value
-	MachineAddresses  *[]network.SpaceAddress
-	ProviderAddresses *[]network.SpaceAddress
-	PasswordHash      *string
-}
-
-// Build is part of the ModelOperation interface.
-func (op *UpdateMachineOperation) Build(attempt int) ([]txn.Op, error) {
-	if attempt > 0 {
-		if err := op.m.Refresh(); err != nil {
-			return nil, err
-		}
-	}
-
-	var allOps []txn.Op
-
-	if op.AgentVersion != nil {
-		ops, _, err := op.m.setAgentVersionOps(*op.AgentVersion)
-		if err != nil {
-			return nil, errors.Annotate(err, "setting agent version")
-		}
-		allOps = append(allOps, ops...)
-	}
-
-	if op.Constraints != nil {
-		ops, err := op.m.setConstraintsOps(*op.Constraints)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot set constraints")
-		}
-		allOps = append(allOps, ops...)
-	}
-
-	if op.MachineAddresses != nil || op.ProviderAddresses != nil {
-		ops, _, _, _, _, err := op.m.setAddressesOps(op.MachineAddresses, op.ProviderAddresses)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot set addresses")
-		}
-		allOps = append(allOps, ops...)
-	}
-
-	if op.PasswordHash != nil {
-		ops, err := op.m.setPasswordHashOps(*op.PasswordHash)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot set password")
-		}
-		allOps = append(allOps, ops...)
-	}
-
-	return allOps, nil
-}
-
-// Done is part of the ModelOperation interface.
-func (op *UpdateMachineOperation) Done(err error) error {
-	return errors.Annotatef(err, "updating machine %q", op.m)
 }
