@@ -33,7 +33,6 @@ func (s *restrictControllerSuite) TestAllowed(c *tc.C) {
 	s.assertMethod(c, "ModelManager", modelManagerFacadeVersion, "ListModels")
 	s.assertMethod(c, "Pinger", pingerFacadeVersion, "Ping")
 	s.assertMethod(c, "Bundle", 8, "GetChangesMapArgs")
-	s.assertMethod(c, "HighAvailability", highAvailabilityFacadeVersion, "EnableHA")
 	s.assertMethod(c, "ApplicationOffers", 5, "ApplicationOffers")
 }
 

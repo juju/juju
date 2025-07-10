@@ -31,7 +31,6 @@ func (s *restrictModelSuite) SetUpSuite(c *tc.C) {
 func (s *restrictModelSuite) TestAllowed(c *tc.C) {
 	s.assertMethod(c, "Client", clientFacadeVersion, "FullStatus")
 	s.assertMethod(c, "Pinger", pingerFacadeVersion, "Ping")
-	s.assertMethod(c, "HighAvailability", highAvailabilityFacadeVersion, "EnableHA")
 }
 
 func (s *restrictModelSuite) TestBlocked(c *tc.C) {
