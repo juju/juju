@@ -105,7 +105,9 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	// Act 1: change the relation status other than suspended.
 	harness.AddTest(func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID); err != nil {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -120,14 +122,17 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	// Act 2: change the relation status to suspended.
 	harness.AddTest(func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID); err != nil {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		// Assert: received changed of relation key, relation status changed to suspended.
+		// Assert: received change of relation key,
+		// relation status changed to suspended.
 		w.Check(
 			watchertest.StringSliceAssert[string](relationKey),
 		)
@@ -147,7 +152,9 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
-			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID); err != nil {
+			if _, err := tx.ExecContext(
+				ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -203,7 +210,9 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	// Act 1: change the relation status other than suspended.
 	harness.AddTest(func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID); err != nil {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -218,7 +227,9 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	// Act 2: change the relation status to suspended.
 	harness.AddTest(func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID); err != nil {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -247,10 +258,14 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
-			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID); err != nil {
+			if _, err := tx.ExecContext(
+				ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
 				return errors.Capture(err)
 			}
-			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationTwoUUID); err != nil {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE relation SET life_id = 2 WHERE uuid=?", relationTwoUUID,
+			); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -269,7 +284,9 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	harness.Run(c, []string{relationKey})
 }
 
-func (s *watcherSuite) setupSecondAppAndRelate(c *tc.C, appNameTwo string) (relation.UUID, coreapplication.ID, corecharm.ID) {
+func (s *watcherSuite) setupSecondAppAndRelate(
+	c *tc.C, appNameTwo string,
+) (relation.UUID, coreapplication.ID, corecharm.ID) {
 	relationUUID := relationtesting.GenRelationUUID(c)
 	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
 
@@ -335,17 +352,15 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 
 	// Act: insert relation_unit for watched/0 (enter scope) => no event
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
-VALUES (?, ?, ?)
-`, relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.watched0UUID)
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.watched0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Act: delete relation_unit for watched/0 (leave scope) => no event
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `DELETE FROM relation_unit WHERE unit_uuid = ?`, config.watched0UUID)
+		s.act(c, "DELETE FROM relation_unit WHERE unit_uuid = ?", config.watched0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -353,7 +368,7 @@ VALUES (?, ?, ?)
 	// Act: insert relation_unit for other/0 (enter scope) => event with other/0
 	// unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)`,
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
 			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -364,7 +379,7 @@ VALUES (?, ?, ?)
 	// Act: delete relation_unit for other/0 (leave scope) => event with other/0
 	// unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `DELETE FROM relation_unit WHERE unit_uuid = ?`, config.other0UUID)
+		s.act(c, "DELETE FROM relation_unit WHERE unit_uuid = ?", config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String())),
@@ -374,7 +389,7 @@ VALUES (?, ?, ?)
 	// Act: insert relation_unit for watched/1 (enter scope) => event with
 	// watched/1 unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)`,
+		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
 			relationtesting.GenRelationUnitUUID(c), config.watchedRelationUUID, config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -385,9 +400,7 @@ VALUES (?, ?, ?)
 	// Act: delete relation_unit for watched/1 (leave scope) => event with
 	// watched/1 unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	DELETE FROM relation_unit
-	WHERE unit_uuid = ?`, config.watched1UUID)
+		s.act(c, "DELETE FROM relation_unit WHERE unit_uuid = ?", config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
@@ -437,7 +450,7 @@ VALUES (?,?,?),
 
 	// Act: update setting_hash in watched/0 unit setting => no event
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')`,
+		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
 			watchedRelUnit0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -446,7 +459,7 @@ VALUES (?,?,?),
 	// Act: update setting_hash in other/0 unit setting => event with other/0
 	// unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')`,
+		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
 			otherRelUnit0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -457,7 +470,7 @@ VALUES (?,?,?),
 	// Act: update setting_hash in watched/1 unit setting => event with
 	// watched/1 unit_uuid
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')`,
+		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
 			watchedRelUnit1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -467,10 +480,8 @@ VALUES (?,?,?),
 
 	// Act: update settings hash for "other" application => event with other app UUID.
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
-	VALUES (?, 'hash')
-	`, config.otherRelationUUID)
+		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
+			config.otherRelationUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeApplicationUUID(config.otherUUID.String())),
@@ -479,10 +490,8 @@ VALUES (?,?,?),
 
 	// Act: update settings hash for watched application => no event.
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
-	VALUES (?, 'hash')
-	`, config.watchedRelationUUID)
+		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
+			config.watchedRelationUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -525,12 +534,11 @@ VALUES (?,?,?),
 		)
 	})
 
-	// Act: update settings hash for watched application => event with watched app UUID.
+	// Act: update settings hash for watched application =>
+	// event with watched app UUID.
 	harness.AddTest(func(c *tc.C) {
-		s.act(c, `
-	INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
-	VALUES (?, 'hash')
-	`, config.watchedRelationUUID)
+		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
+			config.watchedRelationUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeApplicationUUID(config.watchedUUID.String())),
@@ -716,7 +724,9 @@ VALUES (?,0,?)
 
 // addRelationEndpoint inserts a relation endpoint into the database using the
 // provided UUIDs for relation and endpoint.
-func (s *watcherSuite) addRelationEndpoint(c *tc.C, relationEndpointUUID relation.EndpointUUID, relationUUID relation.UUID, applicationEndpointUUID uuid.UUID) {
+func (s *watcherSuite) addRelationEndpoint(
+	c *tc.C, relationEndpointUUID relation.EndpointUUID, relationUUID relation.UUID, applicationEndpointUUID uuid.UUID,
+) {
 	s.arrange(c, `
 INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
 VALUES (?,?,?)
