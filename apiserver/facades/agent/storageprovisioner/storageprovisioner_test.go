@@ -18,8 +18,10 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -175,7 +177,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForModel(c *tc.C) {
 	defer ctrl.Finish()
 
 	filesystemChanged := make(chan []string, 1)
-	filesystemChanged <- []string{"fs1", "fs2"}
+	filesystemChanged <- []string{"1", "2"}
 
 	sourceWatcher := watchertest.NewMockStringsWatcher(filesystemChanged)
 
@@ -194,7 +196,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForModel(c *tc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.StringsWatcherId, tc.Equals, "66")
-	c.Assert(result.Changes, tc.DeepEquals, []string{"fs1", "fs2"})
+	c.Assert(result.Changes, tc.DeepEquals, []string{"1", "2"})
 }
 
 func (s *provisionerSuite) TestWatchFilesystemsForMachine(c *tc.C) {
@@ -202,7 +204,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForMachine(c *tc.C) {
 	defer ctrl.Finish()
 
 	filesystemChanged := make(chan []string, 1)
-	filesystemChanged <- []string{"fs1", "fs2"}
+	filesystemChanged <- []string{"1", "2"}
 
 	sourceWatcher := watchertest.NewMockStringsWatcher(filesystemChanged)
 	machineUUID := machinetesting.GenUUID(c)
@@ -225,7 +227,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForMachine(c *tc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.StringsWatcherId, tc.Equals, "66")
-	c.Assert(result.Changes, tc.DeepEquals, []string{"fs1", "fs2"})
+	c.Assert(result.Changes, tc.DeepEquals, []string{"1", "2"})
 }
 
 func (s *provisionerSuite) TestWatchFilesystemsForMachineNotFound(c *tc.C) {
@@ -275,7 +277,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.MachineStorageIdsWatcherId, tc.Equals, "66")
-	c.Assert(result.Changes, tc.DeepEquals, []params.MachineStorageId{
+	c.Assert(result.Changes, tc.SameContents, []params.MachineStorageId{
 		{
 			MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
 			AttachmentTag: names.NewVolumeTag("1").String(),
@@ -305,4 +307,242 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentPlansMachineNotFound(c *tc.C
 	result := results.Results[0]
 	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestWatchVolumeAttachmentsForMachine(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	attachmentChanged := make(chan []string, 1)
+	attachmentChanged <- []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}
+	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		WatchMachineProvisionedVolumeAttachments(gomock.Any(), machineUUID).
+		Return(sourceWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentIDs(gomock.Any(), []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}).
+		Return(map[string]storageprovisioning.VolumeAttachmentID{
+			"volume-attachment-uuid-1": {
+				MachineName: &s.machineName,
+				VolumeID:    "1",
+			},
+			"volume-attachment-uuid-2": {
+				MachineName: &s.machineName,
+				VolumeID:    "2",
+			},
+		}, nil)
+
+	results, err := s.api.WatchVolumeAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag(s.machineName.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.MachineStorageIdsWatcherId, tc.Equals, "66")
+	c.Assert(result.Changes, tc.SameContents, []params.MachineStorageId{
+		{
+			MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+			AttachmentTag: names.NewVolumeTag("1").String(),
+		},
+		{
+			MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+			AttachmentTag: names.NewVolumeTag("2").String(),
+		},
+	})
+}
+func (s *provisionerSuite) TestWatchVolumeAttachmentsForMachineNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return("", machineerrors.MachineNotFound)
+	results, err := s.api.WatchVolumeAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag(s.machineName.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestWatchVolumeAttachmentsForModel(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	attachmentChanged := make(chan []string, 1)
+	attachmentChanged <- []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}
+	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
+
+	s.mockStorageProvisioningService.EXPECT().
+		WatchModelProvisionedVolumeAttachments(gomock.Any()).
+		Return(sourceWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentIDs(gomock.Any(), []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}).
+		Return(map[string]storageprovisioning.VolumeAttachmentID{
+			"volume-attachment-uuid-1": {
+				UnitName: ptr(unit.Name("foo/1")),
+				VolumeID: "1",
+			},
+			"volume-attachment-uuid-2": {
+				UnitName: ptr(unit.Name("foo/2")),
+				VolumeID: "2",
+			},
+		}, nil)
+
+	results, err := s.api.WatchVolumeAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewModelTag(s.modelUUID.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.MachineStorageIdsWatcherId, tc.Equals, "66")
+	c.Assert(result.Changes, tc.SameContents, []params.MachineStorageId{
+		{
+			MachineTag:    names.NewUnitTag("foo/1").String(),
+			AttachmentTag: names.NewVolumeTag("1").String(),
+		},
+		{
+			MachineTag:    names.NewUnitTag("foo/2").String(),
+			AttachmentTag: names.NewVolumeTag("2").String(),
+		},
+	})
+}
+
+func (s *provisionerSuite) TestWatchFilesystemAttachmentsForMachine(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	attachmentChanged := make(chan []string, 1)
+	attachmentChanged <- []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}
+	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		WatchMachineProvisionedFilesystemAttachments(gomock.Any(), machineUUID).
+		Return(sourceWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentIDs(gomock.Any(), []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}).
+		Return(map[string]storageprovisioning.FilesystemAttachmentID{
+			"filesystem-attachment-uuid-1": {
+				MachineName:  &s.machineName,
+				FilesystemID: "1",
+			},
+			"filesystem-attachment-uuid-2": {
+				MachineName:  &s.machineName,
+				FilesystemID: "2",
+			},
+		}, nil)
+
+	results, err := s.api.WatchFilesystemAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag(s.machineName.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.MachineStorageIdsWatcherId, tc.Equals, "66")
+	c.Assert(result.Changes, tc.SameContents, []params.MachineStorageId{
+		{
+			MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+			AttachmentTag: names.NewFilesystemTag("1").String(),
+		},
+		{
+			MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+			AttachmentTag: names.NewFilesystemTag("2").String(),
+		},
+	})
+}
+
+func (s *provisionerSuite) TestWatchFilesystemAttachmentsForMachineNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return("", machineerrors.MachineNotFound)
+
+	results, err := s.api.WatchFilesystemAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag(s.machineName.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestWatchFilesystemAttachmentsForModel(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	attachmentChanged := make(chan []string, 1)
+	attachmentChanged <- []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}
+	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
+
+	s.mockStorageProvisioningService.EXPECT().
+		WatchModelProvisionedFilesystemAttachments(gomock.Any()).
+		Return(sourceWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentIDs(gomock.Any(), []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}).
+		Return(map[string]storageprovisioning.FilesystemAttachmentID{
+			"filesystem-attachment-uuid-1": {
+				UnitName:     ptr(unit.Name("foo/1")),
+				FilesystemID: "1",
+			},
+			"filesystem-attachment-uuid-2": {
+				UnitName:     ptr(unit.Name("foo/2")),
+				FilesystemID: "2",
+			},
+		}, nil)
+
+	results, err := s.api.WatchFilesystemAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewModelTag(s.modelUUID.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.MachineStorageIdsWatcherId, tc.Equals, "66")
+	c.Assert(result.Changes, tc.SameContents, []params.MachineStorageId{
+		{
+			MachineTag:    names.NewUnitTag("foo/1").String(),
+			AttachmentTag: names.NewFilesystemTag("1").String(),
+		},
+		{
+			MachineTag:    names.NewUnitTag("foo/2").String(),
+			AttachmentTag: names.NewFilesystemTag("2").String(),
+		},
+	})
 }

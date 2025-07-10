@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
@@ -295,7 +294,7 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 		if err != nil {
 			return "", err
 		}
-		watcherId, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, watcherRegistry, w)
+		watcherId, _, err := internal.EnsureRegisterWatcher(ctx, watcherRegistry, w)
 		return watcherId, err
 	}
 	for i, arg := range args.Entities {
@@ -433,26 +432,77 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 // the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
-		ctx,
-		args,
-		s.sb.WatchModelVolumeAttachments,
-		s.sb.WatchMachineVolumeAttachments,
-		s.sb.WatchUnitVolumeAttachments,
-		storagecommon.ParseVolumeAttachmentIds,
+		ctx, args,
+		s.storageProvisioningService.WatchModelProvisionedVolumeAttachments,
+		s.storageProvisioningService.WatchMachineProvisionedVolumeAttachments,
+		func(ctx context.Context, volumeAttachmentUUIDs ...string) ([]params.MachineStorageId, error) {
+			if len(volumeAttachmentUUIDs) == 0 {
+				return nil, nil
+			}
+			IDs, err := s.storageProvisioningService.GetVolumeAttachmentIDs(ctx, volumeAttachmentUUIDs)
+			if err != nil {
+				return nil, internalerrors.Capture(err)
+			}
+			if len(IDs) == 0 {
+				return nil, nil
+			}
+			out := make([]params.MachineStorageId, 0, len(IDs))
+			for _, id := range IDs {
+				if id.MachineName == nil && id.UnitName == nil {
+					// This should never happen.
+					continue
+				}
+				machineStorageId := params.MachineStorageId{
+					AttachmentTag: names.NewVolumeTag(id.VolumeID).String(),
+				}
+				if id.MachineName != nil {
+					machineStorageId.MachineTag = names.NewMachineTag(id.MachineName.String()).String()
+				} else if id.UnitName != nil {
+					machineStorageId.MachineTag = names.NewUnitTag(id.UnitName.String()).String()
+				}
+				out = append(out, machineStorageId)
+			}
+			return out, nil
+		},
 	)
 }
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
-	w := filesystemwatcher.Watchers{Backend: s.sb}
 	return s.watchAttachments(
-		ctx,
-		args,
-		w.WatchModelManagedFilesystemAttachments,
-		w.WatchMachineManagedFilesystemAttachments,
-		w.WatchUnitManagedFilesystemAttachments,
-		storagecommon.ParseFilesystemAttachmentIds,
+		ctx, args,
+		s.storageProvisioningService.WatchModelProvisionedFilesystemAttachments,
+		s.storageProvisioningService.WatchMachineProvisionedFilesystemAttachments,
+		func(ctx context.Context, filesystemAttachmentUUIDs ...string) ([]params.MachineStorageId, error) {
+			if len(filesystemAttachmentUUIDs) == 0 {
+				return nil, nil
+			}
+			IDs, err := s.storageProvisioningService.GetFilesystemAttachmentIDs(ctx, filesystemAttachmentUUIDs)
+			if err != nil {
+				return nil, internalerrors.Capture(err)
+			}
+			if len(IDs) == 0 {
+				return nil, nil
+			}
+			out := make([]params.MachineStorageId, 0, len(IDs))
+			for _, id := range IDs {
+				if id.MachineName == nil && id.UnitName == nil {
+					// This should never happen.
+					continue
+				}
+				machineStorageId := params.MachineStorageId{
+					AttachmentTag: names.NewFilesystemTag(id.FilesystemID).String(),
+				}
+				if id.MachineName != nil {
+					machineStorageId.MachineTag = names.NewMachineTag(id.MachineName.String()).String()
+				} else if id.UnitName != nil {
+					machineStorageId.MachineTag = names.NewUnitTag(id.UnitName.String()).String()
+				}
+				out = append(out, machineStorageId)
+			}
+			return out, nil
+		},
 	)
 }
 
@@ -560,10 +610,9 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context
 func (s *StorageProvisionerAPIv4) watchAttachments(
 	ctx context.Context,
 	args params.Entities,
-	watchEnvironAttachments func() state.StringsWatcher,
-	watchMachineAttachments func(names.MachineTag) state.StringsWatcher,
-	watchUnitAttachments func(names.ApplicationTag) state.StringsWatcher,
-	parseAttachmentIds func([]string) ([]params.MachineStorageId, error),
+	watchEnvironAttachments func(context.Context) (corewatcher.StringsWatcher, error),
+	watchMachineAttachments func(context.Context, machine.UUID) (corewatcher.StringsWatcher, error),
+	parseAttachmentIds func(context.Context, ...string) ([]params.MachineStorageId, error),
 ) (params.MachineStorageIdsWatchResults, error) {
 	canAccess, err := s.getScopeAuthFunc(ctx)
 	if err != nil {
@@ -577,24 +626,37 @@ func (s *StorageProvisionerAPIv4) watchAttachments(
 		if err != nil || !canAccess(tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		var w state.StringsWatcher
+		var sourceWatcher corewatcher.StringsWatcher
 		switch tag := tag.(type) {
 		case names.MachineTag:
-			w = watchMachineAttachments(tag)
-		case names.ApplicationTag:
-			w = watchUnitAttachments(tag)
-		default:
-			w = watchEnvironAttachments()
-		}
-		if stringChanges, ok := <-w.Changes(); ok {
-			changes, err := parseAttachmentIds(stringChanges)
-			if err != nil {
-				_ = w.Stop()
-				return "", nil, err
+			var machineUUID machine.UUID
+			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				return "", nil, errors.NotFoundf("machine %q", tag.Id())
 			}
-			return s.resources.Register(w), changes, nil
+			if err != nil {
+				return "", nil, internalerrors.Capture(err)
+			}
+			sourceWatcher, err = watchMachineAttachments(ctx, machineUUID)
+		case names.ModelTag:
+			sourceWatcher, err = watchEnvironAttachments(ctx)
+		default:
+			return "", nil, errors.NotSupportedf("watching attachments for %v", tag)
 		}
-		return "", nil, watcher.EnsureErr(w)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+
+		w, err := newAttachmentWatcher(sourceWatcher, parseAttachmentIds)
+		if err != nil {
+			return "", nil, internalerrors.Capture(err)
+		}
+
+		id, changes, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return id, changes, nil
 	}
 	for i, arg := range args.Entities {
 		var result params.MachineStorageIdsWatchResult
