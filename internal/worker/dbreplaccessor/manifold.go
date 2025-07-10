@@ -18,6 +18,23 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 )
 
+// Node represents a node in the cluster.
+type Node struct {
+	// ID is the node's unique identifier.
+	ID uint64
+	// Address is the node's address.
+	Address string
+	// Role is the node's role in the cluster.
+	Role string
+}
+
+// ClusterIntrospector is an interface that provides methods to introspect the
+// cluster state.
+type ClusterIntrospector interface {
+	// DescribeCluster returns a description of the cluster.
+	DescribeCluster(ctx context.Context) ([]Node, error)
+}
+
 // NewDBReplWorkerFunc creates a tracked db worker.
 type NewDBReplWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
@@ -102,6 +119,9 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 	switch out := out.(type) {
 	case *coredatabase.DBGetter:
 		var target coredatabase.DBGetter = w
+		*out = target
+	case *ClusterIntrospector:
+		var target ClusterIntrospector = w
 		*out = target
 	default:
 		return errors.Errorf("expected output of *database.DBGetter or *database.DBDeleter, got %T", out)

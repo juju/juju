@@ -13,6 +13,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/worker/dbreplaccessor"
 )
 
 // ManifoldConfig contains:
@@ -62,12 +63,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
+			var clusterIntrospector dbreplaccessor.ClusterIntrospector
+			if err := getter.Get(config.DBReplAccessorName, &clusterIntrospector); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			cfg := WorkerConfig{
-				DBGetter: dbGetter,
-				Logger:   config.Logger,
-				Stdout:   config.Stdout,
-				Stderr:   config.Stderr,
-				Stdin:    config.Stdin,
+				DBGetter:            dbGetter,
+				ClusterIntrospector: clusterIntrospector,
+				Logger:              config.Logger,
+				Stdout:              config.Stdout,
+				Stderr:              config.Stderr,
+				Stdin:               config.Stdin,
 			}
 
 			return NewWorker(cfg)

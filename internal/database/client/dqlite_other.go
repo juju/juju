@@ -14,8 +14,10 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// Client is a dqlite client that can be used when dqlite is not available.
 type Client struct{}
 
+// Cluster returns an empty cluster and no error, as dqlite is not available.
 func (c *Client) Cluster(context.Context) ([]dqlite.NodeInfo, error) {
 	return nil, nil
 }
@@ -24,6 +26,19 @@ func (c *Client) Cluster(context.Context) ([]dqlite.NodeInfo, error) {
 func (c *Client) Leader(ctx context.Context) (*dqlite.NodeInfo, error) {
 	return nil, nil
 }
+
+// FindLeader returns no leader and no error, as dqlite is not available.
+func FindLeader(ctx context.Context, store NodeStore, opts ...Option) (*Client, error) {
+	return nil, nil
+}
+
+// WithDialFunc sets a custom dial function for creating the client network
+// connection.
+func WithDialFunc(dial DialFunc) Option {
+	return Option{}
+}
+
+type Option struct{}
 
 type YamlNodeStore struct{}
 

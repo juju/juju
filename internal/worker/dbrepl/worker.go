@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/dbreplaccessor"
 )
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
@@ -48,17 +49,21 @@ type DBGetter interface {
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
-	DBGetter database.DBGetter
-	Logger   logger.Logger
-	Stdout   io.Writer
-	Stderr   io.Writer
-	Stdin    io.Reader
+	DBGetter            database.DBGetter
+	ClusterIntrospector dbreplaccessor.ClusterIntrospector
+	Logger              logger.Logger
+	Stdout              io.Writer
+	Stderr              io.Writer
+	Stdin               io.Reader
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
 	if c.DBGetter == nil {
 		return errors.NotValidf("missing DBGetter")
+	}
+	if c.ClusterIntrospector == nil {
+		return errors.NotValidf("missing ClusterIntrospector")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -237,6 +242,9 @@ func (w *dbReplWorker) loop() (err error) {
 		case ".query-models":
 			w.execQueryForModels(ctx, args[1:])
 
+		case ".describe-cluster":
+			w.describeCluster(ctx)
+
 		default:
 			if err := w.executeQuery(ctx, w.currentDB, input); err != nil {
 				w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
@@ -374,6 +382,41 @@ func (w *dbReplWorker) execViews(ctx context.Context) {
 	}
 }
 
+func (w *dbReplWorker) describeCluster(ctx context.Context) {
+	cluster, err := w.cfg.ClusterIntrospector.DescribeCluster(ctx)
+	if err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to describe cluster: %v", err)
+		return
+	}
+
+	headerStyle := color.New(color.Bold)
+	var sb strings.Builder
+
+	// Use the ansiterm tabwriter because the stdlib tabwriter contains a bug
+	// which breaks if there are color codes. Our own tabwriter implementation
+	// doesn't have this issue.
+	writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
+
+	columns := []string{"ID", "Address", "Role"}
+	for _, col := range columns {
+		headerStyle.Fprintf(writer, "%s\t", col)
+	}
+	fmt.Fprintln(writer)
+
+	for _, server := range cluster {
+		fmt.Fprintf(writer, "%x\t%s\t%s", server.ID, server.Address, server.Role)
+		fmt.Fprintln(writer)
+	}
+
+	if err := writer.Flush(); err != nil {
+		w.cfg.Logger.Errorf(ctx, "failed to flush writer: %v", err)
+		// If the flush fails, we still want to print the
+		// output that has been written so far.
+	}
+
+	fmt.Fprintln(w.cfg.Stdout, sb.String())
+}
+
 // Kill is part of the worker.Worker interface.
 func (w *dbReplWorker) Kill() {
 	w.tomb.Kill(nil)
@@ -466,6 +509,9 @@ The following commands are available:
 
   .exit, .quit             Exit the REPL.
   .help, .h                Show this help message.
+
+Database commands:
+
   .models                  Show all models.
   .switch model-<model>    Switch to a different model.
   .switch controller       Switch to the controller global database.
@@ -474,5 +520,9 @@ The following commands are available:
   .views                   Show all views in the current database.
   .ddl <name>              Show the DDL for the specified table, trigger, or view.
   .query-models <query>    Execute a query on all models and print the results.
+
+DQlite cluster commands:
+
+  .describe-cluster        Describe the current cluster, showing node IDs, addresses, and roles.
 
 `

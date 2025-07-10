@@ -378,6 +378,28 @@ func (m *NodeManager) DqliteSQLDriver(ctx context.Context) (driver.Driver, error
 	return dqlitedriver.New(store, dialer)
 }
 
+// LeaderClient returns a Dqlite client that is connected to the leader
+// of the Dqlite cluster. This client can be used to run queries directly
+// against the leader node, which is useful for administrative tasks or
+// for running queries that require a consistent view of the data.
+func (s *NodeManager) LeaderClient(ctx context.Context) (*client.Client, error) {
+	store, err := s.nodeClusterStore()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	dialer, err := s.TLSDialer(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cli, err := client.FindLeader(ctx, store, client.WithDialFunc(dialer))
+	if err != nil {
+		return nil, errors.Annotate(err, "finding Dqlite leader")
+	}
+	return cli, nil
+}
+
 // nodeClusterStore returns a YamlNodeStore instance based
 // on the cluster.yaml file in the Dqlite data directory.
 func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
