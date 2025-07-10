@@ -55,7 +55,7 @@ func (w *attachmentWatcher[T]) loop() error {
 		changes []T
 		out     chan []T
 	)
-	
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
