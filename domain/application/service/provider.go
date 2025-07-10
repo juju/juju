@@ -36,6 +36,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/storage"
 )
 
 // Provider defines the interface for interacting with the underlying model
@@ -60,6 +61,8 @@ type ProviderService struct {
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
+
+	storageProviderValidator StorageProviderValidator
 }
 
 // NewProviderService returns a new Service for interacting with a models state.

@@ -437,10 +437,10 @@ type ApplicationState interface {
 	IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error)
 }
 
-// validateApplicationStorageDirectiveOverrides checks a set of storage
+// validateApplicationStorageDirectiveParams checks a set of storage
 // directive overrides to make sure they are valid with respect to the charms
 // storage definitions.
-func validateApplicationStorageDirectiveOverrides(
+func validateApplicationStorageDirectiveParams(
 	ctx context.Context,
 	charmStorageDefs map[string]internalcharm.Storage,
 	overrides map[string]ApplicationStorageDirectiveOverride,
@@ -454,7 +454,7 @@ func validateApplicationStorageDirectiveOverrides(
 			)
 		}
 
-		err := validateApplicationStorageDirectiveOverride(
+		err := validateApplicationStorageDirectiveParam(
 			ctx, storageDef, override, providerValidator,
 		)
 		if err != nil {
@@ -465,10 +465,10 @@ func validateApplicationStorageDirectiveOverrides(
 	return nil
 }
 
-// validateApplicationStorageDirectiveOverride checks a set of storage directive
+// validateApplicationStorageDirectiveParam checks a set of storage directive
 // override values to make sure they are valid with respect to the charm
 // storage.
-func validateApplicationStorageDirectiveOverride(
+func validateApplicationStorageDirectiveParam(
 	ctx context.Context,
 	charmStorageDef internalcharm.Storage,
 	override ApplicationStorageDirectiveOverride,
@@ -605,11 +605,35 @@ func validateCharmAndApplicationParams(
 // - Checks to see if the charm requires shared storage and if so is the min
 // count greater than 0. While we might not support shared storage we can
 // support it if we don't have to provision it.
+// - Checks to see that the minimum count for a storage definition is not less
+// than zero. Negative storage counts are impossible to achieve.
+// - Checks to see that the maximum count for a storage definition is not less
+// than zero.
+// - Checks to see that the min is not greater than the max.
 func validateCharmStorage(charmStorage map[string]internalcharm.Storage) error {
 	for name, storage := range charmStorage {
 		if storage.Shared && storage.CountMin > 0 {
 			return errors.Errorf(
 				"charm storage %q requires shared storage which is not implemented",
+				name,
+			)
+		}
+
+		if storage.CountMin < 0 {
+			return errors.Errorf(
+				"charm storage %q has a minimum count less than zero, negative storage count cannot be achieved",
+				name,
+			)
+		}
+		if storage.CountMax < 0 {
+			return errors.Errorf(
+				"charm storage %q has a maximum count less than zero, negative storage count cannot be achieved",
+				name,
+			)
+		}
+		if storage.CountMin > storage.CountMax {
+			return errors.Errorf(
+				"charm storage %q has a minimum count greater than maximum count, this is can't be achieved",
 				name,
 			)
 		}
@@ -726,6 +750,107 @@ func validateDeviceConstraints(cons map[string]devices.Constraints, charmMeta *i
 			return errors.Errorf("no constraints specified for device %q", name)
 		}
 	}
+	return nil
+}
+
+// validateApplicationStorageDirectives performs a sanity check on the
+// directives for the application to make sure they are in a sane state to be
+// persisted to the state layer.
+//
+// The following errors may be returned:
+// - [applicationerrors.MissingStorageDirective] when one or more storage
+// directives are missing that are required by the charm.
+func validateApplicationStorageDirectives(
+	charmStorageDefs map[string]internalcharm.Storage,
+	directives []application.ApplicationStorageDirectiveArg,
+) error {
+	// seenDirectives acts as a sanity check to see if a directive by a name has
+	// been witnessed.
+	seenDirectives := map[string]struct{}{}
+	for _, directive := range directives {
+		charmStorageDef, exists := charmStorageDefs[directive.Name.String()]
+		if !exists {
+			return errors.Errorf(
+				"invalid storage directive, charm has no storage %q",
+				directive.Name,
+			)
+		}
+
+		if _, seen := seenDirectives[directive.Name.String()]; seen {
+			return errors.Errorf(
+				"duplicate storage directive for %q exists", directive.Name,
+			)
+		}
+		seenDirectives[directive.Name.String()] = struct{}{}
+
+		err := validateApplicationStorageDirective(charmStorageDef, directive)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	// This is a sanity to check to make sure that for each required storage in
+	// the charm there exists a directive for it.
+	for charmStorageName, charmStorageDef := range charmStorageDefs {
+		if charmStorageDef.CountMin == 0 {
+			// We skip storage definitions that don't require at least one
+			// storage instance. If the directive is missing that is fine.
+			continue
+		}
+
+		if _, seen := seenDirectives[charmStorageName]; !seen {
+			return errors.Errorf(
+				"missing storage directive for charm storage %q",
+				charmStorageName,
+			).Add(applicationerrors.MissingStorageDirective)
+		}
+	}
+	return nil
+}
+
+// validateApplicationStorageDirective checks a single storage directive against
+// a charm storage definition. This checks the definition is inline with the
+// expectations of the charm storage definition.
+func validateApplicationStorageDirective(
+	charmStorageDef internalcharm.Storage,
+	directive application.ApplicationStorageDirectiveArg,
+) error {
+	minCount := uint32(0)
+	if charmStorageDef.CountMin > 0 {
+		minCount = uint32(charmStorageDef.CountMin)
+	}
+	maxCount := uint32(0)
+	if charmStorageDef.CountMax > 0 {
+		maxCount = uint32(charmStorageDef.CountMax)
+	}
+
+	if directive.Count < minCount {
+		return errors.Errorf(
+			"charm requires min %q storage %q instances, %d specified",
+			minCount, directive.Name, directive.Count,
+		)
+	}
+	if directive.Count > maxCount {
+		return errors.Errorf(
+			"charm requires at most %d instances of storage %q, %d specified",
+			maxCount, directive.Name, directive.Count,
+		)
+	}
+
+	if directive.Size < charmStorageDef.MinimumSize {
+		return errors.Errorf(
+			"storage directive %q must be at least of size %d defined by the charm",
+			directive.Name, charmStorageDef.MinimumSize,
+		)
+	}
+
+	if directive.PoolUUID == nil && directive.ProviderType == nil {
+		return errors.Errorf(
+			"storage directive %q requires at least a storage pool or provider to use",
+			directive.Name,
+		)
+	}
+
 	return nil
 }
 
