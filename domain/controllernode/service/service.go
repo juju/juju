@@ -246,15 +246,7 @@ func (s *Service) GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostP
 		return nil, errors.Capture(err)
 	}
 
-	var result []network.HostPorts
-	for _, addr := range agentAddrs {
-		address, err := addr.ToHostPortsNoMachineLocal()
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		result = append(result, address)
-	}
-	return result, nil
+	return transformToOrderedHostPorts(agentAddrs)
 }
 
 // GetAPIHostPortsForClients returns API HostPorts that are available for
@@ -266,16 +258,19 @@ func (s *Service) GetAPIHostPortsForClients(ctx context.Context) ([]network.Host
 		return nil, errors.Capture(err)
 	}
 
-	ids := mapKeyOrder(clientAddrs)
+	return transformToOrderedHostPorts(clientAddrs)
+}
+
+func transformToOrderedHostPorts(input map[string]controllernode.APIAddresses) ([]network.HostPorts, error) {
+	ids := mapKeyOrder(input)
 
 	var result []network.HostPorts
 	for _, id := range ids {
-		addr := clientAddrs[id]
+		addr := input[id]
 		if len(addr) == 0 {
 			continue
 		}
 
-		// todo - skip machine local
 		address, err := addr.ToHostPortsNoMachineLocal()
 		if err != nil {
 			return nil, errors.Capture(err)
