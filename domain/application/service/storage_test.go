@@ -21,7 +21,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
 	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -126,7 +125,7 @@ func (s *storageSuite) TestAddStorageToUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	stor := storage.Directive{}
+	stor := internalstorage.Directive{}
 	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
 	s.mockState.EXPECT().AddStorageForUnit(gomock.Any(), corestorage.Name("pgdata"), unitUUID, stor).Return([]corestorage.ID{"pgdata/0"}, nil)
 
@@ -138,9 +137,9 @@ func (s *storageSuite) TestAddStorageToUnit(c *tc.C) {
 func (s *storageSuite) TestAddStorageForUnitValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.AddStorageForUnit(c.Context(), "pgdata", "666", storage.Directive{})
+	_, err := s.service.AddStorageForUnit(c.Context(), "pgdata", "666", internalstorage.Directive{})
 	c.Assert(err, tc.ErrorIs, unit.InvalidUnitName)
-	_, err = s.service.AddStorageForUnit(c.Context(), "0", "postgresql/666", storage.Directive{})
+	_, err = s.service.AddStorageForUnit(c.Context(), "0", "postgresql/666", internalstorage.Directive{})
 	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageName)
 }
 
@@ -215,10 +214,10 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageFilesystem(c *tc.C) {
 	s.state.EXPECT().GetProviderTypeOfPool(gomock.Any(), poolUUID).Return(
 		"testprovider", nil,
 	)
-	s.registry.EXPECT().StorageProvider(storage.ProviderType("testprovider")).Return(
+	s.registry.EXPECT().StorageProvider(internalstorage.ProviderType("testprovider")).Return(
 		s.provider, nil,
 	)
-	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
+	s.provider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true)
 
 	validator := NewStorageProviderValidator(s, s.state)
 	supports, err := validator.CheckPoolSupportsCharmStorage(
@@ -239,10 +238,10 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageBlockdevice(c *tc.C) 
 	s.state.EXPECT().GetProviderTypeOfPool(gomock.Any(), poolUUID).Return(
 		"testprovider", nil,
 	)
-	s.registry.EXPECT().StorageProvider(storage.ProviderType("testprovider")).Return(
+	s.registry.EXPECT().StorageProvider(internalstorage.ProviderType("testprovider")).Return(
 		s.provider, nil,
 	)
-	s.provider.EXPECT().Supports(storage.StorageKindBlock).Return(true)
+	s.provider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true)
 
 	validator := NewStorageProviderValidator(s, s.state)
 	supports, err := validator.CheckPoolSupportsCharmStorage(
@@ -258,7 +257,7 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageBlockdevice(c *tc.C) 
 func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerType := storage.ProviderType("testprovider")
+	providerType := internalstorage.ProviderType("testprovider")
 	s.registry.EXPECT().StorageProvider(providerType).Return(
 		nil, storageerrors.ProviderTypeNotFound,
 	)
@@ -275,11 +274,11 @@ func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageNotFound(c *t
 func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerType := storage.ProviderType("testprovider")
+	providerType := internalstorage.ProviderType("testprovider")
 	s.registry.EXPECT().StorageProvider(providerType).Return(
 		s.provider, nil,
 	)
-	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
+	s.provider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true)
 
 	validator := NewStorageProviderValidator(s, s.state)
 	supports, err := validator.CheckProviderTypeSupportsCharmStorage(
@@ -294,11 +293,11 @@ func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageFilesystem(c 
 func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageBlockdevice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerType := storage.ProviderType("testprovider")
+	providerType := internalstorage.ProviderType("testprovider")
 	s.registry.EXPECT().StorageProvider(providerType).Return(
 		s.provider, nil,
 	)
-	s.provider.EXPECT().Supports(storage.StorageKindBlock).Return(true)
+	s.provider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true)
 
 	validator := NewStorageProviderValidator(s, s.state)
 	supports, err := validator.CheckProviderTypeSupportsCharmStorage(
