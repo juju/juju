@@ -67,7 +67,8 @@ func (fakeNamespace) Value(s string) string {
 
 func EnsureGroup(e environs.Environ, ctx context.ProviderCallContext, name string, isModelGroup bool) (neutron.SecurityGroupV2, error) {
 	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
-	return switching.ensureGroup(name, isModelGroup)
+	var tags []string
+	return switching.ensureGroup(name, isModelGroup, tags)
 }
 
 func MachineGroupRegexp(e environs.Environ, machineId string) string {
@@ -146,7 +147,7 @@ var GetVolumeEndpointURL = getVolumeEndpointURL
 func GetModelGroupNames(e environs.Environ) ([]string, error) {
 	env := e.(*Environ)
 	neutronFw := env.firewaller.(*neutronFirewaller)
-	groups, err := env.neutron().ListSecurityGroupsV2()
+	groups, err := env.neutron().ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{})
 	if err != nil {
 		return nil, err
 	}
