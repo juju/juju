@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
 	"github.com/juju/juju/apiserver/facades/client/controller" // ModelUser Admin (although some methods check for read only)
 	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
-	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
@@ -185,7 +184,6 @@ func AllFacades() *facade.Registry {
 	deployer.Register(registry)
 	diskmanager.Register(registry)
 	firewaller.Register(registry)
-	highavailability.Register(registry)
 	hostkeyreporter.Register(registry)
 	imagemetadata.Register(registry)
 	imagemetadatamanager.Register(registry)
