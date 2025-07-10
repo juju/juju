@@ -4,8 +4,6 @@
 package state
 
 import (
-	"reflect"
-
 	"github.com/juju/juju/core/network"
 )
 
@@ -69,9 +67,4 @@ func networkAddresses(addrs []address) network.SpaceAddresses {
 		netAddrs[i] = addr.networkAddress()
 	}
 	return netAddrs
-}
-
-// addressEqual checks that two slices of network addresses are equal.
-func addressesEqual(a, b []network.SpaceAddress) bool {
-	return reflect.DeepEqual(a, b)
 }
