@@ -547,21 +547,7 @@ func (task *provisionerTask) filterAndQueueRemovalOfDeadMachines(ctx context.Con
 	// deferred stopping, machines that are already being stopped and
 	// machines that have not yet finished provisioning will be removed
 	// from the filtered list.
-	dead = task.filterDeadMachines(dead)
-
-	// The remaining machines will be removed asynchronously and this
-	// method can be invoked again concurrently to process another machine
-	// change event. To avoid attempts to remove the same machines twice,
-	// they are flagged as stopping.
-	task.machinesMutex.Lock()
-	for _, machine := range dead {
-		machID := machine.Id()
-		if !task.machinesStopDeferred[machID] {
-			task.machinesStopping[machID] = true
-		}
-	}
-	task.machinesMutex.Unlock()
-	return task.queueRemovalOfDeadMachines(ctx, dead)
+	return task.queueRemovalOfDeadMachines(ctx, task.filterDeadMachines(dead))
 }
 
 func (task *provisionerTask) queueRemovalOfDeadMachines(
@@ -628,6 +614,7 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 // Filter the provided dead machines and remove any machines marked for
 // deferred stopping, machines that are currently being stopped and any
 // machines that they have not finished starting.
+// This method also marks the filtered list of machines as stopping.
 func (task *provisionerTask) filterDeadMachines(dead []apiprovisioner.MachineProvisioner) []apiprovisioner.MachineProvisioner {
 	var deadMachines []apiprovisioner.MachineProvisioner
 
@@ -641,6 +628,7 @@ func (task *provisionerTask) filterDeadMachines(dead []apiprovisioner.MachinePro
 		if task.machinesStopDeferred[machID] || task.machinesStopping[machID] || task.machinesStarting[machID] {
 			continue
 		}
+		task.machinesStopping[machID] = true
 
 		// This machine should be queued for deletion.
 		deadMachines = append(deadMachines, machine)
@@ -1254,18 +1242,17 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, machines []
 				// If the provisioning succeeded but a deletion
 				// request has been deferred queue it now.
 				stopDeferred := task.machinesStopDeferred[machID]
-				if stopDeferred {
+				alreadyStopping := task.machinesStopping[machID]
+				if stopDeferred && !alreadyStopping {
 					delete(task.machinesStopDeferred, machID)
-					task.machinesStopping[machID] = true
+					task.machinesMutex.Unlock()
+
+					task.logger.Debugf(ctx, "triggering deferred stop of machine %q", machID)
+					return task.queueRemovalOfDeadMachines(ctx, task.filterDeadMachines([]apiprovisioner.MachineProvisioner{
+						machine,
+					}))
 				}
 				task.machinesMutex.Unlock()
-
-				if stopDeferred {
-					task.logger.Debugf(ctx, "triggering deferred stop of machine %q", machID)
-					return task.queueRemovalOfDeadMachines(ctx, []apiprovisioner.MachineProvisioner{
-						machine,
-					})
-				}
 
 				return nil
 			},
