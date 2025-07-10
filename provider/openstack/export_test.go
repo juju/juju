@@ -116,7 +116,7 @@ func BlankContainerStorage() envstorage.Storage {
 }
 
 // GetNeutronClient returns the neutron client for the current environs.
-func GetNeutronClient(e environs.Environ) *neutron.Client {
+func GetNeutronClient(e environs.Environ) NetworkingNeutron {
 	return e.(*Environ).neutron()
 }
 

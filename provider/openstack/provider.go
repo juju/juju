@@ -328,7 +328,7 @@ type Environ struct {
 	cloudUnlocked   environscloudspec.CloudSpec
 	clientUnlocked  client.AuthenticatingClient
 	novaUnlocked    *nova.Client
-	neutronUnlocked *neutron.Client
+	neutronUnlocked NetworkingNeutron
 	volumeURL       *url.URL
 
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
@@ -576,7 +576,7 @@ func (e *Environ) nova() *nova.Client {
 	return nova
 }
 
-func (e *Environ) neutron() *neutron.Client {
+func (e *Environ) neutron() NetworkingNeutron {
 	e.ecfgMutex.Lock()
 	neutron := e.neutronUnlocked
 	e.ecfgMutex.Unlock()
