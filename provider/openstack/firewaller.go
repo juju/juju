@@ -344,7 +344,7 @@ func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool, tags []s
 	return groupsFound[0], nil
 }
 
-func (c *neutronFirewaller) ensureInternalRules(neutronClient *neutron.Client, group neutron.SecurityGroupV2) error {
+func (c *neutronFirewaller) ensureInternalRules(neutronClient NetworkingNeutron, group neutron.SecurityGroupV2) error {
 	rules := []neutron.RuleInfoV2{
 		{
 			Direction:     "ingress",

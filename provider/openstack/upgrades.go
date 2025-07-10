@@ -69,7 +69,7 @@ type tagExistingSecurityGroupsStep struct {
 	env *Environ
 }
 
-func (t tagExistingSecurityGroupsStep) replaceTagsWithRetry(ctx context.ProviderCallContext, neutronClient *neutron.Client, groupId string, tags []string) retry.CallArgs {
+func (t tagExistingSecurityGroupsStep) replaceTagsWithRetry(ctx context.ProviderCallContext, neutronClient NetworkingNeutron, groupId string, tags []string) retry.CallArgs {
 	retryStrategy := shortRetryStrategy
 	retryStrategy.IsFatalError = func(err error) bool {
 		return !errors.IsNotFound(err)
