@@ -343,3 +343,37 @@ FROM (
 
 	return count.Count > 0, nil
 }
+
+// checkSpaceName verifies the existence of the given space name within
+// a transactional context.
+func (st *State) checkSpaceName(ctx context.Context, tx *sqlair.TX, name string) error {
+	// Check if the space exists
+	type space struct {
+		// Name is the space name.
+		Name string `db:"name"`
+		// UUID is the unique ID of the space.
+		UUID string `db:"uuid"`
+	}
+	sp := space{
+		Name: name,
+	}
+
+	// Prepare a simple query to check if the space exists
+	stmt, err := st.Prepare(`
+SELECT &space.uuid
+FROM space
+WHERE name = $space.name;`, sp)
+	if err != nil {
+		return errors.Errorf("preparing space existence check: %w", err)
+	}
+
+	// Execute the query
+	err = tx.Query(ctx, stmt, sp).Get(&sp)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("checking space existence: %w", err)
+	}
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("checking space name %q: %w", name, networkerrors.SpaceNotFound)
+	}
+	return nil
+}
