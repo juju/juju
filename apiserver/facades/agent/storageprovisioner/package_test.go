@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package storageprovisioner_test
+package storageprovisioner
 
 import (
 	"os"
@@ -22,4 +22,8 @@ func TestMain(m *stdtesting.M) {
 		defer testing.MgoTestMain()()
 		return m.Run()
 	}())
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
