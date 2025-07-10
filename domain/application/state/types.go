@@ -864,8 +864,8 @@ type setConstraintZone struct {
 }
 
 type setDefaultSpace struct {
-	UUID  coreapplication.ID `db:"uuid"`
-	Space network.SpaceName  `db:"space"`
+	UUID  string `db:"uuid"`
+	Space string `db:"space"`
 }
 
 type applicationSpaceUUID struct {
@@ -885,6 +885,11 @@ type constraintUUID struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 }
 
+type unitSpaceName struct {
+	SpaceName string `db:"space_name"`
+	UnitName  string `db:"unit_name"`
+}
+
 type space struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
@@ -896,6 +901,15 @@ type spaceName struct {
 
 type spaceUUID struct {
 	UUID string `db:"uuid"`
+}
+
+// spaceWithAppDefault includes a valid app_uuid when the space is
+// the application's default space. Otherwise the app_uuid will be
+// empty when used with getApplicationEndpointSpaceUUIDs.
+type spaceWithAppDefault struct {
+	UUID    string `db:"uuid"`
+	Name    string `db:"name"`
+	AppUUID string `db:"app_uuid"`
 }
 
 type storageInstance struct {
@@ -1206,6 +1220,12 @@ type applicationEndpointBinding struct {
 type endpointBinding struct {
 	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
 	EndpointName string                      `db:"name"`
+}
+
+type updateBinding struct {
+	ApplicationID string           `db:"application_uuid"`
+	BindingUUID   string           `db:"binding_uuid"`
+	Space         sql.Null[string] `db:"space_uuid"`
 }
 
 type unitWorkloadVersion struct {

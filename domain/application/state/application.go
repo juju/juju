@@ -293,7 +293,7 @@ func (st *State) insertApplication(
 	if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
 		return errors.Errorf("inserting status for application %q: %w", name, err)
 	}
-	if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID, args.EndpointBindings); err != nil {
+	if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID.String(), args.EndpointBindings); err != nil {
 		return errors.Errorf("updating default space: %w", err)
 	}
 	if err := st.insertApplicationEndpointBindings(ctx, tx, insertApplicationEndpointsParams{
@@ -1707,7 +1707,7 @@ func (st *State) SetApplicationCharm(ctx context.Context, id coreapplication.ID,
 
 		//TODO(storage) - update charm and storage directive for app
 
-		err = st.updateDefaultSpace(ctx, tx, id, params.EndpointBindings)
+		err = st.updateDefaultSpace(ctx, tx, id.String(), params.EndpointBindings)
 		if err != nil {
 			return errors.Errorf("updating default space: %w", err)
 		}

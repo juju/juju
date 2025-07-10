@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	coremachine "github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -223,8 +224,17 @@ func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
 }
 
 func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertIAASUnitArg) coreapplication.ID {
-	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	return s.createIAASApplicationWithEndpointBindings(c, name, l, nil, units...)
+}
 
+func (s *baseSuite) createIAASApplicationWithEndpointBindings(
+	c *tc.C,
+	name string,
+	l life.Life,
+	bindings map[string]network.SpaceName,
+	units ...application.InsertIAASUnitArg,
+) coreapplication.ID {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
 		OSType:       deployment.Ubuntu,
@@ -290,6 +300,7 @@ func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, uni
 					Count: 1974,
 				},
 			},
+			EndpointBindings: bindings,
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
