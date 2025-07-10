@@ -105,11 +105,22 @@ type ApplicationService interface {
 	GetApplicationsBoundToSpace(ctx context.Context, uuid network.SpaceUUID) ([]string, error)
 }
 
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// CountMachinesInSpace counts the number of machines with address in a given
+	// space. This method counts the distinct occurrences of net nodes of the
+	// addresses, meaning that if a machine has multiple addresses in the same
+	// subnet it will be counted only once.
+	CountMachinesInSpace(ctx context.Context, spaceID network.SpaceUUID) (int64, error)
+}
+
 // API provides the spaces API facade for version 6.
 type API struct {
 	controllerConfigService ControllerConfigService
 	networkService          NetworkService
 	applicationService      ApplicationService
+	machineService          MachineService
 
 	modelTag names.ModelTag
 
@@ -126,6 +137,7 @@ type apiConfig struct {
 	NetworkService          NetworkService
 	ControllerConfigService ControllerConfigService
 	ApplicationService      ApplicationService
+	MachineService          MachineService
 	Backing                 Backing
 	Check                   BlockChecker
 	Resources               facade.Resources
@@ -146,6 +158,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		networkService:          cfg.NetworkService,
 		controllerConfigService: cfg.ControllerConfigService,
 		applicationService:      cfg.ApplicationService,
+		machineService:          cfg.MachineService,
 		auth:                    cfg.Authorizer,
 		backing:                 cfg.Backing,
 		resources:               cfg.Resources,
@@ -266,12 +279,6 @@ func (api *API) ShowSpace(ctx context.Context, entities params.Entities) (params
 		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
 	}
 
-	// Retrieve the list of all subnets, needed for the machine spaces.
-	allSubnets, err := api.networkService.GetAllSubnets(ctx)
-	if err != nil {
-		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
-	}
-
 	results := make([]params.ShowSpaceResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
 		spaceTag, err := names.ParseSpaceTag(entity.Tag)
@@ -305,17 +312,14 @@ func (api *API) ShowSpace(ctx context.Context, entities params.Entities) (params
 		}
 		result.Applications = applications
 
-		// TODO(nvinuesa): This logic should be implemented in the
-		// network service once we finish migrating machines to
-		// dqlite.
-		machineCount, err := api.getMachineCountBySpaceID(space.ID, allSubnets)
+		machineCount, err := api.machineService.CountMachinesInSpace(ctx, space.ID)
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching machine count")
 			results[i].Error = apiservererrors.ServerError(newErr)
 			continue
 		}
 
-		result.MachineCount = machineCount
+		result.MachineCount = int(machineCount)
 		results[i] = result
 	}
 
@@ -344,24 +348,6 @@ func (api *API) checkSupportsSpaces(ctx context.Context) error {
 		return errors.NotSupportedf("spaces")
 	}
 	return nil
-}
-
-func (api *API) getMachineCountBySpaceID(spaceID network.SpaceUUID, allSubnets network.SubnetInfos) (int, error) {
-	var count int
-	machines, err := api.backing.AllMachines()
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
-	for _, machine := range machines {
-		spacesSet, err := machine.AllSpaces(allSubnets)
-		if err != nil {
-			return 0, errors.Trace(err)
-		}
-		if spacesSet.Contains(spaceID.String()) {
-			count++
-		}
-	}
-	return count, nil
 }
 
 // ensureSpacesAreMutable checks that the current user

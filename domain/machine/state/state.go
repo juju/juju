@@ -29,6 +29,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -1324,6 +1325,42 @@ WHERE machine_uuid = $machineUUID.uuid
 	}
 
 	return base.ParseBase(result.OSName, result.Channel)
+}
+
+// CountMachinesInSpace counts the number of machines with address in a given
+// space. This method counts the distinct occurrences of net nodes of the
+// addresses, meaning that if a machine has multiple addresses in the same
+// subnet it will be counted only once.
+func (st *State) CountMachinesInSpace(ctx context.Context, spUUID string) (int64, error) {
+	db, err := st.DB()
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	ident := spaceUUID{UUID: spUUID}
+	stmt, err := st.Prepare(`
+SELECT COUNT(DISTINCT net_node_uuid) AS &count.count
+FROM ip_address AS ip
+JOIN v_space_subnet AS sp ON ip.subnet_uuid = sp.subnet_uuid
+WHERE sp.uuid = $spaceUUID.uuid
+`, count{}, ident)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	var count count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).Get(&count)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("space %s", spUUID).Add(networkerrors.SpaceNotFound)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Errorf("counting machines in space %q: %w", spUUID, err)
+	}
+
+	return count.Count, nil
 }
 
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching

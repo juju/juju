@@ -8,7 +8,6 @@ import (
 	"sort"
 	stdtesting "testing"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -173,9 +172,7 @@ func (s *APISuite) TestShowSpaceDefault(c *tc.C) {
 
 	s.expectDefaultSpace(ctrl, "default", nil)
 	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), network.SpaceUUID("1")).Return(expectedApplications, nil)
-	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
-
-	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
+	s.MachineService.EXPECT().CountMachinesInSpace(gomock.Any(), network.SpaceUUID("1")).Return(int64(2), nil)
 
 	args := s.getShowSpaceArg("default")
 
@@ -212,8 +209,6 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *tc.C) {
 	s.expectDefaultSpace(ctrl, "default", bamErr)
 	args := s.getShowSpaceArg("default")
 
-	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
-
 	res, err := s.API.ShowSpace(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching space %q: %v", "default", bamErr.Error())
@@ -228,8 +223,6 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *tc.C) {
 	s.expectDefaultSpace(ctrl, "default", bamErr)
 	args := s.getShowSpaceArg("default")
 
-	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
-
 	res, err := s.API.ShowSpace(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching space \"default\": %v", bamErr.Error())
@@ -243,7 +236,6 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *tc.C) {
 	expErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil)
 	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), network.SpaceUUID("1")).Return(nil, expErr)
-	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	args := s.getShowSpaceArg("default")
 
@@ -260,9 +252,7 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *tc.C) {
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil)
 	s.ApplicationService.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), network.SpaceUUID("1")).Return([]string{}, nil)
-	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
-
-	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
+	s.MachineService.EXPECT().CountMachinesInSpace(gomock.Any(), network.SpaceUUID("1")).Return(int64(0), bamErr)
 
 	args := s.getShowSpaceArg("default")
 	res, err := s.API.ShowSpace(c.Context(), args)
@@ -653,11 +643,6 @@ func (s *APISuite) getShowSpaceArg(name string) params.Entities {
 	return args
 }
 
-func (s *APISuite) getDefaultSpaces() set.Strings {
-	strings := set.NewStrings("1", "2")
-	return strings
-}
-
 // expectDefaultSpace configures a default space mock with default subnet settings
 func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name network.SpaceName, spacesErr error) {
 	backingSubnets := network.SubnetInfos{{
@@ -681,21 +666,6 @@ func (s *APISuite) expectDefaultSpace(ctrl *gomock.Controller, name network.Spac
 	} else {
 		s.NetworkService.EXPECT().SpaceByName(gomock.Any(), name).Return(backingSpaceInfo, nil)
 	}
-}
-
-func (s *APISuite) expectMachines(ctrl *gomock.Controller, addresses set.Strings, machErr, addressesErr error) {
-	mockMachine := spaces.NewMockMachine(ctrl)
-	// With this we can ensure that the function correctly adds up multiple machines.
-	anotherMockMachine := spaces.NewMockMachine(ctrl)
-	if machErr != nil {
-		mockMachine.EXPECT().AllSpaces(gomock.Any()).Return(addresses, addressesErr).AnyTimes()
-		anotherMockMachine.EXPECT().AllSpaces(gomock.Any()).Return(addresses, addressesErr).AnyTimes()
-	} else {
-		mockMachine.EXPECT().AllSpaces(gomock.Any()).Return(addresses, addressesErr)
-		anotherMockMachine.EXPECT().AllSpaces(gomock.Any()).Return(addresses, addressesErr)
-	}
-	mockMachines := []spaces.Machine{mockMachine, anotherMockMachine}
-	s.Backing.EXPECT().AllMachines().Return(mockMachines, machErr)
 }
 
 func (s *APISuite) getRenameArgs(from, to network.SpaceName) params.RenameSpacesParams {
