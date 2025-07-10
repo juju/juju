@@ -109,12 +109,12 @@ type unitStorageDirective struct {
 	UnitUUID        coreunit.UUID
 }
 
-// createUnitStorageDirectives is responisble for creating the storage
+// createUnitStorageDirectives is responsible for creating the storage
 // directives for a unit. This func assumes that no storage directives exist
 // already for the unit.
 //
 // The storage directives supply must match the storage defined by the charm.
-// It is expected that the caller is satsified this check has been performed.
+// It is expected that the caller is satisfied this check has been performed.
 func (st *State) createUnitStorageDirectives(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -254,7 +254,7 @@ INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
 		return errors.Capture(err)
 	}
 
-	// We gaurd against zero length insert args below. This is because there is
+	// We guard against zero length insert args below. This is because there is
 	// no direct correlation to number of storage directives and records
 	// created. Empty inserts will result in an error that we don't care about.
 	if len(insertStorageInstArgs) != 0 {
