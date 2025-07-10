@@ -372,14 +372,11 @@ type ApplicationState interface {
 	//     doesn't exist.
 	GetApplicationEndpointNames(context.Context, coreapplication.ID) ([]string, error)
 
-	// ValidateEndpointBindingsForApplication
-	ValidateEndpointBindingsForApplication(context.Context, coreapplication.ID, map[string]network.SpaceName) error
-
 	// MergeApplicationEndpointBindings merge the provided bindings into the bindings
 	// for the specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	MergeApplicationEndpointBindings(context.Context, coreapplication.ID, map[string]network.SpaceName) error
+	MergeApplicationEndpointBindings(ctx context.Context, appID string, bindings map[string]string, force bool) error
 
 	// NamespaceForWatchNetNodeAddress returns the namespace identifier for
 	// net node address changes, which is the ip_address table.
@@ -1856,23 +1853,14 @@ func (s *Service) GetApplicationEndpointNames(ctx context.Context, appUUID corea
 
 // MergeApplicationEndpointBindings merge the provided bindings into the bindings
 // for the specified application.
-// The following errors may be returned:
-// - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (s *Service) MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID, bindings map[string]network.SpaceName, force bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := appID.Validate(); err != nil {
-		return errors.Errorf("validating application ID: %w", err)
-	}
-
-	if !force {
-		if err := s.st.ValidateEndpointBindingsForApplication(ctx, appID, bindings); err != nil {
-			return errors.Errorf("validating endpoint bindings: %w", err)
-		}
-	}
-
-	return s.st.MergeApplicationEndpointBindings(ctx, appID, bindings)
+	b := transform.Map(bindings, func(k string, v network.SpaceName) (string, string) {
+		return k, string(v)
+	})
+	return s.st.MergeApplicationEndpointBindings(ctx, appID.String(), b, force)
 }
 
 // GetDeviceConstraints returns the device constraints for an application.
