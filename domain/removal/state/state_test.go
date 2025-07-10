@@ -160,6 +160,7 @@ func (s *baseSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *ap
 		providerGetter,
 		caasProviderGetter,
 		nil,
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),

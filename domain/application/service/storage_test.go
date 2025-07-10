@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -21,6 +22,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -28,7 +30,7 @@ import (
 // [DefaultStorageProviderValidator].
 type storageProviderSuite struct {
 	provider *MockStorageProvider
-	registry *MockStorageProviderRegistry
+	registry *MockProviderRegistry
 	state    *MockStorageProviderState
 }
 
@@ -51,7 +53,7 @@ func TestStorageSuite(t *testing.T) {
 func (s *storageProviderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.provider = NewMockStorageProvider(ctrl)
-	s.registry = NewMockStorageProviderRegistry(ctrl)
+	s.registry = NewMockProviderRegistry(ctrl)
 	s.state = NewMockStorageProviderState(ctrl)
 
 	c.Cleanup(func() {
@@ -74,6 +76,15 @@ func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
 		loggertesting.WrapCheckLog(c),
 	)
 	return ctrl
+}
+
+// GetStorageRegistry returns the [storageProviderSuite.registry] mock. This
+// func implements the [corestorage.ModelStorageRegistryGetter] interface for
+// the purpose of testing.
+func (s *storageProviderSuite) GetStorageRegistry(
+	_ context.Context,
+) (internalstorage.ProviderRegistry, error) {
+	return s.registry, nil
 }
 
 func (s *storageSuite) TestAttachStorage(c *tc.C) {
@@ -186,7 +197,7 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageNotFound(c *tc.C) {
 		"", storageerrors.PoolNotFoundError,
 	)
 
-	validator := NewStorageProviderValidator(s.registry, s.state)
+	validator := NewStorageProviderValidator(s, s.state)
 	_, err = validator.CheckPoolSupportsCharmStorage(
 		c.Context(), poolUUID, internalcharm.StorageFilesystem,
 	)
@@ -209,7 +220,7 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageFilesystem(c *tc.C) {
 	)
 	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
 
-	validator := NewStorageProviderValidator(s.registry, s.state)
+	validator := NewStorageProviderValidator(s, s.state)
 	supports, err := validator.CheckPoolSupportsCharmStorage(
 		c.Context(), poolUUID, internalcharm.StorageFilesystem,
 	)
@@ -233,7 +244,7 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageBlockdevice(c *tc.C) 
 	)
 	s.provider.EXPECT().Supports(storage.StorageKindBlock).Return(true)
 
-	validator := NewStorageProviderValidator(s.registry, s.state)
+	validator := NewStorageProviderValidator(s, s.state)
 	supports, err := validator.CheckPoolSupportsCharmStorage(
 		c.Context(), poolUUID, internalcharm.StorageBlock,
 	)
@@ -252,7 +263,7 @@ func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageNotFound(c *t
 		nil, storageerrors.ProviderTypeNotFound,
 	)
 
-	validator := NewStorageProviderValidator(s.registry, s.state)
+	validator := NewStorageProviderValidator(s, s.state)
 	_, err := validator.CheckProviderTypeSupportsCharmStorage(
 		c.Context(), "testprovider", internalcharm.StorageFilesystem,
 	)
@@ -270,7 +281,7 @@ func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageFilesystem(c 
 	)
 	s.provider.EXPECT().Supports(storage.StorageKindFilesystem).Return(true)
 
-	validator := NewStorageProviderValidator(s.registry, s.state)
+	validator := NewStorageProviderValidator(s, s.state)
 	supports, err := validator.CheckProviderTypeSupportsCharmStorage(
 		c.Context(), "testprovider", internalcharm.StorageFilesystem,
 	)
@@ -289,7 +300,7 @@ func (s *storageProviderSuite) TestProviderTypeSupportsCharmStorageBlockdevice(c
 	)
 	s.provider.EXPECT().Supports(storage.StorageKindBlock).Return(true)
 
-	validator := NewStorageProviderValidator(s.registry, s.state)
+	validator := NewStorageProviderValidator(s, s.state)
 	supports, err := validator.CheckProviderTypeSupportsCharmStorage(
 		c.Context(), "testprovider", internalcharm.StorageBlock,
 	)

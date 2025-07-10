@@ -22,19 +22,8 @@ import (
 // DefaultStorageProviderValidator is the default implementation of
 // [StorageProviderValidator] for this domain.
 type DefaultStorageProviderValidator struct {
-	providerRegistry StorageProviderRegistry
-	st               StorageProviderState
-}
-
-// StorageProviderRegistry defines the interface set required from the
-// controller's storage registry.
-type StorageProviderRegistry interface {
-	// StorageProvider returns the storage provider with the given
-	// provider type.
-	//
-	// The following errors may be expected:
-	// - [coreerrors.NotFound] when the provider type does not exist.
-	StorageProvider(storage.ProviderType) (storage.Provider, error)
+	providerRegistryGetter corestorage.ModelStorageRegistryGetter
+	st                     StorageProviderState
 }
 
 // StorageProviderState defines the required interface of the model's state for
@@ -224,8 +213,15 @@ func (v *DefaultStorageProviderValidator) CheckPoolSupportsCharmStorage(
 		return false, errors.Capture(err)
 	}
 
+	providerRegistry, err := v.providerRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return false, errors.Errorf(
+			"getting model storage provider registry: %w", err,
+		)
+	}
+
 	providerType := storage.ProviderType(providerTypeStr)
-	provider, err := v.providerRegistry.StorageProvider(providerType)
+	provider, err := providerRegistry.StorageProvider(providerType)
 	// We check if the error is for the provider type not being found and
 	// translate it over to a ProviderTypeNotFound error. This error type is not
 	// recorded in the contract as  this should never be possible. But we are
@@ -260,12 +256,19 @@ func (v *DefaultStorageProviderValidator) CheckPoolSupportsCharmStorage(
 // - [storageerrors.ProviderTypeNotFound] when no provider type for the
 // supplied name exists.
 func (v *DefaultStorageProviderValidator) CheckProviderTypeSupportsCharmStorage(
-	_ context.Context,
+	ctx context.Context,
 	providerTypeStr string,
 	storageType internalcharm.StorageType,
 ) (bool, error) {
+	providerRegistry, err := v.providerRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return false, errors.Errorf(
+			"getting model storage provider registry: %w", err,
+		)
+	}
+
 	providerType := storage.ProviderType(providerTypeStr)
-	provider, err := v.providerRegistry.StorageProvider(providerType)
+	provider, err := providerRegistry.StorageProvider(providerType)
 	if errors.Is(err, coreerrors.NotFound) {
 		return false, errors.Errorf(
 			"provider type %q does not exist", providerTypeStr,
@@ -335,11 +338,11 @@ func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) e
 // that allows checking of storage providers against expected storage
 // requirements.
 func NewStorageProviderValidator(
-	providerRegistry StorageProviderRegistry,
+	providerRegistryGetter corestorage.ModelStorageRegistryGetter,
 	st StorageProviderState,
 ) *DefaultStorageProviderValidator {
 	return &DefaultStorageProviderValidator{
-		providerRegistry: providerRegistry,
-		st:               st,
+		providerRegistryGetter: providerRegistryGetter,
+		st:                     st,
 	}
 }

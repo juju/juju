@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -26,11 +27,11 @@ import (
 	"github.com/juju/juju/domain/application/state"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/schema/testing"
-	secretstate "github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -38,8 +39,7 @@ import (
 type serviceSuite struct {
 	testing.ModelSuite
 
-	svc         *service.ProviderService
-	secretState *secretstate.State
+	svc *service.ProviderService
 
 	caasProvider *MockCAASProvider
 }
@@ -381,9 +381,17 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.caasProvider = NewMockCAASProvider(ctrl)
 
-	s.secretState = secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c))
+	registryGetter := corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
+		return internalstorage.NotImplementedProviderRegistry{}
+	})
+	state := state.NewState(
+		func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+
 	s.svc = service.NewProviderService(
-		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		state,
 		domaintesting.NoopLeaderEnsurer(),
 		nil,
 		func(ctx context.Context) (service.Provider, error) {
@@ -392,6 +400,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		func(ctx context.Context) (service.CAASProvider, error) {
 			return s.caasProvider, nil
 		},
+		service.NewStorageProviderValidator(registryGetter, state),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

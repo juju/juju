@@ -223,14 +223,22 @@ func (s *ModelServices) BlockDevice() *blockdeviceservice.WatchableService {
 // Application returns the model's application service.
 func (s *ModelServices) Application() *applicationservice.WatchableService {
 	logger := s.logger.Child("application")
+	state := applicationstate.NewState(
+		changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger,
+	)
+
+	storageValidator := applicationservice.NewStorageProviderValidator(
+		s.storageRegistry, state,
+	)
 
 	return applicationservice.NewWatchableService(
-		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		state,
 		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("application"),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASProvider](s.providerFactory, s.modelUUID.String()),
+		storageValidator,
 		charmstore.NewCharmStore(s.modelObjectStoreGetter, logger.Child("charmstore")),
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,

@@ -19,6 +19,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationservicetest "github.com/juju/juju/domain/application/service/testing"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/schema/testing"
@@ -134,6 +135,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
+		applicationservicetest.StorageProviderValidator{},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
