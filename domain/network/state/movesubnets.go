@@ -29,6 +29,12 @@ func (st *State) MoveSubnetsToSpace(
 		return nil, nil
 	}
 
+	space, err := st.GetSpaceByName(ctx, network.SpaceName(spaceName))
+	if err != nil {
+		return nil, errors.Errorf("getting space %q: %w", spaceName, err)
+	}
+	spaceUUID := space.ID.String()
+
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -38,23 +44,19 @@ func (st *State) MoveSubnetsToSpace(
 	var negativeFailures []negativeSpaceConstraintFailure
 	var movedSubnets []domainnetwork.MovedSubnets
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkSpaceName(ctx, tx, spaceName)
-		if err != nil {
-			return errors.Capture(err)
-		}
 		subnetToMove := uuids(subnetUUIDs)
-		positiveFailures, err = st.validateSubnetsLeavingSpaces(ctx, tx, subnetToMove, spaceName)
+		positiveFailures, err = st.validateSubnetsLeavingSpaces(ctx, tx, subnetToMove, spaceUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		negativeFailures, err = st.validateSubnetsJoiningSpace(ctx, tx, subnetToMove, spaceName)
+		negativeFailures, err = st.validateSubnetsJoiningSpace(ctx, tx, subnetToMove, spaceUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		if err := st.handleFailures(ctx, positiveFailures, negativeFailures, spaceName, force); err != nil {
+		if err := st.handleFailures(ctx, positiveFailures, negativeFailures, space.Name.String(), force); err != nil {
 			return err
 		}
-		movedSubnets, err = st.moveSubnets(ctx, tx, subnetToMove, spaceName)
+		movedSubnets, err = st.moveSubnets(ctx, tx, subnetToMove, spaceUUID)
 		return errors.Capture(err)
 	})
 
@@ -71,20 +73,18 @@ func (st *State) validateSubnetsLeavingSpaces(
 	ctx context.Context,
 	tx *sqlair.TX,
 	movingSubnets uuids,
-	space string,
+	spaceUUID string,
 ) ([]positiveSpaceConstraintFailure, error) {
 
-	type spaceTo struct {
-		Name string `db:"name"`
-	}
-	destSpace := spaceTo{Name: space}
+	type spaceTo entityUUID
+	destSpace := spaceTo{UUID: spaceUUID}
 
 	query := `
 WITH to_spaces AS (
     -- Maps the moving subnets to the new space
 	SELECT space.uuid as space_uuid, subnet.uuid as subnet_uuid
 	FROM subnet
-	JOIN space ON space.name = $spaceTo.name
+	JOIN space ON space.uuid = $spaceTo.uuid
 	WHERE subnet.uuid IN ($uuids[:])
 ), from_spaces AS (
 	-- Maps the moving subnets to their old spaces
@@ -164,13 +164,11 @@ func (st *State) validateSubnetsJoiningSpace(
 	ctx context.Context,
 	tx *sqlair.TX,
 	movingSubnets uuids,
-	space string,
+	spaceUUID string,
 ) ([]negativeSpaceConstraintFailure, error) {
 
-	type spaceTo struct {
-		Name string `db:"name"`
-	}
-	destSpace := spaceTo{Name: space}
+	type spaceTo entityUUID
+	destSpace := spaceTo{UUID: spaceUUID}
 
 	query := `
 WITH bound_machines AS (    
@@ -178,7 +176,7 @@ WITH bound_machines AS (
 	FROM machine_constraint AS mc
 	JOIN constraint_space AS cs ON mc.constraint_uuid = cs.constraint_uuid
 	JOIN space AS s ON cs.space = s.name
-	WHERE s.name = $spaceTo.name
+	WHERE s.uuid = $spaceTo.uuid
 	AND cs.exclude IS TRUE
 ) 
     -- Get all addresses from machines with constraints in any of moved subnet UUID
@@ -210,7 +208,7 @@ WITH bound_machines AS (
 func (st *State) handleFailures(ctx context.Context,
 	positive []positiveSpaceConstraintFailure,
 	negative []negativeSpaceConstraintFailure,
-	space string,
+	spaceName string,
 	force bool) error {
 	if len(positive) == 0 && len(negative) == 0 {
 		return nil
@@ -237,7 +235,7 @@ func (st *State) handleFailures(ctx context.Context,
 	negativeMessages := transform.MapToSlice(negativeByMachine, func(machine string, addresses []string) []string {
 		return []string{
 			fmt.Sprintf("machine %q would have %d addresses in excluded space %q (%s)",
-				machine, len(addresses), space, strings.Join(addresses, ", ")),
+				machine, len(addresses), spaceName, strings.Join(addresses, ", ")),
 		}
 	})
 
@@ -262,17 +260,15 @@ func (st *State) handleFailures(ctx context.Context,
 // if the operation fails.
 func (st *State) moveSubnets(ctx context.Context, tx *sqlair.TX,
 	subnetToMove uuids,
-	spaceName string,
+	spaceUUID string,
 ) ([]domainnetwork.MovedSubnets, error) {
 
 	type subnet struct {
 		UUID  string `db:"uuid"`
 		Space string `db:"space_name"`
 	}
-	type spaceTo struct {
-		Name string `db:"name"`
-	}
-	space := spaceTo{Name: spaceName}
+	type spaceTo entityUUID
+	space := spaceTo{UUID: spaceUUID}
 
 	getSpaceStmt, err := st.Prepare(`
 SELECT subnet.uuid AS &subnet.uuid, space.name AS &subnet.space_name
@@ -289,7 +285,7 @@ WHERE subnet.uuid IN ($uuids[:])`, subnetToMove, subnet{})
 
 	upsertSubnetSpaceStmt, err := st.Prepare(`
 UPDATE subnet
-SET space_uuid = (SELECT uuid FROM space WHERE name = $spaceTo.name)
+SET space_uuid = $spaceTo.uuid
 WHERE uuid IN ($uuids[:])`, space, subnetToMove)
 	if err != nil {
 		return nil, errors.Errorf("preparing upsert subnet space statement: %w", err)
