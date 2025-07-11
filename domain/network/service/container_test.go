@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -23,13 +24,14 @@ import (
 type containerSuite struct {
 	testhelpers.IsolationSuite
 
-	st *MockState
+	st                     *MockState
+	providerWithNetworking *MockProviderWithNetworking
 
 	hostUUID  machine.UUID
 	guestUUID machine.UUID
 	nodeUUID  string
 
-	svc *Service
+	svc *ProviderService
 }
 
 func TestContainerSuite(t *testing.T) {
@@ -276,10 +278,150 @@ func (s *containerSuite) TestDevicesToBridgeLocalBridgeReqsUnsatisfiable(c *tc.C
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
 }
 
+func (s *containerSuite) TestDevicesForGuestBridgeFoundNoContainerAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	ctx := c.Context()
+
+	spaceUUID := "positive-space-uuid"
+	spaces := []internal.SpaceName{{
+		UUID: spaceUUID,
+		Name: "positive-space",
+	}}
+	bridgeName := "br-eth0"
+	cidr := "10.10.10.0/24"
+
+	exp := s.st.EXPECT()
+	exp.GetMachineSpaceConstraints(ctx, s.guestUUID.String()).Return(spaces, nil, nil)
+	exp.GetMachineAppBindings(ctx, s.guestUUID.String()).Return(nil, nil)
+	exp.GetMachineNetNodeUUID(ctx, s.hostUUID.String()).Return(s.nodeUUID, nil)
+	// A bridge in the space means that connectivity is satisfied.
+	exp.NICsInSpaces(ctx, s.nodeUUID).Return(map[string][]network.NetInterface{
+		spaceUUID: {
+			{
+				Name: bridgeName,
+				Type: corenetwork.BridgeDevice,
+			},
+		},
+	}, nil)
+	exp.GetSubnetCIDRForDevice(ctx, s.nodeUUID, bridgeName, spaceUUID).Return(cidr, nil)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses(ctx).Return(false, nil)
+
+	nics, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.Name, tc.Equals, "eth0")
+	c.Check(nic.MACAddress, tc.NotNil)
+	c.Check(nic.Type, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(nic.ParentDeviceName, tc.Equals, bridgeName)
+	c.Check(nic.IsEnabled, tc.IsTrue)
+	c.Check(nic.IsAutoStart, tc.IsTrue)
+
+	c.Assert(nic.Addrs, tc.HasLen, 1)
+	c.Check(nic.Addrs[0].AddressValue, tc.Equals, cidr)
+	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+}
+
+func (s *containerSuite) TestDevicesForGuestBridgeFoundContainerAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	ctx := c.Context()
+
+	spaceUUID := "positive-space-uuid"
+	spaces := []internal.SpaceName{{
+		UUID: spaceUUID,
+		Name: "positive-space",
+	}}
+	bridgeName := "br-eth0"
+	cidr := "10.10.10.0/24"
+
+	exp := s.st.EXPECT()
+	exp.GetMachineSpaceConstraints(ctx, s.guestUUID.String()).Return(spaces, nil, nil)
+	exp.GetMachineAppBindings(ctx, s.guestUUID.String()).Return(nil, nil)
+	exp.GetMachineNetNodeUUID(ctx, s.hostUUID.String()).Return(s.nodeUUID, nil)
+	// A bridge in the space means that connectivity is satisfied.
+	exp.NICsInSpaces(ctx, s.nodeUUID).Return(map[string][]network.NetInterface{
+		spaceUUID: {
+			{
+				Name: bridgeName,
+				Type: corenetwork.BridgeDevice,
+			},
+		},
+	}, nil)
+	exp.GetSubnetCIDRForDevice(ctx, s.nodeUUID, bridgeName, spaceUUID).Return(cidr, nil)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses(ctx).Return(true, nil)
+
+	nics, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.Name, tc.Equals, "eth0")
+	c.Check(nic.MACAddress, tc.NotNil)
+	c.Check(nic.Type, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(nic.ParentDeviceName, tc.Equals, bridgeName)
+	c.Check(nic.IsEnabled, tc.IsTrue)
+	c.Check(nic.IsAutoStart, tc.IsTrue)
+
+	c.Assert(nic.Addrs, tc.HasLen, 1)
+	c.Check(nic.Addrs[0].AddressValue, tc.Equals, cidr)
+	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigStatic)
+}
+
+func (s *containerSuite) TestDevicesForGuestNoBridgeFoundError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	ctx := c.Context()
+
+	spaceUUID := "positive-space-uuid"
+	spaces := []internal.SpaceName{{
+		UUID: spaceUUID,
+		Name: "positive-space",
+	}}
+
+	exp := s.st.EXPECT()
+	exp.GetMachineSpaceConstraints(ctx, s.guestUUID.String()).Return(spaces, nil, nil)
+	exp.GetMachineAppBindings(ctx, s.guestUUID.String()).Return(nil, nil)
+	exp.GetMachineNetNodeUUID(ctx, s.hostUUID.String()).Return(s.nodeUUID, nil)
+	// No bridge means that the guest's space requirements are not satisfied.
+	exp.NICsInSpaces(ctx, s.nodeUUID).Return(map[string][]network.NetInterface{
+		spaceUUID: {
+			{
+				Name: "eth0",
+				Type: corenetwork.EthernetDevice,
+			},
+		},
+	}, nil)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses(ctx).Return(true, nil)
+
+	_, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
+}
+
 func (s *containerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	s.st = NewMockState(ctrl)
-	c.Cleanup(func() { s.st = nil })
+	s.providerWithNetworking = NewMockProviderWithNetworking(ctrl)
+
+	c.Cleanup(func() {
+		s.st = nil
+		s.providerWithNetworking = nil
+	})
+
 	return ctrl
 }
 
@@ -294,6 +436,11 @@ func (s *containerSuite) setupServiceAndMachines(c *tc.C) {
 
 	s.nodeUUID = "net-node-uuid"
 
-	s.svc = NewService(s.st, loggertesting.WrapCheckLog(c))
+	s.svc = NewProviderService(
+		s.st,
+		func(ctx context.Context) (ProviderWithNetworking, error) { return s.providerWithNetworking, nil },
+		nil, // No provider with zones needed for this suite.
+		loggertesting.WrapCheckLog(c),
+	)
 	c.Cleanup(func() { s.svc = nil })
 }
