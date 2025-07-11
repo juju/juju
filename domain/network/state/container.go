@@ -238,3 +238,45 @@ func (st *State) GetContainerNetworkingMethod(ctx context.Context) (string, erro
 	})
 	return conf.Value, errors.Capture(err)
 }
+
+// GetSubnetCIDRForDevice uses the device identified by the input node UUID
+// and device name to locate the CIDR of the subnet that it is connected to,
+// in the input space.
+func (st *State) GetSubnetCIDRForDevice(ctx context.Context, nodeUUID, deviceName, spaceUUID string) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	nUUID := netNodeUUID{UUID: nodeUUID}
+	dName := name{Name: deviceName}
+	sUUID := entityUUID{UUID: spaceUUID}
+
+	qry := `
+SELECT &subnet.cidr
+FROM   link_layer_device d
+       JOIN ip_address a ON d.uuid = a.device_uuid
+       JOIN subnet s ON a.subnet_uuid = s.uuid
+WHERE  d.net_node_uuid = $netNodeUUID.net_node_uuid
+AND    d.name = $name.name
+AND    s.space_uuid = $entityUUID.uuid`
+
+	stmt, err := st.Prepare(qry, nUUID, dName, sUUID, subnet{})
+	if err != nil {
+		return "", errors.Errorf("preparing subnet CIDR statement: %w", err)
+	}
+
+	var subnetCIDR subnet
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, nUUID, dName, sUUID).Get(&subnetCIDR); err != nil {
+			if err != nil {
+				return errors.Errorf("querying subnet CIDR: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return subnetCIDR.CIDR, nil
+}
