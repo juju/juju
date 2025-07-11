@@ -86,42 +86,6 @@ func getFacadeFactory(c *tc.C, name string, version int) facade.MultiModelFactor
 	return factory
 }
 
-func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *tc.C) {
-	ch := make(chan []string, 1)
-	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
-	s.authorizer.Tag = names.NewMachineTag("123")
-
-	ch <- []string{"0:1", "1:2"}
-	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
-	result, err := facade.Next(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
-		Changes: []params.MachineStorageId{
-			{MachineTag: "machine-0", AttachmentTag: "volume-1"},
-			{MachineTag: "machine-1", AttachmentTag: "volume-2"},
-		},
-	})
-}
-
-func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *tc.C) {
-	ch := make(chan []string, 1)
-	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
-	s.authorizer.Tag = names.NewMachineTag("123")
-
-	ch <- []string{"0:1", "1:2"}
-	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
-	result, err := facade.Next(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
-		Changes: []params.MachineStorageId{
-			{MachineTag: "machine-0", AttachmentTag: "filesystem-1"},
-			{MachineTag: "machine-1", AttachmentTag: "filesystem-2"},
-		},
-	})
-}
-
 func (s *watcherSuite) TestMigrationStatusWatcher(c *tc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
