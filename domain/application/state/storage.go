@@ -6,12 +6,11 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
-	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
@@ -36,373 +34,423 @@ const (
 	storageNamespace    = domainsequence.StaticNamespace("storage")
 )
 
-func (st *State) loadStoragePoolUUIDByName(ctx context.Context, tx *sqlair.TX, poolNames []string) (map[string]string, error) {
-	type poolnames []string
-	storageQuery, err := st.Prepare(`
-SELECT &storagePool.*
-FROM   storage_pool
-WHERE  name IN ($poolnames[:])
-`, storagePool{}, poolnames{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var dbPools []storagePool
-	err = tx.Query(ctx, storageQuery, poolnames(poolNames)).GetAll(&dbPools)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Errorf("querying storage pools: %w", err)
-	}
-	poolsByName := make(map[string]string)
-	for _, p := range dbPools {
-		poolsByName[p.Name] = p.UUID
-	}
-	return poolsByName, nil
-}
-
-// insertApplicationStorage constructs inserts storage directive records for the application.
-func (st *State) insertApplicationStorage(ctx context.Context, tx *sqlair.TX, appDetails applicationDetails, appStorage []application.ApplicationStorageArg) error {
-	if len(appStorage) == 0 {
+// insertApplicationStorageDirectives inserts all of the storage directives for
+// a new application. This func checks to make sure that the caller has supplied
+// a directive for each of the storage definitions on the charm.
+func (st *State) insertApplicationStorageDirectives(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid coreapplication.ID,
+	charmUUID corecharm.ID,
+	directives []application.ApplicationStorageDirectiveArg,
+) error {
+	if len(directives) == 0 {
 		return nil
 	}
 
-	// This check is here until we rework all of the AddApplication logic to
-	// run in a single transaction. There's a TO-DO in the AddApplication service method.
-	queryStmt, err := st.Prepare(`
-SELECT &charmStorage.name FROM charm_storage
-WHERE  charm_uuid = $applicationDetails.charm_uuid
-`, appDetails, charmStorage{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var storageMetadata []charmStorage
-	err = tx.Query(ctx, queryStmt, appDetails).GetAll(&storageMetadata)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return errors.Errorf("querying supported charm storage: %w", err)
-	}
-	supportedStorage := set.NewStrings()
-	for _, stor := range storageMetadata {
-		supportedStorage.Add(stor.Name)
-	}
-	wantStorage := set.NewStrings()
-	for _, stor := range appStorage {
-		wantStorage.Add(stor.Name.String())
-	}
-	unsupportedStorage := wantStorage.Difference(supportedStorage)
-	if unsupportedStorage.Size() > 0 {
-		return errors.Errorf("storage %q is not supported", unsupportedStorage.SortedValues())
-	}
-
-	// Storage is either a storage type or a pool name.
-	// Get a mapping of pool name to pool UUID for any
-	// pools specified in the app storage directives.
-	poolNames := make([]string, len(appStorage))
-	for i, stor := range appStorage {
-		poolNames[i] = stor.PoolNameOrType
-	}
-	poolsByName, err := st.loadStoragePoolUUIDByName(ctx, tx, poolNames)
-	if err != nil {
-		return errors.Errorf("loading storage pool UUIDs: %w", err)
-	}
-
-	storage := make([]storageToAdd, len(appStorage))
-	for i, stor := range appStorage {
-		storage[i] = storageToAdd{
-			ApplicationUUID: appDetails.UUID.String(),
-			CharmUUID:       appDetails.CharmUUID,
-			StorageName:     stor.Name.String(),
-			Size:            uint(stor.Size),
-			Count:           uint(stor.Count),
+	insertDirectivesInput := make([]insertApplicationStorageDirective, 0, len(directives))
+	for _, d := range directives {
+		var (
+			poolUUIDVal     sql.Null[string]
+			providerTypeVal sql.Null[string]
+		)
+		if d.PoolUUID != nil {
+			poolUUIDVal = sql.Null[string]{
+				V:     d.PoolUUID.String(),
+				Valid: true,
+			}
 		}
-		// PoolNameOrType has already been validated to either be
-		// a pool name or a valid storage type for the relevant cloud.
-		if uuid, ok := poolsByName[stor.PoolNameOrType]; ok {
-			storage[i].StoragePoolUUID = &uuid
-		} else {
-			storage[i].StorageType = &stor.PoolNameOrType
+		if d.ProviderType != nil {
+			providerTypeVal = sql.Null[string]{
+				V:     *d.ProviderType,
+				Valid: true,
+			}
 		}
+
+		insertDirectivesInput = append(
+			insertDirectivesInput,
+			insertApplicationStorageDirective{
+				ApplicationUUID:     uuid.String(),
+				CharmUUID:           charmUUID.String(),
+				Count:               d.Count,
+				Size:                d.Size,
+				StorageName:         d.Name.String(),
+				StoragePoolUUID:     poolUUIDVal,
+				StorageProviderType: providerTypeVal,
+			},
+		)
 	}
 
-	insertStmt, err := st.Prepare(`
+	insertDirectivesStmt, err := st.Prepare(`
 INSERT INTO application_storage_directive (*)
-VALUES ($storageToAdd.*)`, storageToAdd{})
+VALUES ($insertApplicationStorageDirective.*)
+`,
+		insertApplicationStorageDirective{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, storage).Run()
+	err = tx.Query(ctx, insertDirectivesStmt, insertDirectivesInput).Run()
 	if err != nil {
 		return errors.Capture(err)
 	}
+
 	return nil
 }
 
-type storageTemplate struct {
-	meta   charmStorage
-	params application.ApplicationStorageArg
+// unitStorageDirective represents a single storage directive for a unit.
+type unitStorageDirective struct {
+	CharmUUID       corecharm.ID
+	Count           uint32
+	Name            string
+	Size            uint64
+	StoragePoolUUID *string
+	StorageProvider *string
+	UnitUUID        coreunit.UUID
 }
 
-func (st *State) composeStorageTemplates(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, args []application.ApplicationStorageArg) ([]storageTemplate, error) {
-	templates := make([]storageTemplate, 0, len(args))
-	for _, arg := range args {
-		storageMeta, err := st.getApplicationCharmStorageByName(ctx, tx, appUUID, arg.Name)
-		if errors.Is(err, charmStorageNotFound) {
-			return nil, errors.Errorf(
-				"charm for application %q has no storage called %q",
-				appUUID, arg.Name,
-			).Add(applicationerrors.StorageNameNotSupported)
-		} else if err != nil {
-			return nil, errors.Errorf("getting charm storage metadata for storage name %q application %q: %w", arg.Name, appUUID, err)
-		}
+// createUnitStorageDirectives is responsible for creating the storage
+// directives for a unit. This func assumes that no storage directives exist
+// already for the unit.
+//
+// The storage directives supply must match the storage defined by the charm.
+// It is expected that the caller is satisfied this check has been performed.
+func (st *State) createUnitStorageDirectives(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	charmUUID corecharm.ID,
+	args []application.UnitStorageDirectiveArg,
+) ([]unitStorageDirective, error) {
+	if len(args) == 0 {
+		return []unitStorageDirective{}, nil
+	}
 
-		if arg.Count == 0 {
-			continue
+	insertStorageDirectiveStmt, err := st.Prepare(`
+INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
+`,
+		insertUnitStorageDirective{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	insertArgs := make([]insertUnitStorageDirective, 0, len(args))
+	rval := make([]unitStorageDirective, 0, len(args))
+	for _, arg := range args {
+		storagePoolUUIDVal := sql.Null[string]{}
+		storageTypeVal := sql.Null[string]{}
+		if arg.PoolUUID != nil {
+			storagePoolUUIDVal = sql.Null[string]{
+				V:     arg.PoolUUID.String(),
+				Valid: true,
+			}
 		}
-		templates = append(templates, storageTemplate{
-			meta:   storageMeta,
-			params: arg,
+		if arg.ProviderType != nil {
+			storageTypeVal = sql.Null[string]{
+				V:     *arg.ProviderType,
+				Valid: true,
+			}
+		}
+		insertArgs = append(insertArgs, insertUnitStorageDirective{
+			CharmUUID:       charmUUID.String(),
+			Count:           arg.Count,
+			Size:            arg.Size,
+			StorageName:     arg.Name.String(),
+			StoragePoolUUID: storagePoolUUIDVal,
+			StorageType:     storageTypeVal,
+			UnitUUID:        unitUUID.String(),
+		})
+
+		var (
+			poolUUID *string
+			provider *string
+		)
+		if arg.PoolUUID != nil {
+			poolUUIDStr := arg.PoolUUID.String()
+			poolUUID = &poolUUIDStr
+		}
+		if arg.ProviderType != nil {
+			poolTypeStr := *arg.ProviderType
+			provider = &poolTypeStr
+		}
+		rval = append(rval, unitStorageDirective{
+			CharmUUID:       charmUUID,
+			Count:           arg.Count,
+			Name:            arg.Name.String(),
+			StoragePoolUUID: poolUUID,
+			StorageProvider: provider,
+			Size:            arg.Size,
+			UnitUUID:        unitUUID,
 		})
 	}
-	return templates, nil
+
+	err = tx.Query(ctx, insertStorageDirectiveStmt, insertArgs).Run()
+	if err != nil {
+		return nil, errors.Errorf("creating unit %q storage directives: %w", unitUUID, err)
+	}
+
+	return rval, nil
 }
 
-// insertUnitStorage inserts the storage records need to record the intent
-// for the specified new unit and storage args. Records include:
-// - storage instance
-// - filesystem
-// - volume
-// - related attachment records
-// TODO(storage) - support attaching existing storage when adding a unit
-func (st *State) insertUnitStorage(
-	ctx context.Context, tx *sqlair.TX,
-	appUUID coreapplication.ID,
-	unitUUID coreunit.UUID,
-	args []application.ApplicationStorageArg, poolKinds map[string]storage.StorageKind,
-) ([]attachStorageArgs, error) {
-
-	// Reduce the count of new storage created for each existing storage
-	// being attached.
-	// TODO(storage) - implement this when unit machine storage can be supported
-	// (includes ensureCharmStorageCountChange below)
-
-	templates, err := st.composeStorageTemplates(ctx, tx, appUUID, args)
-	if err != nil {
-		return nil, errors.Errorf("composing storage info for application %q: %w", appUUID, err)
-	}
-	if len(templates) == 0 {
-		return nil, nil
-	}
-
-	result := make([]attachStorageArgs, len(templates))
-
-	app := applicationID{ID: appUUID}
-	selectCharmStmt, err := st.Prepare(
-		`SELECT &applicationCharmUUID.charm_uuid FROM application WHERE uuid = $applicationID.uuid`,
-		app, applicationCharmUUID{})
-	if err != nil {
-		return result, errors.Capture(err)
-	}
-	var appCharm applicationCharmUUID
-	err = tx.Query(ctx, selectCharmStmt, app).Get(&appCharm)
-	if err != nil {
-		return result, errors.Errorf("getting application charm for %q: %w", appUUID, err)
-	}
-
-	// Storage is either a storage type or a pool name.
-	// Get a mapping of pool name to pool UUID for any
-	// pools specified in the app storage args.
-	poolNames := make([]string, len(args))
-	for i, stor := range args {
-		poolNames[i] = stor.PoolNameOrType
-	}
-	poolsByName, err := st.loadStoragePoolUUIDByName(ctx, tx, poolNames)
-	if err != nil {
-		return result, errors.Errorf("loading storage pool UUIDs: %w", err)
-	}
-
-	for i, t := range templates {
-		if err := ensureCharmStorageCountChange(t.meta, 0, t.params.Count); err != nil {
-			return result, errors.Capture(err)
-		}
-		result[i].instArgs = make([]storageInstanceArg, t.params.Count)
-		for c := range t.params.Count {
-			// First create the storage instance records.
-			instUUID, err := corestorage.NewUUID()
-			if err != nil {
-				return result, errors.Capture(err)
-			}
-			id, err := sequencestate.NextValue(ctx, st, tx, storageNamespace)
-			if err != nil {
-				return result, errors.Errorf("generating next storage ID: %w", err)
-			}
-			storageID := corestorage.MakeID(t.params.Name, id)
-
-			result[i].instArgs[c] = storageInstanceArg{
-				StorageUUID: instUUID,
-				StorageID:   storageID,
-			}
-
-			inst := storageInstance{
-				StorageUUID:      instUUID,
-				StorageID:        storageID,
-				StorageName:      t.params.Name,
-				RequestedSizeMIB: t.params.Size,
-				LifeID:           life.Alive,
-				CharmUUID:        appCharm.CharmUUID,
-			}
-			// PoolNameOrType has already been validated to either be
-			// a pool name or a valid storage type for the relevant cloud.
-			if uuid, ok := poolsByName[t.params.PoolNameOrType]; ok {
-				inst.StoragePoolUUID = &uuid
-			} else {
-				inst.StorageType = &t.params.PoolNameOrType
-			}
-
-			if err := st.createUnitStorageInstance(ctx, tx, unitUUID, inst); err != nil {
-				return result, errors.Capture(err)
-			}
-
-			// TODO(storage) - insert data for the unit's assigned machine when that is implemented
-		}
-		result[i].meta = t.meta
-		result[i].PoolNameOrType = t.params.PoolNameOrType
-	}
-	return result, nil
-}
-
-type storageInstanceArg struct {
-	StorageUUID corestorage.UUID
-	StorageID   corestorage.ID
-}
-
-type attachStorageArgs struct {
-	meta           charmStorage
-	PoolNameOrType string
-	instArgs       []storageInstanceArg
-}
-
-func (st *State) attachUnitStorage(
-	ctx context.Context, tx *sqlair.TX,
-	poolKinds map[string]storage.StorageKind,
-	unitUUID coreunit.UUID,
-	netNodeUUID string,
-	args []attachStorageArgs,
+// createUnitStorageInstances is responsible for creating all of the needed
+// storage instances to satisfy the set of unit storage directives supplied.
+// For every storage instance created, a storage unit owner record is also
+// created.
+//
+// This func assumes that for each unit in the storage directive no storage
+// instances have previously been created for this unit and directive.
+func (s *State) createUnitStorageInstances(
+	ctx context.Context,
+	tx *sqlair.TX,
+	stDirectives []unitStorageDirective,
 ) error {
-
-	// Reduce the count of new storage created for each existing storage
-	// being attached.
-	// TODO(storage) - implement this when unit machine storage can be supported
-	// (includes ensureCharmStorageCountChange below)
-
-	for _, arg := range args {
-		count := uint64(len(arg.instArgs))
-		if err := ensureCharmStorageCountChange(arg.meta, 0, count); err != nil {
-			return err
-		}
-		for _, instArg := range arg.instArgs {
-			storageUUID := instArg.StorageUUID
-			err := st.attachStorageToUnit(ctx, tx, storageUUID, unitUUID)
-			if err != nil {
-				return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
-			}
-
-			// Get the info needed to create the necessary filesystem and/or volume attachments to the net node.
-			// The required attachments then inform the creation of the filesystem and/or volume.
-			filesystem, volume, err := st.attachmentParamsForNewStorageInstance(instArg.StorageID, arg.PoolNameOrType, arg.meta, poolKinds)
-			if err != nil {
-				return errors.Errorf("creating storage parameters: %w", err)
-			}
-			if filesystem != nil {
-				filesystemUUID, err := st.createFilesystem(ctx, tx, storageUUID, netNodeUUID)
-				if err != nil {
-					return errors.Errorf("creating filesystem for storage %q for unit %q: %w", storageUUID, unitUUID, err)
-				}
-				filesystem.filesystemUUID = filesystemUUID
-				if err := st.attachFilesystemToNode(ctx, tx, netNodeUUID, *filesystem); err != nil {
-					return errors.Errorf("attaching filesystem to storage %q for unit %q: %w", storageUUID, unitUUID, err)
-				}
-			}
-			if volume != nil {
-				volumeUUID, err := st.createVolume(ctx, tx, storageUUID, netNodeUUID)
-				if err != nil {
-					return errors.Errorf("creating volume for storage %q for unit %q: %w", storageUUID, unitUUID, err)
-				}
-				volume.volumeUUID = volumeUUID
-				if err := st.attachVolumeToNode(ctx, tx, netNodeUUID, *volume); err != nil {
-					return errors.Errorf("attaching volume to storage %q for unit %q: %w", storageUUID, unitUUID, err)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (st *State) createUnitStorageInstance(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, inst storageInstance) error {
-	insertStorageStmt, err := st.Prepare(`
-INSERT INTO storage_instance (*) VALUES ($storageInstance.*)
-`, inst)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	storageUnit := storageUnit{
-		StorageUUID: inst.StorageUUID,
-		UnitUUID:    unitUUID,
-	}
-
-	insertStorageUnitStmt, err := st.Prepare(`
-INSERT INTO storage_unit_owner (*) VALUES ($storageUnit.*)
-	`, storageUnit)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, insertStorageStmt, inst).Run()
-	if err != nil {
-		return errors.Errorf("creating storage instance %q for unit %q: %w", inst.StorageUUID, unitUUID, err)
-	}
-
-	err = tx.Query(ctx, insertStorageUnitStmt, storageUnit).Run()
-	if err != nil {
-		return errors.Errorf("creating storage unit owner for storage %q and unit %q: %w", inst.StorageUUID, unitUUID, err)
-	}
-	return nil
-}
-
-func (st *State) attachmentParamsForNewStorageInstance(
-	storageID corestorage.ID,
-	poolName string,
-	stor charmStorage,
-	poolKinds map[string]storage.StorageKind,
-) (filesystem *filesystemAttachmentParams, volume *volumeAttachmentParams, _ error) {
-
-	switch charm.StorageType(stor.Kind) {
-	case charm.StorageFilesystem:
-		location, err := domainstorage.FilesystemMountPoint(stor.Location, stor.CountMax, storageID)
+	insertStorageAttachmentArgs := make([]insertStorageAttachment, 0, len(stDirectives))
+	insertStorageInstArgs := make([]insertStorageInstance, 0, len(stDirectives))
+	insertStorageOwnerArgs := make([]insertStorageUnitOwner, 0, len(stDirectives))
+	for _, directive := range stDirectives {
+		storageAttachmentArgs, storageInstanceArgs, storageUnitOwnerArgs, err :=
+			s.makeInsertUnitStorageArgs(
+				ctx, tx, directive,
+			)
 		if err != nil {
-			return nil, nil, errors.Errorf(
-				"getting filesystem mount point for storage %s: %w",
-				stor.Name, err,
-			).Add(applicationerrors.InvalidStorageMountPoint)
+			return errors.Errorf(
+				"making storage instance(s) args from unit %q directive %q: %w",
+				directive.UnitUUID, directive.Name, err,
+			)
 		}
-		filesystem = &filesystemAttachmentParams{
-			locationAutoGenerated: stor.Location == "", // auto-generated location
-			location:              location,
-			readOnly:              stor.ReadOnly,
-		}
-		// For volume backed filesystem storage, we also need to
-		// include the backing volume.
-		k, ok := poolKinds[poolName]
-		if !ok || k == storage.StorageKindFilesystem {
-			break
-		}
-		fallthrough
-	case charm.StorageBlock:
-		volume = &volumeAttachmentParams{
-			readOnly: stor.ReadOnly,
-		}
-	default:
-		return nil, nil, errors.Errorf("invalid storage kind %v", stor.Kind)
+
+		insertStorageAttachmentArgs = append(
+			insertStorageAttachmentArgs, storageAttachmentArgs...,
+		)
+		insertStorageInstArgs = append(
+			insertStorageInstArgs, storageInstanceArgs...,
+		)
+		insertStorageOwnerArgs = append(
+			insertStorageOwnerArgs, storageUnitOwnerArgs...,
+		)
 	}
-	return filesystem, volume, nil
+
+	insertStorageAttachmentStmt, err := s.Prepare(`
+INSERT INTO storage_attachment (*) VALUES ($insertStorageAttachment.*)
+`,
+		insertStorageAttachment{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStorageInstStmt, err := s.Prepare(`
+INSERT INTO storage_instance (*) VALUES ($insertStorageInstance.*)
+`,
+		insertStorageInstance{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStorageOwnerStmt, err := s.Prepare(`
+INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
+`,
+		insertStorageUnitOwner{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// We guard against zero length insert args below. This is because there is
+	// no direct correlation to number of storage directives and records
+	// created. Empty inserts will result in an error that we don't care about.
+	if len(insertStorageInstArgs) != 0 {
+		err := tx.Query(ctx, insertStorageInstStmt, insertStorageInstArgs).Run()
+		if err != nil {
+			return errors.Errorf(
+				"creating %d storage instance(s): %w",
+				len(insertStorageInstArgs), err,
+			)
+		}
+	}
+
+	if len(insertStorageAttachmentArgs) != 0 {
+		err := tx.Query(
+			ctx, insertStorageAttachmentStmt, insertStorageAttachmentArgs,
+		).Run()
+		if err != nil {
+			return errors.Errorf(
+				"creating %d storage instance attachment(s): %w",
+				len(insertStorageAttachmentArgs), err,
+			)
+		}
+	}
+
+	if len(insertStorageOwnerArgs) != 0 {
+		err := tx.Query(ctx, insertStorageOwnerStmt, insertStorageOwnerArgs).Run()
+		if err != nil {
+			return errors.Errorf(
+				"setting storage instance unit owner: %w", err,
+			)
+		}
+	}
+
+	return nil
+}
+
+// GetProviderTypeOfPool returns the provider type that is in use for the
+// given pool.
+//
+// The following error types can be expected:
+// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+// provided pool uuid.
+func (st *State) GetProviderTypeOfPool(
+	ctx context.Context, poolUUID domainstorage.StoragePoolUUID,
+) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		poolUUIDInput = storagePoolUUID{UUID: poolUUID.String()}
+		typeVal       storagePoolType
+	)
+
+	providerTypeStmt, err := st.Prepare(`
+SELECT &storagePoolType.*
+FROM   storage_pool
+WHERE  uuid = $storagePoolUUID.uuid
+`,
+		poolUUIDInput, typeVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, providerTypeStmt, poolUUIDInput).Get(&typeVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"storage pool %q does not exist", poolUUID,
+			).Add(storageerrors.PoolNotFoundError)
+		}
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return typeVal.Type, nil
+}
+
+// makeInsertUnitStorageArgs is responsible for making the insert args required
+// for instantiating new storage instances that match a unit's storage
+// directive Included in the return is the set of insert values required for
+// making the unit the owner of the new storage instance(s). Attachment records
+// are also returned for each of the storage instances.
+func (st *State) makeInsertUnitStorageArgs(
+	ctx context.Context,
+	tx *sqlair.TX,
+	directive unitStorageDirective,
+) ([]insertStorageAttachment, []insertStorageInstance, []insertStorageUnitOwner, error) {
+	storageAttachmentRval := make([]insertStorageAttachment, 0, directive.Count)
+	storageInstanceRval := make([]insertStorageInstance, 0, directive.Count)
+	storageOwnerRval := make([]insertStorageUnitOwner, 0, directive.Count)
+	for range directive.Count {
+		uuid, err := corestorage.NewUUID()
+		if err != nil {
+			return nil, nil, nil, errors.Errorf(
+				"creating storage uuid for new storage instance: %w", err,
+			)
+		}
+
+		id, err := sequencestate.NextValue(ctx, st, tx, storageNamespace)
+		if err != nil {
+			return nil, nil, nil, errors.Errorf(
+				"creating unique storage instance id: %w", err,
+			)
+		}
+
+		storageID := corestorage.MakeID(
+			corestorage.Name(directive.Name), id,
+		).String()
+
+		storagePoolVal := sql.Null[string]{}
+		if directive.StoragePoolUUID != nil {
+			storagePoolVal.V = *directive.StoragePoolUUID
+			storagePoolVal.Valid = true
+		}
+		storageTypeVal := sql.Null[string]{}
+		if directive.StorageProvider != nil {
+			storageTypeVal.V = *directive.StorageProvider
+			storageTypeVal.Valid = true
+		}
+
+		storageAttachmentRval = append(storageAttachmentRval, insertStorageAttachment{
+			StorageInstanceUUID: uuid.String(),
+			LifeID:              int(life.Alive),
+			UnitUUID:            directive.UnitUUID.String(),
+		})
+		storageInstanceRval = append(storageInstanceRval, insertStorageInstance{
+			CharmUUID:       directive.CharmUUID.String(),
+			LifeID:          int(life.Alive),
+			RequestSizeMiB:  directive.Size,
+			StorageID:       storageID,
+			StorageName:     directive.Name,
+			StoragePoolUUID: storagePoolVal,
+			StorageType:     storageTypeVal,
+			UUID:            uuid.String(),
+		})
+		storageOwnerRval = append(storageOwnerRval, insertStorageUnitOwner{
+			StorageInstanceUUID: uuid.String(),
+			UnitUUID:            directive.UnitUUID.String(),
+		})
+	}
+
+	return storageAttachmentRval, storageInstanceRval, storageOwnerRval, nil
+}
+
+// getApplicationStorageDirectiveAsArgs returns the current set of storage
+// directives set for an application as the directive arguments that would have
+// been used to create them. This func does not check to make sure that the
+// application exists. No error is returned when no storage directives exist.
+func (st *State) getApplicationStorageDirectiveAsArgs(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID coreapplication.ID,
+) ([]application.ApplicationStorageDirectiveArg, error) {
+	appUUIDInput := applicationID{ID: appUUID}
+
+	getStorageDirectivesStmt, err := st.Prepare(`
+SELECT &applicationStorageDirective.*
+FROM   application_storage_directive
+WHERE  application_uuid = $applicationID.uuid
+`,
+		applicationStorageDirective{}, appUUIDInput)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbVals []applicationStorageDirective
+	err = tx.Query(ctx, getStorageDirectivesStmt, appUUIDInput).GetAll(&dbVals)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]application.ApplicationStorageDirectiveArg, 0, len(dbVals))
+	for _, val := range dbVals {
+		arg := application.ApplicationStorageDirectiveArg{
+			Count: val.Count,
+			Name:  domainstorage.Name(val.StorageName),
+			Size:  val.SizeMiB,
+		}
+		if val.StoragePoolUUID.Valid {
+			poolUUIID := domainstorage.StoragePoolUUID(val.StoragePoolUUID.V)
+			arg.PoolUUID = &poolUUIID
+		}
+		if val.StorageType.Valid {
+			providerType := val.StorageType.V
+			arg.ProviderType = &providerType
+		}
+
+		rval = append(rval, arg)
+	}
+	return rval, nil
 }
 
 // GetStorageUUIDByID returns the UUID for the specified storage, returning an error
@@ -556,36 +604,6 @@ WHERE  uuid = $storageInstance.uuid
 	return inst, nil
 }
 
-const charmStorageNotFound = errors.ConstError("charm storage not found")
-
-func (st *State) getApplicationCharmStorageByName(ctx context.Context, tx *sqlair.TX, uuid coreapplication.ID, name corestorage.Name) (charmStorage, error) {
-	storageSpec := appCharmStorage{
-		ApplicationUUID: uuid,
-		StorageName:     name,
-	}
-	var result charmStorage
-	stmt, err := st.Prepare(`
-SELECT cs.* AS &charmStorage.*
-FROM   v_charm_storage cs
-JOIN   application ON application.charm_uuid = cs.charm_uuid
-WHERE  application.uuid = $appCharmStorage.uuid
-AND    cs.name = $appCharmStorage.name
-`, storageSpec, result)
-	if err != nil {
-		return result, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, storageSpec).Get(&result)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return result, charmStorageNotFound
-	}
-	if err != nil {
-		return result, errors.Errorf("failed to select charm storage: %w", err)
-	}
-
-	return result, nil
-}
-
 func (st *State) getUnitCharmStorageByName(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID, name corestorage.Name) (charmStorage, error) {
 	storageSpec := unitCharmStorage{
 		UnitUUID:    uuid,
@@ -608,6 +626,19 @@ AND    cs.name = $unitCharmStorage.name
 	}
 
 	return result, nil
+}
+
+// GetDefaultStorageProvisioners returns the default storage provisioners
+// that have been set for the model.
+func (st *State) GetDefaultStorageProvisioners(
+	ctx context.Context,
+) (application.DefaultStorageProvisioners, error) {
+	// TODO (tlm) get the default storage provisioners for the model.
+	defaultProviderType := "loop"
+	return application.DefaultStorageProvisioners{
+		BlockdeviceProviderType: &defaultProviderType,
+		FilesystemProviderType:  &defaultProviderType,
+	}, nil
 }
 
 // ensureCharmStorageCountChange checks that the charm storage can change by
@@ -670,7 +701,7 @@ WHERE  uuid = $storageUnit.storage_instance_uuid
 	// that needs to be reconciled with the Juju model. It is part of the
 	// UnitIntroduction workflow when a pod appears with volumes already attached.
 	// TODO - this can be removed when ObservedAttachedVolumeIDs are processed.
-	modelType, err := st.GetModelType(ctx)
+	modelType, err := st.getModelType(ctx, tx)
 	if err != nil {
 		return errors.Errorf("getting model type: %w", err)
 	}
@@ -940,171 +971,174 @@ INSERT INTO storage_volume_attachment (*) VALUES ($volumeAttachment.*)
 	return nil
 }
 
-func (st *State) createFilesystem(
-	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
-) (corestorage.FilesystemUUID, error) {
-	filesystemId, err := sequencestate.NextValue(ctx, st, tx, filesystemNamespace)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
+// TODO (tlm) add back in
+//func (st *State) createFilesystem(
+//	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
+//) (corestorage.FilesystemUUID, error) {
+//	filesystemId, err := sequencestate.NextValue(ctx, st, tx, filesystemNamespace)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	filesystemUUID, err := corestorage.NewFilesystemUUID()
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	fs := filesystem{
+//		UUID:         filesystemUUID,
+//		FilesystemID: fmt.Sprint(filesystemId),
+//		LifeID:       life.Alive,
+//	}
+//	insertFilesystemStmt, err := st.Prepare(`
+//INSERT INTO storage_filesystem (uuid, filesystem_id, life_id) VALUES ($filesystem.*)
+//`, fs)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	sif := storageInstanceFilesystem{
+//		FilesystemUUID: filesystemUUID,
+//		StorageUUID:    storageUUID,
+//	}
+//	insertStorageFilesystemStmt, err := st.Prepare(`
+//INSERT INTO storage_instance_filesystem (*) VALUES ($storageInstanceFilesystem.*)
+//`, sif)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	err = tx.Query(ctx, insertFilesystemStmt, fs).Run()
+//	if err != nil {
+//		return "", errors.Errorf("creating filesystem %q for node %q: %w", filesystemUUID, netNodeUUID, err)
+//	}
+//
+//	err = tx.Query(ctx, insertStorageFilesystemStmt, sif).Run()
+//	if err != nil {
+//		return "", errors.Errorf("creating storage instance filesystem %q for storage %q: %w", filesystemUUID, storageUUID, err)
+//	}
+//
+//	sts := status.StatusInfo[status.StorageFilesystemStatusType]{
+//		Status: status.StorageFilesystemStatusTypePending,
+//		Since:  ptr(st.clock.Now()),
+//	}
+//	if err := st.insertFilesystemStatus(ctx, tx, filesystemUUID, sts); err != nil {
+//		return "", errors.Errorf("inserting status for filesystem %q: %w", filesystemUUID, err)
+//	}
+//
+//	return filesystemUUID, nil
+//}
 
-	filesystemUUID, err := corestorage.NewFilesystemUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
+// TODO (tlm) add back in
+//func (st *State) insertFilesystemStatus(
+//	ctx context.Context,
+//	tx *sqlair.TX,
+//	fsUUID corestorage.FilesystemUUID,
+//	sts status.StatusInfo[status.StorageFilesystemStatusType],
+//) error {
+//	statusID, err := status.EncodeStorageFilesystemStatus(sts.Status)
+//	if err != nil {
+//		return errors.Errorf("encoding status: %w", err)
+//	}
+//	fsStatus := filesystemStatus{
+//		FilesystemUUID: fsUUID.String(),
+//		StatusID:       statusID,
+//		UpdatedAt:      sts.Since,
+//	}
+//	insertStmt, err := st.Prepare(`
+//INSERT INTO storage_filesystem_status (*) VALUES ($filesystemStatus.*);
+//`, fsStatus)
+//	if err != nil {
+//		return errors.Errorf("preparing insert query: %w", err)
+//	}
+//
+//	if err := tx.Query(ctx, insertStmt, fsStatus).Run(); err != nil {
+//		return errors.Errorf("inserting status: %w", err)
+//	}
+//	return nil
+//}
 
-	fs := filesystem{
-		UUID:         filesystemUUID,
-		FilesystemID: fmt.Sprint(filesystemId),
-		LifeID:       life.Alive,
-	}
-	insertFilesystemStmt, err := st.Prepare(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id) VALUES ($filesystem.*)
-`, fs)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	sif := storageInstanceFilesystem{
-		FilesystemUUID: filesystemUUID,
-		StorageUUID:    storageUUID,
-	}
-	insertStorageFilesystemStmt, err := st.Prepare(`
-INSERT INTO storage_instance_filesystem (*) VALUES ($storageInstanceFilesystem.*)
-`, sif)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, insertFilesystemStmt, fs).Run()
-	if err != nil {
-		return "", errors.Errorf("creating filesystem %q for node %q: %w", filesystemUUID, netNodeUUID, err)
-	}
-
-	err = tx.Query(ctx, insertStorageFilesystemStmt, sif).Run()
-	if err != nil {
-		return "", errors.Errorf("creating storage instance filesystem %q for storage %q: %w", filesystemUUID, storageUUID, err)
-	}
-
-	sts := status.StatusInfo[status.StorageFilesystemStatusType]{
-		Status: status.StorageFilesystemStatusTypePending,
-		Since:  ptr(st.clock.Now()),
-	}
-	if err := st.insertFilesystemStatus(ctx, tx, filesystemUUID, sts); err != nil {
-		return "", errors.Errorf("inserting status for filesystem %q: %w", filesystemUUID, err)
-	}
-
-	return filesystemUUID, nil
-}
-
-func (st *State) insertFilesystemStatus(
-	ctx context.Context,
-	tx *sqlair.TX,
-	fsUUID corestorage.FilesystemUUID,
-	sts status.StatusInfo[status.StorageFilesystemStatusType],
-) error {
-	statusID, err := status.EncodeStorageFilesystemStatus(sts.Status)
-	if err != nil {
-		return errors.Errorf("encoding status: %w", err)
-	}
-	fsStatus := filesystemStatus{
-		FilesystemUUID: fsUUID.String(),
-		StatusID:       statusID,
-		UpdatedAt:      sts.Since,
-	}
-	insertStmt, err := st.Prepare(`
-INSERT INTO storage_filesystem_status (*) VALUES ($filesystemStatus.*);
-`, fsStatus)
-	if err != nil {
-		return errors.Errorf("preparing insert query: %w", err)
-	}
-
-	if err := tx.Query(ctx, insertStmt, fsStatus).Run(); err != nil {
-		return errors.Errorf("inserting status: %w", err)
-	}
-	return nil
-}
-
-func (st *State) createVolume(
-	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
-) (corestorage.VolumeUUID, error) {
-	volumeId, err := sequencestate.NextValue(ctx, st, tx, volumeNamespace)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	volumeUUID, err := corestorage.NewVolumeUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	vol := volume{
-		UUID:     volumeUUID,
-		VolumeID: fmt.Sprint(volumeId),
-		LifeID:   life.Alive,
-	}
-	insertVolumeStmt, err := st.Prepare(`
-INSERT INTO storage_volume (uuid, volume_id, life_id) VALUES ($volume.*)
-`, vol)
-	if err != nil {
-		return "", errors.Errorf("creating storage volume: %w", err)
-	}
-
-	siv := storageInstanceVolume{
-		VolumeUUID:  volumeUUID,
-		StorageUUID: storageUUID,
-	}
-	insertStorageVolumeStmt, err := st.Prepare(`
-INSERT INTO storage_instance_volume (*) VALUES ($storageInstanceVolume.*)
-`, siv)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, insertVolumeStmt, vol).Run()
-	if err != nil {
-		return "", errors.Errorf("creating volume %q for node %q: %w", volumeUUID, netNodeUUID, err)
-	}
-
-	err = tx.Query(ctx, insertStorageVolumeStmt, siv).Run()
-	if err != nil {
-		return "", errors.Errorf("creating storage instance volume %q for storage %q: %w", volumeUUID, storageUUID, err)
-	}
-
-	sts := status.StatusInfo[status.StorageVolumeStatusType]{
-		Status: status.StorageVolumeStatusTypePending,
-		Since:  ptr(st.clock.Now()),
-	}
-	if err := st.insertVolumeStatus(ctx, tx, volumeUUID, sts); err != nil {
-		return "", errors.Errorf("inserting status for volume %q: %w", volumeUUID, err)
-	}
-
-	return volumeUUID, nil
-}
-
-func (st *State) insertVolumeStatus(
-	ctx context.Context,
-	tx *sqlair.TX,
-	volUUID corestorage.VolumeUUID,
-	sts status.StatusInfo[status.StorageVolumeStatusType],
-) error {
-	statusID, err := status.EncodeStorageVolumeStatus(sts.Status)
-	if err != nil {
-		return errors.Errorf("encoding status: %w", err)
-	}
-	volStatus := volumeStatus{
-		VolumeUUID: volUUID.String(),
-		StatusID:   statusID,
-		UpdatedAt:  sts.Since,
-	}
-	insertStmt, err := st.Prepare(`
-INSERT INTO storage_volume_status (*) VALUES ($volumeStatus.*);
-`, volStatus)
-	if err != nil {
-		return errors.Errorf("preparing insert query: %w", err)
-	}
-
-	if err := tx.Query(ctx, insertStmt, volStatus).Run(); err != nil {
-		return errors.Errorf("inserting status: %w", err)
-	}
-	return nil
-}
+// TODO (tlm) add back in
+//func (st *State) createVolume(
+//	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
+//) (corestorage.VolumeUUID, error) {
+//	volumeId, err := sequencestate.NextValue(ctx, st, tx, volumeNamespace)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//	volumeUUID, err := corestorage.NewVolumeUUID()
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	vol := volume{
+//		UUID:     volumeUUID,
+//		VolumeID: fmt.Sprint(volumeId),
+//		LifeID:   life.Alive,
+//	}
+//	insertVolumeStmt, err := st.Prepare(`
+//INSERT INTO storage_volume (uuid, volume_id, life_id) VALUES ($volume.*)
+//`, vol)
+//	if err != nil {
+//		return "", errors.Errorf("creating storage volume: %w", err)
+//	}
+//
+//	siv := storageInstanceVolume{
+//		VolumeUUID:  volumeUUID,
+//		StorageUUID: storageUUID,
+//	}
+//	insertStorageVolumeStmt, err := st.Prepare(`
+//INSERT INTO storage_instance_volume (*) VALUES ($storageInstanceVolume.*)
+//`, siv)
+//	if err != nil {
+//		return "", errors.Capture(err)
+//	}
+//
+//	err = tx.Query(ctx, insertVolumeStmt, vol).Run()
+//	if err != nil {
+//		return "", errors.Errorf("creating volume %q for node %q: %w", volumeUUID, netNodeUUID, err)
+//	}
+//
+//	err = tx.Query(ctx, insertStorageVolumeStmt, siv).Run()
+//	if err != nil {
+//		return "", errors.Errorf("creating storage instance volume %q for storage %q: %w", volumeUUID, storageUUID, err)
+//	}
+//
+//	sts := status.StatusInfo[status.StorageVolumeStatusType]{
+//		Status: status.StorageVolumeStatusTypePending,
+//		Since:  ptr(st.clock.Now()),
+//	}
+//	if err := st.insertVolumeStatus(ctx, tx, volumeUUID, sts); err != nil {
+//		return "", errors.Errorf("inserting status for volume %q: %w", volumeUUID, err)
+//	}
+//
+//	return volumeUUID, nil
+//}
+//
+//func (st *State) insertVolumeStatus(
+//	ctx context.Context,
+//	tx *sqlair.TX,
+//	volUUID corestorage.VolumeUUID,
+//	sts status.StatusInfo[status.StorageVolumeStatusType],
+//) error {
+//	statusID, err := status.EncodeStorageVolumeStatus(sts.Status)
+//	if err != nil {
+//		return errors.Errorf("encoding status: %w", err)
+//	}
+//	volStatus := volumeStatus{
+//		VolumeUUID: volUUID.String(),
+//		StatusID:   statusID,
+//		UpdatedAt:  sts.Since,
+//	}
+//	insertStmt, err := st.Prepare(`
+//INSERT INTO storage_volume_status (*) VALUES ($volumeStatus.*);
+//`, volStatus)
+//	if err != nil {
+//		return errors.Errorf("preparing insert query: %w", err)
+//	}
+//
+//	if err := tx.Query(ctx, insertStmt, volStatus).Run(); err != nil {
+//		return errors.Errorf("inserting status: %w", err)
+//	}
+//	return nil
+//}

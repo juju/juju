@@ -19,6 +19,12 @@ func NewUUID() (UUID, error) {
 	return UUID(id.String()), nil
 }
 
+// String returns the string representation of [UUID]. Implements the
+// [fmt.Stringer] interface.
+func (u UUID) String() string {
+	return string(u)
+}
+
 // FilesystemUUID represents a filesystem unique identifier.
 type FilesystemUUID string
 

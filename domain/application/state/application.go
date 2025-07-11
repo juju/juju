@@ -40,37 +40,11 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	domainstorage "github.com/juju/juju/domain/storage"
-	storagestate "github.com/juju/juju/domain/storage/state"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
-
-// GetModelType returns the model type for the underlying model. If the model
-// does not exist then an error satisfying [modelerrors.NotFound] will be
-// returned.
-// Deprecated: This method will be removed, as there should be no need to
-// determine the model type from the state or service. That's an artifact of
-// the caller to call the correct methods.
-func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var modelType coremodel.ModelType
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		modelType, err = st.getModelType(ctx, tx)
-		return err
-	}); err != nil {
-		return "", errors.Errorf("querying model type: %w", err)
-
-	}
-	return modelType, nil
-}
 
 // Deprecated: This method will be removed, as there should be no need to
 // determine the model type from the state or service. That's an artifact of
@@ -302,8 +276,10 @@ func (st *State) insertApplication(
 	if err := st.insertApplicationController(ctx, tx, appDetails, args.IsController); err != nil {
 		return errors.Errorf("inserting controller for application %q: %w", name, err)
 	}
-	if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
-		return errors.Errorf("inserting storage for application %q: %w", name, err)
+	if err := st.insertApplicationStorageDirectives(
+		ctx, tx, appDetails.UUID, appDetails.CharmUUID, args.StorageDirectives,
+	); err != nil {
+		return errors.Errorf("inserting storage directives for application %q: %w", name, err)
 	}
 	if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
 		return errors.Errorf("inserting config for application %q: %w", name, err)
@@ -375,13 +351,15 @@ func (st *State) insertIAASApplicationUnits(
 		if err != nil {
 			return nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
+
 		insertUnits[i] = application.InsertIAASUnitArg{
 			InsertUnitArg: application.InsertUnitArg{
-				UnitName:        unitName,
-				Constraints:     unit.Constraints,
-				Placement:       unit.Placement,
-				Storage:         args.Storage,
-				StoragePoolKind: args.StoragePoolKind,
+				UnitName:    unitName,
+				Constraints: unit.Constraints,
+				Placement:   unit.Placement,
+				// For new application units we follow the application directives
+				// verbatum.
+				StorageDirectives: args.StorageDirectives,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    unit.UnitStatusArg.AgentStatus,
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
@@ -416,12 +394,14 @@ func (st *State) insertCAASApplicationUnits(
 		if err != nil {
 			return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 		}
+
 		insertUnits[i] = application.InsertUnitArg{
-			UnitName:        unitName,
-			Constraints:     unit.Constraints,
-			Placement:       unit.Placement,
-			Storage:         args.Storage,
-			StoragePoolKind: args.StoragePoolKind,
+			UnitName:    unitName,
+			Constraints: unit.Constraints,
+			Placement:   unit.Placement,
+			// For new application units we follow the application directives
+			// verbatum.
+			StorageDirectives: args.StorageDirectives,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus:    unit.UnitStatusArg.AgentStatus,
 				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
@@ -614,94 +594,6 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		}
 	}
 	return nil
-}
-
-// StorageDefaults returns the default storage sources for a model.
-func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error) {
-	rval := domainstorage.StorageDefaults{}
-
-	db, err := st.DB()
-	if err != nil {
-		return rval, errors.Capture(err)
-	}
-
-	attrs := []string{application.StorageDefaultBlockSourceKey, application.StorageDefaultFilesystemSourceKey}
-	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
-	stmt, err := st.Prepare(`
-SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
-`, sqlair.S{}, KeyValue{})
-	if err != nil {
-		return rval, errors.Capture(err)
-	}
-
-	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var values []KeyValue
-		err := tx.Query(ctx, stmt, attrsSlice).GetAll(&values)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return nil
-			}
-			return errors.Errorf("getting model config attrs for storage defaults: %w", err)
-		}
-
-		for _, kv := range values {
-			switch k := kv.Key; k {
-			case application.StorageDefaultBlockSourceKey:
-				v := fmt.Sprint(kv.Value)
-				rval.DefaultBlockSource = &v
-			case application.StorageDefaultFilesystemSourceKey:
-				v := fmt.Sprint(kv.Value)
-				rval.DefaultFilesystemSource = &v
-			}
-		}
-		return nil
-	})
-}
-
-// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
-// The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-func (st *State) GetStoragePoolUUID(
-	ctx context.Context,
-	name string,
-) (domainstorage.StoragePoolUUID, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var poolUUID domainstorage.StoragePoolUUID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		poolUUID, err = storagestate.GetStoragePoolUUID(ctx, tx, st, name)
-		return err
-	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	return poolUUID, nil
-}
-
-// GetStoragePool returns the storage pool for the specified UUID.
-// The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
-func (st *State) GetStoragePool(
-	ctx context.Context,
-	poolUUID domainstorage.StoragePoolUUID,
-) (domainstorage.StoragePool, error) {
-	db, err := st.DB()
-	if err != nil {
-		return domainstorage.StoragePool{}, errors.Capture(err)
-	}
-
-	var pool domainstorage.StoragePool
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		pool, err = storagestate.GetStoragePool(ctx, tx, st, poolUUID)
-		return err
-	})
-	if err != nil {
-		return domainstorage.StoragePool{}, errors.Capture(err)
-	}
-	return pool, nil
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error
@@ -1282,7 +1174,7 @@ func (st *State) deleteCloudServiceAddresses(ctx context.Context, tx *sqlair.TX,
 	deleteAddressStmt, err := st.Prepare(`
 DELETE FROM ip_address
 WHERE device_uuid IN (
-    SELECT device_uuid 
+    SELECT device_uuid
     FROM   link_layer_device AS lld
     JOIN   net_node AS nn ON nn.uuid = lld.net_node_uuid
     JOIN   k8s_service AS ks ON ks.net_node_uuid = nn.uuid
@@ -3388,7 +3280,7 @@ AND charm_uuid = $charmID.uuid;
 
 func (st *State) getApplicationConfigWithDefaults(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {
 	configStmt, err := st.Prepare(`
-SELECT 
+SELECT
 	cc.key AS &applicationConfig.key,
 	COALESCE(ac.value, cc.default_value) AS &applicationConfig.value,
 	cct.name AS &applicationConfig.type
@@ -3690,7 +3582,7 @@ SELECT
     vcr.scope AS &relationInfo.scope,
     COUNT(DISTINCT re.relation_uuid) AS &relationInfo.count
 FROM   v_charm_relation AS vcr
-JOIN   application_endpoint AS ae ON vcr.uuid = ae.charm_relation_uuid    
+JOIN   application_endpoint AS ae ON vcr.uuid = ae.charm_relation_uuid
 JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
 JOIN   application AS a ON ae.application_uuid = a.uuid
 WHERE  ae.application_uuid = $application.uuid

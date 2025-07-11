@@ -27,10 +27,6 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -38,20 +34,6 @@ import (
 
 type baseSuite struct {
 	schematesting.ModelSuite
-}
-
-func (s *baseSuite) SetUpTest(c *tc.C) {
-	s.ModelSuite.SetUpTest(c)
-
-	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseSuite) minimalMetadata(c *tc.C, name string) charm.Metadata {
@@ -152,7 +134,8 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 	name string,
 	charmStorage []charm.Storage,
-	addStorageArgs []application.ApplicationStorageArg) application.AddIAASApplicationArg {
+	directives []application.ApplicationStorageDirectiveArg,
+) application.AddIAASApplicationArg {
 	platform := deployment.Platform{
 		Channel:      "666",
 		OSType:       deployment.Ubuntu,
@@ -186,25 +169,9 @@ func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 				DownloadURL:        "http://example.com/charm",
 				DownloadSize:       666,
 			},
-			Channel:         channel,
-			Storage:         addStorageArgs,
-			StoragePoolKind: make(map[string]storage.StorageKind),
+			Channel:           channel,
+			StorageDirectives: directives,
 		},
-	}
-	registry := storage.ChainedProviderRegistry{
-		dummystorage.StorageProviders(),
-		provider.CommonStorageProviders(),
-	}
-	types, err := registry.StorageProviderTypes()
-	c.Assert(err, tc.ErrorIsNil)
-	for _, t := range types {
-		p, err := registry.StorageProvider(t)
-		c.Assert(err, tc.ErrorIsNil)
-		if p.Supports(storage.StorageKindFilesystem) {
-			args.StoragePoolKind[string(t)] = storage.StorageKindFilesystem
-		} else {
-			args.StoragePoolKind[string(t)] = storage.StorageKindBlock
-		}
 	}
 	return args
 }
@@ -212,7 +179,8 @@ func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
 	name string,
 	charmStorage []charm.Storage,
-	addStorageArgs []application.ApplicationStorageArg) application.AddCAASApplicationArg {
+	directives []application.ApplicationStorageDirectiveArg,
+) application.AddCAASApplicationArg {
 	platform := deployment.Platform{
 		Channel:      "666",
 		OSType:       deployment.Ubuntu,
@@ -246,26 +214,10 @@ func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
 				DownloadURL:        "http://example.com/charm",
 				DownloadSize:       666,
 			},
-			Channel:         channel,
-			Storage:         addStorageArgs,
-			StoragePoolKind: make(map[string]storage.StorageKind),
+			Channel:           channel,
+			StorageDirectives: directives,
 		},
 		Scale: 1,
-	}
-	registry := storage.ChainedProviderRegistry{
-		dummystorage.StorageProviders(),
-		provider.CommonStorageProviders(),
-	}
-	types, err := registry.StorageProviderTypes()
-	c.Assert(err, tc.ErrorIsNil)
-	for _, t := range types {
-		p, err := registry.StorageProvider(t)
-		c.Assert(err, tc.ErrorIsNil)
-		if p.Supports(storage.StorageKindFilesystem) {
-			args.StoragePoolKind[string(t)] = storage.StorageKindFilesystem
-		} else {
-			args.StoragePoolKind[string(t)] = storage.StorageKindBlock
-		}
 	}
 	return args
 }

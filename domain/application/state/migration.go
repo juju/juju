@@ -390,7 +390,13 @@ func (st *State) importCAASUnit(
 		return errors.Capture(err)
 	}
 
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,
 		Password:       args.Password,
@@ -406,19 +412,21 @@ func (st *State) importCAASUnit(
 		}
 	}
 
+	// TODO (TLM): Storage is currently not being set during import migration
+	// of an application. This needs further re-work to be marked as done.
 	// If there is no storage, return early.
-	if len(args.Storage) == 0 {
-		return nil
-	}
+	//if len(args.Storage) == 0 {
+	//	return nil
+	//}
 
-	attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
-	if err != nil {
-		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
-	}
-	err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
-	if err != nil {
-		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
-	}
+	//attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
+	//if err != nil {
+	//	return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
+	//}
+	//err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
+	//if err != nil {
+	//	return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
+	//}
 	return nil
 }
 
@@ -445,7 +453,13 @@ func (st *State) importIAASUnit(
 		return errors.Capture(err)
 	}
 
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,
 		Password:       args.Password,
@@ -461,8 +475,10 @@ func (st *State) importIAASUnit(
 		}
 	}
 
-	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
-		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
-	}
+	// TODO (TLM): Storage is currently not being set during import migration
+	// of an application. This needs further re-work to be marked as done.
+	//if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
+	//	return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
+	//}
 	return nil
 }

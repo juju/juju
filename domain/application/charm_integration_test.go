@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -22,8 +21,6 @@ import (
 	domaintesting "github.com/juju/juju/domain/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 )
 
 type charmSuite struct {
@@ -123,9 +120,6 @@ func (s *charmSuite) setupService(c *tc.C) *service.Service {
 	return service.NewService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domaintesting.NoopLeaderEnsurer(),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return provider.CommonStorageProviders()
-		}),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
