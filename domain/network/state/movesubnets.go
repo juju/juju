@@ -48,7 +48,7 @@ func (st *State) MoveSubnetsToSpace(
 		}
 		subnetToMove := st.filterAlreadyInSpace(subnetWithSpaces, spaceName)
 
-		positiveFailures, err := st.validateSubnetsLeavingSpaces(ctx, tx, subnetToMove, spaceUUID)
+		positiveFailures, err := st.validateSubnetsLeavingSpaces(ctx, tx, subnetToMove)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -84,95 +84,71 @@ func (st *State) filterAlreadyInSpace(subnetWithSpaces map[string]string, spaceN
 	return subnetToMove
 }
 
-// validateSubnetsLeavingSpaces verifies if subnets moved to a given space violate
-// positive space constraints for any machines.
+// validateSubnetsLeavingSpaces verifies if subnets moved from their initial
+// spaces will not cause violation of positive space constraints for any machines.
 // It queries the database to identify machines whose space constraints
 // conflict with the updated subnet-to-space mapping.
+//
 // Returns a list of positiveSpaceConstraintFailure instances or an error
 // if the process fails.
 func (st *State) validateSubnetsLeavingSpaces(
 	ctx context.Context,
 	tx *sqlair.TX,
 	movingSubnets uuids,
-	spaceUUID string,
 ) ([]positiveSpaceConstraintFailure, error) {
 
-	type spaceTo entityUUID
-	destSpace := spaceTo{UUID: spaceUUID}
-
 	query := `
-WITH 
-to_spaces AS (
-    -- Maps the moving subnets to the new space
-    SELECT space.uuid as space_uuid, subnet.uuid as subnet_uuid
-    FROM subnet
-        JOIN space ON space.uuid = $spaceTo.uuid
-    WHERE subnet.uuid IN ($uuids[:])
-), 
-from_spaces AS (
-    -- Maps the moving subnets to their old spaces
-    SELECT DISTINCT space_uuid FROM subnet WHERE uuid IN ($uuids[:])
-), 
-application_bindings AS (
-    -- Application endpoints bound to the specified spaces
-    SELECT application_uuid, space_uuid
-    FROM application_endpoint
-    WHERE space_uuid IN (SELECT space_uuid FROM from_spaces)
+WITH
+app_bindings AS (
+    SELECT application_uuid, space_uuid FROM application_endpoint
     UNION ALL
-    -- Application extra endpoints bound to the specified spaces
-    SELECT application_uuid, space_uuid
-    FROM application_extra_endpoint
-    WHERE space_uuid IN (SELECT space_uuid FROM from_spaces)
+    SELECT application_uuid, space_uuid FROM application_extra_endpoint
     UNION ALL
-    -- Application with the space_uuid as default
-    SELECT uuid as application_uuid, space_uuid
-    FROM application
-    WHERE space_uuid IN (SELECT space_uuid FROM from_spaces)
-), space_nodes AS (
-    -- nodes with units belonging to applications with bindings to the specified spaces
-    SELECT DISTINCT u.net_node_uuid AS node_uuid, b.space_uuid
-    FROM unit u
-        JOIN application_bindings b ON u.application_uuid = b.application_uuid
-    UNION
-    -- Machines with positive constraints on the specified spaces
-    SELECT DISTINCT m.net_node_uuid as node_uuid, s.uuid AS space_uuid
-    FROM machine_constraint m
-        JOIN constraint_space cs ON m.constraint_uuid = cs.constraint_uuid
-        JOIN space s ON cs.space = s.name
-        JOIN machine AS m ON m.uuid = m.machine_uuid
-    WHERE s.uuid IN (SELECT space_uuid FROM from_spaces)
-      AND cs.exclude IS FALSE
-), bound_nodes AS (
-    -- Select distinct machines to fetch addresses
-    SELECT DISTINCT node_uuid FROM space_nodes
-), space_addresses AS (
-    -- Get all addresses with their destination space if the subnet is moved
-    SELECT
-        bn.node_uuid,
-        coalesce(ts.space_uuid, s.space_uuid) as space_uuid
-    FROM bound_nodes bn
-        LEFT JOIN ip_address AS a ON bn.node_uuid = a.net_node_uuid
-        LEFT JOIN to_spaces AS ts ON a.subnet_uuid = ts.subnet_uuid
-        LEFT JOIN subnet AS s ON a.subnet_uuid = s.uuid
-), failed_constraints AS (
-    -- Filter out nodes which have an address for every bounded space
-    SELECT *  FROM space_nodes
+    SELECT uuid AS application_uuid, space_uuid FROM application
+),
+machine_bindings AS (
+    SELECT m.uuid AS machine_uuid, space_uuid
+    FROM   machine AS m
+        JOIN unit AS u ON m.net_node_uuid = u.net_node_uuid
+        JOIN app_bindings AS b ON u.application_uuid = b.application_uuid
+),
+machine_constraints AS (
+    SELECT m.machine_uuid, s.uuid AS space_uuid
+    FROM   machine_constraint AS m
+        JOIN constraint_space AS cs ON m.constraint_uuid = cs.constraint_uuid
+        JOIN space AS s ON cs.space = s.name
+    WHERE  cs.exclude IS FALSE
+),
+machine_space_reqs AS (
+    SELECT machine_uuid, space_uuid FROM machine_bindings
+    UNION ALL
+    SELECT machine_uuid, space_uuid FROM machine_constraints
+),
+new_machine_spaces AS (
+    SELECT DISTINCT m.uuid AS machine_uuid, s.space_uuid
+    FROM   machine AS m
+        JOIN ip_address AS ip ON m.net_node_uuid = ip.net_node_uuid
+        JOIN subnet AS s ON ip.subnet_uuid = s.uuid
+    WHERE  s.uuid NOT IN ($uuids[:])
+),
+failed_constraints AS (
+    SELECT * from machine_space_reqs
     EXCEPT
-    SELECT *  FROM space_addresses
+    SELECT * from new_machine_spaces
 )
 SELECT 
     m.name AS &positiveSpaceConstraintFailure.machine_name,
     s.name AS &positiveSpaceConstraintFailure.space_name
 FROM failed_constraints AS fc
     JOIN space AS s ON fc.space_uuid = s.uuid
-    JOIN machine AS m ON fc.node_uuid = m.net_node_uuid
+    JOIN machine AS m ON fc.machine_uuid = m.uuid
 `
-	stmt, err := st.Prepare(query, destSpace, movingSubnets, positiveSpaceConstraintFailure{})
+	stmt, err := st.Prepare(query, movingSubnets, positiveSpaceConstraintFailure{})
 	if err != nil {
 		return nil, errors.Errorf("preparing failed constraint statement: %w,\nquery: %s", err, query)
 	}
 	var failedConstraints []positiveSpaceConstraintFailure
-	err = tx.Query(ctx, stmt, destSpace, movingSubnets).GetAll(&failedConstraints)
+	err = tx.Query(ctx, stmt, movingSubnets).GetAll(&failedConstraints)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf("checking constraints: %w", err)
 	}

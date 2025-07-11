@@ -64,7 +64,6 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesNoMachines(c *tc.C) 
 
 	// Create subnet in a space, and a second space
 	subnetUUID := s.addSubnet(c, "192.168.1.0/24", s.addSpace(c, "from-space"))
-	toSpaceUUID := s.addSpace(c, "to-space")
 
 	db, err := s.state.DB()
 	c.Assert(err, tc.IsNil)
@@ -73,8 +72,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesNoMachines(c *tc.C) 
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
-			[]string{subnetUUID},
-			toSpaceUUID)
+			[]string{subnetUUID})
 		return err
 	})
 
@@ -92,7 +90,6 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppBindingSuccess(c 
 
 	// Create spaces
 	fromSpaceUUID := s.addSpace(c, "from-space")
-	toSpaceUUID := s.addSpace(c, "to-space")
 
 	// Create subnets from space, one will be unmoved
 	movedSubnetUUID := s.addSubnet(c, "192.168.1.0/24", fromSpaceUUID)
@@ -116,8 +113,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppBindingSuccess(c 
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
-			[]string{movedSubnetUUID},
-			toSpaceUUID)
+			[]string{movedSubnetUUID})
 		return err
 	})
 
@@ -135,7 +131,6 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingSu
 
 	// Create spaces
 	fromSpaceUUID := s.addSpace(c, "from-space")
-	toSpaceUUID := s.addSpace(c, "to-space")
 
 	// Create subnets from space, one will be unmoved
 	movedSubnetUUID := s.addSubnet(c, "192.168.1.0/24", fromSpaceUUID)
@@ -165,8 +160,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingSu
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
-			[]string{movedSubnetUUID},
-			toSpaceUUID)
+			[]string{movedSubnetUUID})
 		return err
 	})
 
@@ -184,7 +178,6 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesPositiveConstraintSu
 
 	// Create spaces
 	fromSpaceUUID := s.addSpace(c, "from-space")
-	toSpaceUUID := s.addSpace(c, "to-space")
 
 	// Create subnets from space, one will be unmoved
 	movedSubnetUUID := s.addSubnet(c, "192.168.1.0/24", fromSpaceUUID)
@@ -207,8 +200,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesPositiveConstraintSu
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
-			[]string{movedSubnetUUID},
-			toSpaceUUID)
+			[]string{movedSubnetUUID})
 		return err
 	})
 
@@ -226,7 +218,6 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppBindingFailure(c 
 
 	// Create spaces
 	fromSpaceUUID := s.addSpace(c, "from-space")
-	toSpaceUUID := s.addSpace(c, "to-space")
 
 	// Create subnet in from-space
 	movedSubnetUUID := s.addSubnet(c, "192.168.1.0/24", fromSpaceUUID)
@@ -249,8 +240,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppBindingFailure(c 
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
-			[]string{movedSubnetUUID},
-			toSpaceUUID)
+			[]string{movedSubnetUUID})
 		return err
 	})
 
@@ -273,7 +263,6 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingFa
 
 	// Create spaces
 	fromSpaceUUID := s.addSpace(c, "from-space")
-	toSpaceUUID := s.addSpace(c, "to-space")
 
 	// Create subnet in from-space
 	movedSubnetUUID := s.addSubnet(c, "192.168.1.0/24", fromSpaceUUID)
@@ -302,8 +291,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingFa
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
-			[]string{movedSubnetUUID},
-			toSpaceUUID)
+			[]string{movedSubnetUUID})
 		return err
 	})
 
@@ -326,7 +314,6 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesPositiveConstraintFa
 
 	// Create spaces
 	fromSpaceUUID := s.addSpace(c, "from-space")
-	toSpaceUUID := s.addSpace(c, "to-space")
 
 	// Create subnet in from-space
 	movedSubnetUUID := s.addSubnet(c, "192.168.1.0/24", fromSpaceUUID)
@@ -347,8 +334,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesPositiveConstraintFa
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
-			[]string{movedSubnetUUID},
-			toSpaceUUID)
+			[]string{movedSubnetUUID})
 		return err
 	})
 
@@ -372,7 +358,6 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesMultipleFailure(c *t
 	fromSpaceUUID1 := s.addSpace(c, "from-space-1")
 	fromSpaceUUID2 := s.addSpace(c, "from-space-2")
 	fromSpaceUUID3 := s.addSpace(c, "from-space-3")
-	toSpaceUUID := s.addSpace(c, "to-space")
 
 	// Create subnets in from-spaces
 	movedSubnetUUID1 := s.addSubnet(c, "192.168.1.0/24", fromSpaceUUID1)
@@ -423,8 +408,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesMultipleFailure(c *t
 				movedSubnetUUID1,
 				movedSubnetUUID2,
 				movedSubnetUUID3,
-			},
-			toSpaceUUID)
+			})
 		return err
 	})
 
