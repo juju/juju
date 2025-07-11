@@ -70,7 +70,7 @@ func (st *State) MoveSubnetsToSpace(
 func (st *State) validateSubnetsLeavingSpaces(
 	ctx context.Context,
 	tx *sqlair.TX,
-	movedSubnets uuids,
+	movingSubnets uuids,
 	space string,
 ) ([]positiveSpaceConstraintFailure, error) {
 
@@ -143,12 +143,12 @@ FROM failed_constraints AS fc
 JOIN space AS s ON fc.space_uuid = s.uuid
 JOIN machine AS m ON fc.node_uuid = m.net_node_uuid
 `
-	stmt, err := st.Prepare(query, destSpace, movedSubnets, positiveSpaceConstraintFailure{})
+	stmt, err := st.Prepare(query, destSpace, movingSubnets, positiveSpaceConstraintFailure{})
 	if err != nil {
 		return nil, errors.Errorf("preparing failed constraint statement: %w,\nquery: %s", err, query)
 	}
 	var failedConstraints []positiveSpaceConstraintFailure
-	err = tx.Query(ctx, stmt, destSpace, movedSubnets).GetAll(&failedConstraints)
+	err = tx.Query(ctx, stmt, destSpace, movingSubnets).GetAll(&failedConstraints)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf("checking constraints: %w", err)
 	}
@@ -163,7 +163,7 @@ JOIN machine AS m ON fc.node_uuid = m.net_node_uuid
 func (st *State) validateSubnetsJoiningSpace(
 	ctx context.Context,
 	tx *sqlair.TX,
-	movedSubnets uuids,
+	movingSubnets uuids,
 	space string,
 ) ([]negativeSpaceConstraintFailure, error) {
 
@@ -190,12 +190,12 @@ WITH bound_machines AS (
     JOIN ip_address AS a ON m.net_node_uuid = a.net_node_uuid
     WHERE a.subnet_uuid IN ($uuids[:])
 `
-	stmt, err := st.Prepare(query, destSpace, movedSubnets, negativeSpaceConstraintFailure{})
+	stmt, err := st.Prepare(query, destSpace, movingSubnets, negativeSpaceConstraintFailure{})
 	if err != nil {
 		return nil, errors.Errorf("preparing failed constraint statement: %w,\nquery: %s", err, query)
 	}
 	var failedConstraints []negativeSpaceConstraintFailure
-	err = tx.Query(ctx, stmt, destSpace, movedSubnets).GetAll(&failedConstraints)
+	err = tx.Query(ctx, stmt, destSpace, movingSubnets).GetAll(&failedConstraints)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf("checking constraints: %w", err)
 	}
