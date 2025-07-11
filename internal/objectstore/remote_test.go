@@ -23,7 +23,7 @@ type remoteFileObjectStoreSuite struct {
 	testhelpers.IsolationSuite
 
 	tracked *MockTrackedObjectStore
-	remote  worker.Worker
+	remote  ReportableWorker
 
 	reader io.ReadCloser
 }
@@ -153,7 +153,7 @@ func (s *remoteFileObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.tracked = NewMockTrackedObjectStore(ctrl)
-	s.remote = workertest.NewErrorWorker(nil)
+	s.remote = newReportableWorker(workertest.NewErrorWorker(nil))
 
 	s.reader = io.NopCloser(bytes.NewBufferString("hello, world"))
 
@@ -185,4 +185,26 @@ func (w *trackedWorker) Kill() {
 
 func (w *trackedWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+type reportableWorker struct {
+	worker worker.Worker
+}
+
+func newReportableWorker(w worker.Worker) *reportableWorker {
+	return &reportableWorker{
+		worker: w,
+	}
+}
+
+func (w *reportableWorker) Kill() {
+	w.worker.Kill()
+}
+
+func (w *reportableWorker) Wait() error {
+	return w.worker.Wait()
+}
+
+func (w *reportableWorker) Report() map[string]any {
+	return make(map[string]any)
 }

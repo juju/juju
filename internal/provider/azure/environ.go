@@ -1982,7 +1982,7 @@ func (env *azureEnviron) deleteControllerManagedIdentities(ctx context.Context, 
 		toDelete := parts[len(parts)-1]
 		_, err = roleAssignmentsClient.Delete(ctx, scope, toDelete, &armauthorization.RoleAssignmentsClientDeleteOptions{})
 		if err != nil {
-			logger.Criticalf(ctx, "cannot delete role assignment %q: %v", toDelete, err)
+			logger.Warningf(ctx, "cannot delete role assignment %q: %v", toDelete, err)
 		}
 	}
 

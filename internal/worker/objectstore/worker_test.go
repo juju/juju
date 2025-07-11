@@ -187,10 +187,11 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Clock:        s.clock,
-		Logger:       s.logger,
-		TracerGetter: &stubTracerGetter{},
-		S3Client:     s.s3Client,
+		Clock:           s.clock,
+		Logger:          s.logger,
+		TracerGetter:    &stubTracerGetter{},
+		S3Client:        s.s3Client,
+		APIRemoteCaller: s.apiRemoteCaller,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedObjectStore, nil

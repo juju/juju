@@ -29,6 +29,7 @@ type MetadataService interface {
 type TrackedObjectStore interface {
 	worker.Worker
 	objectstore.ObjectStore
+	Report() map[string]any
 }
 
 // Option is the function signature for the options to create a new object

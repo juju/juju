@@ -134,6 +134,13 @@ func (w *remoteServer) Wait() error {
 	return w.tomb.Wait()
 }
 
+func (w *remoteServer) Report() map[string]any {
+	report := make(map[string]any)
+	report["controller-id"] = w.controllerID
+	report["addresses"] = w.info.Addrs
+	return report
+}
+
 type request struct {
 	ctx       context.Context
 	addresses []string
