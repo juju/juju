@@ -101,17 +101,20 @@ func (st *State) validateSubnetsLeavingSpaces(
 	destSpace := spaceTo{UUID: spaceUUID}
 
 	query := `
-WITH to_spaces AS (
+WITH 
+to_spaces AS (
     -- Maps the moving subnets to the new space
-	SELECT space.uuid as space_uuid, subnet.uuid as subnet_uuid
-	FROM subnet
-	JOIN space ON space.uuid = $spaceTo.uuid
-	WHERE subnet.uuid IN ($uuids[:])
-), from_spaces AS (
-	-- Maps the moving subnets to their old spaces
+    SELECT space.uuid as space_uuid, subnet.uuid as subnet_uuid
+    FROM subnet
+        JOIN space ON space.uuid = $spaceTo.uuid
+    WHERE subnet.uuid IN ($uuids[:])
+), 
+from_spaces AS (
+    -- Maps the moving subnets to their old spaces
     SELECT DISTINCT space_uuid FROM subnet WHERE uuid IN ($uuids[:])
-), application_bindings AS (
-	-- Application endpoints bound to the specified spaces
+), 
+application_bindings AS (
+    -- Application endpoints bound to the specified spaces
     SELECT application_uuid, space_uuid
     FROM application_endpoint
     WHERE space_uuid IN (SELECT space_uuid FROM from_spaces)
@@ -129,14 +132,14 @@ WITH to_spaces AS (
     -- nodes with units belonging to applications with bindings to the specified spaces
     SELECT DISTINCT u.net_node_uuid AS node_uuid, b.space_uuid
     FROM unit u
-    JOIN application_bindings b ON u.application_uuid = b.application_uuid
+        JOIN application_bindings b ON u.application_uuid = b.application_uuid
     UNION
     -- Machines with positive constraints on the specified spaces
     SELECT DISTINCT m.net_node_uuid as node_uuid, s.uuid AS space_uuid
     FROM machine_constraint m
-    JOIN constraint_space cs ON m.constraint_uuid = cs.constraint_uuid
-    JOIN space s ON cs.space = s.name
-    JOIN machine AS m ON m.uuid = m.machine_uuid
+        JOIN constraint_space cs ON m.constraint_uuid = cs.constraint_uuid
+        JOIN space s ON cs.space = s.name
+        JOIN machine AS m ON m.uuid = m.machine_uuid
     WHERE s.uuid IN (SELECT space_uuid FROM from_spaces)
       AND cs.exclude IS FALSE
 ), bound_nodes AS (
@@ -148,21 +151,21 @@ WITH to_spaces AS (
         bn.node_uuid,
         coalesce(ts.space_uuid, s.space_uuid) as space_uuid
     FROM bound_nodes bn
-    LEFT JOIN ip_address AS a ON bn.node_uuid = a.net_node_uuid
-    LEFT JOIN to_spaces AS ts ON a.subnet_uuid = ts.subnet_uuid
-    LEFT JOIN subnet AS s ON a.subnet_uuid = s.uuid
+        LEFT JOIN ip_address AS a ON bn.node_uuid = a.net_node_uuid
+        LEFT JOIN to_spaces AS ts ON a.subnet_uuid = ts.subnet_uuid
+        LEFT JOIN subnet AS s ON a.subnet_uuid = s.uuid
 ), failed_constraints AS (
     -- Filter out nodes which have an address for every bounded space
     SELECT *  FROM space_nodes
-	EXCEPT
-	SELECT *  FROM space_addresses
+    EXCEPT
+    SELECT *  FROM space_addresses
 )
-    SELECT 
-		m.name AS &positiveSpaceConstraintFailure.machine_name,
-		s.name AS &positiveSpaceConstraintFailure.space_name
+SELECT 
+    m.name AS &positiveSpaceConstraintFailure.machine_name,
+    s.name AS &positiveSpaceConstraintFailure.space_name
 FROM failed_constraints AS fc
-JOIN space AS s ON fc.space_uuid = s.uuid
-JOIN machine AS m ON fc.node_uuid = m.net_node_uuid
+    JOIN space AS s ON fc.space_uuid = s.uuid
+    JOIN machine AS m ON fc.node_uuid = m.net_node_uuid
 `
 	stmt, err := st.Prepare(query, destSpace, movingSubnets, positiveSpaceConstraintFailure{})
 	if err != nil {
@@ -192,22 +195,23 @@ func (st *State) validateSubnetsJoiningSpace(
 	destSpace := spaceTo{UUID: spaceUUID}
 
 	query := `
-WITH bound_machines AS (    
-	SELECT DISTINCT mc.machine_uuid
-	FROM machine_constraint AS mc
-	JOIN constraint_space AS cs ON mc.constraint_uuid = cs.constraint_uuid
-	JOIN space AS s ON cs.space = s.name
-	WHERE s.uuid = $spaceTo.uuid
-	AND cs.exclude IS TRUE
+WITH 
+bound_machines AS (    
+    SELECT DISTINCT mc.machine_uuid
+    FROM machine_constraint AS mc
+        JOIN constraint_space AS cs ON mc.constraint_uuid = cs.constraint_uuid
+        JOIN space AS s ON cs.space = s.name
+    WHERE s.uuid = $spaceTo.uuid
+    AND cs.exclude IS TRUE
 ) 
-    -- Get all addresses from machines with constraints in any of moved subnet UUID
-    SELECT 
-		m.name AS &negativeSpaceConstraintFailure.machine_name, 
-		a.address_value AS &negativeSpaceConstraintFailure.address_value
-    FROM bound_machines
+-- Get all addresses from machines with constraints in any of moved subnet UUID
+SELECT 
+    m.name AS &negativeSpaceConstraintFailure.machine_name, 
+    a.address_value AS &negativeSpaceConstraintFailure.address_value
+FROM bound_machines
     JOIN machine AS m ON bound_machines.machine_uuid = m.uuid
     JOIN ip_address AS a ON m.net_node_uuid = a.net_node_uuid
-    WHERE a.subnet_uuid IN ($uuids[:])
+WHERE a.subnet_uuid IN ($uuids[:])
 `
 	stmt, err := st.Prepare(query, destSpace, movingSubnets, negativeSpaceConstraintFailure{})
 	if err != nil {
