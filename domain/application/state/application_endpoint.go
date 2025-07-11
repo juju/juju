@@ -244,40 +244,45 @@ func (st *State) MergeApplicationEndpointBindings(ctx context.Context, appID str
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-
-		bindingTables, err := st.getBindingTypes(ctx, tx, appID, slices.Collect(maps.Keys(bindings)))
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		spacesToUUIDs, err := st.getApplicationEndpointSpaceUUIDs(ctx, tx, appID, slices.Collect(maps.Values(bindings)))
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		validateErr := st.validateUnitsInSpaces(ctx, tx, appID, slices.Collect(maps.Values(spacesToUUIDs)))
-		if !force && validateErr != nil {
-			return errors.Capture(err)
-		} else if force && validateErr != nil {
-			st.logger.Infof(ctx, "binding validation ignored due to force: %w", validateErr)
-		}
-
-		// TODO: update updateDefaultSpace to take a map[string]string.
-		// There is no value add to have them as SpaceNames here.
-		spaceNameBindings := transform.Map(bindings, func(k, v string) (string, network.SpaceName) {
-			return k, network.SpaceName(v)
-		})
-
-		if err := st.updateDefaultSpace(ctx, tx, appID, spaceNameBindings); err != nil {
-			return errors.Errorf("updating default space: %w", err)
-		}
-
-		if err := st.updateValidatedApplicationEndpointSpaces(ctx, tx, appID, bindings, spacesToUUIDs, bindingTables); err != nil {
-			return errors.Capture(err)
-		}
-
-		return nil
+		err := st.mergeApplicationEndpointBindings(ctx, tx, appID, bindings, force)
+		return errors.Capture(err)
 	})
+}
+
+func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, appID string, bindings map[string]string, force bool) error {
+	bindingTables, err := st.getBindingTypes(ctx, tx, appID, slices.Collect(maps.Keys(bindings)))
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	spacesToUUIDs, err := st.getApplicationEndpointSpaceUUIDs(ctx, tx, appID, slices.Collect(maps.Values(bindings)))
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	validateErr := st.validateUnitsInSpaces(ctx, tx, appID, slices.Collect(maps.Values(spacesToUUIDs)))
+	if !force && validateErr != nil {
+		return errors.Capture(err)
+	} else if force && validateErr != nil {
+		st.logger.Infof(ctx, "binding validation ignored due to force: %w", validateErr)
+	}
+
+	// TODO: update updateDefaultSpace to take a map[string]string.
+	// There is no value add to have them as SpaceNames here.
+	spaceNameBindings := transform.Map(bindings, func(k, v string) (string, network.SpaceName) {
+		return k, network.SpaceName(v)
+	})
+
+	if err := st.updateDefaultSpace(ctx, tx, appID, spaceNameBindings); err != nil {
+		return errors.Errorf("updating default space: %w", err)
+	}
+
+	if err := st.updateValidatedApplicationEndpointSpaces(ctx, tx, appID, bindings, spacesToUUIDs, bindingTables); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+
 }
 
 // insertApplicationEndpointsParams contains parameters required to insert
@@ -594,141 +599,6 @@ AND    charm_extra_binding_uuid = $updateBinding.binding_uuid
 	}
 
 	return tx.Query(ctx, updateEndpointStmt, update).Run()
-}
-
-// updateApplicationEndpointsParams contains parameters required to insert
-// application endpoints into the database.
-type updateApplicationEndpointsParams struct {
-	appID coreapplication.ID
-
-	// EndpointBindings is a map to bind application endpoint by name to a
-	// specific space. The default space is referenced by an empty key, if any.
-	bindings map[string]network.SpaceName
-}
-
-func (st *State) updateApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, params updateApplicationEndpointsParams) error {
-	charm, err := st.getCharmIDByApplicationID(ctx, tx, params.appID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	charmUUID := charmID{UUID: charm}
-
-	// Get charm relation.
-	relations, err := st.getCharmRelationNames(ctx, tx, charmUUID)
-	if err != nil {
-		return errors.Errorf("getting charm relation names: %w", err)
-	}
-
-	// Get extra bindings
-	extrabindings, err := st.getCharmExtraBindings(ctx, tx, charmUUID)
-	if err != nil {
-		return errors.Errorf("getting charm extra bindings: %w", err)
-	}
-
-	// Check that spaces are valid in binding.
-	spaceNamesToUUID, err := st.checkSpaceNames(ctx, tx, slices.Collect(maps.Values(params.bindings)))
-	if err != nil {
-		return errors.Errorf("checking space names: %w", err)
-	}
-	// Check that binding are linked to valid endpoint (either from a charm relation
-	// or an extra binding.
-	if err := st.checkEndpointBindingName(relations, extrabindings, params.bindings); err != nil {
-		return errors.Errorf("checking charm relation: %w", err)
-	}
-
-	// Update endpoints.
-	for _, relation := range relations {
-		if spaceName, ok := params.bindings[relation.Name]; ok {
-			if err := st.updateApplicationEndpointBinding(ctx, tx, params.appID, spaceNamesToUUID, relation, spaceName); err != nil {
-				return errors.Errorf("updating application endpoint: %w", err)
-			}
-		}
-	}
-
-	// Update extra binding
-	for _, binding := range extrabindings {
-		if spaceName, ok := params.bindings[binding.Name]; ok {
-			if err := st.updateApplicationExtraBinding(ctx, tx, params.appID, spaceNamesToUUID, binding, spaceName); err != nil {
-				return errors.Errorf("updating application extra bindings: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (st *State) updateApplicationEndpointBinding(
-	ctx context.Context,
-	tx *sqlair.TX,
-	appID coreapplication.ID,
-	spaceNamesToUUID map[network.SpaceName]string,
-	relation charmRelationName,
-	spaceName network.SpaceName,
-) error {
-	updateApplicationEndpointStmt, err := st.Prepare(`
-UPDATE application_endpoint
-SET space_uuid = $updateApplicationEndpointBinding.space_uuid
-WHERE application_uuid = $updateApplicationEndpointBinding.application_uuid
-AND charm_relation_uuid = $updateApplicationEndpointBinding.charm_relation_uuid
-`, updateApplicationEndpointBinding{})
-	if err != nil {
-		return errors.Errorf("preparing update application endpoint: %w", err)
-	}
-
-	space := sql.Null[string]{}
-	if spaceName != "" {
-		uuid, ok := spaceNamesToUUID[spaceName]
-		if !ok {
-			return errors.Errorf("space %q not found", spaceName)
-		}
-		space = sql.Null[string]{
-			V:     uuid,
-			Valid: true,
-		}
-	}
-
-	return tx.Query(ctx, updateApplicationEndpointStmt, updateApplicationEndpointBinding{
-		ApplicationID: appID,
-		RelationUUID:  relation.UUID,
-		Space:         space,
-	}).Run()
-}
-
-func (st *State) updateApplicationExtraBinding(
-	ctx context.Context,
-	tx *sqlair.TX,
-	appID coreapplication.ID,
-	spaceNamesToUUID map[network.SpaceName]string,
-	binding charmExtraBinding,
-	spaceName network.SpaceName,
-) error {
-	updateApplicationExtraEndpointStmt, err := st.Prepare(`
-UPDATE application_extra_endpoint
-SET space_uuid = $updateApplicationExtraEndpointBinding.space_uuid
-WHERE application_uuid = $updateApplicationExtraEndpointBinding.application_uuid
-AND charm_extra_binding_uuid = $updateApplicationExtraEndpointBinding.charm_extra_binding_uuid
-`, updateApplicationExtraEndpointBinding{})
-	if err != nil {
-		return errors.Errorf("preparing update application extra endpoint: %w", err)
-	}
-
-	space := sql.Null[string]{}
-	if spaceName != "" {
-		uuid, ok := spaceNamesToUUID[spaceName]
-		if !ok {
-			return errors.Errorf("space %q not found", spaceName)
-		}
-		space = sql.Null[string]{
-			V:     uuid,
-			Valid: true,
-		}
-	}
-
-	return tx.Query(ctx, updateApplicationExtraEndpointStmt, updateApplicationExtraEndpointBinding{
-		ApplicationID: appID,
-		RelationUUID:  binding.UUID,
-		Space:         space,
-	}).Run()
 }
 
 // getCharmRelationNames retrieves a list of charm relation names from the

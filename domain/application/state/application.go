@@ -1707,17 +1707,10 @@ func (st *State) SetApplicationCharm(ctx context.Context, id coreapplication.ID,
 
 		//TODO(storage) - update charm and storage directive for app
 
-		err = st.updateDefaultSpace(ctx, tx, id.String(), params.EndpointBindings)
-		if err != nil {
-			return errors.Errorf("updating default space: %w", err)
-		}
-		err = st.updateApplicationEndpointBindings(ctx, tx, updateApplicationEndpointsParams{
-			appID:    id,
-			bindings: params.EndpointBindings,
+		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
+			return k, v.String()
 		})
-		if err != nil {
-			return errors.Capture(err)
-		}
+		err = st.mergeApplicationEndpointBindings(ctx, tx, id.String(), bindings, false)
 
 		return nil
 	}); err != nil {
