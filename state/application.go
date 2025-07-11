@@ -394,7 +394,6 @@ func (a *Application) removeOps(asserts bson.D, op *forcedOperation) ([]txn.Op, 
 	ops = append(ops, a.removeCloudServiceOps()...)
 	globalKey := a.globalKey()
 	ops = append(ops,
-		removeEndpointBindingsOp(globalKey),
 		removeConstraintsOp(globalKey),
 		removeStatusOp(a.st, globalKey),
 		removeStatusOp(a.st, applicationGlobalOperatorKey(name)),
@@ -652,18 +651,6 @@ func (a *Application) changeCharmOps(
 
 	// And finally, decrement the old charm and settings.
 	return ops, nil
-}
-
-// bindingsForOps returns a Bindings object intended for createOps and updateOps
-// only.
-func (a *Application) bindingsForOps(bindings map[string]string) (*Bindings, error) {
-	// Call NewBindings first to ensure this map contains space ids
-	b, err := NewBindings(a.st, bindings)
-	if err != nil {
-		return nil, err
-	}
-	b.app = a
-	return b, nil
 }
 
 func (a *Application) newCharmStorageOps(
@@ -937,25 +924,6 @@ func (a *Application) SetCharm(
 			}}},
 		})
 
-		// Always update bindings regardless of whether we upgrade to a
-		// new version or stay at the previous version.
-		currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return ops, errors.Trace(err)
-		}
-		b, err := a.bindingsForOps(currentMap)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		endpointBindingsOps, err := b.updateOps(txnRevno, cfg.EndpointBindings, cfg.Charm.Meta(), cfg.Force)
-		if err == nil {
-			ops = append(ops, endpointBindingsOps...)
-		} else if !errors.Is(err, errors.NotFound) && err != jujutxn.ErrNoOperations {
-			// If endpoint bindings do not exist this most likely means the application
-			// itself no longer exists, which will be caught soon enough anyway.
-			// ErrNoOperations on the other hand means there's nothing to update.
-			return nil, errors.Trace(err)
-		}
 		return ops, nil
 	}
 
@@ -1604,40 +1572,6 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	}}
 	ops = append(ops, setConstraintsOp(a.globalKey(), cons))
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
-}
-
-// endpointBindings returns the mapping for each endpoint name and the space
-// ID it is bound to (or empty if unspecified). When no bindings are stored
-// for the application, defaults are returned.
-func (a *Application) endpointBindings() (*Bindings, error) {
-	// We don't need the TxnRevno below.
-	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	if bindings == nil {
-		bindings, err = a.defaultEndpointBindings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return &Bindings{st: a.st, bindingsMap: bindings}, nil
-}
-
-// defaultEndpointBindings returns a map with each endpoint from the current
-// charm metadata bound to an empty space. If no charm URL is set yet, it
-// returns an empty map.
-func (a *Application) defaultEndpointBindings() (map[string]string, error) {
-	if a.doc.CharmURL == nil {
-		return map[string]string{}, nil
-	}
-
-	appCharm, _, err := a.charm()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return DefaultEndpointBindingsForCharm(a.st, appCharm.Meta())
 }
 
 // StorageConstraints returns the storage constraints for the application.

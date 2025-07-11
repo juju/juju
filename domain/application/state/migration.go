@@ -299,7 +299,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
 			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 		}
-		if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID, args.EndpointBindings); err != nil {
+		if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID.String(), args.EndpointBindings); err != nil {
 			return errors.Errorf("updating default space: %w", err)
 		}
 		if err := st.insertApplicationEndpointBindings(ctx, tx, insertApplicationEndpointsParams{
