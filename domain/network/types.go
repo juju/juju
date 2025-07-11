@@ -144,3 +144,12 @@ type AddressInfo struct {
 	// portion of the associated IP address.
 	CIDR string
 }
+
+// MovedSubnets represents a subnet that has been moved from one network space
+// to another.
+type MovedSubnets struct {
+	// UUID is the unique identifier of the subnet.
+	UUID SubnetUUID
+	// FromSpace identifies the source network space from which the subnet was moved.
+	FromSpace network.SpaceName
+}

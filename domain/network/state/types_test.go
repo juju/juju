@@ -188,3 +188,11 @@ func getNetAddressTypes() nameToIDTable {
 func ptr[T any](v T) *T {
 	return &v
 }
+
+func ptrZeroAsNil[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
+}

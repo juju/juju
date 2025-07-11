@@ -702,6 +702,16 @@ type spaceEndpoint struct {
 	SpaceUUID    string `db:"space_uuid"`
 }
 
+type positiveSpaceConstraintFailure struct {
+	MachineName string `db:"machine_name"`
+	SpaceName   string `db:"space_name"`
+}
+
+type negativeSpaceConstraintFailure struct {
+	MachineName string `db:"machine_name"`
+	Address     string `db:"address_value"`
+}
+
 func nilstr[T ~string](s *string) *T {
 	var res *T
 	if s != nil {
