@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -58,7 +57,6 @@ import (
 )
 
 type APIGroup struct {
-	*common.AgentEntityWatcher
 	*API
 
 	charmInfoAPI    *charmscommon.CharmInfoAPI
@@ -85,7 +83,7 @@ type API struct {
 	modelInfoService        ModelInfoService
 	statusService           StatusService
 	removalService          RemovalService
-	leadershipRevoker       leadership.Revoker
+	getCanWatch             common.GetAuthFunc
 	clock                   clock.Clock
 	logger                  corelogger.Logger
 }
@@ -141,11 +139,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 		RemovalService:          domainServices.Removal(),
 	}
 
-	leadershipRevoker, err := ctx.LeadershipRevoker()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting leadership client")
-	}
-
 	api, err := NewCAASApplicationProvisionerAPI(
 		stateShim{State: st},
 		ctx.Resources(),
@@ -154,7 +147,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 		sb,
 		storageService,
 		services,
-		leadershipRevoker,
 		ctx.ObjectStore(),
 		ctx.Clock(),
 		ctx.Logger().Child("caasapplicationprovisioner"),
@@ -170,11 +162,10 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	)
 
 	apiGroup := &APIGroup{
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.WatcherRegistry(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		charmInfoAPI:       commonCharmsAPI,
-		appCharmInfoAPI:    appCharmInfoAPI,
-		lifeCanRead:        lifeCanRead,
-		API:                api,
+		charmInfoAPI:    commonCharmsAPI,
+		appCharmInfoAPI: appCharmInfoAPI,
+		lifeCanRead:     lifeCanRead,
+		API:             api,
 	}
 
 	return apiGroup, nil
@@ -199,7 +190,6 @@ func NewCAASApplicationProvisionerAPI(
 	sb StorageBackend,
 	storagePoolGetter StoragePoolGetter,
 	services Services,
-	leadershipRevoker leadership.Revoker,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
 	logger corelogger.Logger,
@@ -208,6 +198,8 @@ func NewCAASApplicationProvisionerAPI(
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+
+	getCanWatch := common.AuthFuncForTagKind(names.ApplicationTagKind)
 
 	return &API{
 		auth:                    authorizer,
@@ -225,7 +217,7 @@ func NewCAASApplicationProvisionerAPI(
 		applicationService:      services.ApplicationService,
 		statusService:           services.StatusService,
 		removalService:          services.RemovalService,
-		leadershipRevoker:       leadershipRevoker,
+		getCanWatch:             getCanWatch,
 		clock:                   clock,
 		logger:                  logger,
 	}, nil
@@ -1412,6 +1404,52 @@ func (a *API) destroyUnit(ctx context.Context, args params.DestroyUnitParams) (p
 	}
 
 	return params.DestroyUnitResult{}, nil
+}
+
+// Watch starts an NotifyWatcher for the given application.
+func (a *API) Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+
+	canWatch, err := a.getCanWatch(ctx)
+	if err != nil {
+		return params.NotifyWatchResults{}, errors.Trace(err)
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canWatch(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+		}
+
+		watcherID, err := a.watchEntity(ctx, tag.Id())
+		result.Results[i].NotifyWatcherId = watcherID
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+func (a *API) watchEntity(ctx context.Context, appName string) (string, error) {
+	watcher, err := a.applicationService.WatchApplication(ctx, appName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return "", errors.NotFoundf("application %q", appName)
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	id, _, err := internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, watcher)
+	if err != nil {
+		return "", errors.Annotatef(err, "registering watcher for application %q", appName)
+	}
+	return id, nil
 }
 
 func ptr[T any](v T) *T {
