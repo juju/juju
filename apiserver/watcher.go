@@ -10,7 +10,6 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -241,36 +240,10 @@ func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWat
 // could do with some deduplication of logic, and I don't want to add to that
 // spaghetti right now.
 type srvMachineStorageIdsWatcher struct {
-	watcherCommon
-	watcher corewatcher.StringsWatcher
-	parser  func([]string) ([]params.MachineStorageId, error)
+	watcher corewatcher.MachineStorageIDsWatcher
 }
 
-func newVolumeAttachmentsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return newMachineStorageIdsWatcher(
-		context,
-		storagecommon.ParseVolumeAttachmentIds,
-	)
-}
-
-func newVolumeAttachmentPlansWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return newMachineStorageIdsWatcher(
-		context,
-		storagecommon.ParseVolumeAttachmentIds,
-	)
-}
-
-func newFilesystemAttachmentsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return newMachineStorageIdsWatcher(
-		context,
-		storagecommon.ParseFilesystemAttachmentIds,
-	)
-}
-
-func newMachineStorageIdsWatcher(
-	context facade.ModelContext,
-	parser func([]string) ([]params.MachineStorageId, error),
-) (facade.Facade, error) {
+func newMachineStorageIdsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -279,14 +252,12 @@ func newMachineStorageIdsWatcher(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	watcher, ok := w.(corewatcher.StringsWatcher)
+	watcher, ok := w.(corewatcher.MachineStorageIDsWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
 	return &srvMachineStorageIdsWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
-		parser:        parser,
+		watcher: watcher,
 	}, nil
 }
 
@@ -294,17 +265,20 @@ func newMachineStorageIdsWatcher(
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvMachineStorageIdsWatcher.
 func (w *srvMachineStorageIdsWatcher) Next(ctx context.Context) (params.MachineStorageIdsWatchResult, error) {
-	stringChanges, err := internal.FirstResult[[]string](ctx, w.watcher)
+	changes, err := internal.FirstResult(ctx, w.watcher)
 	if err != nil {
 		return params.MachineStorageIdsWatchResult{}, errors.Trace(err)
 	}
-	changes, err := w.parser(stringChanges)
-	if err != nil {
-		return params.MachineStorageIdsWatchResult{}, err
+	out := params.MachineStorageIdsWatchResult{
+		Changes: make([]params.MachineStorageId, len(changes)),
 	}
-	return params.MachineStorageIdsWatchResult{
-		Changes: changes,
-	}, nil
+	for i, change := range changes {
+		out.Changes[i] = params.MachineStorageId{
+			MachineTag:    change.MachineTag,
+			AttachmentTag: change.AttachmentTag,
+		}
+	}
+	return out, nil
 }
 
 // EntitiesWatcher defines an interface based on the StringsWatcher
