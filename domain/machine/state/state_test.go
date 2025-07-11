@@ -16,13 +16,21 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	usertesting "github.com/juju/juju/core/user/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelstate "github.com/juju/juju/domain/model/state"
+	"github.com/juju/juju/domain/modelagent"
 	networkstate "github.com/juju/juju/domain/network/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
@@ -1043,6 +1051,66 @@ func (s *stateSuite) TestGetMachineBaseNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *stateSuite) TestSetModelConstraints(c *tc.C) {
+	s.createTestModel(c)
+
+	runner := s.TxnRunnerFactory()
+	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO space (uuid, name) VALUES
+	(?, ?),
+	(?, ?)`,
+		uuid.MustNewUUID().String(), "space1",
+		uuid.MustNewUUID().String(), "space2",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons := constraints.Constraints{
+		Arch:           ptr("amd64"),
+		Container:      ptr(instance.LXD),
+		CpuCores:       ptr(uint64(4)),
+		Mem:            ptr(uint64(1024)),
+		RootDisk:       ptr(uint64(1024)),
+		RootDiskSource: ptr("root-disk-source"),
+		Tags:           ptr([]string{"tag1", "tag2"}),
+		InstanceRole:   ptr("instance-role"),
+		InstanceType:   ptr("instance-type"),
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "space1", Exclude: false},
+		}),
+		VirtType:         ptr("virt-type"),
+		Zones:            ptr([]string{"zone1", "zone2"}),
+		AllocatePublicIP: ptr(true),
+		ImageID:          ptr("image-id"),
+	}
+
+	err = state.SetModelConstraints(c.Context(), cons)
+	c.Assert(err, tc.ErrorIsNil)
+
+	getCons, err := state.GetModelConstraints(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(getCons, tc.DeepEquals, cons)
+}
+
+func (s *stateSuite) TestGetModelConstraintsNotFound(c *tc.C) {
+	s.createTestModel(c)
+
+	runner := s.TxnRunnerFactory()
+	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelConstraints(c.Context())
+	c.Check(err, tc.ErrorIs, modelerrors.ConstraintsNotFound)
+}
+
+func (s *stateSuite) TestGetModelConstraintsModelNotFound(c *tc.C) {
+	runner := s.TxnRunnerFactory()
+	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelConstraints(c.Context())
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
 func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
@@ -1054,4 +1122,28 @@ func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 	machineUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
 	c.Assert(err, tc.ErrorIsNil)
 	return machineUUID, mNames[0]
+}
+
+func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {
+	runner := s.TxnRunnerFactory()
+	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	id := modeltesting.GenModelUUID(c)
+	args := model.ModelDetailArgs{
+		UUID:            id,
+		AgentStream:     modelagent.AgentStreamReleased,
+		AgentVersion:    jujuversion.Current,
+		ControllerUUID:  uuid.MustNewUUID(),
+		Name:            "my-awesome-model",
+		Qualifier:       "prod",
+		Type:            coremodel.IAAS,
+		Cloud:           "aws",
+		CloudType:       "ec2",
+		CloudRegion:     "myregion",
+		CredentialOwner: usertesting.GenNewName(c, "myowner"),
+		CredentialName:  "mycredential",
+	}
+	err := state.Create(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	return id
 }
