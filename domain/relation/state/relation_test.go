@@ -1849,7 +1849,7 @@ func (s *relationSuite) TestLeaveScope(c *tc.C) {
 	// Assert: check the unit relation has been deleted. This can only be
 	// deleted if the unit settings have also been deleted, so no need to check
 	// them separately.
-	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID), tc.IsFalse)
+	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID.String()), tc.IsFalse)
 }
 
 func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
@@ -3949,23 +3949,22 @@ func (s *relationSuite) TestInsertRelationUnitHappyPath(c *tc.C) {
 	db, err := s.state.DB()
 	c.Assert(err, tc.ErrorIsNil)
 
-	var relationUnitUUID corerelation.UnitUUID
+	var relationUnitUUID string
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var insertErr error
-		relationUnitUUID, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID, unitUUID)
+		relationUnitUUID, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID.String(), unitUUID.String())
 		return insertErr
 	})
 
 	// Assert: No error and valid UUID
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(relationUnitUUID, tc.Not(tc.Equals), "")
-	c.Assert(relationUnitUUID.Validate(), tc.ErrorIsNil)
 
 	// Assert: Relation unit exists in the database
 	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID), tc.IsTrue)
 }
 
-func (s *relationSuite) TestInsertRelationUnitRelationUUIDDoesntExist(c *tc.C) {
+func (s *relationSuite) TestInsertRelationUnitRelationUUIDDoesNotExist(c *tc.C) {
 	// Arrange: Create a non-existent relation UUID
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
@@ -3979,7 +3978,7 @@ func (s *relationSuite) TestInsertRelationUnitRelationUUIDDoesntExist(c *tc.C) {
 
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var insertErr error
-		_, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID, unitUUID)
+		_, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID.String(), unitUUID.String())
 		return insertErr
 	})
 
@@ -3987,7 +3986,7 @@ func (s *relationSuite) TestInsertRelationUnitRelationUUIDDoesntExist(c *tc.C) {
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *relationSuite) TestInsertRelationUnitUnitUUIDDoesntExist(c *tc.C) {
+func (s *relationSuite) TestInsertRelationUnitUnitUUIDDoesNotExist(c *tc.C) {
 	// Arrange: Add a relation with endpoints
 	relationUUID := s.addRelation(c)
 	endpoint1 := relation.Endpoint{
@@ -4012,7 +4011,7 @@ func (s *relationSuite) TestInsertRelationUnitUnitUUIDDoesntExist(c *tc.C) {
 
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var insertErr error
-		_, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID, unitUUID)
+		_, insertErr = s.state.insertRelationUnit(ctx, tx, relationUUID.String(), unitUUID.String())
 		return insertErr
 	})
 
@@ -4277,8 +4276,8 @@ VALUES (?,?)
 `, unitUUID1, unitUUID2)
 }
 
-func (s *relationSuite) doesRelationUnitExist(c *tc.C, relationUnitUUID corerelation.UnitUUID) bool {
-	return s.doesUUIDExist(c, "relation_unit", relationUnitUUID.String())
+func (s *relationSuite) doesRelationUnitExist(c *tc.C, relationUnitUUID string) bool {
+	return s.doesUUIDExist(c, "relation_unit", relationUnitUUID)
 }
 
 func (s *relationSuite) addContainerScopedRelation(c *tc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
