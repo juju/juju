@@ -11,6 +11,7 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -269,14 +270,13 @@ AND    s.space_uuid = $entityUUID.uuid`
 	var subnetCIDR subnet
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, nUUID, dName, sUUID).Get(&subnetCIDR); err != nil {
-			if err != nil {
-				return errors.Errorf("querying subnet CIDR: %w", err)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				err = errors.Errorf("subnet subnet not found for device %q on node %q in space %q",
+					deviceName, nodeUUID, spaceUUID).Add(networkerrors.SubnetNotFound)
 			}
+			return errors.Errorf("querying subnet CIDR: %w", err)
 		}
 		return nil
 	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	return subnetCIDR.CIDR, nil
+	return subnetCIDR.CIDR, errors.Capture(err)
 }
