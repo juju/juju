@@ -47,21 +47,22 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *tc.C) {
+func (s *serviceSuite) TestAddDqliteNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CurateNodes(gomock.Any(), []string{"3", "4"}, []string{"1"})
+	nodeID := uint64(12345)
+	s.state.EXPECT().AddDqliteNode(gomock.Any(), "0", nodeID, "10.0.0.1")
 
-	err := NewService(s.state, loggertesting.WrapCheckLog(c)).CurateNodes(c.Context(), []string{"3", "4"}, []string{"1"})
+	err := NewService(s.state, loggertesting.WrapCheckLog(c)).AddDqliteNode(c.Context(), "0", nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateDqliteNode(c *tc.C) {
+func (s *serviceSuite) TestDeleteDqliteNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().UpdateDqliteNode(gomock.Any(), "0", uint64(12345), "192.168.5.60")
+	s.state.EXPECT().DeleteDqliteNodes(gomock.Any(), []string{"0"})
 
-	err := NewService(s.state, loggertesting.WrapCheckLog(c)).UpdateDqliteNode(c.Context(), "0", 12345, "192.168.5.60")
+	err := NewService(s.state, loggertesting.WrapCheckLog(c)).DeleteDqliteNodes(c.Context(), []string{"0"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -154,40 +155,6 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *tc.C) {
 		ver,
 	)
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
-}
-
-func (s *serviceSuite) TestIsControllerNode(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	controllerID := "1"
-	fakeID := "fake"
-
-	exp := s.state.EXPECT()
-	gomock.InOrder(
-		exp.IsControllerNode(gomock.Any(), fakeID).Return(false, controllernodeerrors.NotFound),
-		exp.IsControllerNode(gomock.Any(), controllerID).Return(true, nil),
-	)
-
-	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	is, err := svc.IsControllerNode(c.Context(), fakeID)
-	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
-	c.Check(is, tc.IsFalse)
-
-	is, err = svc.IsControllerNode(c.Context(), controllerID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(is, tc.IsTrue)
-}
-
-func (s *serviceSuite) TestIsControllerNodeNotValid(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	controllerID := ""
-
-	is, err := svc.IsControllerNode(c.Context(), controllerID)
-	c.Assert(err, tc.ErrorIs, errors.NotValid)
-	c.Check(is, tc.IsFalse)
 }
 
 func (s *serviceSuite) TestSetAPIAddressesStateError(c *tc.C) {

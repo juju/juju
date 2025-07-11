@@ -112,7 +112,6 @@ func (s *baseSuite) setupMocksWithProvider(
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
-	s.service.clock = s.clock
 
 	return ctrl
 }
@@ -163,7 +162,6 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
-	s.service.clock = s.clock
 
 	return ctrl
 

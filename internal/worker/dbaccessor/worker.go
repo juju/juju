@@ -584,8 +584,10 @@ func (w *dbWorker) initialiseDqlite(ctx context.Context, options ...app.Option) 
 		return errors.Trace(err)
 	}
 
-	if err := w.nodeService().UpdateDqliteNode(ctx, w.cfg.ControllerID, w.dbApp.ID(), addr); err != nil {
-		return errors.Trace(err)
+	// This will add the node to the cluster, or it will update the
+	// existing node with the new address.
+	if err := w.nodeService().AddDqliteNode(ctx, w.cfg.ControllerID, w.dbApp.ID(), addr); err != nil {
+		return errors.Annotatef(err, "adding Dqlite node %q with id %d and address %q", w.cfg.ControllerID, w.dbApp.ID(), addr)
 	}
 
 	// Begin handling external requests.

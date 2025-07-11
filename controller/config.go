@@ -211,10 +211,6 @@ const (
 	// executing a model migration.
 	MigrationMinionWaitMax = "migration-agent-wait-time"
 
-	// JujuHASpace is the network space within which the MongoDB replica-set
-	// should communicate.
-	JujuHASpace = "juju-ha-space"
-
 	// JujuManagementSpace is the network space that agents should use to
 	// communicate with controllers.
 	JujuManagementSpace = "juju-mgmt-space"
@@ -492,7 +488,6 @@ var (
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		PublicDNSAddress,
-		JujuHASpace,
 		JujuManagementSpace,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
@@ -555,7 +550,6 @@ var (
 		CAASImageRepo,
 		ControllerResourceDownloadLimit,
 		Features,
-		JujuHASpace,
 		JujuManagementSpace,
 		MaxAgentStateSize,
 		MaxCharmStateSize,
@@ -973,12 +967,6 @@ func (c Config) PublicDNSAddress() string {
 	return c.asString(PublicDNSAddress)
 }
 
-// JujuHASpace is the network space within which the MongoDB replica-set
-// should communicate.
-func (c Config) JujuHASpace() network.SpaceName {
-	return network.SpaceName(c.asString(JujuHASpace))
-}
-
 // SystemSSHKeys returns the trusted ssh keys that agents of this controller
 // should trust.
 func (c Config) SystemSSHKeys() string {
@@ -1239,10 +1227,6 @@ func Validate(c Config) error {
 		}
 	}
 
-	if err := c.validateSpaceConfig(JujuHASpace, "juju HA"); err != nil {
-		return errors.Trace(err)
-	}
-
 	if err := c.validateSpaceConfig(JujuManagementSpace, "juju mgmt"); err != nil {
 		return errors.Trace(err)
 	}
@@ -1418,7 +1402,7 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 		}
 	}
 
-	for _, c := range []string{c.JujuManagementSpace().String(), c.JujuHASpace().String()} {
+	for _, c := range []string{c.JujuManagementSpace().String()} {
 		// NOTE (hml) 2019-10-30
 		// This can cause issues in deployment and/or enabling HA if
 		// c == AlphaSpaceName as the provisioner expects any space

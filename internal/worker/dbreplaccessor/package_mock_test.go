@@ -16,6 +16,7 @@ import (
 	reflect "reflect"
 
 	sqlair "github.com/canonical/sqlair"
+	client "github.com/juju/juju/internal/database/client"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -178,6 +179,45 @@ func (c *MockNodeManagerEnsureDataDirCall) Do(f func() (string, error)) *MockNod
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNodeManagerEnsureDataDirCall) DoAndReturn(f func() (string, error)) *MockNodeManagerEnsureDataDirCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// LeaderClient mocks base method.
+func (m *MockNodeManager) LeaderClient(arg0 context.Context) (*client.Client, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LeaderClient", arg0)
+	ret0, _ := ret[0].(*client.Client)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LeaderClient indicates an expected call of LeaderClient.
+func (mr *MockNodeManagerMockRecorder) LeaderClient(arg0 any) *MockNodeManagerLeaderClientCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaderClient", reflect.TypeOf((*MockNodeManager)(nil).LeaderClient), arg0)
+	return &MockNodeManagerLeaderClientCall{Call: call}
+}
+
+// MockNodeManagerLeaderClientCall wrap *gomock.Call
+type MockNodeManagerLeaderClientCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNodeManagerLeaderClientCall) Return(arg0 *client.Client, arg1 error) *MockNodeManagerLeaderClientCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNodeManagerLeaderClientCall) Do(f func(context.Context) (*client.Client, error)) *MockNodeManagerLeaderClientCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNodeManagerLeaderClientCall) DoAndReturn(f func(context.Context) (*client.Client, error)) *MockNodeManagerLeaderClientCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

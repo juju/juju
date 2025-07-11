@@ -104,7 +104,6 @@ user/reference/cloud/list-of-supported-clouds/the-openstack-cloud-and-juju refer
 user/reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juj reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juju
 user/reference/configuration/controller-config-audit-log-exclude-methods reference/configuration/controller-config-audit-log-exclude-methods
-user/reference/configuration/controller-config-juju-ha-space reference/configuration/controller-config-juju-ha-space
 user/reference/configuration/controller-config-juju-mgmt-space reference/configuration/controller-config-juju-mgmt-space
 user/reference/configuration reference/configuration
 user/reference/configuration/list-of-controller-configuration-key reference/configuration/list-of-controller-configuration-keys
@@ -208,7 +207,6 @@ user/reference/juju-cli/list-of-juju-cli-commands/download-backup reference/juju
 user/reference/juju-cli/list-of-juju-cli-commands/download reference/juju-cli/list-of-juju-cli-commands/download
 user/reference/juju-cli/list-of-juju-cli-commands/enable-command reference/juju-cli/list-of-juju-cli-commands/enable-command
 user/reference/juju-cli/list-of-juju-cli-commands/enable-destroy-controller reference/juju-cli/list-of-juju-cli-commands/enable-destroy-controller
-user/reference/juju-cli/list-of-juju-cli-commands/enable-ha reference/juju-cli/list-of-juju-cli-commands/enable-ha
 user/reference/juju-cli/list-of-juju-cli-commands/enable-user reference/juju-cli/list-of-juju-cli-commands/enable-user
 user/reference/juju-cli/list-of-juju-cli-commands/exec reference/juju-cli/list-of-juju-cli-commands/exec
 user/reference/juju-cli/list-of-juju-cli-commands/export-bundle reference/juju-cli/list-of-juju-cli-commands/export-bundle

@@ -9,10 +9,10 @@ wait_for_controller_machines() {
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
-		# Wait for roughly 16 minutes for a enable-ha. In the field it's known
-		# that enable-ha can take this long.
+		# Wait for roughly 16 minutes for a availability. In the field it's known
+		# that availability can take this long.
 		if [[ ${attempt} -gt 200 ]]; then
-			echo "enable-ha failed waiting for machines to start"
+			echo "availability failed waiting for machines to start"
 			exit 1
 		fi
 	done
@@ -36,10 +36,10 @@ wait_for_ha() {
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
-		# Wait for roughly 16 minutes for a enable-ha. In the field it's known
-		# that enable-ha can take this long.
+		# Wait for roughly 16 minutes for a availability. In the field it's known
+		# that availability can take this long.
 		if [[ ${attempt} -gt 100 ]]; then
-			echo "enable-ha failed waiting for machines to start"
+			echo "high availability failed waiting for machines to start"
 			exit 1
 		fi
 	done

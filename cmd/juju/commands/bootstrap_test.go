@@ -623,7 +623,7 @@ func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *tc.C) {
 	})
 	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
-		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
+		"--config", "juju-mgmt-space=management-space",
 		"--constraints", "spaces=ha-space,random-space",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -640,7 +640,7 @@ func (s *BootstrapSuite) TestBootstrapAllConstraintsMerged(c *tc.C) {
 	})
 	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
-		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
+		"--config", "juju-mgmt-space=management-space",
 		"--constraints", "spaces=ha-space,random-space", "--constraints", "mem=4G",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)

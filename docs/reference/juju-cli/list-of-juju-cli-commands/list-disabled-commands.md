@@ -52,7 +52,6 @@ Commands that can be disabled are grouped based on logical operations as follows
     destroy-controller
     destroy-model
     disable-user
-    enable-ha
     enable-user
     expose
     import-filesystem

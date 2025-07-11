@@ -5,7 +5,6 @@ package agentconfigupdater_test
 
 import (
 	"context"
-	"errors"
 	stdtesting "testing"
 	"time"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
@@ -38,7 +38,6 @@ type AgentConfigUpdaterSuite struct {
 	manifold dependency.Manifold
 
 	controllerDomainServices *MockControllerDomainServices
-	controllerNodeService    *MockControllerNodeService
 	controllerConfigService  *MockControllerConfigService
 }
 
@@ -49,7 +48,9 @@ func TestAgentConfigUpdaterSuite(t *stdtesting.T) {
 
 func (s *AgentConfigUpdaterSuite) TestInputs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.setupManifold(c)
+	s.setupManifold(c, func() (bool, error) {
+		return true, nil
+	})
 
 	c.Assert(s.manifold.Inputs, tc.SameContents, []string{
 		"agent",
@@ -61,7 +62,9 @@ func (s *AgentConfigUpdaterSuite) TestInputs(c *tc.C) {
 
 func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.setupManifold(c)
+	s.setupManifold(c, func() (bool, error) {
+		return true, nil
+	})
 
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
@@ -73,7 +76,9 @@ func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *tc.C) {
 
 func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.setupManifold(c)
+	s.setupManifold(c, func() (bool, error) {
+		return true, nil
+	})
 
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent":           &mockAgent{},
@@ -85,24 +90,11 @@ func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *tc.C) {
 	c.Check(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *AgentConfigUpdaterSuite) TestNotMachine(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupManifold(c)
-
-	a := &mockAgent{
-		conf: mockConfig{tag: names.NewUnitTag("foo/0")},
-	}
-	getter := dt.StubGetter(map[string]interface{}{
-		"agent": a,
-	})
-	worker, err := s.manifold.Start(c.Context(), getter)
-	c.Check(worker, tc.IsNil)
-	c.Check(err, tc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
-}
-
 func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.setupManifold(c)
+	s.setupManifold(c, func() (bool, error) {
+		return true, errors.Errorf("boom")
+	})
 
 	// Set up a fake Agent and APICaller
 	a := &mockAgent{}
@@ -111,8 +103,6 @@ func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *tc.C) {
 			return nil
 		},
 	)
-
-	s.controllerNodeService.EXPECT().IsControllerNode(gomock.Any(), "99").Return(false, errors.New("boom"))
 
 	// Call the manifold's start func with a fake resource getter that
 	// returns the fake Agent and APICaller
@@ -124,7 +114,7 @@ func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *tc.C) {
 	})
 	w, err := s.manifold.Start(c.Context(), getter)
 	c.Assert(w, tc.IsNil)
-	c.Assert(err, tc.ErrorMatches, "checking is controller: boom")
+	c.Assert(err, tc.ErrorMatches, "checking is controller agent: boom")
 }
 
 func (s *AgentConfigUpdaterSuite) startManifold(c *tc.C, a agent.Agent, mockAPIPort int) (worker.Worker, error) {
@@ -156,10 +146,11 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *tc.C, a agent.Agent, mockAPIP
 
 func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.setupManifold(c)
+	s.setupManifold(c, func() (bool, error) {
+		return true, nil
+	})
 
 	wc := watchertest.NewMockStringsWatcher(nil)
-	s.controllerNodeService.EXPECT().IsControllerNode(gomock.Any(), gomock.Any()).Return(true, nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 		controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
 		controller.ObjectStoreType:   objectstore.FileBackend.String(),
@@ -184,10 +175,11 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
 
 func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.setupManifold(c)
+	s.setupManifold(c, func() (bool, error) {
+		return true, nil
+	})
 
 	wc := watchertest.NewMockStringsWatcher(nil)
-	s.controllerNodeService.EXPECT().IsControllerNode(gomock.Any(), gomock.Any()).Return(true, nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 		controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
 		controller.ObjectStoreType:   objectstore.FileBackend.String(),
@@ -219,9 +211,9 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) 
 
 func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.setupManifold(c)
-
-	s.controllerNodeService.EXPECT().IsControllerNode(gomock.Any(), gomock.Any()).Return(false, nil)
+	s.setupManifold(c, func() (bool, error) {
+		return false, nil
+	})
 
 	// State serving info should not be set for JobHostUnits.
 	s.checkNotController(c, model.JobHostUnits)
@@ -260,18 +252,16 @@ func (s *AgentConfigUpdaterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.controllerDomainServices = NewMockControllerDomainServices(ctrl)
 
 	c.Cleanup(func() {
 		s.controllerConfigService = nil
-		s.controllerNodeService = nil
 		s.controllerDomainServices = nil
 	})
 	return ctrl
 }
 
-func (s *AgentConfigUpdaterSuite) setupManifold(c *tc.C) {
+func (s *AgentConfigUpdaterSuite) setupManifold(c *tc.C, isControllerNode func() (bool, error)) {
 	logger := loggertesting.WrapCheckLog(c)
 	s.manifold = agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 		AgentName:          "agent",
@@ -282,8 +272,10 @@ func (s *AgentConfigUpdaterSuite) setupManifold(c *tc.C) {
 		GetControllerDomainServicesFn: func(dependency.Getter, string) (agentconfigupdater.ControllerDomainServices, error) {
 			return controllerDomainServices{
 				ControllerConfigService: s.controllerConfigService,
-				ControllerNodeService:   s.controllerNodeService,
 			}, nil
+		},
+		IsControllerAgentFn: func(ctx context.Context, g dependency.Getter, s string, m names.ModelTag, t names.Tag) (bool, error) {
+			return isControllerNode()
 		},
 	})
 }
@@ -481,17 +473,10 @@ func (s stubTracerGetter) GetTracer(context.Context, coretrace.TracerNamespace) 
 
 type controllerDomainServices struct {
 	agentconfigupdater.ControllerConfigService
-	agentconfigupdater.ControllerNodeService
 }
 
 // ControllerConfigService is an interface that defines the methods that are
 // required to get the controller configuration.
 func (s controllerDomainServices) ControllerConfig() agentconfigupdater.ControllerConfigService {
 	return s.ControllerConfigService
-}
-
-// ControllerNodeService is an interface that defines the methods that are
-// required to check if a machine or container agent is a controller node.
-func (s controllerDomainServices) ControllerNode() agentconfigupdater.ControllerNodeService {
-	return s.ControllerNodeService
 }

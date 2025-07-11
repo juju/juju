@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -14,9 +15,10 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/controller"
-	coreagent "github.com/juju/juju/core/agent"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
@@ -29,34 +31,26 @@ import (
 type ControllerDomainServices interface {
 	// ControllerConfig returns the controller configuration service.
 	ControllerConfig() ControllerConfigService
-	// ControllerNode returns the controller node service.
-	ControllerNode() ControllerNodeService
-}
-
-// ControllerNodeService is an interface that defines the methods that are
-// required to check if a machine or container agent is a controller node.
-type ControllerNodeService interface {
-	// IsControllerNode returns true if the machine is a controller node.
-	IsControllerNode(ctx context.Context, nodeID string) (bool, error)
 }
 
 // GetControllerDomainServicesFunc is a function that retrieves the
 // controller domain services from the dependency getter.
 type GetControllerDomainServicesFunc func(dependency.Getter, string) (ControllerDomainServices, error)
 
-// ManifoldConfig provides the dependencies for the
-// agent config updater manifold.
+// IsControllerAgentFunc is a function that checks if the agent is a controller
+// agent based on the tag.
+type IsControllerAgentFunc func(context.Context, dependency.Getter, string, names.ModelTag, names.Tag) (bool, error)
+
+// ManifoldConfig provides the dependencies for the agent config updater
+// manifold.
 type ManifoldConfig struct {
+	APICallerName                 string
 	AgentName                     string
 	DomainServicesName            string
 	TraceName                     string
 	Logger                        logger.Logger
 	GetControllerDomainServicesFn GetControllerDomainServicesFunc
-
-	// TODO (stickupkid): This is only required to know if it's a controller
-	// or not. Along with getting the state serving info. This is all available
-	// in dqlite already.
-	APICallerName string
+	IsControllerAgentFn           IsControllerAgentFunc
 }
 
 // Manifold defines a simple start function which
@@ -85,8 +79,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Grab the tag and ensure that it's for a controller.
 			tag := currentConfig.Tag()
-			if !coreagent.IsAllowedControllerTag(tag.Kind()) {
-				return nil, errors.New("agent's tag is not a machine or controller agent tag")
+			modelTag := currentConfig.Model()
+
+			if isControllerNode, err := config.IsControllerAgentFn(ctx, getter, config.DomainServicesName, modelTag, tag); err != nil {
+				return nil, errors.Errorf("checking is controller agent: %w", err)
+			} else if !isControllerNode {
+				// Not a controller agent, nothing to do.
+				return nil, dependency.ErrUninstall
 			}
 
 			// Get API connection.
@@ -99,15 +98,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Errorf("getting controller domain services: %w", err)
 			}
-
-			controllerNodeService := controllerServices.ControllerNode()
-			if isControllerNode, err := controllerNodeService.IsControllerNode(ctx, tag.Id()); err != nil {
-				return nil, errors.Errorf("checking is controller: %w", err)
-			} else if !isControllerNode {
-				// Not a controller, nothing to do.
-				return nil, dependency.ErrUninstall
-			}
-
 			controllerConfigService := controllerServices.ControllerConfig()
 
 			// Get the tracer from the context.
@@ -116,7 +106,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Capture(err)
 			}
 
-			tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("agentconfigupdater", currentConfig.Model().Id()))
+			tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("agentconfigupdater", modelTag.Id()))
 			if err != nil {
 				tracer = coretrace.NoopTracer{}
 			}
@@ -308,24 +298,55 @@ func GetControllerDomainServices(getter dependency.Getter, name string) (Control
 	return coredependency.GetDependencyByName(getter, name, func(s services.ControllerDomainServices) ControllerDomainServices {
 		return controllerDomainServices{
 			ControllerConfigService: s.ControllerConfig(),
-			ControllerNodeService:   s.ControllerNode(),
 		}
 	})
 }
 
+// IAASIsControllerAgent checks if the agent is a controller node based on the
+// tag.
+func IAASIsControllerAgent(ctx context.Context, getter dependency.Getter, name string, modelTag names.ModelTag, tag names.Tag) (bool, error) {
+	// All controller agents will be controller agents, so we can just check the
+	// tag kind.
+	switch tag.Kind() {
+	case names.MachineTagKind:
+	default:
+		return false, nil
+	}
+
+	var domainServicesGetter services.DomainServicesGetter
+	if err := getter.Get(name, &domainServicesGetter); err != nil {
+		return false, errors.Errorf("getting domain services getter: %w", err)
+	}
+
+	domainservices, err := domainServicesGetter.ServicesForModel(ctx, model.UUID(modelTag.Id()))
+	if err != nil {
+		return false, errors.Errorf("getting domain services for model %q: %w", modelTag.Id(), err)
+	}
+	isController, err := domainservices.Machine().IsMachineController(ctx, machine.Name(tag.Id()))
+	if err != nil {
+		return false, errors.Errorf("checking if machine is controller: %w", err)
+	}
+	return isController, nil
+}
+
+// CAASIsControllerAgent checks if the agent is a controller node based on the
+// tag.
+func CAASIsControllerAgent(ctx context.Context, getter dependency.Getter, name string, modelTag names.ModelTag, tag names.Tag) (bool, error) {
+	// All controller agents will be controller agents, so we can just check the
+	// tag kind.
+	switch tag.Kind() {
+	case names.ControllerAgentTagKind:
+		return true, nil
+	}
+	return false, nil
+}
+
 type controllerDomainServices struct {
 	ControllerConfigService
-	ControllerNodeService
 }
 
 // ControllerConfigService is an interface that defines the methods that are
 // required to get the controller configuration.
 func (s controllerDomainServices) ControllerConfig() ControllerConfigService {
 	return s.ControllerConfigService
-}
-
-// ControllerNodeService is an interface that defines the methods that are
-// required to check if a machine or container agent is a controller node.
-func (s controllerDomainServices) ControllerNode() ControllerNodeService {
-	return s.ControllerNodeService
 }

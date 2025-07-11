@@ -33,11 +33,6 @@ var commonFacadeNames = set.NewStrings(
 	"Pinger",
 	"Bundle",
 
-	// TODO(mjs) - bug 1632172 - Exposed for model logins for
-	// backwards compatibility. Remove once we're sure no non-Juju
-	// clients care about it.
-	"HighAvailability",
-
 	// NotifyWatcher may be used for watching controller API info,
 	// in conjunction with the CrossController facade.
 	"NotifyWatcher",

@@ -378,13 +378,11 @@ func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string
 				return name, &details, nil
 			}
 		}
+		return "", nil, errors.NotFoundf("model %s:%s", controllerName, modelIdentifier)
 	}
 
 	// Keep the not-found error from the store if we have one.
 	// This will preserve the user-qualified model identifier.
-	if err == nil {
-		err = errors.NotFoundf("model %s:%s", controllerName, modelIdentifier)
-	}
 	return "", nil, errors.Trace(err)
 }
 

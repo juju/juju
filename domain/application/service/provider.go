@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
@@ -18,9 +17,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
-	corecontroller "github.com/juju/juju/core/controller"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -242,70 +239,6 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 	}
 
 	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
-}
-
-// AddControllerIAASUnits adds the specified number of controller units to
-// the controller application. It expects to only operate on the controller
-// model, thus there should always be a controller application.
-// This is additive, meaning that it will never remove any existing
-// controllers.
-func (s *ProviderService) AddControllerIAASUnits(
-	ctx context.Context,
-	controllerIDs []string,
-	units []AddIAASUnitArg,
-) ([]coremachine.Name, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// This can happen if we try and enable HA before the first controller
-	// machine is created and assigned a address.
-	if len(controllerIDs) == 0 {
-		return nil, errors.New("no existing controller IDs provided")
-	}
-	if len(units) == 0 {
-		return nil, nil
-	}
-
-	newUnits := len(units) + len(controllerIDs)
-	if newUnits != 0 && newUnits%2 != 1 {
-		return nil, errors.New("number of controllers must be odd and non-negative")
-	} else if newUnits > corecontroller.MaxPeers {
-		return nil, errors.Errorf("controller count is too large (allowed %d)", corecontroller.MaxPeers)
-	}
-
-	// Calculate the offset for the new controllers. This is the new number
-	// minus the number of existing controllers.
-	required := len(units) - len(controllerIDs)
-	if required == 0 {
-		// No changes are required, so we return an empty result.
-		return nil, nil
-	}
-
-	for _, unit := range units {
-		if unit.Placement == nil {
-			continue
-		}
-
-		// Machines cannot be placed on containers, so we check if the
-		// placement is a container machine and if so, return an error.
-		if unit.Placement.Scope == instance.MachineScope && names.IsContainerMachine(unit.Placement.Directive) {
-			return nil, errors.Errorf("controller units cannot be placed on containers").Add(coreerrors.NotSupported)
-		}
-
-		// Machines cannot be co-located on existing controller machines,
-		if controller, err := s.st.IsMachineController(ctx, unit.Placement.Directive); err != nil {
-			return nil, errors.Errorf("checking if machine %q is a controller: %w", unit.Placement.Directive, err)
-		} else if controller {
-			return nil, errors.Errorf("controller units cannot be placed on controller machines %q", unit.Placement.Directive)
-		}
-	}
-
-	// Add the required number of units to the controller application.
-	_, machineNames, err := s.AddIAASUnits(ctx, coreapplication.ControllerApplicationName, units...)
-	if err != nil {
-		return nil, errors.Errorf("adding IAAS units to controller application: %w", err)
-	}
-	return machineNames, nil
 }
 
 // AddIAASUnits adds the specified units to the IAAS application, returning an

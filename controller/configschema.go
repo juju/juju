@@ -41,7 +41,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	PruneTxnQueryCount:                 schema.ForceInt(),
 	PruneTxnSleepTime:                  schema.TimeDurationString(),
 	PublicDNSAddress:                   schema.String(),
-	JujuHASpace:                        schema.String(),
 	JujuManagementSpace:                schema.String(),
 	CAASOperatorImagePath:              schema.String(),
 	CAASImageRepo:                      schema.String(),
@@ -98,7 +97,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	PruneTxnQueryCount:                 DefaultPruneTxnQueryCount,
 	PruneTxnSleepTime:                  DefaultPruneTxnSleepTime,
 	PublicDNSAddress:                   schema.Omit,
-	JujuHASpace:                        schema.Omit,
 	JujuManagementSpace:                schema.Omit,
 	CAASOperatorImagePath:              schema.Omit,
 	CAASImageRepo:                      schema.Omit,
@@ -255,10 +253,6 @@ they don't have any access rights to the controller itself`,
 	PublicDNSAddress: {
 		Type:        configschema.Tstring,
 		Description: `Public DNS address (with port) of the controller.`,
-	},
-	JujuHASpace: {
-		Type:        configschema.Tstring,
-		Description: `The network space within which the MongoDB replica-set should communicate`,
 	},
 	JujuManagementSpace: {
 		Type:        configschema.Tstring,

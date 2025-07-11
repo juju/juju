@@ -122,23 +122,6 @@ var newConfigTests = []struct {
 	},
 	expectError: `juju mgmt space name "\\n" not valid`,
 }, {
-	about: "HA space name - empty string OK",
-	config: controller.Config{
-		controller.JujuHASpace: "",
-	},
-}, {
-	about: "invalid HA space name - number",
-	config: controller.Config{
-		controller.JujuHASpace: 666,
-	},
-	expectError: `juju-ha-space: expected string, got int\(666\)`,
-}, {
-	about: "invalid HA space name - bool",
-	config: controller.Config{
-		controller.JujuHASpace: true,
-	},
-	expectError: `juju-ha-space: expected string, got bool\(true\)`,
-}, {
 	about: "invalid audit log max size",
 	config: controller.Config{
 		controller.AuditLogMaxSize: "abcd",
@@ -523,19 +506,16 @@ func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *tc.C) {
-	haSpace := network.SpaceName("space1")
 	managementSpace := network.SpaceName("space2")
 
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{
-			controller.JujuHASpace:         haSpace,
 			controller.JujuManagementSpace: managementSpace,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.JujuHASpace(), tc.Equals, haSpace)
 	c.Assert(cfg.JujuManagementSpace(), tc.Equals, managementSpace)
 }
 
@@ -546,7 +526,6 @@ func (s *ConfigSuite) TestNetworkSpaceConfigDefaults(c *tc.C) {
 		map[string]interface{}{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cfg.JujuHASpace(), tc.Equals, network.SpaceName(""))
 	c.Check(cfg.JujuManagementSpace(), tc.Equals, network.SpaceName(""))
 }
 
@@ -604,30 +583,7 @@ func (s *ConfigSuite) TestAuditLogFloatBackupsLoadedDirectly(c *tc.C) {
 	c.Assert(cfg.AuditLogMaxBackups(), tc.Equals, 10)
 }
 
-func (s *ConfigSuite) TestConfigManagementSpaceAsConstraint(c *tc.C) {
-	managementSpace := "management-space"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{controller.JujuHASpace: managementSpace},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(*cfg.AsSpaceConstraints(nil), tc.DeepEquals, []string{managementSpace})
-}
-
-func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *tc.C) {
-	haSpace := "ha-space"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{controller.JujuHASpace: haSpace},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(*cfg.AsSpaceConstraints(nil), tc.DeepEquals, []string{haSpace})
-}
-
 func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *tc.C) {
-	haSpace := "ha-space"
 	managementSpace := "management-space"
 	constraintSpace := "constraint-space"
 
@@ -635,14 +591,13 @@ func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *tc.C) {
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{
-			controller.JujuHASpace:         haSpace,
 			controller.JujuManagementSpace: managementSpace,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got := *cfg.AsSpaceConstraints(&[]string{constraintSpace})
-	c.Check(got, tc.DeepEquals, []string{constraintSpace, haSpace, managementSpace})
+	c.Check(got, tc.DeepEquals, []string{constraintSpace, managementSpace})
 }
 
 func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *tc.C) {

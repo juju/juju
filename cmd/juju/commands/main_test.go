@@ -249,7 +249,6 @@ var commandNames = []string{
 	"download",
 	"enable-command",
 	"enable-destroy-controller",
-	"enable-ha",
 	"enable-user",
 	"exec",
 	"export-bundle",

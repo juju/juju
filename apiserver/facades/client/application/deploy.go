@@ -73,10 +73,6 @@ type ApplicationDeployer interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 }
 
-type UnitAdder interface {
-	AddUnit(state.AddUnitParams) (Unit, error)
-}
-
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
 	ctx context.Context, st ApplicationDeployer,
@@ -284,7 +280,6 @@ func transformToPendingResources(argResources map[string]string) ([]coreresource
 // directives to allocate the machines.
 func (api *APIBase) addUnits(
 	ctx context.Context,
-	unitAdder UnitAdder,
 	appName string,
 	n int,
 	placement []*instance.Placement,
@@ -294,21 +289,8 @@ func (api *APIBase) addUnits(
 ) ([]coreunit.Name, error) {
 	units := make([]coreunit.Name, 0, n)
 
-	allSpaces, err := api.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		unit, err := unitAdder.AddUnit(state.AddUnitParams{
-			AttachStorage: attachStorage,
-			CharmMeta:     charmMeta,
-		})
-		if err != nil {
-			return nil, internalerrors.Errorf("adding unit %d/%d to application %q: %w", i+1, n, appName, err)
-		}
-
 		var unitPlacement *instance.Placement
 		if i < len(placement) {
 			unitPlacement = placement[i]
@@ -319,7 +301,7 @@ func (api *APIBase) addUnits(
 		}
 
 		var unitNames []coreunit.Name
-
+		var err error
 		if api.modelType == coremodel.CAAS {
 			unitNames, err = api.applicationService.AddCAASUnits(ctx, appName, unitArg)
 		} else {
@@ -331,20 +313,6 @@ func (api *APIBase) addUnits(
 			return nil, internalerrors.Errorf("adding unit to application %q: %w", appName, err)
 		}
 		units = append(units, unitNames...)
-		if !assignUnits {
-			continue
-		}
-
-		// Are there still placement directives to use?
-		if i > len(placement)-1 {
-			if err := unit.AssignUnit(); err != nil {
-				return nil, internalerrors.Errorf("acquiring new machine to host unit: %w", err)
-			}
-		} else {
-			if err := unit.AssignWithPlacement(placement[i], allSpaces); err != nil {
-				return nil, internalerrors.Errorf("acquiring machine for placement %q to host unit: %w", placement[i], err)
-			}
-		}
 	}
 
 	return units, nil

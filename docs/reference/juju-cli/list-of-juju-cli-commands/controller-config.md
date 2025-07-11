@@ -118,9 +118,6 @@ The following keys are available:
     features:
       type: string
       description: A comma-delimited list of runtime changeable features to be updated
-    juju-ha-space:
-      type: string
-      description: The network space within which the MongoDB replica-set should communicate
     juju-mgmt-space:
       type: string
       description: The network space that agents should use to communicate with controllers

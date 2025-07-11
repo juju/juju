@@ -295,9 +295,6 @@ Controller configuration keys:
       type: string
       description: Sets channel for installing mongo snaps when bootstrapping on focal
         or later
-    juju-ha-space:
-      type: string
-      description: The network space within which the MongoDB replica-set should communicate
     juju-mgmt-space:
       type: string
       description: The network space that agents should use to communicate with controllers

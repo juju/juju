@@ -20,7 +20,7 @@ check_managed_identity_controller() {
 	check_contains "$cred" "managed-identity-path"
 
 	juju switch controller
-	juju enable-ha
+	juju add-unit -m controller controller -n 2
 	wait_for_controller_machines 3
 	wait_for_ha 3
 

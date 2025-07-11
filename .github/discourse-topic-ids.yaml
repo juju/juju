@@ -52,7 +52,6 @@ download: 10134
 download-backup: 10240
 enable-command: 10111
 enable-destroy-controller: 10086
-enable-ha: 10206
 enable-user: 10241
 exec: 10195
 export-bundle: 10046

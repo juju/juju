@@ -13,7 +13,19 @@ import (
 	"github.com/canonical/go-dqlite/v2/client"
 )
 
+// Client is a dqlite client that can be used to connect to a dqlite cluster.
 type Client = client.Client
+
+// FindLeader finds the leader of a dqlite cluster using the provided NodeStore.
+func FindLeader(ctx context.Context, store NodeStore, opts ...client.Option) (*Client, error) {
+	return client.FindLeader(ctx, store, opts...)
+}
+
+// WithDialFunc sets a custom dial function for creating the client network
+// connection.
+func WithDialFunc(dial DialFunc) client.Option {
+	return client.WithDialFunc(dial)
+}
 
 // YamlNodeStore persists a list addresses of dqlite nodes in a YAML file.
 type YamlNodeStore = client.YamlNodeStore

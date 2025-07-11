@@ -85,7 +85,7 @@ renamed space "db-space" to "public-space"
 ```
 
 ```{important}
-Spaces can also be renamed during controller configuration, via the `juju-ha-space` and `juju-mgmt-space` key, or during model configuration, via the `default-space` key.
+Spaces can also be renamed during controller configuration, via the `juju-mgmt-space` key, or during model configuration, via the `default-space` key.
 ```
 
 > See more: {ref}`command-juju-rename-space`

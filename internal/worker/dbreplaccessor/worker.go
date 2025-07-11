@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/database/client"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -33,10 +34,16 @@ type NodeManager interface {
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
 
-	// DqliteSQLDriver returns a Dqlite SQL driver that can be used to
-	// connect to the Dqlite cluster. This is a read only connection, which is
-	// intended to be used for running queries against the Dqlite cluster (REPL).
+	// DqliteSQLDriver returns a Dqlite SQL driver that can be used to connect
+	// to the Dqlite cluster. This is a read only connection, which is intended
+	// to be used for running queries against the Dqlite cluster (REPL).
 	DqliteSQLDriver(ctx context.Context) (driver.Driver, error)
+
+	// LeaderClient returns a Dqlite client that is connected to the leader
+	// of the Dqlite cluster. This client can be used to run queries directly
+	// against the leader node, which is useful for administrative tasks or
+	// for running queries that require a consistent view of the data.
+	LeaderClient(ctx context.Context) (*client.Client, error)
 }
 
 // DBGetter describes the ability to supply a sql.DB
@@ -209,6 +216,29 @@ func (w *dbReplWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *dbReplWorker) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// DescribeCluster returns a description of the cluster.
+func (w *dbReplWorker) DescribeCluster(ctx context.Context) ([]Node, error) {
+	client, err := w.cfg.NodeManager.LeaderClient(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting leader client")
+	}
+	nodes, err := client.Cluster(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting cluster description")
+	}
+
+	var result []Node
+	for _, node := range nodes {
+		result = append(result, Node{
+			ID:      node.ID,
+			Address: node.Address,
+			Role:    node.Role.String(),
+		})
+	}
+	return result, nil
+
 }
 
 // GetDB returns a transaction runner for the dqlite-backed

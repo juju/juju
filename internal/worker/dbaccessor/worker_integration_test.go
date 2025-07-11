@@ -33,7 +33,6 @@ import (
 )
 
 type integrationSuite struct {
-	//dqliteAppIntegrationSuite
 	databasetesting.DqliteSuite
 
 	db        *sql.DB
@@ -61,7 +60,7 @@ func (s *integrationSuite) SetUpTest(c *tc.C) {
 	s.DqliteSuite.SetUpTest(c)
 
 	params := agent.AgentConfigParams{
-		Tag:               names.NewMachineTag("1"),
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: jujuversion.Current,
 		Jobs:              []model.MachineJob{model.JobHostUnits},
 		Password:          "sekrit",

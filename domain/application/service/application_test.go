@@ -1496,7 +1496,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
-	s.service.clock = s.clock
 
 	return ctrl
 }

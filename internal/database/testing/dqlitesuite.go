@@ -223,6 +223,14 @@ func (s *DqliteSuite) DumpTable(c *tc.C, table string, additionalTables ...strin
 	DumpTable(c, s.DB(), table, additionalTables...)
 }
 
+// DumpTableForDB dumps the contents of the given table to stdout for the
+// provided database.
+// This is useful for debugging tests. It is not intended for use
+// in production code.
+func (s *DqliteSuite) DumpTableForDB(c *tc.C, db *sql.DB, table string, additionalTables ...string) {
+	DumpTable(c, db, table, additionalTables...)
+}
+
 // isVerbose checks the JUJU_TEST_VERBOSE environment variable to determine
 // whether the test suite should print verbose output.
 func isVerbose(c *tc.C) bool {

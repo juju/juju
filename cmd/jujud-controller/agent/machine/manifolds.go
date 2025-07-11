@@ -492,17 +492,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:        singular.NewFlagWorker,
 		})),
 
-		// The agent-config-updater manifold sets the state serving info from
-		// the API connection and writes it to the agent config.
-		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
-			AgentName:                     agentName,
-			APICallerName:                 apiCallerName,
-			DomainServicesName:            domainServicesName,
-			TraceName:                     traceName,
-			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
-			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
-		})),
-
 		// The logging config updater is a leaf worker that indirectly
 		// controls the messages sent via the log sender or rsyslog,
 		// according to changes in environment config. We should only need
@@ -916,6 +905,16 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentFinalizer:               bootstrap.IAASAgentFinalizer,
 		})),
 
+		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
+			AgentName:                     agentName,
+			APICallerName:                 apiCallerName,
+			DomainServicesName:            domainServicesName,
+			TraceName:                     traceName,
+			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
+			IsControllerAgentFn:           agentconfigupdater.IAASIsControllerAgent,
+			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
+		})),
+
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -1123,6 +1122,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerUnitPassword:       bootstrap.CAASControllerUnitPassword,
 			BootstrapAddressFinderGetter: bootstrap.CAASAddressFinder,
 			AgentFinalizer:               bootstrap.CAASAgentFinalizer,
+		})),
+
+		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
+			AgentName:                     agentName,
+			APICallerName:                 apiCallerName,
+			DomainServicesName:            domainServicesName,
+			TraceName:                     traceName,
+			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
+			IsControllerAgentFn:           agentconfigupdater.CAASIsControllerAgent,
+			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 
 		// TODO(caas) - when we support HA, only want this on primary

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -33,7 +32,6 @@ type Backend interface {
 // details on the methods, see the methods on state.Application with
 // the same names.
 type Application interface {
-	AddUnit(state.AddUnitParams) (Unit, error)
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
 	UpdateCharmConfig(charm.Settings) error
@@ -75,15 +73,6 @@ type Machine interface {
 	Base() state.Base
 	Id() string
 	PublicAddress() (network.SpaceAddress, error)
-}
-
-// Unit defines a subset of the functionality provided by the
-// state.Unit type, as required by the application facade. For
-// details on the methods, see the methods on state.Unit with
-// the same names.
-type Unit interface {
-	AssignUnit() error
-	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
 }
 
 type stateShim struct {
@@ -156,42 +145,7 @@ func (s stateShim) Machine(name string) (Machine, error) {
 	return m, nil
 }
 
-func (s stateShim) Unit(name string) (Unit, error) {
-	u, err := s.State.Unit(name)
-	if err != nil {
-		return nil, err
-	}
-	return stateUnitShim{
-		Unit: u,
-		st:   s.State,
-	}, nil
-}
-
 type stateApplicationShim struct {
 	*state.Application
 	st *state.State
-}
-
-func (a stateApplicationShim) AddUnit(args state.AddUnitParams) (Unit, error) {
-	u, err := a.Application.AddUnit(args)
-	if err != nil {
-		return nil, err
-	}
-	return stateUnitShim{
-		Unit: u,
-		st:   a.st,
-	}, nil
-}
-
-type stateUnitShim struct {
-	*state.Unit
-	st *state.State
-}
-
-func (u stateUnitShim) AssignUnit() error {
-	return u.st.AssignUnit(u.Unit)
-}
-
-func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement, allSpaces network.SpaceInfos) error {
-	return u.st.AssignUnitWithPlacement(u.Unit, placement, allSpaces)
 }

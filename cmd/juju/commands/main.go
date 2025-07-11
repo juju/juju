@@ -442,9 +442,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(action.NewShowOperationCommand())
 	r.Register(action.NewShowTaskCommand())
 
-	// Manage controller availability
-	r.Register(newEnableHACommand())
-
 	// Manage and control applications
 	r.Register(application.NewAddUnitCommand())
 	r.Register(application.NewConfigCommand())

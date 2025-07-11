@@ -66,7 +66,6 @@ run_block_all() {
 	juju status --format json | jq '.applications | .["ubuntu"] | .exposed' | check true
 	juju offers | grep -q 'Offer' || true
 
-	juju enable-ha | grep -q 'the operation has been blocked' || true
 	juju deploy ntp | grep -q 'the operation has been blocked' || true
 	juju integrate ntp ubuntu | grep -q 'the operation has been blocked' || true
 	juju unexpose ubuntu | grep -q 'the operation has been blocked' || true

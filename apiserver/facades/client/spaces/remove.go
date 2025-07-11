@@ -189,8 +189,5 @@ func (api *API) getSpaceControllerSettings(ctx context.Context, spaceName networ
 	if mgmtSpace := currentControllerConfig.JujuManagementSpace(); mgmtSpace == spaceName {
 		matches = append(matches, controller.JujuManagementSpace)
 	}
-	if haSpace := currentControllerConfig.JujuHASpace(); haSpace == spaceName {
-		matches = append(matches, controller.JujuHASpace)
-	}
 	return matches, nil
 }
