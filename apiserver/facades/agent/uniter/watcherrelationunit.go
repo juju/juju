@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/apiserver/common"
@@ -28,7 +27,7 @@ type relationUnitsWatcher struct {
 
 	relation RelationService
 
-	unitName     coreunit.Name
+	unitUUID     coreunit.UUID
 	relationUUID corerelation.UUID
 
 	out chan params.RelationUnitsChange
@@ -43,10 +42,12 @@ type relationUnitsWatcher struct {
 //
 // It initializes a relationUnitsWatcher instance,
 // sets up its internal state, and starts its lifecycle management.
-func newRelationUnitsWatcher(unit names.UnitTag, relUUID corerelation.UUID, relationService RelationService) (common.RelationUnitsWatcher, error) {
+func newRelationUnitsWatcher(
+	unitUUID coreunit.UUID, relUUID corerelation.UUID, relationService RelationService,
+) (common.RelationUnitsWatcher, error) {
 	w := &relationUnitsWatcher{
 		relation:     relationService,
-		unitName:     coreunit.Name(unit.Id()),
+		unitUUID:     unitUUID,
 		relationUUID: relUUID,
 		out:          make(chan params.RelationUnitsChange),
 	}
@@ -114,10 +115,10 @@ func (w *relationUnitsWatcher) loop() error {
 
 	ctx := w.catacomb.Context(context.Background())
 
-	domainWatcher, err := w.relation.WatchRelatedUnits(ctx, w.unitName, w.relationUUID)
+	domainWatcher, err := w.relation.WatchRelatedUnits(ctx, w.unitUUID, w.relationUUID)
 	if err != nil {
 		return internalerrors.Errorf("starting related units watcher for relation %q and unit %q: %w",
-			w.relationUUID, w.unitName, err)
+			w.relationUUID, w.unitUUID, err)
 	}
 	if err := w.catacomb.Add(domainWatcher); err != nil {
 		return internalerrors.Errorf("adding related units watcher to catacomb: %w", err)

@@ -16,6 +16,16 @@ import (
 	"github.com/juju/juju/internal/charm"
 )
 
+// TODO (manadart 2025-07-08): entityUUID (type agnostic) should be used in
+// place of the typed UUIDs. All other usages of typed identities/names should
+// be replaced with strings. This is the database layer, which to the greatest
+// extent possible should be aware only of simple types.
+
+// entityUUID is a container for a unique identifier.
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // applicationID is used to get the ID of an application.
 type applicationID struct {
 	ID application.ID `db:"uuid"`
@@ -60,29 +70,23 @@ type applicationPlatform struct {
 }
 
 type relationUnit struct {
-	RelationUnitUUID     corerelation.UnitUUID     `db:"uuid"`
-	RelationEndpointUUID corerelation.EndpointUUID `db:"relation_endpoint_uuid"`
-	RelationUUID         corerelation.UUID         `db:"relation_uuid"`
-	UnitUUID             unit.UUID                 `db:"unit_uuid"`
+	RelationUnitUUID     string `db:"uuid"`
+	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
+	RelationUUID         string `db:"relation_uuid"`
+	UnitUUID             string `db:"unit_uuid"`
 }
 
 // relationUnitWithUnit maps a unit to a relation unit and
 // includes the unit name.
 type relationUnitWithUnit struct {
-	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
-	UnitUUID         unit.UUID             `db:"unit_uuid"`
-	UnitName         unit.Name             `db:"unit_name"`
+	RelationUnitUUID string    `db:"uuid"`
+	UnitUUID         unit.UUID `db:"unit_uuid"`
+	UnitName         unit.Name `db:"unit_name"`
 }
 
 type getUnit struct {
 	UUID unit.UUID `db:"uuid"`
 	Name unit.Name `db:"name"`
-}
-
-type getRelatedUnit struct {
-	UUID             unit.UUID             `db:"uuid"`
-	Name             unit.Name             `db:"name"`
-	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
 }
 
 type relationUnitUUIDAndName struct {
@@ -104,7 +108,7 @@ type getLife struct {
 
 type getUnitApp struct {
 	ApplicationUUID application.ID `db:"application_uuid"`
-	UnitUUID        unit.UUID      `db:"uuid"`
+	UnitUUID        string         `db:"uuid"`
 }
 
 type getUnitRelAndApp struct {
@@ -124,7 +128,7 @@ type getSubordinate struct {
 
 // getPrincipal is used to get the principal application of a unit.
 type getPrincipal struct {
-	UnitUUID        unit.UUID      `db:"unit_uuid"`
+	UnitUUID        string         `db:"unit_uuid"`
 	ApplicationUUID application.ID `db:"application_uuid"`
 }
 
@@ -145,9 +149,9 @@ type relationApplicationSetting struct {
 }
 
 type relationUnitSetting struct {
-	UUID  corerelation.UnitUUID `db:"relation_unit_uuid"`
-	Key   string                `db:"key"`
-	Value string                `db:"value"`
+	UUID  string `db:"relation_unit_uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
 }
 
 type applicationSettingsHash struct {
@@ -156,8 +160,8 @@ type applicationSettingsHash struct {
 }
 
 type unitSettingsHash struct {
-	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
-	Hash             string                `db:"sha256"`
+	RelationUnitUUID string `db:"relation_unit_uuid"`
+	Hash             string `db:"sha256"`
 }
 
 type keys []string
@@ -268,13 +272,6 @@ func (e Endpoint) toEndpointIdentifier() corerelation.EndpointIdentifier {
 		ApplicationName: e.ApplicationName,
 		EndpointName:    e.EndpointName,
 	}
-}
-
-type relationEndpoint struct {
-	// UUID is a unique identifier for the relation endpoint
-	UUID corerelation.EndpointUUID `db:"uuid"`
-	// ApplicationUUID is a unique identifier for the application associated with the endpoint.
-	ApplicationUUID application.ID `db:"application_uuid"`
 }
 
 // setRelationEndpoint represents the mapping to insert a new relation endpoint

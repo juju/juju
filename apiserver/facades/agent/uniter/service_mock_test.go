@@ -2071,7 +2071,7 @@ func (c *MockRelationServiceWatchLifeSuspendedStatusCall) DoAndReturn(f func(con
 }
 
 // WatchRelatedUnits mocks base method.
-func (m *MockRelationService) WatchRelatedUnits(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID) (watcher.Watcher[[]string], error) {
+func (m *MockRelationService) WatchRelatedUnits(arg0 context.Context, arg1 unit.UUID, arg2 relation.UUID) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchRelatedUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
@@ -2098,13 +2098,13 @@ func (c *MockRelationServiceWatchRelatedUnitsCall) Return(arg0 watcher.Watcher[[
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceWatchRelatedUnitsCall) Do(f func(context.Context, unit.Name, relation.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchRelatedUnitsCall {
+func (c *MockRelationServiceWatchRelatedUnitsCall) Do(f func(context.Context, unit.UUID, relation.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchRelatedUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceWatchRelatedUnitsCall) DoAndReturn(f func(context.Context, unit.Name, relation.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchRelatedUnitsCall {
+func (c *MockRelationServiceWatchRelatedUnitsCall) DoAndReturn(f func(context.Context, unit.UUID, relation.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchRelatedUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

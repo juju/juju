@@ -7,9 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-
-	coreapplication "github.com/juju/juju/core/application"
-	coreunit "github.com/juju/juju/core/unit"
 )
 
 type encodeWatchEventSuite struct {
@@ -25,7 +22,7 @@ func (s *encodeWatchEventSuite) TestEncodeApplicationUUID(c *tc.C) {
 	expected := string(ApplicationUUID) + separator + input
 
 	// Act
-	result := EncodeApplicationUUID(coreapplication.ID(input))
+	result := EncodeApplicationUUID(input)
 
 	// Assert
 	c.Assert(result, tc.Equals, expected)
@@ -37,7 +34,7 @@ func (s *encodeWatchEventSuite) TestEncodeUnitUUID(c *tc.C) {
 	expected := string(UnitUUID) + separator + input
 
 	// Act
-	result := EncodeUnitUUID(coreunit.UUID(input))
+	result := EncodeUnitUUID(input)
 
 	// Assert
 	c.Assert(result, tc.Equals, expected)
