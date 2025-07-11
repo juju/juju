@@ -1861,6 +1861,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ScaleApplicationResults{}, errors.Trace(err)
 	}
+
 	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
 		if arg.Scale < 0 && arg.ScaleChange == 0 {
 			return nil, errors.NotValidf("scale < 0")
@@ -1892,9 +1893,14 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 			}
 		}
 
+		attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, arg.ScaleChange)
+		if len(attachStorageErrs) > 0 {
+			return nil, errors.Trace(attachStorageErrs[0])
+		}
+
 		var info params.ScaleApplicationInfo
 		if arg.ScaleChange != 0 {
-			newScale, err := app.ChangeScale(arg.ScaleChange)
+			newScale, err := app.ChangeScale(arg.ScaleChange, attachStorage)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

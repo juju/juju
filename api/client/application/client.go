@@ -597,6 +597,8 @@ type ScaleApplicationParams struct {
 	// Force controls whether or not the removal of applications
 	// will be forced, i.e. ignore removal errors.
 	Force bool
+
+	AttachStorage []string
 }
 
 // ScaleApplication sets the desired unit count for one or more applications.
@@ -615,6 +617,7 @@ func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplic
 			Scale:          in.Scale,
 			ScaleChange:    in.ScaleChange,
 			Force:          in.Force,
+			AttachStorage:  in.AttachStorage,
 		}},
 	}
 	var results params.ScaleApplicationResults

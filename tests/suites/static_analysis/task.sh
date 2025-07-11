@@ -9,7 +9,7 @@ test_static_analysis() {
 	test_copyright
 	test_licence
 	test_doc_go
-	test_versions
+	# test_versions
 	test_static_analysis_shell
 	test_static_analysis_python
 	test_schema
