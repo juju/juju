@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
-	Machine(id string) (*state.Machine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 }
 
@@ -23,36 +23,48 @@ type Backend interface {
 // the SSHClient facade.
 type SSHMachine interface {
 	MachineTag() names.MachineTag
-	PublicAddress() (network.SpaceAddress, error)
-	PrivateAddress() (network.SpaceAddress, error)
-	Addresses() network.SpaceAddresses
+	PublicAddress(context.Context) (network.SpaceAddress, error)
+	PrivateAddress(context.Context) (network.SpaceAddress, error)
 	AllDeviceSpaceAddresses(context.Context) (network.SpaceAddresses, error)
 }
 
 type sshMachine struct {
-	*state.Machine
-
+	machineUUID    machine.UUID
+	machineName    machine.Name
 	networkService NetworkService
+}
+
+func (m *sshMachine) MachineTag() names.MachineTag {
+	return names.NewMachineTag(m.machineName.String())
+}
+
+func (m *sshMachine) PublicAddress(ctx context.Context) (network.SpaceAddress, error) {
+	addrs, err := m.networkService.GetMachineAddresses(ctx, m.machineUUID)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Trace(err)
+	}
+	addr, ok := addrs.OneMatchingScope(network.ScopeMatchPublic)
+	if !ok {
+		return network.SpaceAddress{}, errors.Errorf("no public address found for machine %s", m.machineName)
+	}
+	return addr, nil
+}
+
+func (m *sshMachine) PrivateAddress(ctx context.Context) (network.SpaceAddress, error) {
+	addrs, err := m.networkService.GetMachineAddresses(ctx, m.machineUUID)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Trace(err)
+	}
+	addr, ok := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
+	if !ok {
+		return network.SpaceAddress{}, errors.Errorf("no private address found for machine %s", m.machineName)
+	}
+	return addr, nil
 }
 
 // AllDeviceSpaceAddresses returns all machine link-layer
 // device addresses as SpaceAddresses.
 func (m *sshMachine) AllDeviceSpaceAddresses(ctx context.Context) (network.SpaceAddresses, error) {
-	addrs, err := m.Machine.AllDeviceAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	subs, err := m.networkService.GetAllSubnets(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	spaceAddrs := make(network.SpaceAddresses, len(addrs))
-	for i, addr := range addrs {
-		if spaceAddrs[i], err = network.ConvertToSpaceAddress(addr, subs); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return spaceAddrs, nil
+	addrs, err := m.networkService.GetMachineAddresses(ctx, m.machineUUID)
+	return addrs, errors.Trace(err)
 }

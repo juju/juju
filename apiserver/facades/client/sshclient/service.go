@@ -16,8 +16,9 @@ import (
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
-	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	// GetMachineAddresses retrieves the network space addresses of a machine
+	// identified by its UUID.
+	GetMachineAddresses(ctx context.Context, uuid machine.UUID) (network.SpaceAddresses, error)
 }
 
 // ApplicationService is the interface that is used to interact with the
@@ -40,4 +41,12 @@ type ModelConfigService interface {
 type ModelProviderService interface {
 	// GetCloudSpecForSSH returns the cloud spec for sshing into a k8s pod.
 	GetCloudSpecForSSH(ctx context.Context) (cloudspec.CloudSpec, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns an errors.MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error)
 }
