@@ -8,7 +8,9 @@ This document shows how to manage credentials in Juju.
 (add-a-credential)=
 ## Add a credential
 
-> See also: {ref}`credential-definition`, {ref}`list-of-supported-clouds`
+```{div} crossref
+See also: {ref}`credential-definition`, {ref}`list-of-supported-clouds`
+```
 
 The procedure for how to add a cloud credential to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or rather a Kubernetes cloud.
 
