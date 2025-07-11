@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -261,8 +262,8 @@ type neutronFirewaller struct {
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
 func (c *neutronFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineID string) ([]string, error) {
-	tags := []string{"juju-controller=" + controllerUUID,
-		"juju-model=" + c.environ.Config().UUID(),
+	tags := []string{fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+		fmt.Sprintf("%s=%s", tags.JujuModel, c.environ.modelUUID),
 	}
 	jujuGroup, err := c.ensureGroup(c.jujuGroupName(controllerUUID), true, tags)
 	if err != nil {
@@ -433,8 +434,9 @@ func (c *neutronFirewaller) DeleteGroups(ctx context.ProviderCallContext, names 
 // DeleteAllControllerGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallContext, controllerUUID string) error {
 	neutronClient := c.environ.neutron()
-	tags := []string{"juju-controller=" + controllerUUID}
-	securityGroups, err := neutronClient.ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{Tags: tags})
+	tags := []string{fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID)}
+	query := neutron.ListSecurityGroupsV2Query{Tags: tags}
+	securityGroups, err := neutronClient.ListSecurityGroupsV2(query)
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
@@ -446,8 +448,9 @@ func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallCo
 // DeleteAllModelGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext) error {
 	neutronClient := c.environ.neutron()
-	tags := []string{"juju-model=" + c.environ.Config().UUID()}
-	securityGroups, err := neutronClient.ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{Tags: tags})
+	tags := []string{fmt.Sprintf("%s=%s", tags.JujuModel, c.environ.modelUUID)}
+	query := neutron.ListSecurityGroupsV2Query{Tags: tags}
+	securityGroups, err := neutronClient.ListSecurityGroupsV2(query)
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
@@ -472,8 +475,9 @@ func (c *neutronFirewaller) DeleteMachineGroup(ctx context.ProviderCallContext, 
 // UpdateGroupController implements Firewaller interface.
 func (c *neutronFirewaller) UpdateGroupController(ctx context.ProviderCallContext, controllerUUID string) error {
 	neutronClient := c.environ.neutron()
-	tags := []string{"juju-model=" + c.environ.Config().UUID()}
-	groups, err := neutronClient.ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{Tags: tags})
+	tags := []string{fmt.Sprintf("%s=%s", tags.JujuModel, c.environ.modelUUID)}
+	query := neutron.ListSecurityGroupsV2Query{Tags: tags}
+	groups, err := neutronClient.ListSecurityGroupsV2(query)
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
