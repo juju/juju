@@ -23,6 +23,11 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// name is an agnostic container for a `name` column.
+type name struct {
+	Name string `db:"name"`
+}
+
 type netNodeUUID struct {
 	// UUID uniquely identifies a net node.
 	UUID string `db:"net_node_uuid"`
@@ -79,10 +84,6 @@ type space struct {
 	Name corenetwork.SpaceName `db:"name"`
 	// UUID is the unique ID of the space.
 	UUID corenetwork.SpaceUUID `db:"uuid"`
-}
-
-type spaceName struct {
-	Name string `db:"name"`
 }
 
 type countResult struct {
