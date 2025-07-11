@@ -9,7 +9,7 @@ run_postgresql_deploy() {
     juju deploy postgresql-k8s --trust --channel 16/edge
 
     # Deploy the postgresql-test-app charm
-    juju deploy postgresql-test-app
+    juju deploy postgresql-test-app --channel latest/edge --base ubuntu@22.04
 
     # Integrate the postgresql-k8s charm with the postgresql-test-app
     juju integrate postgresql-k8s postgresql-test-app:database
