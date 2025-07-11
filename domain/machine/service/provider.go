@@ -134,7 +134,7 @@ func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, c
 		return constraints.Value{}, errors.Errorf("retrieving model constraints constraints: %w	", err)
 	}
 
-	mergedCons, err := validator.Merge(domainconstraints.EncodeConstraints(cons), domainconstraints.EncodeConstraints(modelCons))
+	mergedCons, err := validator.Merge(domainconstraints.EncodeConstraints(modelCons), domainconstraints.EncodeConstraints(cons))
 	if err != nil {
 		return constraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
 	}

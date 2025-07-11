@@ -2285,10 +2285,10 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, modelerrors.ConstraintsNotFound)
 
 	s.validator.EXPECT().Merge(
+		constraints.EncodeConstraints(constraints.Constraints{}),
 		constraints.EncodeConstraints(constraints.Constraints{
 			Arch: ptr(arch.AMD64),
-		}),
-		constraints.EncodeConstraints(constraints.Constraints{})).
+		})).
 		Return(coreconstraints.Value{
 			Arch: ptr(arch.AMD64),
 		}, nil)
@@ -2313,11 +2313,11 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsSubordinat
 
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{
-			Arch: ptr(arch.AMD64),
-		}),
-		constraints.EncodeConstraints(constraints.Constraints{
 			RootDiskSource: ptr("source-disk"),
 			Mem:            ptr(uint64(42)),
+		}),
+		constraints.EncodeConstraints(constraints.Constraints{
+			Arch: ptr(arch.AMD64),
 		})).
 		Return(coreconstraints.Value{
 			Arch:           ptr(arch.AMD64),
@@ -2346,10 +2346,10 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{
-			RootDiskSource: ptr("source-disk"),
+			Mem: ptr(uint64(42)),
 		}),
 		constraints.EncodeConstraints(constraints.Constraints{
-			Mem: ptr(uint64(42)),
+			RootDiskSource: ptr("source-disk"),
 		})).
 		Return(coreconstraints.Value{
 			RootDiskSource: ptr("source-disk"),
@@ -2399,7 +2399,7 @@ func (s *providerServiceSuite) expectAppConstraints(c *tc.C, unitUUID coreunit.U
 	modelConstraints := constraints.Constraints{}
 	unitConstraints := appConstraints
 
-	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).
+	s.validator.EXPECT().Merge(constraints.EncodeConstraints(modelConstraints), constraints.EncodeConstraints(appConstraints)).
 		Return(constraints.EncodeConstraints(unitConstraints), nil)
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
@@ -2434,7 +2434,7 @@ func (s *providerServiceSuite) expectModelConstraints(c *tc.C, unitUUID coreunit
 	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
 
-	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
+	s.validator.EXPECT().Merge(constraints.EncodeConstraints(modelConstraints), constraints.EncodeConstraints(appConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
 }
 
 func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
@@ -2451,7 +2451,7 @@ func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
 
-	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
+	s.validator.EXPECT().Merge(constraints.EncodeConstraints(modelConstraints), constraints.EncodeConstraints(appConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
 
 	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)

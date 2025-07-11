@@ -471,6 +471,6 @@ type dbConstraintZone struct {
 	Zone           string `db:"zone"`
 }
 
-type dbUUID struct {
+type entityUUID struct {
 	UUID string `db:"uuid"`
 }

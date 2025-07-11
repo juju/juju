@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/domain/machine/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internaltesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type watcherSuite struct {
@@ -38,6 +40,15 @@ func TestWatcherSuite(t *testing.T) {
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
+	modelUUID := uuid.MustNewUUID()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod",  "iaas", "test-model", "ec2")
+		`, modelUUID.String(), internaltesting.ControllerTag.Id())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "machine")
 	s.svc = service.NewWatchableService(
 		state.NewState(

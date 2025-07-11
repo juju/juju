@@ -1366,8 +1366,8 @@ func (st *State) getModelConstraints(
 }
 
 func modelExists(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) error {
-	var modelUUID dbUUID
-	stmt, err := preparer.Prepare(`SELECT &dbUUID.uuid FROM model;`, modelUUID)
+	var modelUUID entityUUID
+	stmt, err := preparer.Prepare(`SELECT &entityUUID.uuid FROM model;`, modelUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}

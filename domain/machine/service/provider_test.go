@@ -234,10 +234,10 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, modelerrors.ConstraintsNotFound)
 
 	s.validator.EXPECT().Merge(
+		constraints.EncodeConstraints(constraints.Constraints{}),
 		constraints.EncodeConstraints(constraints.Constraints{
 			Arch: ptr(arch.AMD64),
-		}),
-		constraints.EncodeConstraints(constraints.Constraints{})).
+		})).
 		Return(coreconstraints.Value{
 			Arch: ptr(arch.AMD64),
 		}, nil)
@@ -262,11 +262,11 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsSubordinat
 
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{
-			Arch: ptr(arch.AMD64),
-		}),
-		constraints.EncodeConstraints(constraints.Constraints{
 			RootDiskSource: ptr("source-disk"),
 			Mem:            ptr(uint64(42)),
+		}),
+		constraints.EncodeConstraints(constraints.Constraints{
+			Arch: ptr(arch.AMD64),
 		})).
 		Return(coreconstraints.Value{
 			Arch:           ptr(arch.AMD64),
@@ -295,10 +295,10 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{
-			RootDiskSource: ptr("source-disk"),
+			Mem: ptr(uint64(42)),
 		}),
 		constraints.EncodeConstraints(constraints.Constraints{
-			Mem: ptr(uint64(42)),
+			RootDiskSource: ptr("source-disk"),
 		})).
 		Return(coreconstraints.Value{
 			RootDiskSource: ptr("source-disk"),
