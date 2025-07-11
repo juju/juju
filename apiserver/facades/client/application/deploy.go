@@ -73,10 +73,6 @@ type ApplicationDeployer interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 }
 
-type UnitAdder interface {
-	AddUnit(state.AddUnitParams) (Unit, error)
-}
-
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
 	ctx context.Context, st ApplicationDeployer,

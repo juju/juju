@@ -224,45 +224,6 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
-// AddUnit mocks base method.
-func (m *MockApplication) AddUnit(arg0 state.AddUnitParams) (Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUnit", arg0)
-	ret0, _ := ret[0].(Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddUnit indicates an expected call of AddUnit.
-func (mr *MockApplicationMockRecorder) AddUnit(arg0 any) *MockApplicationAddUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnit", reflect.TypeOf((*MockApplication)(nil).AddUnit), arg0)
-	return &MockApplicationAddUnitCall{Call: call}
-}
-
-// MockApplicationAddUnitCall wrap *gomock.Call
-type MockApplicationAddUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationAddUnitCall) Return(arg0 Unit, arg1 error) *MockApplicationAddUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationAddUnitCall) Do(f func(state.AddUnitParams) (Unit, error)) *MockApplicationAddUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationAddUnitCall) DoAndReturn(f func(state.AddUnitParams) (Unit, error)) *MockApplicationAddUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetCharm mocks base method.
 func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()

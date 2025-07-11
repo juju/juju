@@ -47,7 +47,6 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 	db := s.DB()
 
-	// This
 	controllerID0 := "0"
 
 	_, err := db.ExecContext(c.Context(), "INSERT INTO controller_node (controller_id) VALUES ('0')")
