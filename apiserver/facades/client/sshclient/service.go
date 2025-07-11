@@ -19,6 +19,12 @@ type NetworkService interface {
 	// GetMachineAddresses retrieves the network space addresses of a machine
 	// identified by its UUID.
 	GetMachineAddresses(ctx context.Context, uuid machine.UUID) (network.SpaceAddresses, error)
+	// GetMachinePublicAddress retrieves the public address of a machine identified
+	// by its UUID.
+	GetMachinePublicAddress(ctx context.Context, uuid machine.UUID) (network.SpaceAddress, error)
+	// GetMachinePrivateAddress retrieves the private address of a machine identified
+	// by its UUID.
+	GetMachinePrivateAddress(ctx context.Context, uuid machine.UUID) (network.SpaceAddress, error)
 }
 
 // ApplicationService is the interface that is used to interact with the

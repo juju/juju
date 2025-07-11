@@ -120,7 +120,9 @@ func (facade *Facade) PublicAddress(ctx context.Context, args params.Entities) (
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
 
-	getter := func(ctx context.Context, m SSHMachine) (network.SpaceAddress, error) { return m.PublicAddress(ctx) }
+	getter := func(ctx context.Context, machineUUID machine.UUID) (network.SpaceAddress, error) {
+		return facade.networkService.GetMachinePublicAddress(ctx, machineUUID)
+	}
 	return facade.getAddressPerEntity(ctx, args, getter)
 }
 
@@ -131,7 +133,9 @@ func (facade *Facade) PrivateAddress(ctx context.Context, args params.Entities) 
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
 
-	getter := func(ctx context.Context, m SSHMachine) (network.SpaceAddress, error) { return m.PrivateAddress(ctx) }
+	getter := func(ctx context.Context, machineUUID machine.UUID) (network.SpaceAddress, error) {
+		return facade.networkService.GetMachinePrivateAddress(ctx, machineUUID)
+	}
 	return facade.getAddressPerEntity(ctx, args, getter)
 }
 
@@ -143,8 +147,8 @@ func (facade *Facade) AllAddresses(ctx context.Context, args params.Entities) (p
 		return params.SSHAddressesResults{}, errors.Trace(err)
 	}
 
-	getter := func(ctx context.Context, m SSHMachine) ([]network.SpaceAddress, error) {
-		devicesAddresses, err := m.AllDeviceSpaceAddresses(ctx)
+	getter := func(ctx context.Context, machineUUID machine.UUID) ([]network.SpaceAddress, error) {
+		devicesAddresses, err := facade.networkService.GetMachineAddresses(ctx, machineUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -167,18 +171,18 @@ func (facade *Facade) AllAddresses(ctx context.Context, args params.Entities) (p
 }
 
 func (facade *Facade) getAllEntityAddresses(ctx context.Context, args params.Entities,
-	getter func(context.Context, SSHMachine) ([]network.SpaceAddress, error)) (
+	getter func(context.Context, machine.UUID) ([]network.SpaceAddress, error)) (
 	params.SSHAddressesResults, error,
 ) {
 	out := params.SSHAddressesResults{
 		Results: make([]params.SSHAddressesResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		machine, err := facade.getMachineForEntity(ctx, entity.Tag)
+		machineUUID, _, err := facade.getMachineForEntity(ctx, entity.Tag)
 		if err != nil {
 			out.Results[i].Error = apiservererrors.ServerError(err)
 		} else {
-			addresses, err := getter(ctx, machine)
+			addresses, err := getter(ctx, machineUUID)
 			if err != nil {
 				out.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -194,14 +198,14 @@ func (facade *Facade) getAllEntityAddresses(ctx context.Context, args params.Ent
 }
 
 func (facade *Facade) getAddressPerEntity(ctx context.Context, args params.Entities,
-	addressGetter func(context.Context, SSHMachine) (network.SpaceAddress, error)) (
+	addressGetter func(context.Context, machine.UUID) (network.SpaceAddress, error)) (
 	params.SSHAddressResults, error,
 ) {
 	out := params.SSHAddressResults{
 		Results: make([]params.SSHAddressResult, len(args.Entities)),
 	}
 
-	getter := func(ctx context.Context, m SSHMachine) ([]network.SpaceAddress, error) {
+	getter := func(ctx context.Context, m machine.UUID) ([]network.SpaceAddress, error) {
 		address, err := addressGetter(ctx, m)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -236,11 +240,11 @@ func (facade *Facade) PublicKeys(ctx context.Context, args params.Entities) (par
 		Results: make([]params.SSHPublicKeysResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		machine, err := facade.getMachineForEntity(ctx, entity.Tag)
+		_, machineTag, err := facade.getMachineForEntity(ctx, entity.Tag)
 		if err != nil {
 			out.Results[i].Error = apiservererrors.ServerError(err)
 		} else {
-			keys, err := facade.backend.GetSSHHostKeys(machine.MachineTag())
+			keys, err := facade.backend.GetSSHHostKeys(machineTag)
 			if err != nil {
 				out.Results[i].Error = apiservererrors.ServerError(err)
 			} else {
@@ -286,42 +290,28 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 	return result, nil
 }
 
-func (facade *Facade) getMachineForEntity(ctx context.Context, tagString string) (SSHMachine, error) {
+func (facade *Facade) getMachineForEntity(ctx context.Context, tagString string) (machine.UUID, names.MachineTag, error) {
 	tag, err := names.ParseTag(tagString)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", names.MachineTag{}, errors.Trace(err)
 	}
 
 	switch tag := tag.(type) {
 	case names.MachineTag:
 		machineName := machine.Name(tag.Id())
 		machineUUID, err := facade.machineService.GetMachineUUID(ctx, machineName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return &sshMachine{
-			machineUUID:    machineUUID,
-			machineName:    machineName,
-			networkService: facade.networkService,
-		}, nil
+		return machineUUID, tag, errors.Trace(err)
 	case names.UnitTag:
 		machineName, err := facade.applicationService.GetUnitMachineName(ctx, unit.Name(tag.Id()))
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return nil, errors.NotFoundf("unit %q", tag.Id())
+			return "", names.MachineTag{}, errors.NotFoundf("unit %q", tag.Id())
 		} else if err != nil {
-			return nil, errors.Trace(err)
+			return "", names.MachineTag{}, errors.Trace(err)
 		}
 		machineUUID, err := facade.machineService.GetMachineUUID(ctx, machineName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return &sshMachine{
-			machineUUID:    machineUUID,
-			machineName:    machineName,
-			networkService: facade.networkService,
-		}, nil
+		return machineUUID, names.NewMachineTag(machineName.String()), errors.Trace(err)
 	default:
-		return nil, errors.Errorf("unsupported entity: %q", tagString)
+		return "", names.MachineTag{}, errors.Errorf("unsupported entity: %q", tagString)
 	}
 }
 
