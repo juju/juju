@@ -160,7 +160,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_platform",
 		"machine_placement",
 		"machine_platform",
-		"machine_removals", // Deprecated, use machine_cloud_instance life.
 		"machine_requires_reboot",
 		"machine_status_value",
 		"machine_status",

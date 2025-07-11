@@ -124,10 +124,6 @@ type machineName struct {
 	Name machine.Name `db:"name"`
 }
 
-type machineMarkForRemoval struct {
-	UUID machine.UUID `db:"machine_uuid"`
-}
-
 type machineUUID struct {
 	UUID string `db:"uuid"`
 }
@@ -148,12 +144,6 @@ type keepInstance struct {
 type machineParent struct {
 	MachineUUID string `db:"machine_uuid"`
 	ParentUUID  string `db:"parent_uuid"`
-}
-
-// uuidSliceTransform is a function that is used to transform a slice of
-// machineUUID into a slice of string.
-func (s machineMarkForRemoval) uuidSliceTransform() machine.UUID {
-	return s.UUID
 }
 
 // nameSliceTransform is a function that is used to transform a slice of

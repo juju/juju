@@ -160,33 +160,6 @@ func (s *stateSuite) TestListAllMachines(c *tc.C) {
 	})
 }
 
-// TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the
-// state layer.
-func (s *stateSuite) TestSetMachineLifeSuccess(c *tc.C) {
-	_, machineName := s.addMachine(c)
-
-	// Assert the life status is initially Alive
-	obtainedLife, err := s.state.GetMachineLife(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedLife, tc.Equals, life.Alive)
-
-	// Set the machine's life to Dead
-	err = s.state.SetMachineLife(c.Context(), machineName, life.Dead)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Assert we get the Dead as the machine's new life status.
-	obtainedLife, err = s.state.GetMachineLife(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedLife, tc.Equals, life.Dead)
-}
-
-// TestSetMachineLifeNotFoundError asserts that we get a NotFound if the
-// provided machine doesn't exist.
-func (s *stateSuite) TestSetMachineLifeNotFoundError(c *tc.C) {
-	err := s.state.SetMachineLife(c.Context(), "666", life.Dead)
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
 // TestListAllMachinesEmpty asserts that AllMachineNames returns an empty list
 // if there are no machines.
 func (s *stateSuite) TestListAllMachinesEmpty(c *tc.C) {
@@ -295,90 +268,6 @@ func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *tc.C) {
 
 	_, err := s.state.GetMachineParentUUID(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasNoParent)
-}
-
-// TestMarkMachineForRemovalSuccess asserts the happy path of
-// MarkMachineForRemoval at the state layer.
-func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *tc.C) {
-	machineUUID, machineName := s.addMachine(c)
-
-	err := s.state.MarkMachineForRemoval(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var obtainedMachineUUID string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT machine_uuid FROM machine_removals WHERE machine_uuid=?", machineUUID.String()).Scan(&obtainedMachineUUID)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedMachineUUID, tc.Equals, machineUUID.String())
-}
-
-// TestMarkMachineForRemovalSuccessIdempotent asserts that marking a machine for
-// removal multiple times is idempotent.
-func (s *stateSuite) TestMarkMachineForRemovalSuccessIdempotent(c *tc.C) {
-	machineUUID, machineName := s.addMachine(c)
-
-	err := s.state.MarkMachineForRemoval(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.state.MarkMachineForRemoval(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	machines, err := s.state.GetAllMachineRemovals(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.HasLen, 1)
-	c.Assert(machines[0].String(), tc.Equals, machineUUID.String())
-}
-
-// TestMarkMachineForRemovalNotFound asserts that a NotFound error is returned
-// when the machine is not found.
-// TODO(cderici): use machineerrors.MachineNotFound on rebase after #17759
-// lands.
-func (s *stateSuite) TestMarkMachineForRemovalNotFound(c *tc.C) {
-	err := s.state.MarkMachineForRemoval(c.Context(), "666")
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestGetAllMachineRemovalsSuccess asserts the happy path of
-// GetAllMachineRemovals at the state layer.
-func (s *stateSuite) TestGetAllMachineRemovalsSuccess(c *tc.C) {
-	machineUUID, machineName := s.addMachine(c)
-
-	err := s.state.MarkMachineForRemoval(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-
-	machines, err := s.state.GetAllMachineRemovals(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.HasLen, 1)
-	c.Assert(machines[0].String(), tc.Equals, machineUUID.String())
-}
-
-// TestGetAllMachineRemovalsEmpty asserts that GetAllMachineRemovals returns an
-// empty list if there are no machines marked for removal.
-func (s *stateSuite) TestGetAllMachineRemovalsEmpty(c *tc.C) {
-	machines, err := s.state.GetAllMachineRemovals(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.HasLen, 0)
-}
-
-// TestGetSomeMachineRemovals asserts the happy path of GetAllMachineRemovals at
-// the state layer for a subset of machines.
-func (s *stateSuite) TestGetSomeMachineRemovals(c *tc.C) {
-	machineUUID0, machineName0 := s.addMachine(c)
-	s.addMachine(c)
-	machineUUID1, machineName1 := s.addMachine(c)
-
-	err := s.state.MarkMachineForRemoval(c.Context(), machineName0)
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.state.MarkMachineForRemoval(c.Context(), machineName1)
-	c.Assert(err, tc.ErrorIsNil)
-
-	machines, err := s.state.GetAllMachineRemovals(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machines, tc.HasLen, 2)
-	c.Assert(machines[0].String(), tc.Equals, machineUUID0.String())
-	c.Assert(machines[1].String(), tc.Equals, machineUUID1.String())
 }
 
 // TestGetMachineUUIDNotFound asserts that a NotFound error is returned
@@ -784,6 +673,87 @@ func (s *stateSuite) TestGetMachinePrincipalApplicationsSubordinate(c *tc.C) {
 func (s *stateSuite) TestGetMachinePrincipalApplicationsNotFound(c *tc.C) {
 	_, err := s.state.GetMachinePrincipalApplications(c.Context(), "1")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestGetMachineContainersNotContainers(c *tc.C) {
+	// Arrange:
+	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	mUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	containers, err := s.state.GetMachineContainers(c.Context(), mUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(containers, tc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetMachineContainersNotFound(c *tc.C) {
+	_, err := s.state.GetMachineContainers(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestGetMachineContainers(c *tc.C) {
+	// Arrange:
+	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	mName := mNames[0]
+	mUUID, err := s.state.GetMachineUUID(c.Context(), mName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, _, err = s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Directive: mName.String(),
+			Container: deployment.ContainerTypeLXD,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, _, err = s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Directive: mName.String(),
+			Container: deployment.ContainerTypeLXD,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	res, err := s.state.GetMachineContainers(c.Context(), mUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.SameContents, []string{"0/lxd/0", "0/lxd/1"})
+}
+
+func (s *stateSuite) TestGetMachineContainersOnContainer(c *tc.C) {
+	// Arrange:
+	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	mName := mNames[0]
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, _, err = s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Directive: mName.String(),
+			Container: deployment.ContainerTypeLXD,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cUUID, err := s.state.GetMachineUUID(c.Context(), "0/lxd/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	res, err := s.state.GetMachineContainers(c.Context(), cUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.HasLen, 0)
 }
 
 func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller, subordinate bool) machine.Name {

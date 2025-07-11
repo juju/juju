@@ -26,4 +26,12 @@ const (
 	// UnitsStillInScope indicates that a relation can not be deleted from
 	// the database because it has associated relation_unit records.
 	UnitsStillInScope = errors.ConstError("units still in relation scope")
+
+	// MachineHasContainers indicates that a machine cannot be deleted because
+	// it still hosts containers
+	MachineHasContainers = errors.ConstError("machine has containers")
+
+	// MachineHasUnits indicates that a machine cannot be deleted because it
+	// still hosts units
+	MachineHasUnits = errors.ConstError("machine has units")
 )

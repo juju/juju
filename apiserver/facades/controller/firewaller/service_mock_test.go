@@ -492,44 +492,6 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
-// EnsureDeadMachine mocks base method.
-func (m *MockMachineService) EnsureDeadMachine(arg0 context.Context, arg1 machine.Name) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureDeadMachine", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// EnsureDeadMachine indicates an expected call of EnsureDeadMachine.
-func (mr *MockMachineServiceMockRecorder) EnsureDeadMachine(arg0, arg1 any) *MockMachineServiceEnsureDeadMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDeadMachine", reflect.TypeOf((*MockMachineService)(nil).EnsureDeadMachine), arg0, arg1)
-	return &MockMachineServiceEnsureDeadMachineCall{Call: call}
-}
-
-// MockMachineServiceEnsureDeadMachineCall wrap *gomock.Call
-type MockMachineServiceEnsureDeadMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceEnsureDeadMachineCall) Return(arg0 error) *MockMachineServiceEnsureDeadMachineCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceEnsureDeadMachineCall) Do(f func(context.Context, machine.Name) error) *MockMachineServiceEnsureDeadMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceEnsureDeadMachineCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockMachineServiceEnsureDeadMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetHardwareCharacteristics mocks base method.
 func (m *MockMachineService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()

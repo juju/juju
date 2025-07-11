@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -32,7 +34,7 @@ func TestMachineSuite(t *testing.T) {
 
 func (s *machineSuite) TestMachineExists(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -49,7 +51,7 @@ func (s *machineSuite) TestMachineExists(c *tc.C) {
 
 func (s *machineSuite) TestGetMachineLifeSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -76,7 +78,7 @@ func (s *machineSuite) TestGetMachineLifeNotFound(c *tc.C) {
 
 func (s *machineSuite) TestGetInstanceLifeSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -103,7 +105,7 @@ func (s *machineSuite) TestGetInstanceLifeNotFound(c *tc.C) {
 
 func (s *machineSuite) TestGetMachineNetworkInterfacesNoHardwareDevices(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -116,7 +118,7 @@ func (s *machineSuite) TestGetMachineNetworkInterfacesNoHardwareDevices(c *tc.C)
 
 func (s *machineSuite) TestGetMachineNetworkInterfaces(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -149,7 +151,7 @@ VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "00:11:22:33:4
 
 func (s *machineSuite) TestGetMachineNetworkInterfacesMultiple(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -188,7 +190,7 @@ VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "66:11:22:33:4
 
 func (s *machineSuite) TestGetMachineNetworkInterfacesContainer(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID0 := s.createIAASApplication(c, svc, "some-app1", applicationservice.AddIAASUnitArg{})
 	appUUID1 := s.createIAASApplication(c, svc, "some-app2", applicationservice.AddIAASUnitArg{
 		AddUnitArg: applicationservice.AddUnitArg{
@@ -246,13 +248,13 @@ VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-1", 1500, "11:11:22:33
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String())
+	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(units), tc.Equals, 1)
 	c.Check(len(childMachines), tc.Equals, 0)
@@ -264,7 +266,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddIAASUnitArg{},
 		applicationservice.AddIAASUnitArg{
@@ -279,7 +281,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String())
+	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(units), tc.Equals, 2)
 	c.Check(len(childMachines), tc.Equals, 0)
@@ -295,7 +297,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddIAASUnitArg{},
 		applicationservice.AddIAASUnitArg{
@@ -310,7 +312,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String())
+	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), parentMachineUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(units), tc.Equals, 2, tc.Commentf("this should return 2 units, one on the parent machine and one on the child machine"))
 	c.Check(len(childMachines), tc.Equals, 1, tc.Commentf("this should return 1 child machine, the one that was created for the second unit"))
@@ -328,7 +330,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDying(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID0 := s.createIAASApplication(c, svc, "foo", applicationservice.AddIAASUnitArg{})
 	machineUUID0 := s.getMachineUUIDFromApp(c, appUUID0)
 
@@ -337,7 +339,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDyi
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID0.String())
+	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID0.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(units), tc.Equals, 1)
 	c.Check(len(childMachines), tc.Equals, 0)
@@ -350,9 +352,85 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDyi
 	s.checkInstanceLife(c, machineUUID1.String(), 0)
 }
 
+func (s *machineSuite) TestEnsureMachineNotAliveCasscadeWithoutForceSucceedsForEmptyMachine(c *tc.C) {
+	svc := s.setupMachineService(c)
+	res, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	uuid, err := svc.GetMachineUUID(c.Context(), res.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	units, childMachines, err := st.EnsureMachineNotAliveCascade(c.Context(), uuid.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 0)
+	c.Assert(childMachines, tc.HasLen, 0)
+
+	s.checkMachineLife(c, uuid.String(), 1)
+	s.checkInstanceLife(c, uuid.String(), 1)
+}
+
+func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachineHostingContainer(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	containerRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+	containerUUID, err := svc.GetMachineUUID(c.Context(), containerRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, _, err = st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.ErrorIs, removalerrors.MachineHasContainers)
+
+	s.checkMachineLife(c, machineUUID.String(), 0)
+	s.checkInstanceLife(c, machineUUID.String(), 0)
+	s.checkMachineLife(c, containerUUID.String(), 0)
+	s.checkInstanceLife(c, containerUUID.String(), 0)
+}
+
+func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachineHostingUnits(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupApplicationService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "foo", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, _, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.ErrorIs, removalerrors.MachineHasUnits)
+
+	s.checkMachineLife(c, machineUUID.String(), 0)
+	s.checkInstanceLife(c, machineUUID.String(), 0)
+}
+
 func (s *machineSuite) TestMachineRemovalNormalSuccess(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
@@ -419,15 +497,20 @@ where  r.uuid = ?`, "removal-uuid",
 }
 
 func (s *machineSuite) TestMarkMachineAsDead(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
-	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
-
-	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	err = st.MarkMachineAsDead(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	s.advanceMachineLife(c, machineUUID, life.Dying)
@@ -446,21 +529,158 @@ func (s *machineSuite) TestMarkMachineAsDeadNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *machineSuite) TestDeleteMachine(c *tc.C) {
+func (s *machineSuite) TestMarkMachineAsDeadMachineHasContainers(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+
+	err = st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
+
+	s.checkMachineLife(c, machineUUID.String(), 1)
+}
+
+func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupService(c, factory)
+	svc := s.setupApplicationService(c, factory)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasUnits)
+
+	s.checkMachineLife(c, machineUUID.String(), 1)
+}
+
+func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceInstanceLife(c, machineUUID, life.Dying)
+
+	err = st.MarkInstanceAsDead(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkInstanceLife(c, machineUUID.String(), 2)
+}
+
+func (s *machineSuite) TestMarkInstanceAsDeadNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkInstanceAsDead(c.Context(), "abc")
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *machineSuite) TestMarkInstanceAsDeadMachineHasContainers(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceInstanceLife(c, machineUUID, life.Dying)
+
+	err = st.MarkInstanceAsDead(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
+
+	s.checkInstanceLife(c, machineUUID.String(), 1)
+}
+
+func (s *machineSuite) TestMarkInstanceAsDeadMachineHasUnits(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupApplicationService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceInstanceLife(c, machineUUID, life.Dying)
+
+	err := st.MarkInstanceAsDead(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasUnits)
+
+	s.checkInstanceLife(c, machineUUID.String(), 1)
+}
+
+func (s *machineSuite) TestDeleteMachine(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	s.advanceMachineLife(c, machineUUID, life.Dead)
 	s.advanceInstanceLife(c, machineUUID, life.Dead)
 
-	err := st.DeleteMachine(c.Context(), machineUUID.String())
+	err = st.DeleteMachine(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The unit should be gone.
+	// The machine should be gone.
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
@@ -471,6 +691,123 @@ func (s *machineSuite) TestDeleteMachineNotFound(c *tc.C) {
 
 	err := st.DeleteMachine(c.Context(), "0")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *machineSuite) TestDeleteMachineDying(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	err = st.DeleteMachine(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// The machine should not be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, true)
+}
+
+func (s *machineSuite) TestDeleteMachineInstanceDying(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dying)
+
+	err = st.DeleteMachine(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// The machine should not be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, true)
+}
+
+func (s *machineSuite) TestDeleteMachineWithContainers(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	containerRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	containerUUID, err := svc.GetMachineUUID(c.Context(), containerRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+	s.advanceMachineLife(c, containerUUID, life.Dead)
+	s.advanceInstanceLife(c, containerUUID, life.Dead)
+
+	err = st.DeleteMachine(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// The machine should not be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, true)
+}
+
+func (s *machineSuite) TestDeleteMachineWithUnits(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupApplicationService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	err := st.DeleteMachine(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasUnits)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// The machine should not be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, true)
 }
 
 func (s *machineSuite) getMachineUUIDFromApp(c *tc.C, appUUID application.ID) machine.UUID {

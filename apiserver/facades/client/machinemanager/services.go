@@ -5,8 +5,7 @@ package machinemanager
 
 import (
 	"context"
-
-	"github.com/juju/names/v6"
+	"time"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -18,11 +17,11 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
-	"github.com/juju/juju/rpc/params"
 )
 
 type Services struct {
@@ -38,6 +37,7 @@ type Services struct {
 	StatusService           StatusService
 	ModelConfigService      ModelConfigService
 	NetworkService          NetworkService
+	RemovalService          RemovalService
 }
 
 // ControllerConfigService defines a method for getting the controller config.
@@ -66,18 +66,6 @@ type KeyUpdaterService interface {
 type ModelConfigService interface {
 	// ModelConfig provides the currently set model config for the model.
 	ModelConfig(context.Context) (*config.Config, error)
-}
-
-// Leadership represents a type for modifying the leadership settings of an
-// application for series upgrades.
-type Leadership interface {
-	// GetMachineApplicationNames returns the applications associated with a
-	// machine.
-	GetMachineApplicationNames(context.Context, string) ([]string, error)
-
-	// UnpinApplicationLeadersByName takes a slice of application names and
-	// attempts to unpin them accordingly.
-	UnpinApplicationLeadersByName(context.Context, names.Tag, []string) (params.PinApplicationsResults, error)
 }
 
 // Authorizer checks to see if an operation can be performed.
@@ -128,6 +116,10 @@ type MachineService interface {
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	GetHardwareCharacteristics(context.Context, coremachine.UUID) (*instance.HardwareCharacteristics, error)
+
+	// GetMachineContainers returns the names of the machines which have as parent
+	// the specified machine.
+	GetMachineContainers(context.Context, coremachine.Name) ([]coremachine.Name, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status
@@ -177,4 +169,22 @@ type BlockCommandService interface {
 type CloudService interface {
 	// Cloud returns the named cloud.
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+}
+
+// RemovalService provides access to the removal service.
+type RemovalService interface {
+	// RemoveMachine checks if a machine with the input name exists.
+	// If it does, the machine is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// machine. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveMachine(
+		ctx context.Context,
+		machineUUID coremachine.UUID,
+		force bool,
+		wait time.Duration,
+	) (removal.UUID, error)
 }

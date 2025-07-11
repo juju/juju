@@ -37,7 +37,7 @@ func (s *machineSuite) TestRemoveMachineNoForceSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String()).Return([]string{"some-unit-id"}, []string{"some-machine-id"}, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), false).Return([]string{"some-unit-id"}, []string{"some-machine-id"}, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
 	// We don't want to create all the machine or unit expectations here, so
@@ -61,7 +61,7 @@ func (s *machineSuite) TestRemoveMachineForceNoWaitSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String()).Return(nil, nil, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil, nil, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveMachine(c.Context(), mUUID, true, 0)
@@ -79,7 +79,7 @@ func (s *machineSuite) TestRemoveMachineForceWaitSuccess(c *tc.C) {
 
 	exp := s.state.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String()).Return(nil, nil, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil, nil, nil)
 
 	// The first normal removal scheduled immediately.
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
@@ -137,6 +137,80 @@ func (s *machineSuite) TestMarkMachineAsDeadError(c *tc.C) {
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).MarkMachineAsDead(c.Context(), mUUID)
+	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
+}
+
+func (s *machineSuite) TestDeleteMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machinetesting.GenUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	exp.DeleteMachine(gomock.Any(), mUUID.String()).Return(nil)
+
+	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *machineSuite) TestDeleteMachineMachineDoesNotExist(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machinetesting.GenUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
+
+	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *machineSuite) TestDeleteMachineError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machinetesting.GenUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
+
+	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
+	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
+}
+
+func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machinetesting.GenUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	exp.MarkInstanceAsDead(gomock.Any(), mUUID.String()).Return(nil)
+
+	err := s.newService(c).MarkInstanceAsDead(c.Context(), mUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *machineSuite) TestMarkInstanceAsDeadMachineDoesNotExist(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machinetesting.GenUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
+
+	err := s.newService(c).MarkInstanceAsDead(c.Context(), mUUID)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *machineSuite) TestMarkInstanceAsDeadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machinetesting.GenUUID(c)
+
+	exp := s.state.EXPECT()
+	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
+
+	err := s.newService(c).MarkInstanceAsDead(c.Context(), mUUID)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
 }
 

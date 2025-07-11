@@ -615,57 +615,6 @@ func IsContainsFilesystem(err error) bool {
 	return ok
 }
 
-// removeMachineVolumesOps returns txn.Ops to remove non-persistent volumes
-// bound or attached to the specified machine. This is used when the given
-// machine is being removed from state.
-func (sb *storageBackend) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
-	// A machine cannot transition to Dead if it has any detachable storage
-	// attached, so any attachments are for machine-bound storage.
-	//
-	// Even if a volume is "non-detachable", there still exist volume
-	// attachments, and they may be removed independently of the volume.
-	// For example, the user may request that the volume be destroyed.
-	// This will cause the volume to become Dying, and the attachment to
-	// be Dying, then Dead, and finally removed. Only once the attachment
-	// is removed will the volume transition to Dead and then be removed.
-	// Therefore, there may be volumes that are bound, but not attached,
-	// to the machine.
-
-	machineVolumes, err := sb.volumes(bson.D{{"hostid", m.Id()}})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops := make([]txn.Op, 0, 2*len(machineVolumes)+len(m.doc.Volumes))
-	for _, volumeId := range m.doc.Volumes {
-		ops = append(ops, txn.Op{
-			C:      volumeAttachmentsC,
-			Id:     volumeAttachmentId(m.Id(), volumeId),
-			Assert: txn.DocExists,
-			Remove: true,
-		})
-	}
-	for _, v := range machineVolumes {
-		if v.doc.StorageId != "" {
-			// The volume is assigned to a storage instance;
-			// make sure we also remove the storage instance.
-			// There should be no storage attachments remaining,
-			// as the units must have been removed before the
-			// machine can be; and the storage attachments must
-			// have been removed before the unit can be.
-			ops = append(ops,
-				txn.Op{
-					C:      storageInstancesC,
-					Id:     v.doc.StorageId,
-					Assert: txn.DocExists,
-					Remove: true,
-				},
-			)
-		}
-		ops = append(ops, sb.removeVolumeOps(v.VolumeTag())...)
-	}
-	return ops, nil
-}
-
 // isDetachableVolumeTag reports whether or not the volume with the specified
 // tag is detachable.
 func isDetachableVolumeTag(db Database, tag names.VolumeTag) (bool, error) {

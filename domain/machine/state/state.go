@@ -330,51 +330,6 @@ SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
 	return nil
 }
 
-// SetMachineLife sets the life status of the specified machine.
-// It returns a MachineNotFound if the provided machine doesn't exist.
-func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life life.Life) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for machine UUID.
-	machineNameParam := machineName{Name: mName}
-	machineUUIDoutput := machineUUID{}
-	uuidQuery := `SELECT &machineUUID.uuid FROM machine WHERE name = $machineName.name`
-	uuidQueryStmt, err := st.Prepare(uuidQuery, machineNameParam, machineUUIDoutput)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for updating machine life.
-	machineLifeParam := machineLife{LifeID: life}
-	query := `UPDATE machine SET life_id = $machineLife.life_id WHERE uuid = $machineLife.uuid`
-	queryStmt, err := st.Prepare(query, machineLifeParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Query for machine uuid, return MachineNotFound if machine doesn't exist.
-		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDoutput)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return machineerrors.MachineNotFound
-		}
-		if err != nil {
-			return errors.Errorf("querying UUID for machine %q: %w", mName, err)
-		}
-
-		// Update machine life status.
-		machineLifeParam.UUID = machineUUIDoutput.UUID
-		err = tx.Query(ctx, queryStmt, machineLifeParam).Run()
-		if err != nil {
-			return errors.Errorf("setting life for machine %q: %w", mName, err)
-		}
-		return nil
-	})
-}
-
 // IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
 func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
@@ -560,94 +515,6 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 		return parentUUID, errors.Errorf("getting parent UUID for machine %q: %w", uuid, err)
 	}
 	return parentUUID, nil
-}
-
-// MarkMachineForRemoval marks the specified machine for removal.
-// It returns NotFound if the machine does not exist.
-// TODO(cderici): use machineerrors.MachineNotFound on rebase after #17759
-// lands.
-// Idempotent.
-func (st *State) MarkMachineForRemoval(ctx context.Context, mName machine.Name) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for getting the machine UUID.
-	machineNameParam := machineName{Name: mName}
-	markForRemovalUUID := machineMarkForRemoval{}
-	machineUUIDQuery := `SELECT uuid AS &machineMarkForRemoval.machine_uuid FROM machine WHERE name = $machineName.name`
-	machineUUIDStmt, err := st.Prepare(machineUUIDQuery, machineNameParam, markForRemovalUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Prepare query for adding the machine to the machine_removals table.
-	markForRemovalUpdateQuery := `
-INSERT OR IGNORE INTO machine_removals (machine_uuid)
-VALUES ($machineMarkForRemoval.machine_uuid)`
-	markForRemovalStmt, err := st.Prepare(markForRemovalUpdateQuery, markForRemovalUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Query for the machine UUID.
-		err := tx.Query(ctx, machineUUIDStmt, machineNameParam).Get(&markForRemovalUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
-		}
-		if err != nil {
-			return errors.Errorf("querying UUID for machine %q: %w", mName, err)
-		}
-
-		// Run query for adding the machine to the removals table.
-		return tx.Query(ctx, markForRemovalStmt, markForRemovalUUID).Run()
-	})
-	if err != nil {
-		return errors.Errorf("marking machine %q for removal: %w", mName, err)
-	}
-	return nil
-}
-
-// GetAllMachineRemovals returns the UUIDs of all of the machines that need to
-// be removed but need provider-level cleanup.
-func (st *State) GetAllMachineRemovals(ctx context.Context) ([]machine.UUID, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Prepare query for uuids of all machines marked for removal.
-	markForRemovalParam := machineMarkForRemoval{}
-	machinesMarkedForRemovalQuery := `SELECT &machineMarkForRemoval.machine_uuid FROM machine_removals`
-	machinesMarkedForRemovalStmt, err := st.Prepare(machinesMarkedForRemovalQuery, markForRemovalParam)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var results []machineMarkForRemoval
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Run query to get all machines marked for removal.
-		err := tx.Query(ctx, machinesMarkedForRemovalStmt).GetAll(&results)
-		// No errors if there's no machine marked for removal.
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return err
-	})
-
-	if err != nil {
-		return nil, errors.Errorf("querying all machines marked for removal: %w", err)
-	}
-
-	// Transform the results ([]machineUUID) into a slice of machine UUIDs.
-	machineUUIDs := transform.Slice(
-		results,
-		machineMarkForRemoval.uuidSliceTransform,
-	)
-
-	return machineUUIDs, nil
 }
 
 // GetMachineUUID returns the UUID of a machine identified by its name.
@@ -1137,6 +1004,46 @@ WHERE uuid = $machineUUID.uuid
 		result[i] = ct.ContainerType
 	}
 	return result, nil
+}
+
+// GetMachineContainers returns the names of the machines which have as parent
+// the specified machine.
+func (st *State) GetMachineContainers(ctx context.Context, mUUID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := machineUUID{UUID: mUUID}
+	query := `
+SELECT &machineName.*
+FROM machine
+JOIN machine_parent ON machine.uuid = machine_parent.machine_uuid
+WHERE parent_uuid = $machineUUID.uuid`
+	queryStmt, err := st.Prepare(query, machineName{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var results []machineName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkMachineNotDead(ctx, tx, mUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, queryStmt, ident).GetAll(&results)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(results, func(v machineName) string {
+		return v.Name.String()
+	}), nil
 }
 
 // GetMachinePrincipalApplications returns the names of the principal

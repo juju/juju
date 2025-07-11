@@ -104,13 +104,3 @@ func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
 	}
 	return nil
 }
-
-// removeSSHHostKeyOp returns the operation needed to remove the SSH
-// host key document associated with the given globalKey.
-func removeSSHHostKeyOp(globalKey string) txn.Op {
-	return txn.Op{
-		C:      sshHostKeysC,
-		Id:     globalKey,
-		Remove: true,
-	}
-}

@@ -3,7 +3,10 @@
 
 package removal
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 // JobType indicates the type of entity that a removal job is for.
 type JobType uint64
@@ -18,6 +21,21 @@ const (
 	// MachineJob indicates a job to remove a machine.
 	MachineJob
 )
+
+func (t JobType) String() string {
+	switch t {
+	case RelationJob:
+		return "relation"
+	case UnitJob:
+		return "unit"
+	case ApplicationJob:
+		return "application"
+	case MachineJob:
+		return "machine"
+	default:
+		return strconv.FormatInt(int64(t), 10)
+	}
+}
 
 // Job is a removal job for a single entity.
 type Job struct {

@@ -281,38 +281,6 @@ will remove machine 2
 `[1:])
 }
 
-func (s *RemoveMachineSuite) TestRemoveDryRunOldFacade(c *tc.C) {
-	s.facadeVersion = 9
-	defer s.setup(c).Finish()
-
-	_, err := s.run(c, "--dry-run", "1", "2")
-	c.Assert(err, tc.Equals, machine.ErrDryRunNotSupported)
-}
-
-func (s *RemoveMachineSuite) TestRemovePromptOldFacade(c *tc.C) {
-	s.facadeVersion = 9
-	defer s.setup(c).Finish()
-
-	var stdin bytes.Buffer
-	ctx := cmdtesting.Context(c)
-	ctx.Stdin = &stdin
-
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigApi.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
-
-	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1", "2")
-
-	stdin.WriteString("y")
-	errc := s.runWithContext(ctx, "1", "2")
-
-	select {
-	case err := <-errc:
-		c.Check(err, tc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatal("command took too long")
-	}
-}
-
 func (s *RemoveMachineSuite) TestRemovePrompt(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -331,28 +299,6 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *tc.C) {
 	select {
 	case err := <-errc:
 		c.Check(err, tc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatal("command took too long")
-	}
-}
-
-func (s *RemoveMachineSuite) TestRemovePromptOldFacadeAborted(c *tc.C) {
-	s.facadeVersion = 9
-	defer s.setup(c).Finish()
-
-	ctx := cmdtesting.Context(c)
-	var stdin bytes.Buffer
-	ctx.Stdin = &stdin
-
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigApi.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
-
-	stdin.WriteString("n")
-	errc := s.runWithContext(ctx, "1", "2")
-
-	select {
-	case err := <-errc:
-		c.Check(err, tc.ErrorMatches, "machine removal: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatal("command took too long")
 	}

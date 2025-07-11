@@ -19,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -41,6 +42,7 @@ type provisionerMockSuite struct {
 	machineService     *MockMachineService
 	statusService      *MockStatusService
 	networkService     *MockNetworkService
+	removalService     *MockRemovalService
 
 	authorizer *facademocks.MockAuthorizer
 
@@ -57,6 +59,40 @@ type provisionerMockSuite struct {
 
 func TestProvisionerMockSuite(t *testing.T) {
 	tc.Run(t, &provisionerMockSuite{})
+}
+
+func (s *provisionerMockSuite) TestEnsureDead(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	machineName := coremachine.Name("1")
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
+	s.removalService.EXPECT().MarkMachineAsDead(gomock.Any(), machineUUID).Return(nil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+	}}
+	result, err := s.api.EnsureDead(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+}
+
+func (s *provisionerMockSuite) TestEnsureDeadMachineNotFound(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).Return("", machineerrors.MachineNotFound)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+	}}
+	result, err := s.api.EnsureDead(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *provisionerMockSuite) TestHostChangesForContainers(c *tc.C) {
@@ -531,6 +567,74 @@ func (s *provisionerMockSuite) TestSetInstanceStatusInvalidTags(c *tc.C) {
 	}})
 }
 
+func (s *provisionerMockSuite) TestMarkMachinesForRemoval(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	machineName := coremachine.Name("1")
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
+	s.removalService.EXPECT().MarkInstanceAsDead(gomock.Any(), machineUUID).Return(nil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+	}}
+	result, err := s.api.MarkMachinesForRemoval(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+}
+
+func (s *provisionerMockSuite) TestMarkMachinesForRemovalNotFound(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).Return("", machineerrors.MachineNotFound)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+	}}
+	result, err := s.api.MarkMachinesForRemoval(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *provisionerMockSuite) TestRemove(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	machineName := coremachine.Name("1")
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
+	s.removalService.EXPECT().DeleteMachine(gomock.Any(), machineUUID).Return(nil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+	}}
+	result, err := s.api.Remove(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+}
+
+func (s *provisionerMockSuite) TestRemoveMachineNotFound(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).Return("", machineerrors.MachineNotFound)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+	}}
+	result, err := s.api.Remove(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
 func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -547,12 +651,14 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
 
 	s.api = ProvisionerAPI{
 		applicationService: s.applicationService,
 		machineService:     s.machineService,
 		statusService:      s.statusService,
 		networkService:     s.networkService,
+		removalService:     s.removalService,
 
 		clock:  s.clock,
 		logger: loggertesting.WrapCheckLog(c),
@@ -574,6 +680,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		s.machineService = nil
 		s.statusService = nil
 		s.networkService = nil
+		s.removalService = nil
 		s.authorizer = nil
 	})
 

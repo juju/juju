@@ -28,6 +28,8 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/life"
+	machineservice "github.com/juju/juju/domain/machine/service"
+	machinestate "github.com/juju/juju/domain/machine/state"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	"github.com/juju/juju/domain/removal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -143,7 +145,23 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {
+func (s *baseSuite) setupMachineService(c *tc.C) *machineservice.ProviderService {
+	modelDB := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+
+	return machineservice.NewProviderService(
+		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func(context.Context) (machineservice.Provider, error) {
+			return machineservice.NewNoopProvider(), nil
+		},
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
+func (s *baseSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}

@@ -32,6 +32,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -47,8 +48,6 @@ type MachineManagerAPI struct {
 	authorizer      Authorizer
 	check           *common.BlockChecker
 	resources       facade.Resources
-	leadership      Leadership
-	store           objectstore.ObjectStore
 	controllerStore objectstore.ObjectStore
 	clock           clock.Clock
 
@@ -63,6 +62,7 @@ type MachineManagerAPI struct {
 	statusService           StatusService
 	modelConfigService      ModelConfigService
 	networkService          NetworkService
+	removalService          RemovalService
 
 	logger corelogger.Logger
 }
@@ -71,12 +71,11 @@ type MachineManagerAPI struct {
 func NewMachineManagerAPI(
 	modelUUID coremodel.UUID,
 	backend Backend,
-	store, controllerStore objectstore.ObjectStore,
+	controllerStore objectstore.ObjectStore,
 	storageAccess StorageInterface,
 	pool Pool,
 	auth Authorizer,
 	resources facade.Resources,
-	leadership Leadership,
 	logger corelogger.Logger,
 	clock clock.Clock,
 	services Services,
@@ -84,13 +83,11 @@ func NewMachineManagerAPI(
 	api := &MachineManagerAPI{
 		modelUUID:       modelUUID,
 		st:              backend,
-		store:           store,
 		controllerStore: controllerStore,
 		pool:            pool,
 		authorizer:      auth,
 		check:           common.NewBlockChecker(services.BlockCommandService),
 		resources:       resources,
-		leadership:      leadership,
 		storageAccess:   storageAccess,
 		clock:           clock,
 		logger:          logger,
@@ -106,6 +103,7 @@ func NewMachineManagerAPI(
 		statusService:           services.StatusService,
 		modelConfigService:      services.ModelConfigService,
 		networkService:          services.NetworkService,
+		removalService:          services.RemovalService,
 	}
 	return api
 }
@@ -428,6 +426,18 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 		}
 		machineName := coremachine.Name(machineTag.Id())
 
+		info, err := mm.calculateDestroyResult(ctx, machineName)
+		if err != nil {
+			fail(err)
+			continue
+		}
+
+		if dryRun {
+			result.Info = &info
+			results[i] = result
+			continue
+		}
+
 		if keep {
 			mm.logger.Infof(ctx, "destroy machine %v but keep instance", machineName)
 			if err := mm.machineService.SetKeepInstance(ctx, machineName, keep); err != nil {
@@ -438,113 +448,61 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 				mm.logger.Warningf(ctx, "could not keep instance for machine %v: %v", machineName, err)
 			}
 		}
-		info := params.DestroyMachineInfo{
-			MachineId: machineTag.Id(),
-		}
 
-		machine, err := mm.st.Machine(machineTag.Id())
+		machineUUID, err := mm.machineService.GetMachineUUID(ctx, machineName)
 		if err != nil {
-			fail(err)
+			fail(internalerrors.Errorf("getting machine UUID: %w", err))
 			continue
 		}
-		containers, err := machine.Containers()
-		if err != nil {
-			fail(err)
-			continue
-		}
-		if force || dryRun {
-			info.DestroyedContainers, err = mm.destroyContainer(ctx, containers, force, keep, dryRun, maxWait)
-			if err != nil {
-				fail(err)
-				continue
-			}
-		}
-
-		unitNames, err := mm.applicationService.GetUnitNamesOnMachine(ctx, machineName)
-		if errors.Is(err, applicationerrors.MachineNotFound) {
-			fail(errors.NotFoundf("machine %s", machineName))
-			continue
-		} else if err != nil {
-			fail(err)
+		if _, err := mm.removalService.RemoveMachine(ctx, machineUUID, force, maxWait); err != nil {
+			fail(internalerrors.Errorf("removing machine: %w", err))
 			continue
 		}
 
-		for _, unitName := range unitNames {
-			unitTag := names.NewUnitTag(unitName.String())
-			info.DestroyedUnits = append(info.DestroyedUnits, params.Entity{Tag: unitTag.String()})
-		}
-
-		info.DestroyedStorage, info.DetachedStorage, err = mm.classifyDetachedStorage(unitNames)
-		if err != nil {
-			if !force {
-				fail(err)
-				continue
-			}
-			mm.logger.Warningf(ctx, "could not deal with units' storage on machine %v: %v", machineName, err)
-		}
-
-		if dryRun {
-			result.Info = &info
-			results[i] = result
-			continue
-		}
-
-		applicationNames, err := mm.leadership.GetMachineApplicationNames(ctx, machineTag.Id())
-		if err != nil {
-			fail(err)
-			continue
-		}
-
-		if force {
-			if err := machine.ForceDestroy(maxWait); err != nil {
-				fail(err)
-				continue
-			}
-		} else {
-			if err := machine.Destroy(mm.store); err != nil {
-				fail(err)
-				continue
-			}
-		}
-
-		// Ensure that when the machine has been removed that all the leadership
-		// references to that machine are also cleared up.
-		//
-		// Unfortunately we can't follow the normal practices of failing on the
-		// error, as we've already removed the machine and we'll tell the caller
-		// that we failed to remove the machine.
-		//
-		// Note: in some cases if a application has pinned during series upgrade
-		// and it has been pinned without a timeout, then the leadership will
-		// still prevent another leadership change. The work around for this
-		// case until we provide the ability for the operator to unpin via the
-		// CLI, is to remove the raft logs manually.
-		unpinResults, err := mm.leadership.UnpinApplicationLeadersByName(ctx, machineTag, applicationNames)
-		if err != nil {
-			mm.logger.Warningf(ctx, "could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
-		}
-		for _, result := range unpinResults.Results {
-			if result.Error != nil {
-				mm.logger.Warningf(ctx,
-					"could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
-			}
-		}
 		result.Info = &info
 		results[i] = result
 	}
 	return params.DestroyMachineResults{Results: results}, nil
 }
 
-func (mm *MachineManagerAPI) destroyContainer(ctx context.Context, containers []string, force, keep, dryRun bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
-	if len(containers) == 0 {
-		return nil, nil
+func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machineName coremachine.Name) (params.DestroyMachineInfo, error) {
+	info := params.DestroyMachineInfo{
+		MachineId: machineName.String(),
 	}
-	entities := params.Entities{Entities: make([]params.Entity, len(containers))}
-	for i, container := range containers {
-		entities.Entities[i] = params.Entity{Tag: names.NewMachineTag(container).String()}
+
+	containers, err := mm.machineService.GetMachineContainers(ctx, machineName)
+	if err != nil {
+		return info, errors.Trace(err)
 	}
-	results, err := mm.destroyMachine(ctx, entities, force, keep, dryRun, maxWait)
-	return results.Results, err
+
+	if len(containers) > 0 {
+		info.DestroyedContainers = make([]params.DestroyMachineResult, len(containers))
+		for i, container := range containers {
+			containerInfo, err := mm.calculateDestroyResult(ctx, container)
+			if err != nil {
+				return info, errors.Trace(err)
+			}
+			info.DestroyedContainers[i].Info = &containerInfo
+		}
+	}
+
+	unitNames, err := mm.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+	if errors.Is(err, applicationerrors.MachineNotFound) {
+		return info, errors.NotFoundf("machine %s", machineName)
+	} else if err != nil {
+		return info, errors.Trace(err)
+	}
+	for _, unitName := range unitNames {
+		unitTag := names.NewUnitTag(unitName.String())
+		info.DestroyedUnits = append(info.DestroyedUnits, params.Entity{Tag: unitTag.String()})
+	}
+
+	info.DestroyedStorage, info.DetachedStorage, err = mm.classifyDetachedStorage(unitNames)
+	if err != nil {
+		return info, internalerrors.Errorf("classifying storage for machine %q: %w", machineName, err)
+	}
+
+	return info, nil
 }
 
 func (mm *MachineManagerAPI) classifyDetachedStorage(unitNames []coreunit.Name) (destroyed, detached []params.Entity, _ error) {

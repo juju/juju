@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/application"
@@ -53,10 +54,6 @@ type State interface {
 	// GetMachineLife returns the life status of the specified machine.
 	// It returns a MachineNotFound if the given machine doesn't exist.
 	GetMachineLife(context.Context, machine.Name) (life.Life, error)
-
-	// SetMachineLife sets the life status of the specified machine.
-	// It returns a MachineNotFound if the provided machine doesn't exist.
-	SetMachineLife(context.Context, machine.Name, life.Life) error
 
 	// AllMachineNames retrieves the names of all machines in the model.
 	// If there's no machine, it returns an empty slice.
@@ -127,14 +124,6 @@ type State interface {
 	// shutdown
 	ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (machine.RebootAction, error)
 
-	// MarkMachineForRemoval marks the given machine for removal.
-	// It returns a MachineNotFound error if the machine does not exist.
-	MarkMachineForRemoval(context.Context, machine.Name) error
-
-	// GetAllMachineRemovals returns the UUIDs of all of the machines that need
-	// to be removed but need provider-level cleanup.
-	GetAllMachineRemovals(context.Context) ([]machine.UUID, error)
-
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
 
@@ -185,6 +174,10 @@ type State interface {
 	// GetSupportedContainersTypes returns the supported container types for the
 	// given machine.
 	GetSupportedContainersTypes(ctx context.Context, mUUID string) ([]string, error)
+
+	// GetMachineContainers returns the names of the machines which have as parent
+	// the specified machine.
+	GetMachineContainers(ctx context.Context, mUUID string) ([]string, error)
 
 	// GetMachinePrincipalApplications returns the names of the principal
 	// (non-subordinate) applications for the specified machine.
@@ -259,28 +252,6 @@ func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) 
 	}
 
 	return life.Value()
-}
-
-// SetMachineLife sets the life status of the specified machine.
-// It returns a MachineNotFound if the provided machine doesn't exist.
-func (s *Service) SetMachineLife(ctx context.Context, machineName machine.Name, life life.Life) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.st.SetMachineLife(ctx, machineName, life); err != nil {
-		return errors.Errorf("setting life status for machine %q: %w", machineName, err)
-	}
-	return nil
-}
-
-// EnsureDeadMachine sets the provided machine's life status to Dead.
-// No error is returned if the provided machine doesn't exist, just nothing gets
-// updated.
-func (s *Service) EnsureDeadMachine(ctx context.Context, machineName machine.Name) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.SetMachineLife(ctx, machineName, life.Dead)
 }
 
 // AllMachineNames returns the names of all machines in the model.
@@ -405,31 +376,6 @@ func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID)
 	return rebootRequired, nil
 }
 
-// MarkMachineForRemoval marks the given machine for removal.
-// It returns a MachineNotFound error if the machine does not exist.
-func (s *Service) MarkMachineForRemoval(ctx context.Context, machineName machine.Name) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.st.MarkMachineForRemoval(ctx, machineName); err != nil {
-		return errors.Errorf("marking machine %q for removal: %w", machineName, err)
-	}
-	return nil
-}
-
-// GetAllMachineRemovals returns the UUIDs of all of the machines that need to
-// be removed but need provider-level cleanup.
-func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]machine.UUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	removals, err := s.st.GetAllMachineRemovals(ctx)
-	if err != nil {
-		return nil, errors.Errorf("retrieving all machines marked to be removed: %w", err)
-	}
-	return removals, nil
-}
-
 // GetMachineUUID returns the UUID of a machine identified by its name.
 // It returns a MachineNotFound if the machine does not exist.
 func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error) {
@@ -533,6 +479,26 @@ func (s *Service) GetSupportedContainersTypes(ctx context.Context, mUUID machine
 		}
 	}
 	return results, nil
+}
+
+// GetMachineContainers returns the names of the machines which have as parent
+// the specified machine.
+func (s *Service) GetMachineContainers(ctx context.Context, machineName machine.Name) ([]machine.Name, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return nil, errors.Errorf("validating machine name %q: %w", machineName, err)
+	}
+
+	containers, err := s.st.GetMachineContainers(ctx, machineName.String())
+	if err != nil {
+		return nil, errors.Errorf("getting machine containers for machine %q: %w", machineName, err)
+	}
+
+	return transform.Slice(containers, func(v string) machine.Name {
+		return machine.Name(v)
+	}), nil
 }
 
 // GetMachinePrincipalApplications returns the names of the principal (non-subordinate)

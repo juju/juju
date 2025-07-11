@@ -26,7 +26,7 @@ type MachineState interface {
 
 	// EnsureMachineNotAliveCascade ensures that there is no machine identified
 	// by the input machine UUID, that is still alive.
-	EnsureMachineNotAliveCascade(ctx context.Context, unitUUID string) (units, machines []string, err error)
+	EnsureMachineNotAliveCascade(ctx context.Context, unitUUID string, force bool) (units, machines []string, err error)
 
 	// MachineScheduleRemoval schedules a removal job for the machine with the
 	// input UUID, qualified with the input force boolean.
@@ -49,6 +49,10 @@ type MachineState interface {
 	// DeleteMachine deletes the specified machine and any dependent child
 	// records.
 	DeleteMachine(ctx context.Context, mName string) error
+
+	// MarkInstanceAsDead marks the machine cloud instance with the input UUID as
+	// dead.
+	MarkInstanceAsDead(ctx context.Context, mUUID string) error
 
 	// GetMachineNetworkInterfaces returns the network interfaces for the
 	// machine with the input UUID. This is used to release any addresses
@@ -81,7 +85,7 @@ func (s *Service) RemoveMachine(
 	}
 
 	// Ensure the machine is not alive.
-	unitUUIDs, machineUUIDs, err := s.st.EnsureMachineNotAliveCascade(ctx, machineUUID.String())
+	unitUUIDs, machineUUIDs, err := s.st.EnsureMachineNotAliveCascade(ctx, machineUUID.String(), force)
 	if err != nil {
 		return "", errors.Errorf("machine %q: %w", machineUUID, err)
 	}
@@ -135,7 +139,11 @@ func (s *Service) RemoveMachine(
 // MarkMachineAsDead marks the machine as dead. It will not remove the machine as
 // that is a separate operation. This will advance the machines's life to dead
 // and will not allow it to be transitioned back to alive.
-// Returns an error if the machine does not exist.
+// The following errors are returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [removalerrors.EntityStillAlive] if the machine is alive.
+// - [removalerrors.MachineHasContainers] if the machine hosts containers.
+// - [removalerrors.MachineHasUnits] if the machine hosts units.
 func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -148,6 +156,44 @@ func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUI
 	}
 
 	return s.st.MarkMachineAsDead(ctx, machineUUID.String())
+}
+
+// DeleteMachine attempts to delete the specified machine from state entirely.
+func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	exists, err := s.st.MachineExists(ctx, machineUUID.String())
+	if err != nil {
+		return errors.Errorf("checking if machine exists: %w", err)
+	} else if !exists {
+		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
+	}
+
+	return s.st.DeleteMachine(ctx, machineUUID.String())
+}
+
+// MarkInstanceAsDead marks the machine's cloud instance as dead. It will not
+// remove the instance as that is a separate operation. This will advance the
+// instance's life to dead and will not allow it to be transitioned back to
+// alive.
+// The following errors are returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [removalerrors.EntityStillAlive] if the machine is alive.
+// - [removalerrors.MachineHasContainers] if the machine hosts containers.
+// - [removalerrors.MachineHasUnits] if the machine hosts units.
+func (s *Service) MarkInstanceAsDead(ctx context.Context, machineUUID machine.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	exists, err := s.st.MachineExists(ctx, machineUUID.String())
+	if err != nil {
+		return errors.Errorf("checking if machine exists: %w", err)
+	} else if !exists {
+		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
+	}
+
+	return s.st.MarkInstanceAsDead(ctx, machineUUID.String())
 }
 
 func (s *Service) machineScheduleRemoval(

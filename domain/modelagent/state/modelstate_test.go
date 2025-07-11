@@ -44,6 +44,7 @@ import (
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
+	removalstate "github.com/juju/juju/domain/removal/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -567,14 +568,15 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionMachineNotFound
 }
 
 func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *tc.C) {
-	machineSt := machinestate.NewState(
+	machineUUID, _ := s.addMachine(c)
+
+	removalSt := removalstate.NewState(
 		s.TxnRunnerFactory(),
-		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	machineUUID, machineName := s.addMachine(c)
-
-	err := machineSt.SetMachineLife(c.Context(), machineName, life.Dead)
+	_, _, err := removalSt.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+	err = removalSt.MarkMachineAsDead(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())

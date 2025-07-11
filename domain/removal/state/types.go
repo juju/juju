@@ -50,6 +50,10 @@ type entityAssociationCount struct {
 	Count int `db:"count"`
 }
 
+type count struct {
+	Count int `db:"count"`
+}
+
 // unitMachineLifeSummary holds the counts of alive, not alive, and machine parent
 // entities associated with a unit identified by the UUID. It is used to
 // summarize the state of a unit in terms of its associated entities.

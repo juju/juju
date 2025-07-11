@@ -6,7 +6,6 @@ package machine
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -71,13 +70,7 @@ const destroyMachineExamples = `
     juju remove-machine 7 --keep-instance
 `
 
-var removeMachineMsgNoDryRun = `
-This command will remove machine(s) %q
-Your controller does not support dry runs`[1:]
-
 var removeMachineMsgPrefix = "This command will perform the following actions:"
-
-var errDryRunNotSupported = errors.New("Your controller does not support `--dry-run`")
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
@@ -182,9 +175,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	needsConfirmation := c.NeedsConfirmation(ctx, modelConfigClient)
 	if needsConfirmation {
 		err := c.performDryRun(ctx, client)
-		if err == errDryRunNotSupported {
-			ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
-		} else if err != nil {
+		if err != nil {
 			return err
 		}
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
@@ -206,10 +197,6 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *removeCommand) performDryRun(ctx *cmd.Context, client RemoveMachineAPI) error {
-	// TODO(jack-w-shaw) Drop this once machinemanager 9 support is dropped
-	if client.BestAPIVersion() < 10 {
-		return errDryRunNotSupported
-	}
 	results, err := client.DestroyMachinesWithParams(ctx, c.Force, c.KeepInstance, true, nil, c.MachineIds...)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)

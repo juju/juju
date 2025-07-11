@@ -388,9 +388,9 @@ func (c *MockStateEnsureApplicationNotAliveCascadeCall) DoAndReturn(f func(conte
 }
 
 // EnsureMachineNotAliveCascade mocks base method.
-func (m *MockState) EnsureMachineNotAliveCascade(arg0 context.Context, arg1 string) ([]string, []string, error) {
+func (m *MockState) EnsureMachineNotAliveCascade(arg0 context.Context, arg1 string, arg2 bool) ([]string, []string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureMachineNotAliveCascade", arg0, arg1)
+	ret := m.ctrl.Call(m, "EnsureMachineNotAliveCascade", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].([]string)
 	ret2, _ := ret[2].(error)
@@ -398,9 +398,9 @@ func (m *MockState) EnsureMachineNotAliveCascade(arg0 context.Context, arg1 stri
 }
 
 // EnsureMachineNotAliveCascade indicates an expected call of EnsureMachineNotAliveCascade.
-func (mr *MockStateMockRecorder) EnsureMachineNotAliveCascade(arg0, arg1 any) *MockStateEnsureMachineNotAliveCascadeCall {
+func (mr *MockStateMockRecorder) EnsureMachineNotAliveCascade(arg0, arg1, arg2 any) *MockStateEnsureMachineNotAliveCascadeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureMachineNotAliveCascade", reflect.TypeOf((*MockState)(nil).EnsureMachineNotAliveCascade), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureMachineNotAliveCascade", reflect.TypeOf((*MockState)(nil).EnsureMachineNotAliveCascade), arg0, arg1, arg2)
 	return &MockStateEnsureMachineNotAliveCascadeCall{Call: call}
 }
 
@@ -416,13 +416,13 @@ func (c *MockStateEnsureMachineNotAliveCascadeCall) Return(arg0, arg1 []string, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateEnsureMachineNotAliveCascadeCall) Do(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureMachineNotAliveCascadeCall {
+func (c *MockStateEnsureMachineNotAliveCascadeCall) Do(f func(context.Context, string, bool) ([]string, []string, error)) *MockStateEnsureMachineNotAliveCascadeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateEnsureMachineNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) ([]string, []string, error)) *MockStateEnsureMachineNotAliveCascadeCall {
+func (c *MockStateEnsureMachineNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool) ([]string, []string, error)) *MockStateEnsureMachineNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -890,6 +890,44 @@ func (c *MockStateMachineScheduleRemovalCall) Do(f func(context.Context, string,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateMachineScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockStateMachineScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkInstanceAsDead mocks base method.
+func (m *MockState) MarkInstanceAsDead(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkInstanceAsDead", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkInstanceAsDead indicates an expected call of MarkInstanceAsDead.
+func (mr *MockStateMockRecorder) MarkInstanceAsDead(arg0, arg1 any) *MockStateMarkInstanceAsDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkInstanceAsDead", reflect.TypeOf((*MockState)(nil).MarkInstanceAsDead), arg0, arg1)
+	return &MockStateMarkInstanceAsDeadCall{Call: call}
+}
+
+// MockStateMarkInstanceAsDeadCall wrap *gomock.Call
+type MockStateMarkInstanceAsDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMarkInstanceAsDeadCall) Return(arg0 error) *MockStateMarkInstanceAsDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMarkInstanceAsDeadCall) Do(f func(context.Context, string) error) *MockStateMarkInstanceAsDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMarkInstanceAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockStateMarkInstanceAsDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
