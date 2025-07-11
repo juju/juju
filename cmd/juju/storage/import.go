@@ -8,11 +8,14 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 
 	apistorage "github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/storage"
 )
@@ -139,6 +142,14 @@ func (c *importFilesystemCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *importFilesystemCommand) Run(ctx *cmd.Context) (err error) {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.CAAS && !featureflag.Enabled(feature.K8SAttachStorage) {
+		return errors.Errorf("Juju command %q not supported on container models", "import-filesystem")
+	}
+
 	api, err := c.newAPIFunc(&c.StorageCommandBase)
 	if err != nil {
 		return err
