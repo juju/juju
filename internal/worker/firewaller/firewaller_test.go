@@ -346,8 +346,6 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 		unitsCh <- nil
 	}
 
-	// Add a machine.
-	s.machinesCh <- []string{tag.Id()}
 	return m, unitsCh
 }
 
@@ -617,7 +615,8 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 	defer workertest.CleanKill(c, fw)
 
 	app := s.addApplication(ctrl, "wordpress", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachineFlush(c)
 }
 
@@ -652,7 +651,8 @@ func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *g
 	defer workertest.CleanKill(c, fw)
 
 	app := s.addApplication(ctrl, "wordpress", false)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachineFlush(c)
 }
 
@@ -905,7 +905,8 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	// Wait for controller (started by setUpTest)
 	s.waitForMachine(c, "0")
 
-	s.addModelMachine(ctrl, true)
+	m, _ := s.addModelMachine(ctrl, true)
+	s.machinesCh <- []string{m.Tag().Id()}
 
 	select {
 	case tag := <-s.watchingMachine:
@@ -913,7 +914,8 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	m, _ := s.addMachine(ctrl)
+	m, _ = s.addMachine(ctrl)
+	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachine(c, m.Tag().Id())
 }
 
@@ -933,7 +935,7 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *gc.C, ctrl *gomock.C
 			return life.Dead
 		}
 		return life.Alive
-	}).Times(1)
+	}).MinTimes(1)
 	m.EXPECT().IsManual().Return(false, nil).MinTimes(1)
 
 	// Create an app.
@@ -979,6 +981,8 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *gc.C, ctrl *gomock.C
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).Times(1)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).Times(1)
+
+	s.machinesCh <- []string{m.Tag().Id()}
 
 	s.firewaller.EXPECT().ModelFirewallRules().MinTimes(1).MaxTimes(2).DoAndReturn(func() (firewall.IngressRules, error) {
 		s.mu.Lock()
@@ -1417,7 +1421,8 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 
 	published := make(chan bool)
 	app := s.addApplication(ctrl, "wordpress", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
 
 	// Have a unit on the consuming app enter the relation scope.
@@ -1471,7 +1476,8 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 
 	published := make(chan bool)
 	app := s.addApplication(ctrl, "wordpress", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
 
 	// Have a unit on the consuming app enter the relation scope.
@@ -1520,7 +1526,8 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 	defer workertest.CleanKill(c, fw)
 
 	app := s.addApplication(ctrl, "mysql", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 
 	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1599,7 +1606,8 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	defer workertest.CleanKill(c, fw)
 
 	app := s.addApplication(ctrl, "mysql", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 
 	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
