@@ -15,7 +15,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
@@ -104,30 +103,6 @@ func (s *Service) RemoveSpace(ctx context.Context, uuid network.SpaceUUID) error
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	return errors.Capture(s.st.DeleteSpace(ctx, uuid))
-}
-
-// ProviderService provides the API for working with network spaces.
-type ProviderService struct {
-	Service
-	providerWithNetworking func(context.Context) (ProviderWithNetworking, error)
-	providerWithZones      func(context.Context) (ProviderWithZones, error)
-}
-
-// NewProviderService returns a new service reference wrapping the input state.
-func NewProviderService(
-	st State,
-	providerWithNetworking providertracker.ProviderGetter[ProviderWithNetworking],
-	providerWithZones providertracker.ProviderGetter[ProviderWithZones],
-	logger logger.Logger,
-) *ProviderService {
-	return &ProviderService{
-		Service: Service{
-			st:     st,
-			logger: logger,
-		},
-		providerWithNetworking: providerWithNetworking,
-		providerWithZones:      providerWithZones,
-	}
 }
 
 // ReloadSpaces loads spaces and subnets from the provider into state.
