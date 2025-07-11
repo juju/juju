@@ -5,19 +5,20 @@ package openstack
 
 import (
 	"fmt"
+
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/go-goose/goose/v5/swift"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/tags"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -68,11 +69,6 @@ func (fakeNamespace) Value(s string) string {
 func EnsureGroup(e environs.Environ, ctx context.ProviderCallContext, name string, isModelGroup bool) (neutron.SecurityGroupV2, error) {
 	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
 	return switching.ensureGroup(name, isModelGroup, nil)
-}
-
-func MachineGroupRegexp(e environs.Environ, machineId string) string {
-	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
-	return switching.machineGroupRegexp(machineId)
 }
 
 func MachineGroupName(e environs.Environ, controllerUUID, machineId string) string {
