@@ -756,32 +756,38 @@ func (s *spaceMachineSuite) TestMoveSubnetsToSpaceNoViolationsSuccess(c *tc.C) {
 	// Create spaces
 	fromSpaceUUID1 := s.addSpace(c, "from-space-1")
 	fromSpaceUUID2 := s.addSpace(c, "from-space-2")
-	s.addSpace(c, "to-space")
+	toSpaceUUID := s.addSpace(c, "to-space")
 	otherSpaceUUID := s.addSpace(c, "other-space")
 
 	// Create subnets in from-spaces and other-space
 	movedSubnetUUID1 := s.addSubnet(c, "192.168.1.0/24", fromSpaceUUID1)
 	movedSubnetUUID2 := s.addSubnet(c, "192.168.2.0/24", fromSpaceUUID2)
+	movedSubnetUUID3 := s.addSubnet(c, "192.168.3.0/24", toSpaceUUID) // already in space - not moved
 	otherSubnetUUID := s.addSubnet(c, "10.0.0.0/24", otherSpaceUUID)
 
 	// Create machines with addresses in the subnets
 	nodeUUID1 := s.addNetNode(c)
 	nodeUUID2 := s.addNetNode(c)
+	nodeUUID3 := s.addNetNode(c)
 	deviceUUID1 := s.addLinkLayerDevice(c, nodeUUID1, "eth0", "00:11:22:33:44:55", network.EthernetDevice)
 	deviceUUID2 := s.addLinkLayerDevice(c, nodeUUID2, "eth1", "00:11:22:33:44:66", network.EthernetDevice)
+	deviceUUID3 := s.addLinkLayerDevice(c, nodeUUID3, "eth2", "00:11:22:33:44:77", network.EthernetDevice)
 	s.addIPAddressWithSubnet(c, deviceUUID1, nodeUUID1, movedSubnetUUID1, "192.168.1.10")
 	s.addIPAddressWithSubnet(c, deviceUUID2, nodeUUID2, otherSubnetUUID, "10.0.0.10")
+	s.addIPAddressWithSubnet(c, deviceUUID3, nodeUUID3, movedSubnetUUID3, "192.168.3.10")
 
 	// Add machines without any constraints that would be violated
 	// We don't need to store the machine UUIDs as we're just testing the subnet movement
 	s.addMachine(c, "machine-1", nodeUUID1)
 	s.addMachine(c, "machine-2", nodeUUID2)
+	s.addMachine(c, "machine-3", nodeUUID3)
 
 	// Act
 	movedSubnets, err := s.state.MoveSubnetsToSpace(ctx,
 		[]string{
 			movedSubnetUUID1,
 			movedSubnetUUID2,
+			movedSubnetUUID3,
 		},
 		"to-space",
 		false) // Force=false
@@ -807,6 +813,10 @@ func (s *spaceMachineSuite) TestMoveSubnetsToSpaceNoViolationsSuccess(c *tc.C) {
 		},
 		{
 			UUID:  movedSubnetUUID2,
+			Space: "to-space",
+		},
+		{
+			UUID:  movedSubnetUUID3, // not moved
 			Space: "to-space",
 		},
 		{
