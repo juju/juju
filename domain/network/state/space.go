@@ -308,23 +308,23 @@ WHERE  space_uuid = $space.uuid;`, sp)
 // constraints.
 // This method doesn't check if the provided space name exists, it returns
 // false in that case.
-func (st *State) IsSpaceUsedInConstraints(ctx context.Context, name network.SpaceName) (bool, error) {
+func (st *State) IsSpaceUsedInConstraints(ctx context.Context, spaceName network.SpaceName) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	sp := spaceName{Name: string(name)}
+	sp := name{Name: string(spaceName)}
 	stmt, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count
 FROM (
 	SELECT NULL AS n
 	FROM v_model_constraint_space
-	WHERE space = $spaceName.name
+	WHERE space = $name.name
 	UNION 
 	SELECT NULL AS n
 	FROM v_application_constraint
-	WHERE space_name = $spaceName.name
+	WHERE space_name = $name.name
 );`, countResult{}, sp)
 	if err != nil {
 		return false, errors.Errorf("preparing count space in constraints statement: %w", err)
@@ -334,7 +334,7 @@ FROM (
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, sp).Get(&count)
 		if err != nil {
-			return errors.Errorf("counting the space %q in constraints: %w", name, err)
+			return errors.Errorf("counting the space %q in constraints: %w", spaceName, err)
 		}
 		return nil
 	}); err != nil {
