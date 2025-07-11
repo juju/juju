@@ -21,7 +21,6 @@ import (
 // PrecheckBackend defines the interface to query Juju's state
 // for migration prechecks.
 type PrecheckBackend interface {
-	NeedsCleanup() (bool, error)
 	Model() (PrecheckModel, error)
 	AllModelUUIDs() ([]string, error)
 	IsMigrationActive(string) (bool, error)

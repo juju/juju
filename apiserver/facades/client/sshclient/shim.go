@@ -16,7 +16,6 @@ import (
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
 	Machine(id string) (*state.Machine, error)
-	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 }
 
 // SSHMachine specifies the methods on State.Machine of interest to

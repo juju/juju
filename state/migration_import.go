@@ -104,9 +104,6 @@ func (ctrl *Controller) Import(
 	if err := restore.modelExtras(); err != nil {
 		return nil, nil, errors.Annotate(err, "base model aspects")
 	}
-	if err := restore.sshHostKeys(); err != nil {
-		return nil, nil, errors.Annotate(err, "sshHostKeys")
-	}
 	if err := restore.actions(); err != nil {
 		return nil, nil, errors.Annotate(err, "actions")
 	}
@@ -447,20 +444,6 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 		doc.StatusData = nil
 	}
 	return doc
-}
-
-func (i *importer) sshHostKeys() error {
-	i.logger.Debugf(context.TODO(), "importing ssh host keys")
-	for _, key := range i.model.SSHHostKeys() {
-		name := names.NewMachineTag(key.MachineID())
-		err := i.st.SetSSHHostKeys(name, key.Keys())
-		if err != nil {
-			i.logger.Errorf(context.TODO(), "error importing ssh host keys %v: %s", key, err)
-			return errors.Trace(err)
-		}
-	}
-	i.logger.Debugf(context.TODO(), "importing ssh host keys succeeded")
-	return nil
 }
 
 func (i *importer) actions() error {

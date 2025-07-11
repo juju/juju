@@ -82,12 +82,6 @@ func SourcePrecheck(
 		return errors.Trace(err)
 	}
 
-	if cleanupNeeded, err := backend.NeedsCleanup(); err != nil {
-		return errors.Annotate(err, "checking cleanups")
-	} else if cleanupNeeded {
-		return errors.New("cleanup needed")
-	}
-
 	// Check the source controller.
 	controllerBackend, err := backend.ControllerBackend()
 	if err != nil {

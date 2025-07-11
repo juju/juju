@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 	"github.com/juju/juju/internal/worker/charmrevisioner"
-	"github.com/juju/juju/internal/worker/cleaner"
 	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	"github.com/juju/juju/internal/worker/firewaller"
@@ -302,11 +301,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:          removal.NewWorker,
 			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.removal"),
-		})),
-		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.cleaner"),
 		})),
 		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName: providerServiceFactoriesName,
@@ -601,7 +595,6 @@ const (
 	providerServiceFactoriesName = "provider-service-factories"
 	remoteRelationsName          = "remote-relations"
 	removalName                  = "removal"
-	stateCleanerName             = "state-cleaner"
 	storageProvisionerName       = "storage-provisioner"
 	undertakerName               = "undertaker"
 
