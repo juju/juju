@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/container"
-	"github.com/juju/juju/state"
 )
 
 // AuthFunc returns whether the given entity is available to some operation.
@@ -129,11 +128,4 @@ func AuthFuncForMachineAgent(authorizer Authorizer) GetAuthFunc {
 			}
 		}, nil
 	}
-}
-
-// ControllerConfigState defines the methods needed by
-// ControllerConfigAPI
-type ControllerConfigState interface {
-	ModelExists(string) (bool, error)
-	CompletedMigrationForModel(string) (state.ModelMigration, error)
 }

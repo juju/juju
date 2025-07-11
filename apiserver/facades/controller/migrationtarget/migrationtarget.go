@@ -18,8 +18,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
@@ -38,7 +40,7 @@ import (
 type ModelImporter interface {
 	// ImportModel takes a serialized description model (yaml bytes) and returns
 	// a state model and state state.
-	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
+	ImportModel(ctx context.Context, bytes []byte) error
 }
 
 // ExternalControllerService provides a subset of the external controller
@@ -78,6 +80,15 @@ type ModelMigrationService interface {
 	// the model against the machines reported by the models cloud and report
 	// any discrepancies.
 	CheckMachines(context.Context) ([]modelmigration.MigrationMachineDiscrepancy, error)
+
+	// AbortImport stops the import of the model.
+	AbortImport(ctx context.Context) error
+
+	// ActivateImport finalises the import of the model.
+	ActivateImport(ctx context.Context) error
+
+	// ModelMigrationMode returns the current migration mode for the model.
+	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
 }
 
 // ModelAgentService provides access to the Juju agent version for the model.
@@ -129,6 +140,29 @@ type StatusService interface {
 	CheckMachineStatusesReadyForMigration(context.Context) error
 }
 
+// ModelService defines the methods to get models hosted on this controller.
+type ModelService interface {
+	// ListAllModels  lists all models in the controller. If no models exist then
+	// an empty slice is returned.
+	ListAllModels(ctx context.Context) ([]coremodel.Model, error)
+	// Model returns the model associated with the provided uuid.
+	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
+}
+
+// MachineService is used to get the life of all machines before migrating.
+type MachineService interface {
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(ctx context.Context) ([]machine.Name, error)
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	GetMachineLife(ctx context.Context, machineName machine.Name) (life.Value, error)
+	// GetMachineBase returns the base for the given machine.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
+}
+
 // APIV4 implements the APIV4.
 type APIV4 struct {
 	*APIV5
@@ -142,17 +176,19 @@ type APIV5 struct {
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state          *state.State
+	controllerModelUUID coremodel.UUID
+
 	modelImporter  ModelImporter
+	modelService   ModelService
 	upgradeService UpgradeService
 	statusService  StatusService
+	machineService MachineService
 
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
 	modelAgentServiceGetter     ModelAgentServiceGetter
 	modelMigrationServiceGetter ModelMigrationServiceGetter
 
-	pool       *state.StatePool
 	authorizer facade.Authorizer
 
 	requiredMigrationFacadeVersions facades.FacadeVersions
@@ -167,21 +203,24 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
+	modelService ModelService,
 	upgradeService UpgradeService,
 	statusService StatusService,
+	machineService MachineService,
 	modelAgentServiceGetter ModelAgentServiceGetter,
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
 	logDir string,
 ) (*API, error) {
 	return &API{
-		state:                           ctx.State(),
+		controllerModelUUID:             ctx.ControllerModelUUID(),
 		modelImporter:                   ctx.ModelImporter(),
-		pool:                            ctx.StatePool(),
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
+		modelService:                    modelService,
 		upgradeService:                  upgradeService,
 		statusService:                   statusService,
+		machineService:                  machineService,
 		modelAgentServiceGetter:         modelAgentServiceGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
@@ -243,32 +282,17 @@ with an earlier version of the target controller and try again.
 		return fmt.Errorf("migration import prechecks: %w", err)
 	}
 
-	controllerState, err := api.pool.SystemState()
-	if err != nil {
-		return errors.Errorf(
-			"getting system state during prechecks for model %q: %w",
-			model.UUID,
-			err,
-		)
-	}
-
 	// NOTE (thumper): it isn't clear to me why api.state would be different
 	// from the controllerState as I had thought that the Precheck call was
 	// on the controller model, in which case it should be the same as the
 	// controllerState.
-	modelAgentService, err := api.modelAgentServiceGetter(ctx, coremodel.UUID(controllerState.ModelUUID()))
+	modelAgentService, err := api.modelAgentServiceGetter(ctx, api.controllerModelUUID)
 	if err != nil {
 		return errors.Errorf("cannot get model agent service: %w", err)
-	}
-	backend, err := migration.PrecheckShim(api.state, controllerState)
-	if err != nil {
-		return errors.Errorf("cannot create prechecks backend: %w", err)
 	}
 
 	if err := migration.TargetPrecheck(
 		ctx,
-		backend,
-		migration.PoolShim(api.pool),
 		coremigration.ModelInfo{
 			UUID:                   model.UUID,
 			Name:                   model.Name,
@@ -277,9 +301,14 @@ with an earlier version of the target controller and try again.
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			ModelDescription:       modelDescription,
 		},
+		api.modelService,
 		api.upgradeService,
 		api.statusService,
 		modelAgentService,
+		api.machineService,
+		func(ctx context.Context, modelUUID coremodel.UUID) (migration.ModelMigrationService, error) {
+			return api.modelMigrationServiceGetter(ctx, modelUUID)
+		},
 	); err != nil {
 		return errors.Errorf("migration target prechecks failed: %w", err)
 	}
@@ -289,48 +318,33 @@ with an earlier version of the target controller and try again.
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(ctx context.Context, serialized params.SerializedModel) error {
-	_, st, err := api.modelImporter.ImportModel(ctx, serialized.Bytes)
+	err := api.modelImporter.ImportModel(ctx, serialized.Bytes)
 	if err != nil {
 		return err
 	}
-	defer st.Close()
-	// TODO(mjs) - post import checks
-	// NOTE(fwereade) - checks here would be sensible, but we will
-	// also need to check after the binaries are imported too.
-	return err
-}
-
-func (api *API) getImportingModelState(modelTag string) (*state.State, func() bool, error) {
-	tag, err := names.ParseModelTag(modelTag)
-	if err != nil {
-		return nil, nil, errors.Errorf("cannot parse model tag: %w", err)
-	}
-
-	pooledSt, err := api.pool.Get(tag.Id())
-	if err != nil {
-		return nil, nil, errors.Errorf("getting importing model state: %w", err)
-	}
-	mode, err := pooledSt.State.MigrationMode()
-	if err != nil {
-		pooledSt.Release()
-		return nil, nil, errors.Errorf("getting model migration mode: %w", err)
-	}
-	if mode != state.MigrationModeImporting {
-		pooledSt.Release()
-		return nil, nil, errors.New("migration mode for the model is not importing")
-	}
-	return pooledSt.State, pooledSt.Release, nil
+	return nil
 }
 
 // Abort removes the specified model from the database. It is an error to
 // attempt to Abort a model that has a migration mode other than importing.
 func (api *API) Abort(ctx context.Context, args params.ModelArgs) error {
-	st, release, err := api.getImportingModelState(args.ModelTag)
+	modelTag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
-		return errors.Errorf("cannot get model to abort: %w", err)
+		return errors.Capture(err)
 	}
-	defer release()
-	return st.RemoveImportingModelDocs()
+
+	modelUUID := coremodel.UUID(modelTag.Id())
+	modelMigrationService, err := api.modelMigrationServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = modelMigrationService.AbortImport(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // Activate sets the migration mode of the model to "none", meaning it
@@ -338,11 +352,16 @@ func (api *API) Abort(ctx context.Context, args params.ModelArgs) error {
 // external controller records for those controllers hosting offers used
 // by the model.
 func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) error {
-	st, release, err := api.getImportingModelState(args.ModelTag)
+	modelTag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
-		return errors.Errorf("cannot get model to activate: %w", err)
+		return errors.Capture(err)
 	}
-	defer release()
+
+	modelUUID := coremodel.UUID(modelTag.Id())
+	modelMigrationService, err := api.modelMigrationServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	// Add any required external controller records if there are cross
 	// model relations to the source controller that were local but
@@ -352,7 +371,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 		if err != nil {
 			return errors.Errorf(
 				"cannot parse controller tag when activating model %q: %w",
-				st.ModelUUID(),
+				modelUUID,
 				err,
 			)
 		}
@@ -367,14 +386,17 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 			return errors.Errorf(
 				"cannot save source controller %q info when activating model %q: %w",
 				cTag.Id(),
-				st.ModelUUID(),
+				modelUUID,
 				err,
 			)
 		}
 	}
 
-	// TODO(fwereade) - need to validate binaries here.
-	return st.SetMigrationMode(state.MigrationModeNone)
+	err = modelMigrationService.ActivateImport(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // LatestLogTime returns the time of the most recent log record

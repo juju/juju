@@ -120,12 +120,12 @@ func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 		Phase:            migration.IMPORT,
 		PhaseChangedTime: timestamp,
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: controllerTag,
-			Addrs:         []string{"2.2.2.2:2"},
-			CACert:        "cert",
-			AuthTag:       names.NewUserTag("admin"),
-			Password:      "secret",
-			Token:         "token",
+			ControllerUUID: controllerUUID,
+			Addrs:          []string{"2.2.2.2:2"},
+			CACert:         "cert",
+			User:           "admin",
+			Password:       "secret",
+			Token:          "token",
 		},
 	})
 }

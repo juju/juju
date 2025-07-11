@@ -179,28 +179,6 @@ func (st *State) RemoveDyingModel() error {
 	return errors.Trace(err)
 }
 
-// RemoveImportingModelDocs removes all documents from multi-model collections
-// for the current model. This method asserts that the model's migration mode
-// is "importing".
-func (st *State) RemoveImportingModelDocs() error {
-	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
-	if errors.Cause(err) == txn.ErrAborted {
-		return errors.New("can't remove model: model not being imported for migration")
-	}
-	return errors.Trace(err)
-}
-
-// RemoveExportingModelDocs removes all documents from multi-model collections
-// for the current model. This method asserts that the model's migration mode
-// is "exporting".
-func (st *State) RemoveExportingModelDocs() error {
-	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
-	if errors.Cause(err) == txn.ErrAborted {
-		return errors.Wrap(err, errors.New("can't remove model: model not being exported for migration"))
-	}
-	return errors.Trace(err)
-}
-
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	// TODO(secrets) - fix when ref counts are done.
 	//if err := cleanupSecretBackendRefCountAfterModelMigrationDone(st); err != nil {

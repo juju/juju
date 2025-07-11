@@ -64,31 +64,33 @@ type ControllerAPI struct {
 	*common.ControllerConfigAPI
 	*commonmodel.ModelStatusAPI
 
-	state                     Backend
-	statePool                 *state.StatePool
-	authorizer                facade.Authorizer
-	apiUser                   names.UserTag
-	resources                 facade.Resources
-	controllerConfigService   ControllerConfigService
-	accessService             ControllerAccessService
-	modelService              ModelService
-	modelInfoService          ModelInfoService
-	blockCommandService       common.BlockCommandService
-	credentialServiceGetter   func(context.Context, coremodel.UUID) (CredentialService, error)
-	upgradeServiceGetter      func(context.Context, coremodel.UUID) (UpgradeService, error)
-	applicationServiceGetter  func(context.Context, coremodel.UUID) (ApplicationService, error)
-	relationServiceGetter     func(context.Context, coremodel.UUID) (RelationService, error)
-	statusServiceGetter       func(context.Context, coremodel.UUID) (StatusService, error)
-	modelAgentServiceGetter   func(context.Context, coremodel.UUID) (ModelAgentService, error)
-	modelConfigServiceGetter  func(context.Context, coremodel.UUID) (ModelConfigService, error)
-	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error)
-	cloudSpecServiceGetter    func(context.Context, coremodel.UUID) (ModelProviderService, error)
-	proxyService              ProxyService
-	modelExporter             func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error)
-	store                     objectstore.ObjectStore
-	logger                    corelogger.Logger
-	controllerModelUUID       coremodel.UUID
-	controllerUUID            string
+	state                       Backend
+	statePool                   *state.StatePool
+	authorizer                  facade.Authorizer
+	apiUser                     names.UserTag
+	resources                   facade.Resources
+	controllerConfigService     ControllerConfigService
+	accessService               ControllerAccessService
+	modelService                ModelService
+	modelInfoService            ModelInfoService
+	blockCommandService         common.BlockCommandService
+	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error)
+	credentialServiceGetter     func(context.Context, coremodel.UUID) (CredentialService, error)
+	upgradeServiceGetter        func(context.Context, coremodel.UUID) (UpgradeService, error)
+	applicationServiceGetter    func(context.Context, coremodel.UUID) (ApplicationService, error)
+	relationServiceGetter       func(context.Context, coremodel.UUID) (RelationService, error)
+	statusServiceGetter         func(context.Context, coremodel.UUID) (StatusService, error)
+	modelAgentServiceGetter     func(context.Context, coremodel.UUID) (ModelAgentService, error)
+	modelConfigServiceGetter    func(context.Context, coremodel.UUID) (ModelConfigService, error)
+	blockCommandServiceGetter   func(context.Context, coremodel.UUID) (BlockCommandService, error)
+	cloudSpecServiceGetter      func(context.Context, coremodel.UUID) (ModelProviderService, error)
+	machineServiceGetter        func(context.Context, coremodel.UUID) (MachineService, error)
+	proxyService                ProxyService
+	modelExporter               func(context.Context, coremodel.UUID) (ModelExporter, error)
+	store                       objectstore.ObjectStore
+	logger                      corelogger.Logger
+	controllerModelUUID         coremodel.UUID
+	controllerUUID              string
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -108,10 +110,10 @@ func NewControllerAPI(
 	controllerNodeService ControllerNodeService,
 	externalControllerService common.ExternalControllerService,
 	accessService ControllerAccessService,
-	machineServiceGetter func(context.Context, coremodel.UUID) (commonmodel.MachineService, error),
 	modelService ModelService,
 	modelInfoService ModelInfoService,
 	blockCommandService common.BlockCommandService,
+	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error),
 	credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
 	upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
 	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
@@ -121,8 +123,9 @@ func NewControllerAPI(
 	modelConfigServiceGetter func(context.Context, coremodel.UUID) (ModelConfigService, error),
 	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error),
 	cloudSpecServiceGetter func(context.Context, coremodel.UUID) (ModelProviderService, error),
+	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
 	proxyService ProxyService,
-	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
+	modelExporter func(context.Context, coremodel.UUID) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	controllerModelUUID coremodel.UUID,
 	controllerUUID string,
@@ -142,46 +145,51 @@ func NewControllerAPI(
 
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
-			st,
 			controllerConfigService,
 			controllerNodeService,
 			externalControllerService,
+			modelService,
 		),
 		ModelStatusAPI: commonmodel.NewModelStatusAPI(
 			commonmodel.NewModelManagerBackend(model, pool),
 			controllerUUID,
-			machineServiceGetter,
+			modelService,
+			func(ctx context.Context, uuid coremodel.UUID) (commonmodel.MachineService, error) {
+				return machineServiceGetter(ctx, uuid)
+			},
 			func(ctx context.Context, uuid coremodel.UUID) (commonmodel.StatusService, error) {
 				return statusServiceGetter(ctx, uuid)
 			},
 			authorizer,
 			apiUser,
 		),
-		state:                     st,
-		statePool:                 pool,
-		authorizer:                authorizer,
-		apiUser:                   apiUser,
-		resources:                 resources,
-		logger:                    logger,
-		controllerConfigService:   controllerConfigService,
-		accessService:             accessService,
-		modelService:              modelService,
-		blockCommandService:       blockCommandService,
-		modelInfoService:          modelInfoService,
-		upgradeServiceGetter:      upgradeServiceGetter,
-		applicationServiceGetter:  applicationServiceGetter,
-		relationServiceGetter:     relationServiceGetter,
-		statusServiceGetter:       statusServiceGetter,
-		credentialServiceGetter:   credentialServiceGetter,
-		modelAgentServiceGetter:   modelAgentServiceGetter,
-		modelConfigServiceGetter:  modelConfigServiceGetter,
-		blockCommandServiceGetter: blockCommandServiceGetter,
-		cloudSpecServiceGetter:    cloudSpecServiceGetter,
-		proxyService:              proxyService,
-		modelExporter:             modelExporter,
-		store:                     store,
-		controllerModelUUID:       controllerModelUUID,
-		controllerUUID:            controllerUUID,
+		state:                       st,
+		statePool:                   pool,
+		authorizer:                  authorizer,
+		apiUser:                     apiUser,
+		resources:                   resources,
+		logger:                      logger,
+		controllerConfigService:     controllerConfigService,
+		accessService:               accessService,
+		modelService:                modelService,
+		blockCommandService:         blockCommandService,
+		modelInfoService:            modelInfoService,
+		upgradeServiceGetter:        upgradeServiceGetter,
+		applicationServiceGetter:    applicationServiceGetter,
+		relationServiceGetter:       relationServiceGetter,
+		statusServiceGetter:         statusServiceGetter,
+		credentialServiceGetter:     credentialServiceGetter,
+		modelAgentServiceGetter:     modelAgentServiceGetter,
+		modelConfigServiceGetter:    modelConfigServiceGetter,
+		blockCommandServiceGetter:   blockCommandServiceGetter,
+		cloudSpecServiceGetter:      cloudSpecServiceGetter,
+		machineServiceGetter:        machineServiceGetter,
+		modelMigrationServiceGetter: modelMigrationServiceGetter,
+		proxyService:                proxyService,
+		modelExporter:               modelExporter,
+		store:                       store,
+		controllerModelUUID:         controllerModelUUID,
+		controllerUUID:              controllerUUID,
 	}, nil
 }
 
@@ -574,48 +582,31 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		}
 	}
 	targetInfo := coremigration.TargetInfo{
-		ControllerTag:   controllerTag,
+		ControllerUUID:  controllerTag.Id(),
 		ControllerAlias: specTarget.ControllerAlias,
 		Addrs:           specTarget.Addrs,
 		CACert:          specTarget.CACert,
-		AuthTag:         authTag,
+		User:            authTag.Id(),
 		Password:        specTarget.Password,
 		Macaroons:       macs,
 		Token:           specTarget.Token,
 	}
 
-	modelConfigService, err := c.modelConfigServiceGetter(ctx, modelUUID)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	// Check if the migration is likely to succeed.
-	systemState, err := c.statePool.SystemState()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	hostedState, err := c.statePool.Get(modelUUID.String())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer hostedState.Release()
-
 	if err := runMigrationPrechecks(
 		ctx,
 		c.logger,
-		hostedState.State,
-		systemState,
 		&targetInfo,
+		c.modelService,
 		c.controllerConfigService,
+		c.modelMigrationServiceGetter,
 		c.credentialServiceGetter,
 		c.modelAgentServiceGetter,
-		modelConfigService,
 		c.upgradeServiceGetter,
-		c.modelService,
 		c.applicationServiceGetter,
 		c.relationServiceGetter,
 		c.statusServiceGetter,
+		c.machineServiceGetter,
 		c.modelExporter,
 		c.store,
 		model,
@@ -625,14 +616,15 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	}
 
 	// Trigger the migration.
-	mig, err := hostedState.CreateMigration(state.MigrationSpec{
-		InitiatedBy: c.apiUser,
-		TargetInfo:  targetInfo,
-	})
+	modelMigrationService, err := c.modelMigrationServiceGetter(ctx, modelUUID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return mig.Id(), nil
+	migrationID, err := modelMigrationService.InitiateMigration(targetInfo, c.apiUser.Id())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return migrationID, nil
 }
 
 // ModifyControllerAccess changes the model access granted to users.
@@ -741,32 +733,28 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 // runMigrationPreChecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
-var runMigrationPrechecks = func(
+func runMigrationPrechecks(
 	ctx context.Context,
 	logger corelogger.Logger,
-	st, ctlrSt *state.State,
 	targetInfo *coremigration.TargetInfo,
+	modelService ModelService,
 	controllerConfigService ControllerConfigService,
+	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error),
 	credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
-	modelConfigService ModelConfigService,
 	upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
-	modelService ModelService,
 	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
 	relationServiceGetter func(context.Context, coremodel.UUID) (RelationService, error),
 	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
-	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
+	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
+	modelExporter func(context.Context, coremodel.UUID) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	model coremodel.Model,
 	controllerModelUUID coremodel.UUID,
 ) error {
-
-	// Check model and source controller.
-	backend, err := migration.PrecheckShim(st, ctlrSt)
-	if err != nil {
-		return errors.Annotate(err, "creating backend")
+	modelMigrationServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.ModelMigrationService, error) {
+		return modelMigrationServiceGetter(ctx, modelUUID)
 	}
-
 	credentialServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.CredentialService, error) {
 		return credentialServiceGetter(ctx, modelUUID)
 	}
@@ -785,18 +773,23 @@ var runMigrationPrechecks = func(
 	modelAgentServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.ModelAgentService, error) {
 		return modelAgentServiceGetter(ctx, modelUUID)
 	}
+	machineServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.MachineService, error) {
+		return machineServiceGetter(ctx, modelUUID)
+	}
 
 	if err := migration.SourcePrecheck(
 		ctx,
-		backend,
 		model.UUID,
 		controllerModelUUID,
+		modelService,
+		modelMigrationServiceGetterShim,
 		credentialServiceGetterShim,
 		upgradeServiceGetterShim,
 		applicationServiceGetterShim,
 		relationServiceGetterShim,
 		statusServiceGetterShim,
 		modelAgentServiceGetterShim,
+		machineServiceGetterShim,
 	); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}
@@ -806,13 +799,17 @@ var runMigrationPrechecks = func(
 		return errors.Trace(err)
 	}
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st,
+	modelInfo, srcUserList, err := makeModelInfo(ctx,
 		controllerConfigService, modelService, modelAgentService, modelExporter, store, model)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	apiInfo, err := targetToAPIInfo(targetInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	loginProvider := migration.NewLoginProvider(*targetInfo)
-	targetConn, err := api.Open(ctx, targetToAPIInfo(targetInfo), migration.ControllerDialOpts(loginProvider))
+	targetConn, err := api.Open(ctx, apiInfo, migration.ControllerDialOpts(loginProvider))
 	if err != nil {
 		return errors.Annotate(err, "connect to target controller")
 	}
@@ -910,18 +907,18 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st *state.State,
+func makeModelInfo(ctx context.Context,
 	controllerConfigService ControllerConfigService,
 	modelService ModelService,
 	modelAgentService ModelAgentService,
-	modelExporterFn func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
+	modelExporterFn func(context.Context, coremodel.UUID) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	model coremodel.Model,
 ) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
-	modelExporter, err := modelExporterFn(ctx, model.UUID, st)
+	modelExporter, err := modelExporterFn(ctx, model.UUID)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -990,19 +987,25 @@ func getTargetControllerUsers(ctx context.Context, conn api.Connection) (userLis
 	return ul, nil
 }
 
-func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
+func targetToAPIInfo(ti *coremigration.TargetInfo) (*api.Info, error) {
 	info := &api.Info{
 		Addrs:     ti.Addrs,
 		CACert:    ti.CACert,
 		Password:  ti.Password,
 		Macaroons: ti.Macaroons,
 	}
+
+	userTag, err := names.ParseUserTag(ti.User)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Only local users must be added to the api info.
 	// For external users, the tag needs to be left empty.
-	if ti.AuthTag.IsLocal() {
-		info.Tag = ti.AuthTag
+	if userTag.IsLocal() {
+		info.Tag = userTag
 	}
-	return info
+	return info, nil
 }
 
 type orderedBlockInfo []params.ModelBlockInfo

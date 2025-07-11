@@ -31,10 +31,10 @@ func newFacade(ctx facade.ModelContext) (*Facade, error) {
 		auth:            authorizer,
 		watcherRegistry: ctx.WatcherRegistry(),
 		controllerConfigAPI: common.NewControllerConfigAPI(
-			ctx.State(),
 			domainServices.ControllerConfig(),
 			domainServices.ControllerNode(),
 			domainServices.ExternalController(),
+			domainServices.Model(),
 		),
 		controllerConfigService: domainServices.ControllerConfig(),
 	}, nil

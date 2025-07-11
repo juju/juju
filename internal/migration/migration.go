@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 
-	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -31,19 +30,7 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/state"
 )
-
-// LegacyStateExporter describes interface on state required to export a
-// model.
-// Deprecated: This is being replaced with the ModelExporter.
-type LegacyStateExporter interface {
-	// Export generates an abstract representation of a model.
-	Export(store objectstore.ObjectStore) (description.Model, error)
-	// ExportPartial produces a partial export based based on the input
-	// config.
-	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
-}
 
 // OperationExporter describes the interface for running the ExportOpertions
 // method.
@@ -67,9 +54,6 @@ type Coordinator interface {
 
 // ModelExporter facilitates partial and full export of a model.
 type ModelExporter struct {
-	// TODO(nvinuesa): This is being deprecated, only needed until the
-	// migration to dqlite is complete.
-	legacyStateExporter   LegacyStateExporter
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	operationExporter     OperationExporter
 
@@ -85,7 +69,6 @@ type ModelExporter struct {
 // needed until the migration to dqlite is complete.
 func NewModelExporter(
 	operationExporter OperationExporter,
-	legacyStateExporter LegacyStateExporter,
 	scope modelmigration.Scope,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	coordinator Coordinator,
@@ -94,7 +77,6 @@ func NewModelExporter(
 ) *ModelExporter {
 	me := &ModelExporter{
 		operationExporter:     operationExporter,
-		legacyStateExporter:   legacyStateExporter,
 		scope:                 scope,
 		storageRegistryGetter: storageRegistryGetter,
 		coordinator:           coordinator,
@@ -105,26 +87,13 @@ func NewModelExporter(
 	return me
 }
 
-// ExportModelPartial partially serializes a model description from the
-// database (legacy mongodb plus dqlite) contents, optionally skipping aspects
-// as defined by the ExportConfig.
-func (e *ModelExporter) ExportModelPartial(ctx context.Context, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
-	model, err := e.legacyStateExporter.ExportPartial(cfg, store)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return e.Export(ctx, model)
-}
-
 // ExportModel serializes a model description from the database (legacy mongodb
 // plus dqlite) contents.
 func (e *ModelExporter) ExportModel(ctx context.Context, store objectstore.ObjectStore) (description.Model, error) {
-	model, err := e.legacyStateExporter.Export(store)
-	if err != nil {
-		return nil, errors.Trace(err)
+	var model description.Model
+	if model == nil {
+		return nil, errors.ConstError("model export not implemented")
 	}
-
 	return e.Export(ctx, model)
 }
 
@@ -142,22 +111,12 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 	return model, nil
 }
 
-// Note: This is being deprecated.
-// legacyStateImporter describes the method needed to import a model
-// into the database.
-type legacyStateImporter interface {
-	Import(description.Model, controller.Config) (*state.Model, *state.State, error)
-}
-
 // ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based
 // on the given cloud service.
 type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchemaSourceGetter
 
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
-	// TODO(nvinuesa): This is being deprecated, only needed until the
-	// migration to dqlite is complete.
-	legacyStateImporter     legacyStateImporter
 	controllerConfigService ControllerConfigService
 	domainServices          services.DomainServicesGetter
 	storageRegistryGetter   corestorage.ModelStorageRegistryGetter
@@ -172,7 +131,6 @@ type ModelImporter struct {
 // legacyStateImporter. The legacyStateImporter is being deprecated, only
 // needed until the migration to dqlite is complete.
 func NewModelImporter(
-	stateImporter legacyStateImporter,
 	scope modelmigration.ScopeForModel,
 	controllerConfigService ControllerConfigService,
 	domainServices services.DomainServicesGetter,
@@ -182,7 +140,6 @@ func NewModelImporter(
 	clock clock.Clock,
 ) *ModelImporter {
 	return &ModelImporter{
-		legacyStateImporter:     stateImporter,
 		scope:                   scope,
 		controllerConfigService: controllerConfigService,
 		domainServices:          domainServices,
@@ -196,23 +153,13 @@ func NewModelImporter(
 // ImportModel deserializes a model description from the bytes, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
+func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 	model, err := description.Deserialize(bytes)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	ctrlConfig, err := i.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "unable to get controller config")
+		return errors.Trace(err)
 	}
 
 	modelUUID := coremodel.UUID(model.UUID())
-
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
 
 	// The domain services are not available during the import, until the
 	// model is created and activated. The model defaults provider is used
@@ -227,10 +174,10 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	coordinator := modelmigration.NewCoordinator(i.logger)
 	migrations.ImportOperations(coordinator, modelDefaultsProvider, i.storageRegistryGetter, i.objectStoreGetter, i.clock, i.logger)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
-		return nil, nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	return dbModel, dbState, nil
+	return nil
 }
 
 type modelDefaultsProvider struct {

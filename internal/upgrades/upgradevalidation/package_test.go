@@ -3,7 +3,7 @@
 
 package upgradevalidation
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/internal/upgrades/upgradevalidation State,ModelAgentService
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/internal/upgrades/upgradevalidation ModelAgentService,MachineService
 
 var (
 	CheckForDeprecatedUbuntuSeriesForModel = checkForDeprecatedUbuntuSeriesForModel

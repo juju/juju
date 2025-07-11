@@ -7,35 +7,38 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/rpc/params"
 )
 
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	backend    Backend
-	authorizer facade.Authorizer
-	resources  facade.Resources
+	watcherRegistry       facade.WatcherRegistry
+	authorizer            facade.Authorizer
+	modelMigrationService ModelMigrationService
 }
 
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
-	backend Backend,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
+	modelMigrationService ModelMigrationService,
 ) (*API, error) {
-	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
+	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backend:    backend,
-		authorizer: authorizer,
-		resources:  resources,
+		watcherRegistry:       watcherRegistry,
+		authorizer:            authorizer,
+		modelMigrationService: modelMigrationService,
 	}, nil
 }
 
@@ -47,10 +50,21 @@ func NewAPI(
 // The MigrationStatusWatcher facade must be used to receive events
 // from the watcher.
 func (api *API) Watch(ctx context.Context) (params.NotifyWatchResult, error) {
-	w := api.backend.WatchMigrationStatus()
-	return params.NotifyWatchResult{
-		NotifyWatcherId: api.resources.Register(w),
-	}, nil
+	var res params.NotifyWatchResult
+	w, err := api.modelMigrationService.WatchForMigration(ctx)
+	if err != nil {
+		res.Error = apiservererrors.ServerError(err)
+		return res, nil
+	}
+	// Do not pull initial results. This is consumed as a legacy watcher called
+	// MigrationStatusWatcher.
+	res.NotifyWatcherId, err = api.watcherRegistry.Register(w)
+	if err != nil {
+		res.Error = apiservererrors.ServerError(err)
+		w.Kill()
+		return res, nil
+	}
+	return res, nil
 }
 
 // Report allows a migration minion to submit whether it succeeded or
@@ -61,11 +75,15 @@ func (api *API) Report(ctx context.Context, info params.MinionReport) error {
 		return errors.New("unable to parse phase")
 	}
 
-	mig, err := api.backend.Migration(info.MigrationId)
-	if err != nil {
-		return errors.Trace(err)
+	tag := api.authorizer.GetAuthTag()
+	switch t := tag.(type) {
+	case names.UnitTag:
+		return api.modelMigrationService.ReportFromUnit(
+			ctx, unit.Name(t.Id()), phase)
+	case names.MachineTag:
+		return api.modelMigrationService.ReportFromMachine(
+			ctx, machine.Name(t.Id()), phase)
+	default:
+		return errors.NotSupportedf("reporting minion status for %v", tag)
 	}
-
-	err = mig.SubmitMinionReport(api.authorizer.GetAuthTag(), phase, info.Success)
-	return errors.Trace(err)
 }

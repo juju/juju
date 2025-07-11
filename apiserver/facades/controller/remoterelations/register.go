@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -27,22 +25,19 @@ func Register(registry facade.FacadeRegistry) {
 
 // makeAPI creates a new server-side API facade backed by global state.
 func makeAPI(_ context.Context, ctx facade.ModelContext) (*API, error) {
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	domainServices := ctx.DomainServices()
 	controllerConfigService := domainServices.ControllerConfig()
 	controllerNodeService := domainServices.ControllerNode()
 	externalControllerService := domainServices.ExternalController()
+	modelService := domainServices.Model()
 	return NewRemoteRelationsAPI(
 		externalControllerService,
 		domainServices.Secret(),
 		common.NewControllerConfigAPI(
-			systemState,
 			controllerConfigService,
 			controllerNodeService,
 			externalControllerService,
+			modelService,
 		),
 		ctx.Auth(),
 	)

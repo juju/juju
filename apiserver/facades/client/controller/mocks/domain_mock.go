@@ -18,6 +18,7 @@ import (
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
+	model0 "github.com/juju/juju/domain/model"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -181,6 +182,45 @@ func NewMockModelService(ctrl *gomock.Controller) *MockModelService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
+}
+
+// CheckModelExists mocks base method.
+func (m *MockModelService) CheckModelExists(arg0 context.Context, arg1 model.UUID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckModelExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckModelExists indicates an expected call of CheckModelExists.
+func (mr *MockModelServiceMockRecorder) CheckModelExists(arg0, arg1 any) *MockModelServiceCheckModelExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckModelExists", reflect.TypeOf((*MockModelService)(nil).CheckModelExists), arg0, arg1)
+	return &MockModelServiceCheckModelExistsCall{Call: call}
+}
+
+// MockModelServiceCheckModelExistsCall wrap *gomock.Call
+type MockModelServiceCheckModelExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceCheckModelExistsCall) Return(arg0 bool, arg1 error) *MockModelServiceCheckModelExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceCheckModelExistsCall) Do(f func(context.Context, model.UUID) (bool, error)) *MockModelServiceCheckModelExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceCheckModelExistsCall) DoAndReturn(f func(context.Context, model.UUID) (bool, error)) *MockModelServiceCheckModelExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // ControllerModel mocks base method.
@@ -374,6 +414,45 @@ func (c *MockModelServiceModelCall) Do(f func(context.Context, model.UUID) (mode
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelServiceModelCall) DoAndReturn(f func(context.Context, model.UUID) (model.Model, error)) *MockModelServiceModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ModelRedirection mocks base method.
+func (m *MockModelService) ModelRedirection(arg0 context.Context, arg1 model.UUID) (model0.ModelRedirection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelRedirection", arg0, arg1)
+	ret0, _ := ret[0].(model0.ModelRedirection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelRedirection indicates an expected call of ModelRedirection.
+func (mr *MockModelServiceMockRecorder) ModelRedirection(arg0, arg1 any) *MockModelServiceModelRedirectionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelRedirection", reflect.TypeOf((*MockModelService)(nil).ModelRedirection), arg0, arg1)
+	return &MockModelServiceModelRedirectionCall{Call: call}
+}
+
+// MockModelServiceModelRedirectionCall wrap *gomock.Call
+type MockModelServiceModelRedirectionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceModelRedirectionCall) Return(arg0 model0.ModelRedirection, arg1 error) *MockModelServiceModelRedirectionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceModelRedirectionCall) Do(f func(context.Context, model.UUID) (model0.ModelRedirection, error)) *MockModelServiceModelRedirectionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceModelRedirectionCall) DoAndReturn(f func(context.Context, model.UUID) (model0.ModelRedirection, error)) *MockModelServiceModelRedirectionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

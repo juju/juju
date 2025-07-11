@@ -8,11 +8,16 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/relation"
 )
 
@@ -46,6 +51,11 @@ type ModelInfoService interface {
 type ModelService interface {
 	// ControllerModel returns the model used for housing the Juju controller.
 	ControllerModel(ctx context.Context) (model.Model, error)
+	// ListAllModels returns all models registered in the controller. If no
+	// models exist a zero value slice will be returned.
+	ListAllModels(context.Context) ([]model.Model, error)
+	// Model returns the model associated with the provided uuid.
+	Model(ctx context.Context, uuid model.UUID) (model.Model, error)
 }
 
 // ApplicationService provides access to the application service.
@@ -107,4 +117,39 @@ type ModelAgentService interface {
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given tag.
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+}
+
+// ModelMigrationService provides access to migration status.
+type ModelMigrationService interface {
+	// ModelMigrationMode returns the current migration mode for the model.
+	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
+	// WatchForMigration returns a notification watcher that fires when this
+	// model undergoes migration.
+	WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error)
+	// Migration returns status about migration of this model.
+	Migration(ctx context.Context) (modelmigration.Migration, error)
+	// SetMigrationPhase is called by the migration master to progress migration.
+	SetMigrationPhase(ctx context.Context, phase migration.Phase) error
+	// SetMigrationStatusMessage is called by the migration master to report on
+	// migration status.
+	SetMigrationStatusMessage(ctx context.Context, message string) error
+	// WatchMinionReports returns a notification watcher that fires when any minion
+	// reports a update to their phase.
+	WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher, error)
+	// MinionReports returns phase information about minions in this model.
+	MinionReports(ctx context.Context) (migration.MinionReports, error)
+}
+
+// MachineService is used to get the life of all machines before migrating.
+type MachineService interface {
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(ctx context.Context) ([]machine.Name, error)
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	GetMachineLife(ctx context.Context, machineName machine.Name) (life.Value, error)
+	// GetMachineBase returns the base for the given machine.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
 }

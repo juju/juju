@@ -242,6 +242,13 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
+// ModelRedirection returns redirection information for the current model. If it
+// is not redirected, [modelmigrationerrors.ModelNotRedirected] is returned.
+// Placeholder for model migration.
+func (s *Service) ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error) {
+	return model.ModelRedirection{}, modelerrors.ModelNotRedirected
+}
+
 // DefaultModelCloudInfo returns the default cloud name and region name
 // that should be used for newly created models that haven't had
 // either cloud or credential specified.

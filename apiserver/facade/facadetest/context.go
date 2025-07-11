@@ -205,7 +205,7 @@ func (c ModelContext) DomainServices() services.DomainServices {
 }
 
 // ModelExporter returns a model exporter for the current model.
-func (c ModelContext) ModelExporter(context.Context, model.UUID, facade.LegacyStateExporter) (facade.ModelExporter, error) {
+func (c ModelContext) ModelExporter(context.Context, model.UUID) (facade.ModelExporter, error) {
 	return c.ModelExporter_, nil
 }
 

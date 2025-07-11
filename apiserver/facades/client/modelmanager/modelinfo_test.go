@@ -5,10 +5,8 @@ package modelmanager_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/juju/description/v10"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -53,8 +51,6 @@ type mockState struct {
 	controllerModel *mockModel
 	machines        []commonmodel.Machine
 	controllerNodes []commonmodel.ControllerNode
-	migration       *mockMigration
-	migrationStatus state.MigrationMode
 }
 
 type fakeModelDescription struct {
@@ -70,14 +66,6 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 
 func (st *mockState) Export(store objectstore.ObjectStore) (description.Model, error) {
 	st.MethodCall(st, "Export")
-	return &fakeModelDescription{ModelUUID: st.model.UUID()}, nil
-}
-
-func (st *mockState) ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
-	st.MethodCall(st, "ExportPartial", cfg)
-	if !cfg.IgnoreIncompleteModel {
-		return nil, errors.New("expected IgnoreIncompleteModel=true")
-	}
 	return &fakeModelDescription{ModelUUID: st.model.UUID()}, nil
 }
 
@@ -156,16 +144,6 @@ func (st *mockState) DumpAll() (map[string]interface{}, error) {
 	}, st.NextErr()
 }
 
-func (st *mockState) LatestMigration() (state.ModelMigration, error) {
-	st.MethodCall(st, "LatestMigration")
-	if st.migration == nil {
-		// Handle nil->notfound directly here rather than having to
-		// count errors.
-		return nil, errors.NotFoundf("")
-	}
-	return st.migration, st.NextErr()
-}
-
 func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
 	st.MethodCall(st, "HAPrimaryMachine")
 	return names.MachineTag{}, nil
@@ -179,11 +157,6 @@ func (st *mockState) ConstraintsBySpaceName(spaceName string) ([]*state.Constrai
 func (st *mockState) InvalidateModelCredential(reason string) error {
 	st.MethodCall(st, "InvalidateModelCredential", reason)
 	return nil
-}
-
-func (st *mockState) MigrationMode() (state.MigrationMode, error) {
-	st.MethodCall(st, "MigrationMode")
-	return st.migrationStatus, nil
 }
 
 type mockModel struct {
@@ -223,26 +196,6 @@ func (m *mockModel) Destroy(args state.DestroyModelParams) error {
 func (m *mockModel) UUID() string {
 	m.MethodCall(m, "UUID")
 	return m.cfg.UUID()
-}
-
-type mockMigration struct {
-	state.ModelMigration
-
-	status string
-	start  time.Time
-	end    time.Time
-}
-
-func (m *mockMigration) StatusMessage() string {
-	return m.status
-}
-
-func (m *mockMigration) StartTime() time.Time {
-	return m.start
-}
-
-func (m *mockMigration) EndTime() time.Time {
-	return m.end
 }
 
 type mockCredentialShim struct {

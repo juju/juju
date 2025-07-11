@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
@@ -27,10 +27,10 @@ import (
 type controllerConfigSuite struct {
 	testing.BaseSuite
 
-	st                        *mocks.MockControllerConfigState
 	controllerConfigService   *mocks.MockControllerConfigService
 	controllerNodeService     *common.MockAPIAddressAccessor
 	externalControllerService *mocks.MockExternalControllerService
+	modelService              *mocks.MockModelService
 	ctrlConfigAPI             *common.ControllerConfigAPI
 }
 
@@ -41,17 +41,17 @@ func TestControllerConfigSuite(t *stdtesting.T) {
 func (s *controllerConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.st = mocks.NewMockControllerConfigState(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 	s.controllerNodeService = common.NewMockAPIAddressAccessor(ctrl)
 	s.externalControllerService = mocks.NewMockExternalControllerService(ctrl)
-	s.ctrlConfigAPI = common.NewControllerConfigAPI(s.st, s.controllerConfigService, s.controllerNodeService, s.externalControllerService)
+	s.modelService = mocks.NewMockModelService(ctrl)
+	s.ctrlConfigAPI = common.NewControllerConfigAPI(s.controllerConfigService, s.controllerNodeService, s.externalControllerService, s.modelService)
 
 	c.Cleanup(func() {
-		s.st = nil
 		s.controllerConfigService = nil
 		s.controllerNodeService = nil
 		s.externalControllerService = nil
+		s.modelService = nil
 		s.ctrlConfigAPI = nil
 	})
 	return ctrl
@@ -99,7 +99,7 @@ func (s *controllerConfigSuite) expectControllerInfo() {
 func (s *controllerConfigSuite) TestControllerInfo(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.st.EXPECT().ModelExists(testing.ModelTag.Id()).Return(true, nil)
+	s.modelService.EXPECT().CheckModelExists(gomock.Any(), coremodel.UUID(testing.ModelTag.Id())).Return(true, nil)
 	s.expectControllerInfo()
 
 	results, err := s.ctrlConfigAPI.ControllerAPIInfoForModels(c.Context(), params.Entities{
@@ -139,10 +139,10 @@ func (s *controllerInfoSuite) SetUpTest(c *tc.C) {
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *tc.C) {
 	domainServices := s.ControllerDomainServices(c)
 	controllerConfig := common.NewControllerConfigAPI(
-		s.localState,
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
+		domainServices.Model(),
 	)
 	results, err := controllerConfig.ControllerAPIInfoForModels(c.Context(), params.Entities{
 		Entities: []params.Entity{{
@@ -174,10 +174,10 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfig := common.NewControllerConfigAPI(
-		s.localState,
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
+		domainServices.Model(),
 	)
 	results, err := controllerConfig.ControllerAPIInfoForModels(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(modelUUID).String()}}})
@@ -189,47 +189,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *tc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *tc.C) {
-	domainServices := s.ControllerDomainServices(c)
-	controllerConfig := common.NewControllerConfigAPI(
-		s.localState,
-		domainServices.ControllerConfig(),
-		domainServices.ControllerNode(),
-		domainServices.ExternalController(),
-	)
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	model := s.localModel.State()
-
-	targetControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
-	defer model.Close()
-
-	// Migrate the model and delete it from the state
-	controllerIP := "1.2.3.4:5555"
-	mig, err := model.CreateMigration(state.MigrationSpec{
-		InitiatedBy: names.NewUserTag("admin"),
-		TargetInfo: migration.TargetInfo{
-			ControllerTag:   targetControllerTag,
-			ControllerAlias: "target",
-			Addrs:           []string{controllerIP},
-			CACert:          "",
-			AuthTag:         names.NewUserTag("user2"),
-			Password:        "secret",
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	for _, phase := range migration.SuccessfulMigrationPhases() {
-		c.Assert(mig.SetPhase(phase), tc.ErrorIsNil)
-	}
-
-	c.Assert(s.localModel.Destroy(state.DestroyModelParams{}), tc.ErrorIsNil)
-	c.Assert(model.RemoveDyingModel(), tc.ErrorIsNil)
-
-	externalControllerInfo, err := controllerConfig.ControllerAPIInfoForModels(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: names.NewModelTag(s.DefaultModelUUID.String()).String()}}})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(len(externalControllerInfo.Results), tc.Equals, 1)
-	c.Assert(externalControllerInfo.Results[0].Addresses[0], tc.Equals, controllerIP)
+	// TODO(modelmigration): test ControllerAPIInfoForModels when the model is
+	// migrated to another controller.
+	c.Skip("check ControllerAPIInfoForModels when the model is migrated elsewhere")
 }

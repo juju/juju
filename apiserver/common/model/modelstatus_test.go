@@ -45,6 +45,7 @@ type modelStatusSuite struct {
 
 	machineService *MockMachineService
 	statusService  *MockStatusService
+	modelService   *MockModelService
 }
 
 func TestModelStatusSuite(t *stdtesting.T) {
@@ -93,6 +94,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *tc.C) {
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.controllerUUID.String(),
+		s.modelService,
 		s.machineServiceGetter,
 		s.statusServiceGetter,
 		anAuthoriser,
@@ -122,6 +124,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *tc.C) {
 	api := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.controllerUUID.String(),
+		s.modelService,
 		s.machineServiceGetter,
 		s.statusServiceGetter,
 		anAuthoriser,
@@ -171,6 +174,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 	modelStatusAPI := model.NewModelStatusAPI(
 		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.controllerUUID.String(),
+		s.modelService,
 		s.machineServiceGetter,
 		s.statusServiceGetter,
 		s.authorizer,
@@ -194,6 +198,7 @@ func (s *modelStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.machineService = NewMockMachineService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
 
 	return ctrl
 }

@@ -116,15 +116,16 @@ func (s *controllerInternalSuite) TestTargetToAPIInfoLocalUser(c *tc.C) {
 	targetInfo := migration.TargetInfo{
 		Addrs:     []string{"6.6.6.6"},
 		CACert:    testing.CACert,
-		AuthTag:   names.NewUserTag("fred"),
+		User:      "fred",
 		Password:  "sekret",
 		Macaroons: []macaroon.Slice{{}},
 	}
-	apiInfo := targetToAPIInfo(&targetInfo)
+	apiInfo, err := targetToAPIInfo(&targetInfo)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiInfo, tc.DeepEquals, &api.Info{
 		Addrs:     targetInfo.Addrs,
 		CACert:    targetInfo.CACert,
-		Tag:       targetInfo.AuthTag,
+		Tag:       names.NewUserTag(targetInfo.User),
 		Password:  targetInfo.Password,
 		Macaroons: targetInfo.Macaroons,
 	})
@@ -134,11 +135,12 @@ func (s *controllerInternalSuite) TestTargetToAPIInfoExternalUser(c *tc.C) {
 	targetInfo := migration.TargetInfo{
 		Addrs:     []string{"6.6.6.6"},
 		CACert:    testing.CACert,
-		AuthTag:   names.NewUserTag("fred@external"),
+		User:      "fred@external",
 		Password:  "sekret",
 		Macaroons: []macaroon.Slice{{}},
 	}
-	apiInfo := targetToAPIInfo(&targetInfo)
+	apiInfo, err := targetToAPIInfo(&targetInfo)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiInfo, tc.DeepEquals, &api.Info{
 		Addrs:     targetInfo.Addrs,
 		CACert:    targetInfo.CACert,

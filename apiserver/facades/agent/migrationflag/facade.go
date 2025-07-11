@@ -9,48 +9,51 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
-
-// Backend exposes information about any current model migrations.
-type Backend interface {
-	ModelUUID() string
-	MigrationPhase() (migration.Phase, error)
-	WatchMigrationPhase() state.NotifyWatcher
-}
 
 // Facade lets clients watch and get models' migration phases.
 type Facade struct {
-	backend   Backend
-	resources facade.Resources
+	watcherRegistry       facade.WatcherRegistry
+	getCanAccess          common.GetAuthFunc
+	modelMigrationService ModelMigrationService
 }
 
 // New creates a Facade backed by backend and resources. If auth
 // doesn't identity the client as a machine agent or a unit agent,
 // it will return apiservererrors.ErrPerm.
-func New(backend Backend, resources facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() && !auth.AuthApplicationAgent() {
+func New(
+	watcherRegistry facade.WatcherRegistry,
+	auth facade.Authorizer,
+	getCanAccess common.GetAuthFunc,
+	modelMigrationService ModelMigrationService,
+) (*Facade, error) {
+	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		backend:   backend,
-		resources: resources,
+		watcherRegistry:       watcherRegistry,
+		getCanAccess:          getCanAccess,
+		modelMigrationService: modelMigrationService,
 	}, nil
 }
 
 // auth is very simplistic: it only accepts the model tag reported by
 // the backend.
-func (facade *Facade) auth(tagString string) error {
+func (facade *Facade) auth(ctx context.Context, tagString string) error {
 	tag, err := names.ParseModelTag(tagString)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if tag.Id() != facade.backend.ModelUUID() {
+	canAccess, err := facade.getCanAccess(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canAccess(tag) {
 		return apiservererrors.ErrPerm
 	}
 	return nil
@@ -64,7 +67,7 @@ func (facade *Facade) Phase(ctx context.Context, entities params.Entities) param
 		Results: make([]params.PhaseResult, count),
 	}
 	for i, entity := range entities.Entities {
-		phase, err := facade.onePhase(entity.Tag)
+		phase, err := facade.onePhase(ctx, entity.Tag)
 		results.Results[i].Phase = phase
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -72,15 +75,15 @@ func (facade *Facade) Phase(ctx context.Context, entities params.Entities) param
 }
 
 // onePhase does auth and lookup for a single entity.
-func (facade *Facade) onePhase(tagString string) (string, error) {
-	if err := facade.auth(tagString); err != nil {
+func (facade *Facade) onePhase(ctx context.Context, tagString string) (string, error) {
+	if err := facade.auth(ctx, tagString); err != nil {
 		return "", errors.Trace(err)
 	}
-	phase, err := facade.backend.MigrationPhase()
+	m, err := facade.modelMigrationService.Migration(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return phase.String(), nil
+	return m.Phase.String(), nil
 }
 
 // Watch returns an id for use with the NotifyWatcher facade, or an
@@ -91,7 +94,7 @@ func (facade *Facade) Watch(ctx context.Context, entities params.Entities) param
 		Results: make([]params.NotifyWatchResult, count),
 	}
 	for i, entity := range entities.Entities {
-		id, err := facade.oneWatch(entity.Tag)
+		id, err := facade.oneWatch(ctx, entity.Tag)
 		results.Results[i].NotifyWatcherId = id
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -100,13 +103,14 @@ func (facade *Facade) Watch(ctx context.Context, entities params.Entities) param
 
 // oneWatch does auth, and watcher creation/registration, for a single
 // entity.
-func (facade *Facade) oneWatch(tagString string) (string, error) {
-	if err := facade.auth(tagString); err != nil {
+func (facade *Facade) oneWatch(ctx context.Context, tagString string) (string, error) {
+	if err := facade.auth(ctx, tagString); err != nil {
 		return "", errors.Trace(err)
 	}
-	watch := facade.backend.WatchMigrationPhase()
-	if _, ok := <-watch.Changes(); ok {
-		return facade.resources.Register(watch), nil
+	w, err := facade.modelMigrationService.WatchMigrationPhase(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	return "", watcher.EnsureErr(watch)
+	id, _, err := internal.EnsureRegisterWatcher(ctx, facade.watcherRegistry, w)
+	return id, errors.Trace(err)
 }

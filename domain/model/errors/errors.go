@@ -54,4 +54,7 @@ const (
 	// NotActivated describes an error that occurs when a model is not
 	// activated.
 	NotActivated = errors.ConstError("model not activated")
+
+	// ModelNotRedirected means this model is to be served by this controller.
+	ModelNotRedirected = errors.ConstError("model not redirected")
 )

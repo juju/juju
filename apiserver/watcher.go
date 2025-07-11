@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/migration"
+	coremigration "github.com/juju/juju/core/migration"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -367,18 +367,8 @@ func (w *srvEntitiesWatcher) Next(ctx context.Context) (params.EntitiesWatchResu
 	}, nil
 }
 
-var getMigrationBackend = func(st *state.State) migrationBackend {
-	return st
-}
-
 var getAllAPIAddressesForClients = func(ctx context.Context, controllerNodeService ControllerNodeService) ([]string, error) {
 	return controllerNodeService.GetAllAPIAddressesForClients(ctx)
-}
-
-// migrationBackend defines model State functionality required by the
-// migration watchers.
-type migrationBackend interface {
-	LatestMigration() (state.ModelMigration, error)
 }
 
 func newMigrationStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
@@ -394,13 +384,10 @@ func newMigrationStatusWatcher(_ context.Context, context facade.ModelContext) (
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
-	var (
-		st = context.State()
-	)
 	return &srvMigrationStatusWatcher{
 		watcherCommon:           newWatcherCommon(context),
 		watcher:                 watcher,
-		st:                      getMigrationBackend(st),
+		modelMigrationService:   context.DomainServices().ModelMigration(),
 		controllerNodeService:   context.DomainServices().ControllerNode(),
 		controllerConfigService: context.DomainServices().ControllerConfig(),
 	}, nil
@@ -409,7 +396,7 @@ func newMigrationStatusWatcher(_ context.Context, context facade.ModelContext) (
 type srvMigrationStatusWatcher struct {
 	watcherCommon
 	watcher                 corewatcher.NotifyWatcher
-	st                      migrationBackend
+	modelMigrationService   ModelMigrationService
 	controllerNodeService   ControllerNodeService
 	controllerConfigService ControllerConfigService
 }
@@ -423,18 +410,14 @@ func (w *srvMigrationStatusWatcher) Next(ctx context.Context) (params.MigrationS
 		return params.MigrationStatus{}, errors.Trace(err)
 	}
 
-	mig, err := w.st.LatestMigration()
-	if errors.Is(err, errors.NotFound) {
-		return params.MigrationStatus{
-			Phase: migration.NONE.String(),
-		}, nil
-	} else if err != nil {
+	mig, err := w.modelMigrationService.Migration(ctx)
+	if err != nil {
 		return params.MigrationStatus{}, errors.Annotate(err, "migration lookup")
 	}
-
-	phase, err := mig.Phase()
-	if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "retrieving migration phase")
+	if mig.Phase == coremigration.NONE {
+		return params.MigrationStatus{
+			Phase: coremigration.NONE.String(),
+		}, nil
 	}
 
 	sourceAddrs, err := getAllAPIAddressesForClients(ctx, w.controllerNodeService)
@@ -451,19 +434,14 @@ func (w *srvMigrationStatusWatcher) Next(ctx context.Context) (params.MigrationS
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source CA cert")
 	}
 
-	target, err := mig.TargetInfo()
-	if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "retrieving target info")
-	}
-
 	return params.MigrationStatus{
-		MigrationId:    mig.Id(),
-		Attempt:        mig.Attempt(),
-		Phase:          phase.String(),
+		MigrationId:    mig.UUID,
+		Attempt:        mig.Attempt,
+		Phase:          mig.Phase.String(),
 		SourceAPIAddrs: sourceAddrs,
 		SourceCACert:   sourceCACert,
-		TargetAPIAddrs: target.Addrs,
-		TargetCACert:   target.CACert,
+		TargetAPIAddrs: mig.Target.Addrs,
+		TargetCACert:   mig.Target.CACert,
 	}, nil
 }
 

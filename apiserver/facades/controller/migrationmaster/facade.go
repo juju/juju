@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 // ModelExporter exports a model to a description.Model.
@@ -42,74 +42,74 @@ type APIV4 struct {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	modelExporter            ModelExporter
-	backend                  Backend
-	precheckBackend          migration.PrecheckBackend
-	pool                     migration.Pool
-	authorizer               facade.Authorizer
-	resources                facade.Resources
-	leadership               leadership.Reader
-	credentialServiceGetter  func(context.Context, coremodel.UUID) (CredentialService, error)
-	upgradeServiceGetter     func(context.Context, coremodel.UUID) (UpgradeService, error)
-	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error)
-	relationServiceGetter    func(context.Context, coremodel.UUID) (RelationService, error)
-	statusServiceGetter      func(context.Context, coremodel.UUID) (StatusService, error)
-	modelAgentServiceGetter  func(context.Context, coremodel.UUID) (ModelAgentService, error)
-	controllerConfigService  ControllerConfigService
-	controllerNodeService    ControllerNodeService
-	modelInfoService         ModelInfoService
-	modelService             ModelService
-	store                    objectstore.ObjectStore
-	controllerModelUUID      coremodel.UUID
+	modelExporter               ModelExporter
+	authorizer                  facade.Authorizer
+	watcherRegistry             facade.WatcherRegistry
+	leadership                  leadership.Reader
+	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error)
+	credentialServiceGetter     func(context.Context, coremodel.UUID) (CredentialService, error)
+	upgradeServiceGetter        func(context.Context, coremodel.UUID) (UpgradeService, error)
+	applicationServiceGetter    func(context.Context, coremodel.UUID) (ApplicationService, error)
+	relationServiceGetter       func(context.Context, coremodel.UUID) (RelationService, error)
+	statusServiceGetter         func(context.Context, coremodel.UUID) (StatusService, error)
+	modelAgentServiceGetter     func(context.Context, coremodel.UUID) (ModelAgentService, error)
+	machineServiceGetter        func(context.Context, coremodel.UUID) (MachineService, error)
+	controllerConfigService     ControllerConfigService
+	controllerNodeService       ControllerNodeService
+	modelInfoService            ModelInfoService
+	modelService                ModelService
+	modelMigrationService       ModelMigrationService
+	store                       objectstore.ObjectStore
+	controllerModelUUID         coremodel.UUID
 }
 
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
-	backend Backend,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	controllerModelUUID coremodel.UUID,
-	precheckBackend migration.PrecheckBackend,
-	pool migration.Pool,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	leadership leadership.Reader,
+	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error),
 	credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
 	upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
 	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
 	relationServiceGetter func(context.Context, coremodel.UUID) (RelationService, error),
 	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
+	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
+	modelMigrationService ModelMigrationService,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &API{
-		backend:                  backend,
-		modelExporter:            modelExporter,
-		store:                    store,
-		controllerModelUUID:      controllerModelUUID,
-		precheckBackend:          precheckBackend,
-		pool:                     pool,
-		authorizer:               authorizer,
-		resources:                resources,
-		leadership:               leadership,
-		credentialServiceGetter:  credentialServiceGetter,
-		upgradeServiceGetter:     upgradeServiceGetter,
-		applicationServiceGetter: applicationServiceGetter,
-		relationServiceGetter:    relationServiceGetter,
-		statusServiceGetter:      statusServiceGetter,
-		modelAgentServiceGetter:  modelAgentServiceGetter,
-		controllerConfigService:  controllerConfigService,
-		controllerNodeService:    controllerNodeService,
-		modelInfoService:         modelInfoService,
-		modelService:             modelService,
+		modelExporter:               modelExporter,
+		store:                       store,
+		controllerModelUUID:         controllerModelUUID,
+		authorizer:                  authorizer,
+		watcherRegistry:             watcherRegistry,
+		leadership:                  leadership,
+		modelMigrationServiceGetter: modelMigrationServiceGetter,
+		credentialServiceGetter:     credentialServiceGetter,
+		upgradeServiceGetter:        upgradeServiceGetter,
+		applicationServiceGetter:    applicationServiceGetter,
+		relationServiceGetter:       relationServiceGetter,
+		statusServiceGetter:         statusServiceGetter,
+		modelAgentServiceGetter:     modelAgentServiceGetter,
+		machineServiceGetter:        machineServiceGetter,
+		controllerConfigService:     controllerConfigService,
+		controllerNodeService:       controllerNodeService,
+		modelInfoService:            modelInfoService,
+		modelService:                modelService,
+		modelMigrationService:       modelMigrationService,
 	}, nil
 }
 
@@ -117,15 +117,17 @@ func NewAPI(
 // associated with the API connection. The returned id should be used
 // with the NotifyWatcher facade to receive events.
 func (api *API) Watch(ctx context.Context) params.NotifyWatchResult {
-	watch := api.backend.WatchForMigration()
-	if _, ok := <-watch.Changes(); ok {
-		return params.NotifyWatchResult{
-			NotifyWatcherId: api.resources.Register(watch),
-		}
+	result := params.NotifyWatchResult{}
+
+	w, err := api.modelMigrationService.WatchForMigration(ctx)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
 	}
-	return params.NotifyWatchResult{
-		Error: apiservererrors.ServerError(watcher.EnsureErr(watch)),
-	}
+
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, w)
+	result.Error = apiservererrors.ServerError(err)
+	return result
 }
 
 // MigrationStatus returns the details and progress of the latest
@@ -133,38 +135,40 @@ func (api *API) Watch(ctx context.Context) params.NotifyWatchResult {
 func (api *API) MigrationStatus(ctx context.Context) (params.MasterMigrationStatus, error) {
 	empty := params.MasterMigrationStatus{}
 
-	mig, err := api.backend.LatestMigration()
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	migrationInfo, err := api.modelMigrationService.Migration(ctx)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving model migration")
 	}
-	target, err := mig.TargetInfo()
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving target info")
+	if migrationInfo.Phase == coremigration.NONE {
+		return empty, errors.NotFoundf("migration")
 	}
-	phase, err := mig.Phase()
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving phase")
-	}
+
+	target := migrationInfo.Target
 	macsJSON, err := json.Marshal(target.Macaroons)
 	if err != nil {
 		return empty, errors.Annotate(err, "marshalling macaroons")
 	}
 	return params.MasterMigrationStatus{
 		Spec: params.MigrationSpec{
-			ModelTag: names.NewModelTag(mig.ModelUUID()).String(),
+			ModelTag: names.NewModelTag(modelInfo.UUID.String()).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: target.ControllerTag.String(),
+				ControllerTag: names.NewControllerTag(target.ControllerUUID).String(),
 				Addrs:         target.Addrs,
 				CACert:        target.CACert,
-				AuthTag:       target.AuthTag.String(),
+				AuthTag:       names.NewUserTag(target.User).String(),
 				Password:      target.Password,
 				Macaroons:     string(macsJSON),
 				Token:         target.Token,
 			},
 		},
-		MigrationId:      mig.Id(),
-		Phase:            phase.String(),
-		PhaseChangedTime: mig.PhaseChangedTime(),
+		MigrationId:      migrationInfo.UUID,
+		Phase:            migrationInfo.Phase.String(),
+		PhaseChangedTime: migrationInfo.PhaseChangedTime,
 	}, nil
 }
 
@@ -225,18 +229,15 @@ func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourc
 // phase must be a valid phase value, for example QUIESCE" or
 // "ABORT". See the core/migration package for the complete list.
 func (api *API) SetPhase(ctx context.Context, args params.SetMigrationPhaseArgs) error {
-	mig, err := api.backend.LatestMigration()
-	if err != nil {
-		return errors.Annotate(err, "could not get migration")
-	}
-
 	phase, ok := coremigration.ParsePhase(args.Phase)
 	if !ok {
 		return errors.Errorf("invalid phase: %q", args.Phase)
 	}
-
-	err = mig.SetPhase(phase)
-	return errors.Annotate(err, "failed to set phase")
+	err := api.modelMigrationService.SetMigrationPhase(ctx, phase)
+	if err != nil {
+		return errors.Annotate(err, "failed to set phase")
+	}
+	return nil
 }
 
 // Prechecks performs pre-migration checks on the model and
@@ -249,6 +250,9 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 		return errors.Annotate(err, "retrieving model info")
 	}
 
+	modelMigrationServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.ModelMigrationService, error) {
+		return api.modelMigrationServiceGetter(ctx, modelUUID)
+	}
 	credentialServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.CredentialService, error) {
 		return api.credentialServiceGetter(ctx, modelUUID)
 	}
@@ -267,18 +271,23 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 	modelAgentServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.ModelAgentService, error) {
 		return api.modelAgentServiceGetter(ctx, modelUUID)
 	}
+	machineServiceGetterShim := func(ctx context.Context, modelUUID coremodel.UUID) (migration.MachineService, error) {
+		return api.machineServiceGetter(ctx, modelUUID)
+	}
 
 	return migration.SourcePrecheck(
 		ctx,
-		api.precheckBackend,
 		model.UUID,
 		api.controllerModelUUID,
+		api.modelService,
+		modelMigrationServiceGetterShim,
 		credentialServiceGetterShim,
 		upgradeServiceGetterShim,
 		applicationServiceGetterShim,
 		relationServiceGetterShim,
 		statusServiceGetterShim,
 		modelAgentServiceGetterShim,
+		machineServiceGetterShim,
 	)
 }
 
@@ -286,12 +295,11 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 // information about the migration's progress. This will be shown in
 // status output shown to the end user.
 func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationStatusMessageArgs) error {
-	mig, err := api.backend.LatestMigration()
+	err := api.modelMigrationService.SetMigrationStatusMessage(ctx, args.Message)
 	if err != nil {
-		return errors.Annotate(err, "could not get migration")
+		return errors.Annotate(err, "failed to set status message")
 	}
-	err = mig.SetStatusMessage(args.Message)
-	return errors.Annotate(err, "failed to set status message")
+	return nil
 }
 
 // Export serializes the model associated with the API connection.
@@ -325,41 +333,33 @@ func (api *API) ProcessRelations(ctx context.Context, args params.ProcessRelatio
 // Reap removes all documents for the model associated with the API
 // connection.
 func (api *API) Reap(ctx context.Context) error {
-	mig, err := api.backend.LatestMigration()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = api.backend.RemoveExportingModelDocs()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	// TODO(modelmigration): handle setting model redirection/marking the model
+	// as gone.
+
 	// We need to mark the migration as complete here, since removing
 	// the model might kill the worker before it has a chance to set
 	// the phase itself.
-	return errors.Trace(mig.SetPhase(coremigration.DONE))
+	err := api.modelMigrationService.SetMigrationPhase(ctx, coremigration.DONE)
+	if err != nil {
+		return errors.Annotate(err, "failed to set phase")
+	}
+	return nil
 }
 
 // WatchMinionReports sets up a watcher which reports when a report
 // for a migration minion has arrived.
 func (api *API) WatchMinionReports(ctx context.Context) params.NotifyWatchResult {
-	mig, err := api.backend.LatestMigration()
+	result := params.NotifyWatchResult{}
+
+	w, err := api.modelMigrationService.WatchMinionReports(ctx)
 	if err != nil {
-		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}
+		result.Error = apiservererrors.ServerError(err)
+		return result
 	}
 
-	watch, err := mig.WatchMinionReports()
-	if err != nil {
-		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}
-	}
-
-	if _, ok := <-watch.Changes(); ok {
-		return params.NotifyWatchResult{
-			NotifyWatcherId: api.resources.Register(watch),
-		}
-	}
-	return params.NotifyWatchResult{
-		Error: apiservererrors.ServerError(watcher.EnsureErr(watch)),
-	}
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, w)
+	result.Error = apiservererrors.ServerError(err)
+	return result
 }
 
 // MinionReports returns details of the reports made by migration
@@ -367,41 +367,60 @@ func (api *API) WatchMinionReports(ctx context.Context) params.NotifyWatchResult
 func (api *API) MinionReports(ctx context.Context) (params.MinionReports, error) {
 	var out params.MinionReports
 
-	mig, err := api.backend.LatestMigration()
+	migration, err := api.modelMigrationService.Migration(ctx)
 	if err != nil {
 		return out, errors.Trace(err)
 	}
+	out.MigrationId = migration.UUID
+	out.Phase = migration.Phase.String()
 
-	reports, err := mig.MinionReports()
+	reports, err := api.modelMigrationService.MinionReports(ctx)
 	if err != nil {
 		return out, errors.Trace(err)
 	}
+	out.SuccessCount = reports.SuccessCount
+	out.UnknownCount = reports.UnknownCount
 
-	out.MigrationId = mig.Id()
-	phase, err := mig.Phase()
-	if err != nil {
-		return out, errors.Trace(err)
+	out.Failed = make([]string, 0,
+		len(reports.FailedApplications)+
+			len(reports.FailedMachines)+
+			len(reports.FailedUnits),
+	)
+	for _, applicationName := range reports.FailedApplications {
+		out.Failed = append(out.Failed,
+			names.NewApplicationTag(applicationName).String())
 	}
-	out.Phase = phase.String()
-
-	out.SuccessCount = len(reports.Succeeded)
-
-	out.Failed = make([]string, len(reports.Failed))
-	for i := 0; i < len(out.Failed); i++ {
-		out.Failed[i] = reports.Failed[i].String()
+	for _, machineId := range reports.FailedMachines {
+		out.Failed = append(out.Failed,
+			names.NewMachineTag(machineId).String())
+	}
+	for _, unitName := range reports.FailedUnits {
+		out.Failed = append(out.Failed,
+			names.NewUnitTag(unitName).String())
 	}
 	naturalsort.Sort(out.Failed)
 
-	out.UnknownCount = len(reports.Unknown)
-
-	unknown := make([]string, len(reports.Unknown))
-	for i := 0; i < len(unknown); i++ {
-		unknown[i] = reports.Unknown[i].String()
+	unknown := make([]string, 0,
+		len(reports.SomeUnknownApplications)+
+			len(reports.SomeUnknownMachines)+
+			len(reports.SomeUnknownUnits),
+	)
+	for _, applicationName := range reports.SomeUnknownApplications {
+		unknown = append(unknown,
+			names.NewApplicationTag(applicationName).String())
+	}
+	for _, machineId := range reports.SomeUnknownMachines {
+		unknown = append(unknown,
+			names.NewMachineTag(machineId).String())
+	}
+	for _, unitName := range reports.SomeUnknownUnits {
+		unknown = append(unknown,
+			names.NewUnitTag(unitName).String())
 	}
 	naturalsort.Sort(unknown)
 
 	// Limit the number of unknowns reported
-	numSamples := out.UnknownCount
+	numSamples := len(unknown)
 	if numSamples > 10 {
 		numSamples = 10
 	}

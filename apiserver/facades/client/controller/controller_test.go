@@ -24,7 +24,6 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
-	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
@@ -226,7 +225,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		}
 		return svc.BlockCommand(), nil
 	}
-	machineServiceGetter := func(c context.Context, modelUUID model.UUID) (commonmodel.MachineService, error) {
+	machineServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.MachineService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -240,6 +239,13 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		}
 		return svc.ModelProvider(), nil
 	}
+	modelMigrationServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.ModelMigrationService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.ModelMigration(), nil
+	}
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
@@ -252,10 +258,10 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Access(),
-		machineServiceGetter,
 		s.mockModelService,
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
+		modelMigrationServiceGetter,
 		credentialServiceGetter,
 		upgradeServiceGetter,
 		applicationServiceGetter,
@@ -265,9 +271,10 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,
 		cloudSpecServiceGetter,
+		machineServiceGetter,
 		domainServices.Proxy(),
-		func(c context.Context, modelUUID model.UUID, legacyState facade.LegacyStateExporter) (controller.ModelExporter, error) {
-			return ctx.ModelExporter(c, modelUUID, legacyState)
+		func(c context.Context, modelUUID model.UUID) (controller.ModelExporter, error) {
+			return ctx.ModelExporter(c, modelUUID)
 		},
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),

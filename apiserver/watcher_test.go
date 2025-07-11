@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -200,13 +198,6 @@ type fakeMigrationBackend struct {
 	noMigration bool
 }
 
-func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
-	if b.noMigration {
-		return nil, errors.NotFoundf("migration")
-	}
-	return new(fakeModelMigration), nil
-}
-
 func (b *fakeMigrationBackend) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
 	return []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"}, nil
 }
@@ -217,32 +208,6 @@ func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
 
 func (b *fakeMigrationBackend) ControllerConfig() (controller.Config, error) {
 	return nil, nil
-}
-
-type fakeModelMigration struct {
-	state.ModelMigration
-}
-
-func (m *fakeModelMigration) Id() string {
-	return "id"
-}
-
-func (m *fakeModelMigration) Attempt() int {
-	return 2
-}
-
-func (m *fakeModelMigration) Phase() (migration.Phase, error) {
-	return migration.IMPORT, nil
-}
-
-func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {
-	return &migration.TargetInfo{
-		ControllerTag: names.NewControllerTag("uuid"),
-		Addrs:         []string{"1.2.3.4:5555"},
-		CACert:        "trust me",
-		AuthTag:       names.NewUserTag("admin"),
-		Password:      "sekret",
-	}, nil
 }
 
 type migrationStatusWatcher interface {

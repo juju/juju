@@ -6,7 +6,6 @@ package migration_test
 import (
 	"testing"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
@@ -32,13 +31,13 @@ func (s *TargetInfoSuite) TestValidation(c *tc.C) {
 	}{{
 		"empty ControllerTag",
 		func(info *migration.TargetInfo) {
-			info.ControllerTag = names.NewControllerTag("fooo")
+			info.ControllerUUID = "fooo"
 		},
 		"ControllerTag not valid",
 	}, {
 		"invalid ControllerTag",
 		func(info *migration.TargetInfo) {
-			info.ControllerTag = names.NewControllerTag("")
+			info.ControllerUUID = ""
 		},
 		"ControllerTag not valid",
 	}, {
@@ -56,10 +55,10 @@ func (s *TargetInfoSuite) TestValidation(c *tc.C) {
 	}, {
 		"AuthTag",
 		func(info *migration.TargetInfo) {
-			info.AuthTag = names.UserTag{}
+			info.User = ""
 			info.Macaroons = nil
 		},
-		"empty AuthTag not valid",
+		"empty User not valid",
 	}, {
 		"Success - empty CACert",
 		func(info *migration.TargetInfo) {
@@ -110,7 +109,7 @@ func (s *TargetInfoSuite) TestValidation(c *tc.C) {
 	}, {
 		"Success - empty AuthTag with macaroons",
 		func(info *migration.TargetInfo) {
-			info.AuthTag = names.UserTag{}
+			info.User = ""
 		},
 		"",
 	}, {
@@ -137,12 +136,12 @@ func makeValidTargetInfo(c *tc.C) migration.TargetInfo {
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	return migration.TargetInfo{
-		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
-		Addrs:         []string{"1.2.3.4:5555"},
-		CACert:        "cert",
-		AuthTag:       names.NewUserTag("user"),
-		Password:      "password",
-		Macaroons:     []macaroon.Slice{{mac}},
-		Token:         "token",
+		ControllerUUID: uuid.MustNewUUID().String(),
+		Addrs:          []string{"1.2.3.4:5555"},
+		CACert:         "cert",
+		User:           "user",
+		Password:       "password",
+		Macaroons:      []macaroon.Slice{{mac}},
+		Token:          "token",
 	}
 }

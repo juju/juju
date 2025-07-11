@@ -4,6 +4,7 @@
 package upgradevalidation_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -56,19 +58,23 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	st := mocks.NewMockState(ctrl)
 	agentVersion := mocks.NewMockModelAgentService(ctrl)
+	machineService := mocks.NewMockMachineService(ctrl)
+	validatorServices := upgradevalidation.ValidatorServices{
+		ModelAgentService: agentVersion,
+		MachineService:    machineService,
+	}
 
-	checker := upgradevalidation.NewModelUpgradeCheck(st, "test-model", agentVersion,
-		func(st upgradevalidation.State, modelAgentService upgradevalidation.ModelAgentService) (*upgradevalidation.Blocker, error) {
+	checker := upgradevalidation.NewModelUpgradeCheck("test-model", validatorServices,
+		func(context.Context, upgradevalidation.ValidatorServices) (*upgradevalidation.Blocker, error) {
 			return upgradevalidation.NewBlocker("model migration is in process"), nil
 		},
-		func(st upgradevalidation.State, modelAgentService upgradevalidation.ModelAgentService) (*upgradevalidation.Blocker, error) {
+		func(context.Context, upgradevalidation.ValidatorServices) (*upgradevalidation.Blocker, error) {
 			return nil, errors.New("server is unreachable")
 		},
 	)
 
-	blockers, err := checker.Validate()
+	blockers, err := checker.Validate(c.Context())
 	c.Assert(err, tc.ErrorMatches, `server is unreachable`)
 	c.Assert(blockers, tc.IsNil)
 }
@@ -77,16 +83,20 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	st := mocks.NewMockState(ctrl)
-	agentService := mocks.NewMockModelAgentService(ctrl)
+	agentVersion := mocks.NewMockModelAgentService(ctrl)
+	machineService := mocks.NewMockMachineService(ctrl)
+	validatorServices := upgradevalidation.ValidatorServices{
+		ModelAgentService: agentVersion,
+		MachineService:    machineService,
+	}
 
-	checker := upgradevalidation.NewModelUpgradeCheck(st, "test-model", agentService,
-		func(st upgradevalidation.State, modelAgentService upgradevalidation.ModelAgentService) (*upgradevalidation.Blocker, error) {
+	checker := upgradevalidation.NewModelUpgradeCheck("test-model", validatorServices,
+		func(context.Context, upgradevalidation.ValidatorServices) (*upgradevalidation.Blocker, error) {
 			return upgradevalidation.NewBlocker("model migration is in process"), nil
 		},
 	)
 
-	blockers, err := checker.Validate()
+	blockers, err := checker.Validate(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blockers.String(), tc.Equals, `
 "test-model":
@@ -101,11 +111,19 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *t
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
-	st := mocks.NewMockState(ctrl)
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(map[string]int{"ubuntu@20.04": 1, "ubuntu@22.04": 1, "ubuntu@24.04": 2}, nil)
-	st.EXPECT().AllMachinesCount().Return(5, nil)
+	agentVersion := mocks.NewMockModelAgentService(ctrl)
+	machineService := mocks.NewMockMachineService(ctrl)
+	validatorServices := upgradevalidation.ValidatorServices{
+		ModelAgentService: agentVersion,
+		MachineService:    machineService,
+	}
+	machineNames := []machine.Name{"0", "1", "2"}
+	machineService.EXPECT().AllMachineNames(gomock.Any()).Return(machineNames, nil)
+	machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(base.MustParseBaseFromString("ubuntu@18.04"), nil)
+	machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("1")).Return(base.MustParseBaseFromString("ubuntu@22.04"), nil)
+	machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("2")).Return(base.MustParseBaseFromString("ubuntu@20.04"), nil)
 
-	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel(st, nil)
+	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel(c.Context(), validatorServices)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blocker.Error(), tc.Equals, `the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`)
 }
@@ -119,6 +137,12 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 	})
 
 	agentService := mocks.NewMockModelAgentService(ctrl)
+	machineService := mocks.NewMockMachineService(ctrl)
+	validatorServices := upgradevalidation.ValidatorServices{
+		ModelAgentService: agentService,
+		MachineService:    machineService,
+	}
+	machineService.EXPECT().AllMachineNames(gomock.Any()).Return(nil, nil).AnyTimes()
 	gomock.InOrder(
 		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.29"), nil),
 		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.31"), nil),
@@ -129,28 +153,28 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 	blocker, err := upgradevalidation.GetCheckTargetVersionForModel(
 		semversion.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
-	)(nil, agentService)
+	)(c.Context(), validatorServices)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blocker, tc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		semversion.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
-	)(nil, agentService)
+	)(c.Context(), validatorServices)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		semversion.MustParse("1.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
-	)(nil, agentService)
+	)(c.Context(), validatorServices)
 	c.Assert(err, tc.ErrorMatches, `downgrade is not allowed`)
 	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		semversion.MustParse("4.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
-	)(nil, agentService)
+	)(c.Context(), validatorServices)
 	c.Assert(err, tc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)
 	c.Assert(blocker, tc.IsNil)
 }
