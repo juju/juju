@@ -232,20 +232,6 @@ func (c *firewallerBase) jujuGroupName(controllerUUID string) string {
 	return fmt.Sprintf("juju-%v-%v", controllerUUID, cfg.UUID())
 }
 
-func (c *firewallerBase) jujuControllerGroupPrefix(controllerUUID string) string {
-	return fmt.Sprintf("juju-%v-", controllerUUID)
-}
-
-func (c *firewallerBase) jujuGroupPrefixRegexp() string {
-	cfg := c.environ.Config()
-	return fmt.Sprintf("juju-.*-%v", cfg.UUID())
-}
-
-func (c *firewallerBase) machineGroupRegexp(machineID string) string {
-	// we are only looking to match 1 machine
-	return fmt.Sprintf("%s-%s$", c.jujuGroupPrefixRegexp(), machineID)
-}
-
 type neutronFirewaller struct {
 	firewallerBase
 }
