@@ -43,11 +43,11 @@ func (st *State) MoveSubnetsToSpace(
 			return errors.Capture(err)
 		}
 		subnetToMove := uuids(subnetUUIDs)
-		positiveFailures, err = st.checkMovedFromMachine(ctx, tx, subnetToMove, spaceName)
+		positiveFailures, err = st.validateSubnetsLeavingSpaces(ctx, tx, subnetToMove, spaceName)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		negativeFailures, err = st.checkMovedToMachine(ctx, tx, subnetToMove, spaceName)
+		negativeFailures, err = st.validateSubnetsJoiningSpace(ctx, tx, subnetToMove, spaceName)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -61,13 +61,13 @@ func (st *State) MoveSubnetsToSpace(
 	return movedSubnets, errors.Capture(err)
 }
 
-// checkMovedFromMachine verifies if subnets moved to a given space violate
+// validateSubnetsLeavingSpaces verifies if subnets moved to a given space violate
 // positive space constraints for any machines.
 // It queries the database to identify machines whose space constraints
 // conflict with the updated subnet-to-space mapping.
 // Returns a list of positiveSpaceConstraintFailure instances or an error
 // if the process fails.
-func (st *State) checkMovedFromMachine(
+func (st *State) validateSubnetsLeavingSpaces(
 	ctx context.Context,
 	tx *sqlair.TX,
 	movedSubnets uuids,
@@ -156,11 +156,11 @@ JOIN machine AS m ON fc.node_uuid = m.net_node_uuid
 	return failedConstraints, nil
 }
 
-// checkMovedToMachine verifies negative constraints when subnets are moved to a
+// validateSubnetsJoiningSpace verifies negative constraints when subnets are moved to a
 // specific "space" for machines in the system.
 // It returns a slice of negativeSpaceConstraintFailure for failing
 // machines and any error encountered during execution.
-func (st *State) checkMovedToMachine(
+func (st *State) validateSubnetsJoiningSpace(
 	ctx context.Context,
 	tx *sqlair.TX,
 	movedSubnets uuids,

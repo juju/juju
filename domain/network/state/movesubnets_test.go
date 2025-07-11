@@ -55,10 +55,10 @@ func (s *spaceMachineSuite) TestMoveSubnetsToSpaceInvalidSpace(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
-// TestCheckMovedFromMachineNoMachines ensures that moving a subnet from
+// TestValidateSubnetsLeavingSpacesNoMachines ensures that moving a subnet from
 // one space to another results in no constraint failures when no machines
 // are associated.
-func (s *spaceMachineSuite) TestCheckMovedFromMachineNoMachines(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesNoMachines(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -72,7 +72,7 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineNoMachines(c *tc.C) {
 	// Act
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedFromMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
 			[]string{subnetUUID},
 			"to-space")
 		return err
@@ -83,10 +83,10 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineNoMachines(c *tc.C) {
 	c.Assert(failures, tc.HasLen, 0, tc.Commentf("Expected no constraint failures"))
 }
 
-// TestCheckMovedFromMachineAppBindingSuccess validates that a subnet can be
+// TestValidateSubnetsLeavingSpacesAppBindingSuccess validates that a subnet can be
 // moved if a machine bound to the origin space has still an address on
 // the origin space.
-func (s *spaceMachineSuite) TestCheckMovedFromMachineAppBindingSuccess(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppBindingSuccess(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -115,7 +115,7 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineAppBindingSuccess(c *tc.C) 
 	// Act
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedFromMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
 			[]string{movedSubnetUUID},
 			"to-space")
 		return err
@@ -126,10 +126,10 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineAppBindingSuccess(c *tc.C) 
 	c.Assert(failures, tc.HasLen, 0, tc.Commentf("Expected no constraint failures"))
 }
 
-// TestCheckMovedFromMachineAppEndpointBindingSuccess validates that a subnet
+// TestValidateSubnetsLeavingSpacesAppEndpointBindingSuccess validates that a subnet
 // can be moved if a machine bound to the origin space through endpoint
 // has still an address on the origin space
-func (s *spaceMachineSuite) TestCheckMovedFromMachineAppEndpointBindingSuccess(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingSuccess(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -164,7 +164,7 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineAppEndpointBindingSuccess(c
 	// Act
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedFromMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
 			[]string{movedSubnetUUID},
 			"to-space")
 		return err
@@ -175,10 +175,10 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineAppEndpointBindingSuccess(c
 	c.Assert(failures, tc.HasLen, 0, tc.Commentf("Expected no constraint failures"))
 }
 
-// TestCheckMovedFromMachinePositiveConstraintSuccess validates that a subnet
+// TestValidateSubnetsLeavingSpacesPositiveConstraintSuccess validates that a subnet
 // can be moved if a machine with a positive constraint to the origin space
 // has still an address on the origin space
-func (s *spaceMachineSuite) TestCheckMovedFromMachinePositiveConstraintSuccess(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesPositiveConstraintSuccess(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -206,7 +206,7 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachinePositiveConstraintSuccess(c
 	// Act
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedFromMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
 			[]string{movedSubnetUUID},
 			"to-space")
 		return err
@@ -217,10 +217,10 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachinePositiveConstraintSuccess(c
 	c.Assert(failures, tc.HasLen, 0, tc.Commentf("Expected no constraint failures"))
 }
 
-// TestCheckMovedFromMachineAppBindingFailure verifies that moving a subnet
+// TestValidateSubnetsLeavingSpacesAppBindingFailure verifies that moving a subnet
 // from one space to another fails if a machine bound by application to
 // the space has no more addresses on it.
-func (s *spaceMachineSuite) TestCheckMovedFromMachineAppBindingFailure(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppBindingFailure(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -248,7 +248,7 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineAppBindingFailure(c *tc.C) 
 	// Act
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedFromMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
 			[]string{movedSubnetUUID},
 			"to-space")
 		return err
@@ -264,10 +264,10 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineAppBindingFailure(c *tc.C) 
 	})
 }
 
-// TestCheckMovedFromMachineAppEndpointBindingFailure verifies that moving a subnet
+// TestValidateSubnetsLeavingSpacesAppEndpointBindingFailure verifies that moving a subnet
 // from one space to another fails if a machine bound by application endpoint to
 // the space has no more addresses on it.
-func (s *spaceMachineSuite) TestCheckMovedFromMachineAppEndpointBindingFailure(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingFailure(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -301,7 +301,7 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineAppEndpointBindingFailure(c
 	// Act
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedFromMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
 			[]string{movedSubnetUUID},
 			"to-space")
 		return err
@@ -317,10 +317,10 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineAppEndpointBindingFailure(c
 	})
 }
 
-// TestCheckMovedFromMachineAppEndpointBindingFailure verifies that moving
+// TestValidateSubnetsLeavingSpacesAppEndpointBindingFailure verifies that moving
 // a subnet from one space to another fails if a machine with a positive
 // constraint to the space has no more addresses on it.
-func (s *spaceMachineSuite) TestCheckMovedFromMachinePositiveConstraintFailure(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesPositiveConstraintFailure(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -346,7 +346,7 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachinePositiveConstraintFailure(c
 	// Act
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedFromMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
 			[]string{movedSubnetUUID},
 			"to-space")
 		return err
@@ -362,9 +362,9 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachinePositiveConstraintFailure(c
 	})
 }
 
-// TestCheckMovedFromMachineMultipleFailure verifies the detection of multiple
+// TestValidateSubnetsLeavingSpacesMultipleFailure verifies the detection of multiple
 // failures in machines due to subnet moves.
-func (s *spaceMachineSuite) TestCheckMovedFromMachineMultipleFailure(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesMultipleFailure(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -418,7 +418,7 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineMultipleFailure(c *tc.C) {
 	// Act
 	var failures []positiveSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedFromMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsLeavingSpaces(ctx, tx,
 			[]string{
 				movedSubnetUUID1,
 				movedSubnetUUID2,
@@ -446,10 +446,10 @@ func (s *spaceMachineSuite) TestCheckMovedFromMachineMultipleFailure(c *tc.C) {
 	})
 }
 
-// TestCheckMovedToMachineNoMachines ensures that moving a subnet to a new
+// TestValidateSubnetsJoiningSpaceNoMachines ensures that moving a subnet to a new
 // space results in no negative constraint failures when no machines
 // are associated.
-func (s *spaceMachineSuite) TestCheckMovedToMachineNoMachines(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsJoiningSpaceNoMachines(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -463,7 +463,7 @@ func (s *spaceMachineSuite) TestCheckMovedToMachineNoMachines(c *tc.C) {
 	// Act
 	var failures []negativeSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedToMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsJoiningSpace(ctx, tx,
 			[]string{subnetUUID},
 			"to-space")
 		return err
@@ -474,10 +474,10 @@ func (s *spaceMachineSuite) TestCheckMovedToMachineNoMachines(c *tc.C) {
 	c.Assert(failures, tc.HasLen, 0, tc.Commentf("Expected no constraint failures"))
 }
 
-// TestCheckMovedToMachineNoViolations ensures no space constraint violations
+// TestValidateSubnetsJoiningSpaceNoViolations ensures no space constraint violations
 // occur when a subnet is moved to a machine with no negative constraint on the
 // new space
-func (s *spaceMachineSuite) TestCheckMovedToMachineNoViolations(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsJoiningSpaceNoViolations(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -505,7 +505,7 @@ func (s *spaceMachineSuite) TestCheckMovedToMachineNoViolations(c *tc.C) {
 	// Act
 	var failures []negativeSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedToMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsJoiningSpace(ctx, tx,
 			[]string{movedSubnetUUID},
 			"to-space")
 		return err
@@ -516,9 +516,9 @@ func (s *spaceMachineSuite) TestCheckMovedToMachineNoViolations(c *tc.C) {
 	c.Assert(failures, tc.HasLen, 0, tc.Commentf("Expected no constraint failures"))
 }
 
-// TestCheckMovedToMachineWithViolations verifies that machines with negative
+// TestValidateSubnetsJoiningSpaceWithViolations verifies that machines with negative
 // space constraints are detected correctly when subnets are moved.
-func (s *spaceMachineSuite) TestCheckMovedToMachineWithViolations(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsJoiningSpaceWithViolations(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -545,7 +545,7 @@ func (s *spaceMachineSuite) TestCheckMovedToMachineWithViolations(c *tc.C) {
 	// Act
 	var failures []negativeSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedToMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsJoiningSpace(ctx, tx,
 			[]string{movedSubnetUUID},
 			"to-space")
 		return err
@@ -561,9 +561,9 @@ func (s *spaceMachineSuite) TestCheckMovedToMachineWithViolations(c *tc.C) {
 	})
 }
 
-// TestCheckMovedToMachineMultipleViolations verifies handling of multiple
+// TestValidateSubnetsJoiningSpaceMultipleViolations verifies handling of multiple
 // violations when moving subnets to an excluded space.
-func (s *spaceMachineSuite) TestCheckMovedToMachineMultipleViolations(c *tc.C) {
+func (s *spaceMachineSuite) TestValidateSubnetsJoiningSpaceMultipleViolations(c *tc.C) {
 	// Arrange
 	ctx := c.Context()
 
@@ -598,7 +598,7 @@ func (s *spaceMachineSuite) TestCheckMovedToMachineMultipleViolations(c *tc.C) {
 	// Act
 	var failures []negativeSpaceConstraintFailure
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		failures, err = s.state.checkMovedToMachine(ctx, tx,
+		failures, err = s.state.validateSubnetsJoiningSpace(ctx, tx,
 			[]string{
 				movedSubnetUUID1,
 				movedSubnetUUID2,
