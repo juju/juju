@@ -635,34 +635,6 @@ type SaveCloudServiceArgs struct {
 	DesiredScaleProtected bool
 }
 
-// SaveCloudService creates a cloud service.
-func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add cloud service %q", args.ProviderId)
-
-	doc := cloudServiceDoc{
-		DocID:                 applicationGlobalKey(args.Id),
-		ProviderId:            args.ProviderId,
-		Addresses:             fromNetworkAddresses(args.Addresses, network.OriginProvider),
-		Generation:            args.Generation,
-		DesiredScaleProtected: args.DesiredScaleProtected,
-	}
-	buildTxn := func(int) ([]txn.Op, error) {
-		return buildCloudServiceOps(st, doc)
-	}
-
-	if err := st.db().Run(buildTxn); err != nil {
-		return nil, errors.Annotate(err, "failed to save cloud service")
-	}
-	// refresh then return updated CloudService.
-	return newCloudService(st, &doc).CloudService()
-}
-
-// CloudService returns a cloud service state by Id.
-func (st *State) CloudService(id string) (*CloudService, error) {
-	svc := newCloudService(st, &cloudServiceDoc{DocID: st.docID(applicationGlobalKey(id))})
-	return svc.CloudService()
-}
-
 // CharmRef is an indirection to a charm, this allows us to pass in a charm,
 // without having a full concrete charm.
 type CharmRef interface {

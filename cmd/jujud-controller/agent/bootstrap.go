@@ -345,7 +345,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
 			MongoDialOpts:             dialOpts,
 			BootstrapDqlite:           c.DqliteInitializer,
-			Provider:                  environs.Provider,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
 		})
 		if err != nil {
