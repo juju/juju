@@ -72,7 +72,6 @@ type CAASApplicationProvisionerSuite struct {
 	modelInfoService        *MockModelInfoService
 	statusService           *MockStatusService
 	removalService          *MockRemovalService
-	leadershipRevoker       *MockRevoker
 	resourceOpener          *MockOpener
 	registry                *mockStorageRegistry
 	store                   *mockObjectStore
@@ -112,7 +111,6 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
-	s.leadershipRevoker = NewMockRevoker(ctrl)
 	s.resourceOpener = NewMockOpener(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
@@ -134,7 +132,6 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 			StatusService:           s.statusService,
 			RemovalService:          s.removalService,
 		},
-		s.leadershipRevoker,
 		s.store,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
@@ -149,7 +146,6 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		s.modelConfigService = nil
 		s.modelInfoService = nil
 		s.statusService = nil
-		s.leadershipRevoker = nil
 		s.resourceOpener = nil
 		s.watcherRegistry = nil
 		s.api = nil
@@ -169,7 +165,6 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *tc.C) {
 		s.storage,
 		s.storagePoolGetter,
 		caasapplicationprovisioner.Services{},
-		s.leadershipRevoker,
 		s.store,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
