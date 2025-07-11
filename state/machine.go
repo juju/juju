@@ -286,6 +286,139 @@ func (m *Machine) IsContainer() bool {
 	return isContainer
 }
 
+// noContainersOp returns an Op to assert that the machine
+// has no containers.
+func (m *Machine) noContainersOp() txn.Op {
+	return txn.Op{
+		C:  containerRefsC,
+		Id: m.doc.DocID,
+		Assert: bson.D{{"$or", []bson.D{
+			{{"children", bson.D{{"$size", 0}}}},
+			{{"children", bson.D{{"$exists", false}}}},
+		}}},
+	}
+}
+
+// assessCanDieUnit returns true if the machine can die, based on
+// evaluating the provided unit.
+func (m *Machine) assessCanDieUnit(principalUnit string) (bool, error) {
+	canDie := true
+	u, err := m.st.Unit(principalUnit)
+	if err != nil {
+		return false, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
+	}
+	app, err := u.application()
+	if err != nil {
+		return false, errors.Annotatef(err, "reading machine %s principal unit application %v", m, u.doc.Application)
+	}
+	if u.life() == Alive && app.life() == Alive {
+		canDie = false
+	}
+	return canDie, nil
+}
+
+// noUnitAsserts returns bson DocElem which assert that there are
+// no units for the machine.
+func noUnitAsserts() bson.DocElem {
+	return bson.DocElem{
+		Name: "$or", Value: []bson.D{
+			{{"principals", bson.D{{"$size", 0}}}},
+			{{"principals", bson.D{{"$exists", false}}}},
+		},
+	}
+}
+
+// advanceLifecycleUnitAsserts returns bson DocElem which assert that there are
+// no units for the machine, or that the list of units has not changed.
+func advanceLifecycleUnitAsserts(principalUnitNames []string) bson.DocElem {
+	return bson.DocElem{
+		Name: "$or", Value: []bson.D{
+			{{Name: "principals", Value: principalUnitNames}},
+			{{Name: "principals", Value: bson.D{{"$size", 0}}}},
+			{{Name: "principals", Value: bson.D{{"$exists", false}}}},
+		},
+	}
+}
+
+// advanceLifecycleIfNoContainers determines if the machine has
+// containers, if so, returns the appropriate error.
+func (m *Machine) advanceLifecycleIfNoContainers() error {
+	containers, err := m.Containers()
+	if err != nil {
+		return errors.Annotatef(err, "reading machine %s containers", m)
+	}
+
+	if len(containers) > 0 {
+		return stateerrors.NewHasContainersError(m.doc.Id, containers)
+	}
+	return nil
+}
+
+// assertNoPersistentStorage ensures that there are no persistent volumes or
+// filesystems attached to the machine, and returns any mgo/txn assertions
+// required to ensure that remains true.
+func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
+	attachments := names.NewSet()
+	for _, v := range m.doc.Volumes {
+		tag := names.NewVolumeTag(v)
+		detachable, err := isDetachableVolumeTag(m.st.db(), tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if detachable {
+			attachments.Add(tag)
+		}
+	}
+	for _, f := range m.doc.Filesystems {
+		tag := names.NewFilesystemTag(f)
+		detachable, err := isDetachableFilesystemTag(m.st.db(), tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if detachable {
+			attachments.Add(tag)
+		}
+	}
+	if len(attachments) > 0 {
+		return nil, stateerrors.NewHasAttachmentsError(m.doc.Id, attachments.SortedValues())
+	}
+	if m.doc.Life == Dying {
+		return nil, nil
+	}
+	// A Dying machine cannot have attachments added to it,
+	// but if we're advancing from Alive to Dead then we
+	// must ensure no concurrent attachments are made.
+	noNewVolumes := bson.DocElem{
+		Name: "volumes", Value: bson.D{{
+			"$not", bson.D{{
+				"$elemMatch", bson.D{{
+					"$nin", m.doc.Volumes,
+				}},
+			}},
+		}},
+		// There are no volumes that are not in
+		// the set of volumes we previously knew
+		// about => the current set of volumes
+		// is a subset of the previously known set.
+	}
+	noNewFilesystems := bson.DocElem{
+		Name: "filesystems", Value: bson.D{{
+			"$not", bson.D{{
+				"$elemMatch", bson.D{{
+					"$nin", m.doc.Filesystems,
+				}},
+			}},
+		}},
+	}
+	return bson.D{noNewVolumes, noNewFilesystems}, nil
+}
+
+// Remove removes the machine from state. It will fail if the machine
+// is not Dead.
+func (m *Machine) Remove() (err error) {
+	return
+}
+
 // Refresh refreshes the contents of the machine from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // machine has been removed.

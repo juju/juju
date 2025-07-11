@@ -67,7 +67,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
-	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
@@ -160,7 +159,6 @@ func AllFacades() *facade.Registry {
 	block.Register(registry)
 	bundle.Register(registry)
 	charms.Register(registry)
-	cleaner.Register(registry)
 	client.Register(registry)
 	cloud.Register(registry)
 	agentlifeflag.Register(registry)

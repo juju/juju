@@ -61,7 +61,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"remote-relations",
 		"removal",
 		"secrets-pruner",
-		"state-cleaner",
 		"storage-provisioner",
 		"undertaker",
 		"user-secrets-drain-worker",
@@ -106,7 +105,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"remote-relations",
 		"removal",
 		"secrets-pruner",
-		"state-cleaner",
 		"undertaker",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
@@ -145,19 +143,6 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 			c.Check(inputs.Contains("migration-inactive-flag"), tc.IsTrue)
 		}
 	}
-}
-
-func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *tc.C) {
-	manifolds := model.IAASManifolds(model.ManifoldsConfig{
-		Agent:          &mockAgent{},
-		LoggingContext: internallogger.DefaultContext(),
-	})
-	manifold, found := manifolds["state-cleaner"]
-	c.Assert(found, tc.IsTrue)
-
-	inputs := set.NewStrings(manifold.Inputs...)
-	c.Check(inputs.Contains("not-alive-flag"), tc.IsFalse)
-	c.Check(inputs.Contains("not-dead-flag"), tc.IsFalse)
 }
 
 func (s *ManifoldsSuite) TestClockWrapper(c *tc.C) {
@@ -385,17 +370,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"http-client": {},
 
-	"state-cleaner": {
-		"agent",
-		"api-caller",
-		"domain-services",
-		"is-responsible-flag",
-		"lease-manager",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-	},
-
 	"undertaker": {
 		"agent",
 		"api-caller",
@@ -584,17 +558,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"domain-services": {},
 
 	"http-client": {},
-
-	"state-cleaner": {
-		"agent",
-		"api-caller",
-		"domain-services",
-		"is-responsible-flag",
-		"lease-manager",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-	},
 
 	"storage-provisioner": {
 		"agent",
