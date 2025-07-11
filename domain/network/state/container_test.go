@@ -16,6 +16,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -191,6 +192,22 @@ func (s *containerSuite) TestGetSubnetCIDRForDevice(c *tc.C) {
 	// Assert.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotCIDR, tc.Equals, cidr)
+}
+
+func (s *containerSuite) TestGetSubnetCIDRForDeviceNotFound(c *tc.C) {
+
+	// Arrange. Add a device with no address.
+	// Without an address on this device, we can't locate a subnet.
+	nUUID := s.addNetNode(c)
+
+	devName := "eth0"
+	_ = s.addLinkLayerDevice(c, nUUID, devName, "mac-address", corenetwork.EthernetDevice)
+
+	// Act.
+	_, err := s.state.GetSubnetCIDRForDevice(c.Context(), nUUID, devName, s.addSpace(c))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, errors.SubnetNotFound)
 }
 
 func (s *containerSuite) TestGetContainerNetworkingMethod(c *tc.C) {
