@@ -15,7 +15,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,NetworkService,ControllerConfigService,ApplicationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,NetworkService,ControllerConfigService,ApplicationService,MachineService
 
 // APISuite is used to test API calls using mocked model operations.
 type APISuite struct {
@@ -33,6 +33,7 @@ type APISuite struct {
 	ControllerConfigService *MockControllerConfigService
 	NetworkService          *MockNetworkService
 	ApplicationService      *MockApplicationService
+	MachineService          *MockMachineService
 }
 
 func TestAPISuite(t *testing.T) {
@@ -61,6 +62,7 @@ func (s *APISuite) SetupMocks(c *tc.C, supportSpaces bool, providerSpaces bool) 
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 	s.NetworkService = NewMockNetworkService(ctrl)
 	s.ApplicationService = NewMockApplicationService(ctrl)
+	s.MachineService = NewMockMachineService(ctrl)
 
 	s.NetworkService.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
 	s.NetworkService.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
@@ -75,6 +77,7 @@ func (s *APISuite) SetupMocks(c *tc.C, supportSpaces bool, providerSpaces bool) 
 		ControllerConfigService: s.ControllerConfigService,
 		NetworkService:          s.NetworkService,
 		ApplicationService:      s.ApplicationService,
+		MachineService:          s.MachineService,
 		logger:                  loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)

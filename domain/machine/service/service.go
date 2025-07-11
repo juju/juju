@@ -18,6 +18,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/constraints"
@@ -200,6 +201,12 @@ type State interface {
 	// GetModelConstraints returns the currently set constraints for the model.
 	// Note: This method should mirror the model domain method of the same name.
 	GetModelConstraints(ctx context.Context) (constraints.Constraints, error)
+
+	// CountMachinesInSpace counts the number of machines with address in a given
+	// space. This method counts the distinct occurrences of net nodes of the
+	// addresses, meaning that if a machine has multiple addresses in the same
+	// subnet it will be counted only once.
+	CountMachinesInSpace(ctx context.Context, spUUID string) (int64, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -561,6 +568,17 @@ func (s *Service) GetMachineBase(ctx context.Context, mName machine.Name) (base.
 	}
 
 	return s.st.GetMachineBase(ctx, mName.String())
+}
+
+// CountMachinesInSpace counts the number of machines with address in a given
+// space. This method counts the distinct occurrences of net nodes of the
+// addresses, meaning that if a machine has multiple addresses in the same
+// subnet it will be counted only once.
+func (s *Service) CountMachinesInSpace(ctx context.Context, spaceID network.SpaceUUID) (int64, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.CountMachinesInSpace(ctx, spaceID.String())
 }
 
 func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusHistory, machineName machine.Name, clock clock.Clock) error {

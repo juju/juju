@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
@@ -31,6 +32,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/domain/modelagent"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkstate "github.com/juju/juju/domain/network/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
@@ -1079,6 +1081,162 @@ func (s *stateSuite) TestGetModelConstraintsModelNotFound(c *tc.C) {
 
 	_, err := state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *stateSuite) TestCountMachinesInSpace(c *tc.C) {
+	// Setup: Create a space and subnet
+	spaceUUID := network.SpaceUUID(uuid.MustNewUUID().String())
+	networkState := networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := networkState.AddSpace(c.Context(), spaceUUID, "test-space", "provider-space-id", []string{})
+	c.Assert(err, tc.ErrorIsNil)
+	subnetID := network.Id(uuid.MustNewUUID().String())
+	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
+		ID:      subnetID,
+		SpaceID: spaceUUID,
+		CIDR:    "10.0.0.0/24",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	mUUID, _ := s.addMachine(c)
+	nnUUID, err := networkState.GetMachineNetNodeUUID(c.Context(), mUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	devName := "eth0"
+	err = networkState.SetMachineNetConfig(c.Context(), nnUUID, []domainnetwork.NetInterface{{
+		Name:            devName,
+		Type:            network.EthernetDevice,
+		VirtualPortType: network.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []domainnetwork.NetAddr{{
+			InterfaceName:    devName,
+			AddressValue:     "10.0.0.42/24",
+			AddressType:      network.IPv4Address,
+			ConfigType:       network.ConfigDHCP,
+			Origin:           network.OriginMachine,
+			Scope:            network.ScopeCloudLocal,
+			ProviderSubnetID: &subnetID,
+		}},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	count, err := s.state.CountMachinesInSpace(c.Context(), spaceUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, int64(1))
+}
+
+func (s *stateSuite) TestCountMachinesInSpaceDoubleAddressSameMachine(c *tc.C) {
+	// Setup: Create a space and subnet
+	spaceUUID := network.SpaceUUID(uuid.MustNewUUID().String())
+	networkState := networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := networkState.AddSpace(c.Context(), spaceUUID, "test-space", "provider-space-id", []string{})
+	c.Assert(err, tc.ErrorIsNil)
+	subnetID := network.Id(uuid.MustNewUUID().String())
+	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
+		ID:      subnetID,
+		SpaceID: spaceUUID,
+		CIDR:    "10.0.0.0/24",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	mUUID, _ := s.addMachine(c)
+	nnUUID, err := networkState.GetMachineNetNodeUUID(c.Context(), mUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	devName := "eth0"
+	err = networkState.SetMachineNetConfig(c.Context(), nnUUID, []domainnetwork.NetInterface{{
+		Name:            devName,
+		Type:            network.EthernetDevice,
+		VirtualPortType: network.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []domainnetwork.NetAddr{
+			{
+				InterfaceName:    devName,
+				AddressValue:     "10.0.0.42/24",
+				AddressType:      network.IPv4Address,
+				ConfigType:       network.ConfigDHCP,
+				Origin:           network.OriginMachine,
+				Scope:            network.ScopeCloudLocal,
+				ProviderSubnetID: &subnetID,
+			},
+			{
+				InterfaceName:    devName,
+				AddressValue:     "10.0.0.255/24",
+				AddressType:      network.IPv4Address,
+				ConfigType:       network.ConfigDHCP,
+				Origin:           network.OriginMachine,
+				Scope:            network.ScopeCloudLocal,
+				ProviderSubnetID: &subnetID,
+			},
+		},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	count, err := s.state.CountMachinesInSpace(c.Context(), spaceUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, int64(1))
+}
+
+func (s *stateSuite) TestCountMachinesInSpaceMultipleSubnets(c *tc.C) {
+	// Setup: Create a space with multiple subnets
+	spaceUUID := network.SpaceUUID(uuid.MustNewUUID().String())
+	networkState := networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := networkState.AddSpace(c.Context(), spaceUUID, "multi-subnet-space", "provider-space-id", []string{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	subnetUUID0 := network.Id(uuid.MustNewUUID().String())
+	subnetUUID1 := network.Id(uuid.MustNewUUID().String())
+	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
+		ID:         subnetUUID0,
+		SpaceID:    spaceUUID,
+		ProviderId: network.Id(uuid.MustNewUUID().String()),
+		CIDR:       "10.0.0.0/24",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	// Second subnet, not in the same CIDR as the IP address we are going to
+	// add later.
+	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
+		ID:         subnetUUID1,
+		SpaceID:    spaceUUID,
+		ProviderId: network.Id(uuid.MustNewUUID().String()),
+		CIDR:       "192.168.0.0/24",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create machines and assign them to different subnets
+	machineUUIDs := []string{}
+	for range 3 {
+		mUUID, _ := s.addMachine(c)
+		machineUUIDs = append(machineUUIDs, mUUID.String())
+	}
+
+	// Assign network configurations to machines
+	for i, mUUID := range machineUUIDs {
+		nnUUID, err := networkState.GetMachineNetNodeUUID(c.Context(), mUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		devName := "eth0"
+		err = networkState.SetMachineNetConfig(c.Context(), nnUUID, []domainnetwork.NetInterface{{
+			Name:            devName,
+			Type:            network.EthernetDevice,
+			VirtualPortType: network.NonVirtualPort,
+			IsAutoStart:     true,
+			IsEnabled:       true,
+			Addrs: []domainnetwork.NetAddr{{
+				InterfaceName:    devName,
+				AddressValue:     fmt.Sprintf("10.0.0.%d/24", i),
+				AddressType:      network.IPv4Address,
+				ConfigType:       network.ConfigDHCP,
+				Origin:           network.OriginMachine,
+				Scope:            network.ScopeCloudLocal,
+				ProviderSubnetID: &subnetUUID0,
+			}},
+		}})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	// Test counting machines in space with multiple subnets
+	count, err := s.state.CountMachinesInSpace(c.Context(), spaceUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, int64(3))
 }
 
 func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {

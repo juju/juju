@@ -47,6 +47,7 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		ControllerConfigService: domainServices.ControllerConfig(),
 		NetworkService:          domainServices.Network(),
 		ApplicationService:      domainServices.Application(),
+		MachineService:          domainServices.Machine(),
 		Backing:                 stateShim,
 		Check:                   check,
 		Resources:               ctx.Resources(),

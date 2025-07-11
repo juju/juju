@@ -243,6 +243,45 @@ func (c *MockStateClearMachineRebootCall) DoAndReturn(f func(context.Context, ma
 	return c
 }
 
+// CountMachinesInSpace mocks base method.
+func (m *MockState) CountMachinesInSpace(ctx context.Context, spUUID string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountMachinesInSpace", ctx, spUUID)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CountMachinesInSpace indicates an expected call of CountMachinesInSpace.
+func (mr *MockStateMockRecorder) CountMachinesInSpace(ctx, spUUID any) *MockStateCountMachinesInSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountMachinesInSpace", reflect.TypeOf((*MockState)(nil).CountMachinesInSpace), ctx, spUUID)
+	return &MockStateCountMachinesInSpaceCall{Call: call}
+}
+
+// MockStateCountMachinesInSpaceCall wrap *gomock.Call
+type MockStateCountMachinesInSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCountMachinesInSpaceCall) Return(arg0 int64, arg1 error) *MockStateCountMachinesInSpaceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCountMachinesInSpaceCall) Do(f func(context.Context, string) (int64, error)) *MockStateCountMachinesInSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCountMachinesInSpaceCall) DoAndReturn(f func(context.Context, string) (int64, error)) *MockStateCountMachinesInSpaceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteMachine mocks base method.
 func (m *MockState) DeleteMachine(arg0 context.Context, arg1 machine.Name) error {
 	m.ctrl.T.Helper()

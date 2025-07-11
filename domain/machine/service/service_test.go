@@ -17,6 +17,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -835,4 +836,28 @@ func (s *serviceSuite) TestGetMachineBaseNotFound(c *tc.C) {
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachineBase(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestCountMachinesInSpace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spaceID := network.SpaceUUID("space-uuid")
+	s.state.EXPECT().CountMachinesInSpace(gomock.Any(), spaceID.String()).Return(int64(42), nil)
+
+	count, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		CountMachinesInSpace(c.Context(), spaceID)
+	c.Assert(err, tc.IsNil)
+	c.Assert(count, tc.Equals, int64(42))
+}
+
+func (s *serviceSuite) TestCountMachinesInSpaceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spaceID := network.SpaceUUID("space-uuid")
+	s.state.EXPECT().CountMachinesInSpace(gomock.Any(), spaceID.String()).Return(int64(0), errors.Errorf("boom"))
+
+	count, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		CountMachinesInSpace(c.Context(), spaceID)
+	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
+	c.Assert(count, tc.Equals, int64(0))
 }
