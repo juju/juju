@@ -276,7 +276,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *tc.C) {
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("StorageProvisioner").Return(666)
 
-	watcherID, eventCh := setupWatcher[*params.MachineStorageIdsWatchResult](c, caller, "VolumeAttachmentsWatcher")
+	watcherID, eventCh := setupWatcher[*params.MachineStorageIdsWatchResult](c, caller, "StorageAttachmentsWatcher")
 
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: "machine-666",
