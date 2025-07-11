@@ -135,6 +135,10 @@ type NetConfigState interface {
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
+	// GetNetNodeAddresses retrieves network space addresses associated with the
+	// given net node UUID. Returns an error if failed.
+	GetNetNodeAddresses(ctx context.Context, netNodeUUID string) (network.SpaceAddresses, error)
+
 	// GetControllerUnitUUIDByName returns the UUID for the named unit if it
 	// is a unit of the controller application.
 	//

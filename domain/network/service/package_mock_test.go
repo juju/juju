@@ -628,6 +628,45 @@ func (c *MockStateGetMachineSpaceConstraintsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetNetNodeAddresses mocks base method.
+func (m *MockState) GetNetNodeAddresses(arg0 context.Context, arg1 string) (network.SpaceAddresses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetNodeAddresses", arg0, arg1)
+	ret0, _ := ret[0].(network.SpaceAddresses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetNodeAddresses indicates an expected call of GetNetNodeAddresses.
+func (mr *MockStateMockRecorder) GetNetNodeAddresses(arg0, arg1 any) *MockStateGetNetNodeAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetNodeAddresses", reflect.TypeOf((*MockState)(nil).GetNetNodeAddresses), arg0, arg1)
+	return &MockStateGetNetNodeAddressesCall{Call: call}
+}
+
+// MockStateGetNetNodeAddressesCall wrap *gomock.Call
+type MockStateGetNetNodeAddressesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetNetNodeAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockStateGetNetNodeAddressesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetNetNodeAddressesCall) Do(f func(context.Context, string) (network.SpaceAddresses, error)) *MockStateGetNetNodeAddressesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetNetNodeAddressesCall) DoAndReturn(f func(context.Context, string) (network.SpaceAddresses, error)) *MockStateGetNetNodeAddressesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSpace mocks base method.
 func (m *MockState) GetSpace(arg0 context.Context, arg1 network.SpaceUUID) (*network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
