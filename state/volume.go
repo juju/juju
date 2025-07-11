@@ -873,132 +873,13 @@ func machineStorageDecrefOp(collection, id string, attachmentCount int, life Lif
 // will fail with an IsContainsFilesystem error if the volume contains a
 // filesystem; the filesystem must be fully removed first.
 func (sb *storageBackend) DestroyVolume(tag names.VolumeTag, force bool) (err error) {
-	defer errors.DeferredAnnotatef(&err, "destroying volume %s", tag.Id())
-	if _, err := sb.VolumeFilesystem(tag); err == nil {
-		return &errContainsFilesystem{errors.New("volume contains filesystem")}
-	} else if !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		volume, err := getVolumeByTag(sb.mb, tag)
-		if errors.Is(err, errors.NotFound) && attempt > 0 {
-			// On the first attempt, we expect it to exist.
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if volume.doc.StorageId != "" {
-			return nil, errors.Errorf(
-				"volume is assigned to %s",
-				names.ReadableString(names.NewStorageTag(volume.doc.StorageId)),
-			)
-		}
-		if !force && volume.Life() != Alive || volume.Life() == Dead {
-			return nil, jujutxn.ErrNoOperations
-		}
-		hasNoStorageAssignment := bson.D{{"$or", []bson.D{
-			{{"storageid", ""}},
-			{{"storageid", bson.D{{"$exists", false}}}},
-		}}}
-		return destroyVolumeOps(sb, volume, false, force, hasNoStorageAssignment)
-	}
-	return sb.mb.db().Run(buildTxn)
-}
-
-func destroyVolumeOps(im *storageBackend, v *volume, release, force bool, extraAssert bson.D) ([]txn.Op, error) {
-	lifeAssert := isAliveDoc
-	if force {
-		// Since we are force destroying, life assert should be current volume's life.
-		lifeAssert = bson.D{{"life", v.doc.Life}}
-	}
-
-	baseAssert := append(lifeAssert, extraAssert...)
-	setFields := bson.D{}
-	if release {
-		setFields = append(setFields, bson.DocElem{"releasing", true})
-	}
-	if v.doc.AttachmentCount == 0 {
-		hasNoAttachments := bson.D{{"attachmentcount", 0}}
-		setFields = append(setFields, bson.DocElem{"life", Dead})
-		return []txn.Op{{
-			C:      volumesC,
-			Id:     v.doc.Name,
-			Assert: append(hasNoAttachments, baseAssert...),
-			Update: bson.D{{"$set", setFields}},
-		}}, nil
-	}
-	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
-	setFields = append(setFields, bson.DocElem{"life", Dying})
-	ops := []txn.Op{{
-		C:      volumesC,
-		Id:     v.doc.Name,
-		Assert: append(hasAttachments, baseAssert...),
-		Update: bson.D{{"$set", setFields}},
-	}}
-	if !v.Detachable() {
-		// This volume cannot be directly detached, so we do not
-		// issue a cleanup. Since there can (should!) be only one
-		// attachment for the lifetime of the filesystem, we can
-		// look it up and destroy it along with the filesystem.
-		attachments, err := im.VolumeAttachments(v.VolumeTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(attachments) != 1 {
-			return nil, errors.Errorf(
-				"expected 1 attachment, found %d",
-				len(attachments),
-			)
-		}
-		detachOps, err := im.detachVolumeOps(
-			attachments[0].Host(),
-			v.VolumeTag(),
-			force,
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, detachOps...)
-	} else {
-		// TODO(gsamfira): add cleanup for volume plans
-		ops = append(ops, newCleanupOp(
-			cleanupAttachmentsForDyingVolume,
-			v.doc.Name,
-		))
-	}
-	return ops, nil
+	return
 }
 
 // RemoveVolume removes the volume from state. RemoveVolume will fail if
 // the volume is not Dead, which implies that it still has attachments.
 func (sb *storageBackend) RemoveVolume(tag names.VolumeTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "removing volume %s", tag.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		volume, err := sb.Volume(tag)
-		if errors.Is(err, errors.NotFound) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if volume.Life() != Dead {
-			return nil, errors.New("volume is not dead")
-		}
-		return sb.removeVolumeOps(tag), nil
-	}
-	return sb.mb.db().Run(buildTxn)
-}
-
-func (sb *storageBackend) removeVolumeOps(tag names.VolumeTag) []txn.Op {
-	return []txn.Op{
-		{
-			C:      volumesC,
-			Id:     tag.Id(),
-			Assert: txn.DocExists,
-			Remove: true,
-		},
-		removeModelVolumeRefOp(sb.mb, tag.Id()),
-		removeStatusOp(sb.mb, volumeGlobalKey(tag.Id())),
-	}
+	return
 }
 
 // newVolumeName returns a unique volume name.
