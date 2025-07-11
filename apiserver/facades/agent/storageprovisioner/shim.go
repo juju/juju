@@ -22,12 +22,6 @@ type Backend interface {
 }
 
 type StorageBackend interface {
-	WatchModelFilesystemAttachments() state.StringsWatcher
-	WatchMachineFilesystemAttachments(names.MachineTag) state.StringsWatcher
-	WatchUnitFilesystemAttachments(tag names.ApplicationTag) state.StringsWatcher
-	WatchVolumeAttachment(names.Tag, names.VolumeTag) state.NotifyWatcher
-	WatchMachineAttachmentsPlans(names.MachineTag) state.StringsWatcher
-
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	AllStorageInstances() ([]state.StorageInstance, error)
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
