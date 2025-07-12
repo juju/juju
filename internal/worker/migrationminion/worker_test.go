@@ -5,6 +5,7 @@ package migrationminion_test
 
 import (
 	"reflect"
+	"slices"
 	"sync"
 	"time"
 
@@ -420,19 +421,24 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 	workertest.CleanKill(c, w)
 	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
 	c.Assert(s.agent.conf.caCert, gc.DeepEquals, caCert)
-	s.stub.CheckCallNames(c, "Watch", "Lockdown", "Report")
-	s.stub.CheckCall(c, 2, "Report", "id", migration.SUCCESS, true)
+	s.stub.CheckCallNames(c, "Watch", "Lockdown", "API open", "API close", "Report")
+	s.stub.CheckCall(c, 4, "Report", "id", migration.SUCCESS, true)
 }
 
 func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
-		MigrationId: "id",
-		Phase:       migration.SUCCESS,
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: []string{"target-controller:1234"},
+		SourceAPIAddrs: []string{"source-controller:1234"},
 	}
 	s.agent.conf.tag = names.NewUnitTag("app/0")
 	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
-	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+	s.config.APIOpen = func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		s.stub.AddCall("API open")
+		if info.Addrs[0] == "target-controller:1234" {
+			return &stubConnection{stub: s.stub}, nil
+		}
 		return nil, apiservererrors.ErrTryAgain
 	}
 	s.stub.SetErrors(rpc.ErrShutdown)
@@ -451,6 +457,8 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
 	s.waitForStubCalls(c, []string{
 		"Watch",
 		"Lockdown",
+		"API open",
+		"API close",
 		"Report",
 		"API open",
 		"API open",
@@ -484,11 +492,99 @@ func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
 	s.waitForStubCalls(c, []string{
 		"Watch",
 		"Lockdown",
+		"API open",
+		"API close",
 		"Report",
 		"API open",
 		"Report",
 		"API close",
 	})
+}
+
+func (s *Suite) TestSuccessAfterValidateWithRedirect(c *gc.C) {
+	finalAddress := []string{"7.7.7.7:1234"}
+	finalCACert := "final-cert"
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.VALIDATION,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+
+	s.config.APIOpen = func(info *api.Info, _ api.DialOpts) (api.Connection, error) {
+		addressCopy := make([]string, len(info.Addrs))
+		copy(addressCopy, info.Addrs)
+		s.stub.AddCall("API open addresses", addressCopy)
+		if slices.Equal(info.Addrs, addrs) {
+			return nil, &api.RedirectError{
+				Servers: []network.MachineHostPorts{network.NewMachineHostPorts(1234, "7.7.7.7")},
+				CACert:  finalCACert,
+			}
+		}
+		if slices.Equal(info.Addrs, finalAddress) {
+			return &stubConnection{stub: s.stub}, nil
+		}
+		return nil, errors.Errorf("unexpected address %q", info.Addrs[0])
+	}
+
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+	workertest.CleanKill(c, w)
+	c.Assert(s.agent.conf.addrs, gc.DeepEquals, finalAddress)
+	c.Assert(s.agent.conf.caCert, gc.DeepEquals, finalCACert)
+	s.stub.CheckCall(c, 2, "API open addresses", addrs)
+	s.stub.CheckCall(c, 3, "API open addresses", finalAddress)
+}
+
+func (s *Suite) TestValidateFailsWithRedirectLoop(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.VALIDATION,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+
+	s.config.APIOpen = func(info *api.Info, _ api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, &api.RedirectError{
+			Servers: []network.MachineHostPorts{network.NewMachineHostPorts(1234, "7.7.7.7")},
+			CACert:  caCert,
+		}
+	}
+
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	// Advance time enough for all of the retries to be exhausted.
+	sleepTime := 100 * time.Millisecond
+	for i := 0; i < 20; i++ {
+		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		sleepTime = calculateSleepTime(i)
+	}
+
+	expectedCalls := []string{"Watch", "Lockdown"}
+	// maxRetries=20 and maxRedirects=5
+	for i := 0; i < 20*5; i++ {
+		expectedCalls = append(expectedCalls, "API open")
+	}
+	expectedCalls = append(expectedCalls, "Report")
+	s.waitForStubCalls(c, expectedCalls)
+	s.stub.CheckCall(c, len(expectedCalls)-1, "Report", "id", migration.VALIDATION, false)
 }
 
 func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {

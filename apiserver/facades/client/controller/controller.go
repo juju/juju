@@ -670,6 +670,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		AuthTag:         authTag,
 		Password:        specTarget.Password,
 		Macaroons:       macs,
+		SkipUserChecks:  specTarget.SkipUserChecks,
 		Token:           specTarget.Token,
 	}
 
@@ -845,12 +846,15 @@ var runMigrationPreChecks = func(
 		return errors.Annotate(err, "connect to target controller")
 	}
 	defer targetConn.Close()
-	dstUserList, err := getTargetControllerUsers(targetConn)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
-		return errors.Trace(err)
+
+	if !targetInfo.SkipUserChecks {
+		dstUserList, err := getTargetControllerUsers(targetConn)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	client := migrationtarget.NewClient(targetConn)
 	if targetInfo.CACert == "" {

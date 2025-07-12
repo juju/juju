@@ -9069,6 +9069,9 @@
                         "password": {
                             "type": "string"
                         },
+                        "skip-user-checks": {
+                            "type": "boolean"
+                        },
                         "token": {
                             "type": "string"
                         }

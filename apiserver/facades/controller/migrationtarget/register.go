@@ -35,8 +35,13 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 			return newFacade(ctx, requiredMigrationFacadeVersions)
 		}, reflect.TypeOf((*API)(nil)))
 		// Bumped to version 5 for the addition of the token field in
-		// the MigrationTargetInfo struct.
+		// the Migration.TargetInfo struct.
 		registry.MustRegister("MigrationTarget", 5, func(ctx facade.Context) (facade.Facade, error) {
+			return newFacade(ctx, requiredMigrationFacadeVersions)
+		}, reflect.TypeOf((*API)(nil)))
+		// Bumped to version 6 for the addition of the skipUserChecks field in
+		// the Migration.TargetInfo struct.
+		registry.MustRegister("MigrationTarget", 6, func(ctx facade.Context) (facade.Facade, error) {
 			return newFacade(ctx, requiredMigrationFacadeVersions)
 		}, reflect.TypeOf((*API)(nil)))
 	}

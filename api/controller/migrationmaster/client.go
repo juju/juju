@@ -105,13 +105,14 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: controllerTag,
-			Addrs:         target.Addrs,
-			CACert:        target.CACert,
-			AuthTag:       authTag,
-			Password:      target.Password,
-			Macaroons:     macs,
-			Token:         target.Token,
+			ControllerTag:  controllerTag,
+			Addrs:          target.Addrs,
+			CACert:         target.CACert,
+			AuthTag:        authTag,
+			Password:       target.Password,
+			Macaroons:      macs,
+			Token:          target.Token,
+			SkipUserChecks: target.SkipUserChecks,
 		},
 	}, nil
 }

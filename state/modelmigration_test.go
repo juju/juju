@@ -53,6 +53,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 			Password:        "password",
 			Macaroons:       []macaroon.Slice{{mac}},
 			Token:           "token",
+			SkipUserChecks:  true,
 		},
 	}
 	// Before we get into the tests, ensure that all the creation events have flowed through the system.
@@ -87,6 +88,7 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 	s.stdSpec.TargetInfo.Macaroons = nil
 	c.Check(*info, jc.DeepEquals, s.stdSpec.TargetInfo)
 	c.Check(info.ControllerAlias, gc.Equals, s.stdSpec.TargetInfo.ControllerAlias)
+	c.Check(info.SkipUserChecks, gc.Equals, s.stdSpec.TargetInfo.SkipUserChecks)
 
 	assertPhase(c, mig, migration.QUIESCE)
 	c.Check(mig.PhaseChangedTime(), gc.Equals, mig.StartTime())

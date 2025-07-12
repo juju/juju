@@ -37,6 +37,7 @@ type MigrationTargetInfo struct {
 	AuthTag         string   `json:"auth-tag"`
 	Password        string   `json:"password,omitempty"`
 	Macaroons       string   `json:"macaroons,omitempty"`
+	SkipUserChecks  bool     `json:"skip-user-checks,omitempty"`
 	Token           string   `json:"token,omitempty"`
 }
 

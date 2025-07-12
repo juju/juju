@@ -89,6 +89,12 @@ func (s *Suite) TestInitiateMigrationEmptyCACert(c *gc.C) {
 	s.checkInitiateMigration(c, spec)
 }
 
+func (s *Suite) TestInitiateMigrationSkipUserChecks(c *gc.C) {
+	spec := makeSpec()
+	spec.SkipUserChecks = true
+	s.checkInitiateMigration(c, spec)
+}
+
 func (s *Suite) checkInitiateMigration(c *gc.C, spec controller.MigrationSpec) {
 	client, stub := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
@@ -124,6 +130,7 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 				Password:        spec.TargetPassword,
 				Macaroons:       string(macsJSON),
 				Token:           spec.TargetToken,
+				SkipUserChecks:  spec.SkipUserChecks,
 			},
 		}},
 	}
@@ -263,6 +270,7 @@ func makeSpec() controller.MigrationSpec {
 	}
 	return controller.MigrationSpec{
 		ModelUUID:             randomUUID(),
+		SkipUserChecks:        false,
 		TargetControllerUUID:  randomUUID(),
 		TargetControllerAlias: "target-controller",
 		TargetAddrs:           []string{"1.2.3.4:5"},

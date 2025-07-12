@@ -278,6 +278,7 @@ func (c *Client) ConfigSet(values map[string]interface{}) error {
 // a single model.
 type MigrationSpec struct {
 	ModelUUID             string
+	SkipUserChecks        bool
 	TargetControllerUUID  string
 	TargetControllerAlias string
 	TargetAddrs           []string
@@ -336,6 +337,7 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 				AuthTag:         names.NewUserTag(spec.TargetUser).String(),
 				Password:        spec.TargetPassword,
 				Macaroons:       macsJSON,
+				SkipUserChecks:  spec.SkipUserChecks,
 				Token:           spec.TargetToken,
 			},
 		}},
