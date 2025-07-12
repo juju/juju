@@ -4,7 +4,7 @@
 package openstack
 
 import (
-	"regexp"
+	"fmt"
 
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -67,12 +68,7 @@ func (fakeNamespace) Value(s string) string {
 
 func EnsureGroup(e environs.Environ, ctx context.ProviderCallContext, name string, isModelGroup bool) (neutron.SecurityGroupV2, error) {
 	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
-	return switching.ensureGroup(name, isModelGroup)
-}
-
-func MachineGroupRegexp(e environs.Environ, machineId string) string {
-	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
-	return switching.machineGroupRegexp(machineId)
+	return switching.ensureGroup(name, isModelGroup, nil)
 }
 
 func MachineGroupName(e environs.Environ, controllerUUID, machineId string) string {
@@ -115,7 +111,7 @@ func BlankContainerStorage() envstorage.Storage {
 }
 
 // GetNeutronClient returns the neutron client for the current environs.
-func GetNeutronClient(e environs.Environ) *neutron.Client {
+func GetNeutronClient(e environs.Environ) NetworkingNeutron {
 	return e.(*Environ).neutron()
 }
 
@@ -145,20 +141,16 @@ var GetVolumeEndpointURL = getVolumeEndpointURL
 
 func GetModelGroupNames(e environs.Environ) ([]string, error) {
 	env := e.(*Environ)
-	neutronFw := env.firewaller.(*neutronFirewaller)
-	groups, err := env.neutron().ListSecurityGroupsV2()
-	if err != nil {
-		return nil, err
+	query := neutron.ListSecurityGroupsV2Query{
+		Tags: []string{fmt.Sprintf("%s=%s", tags.JujuModel, env.modelUUID)},
 	}
-	modelPattern, err := regexp.Compile(neutronFw.jujuGroupPrefixRegexp())
+	groups, err := env.neutron().ListSecurityGroupsV2(query)
 	if err != nil {
 		return nil, err
 	}
 	var results []string
 	for _, group := range groups {
-		if modelPattern.MatchString(group.Name) {
-			results = append(results, group.Name)
-		}
+		results = append(results, group.Name)
 	}
 	return results, nil
 }

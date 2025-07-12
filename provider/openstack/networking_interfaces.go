@@ -68,6 +68,22 @@ type NetworkingNeutron interface {
 	ListFloatingIPsV2(...*neutron.Filter) ([]neutron.FloatingIPV2, error)
 	ListNetworksV2(...*neutron.Filter) ([]neutron.NetworkV2, error)
 	ListSubnetsV2() ([]neutron.SubnetV2, error)
+	ListSecurityGroupsV2(query neutron.ListSecurityGroupsV2Query) ([]neutron.SecurityGroupV2, error)
+	CreateSecurityGroupV2(name, description string, tags []string) (*neutron.SecurityGroupV2, error)
+	GetSubnetV2(subnetID string) (*neutron.SubnetV2, error)
+	GetFloatingIPV2(ipId string) (*neutron.FloatingIPV2, error)
+	DeleteFloatingIPV2(ipId string) error
+	PortByIdV2(portId string) (neutron.PortV2, error)
+	SecurityGroupByNameV2(name string) ([]neutron.SecurityGroupV2, error)
+	DeleteSecurityGroupV2(groupId string) error
+	UpdateSecurityGroupV2(groupId string, name string, description string) (*neutron.SecurityGroupV2, error)
+	CreateSecurityGroupRuleV2(ruleInfo neutron.RuleInfoV2) (*neutron.SecurityGroupRuleV2, error)
+	DeleteSecurityGroupRuleV2(ruleId string) error
+	ReplaceAllTags(resourceType string, resourceId string, tags []string) error
+	ListPolicyTargetsV2(filter ...*neutron.Filter) ([]neutron.PolicyTargetV2, error)
+	GetPolicyTargetV2(ptId string) (*neutron.PolicyTargetV2, error)
+	CreatePolicyTargetV2(pt neutron.PolicyTargetV2) (*neutron.PolicyTargetV2, error)
+	DeletePolicyTargetV2(ptId string) error
 }
 
 // NetworkingEnvironConfig describes the environConfig methods needed for
