@@ -981,7 +981,7 @@ func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *tc.C) {
 func (s *s3ObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.states = make(chan string, 1)
+	s.states = make(chan string, 2)
 	s.session = NewMockSession(ctrl)
 	s.hashFileSystemAccessor = NewMockHashFileSystemAccessor(ctrl)
 	s.client = &client{session: s.session}
