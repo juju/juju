@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -30,7 +31,22 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 
 func (s *stateSuite) TestControllerModelUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	uuid, err := st.ControllerModelUUID(c.Context())
+	uuid, err := st.GetControllerModelUUID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuid, tc.Equals, s.controllerModelUUID)
+}
+
+func (s *stateSuite) TestGetStateServingInfo(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	servingInfo, err := st.GetStateServingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(servingInfo, tc.DeepEquals, controller.StateServingInfo{
+		APIPort:        17070,
+		Cert:           "test-cert",
+		PrivateKey:     "test-private-key",
+		CAPrivateKey:   "test-ca-private-key",
+		SystemIdentity: "test-system-identity",
+	})
 }

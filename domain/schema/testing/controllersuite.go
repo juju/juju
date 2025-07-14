@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
@@ -60,10 +61,18 @@ func (s *ControllerSuite) SeedControllerTable(c *tc.C, controllerModelUUID corem
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO controller (uuid, model_uuid, target_version) VALUES (?, ?, ?)`,
+			`
+INSERT INTO controller (uuid, model_uuid, target_version, api_port, cert, private_key, ca_private_key, system_identity) 
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`,
 			controllerUUID,
 			controllerModelUUID,
 			jujuversion.Current.String(),
+			controller.DefaultAPIPort,
+			"test-cert",
+			"test-private-key",
+			"test-ca-private-key",
+			"test-system-identity",
 		)
 		return err
 	})

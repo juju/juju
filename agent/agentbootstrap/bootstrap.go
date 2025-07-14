@@ -31,7 +31,8 @@ import (
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudimagemetadatabootstrap "github.com/juju/juju/domain/cloudimagemetadata/bootstrap"
-	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	controllerbootstrap "github.com/juju/juju/domain/controller/bootstrap"
+	controllerconifgbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
@@ -265,7 +266,8 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	databaseBootstrapOptions := []database.BootstrapOpt{
 		// The controller config needs to be inserted before the admin users
 		// because the admin users permissions require the controller UUID.
-		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig, controllerModelUUID),
+		controllerconifgbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig, controllerModelUUID),
+		controllerbootstrap.InsertInitialController(servingInfo.Cert, servingInfo.PrivateKey, servingInfo.CAPrivateKey, servingInfo.SystemIdentity),
 		// The admin user needs to be added before everything else that
 		// requires being owned by a Juju user.
 		addAdminUser,
@@ -343,10 +345,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	st, err := ctrl.SystemState()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	if err := st.SetStateServingInfo(servingInfo); err != nil {
-		return errors.Errorf("cannot set state serving info: %v", err)
 	}
 
 	cloudSpec, err := environscloudspec.MakeCloudSpec(

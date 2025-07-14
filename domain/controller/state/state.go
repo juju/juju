@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
@@ -26,8 +27,8 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// ControllerModelUUID returns the model UUID of the controller model.
-func (st *State) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
+// GetControllerModelUUID returns the model UUID of the controller model.
+func (st *State) GetControllerModelUUID(ctx context.Context) (model.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -54,4 +55,35 @@ FROM   controller
 	}
 
 	return model.UUID(uuid.UUID), nil
+}
+
+// GetStateServingInfo returns the state serving information.
+func (st *State) GetStateServingInfo(ctx context.Context) (controller.StateServingInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return controller.StateServingInfo{}, errors.Capture(err)
+	}
+	var info controllerStateServingInfo
+	stmt, err := st.Prepare(`SELECT &controllerStateServingInfo.* FROM controller`, info)
+	if err != nil {
+		return controller.StateServingInfo{}, errors.Errorf("preparing select state serving info statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&info)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("internal error: state serving info not found")
+		}
+		return err
+	})
+	if err != nil {
+		return controller.StateServingInfo{}, errors.Errorf("getting state serving info: %w", err)
+	}
+	return controller.StateServingInfo{
+		APIPort:        info.APIPort,
+		Cert:           info.Cert,
+		PrivateKey:     info.PrivateKey,
+		CAPrivateKey:   info.CAPrivateKey,
+		SystemIdentity: info.SystemIdentity,
+	}, nil
 }
