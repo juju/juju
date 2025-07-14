@@ -260,45 +260,6 @@ func (c *MockControllerConfigStateCompletedMigrationForModelCall) DoAndReturn(f 
 	return c
 }
 
-// ModelExists mocks base method.
-func (m *MockControllerConfigState) ModelExists(arg0 string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelExists", arg0)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelExists indicates an expected call of ModelExists.
-func (mr *MockControllerConfigStateMockRecorder) ModelExists(arg0 any) *MockControllerConfigStateModelExistsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExists", reflect.TypeOf((*MockControllerConfigState)(nil).ModelExists), arg0)
-	return &MockControllerConfigStateModelExistsCall{Call: call}
-}
-
-// MockControllerConfigStateModelExistsCall wrap *gomock.Call
-type MockControllerConfigStateModelExistsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockControllerConfigStateModelExistsCall) Return(arg0 bool, arg1 error) *MockControllerConfigStateModelExistsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockControllerConfigStateModelExistsCall) Do(f func(string) (bool, error)) *MockControllerConfigStateModelExistsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerConfigStateModelExistsCall) DoAndReturn(f func(string) (bool, error)) *MockControllerConfigStateModelExistsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockControllerConfigService is a mock of ControllerConfigService interface.
 type MockControllerConfigService struct {
 	ctrl     *gomock.Controller

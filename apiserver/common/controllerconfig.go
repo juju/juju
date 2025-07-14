@@ -12,6 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -41,12 +42,19 @@ type ExternalControllerService interface {
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 }
 
+type ModelService interface {
+	// CheckModelExists checks if a model exists within the controller.
+	// True or false is returned indicating of the model exists.
+	CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
+}
+
 // ControllerConfigAPI implements two common methods for use by various
 // facades - eg Provisioner and ControllerConfig.
 type ControllerConfigAPI struct {
 	controllerConfigService     ControllerConfigService
 	apiHostPortsForAgentsGetter APIHostPortsForAgentsGetter
 	externalControllerService   ExternalControllerService
+	modelService                ModelService
 	st                          ControllerConfigState
 }
 
@@ -56,12 +64,14 @@ func NewControllerConfigAPI(
 	controllerConfigService ControllerConfigService,
 	apiHostPortsForAgentsGetter APIHostPortsForAgentsGetter,
 	externalControllerService ExternalControllerService,
+	modelService ModelService,
 ) *ControllerConfigAPI {
 	return &ControllerConfigAPI{
 		st:                          st,
 		controllerConfigService:     controllerConfigService,
 		apiHostPortsForAgentsGetter: apiHostPortsForAgentsGetter,
 		externalControllerService:   externalControllerService,
+		modelService:                modelService,
 	}
 }
 
@@ -98,7 +108,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 	// First see if the requested model UUID is hosted by this controller.
-	modelExists, err := s.st.ModelExists(modelTag.Id())
+	modelExists, err := s.modelService.CheckModelExists(ctx, coremodel.UUID(modelTag.Id()))
 	if err != nil {
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
