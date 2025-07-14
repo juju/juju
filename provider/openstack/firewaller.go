@@ -494,13 +494,14 @@ func (c *neutronFirewaller) updateGroupControllerUUID(group *neutron.SecurityGro
 	}
 	client := c.environ.neutron()
 	var updatedTags = []string{
-		fmt.Sprintf("%s-%s", tags.JujuController, controllerUUID),
-		fmt.Sprintf("%s-%s", tags.JujuModel, c.environ.modelUUID),
+		fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+		fmt.Sprintf("%s=%s", tags.JujuModel, c.environ.modelUUID),
 	}
 
 	for _, tag := range group.Tags {
 		// Skip old controller and model tags.
-		if strings.HasPrefix(tag, fmt.Sprintf("%s-", tags.JujuController)) || strings.HasPrefix(tag, fmt.Sprintf("%s-", tags.JujuModel)) {
+		skipOldTags := strings.HasPrefix(tag, fmt.Sprintf("%s=", tags.JujuController)) || strings.HasPrefix(tag, fmt.Sprintf("%s=", tags.JujuModel))
+		if skipOldTags {
 			continue
 		}
 		updatedTags = append(updatedTags, tag)
