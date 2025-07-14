@@ -195,6 +195,70 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *tc.C) {
 	c.Check(dnsAddress, tc.Equals, "updated-controller.test.com:1234")
 }
 
+func (s *stateSuite) TestUpdateControllerUpsertAndReplaceAPIPort(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctrlConfig := map[string]string{
+		controller.APIPort: "1234",
+	}
+
+	// Initial values.
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err := st.ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg[controller.APIPort], tc.Equals, "1234")
+
+	ctrlConfig[controller.APIPort] = "5678"
+
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err = st.ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg[controller.APIPort], tc.Equals, "5678")
+
+	// Ensure that the API port is *not* in the controller config table.
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM controller_config WHERE key = ?", controller.APIPort)
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestUpdateControllerRemoveAPIPort(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctrlConfig := map[string]string{
+		controller.APIPort: "1234",
+	}
+
+	// Initial values.
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err := st.ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg[controller.APIPort], tc.Equals, "1234")
+
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{controller.APIPort}, alwaysValid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err = st.ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg[controller.APIPort], tc.Equals, "")
+
+	// Ensure that the API port is *not* in the controller config table.
+	row := s.DB().QueryRow("SELECT api_port FROM controller")
+	var apiPort *string
+	err = row.Scan(&apiPort)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiPort, tc.IsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+}
+
 func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

@@ -5,6 +5,8 @@ package bootstrap
 
 import (
 	"context"
+	"database/sql"
+	"strconv"
 
 	"github.com/canonical/sqlair"
 
@@ -49,10 +51,17 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 			return errors.Capture(err)
 		}
 
+		apiPort, ok := values[jujucontroller.APIPort]
+		if !ok || apiPort == "" {
+			apiPort = strconv.Itoa(jujucontroller.DefaultAPIPort)
+		}
+		delete(values, jujucontroller.APIPort)
+
 		controllerData := dbController{
 			UUID:          values[jujucontroller.ControllerUUIDKey],
 			ModelUUID:     controllerModelUUID.String(),
 			TargetVersion: jujuversion.Current.String(),
+			APIPort:       sql.Null[string]{V: apiPort, Valid: true},
 		}
 		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (*) VALUES ($dbController.*)`, controllerData)
 		if err != nil {
@@ -104,4 +113,6 @@ type dbController struct {
 	// TargetVersion is the binary version controllers in this cluster should be
 	// running.
 	TargetVersion string `db:"target_version"`
+	// APIPort is the port the controller API is listening on.
+	APIPort sql.Null[string] `db:"api_port"`
 }

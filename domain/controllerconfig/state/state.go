@@ -93,27 +93,51 @@ VALUES ($KeyValue.*)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	updateKeyValues := make([]KeyValue, 0)
+	var (
+		updateKeyValues  []KeyValue
+		controllerValues controllerValues
+	)
 	for k, v := range updateAttrs {
 		// Although not strictly necessary here, as it's solved in the service
 		// layer, we don't want to allow changing the controller UUID or name
 		// from the state layer either.
-		if k == controller.ControllerUUIDKey {
+		switch k {
+		case controller.ControllerUUIDKey:
 			continue
+		case controller.APIPort:
+			controllerValues.APIPort = sql.Null[string]{V: v, Valid: true}
+		default:
+			updateKeyValues = append(updateKeyValues, KeyValue{
+				Key:   k,
+				Value: v,
+			})
 		}
-		updateKeyValues = append(updateKeyValues, KeyValue{
-			Key:   k,
-			Value: v,
-		})
+	}
+
+	// Remove the attributes that have been extracted to the controller
+	// table.
+	for i, r := range removeAttrs {
+		if r == controller.APIPort {
+			removeAttrs = append(removeAttrs[:i], removeAttrs[i+1:]...)
+
+			// Force this back to not valid, just in case it was updated and
+			// removed at the same time.
+			controllerValues.APIPort = sql.Null[string]{}
+			break
+		}
+	}
+
+	updateControllerStmt, err := st.Prepare(`
+UPDATE controller SET api_port = $controllerValues.api_port`, controllerValues)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check keys and values are valid between current and new config.
 		var keyValues []KeyValue
-		if err := tx.Query(ctx, selectStmt).GetAll(&keyValues); err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				return errors.Capture(err)
-			}
+		if err := tx.Query(ctx, selectStmt).GetAll(&keyValues); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Capture(err)
 		}
 
 		current := make(map[string]string)
@@ -125,7 +149,14 @@ VALUES ($KeyValue.*)
 		}
 
 		// Update the attributes.
-		if err := tx.Query(ctx, updateStmt, updateKeyValues).Run(); err != nil {
+		if len(updateKeyValues) > 0 {
+			if err := tx.Query(ctx, updateStmt, updateKeyValues).Run(); err != nil {
+				return errors.Capture(err)
+			}
+		}
+
+		// The controller table needs to be updated with the new API port.
+		if err := tx.Query(ctx, updateControllerStmt, controllerValues).Run(); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -150,6 +181,6 @@ func (*State) AllKeysQuery() string {
 
 // NamespaceForWatchControllerConfig returns the namespace identifier
 // used for watching controller configuration changes.
-func (*State) NamespaceForWatchControllerConfig() string {
-	return "controller_config"
+func (*State) NamespaceForWatchControllerConfig() []string {
+	return []string{"controller", "controller_config"}
 }

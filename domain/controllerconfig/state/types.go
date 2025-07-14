@@ -3,6 +3,8 @@
 
 package state
 
+import "database/sql"
+
 type KeyValue struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
@@ -14,3 +16,7 @@ type Controller struct {
 }
 
 type StringSlice []string
+
+type controllerValues struct {
+	APIPort sql.Null[string] `db:"api_port"`
+}
