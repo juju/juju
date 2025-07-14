@@ -13,23 +13,27 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-type attachmentWatcher[T any] struct {
+// stringSourcedWatcher is a generic watcher that listens to changes from a source
+// watcher and maps the events to a specific type T using the provided mapper function.
+// The mapper function should take the context and the events as input and return a slice of T or an error.
+// The watcher will emit the mapped results on its Changes channel.
+type stringSourcedWatcher[T any] struct {
 	catacomb catacomb.Catacomb
 
-	sourceWatcher  watcher.StringsWatcher
-	processChanges func(ctx context.Context, events ...string) ([]T, error)
+	sourceWatcher watcher.StringsWatcher
+	mapper        func(ctx context.Context, events ...string) ([]T, error)
 
 	out chan []T
 }
 
-func newAttachmentWatcher[T any](
+func newStringSourcedWatcher[T any](
 	sourceWatcher watcher.StringsWatcher,
-	processChanges func(ctx context.Context, events ...string) ([]T, error),
-) (*attachmentWatcher[T], error) {
-	w := &attachmentWatcher[T]{
-		sourceWatcher:  sourceWatcher,
-		processChanges: processChanges,
-		out:            make(chan []T, 1),
+	mapper func(ctx context.Context, events ...string) ([]T, error),
+) (*stringSourcedWatcher[T], error) {
+	w := &stringSourcedWatcher[T]{
+		sourceWatcher: sourceWatcher,
+		mapper:        mapper,
+		out:           make(chan []T, 1),
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
@@ -41,15 +45,8 @@ func newAttachmentWatcher[T any](
 	return w, errors.Capture(err)
 }
 
-func (w *attachmentWatcher[T]) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
-}
-
-func (w *attachmentWatcher[T]) loop() error {
+func (w *stringSourcedWatcher[T]) loop() error {
 	defer close(w.out)
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
 
 	var (
 		changes []T
@@ -69,7 +66,7 @@ func (w *attachmentWatcher[T]) loop() error {
 				continue
 			}
 
-			results, err := w.processChanges(ctx, events...)
+			results, err := w.mapper(w.catacomb.Context(context.Background()), events...)
 			if err != nil {
 				return errors.Errorf("processing changes: %w", err)
 			}
@@ -90,23 +87,23 @@ func (w *attachmentWatcher[T]) loop() error {
 }
 
 // Changes returns the channel of the changes.
-func (w *attachmentWatcher[T]) Changes() <-chan []T {
+func (w *stringSourcedWatcher[T]) Changes() <-chan []T {
 	return w.out
 }
 
 // Stop stops the watcher.
-func (w *attachmentWatcher[T]) Stop() error {
+func (w *stringSourcedWatcher[T]) Stop() error {
 	w.Kill()
 	return w.Wait()
 }
 
 // Kill kills the watcher via its tomb.
-func (w *attachmentWatcher[T]) Kill() {
+func (w *stringSourcedWatcher[T]) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait waits for the watcher's tomb to die,
 // and returns the error with which it was killed.
-func (w *attachmentWatcher[T]) Wait() error {
+func (w *stringSourcedWatcher[T]) Wait() error {
 	return w.catacomb.Wait()
 }

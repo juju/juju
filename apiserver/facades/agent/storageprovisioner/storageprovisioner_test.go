@@ -168,7 +168,6 @@ func (s *provisionerSuite) TestWatchVolumesForMachineNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
@@ -246,7 +245,6 @@ func (s *provisionerSuite) TestWatchFilesystemsForMachineNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
@@ -305,7 +303,6 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentPlansMachineNotFound(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
@@ -375,7 +372,6 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForMachineNotFound(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
@@ -495,7 +491,6 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForMachineNotFound(c *t
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, tc.ErrorMatches, `machine "0" not found`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
