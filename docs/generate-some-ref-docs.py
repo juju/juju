@@ -3,9 +3,9 @@ import re
 import shutil
 import subprocess
 
-###################################################################
-# Auto-generation of some documentations in the reference directory
-###################################################################
+#####################################################################
+# Auto-generation of some documentations in the reference directory #
+#####################################################################
 
 def _major_minor_from_version_string(version):
     """Get a tuple of version from a juju version string.
