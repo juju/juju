@@ -51,6 +51,7 @@ func newFacadeBase(ctx facade.ModelContext) (*Facade, error) {
 		names.NewModelTag(ctx.ModelUUID().String()),
 		st,
 		domainServices.Application(),
+		domainServices.Machine(),
 		domainServices.Network(),
 		domainServices.Config(),
 		domainServices.ModelProvider(),
