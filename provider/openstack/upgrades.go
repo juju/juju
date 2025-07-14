@@ -109,8 +109,9 @@ func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) erro
 		return errors.Trace(err)
 	}
 
+	jujuGroupNamePrefix := fmt.Sprintf("juju-%s-%s", t.env.controllerUUID, t.env.modelUUID)
 	for _, securityGroup := range securityGroups {
-		if !strings.HasPrefix(securityGroup.Name, fmt.Sprintf("juju-%s-%s", t.env.controllerUUID, t.env.modelUUID)) {
+		if !strings.HasPrefix(securityGroup.Name, jujuGroupNamePrefix) {
 			continue
 		}
 
