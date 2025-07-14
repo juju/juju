@@ -936,7 +936,7 @@ func (s *applicationEndpointStateSuite) TestGetSpaceUUIDsApplicationDefaultOnly(
 	})
 }
 
-// TestValidateBindingNames tests the getBindingTypes helper.
+// TestValidateBindingNames tests the getBindingTableTypes helper.
 func (s *applicationEndpointStateSuite) TestGetBindingTypes(c *tc.C) {
 	db, err := s.state.DB()
 	c.Assert(err, tc.ErrorIsNil)
@@ -953,7 +953,7 @@ func (s *applicationEndpointStateSuite) TestGetBindingTypes(c *tc.C) {
 
 	// Act
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		obtained, err = s.state.getBindingTypes(ctx, tx, appID, input)
+		obtained, err = s.state.getBindingTableTypes(ctx, tx, appID, input)
 		return err
 	})
 
@@ -971,7 +971,7 @@ func (s *applicationEndpointStateSuite) TestGetBindingTypes(c *tc.C) {
 	}
 }
 
-// TestValidateBindingNames tests the getBindingTypes helper.
+// TestValidateBindingNames tests the getBindingTableTypes helper.
 func (s *applicationEndpointStateSuite) TestGetBindingNamesFail(c *tc.C) {
 	db, err := s.state.DB()
 	c.Assert(err, tc.ErrorIsNil)
@@ -981,7 +981,7 @@ func (s *applicationEndpointStateSuite) TestGetBindingNamesFail(c *tc.C) {
 
 	// Act
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err = s.state.getBindingTypes(ctx, tx, s.appID.String(), input)
+		_, err = s.state.getBindingTableTypes(ctx, tx, s.appID.String(), input)
 		return err
 	})
 
@@ -989,7 +989,7 @@ func (s *applicationEndpointStateSuite) TestGetBindingNamesFail(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.EndpointNotFound)
 }
 
-// TestValidateBindingNames tests the getBindingTypes helper.
+// TestValidateBindingNames tests the getBindingTableTypes helper.
 func (s *applicationEndpointStateSuite) TestGetBindingNamesIgnoreAppDefaultSpace(c *tc.C) {
 	db, err := s.state.DB()
 	c.Assert(err, tc.ErrorIsNil)
@@ -1005,7 +1005,7 @@ func (s *applicationEndpointStateSuite) TestGetBindingNamesIgnoreAppDefaultSpace
 
 	// Act
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		obtained, err = s.state.getBindingTypes(ctx, tx, appID, input)
+		obtained, err = s.state.getBindingTableTypes(ctx, tx, appID, input)
 		return err
 	})
 

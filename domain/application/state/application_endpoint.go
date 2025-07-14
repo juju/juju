@@ -249,7 +249,7 @@ func (st *State) MergeApplicationEndpointBindings(ctx context.Context, appID str
 }
 
 func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, appID string, bindings map[string]string, force bool) error {
-	bindingTables, err := st.getBindingTypes(ctx, tx, appID, slices.Collect(maps.Keys(bindings)))
+	bindingTables, err := st.getBindingTableTypes(ctx, tx, appID, slices.Collect(maps.Keys(bindings)))
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -535,24 +535,14 @@ func (st *State) updateValidatedApplicationEndpointSpaces(
 	}
 	for binding, spaceName := range bindingsToFind {
 		var spaceUUID sql.Null[string]
-		uuid, ok := spacesToUUIDs[spaceName]
-		if !ok {
-			// This is a programming error as the spaces were validated
-			// early in the transaction
-			return errors.Errorf("%q", spaceName).Add(networkerrors.SpaceNotFound)
-		}
+		uuid, _ := spacesToUUIDs[spaceName]
 		if spaceName != "" {
 			spaceUUID = sql.Null[string]{
 				V:     uuid,
 				Valid: true,
 			}
 		}
-		bindingType, ok := bindingTypes[binding]
-		if !ok {
-			// This is a programming error as the spaces were validated
-			// early in the transaction
-			return errors.Errorf("programming error").Add(applicationerrors.EndpointNotFound)
-		}
+		bindingType, _ := bindingTypes[binding]
 		err := st.updateApplicationEndpointSpace(ctx, tx, appID, bindingType, spaceUUID)
 		if err != nil {
 			return errors.Errorf("failure to update endpoint %q: %w", bindingType.Name, err)
@@ -803,21 +793,21 @@ WHERE  uuid = $applicationID.uuid
 	return endpoints, nil
 }
 
-// BindingType is used to indicate whether an endpoint name is a relation
-// name or an extra endpoint name as defined in the charm metadata. It also
+// bindingTable is used to indicate whether an endpoint name is a relation
+// name or an extra endpoint name as defined in the charm metadata. It
 // identifies which table should be used when updating the endpoint bindings
 // by name.
-type BindingType string
+type bindingTable string
 
 const (
-	BindingRelation BindingType = "relation"
-	BindingExtra    BindingType = "extra"
+	BindingRelation bindingTable = "relation"
+	BindingExtra    bindingTable = "extra"
 )
 
-// getBindingTypes validates that the binding names provided exist in
+// getBindingTableTypes validates that the binding names provided exist in
 // the application's charm as relations or extra bindings. Returns a
-// map of binding names to their types.
-func (st *State) getBindingTypes(ctx context.Context, tx *sqlair.TX, appID string, names []string) (map[string]bindingToTable, error) {
+// map of binding names to their table types.
+func (st *State) getBindingTableTypes(ctx context.Context, tx *sqlair.TX, appID string, names []string) (map[string]bindingToTable, error) {
 	// an empty string indicates the application's
 	// default space should be updated, no relation
 	// or extra binding to find.

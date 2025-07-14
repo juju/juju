@@ -1327,7 +1327,7 @@ type insertUnitStorageDirective struct {
 }
 
 type bindingToTable struct {
-	Name        string      `db:"name"`
-	UUID        string      `db:"uuid"`
-	BindingType BindingType `db:"binding_type"`
+	Name        string       `db:"name"`
+	UUID        string       `db:"uuid"`
+	BindingType bindingTable `db:"binding_type"`
 }
