@@ -92,7 +92,6 @@ var stateServingInfo = controller.StateServingInfo{
 	Cert:         string(serverCert),
 	PrivateKey:   string(serverKey),
 	CAPrivateKey: "ca-private-key",
-	StatePort:    37017,
 	APIPort:      17070,
 }
 
@@ -1003,9 +1002,6 @@ var verifyTests = []struct {
 	}},
 	{"invalid bootstrap configuration: missing ca cert private key", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.StateServingInfo.CAPrivateKey = ""
-	}},
-	{"invalid bootstrap configuration: missing state port", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap.StateServingInfo.StatePort = 0
 	}},
 	{"invalid bootstrap configuration: missing API port", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.StateServingInfo.APIPort = 0

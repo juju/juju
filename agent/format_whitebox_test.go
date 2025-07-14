@@ -84,7 +84,6 @@ func (*formatSuite) TestReadWriteStateConfig(c *tc.C) {
 		Cert:         "some special cert",
 		PrivateKey:   "a special key",
 		CAPrivateKey: "ca special key",
-		StatePort:    12345,
 		APIPort:      23456,
 	}
 	params := agentParams

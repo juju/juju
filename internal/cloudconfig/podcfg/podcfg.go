@@ -253,9 +253,6 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
 		return errors.New("missing ca cert private key")
 	}
-	if cfg.StateServingInfo.StatePort == 0 {
-		return errors.New("missing state port")
-	}
 	if cfg.StateServingInfo.APIPort == 0 {
 		return errors.New("missing API port")
 	}

@@ -606,9 +606,6 @@ func NewStateMachineConfig(configParams AgentConfigParams, serverInfo controller
 	if serverInfo.CAPrivateKey == "" {
 		return nil, errors.Trace(requiredError("ca cert key"))
 	}
-	if serverInfo.StatePort == 0 {
-		return nil, errors.Trace(requiredError("state port"))
-	}
 	if serverInfo.APIPort == 0 {
 		return nil, errors.Trace(requiredError("api port"))
 	}
@@ -1049,7 +1046,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if c.apiDetails == nil || c.apiDetails.addresses == nil {
 		return nil, false
 	}
-	ssi, ok := c.StateServingInfo()
+	_, ok = c.StateServingInfo()
 	if !ok {
 		return nil, false
 	}
@@ -1067,7 +1064,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	}
 	// We should only be connecting to mongo on cloud local addresses,
 	// not fan or public etc.
-	hostPorts := network.SpaceAddressesWithPort(netAddrs, ssi.StatePort)
+	hostPorts := network.SpaceAddressesWithPort(netAddrs, 37017)
 	mongoAddrs := hostPorts.AllMatchingScope(network.ScopeMatchCloudLocal)
 
 	// We return localhost first and then all addresses of known API
@@ -1076,7 +1073,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
-	local := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
+	local := net.JoinHostPort("localhost", strconv.Itoa(37017))
 	mongoAddrs = append([]string{local}, mongoAddrs...)
 	logger.Debugf(context.TODO(), "potential mongo addresses: %v", mongoAddrs)
 	return &mongo.MongoInfo{

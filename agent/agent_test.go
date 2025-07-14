@@ -302,7 +302,6 @@ func stateServingInfo() controller.StateServingInfo {
 		Cert:           "cert",
 		PrivateKey:     "key",
 		CAPrivateKey:   "ca key",
-		StatePort:      69,
 		APIPort:        47,
 		SystemIdentity: "identity",
 	}
@@ -346,7 +345,6 @@ func (*suite) TestNewStateMachineConfig(c *tc.C) {
 			Cert:         "server cert",
 			PrivateKey:   "server key",
 			CAPrivateKey: "ca key",
-			StatePort:    69,
 		},
 		checkErr: "api port not found in configuration",
 	}}
@@ -415,7 +413,6 @@ func (*suite) TestStateServingInfo(c *tc.C) {
 	c.Assert(gotInfo, tc.DeepEquals, servingInfo)
 	newInfo := controller.StateServingInfo{
 		APIPort:        147,
-		StatePort:      169,
 		Cert:           "new cert",
 		PrivateKey:     "new key",
 		CAPrivateKey:   "new ca key",

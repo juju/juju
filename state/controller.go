@@ -124,7 +124,6 @@ const stateServingInfoKey = "stateServingInfo"
 
 type stateServingInfo struct {
 	APIPort        int    `bson:"apiport"`
-	StatePort      int    `bson:"stateport"`
 	Cert           string `bson:"cert"`
 	PrivateKey     string `bson:"privatekey"`
 	CAPrivateKey   string `bson:"caprivatekey"`
@@ -141,12 +140,8 @@ func (st *State) StateServingInfo() (jujucontroller.StateServingInfo, error) {
 	if err != nil {
 		return jujucontroller.StateServingInfo{}, errors.Trace(err)
 	}
-	if info.StatePort == 0 {
-		return jujucontroller.StateServingInfo{}, errors.NotFoundf("state serving info")
-	}
 	return jujucontroller.StateServingInfo{
 		APIPort:        info.APIPort,
-		StatePort:      info.StatePort,
 		Cert:           info.Cert,
 		PrivateKey:     info.PrivateKey,
 		CAPrivateKey:   info.CAPrivateKey,
@@ -156,7 +151,7 @@ func (st *State) StateServingInfo() (jujucontroller.StateServingInfo, error) {
 
 // SetStateServingInfo stores information needed for running a controller
 func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error {
-	if info.StatePort == 0 || info.APIPort == 0 ||
+	if info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
 	}
@@ -173,7 +168,6 @@ func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error
 		Id: stateServingInfoKey,
 		Update: bson.D{{"$set", stateServingInfo{
 			APIPort:        info.APIPort,
-			StatePort:      info.StatePort,
 			Cert:           info.Cert,
 			PrivateKey:     info.PrivateKey,
 			CAPrivateKey:   info.CAPrivateKey,

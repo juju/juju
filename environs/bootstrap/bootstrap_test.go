@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -1236,7 +1235,6 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *tc.C) {
 	})
 	controllerCfg := icfg.ControllerConfig
 	c.Check(controllerCfg["ca-private-key"], tc.IsNil)
-	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, tc.Equals, controller.DefaultStatePort)
 	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, tc.Equals, controllerCfg.APIPort())
 	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, tc.Equals, coretesting.CAKey)
 }

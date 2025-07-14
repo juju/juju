@@ -773,7 +773,6 @@ func finalizeInstanceBootstrapConfig(
 	}
 
 	icfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
-		StatePort:    controller.DefaultStatePort,
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),
@@ -844,7 +843,6 @@ func finalizePodBootstrapConfig(
 	}
 
 	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
-		StatePort:    controller.DefaultStatePort,
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),

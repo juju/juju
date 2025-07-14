@@ -97,14 +97,12 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,
-		StatePort:    123,
 		APIPort:      456,
 	}
 	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,
-		StatePort:    123,
 		APIPort:      456,
 	}
 	pcfg.Bootstrap.ControllerConfig = s.controllerCfg

@@ -218,7 +218,6 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
 			CAPrivateKey: coretesting.CAKey,
-			StatePort:    mgotesting.MgoServer.Port(),
 			APIPort:      apiPort,
 		})
 	c.Assert(err, tc.ErrorIsNil)

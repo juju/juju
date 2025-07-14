@@ -11,7 +11,7 @@ import (
 
 // InstallMongo installs a mongo server for juju from snap using the specified
 // snap channel.
-func InstallMongo(snapChannel string) error {
+func InstallMongo() error {
 	snapManager := manager.NewSnapPackageManager()
-	return snapManager.Install(fmt.Sprintf("juju-db --channel %s", snapChannel))
+	return snapManager.Install(fmt.Sprintf("juju-db"))
 }
