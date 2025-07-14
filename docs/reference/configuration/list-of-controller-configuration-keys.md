@@ -715,18 +715,6 @@ connections to the controller.
 **Can be changed after bootstrap:** no
 
 
-(controller-config-state-port)=
-## `state-port`
-
-`state-port` is the port used for mongo connections.
-
-**Type:** integer
-
-**Default value:** 37017
-
-**Can be changed after bootstrap:** no
-
-
 (controller-config-system-ssh-keys)=
 ## `system-ssh-keys`
 

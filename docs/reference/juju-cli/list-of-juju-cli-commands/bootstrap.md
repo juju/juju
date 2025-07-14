@@ -396,9 +396,6 @@ Controller configuration keys:
     ssh-server-port:
       type: int
       description: The port used for ssh connections to the controller
-    state-port:
-      type: int
-      description: The port used for mongo connections
     system-ssh-keys:
       type: string
       description: Defines the system ssh keys
