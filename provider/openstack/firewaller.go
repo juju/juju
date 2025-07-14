@@ -493,7 +493,19 @@ func (c *neutronFirewaller) updateGroupControllerUUID(group *neutron.SecurityGro
 		return errors.Trace(err)
 	}
 	client := c.environ.neutron()
-	_, err = client.UpdateSecurityGroupV2(group.Id, newName, group.Description)
+	var updatedTags = []string{
+		fmt.Sprintf("%s-%s", tags.JujuController, controllerUUID),
+		fmt.Sprintf("%s-%s", tags.JujuModel, c.environ.modelUUID),
+	}
+
+	for _, tag := range group.Tags {
+		// Skip old controller and model tags.
+		if strings.HasPrefix(tag, fmt.Sprintf("%s-", tags.JujuController)) || strings.HasPrefix(tag, fmt.Sprintf("%s-", tags.JujuModel)) {
+			continue
+		}
+		updatedTags = append(updatedTags, tag)
+	}
+	_, err = client.UpdateSecurityGroupV2(group.Id, newName, group.Description, updatedTags)
 	return errors.Trace(err)
 }
 

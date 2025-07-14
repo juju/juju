@@ -642,18 +642,18 @@ func (mr *MockNetworkingNeutronMockRecorder) SecurityGroupByNameV2(arg0 any) *go
 }
 
 // UpdateSecurityGroupV2 mocks base method.
-func (m *MockNetworkingNeutron) UpdateSecurityGroupV2(arg0, arg1, arg2 string) (*neutron.SecurityGroupV2, error) {
+func (m *MockNetworkingNeutron) UpdateSecurityGroupV2(arg0, arg1, arg2 string, arg3 []string) (*neutron.SecurityGroupV2, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSecurityGroupV2", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateSecurityGroupV2", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*neutron.SecurityGroupV2)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateSecurityGroupV2 indicates an expected call of UpdateSecurityGroupV2.
-func (mr *MockNetworkingNeutronMockRecorder) UpdateSecurityGroupV2(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockNetworkingNeutronMockRecorder) UpdateSecurityGroupV2(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecurityGroupV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).UpdateSecurityGroupV2), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecurityGroupV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).UpdateSecurityGroupV2), arg0, arg1, arg2, arg3)
 }
 
 // MockNetworkingAuthenticatingClient is a mock of NetworkingAuthenticatingClient interface.

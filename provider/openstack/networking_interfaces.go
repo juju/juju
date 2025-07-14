@@ -76,7 +76,7 @@ type NetworkingNeutron interface {
 	PortByIdV2(portId string) (neutron.PortV2, error)
 	SecurityGroupByNameV2(name string) ([]neutron.SecurityGroupV2, error)
 	DeleteSecurityGroupV2(groupId string) error
-	UpdateSecurityGroupV2(groupId string, name string, description string) (*neutron.SecurityGroupV2, error)
+	UpdateSecurityGroupV2(groupId string, name string, description string, tags []string) (*neutron.SecurityGroupV2, error)
 	CreateSecurityGroupRuleV2(ruleInfo neutron.RuleInfoV2) (*neutron.SecurityGroupRuleV2, error)
 	DeleteSecurityGroupRuleV2(ruleId string) error
 	ReplaceAllTags(resourceType string, resourceId string, tags []string) error
