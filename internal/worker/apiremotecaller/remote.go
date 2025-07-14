@@ -235,12 +235,11 @@ func (w *remoteServer) loop() error {
 				addresses = request.addresses
 				rctx      = request.ctx
 			)
-
 			w.logger.Debugf(ctx, "addresses for %q have changed: %v", w.controllerID, addresses)
 
 			// If the addresses already exist, we don't need to do anything.
 			if connected && w.addressesAlreadyExist(addresses) {
-				w.logger.Debugf(ctx, "addresses for %q have not changed", w.controllerID)
+				w.logger.Tracef(ctx, "addresses for %q have not changed", w.controllerID)
 				continue
 			}
 

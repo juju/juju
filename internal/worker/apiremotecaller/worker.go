@@ -35,9 +35,9 @@ type ControllerNodeService interface {
 	// controller ID, and the values are slices of strings representing the API
 	// addresses for each controller node.
 	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
-	// WatchControllerNodes returns a watcher that observes changes to the
-	// controller nodes.
-	WatchControllerNodes(context.Context) (watcher.NotifyWatcher, error)
+	// WatchControllerAPIAddresses returns a watcher that observes changes to
+	// the controller api address changes.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // WorkerConfig defines the configuration values that the pubsub worker needs
@@ -182,7 +182,7 @@ func (w *remoteWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.cfg.ControllerNodeService.WatchControllerNodes(ctx)
+	watcher, err := w.cfg.ControllerNodeService.WatchControllerAPIAddresses(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -206,11 +206,13 @@ func (w *remoteWorker) loop() error {
 				// (itself), so if we get an empty addresses error then we can't
 				// proceed. Yet we shouldn't stop the worker coming up, so we
 				// log the error and continue to wait for the next change.
-				w.cfg.Logger.Errorf(ctx, "no API addresses available for remote workers: %v", err)
+				w.cfg.Logger.Warningf(ctx, "no API addresses available for remote workers: %v", err)
 				continue
 			} else if err != nil {
 				return errors.Trace(err)
 			}
+
+			w.cfg.Logger.Tracef(ctx, "remoteWorker API servers: %v %v", servers, w.cfg.Origin.Id())
 
 			// Locate the current workers, so we can remove any workers that are
 			// no longer required.
