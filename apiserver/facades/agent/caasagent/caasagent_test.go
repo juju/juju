@@ -92,6 +92,7 @@ func (s *caasagentSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerConfigService,
 		s.apiHostPortsForAgentsGetter,
 		s.externalControllerService,
+		nil,
 	)
 	modelConfigAPI := model.NewModelConfigWatcher(
 		s.modelConfigService, s.registry,

@@ -139,25 +139,26 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	domainServices := ctx.DomainServices()
 
+	agentPasswordService := domainServices.AgentPassword()
+	agentProvisionerService := domainServices.AgentProvisioner()
 	agentService := domainServices.Agent()
 	agentBinaryService := domainServices.AgentBinary()
 	applicationService := domainServices.Application()
-	removalService := domainServices.Removal()
-	machineService := domainServices.Machine()
-	statusService := domainServices.Status()
-	modelInfoService := domainServices.ModelInfo()
-	cloudService := domainServices.Cloud()
-	credentialService := domainServices.Credential()
-	modelConfigService := domainServices.Config()
-	controllerNodeService := domainServices.ControllerNode()
-	agentPasswordService := domainServices.AgentPassword()
-	controllerConfigService := domainServices.ControllerConfig()
-	networkService := domainServices.Network()
-	storageService := domainServices.Storage()
-	keyUpdaterService := domainServices.KeyUpdater()
 	cloudImageMetadataService := domainServices.CloudImageMetadata()
-	agentProvisionerService := domainServices.AgentProvisioner()
+	cloudService := domainServices.Cloud()
+	controllerConfigService := domainServices.ControllerConfig()
+	controllerNodeService := domainServices.ControllerNode()
+	credentialService := domainServices.Credential()
 	externalControllerService := domainServices.ExternalController()
+	keyUpdaterService := domainServices.KeyUpdater()
+	machineService := domainServices.Machine()
+	modelService := domainServices.Model()
+	modelConfigService := domainServices.Config()
+	modelInfoService := domainServices.ModelInfo()
+	networkService := domainServices.Network()
+	removalService := domainServices.Removal()
+	statusService := domainServices.Status()
+	storageService := domainServices.Storage()
 
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:              model,
@@ -202,6 +203,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 			controllerConfigService,
 			controllerNodeServices,
 			externalControllerService,
+			modelService,
 		),
 		networkService:            networkService,
 		st:                        st,

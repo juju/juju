@@ -35,6 +35,7 @@ func newFacade(ctx facade.ModelContext) (*Facade, error) {
 			domainServices.ControllerConfig(),
 			domainServices.ControllerNode(),
 			domainServices.ExternalController(),
+			domainServices.Model(),
 		),
 		controllerConfigService: domainServices.ControllerConfig(),
 	}, nil

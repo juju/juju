@@ -146,6 +146,7 @@ func NewControllerAPI(
 			controllerConfigService,
 			controllerNodeService,
 			externalControllerService,
+			modelService,
 		),
 		ModelStatusAPI: commonmodel.NewModelStatusAPI(
 			commonmodel.NewModelManagerBackend(model, pool),

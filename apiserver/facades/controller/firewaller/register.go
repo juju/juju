@@ -27,6 +27,7 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
+		domainServices.Model(),
 	)
 
 	stShim := stateShim{State: st}

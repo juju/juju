@@ -38,6 +38,7 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 		services.Machine(),
 		services.Config(),
 		services.Application(),
+		services.Model(),
 		ctx.WatcherRegistry(),
 	), nil
 }

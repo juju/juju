@@ -65,6 +65,9 @@ type ControllerAccessService interface {
 type ModelService interface {
 	// Model returns the model associated with the provided uuid.
 	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
+	// CheckModelExistsByName checks if a model exists within the controller.
+	// True or false is returned indicating of the model exists.
+	CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
 	// ControllerModel returns the model used for housing the Juju controller.
 	ControllerModel(ctx context.Context) (coremodel.Model, error)
 	// GetModelUsers will retrieve basic information about users with permissions on

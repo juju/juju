@@ -165,6 +165,7 @@ func NewAgentAPI(
 	machineService MachineService,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
+	modelService common.ModelService,
 	watcherRegistry facade.WatcherRegistry,
 ) *AgentAPI {
 	getCanChange := func(context.Context) (common.AuthFunc, error) {
@@ -180,6 +181,7 @@ func NewAgentAPI(
 			controllerConfigService,
 			controllerNodeService,
 			externalControllerService,
+			modelService,
 		),
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
