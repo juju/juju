@@ -63,7 +63,6 @@ func (s *PrepareSuite) assertPrepare(c *tc.C, skipVerify bool) {
 		controller.ControllerUUIDKey:       testing.ControllerTag.Id(),
 		controller.CACertKey:               testing.CACert,
 		controller.APIPort:                 17777,
-		controller.StatePort:               1234,
 		controller.SetNUMAControlPolicyKey: true,
 	}
 	cloudSpec := testing.FakeCloudSpec()
@@ -95,7 +94,6 @@ func (s *PrepareSuite) assertPrepare(c *tc.C, skipVerify bool) {
 	c.Assert(bootstrapCfg, tc.DeepEquals, &jujuclient.BootstrapConfig{
 		ControllerConfig: controller.Config{
 			controller.APIPort:                 17777,
-			controller.StatePort:               1234,
 			controller.SetNUMAControlPolicyKey: true,
 		},
 		Config: map[string]interface{}{

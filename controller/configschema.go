@@ -21,7 +21,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogExcludeMethods:             schema.String(),
 	APIPort:                            schema.ForceInt(),
 	ControllerName:                     schema.NonEmptyString(ControllerName),
-	StatePort:                          schema.ForceInt(),
 	LoginTokenRefreshURL:               schema.String(),
 	IdentityURL:                        schema.String(),
 	IdentityPublicKey:                  schema.String(),
@@ -77,7 +76,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogMaxSize:                    fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
 	AuditLogMaxBackups:                 DefaultAuditLogMaxBackups,
 	AuditLogExcludeMethods:             DefaultAuditLogExcludeMethods,
-	StatePort:                          DefaultStatePort,
 	LoginTokenRefreshURL:               schema.Omit,
 	IdentityURL:                        schema.Omit,
 	IdentityPublicKey:                  schema.Omit,
@@ -171,10 +169,6 @@ var ConfigSchema = configschema.Fields{
 	ControllerName: {
 		Type:        configschema.Tstring,
 		Description: `The canonical name of the controller`,
-	},
-	StatePort: {
-		Type:        configschema.Tint,
-		Description: `The port used for mongo connections`,
 	},
 	LoginTokenRefreshURL: {
 		Type:        configschema.Tstring,

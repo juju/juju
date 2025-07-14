@@ -293,7 +293,7 @@ func newControllerStack(
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
-		portMongoDB:   pcfg.Bootstrap.ControllerConfig.StatePort(),
+		portMongoDB:   controller.DefaultStatePort,
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
 		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}

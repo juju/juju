@@ -65,7 +65,6 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *tc.C) {
 			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
 			controller.CACertKey:         testing.CACert,
 			controller.APIPort:           4321,
-			controller.StatePort:         1234,
 		},
 		nil,
 	)

@@ -405,13 +405,6 @@ var newConfigTests = []struct {
 		controller.SSHServerPort: 17070,
 	},
 	expectError: `ssh-server-port matching api-port not valid`,
-}, {
-	about: "SSH port equals state port",
-	config: controller.Config{
-		controller.StatePort:     17075,
-		controller.SSHServerPort: 17075,
-	},
-	expectError: `ssh-server-port matching state-port not valid`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *tc.C) {

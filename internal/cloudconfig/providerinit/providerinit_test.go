@@ -164,7 +164,7 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 				ControllerModelConfig: envConfig,
 			},
 			StateServingInfo: controller.StateServingInfo{
-				StatePort:    controllerCfg.StatePort(),
+				StatePort:    controller.DefaultStatePort,
 				APIPort:      controllerCfg.APIPort(),
 				Cert:         testing.ServerCert,
 				PrivateKey:   testing.ServerKey,

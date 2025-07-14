@@ -589,7 +589,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 	probCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
-			fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
+			fmt.Sprintf("--port=%d", controller.DefaultStatePort),
 			"--eval",
 			"db.adminCommand('ping')",
 		},
@@ -689,7 +689,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			Ports: []core.ContainerPort{
 				{
 					Name:          "mongodb",
-					ContainerPort: int32(s.controllerCfg.StatePort()),
+					ContainerPort: int32(controller.DefaultStatePort),
 					Protocol:      "TCP",
 				},
 			},

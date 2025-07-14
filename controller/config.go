@@ -89,9 +89,6 @@ const (
 	// new versions of Juju will be honoured.
 	ReadOnlyMethodsWildcard = "ReadOnlyMethods"
 
-	// StatePort is the port used for mongo connections.
-	StatePort = "state-port"
-
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
 
@@ -475,7 +472,6 @@ var (
 		IdentityPublicKey,
 		IdentityURL,
 		SetNUMAControlPolicyKey,
-		StatePort,
 		JujuDBSnapChannel,
 		MaxDebugLogDuration,
 		MaxTxnLogSize,
@@ -707,11 +703,6 @@ func (c Config) durationOrDefault(name string, defaultVal time.Duration) time.Du
 		// nil type shows up here
 	}
 	return defaultVal
-}
-
-// StatePort returns the mongo server port for the environment.
-func (c Config) StatePort() int {
-	return c.mustInt(StatePort)
 }
 
 // APIPort returns the API server port for the environment.
@@ -1353,9 +1344,6 @@ func Validate(c Config) error {
 		}
 		if v == c.APIPort() {
 			return errors.NotValidf("ssh-server-port matching api-port")
-		}
-		if v == c.StatePort() {
-			return errors.NotValidf("ssh-server-port matching state-port")
 		}
 	}
 
