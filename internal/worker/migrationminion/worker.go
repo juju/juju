@@ -363,6 +363,12 @@ func (w *Worker) dialNewController(addrs []string, caCert string) (api.Connectio
 }
 
 func (w *Worker) dialWithRedirect(apiInfo *api.Info, dialOpts api.DialOpts, redirectCount int) (api.Connection, error) {
+	select {
+	case <-w.catacomb.Dying():
+		return nil, w.catacomb.ErrDying()
+	default:
+	}
+
 	if redirectCount >= maxRedirects {
 		return nil, errors.Errorf("too many redirects (%d) when connecting to target controller", redirectCount)
 	}
