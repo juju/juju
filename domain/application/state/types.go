@@ -1325,3 +1325,9 @@ type insertUnitStorageDirective struct {
 	StorageType     sql.Null[string] `db:"storage_type"`
 	UnitUUID        string           `db:"unit_uuid"`
 }
+
+type bindingToTable struct {
+	Name        string      `db:"name"`
+	UUID        string      `db:"uuid"`
+	BindingType BindingType `db:"binding_type"`
+}

@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -521,14 +520,20 @@ func (st *State) updateValidatedApplicationEndpointSpaces(
 	bindings, spacesToUUIDs map[string]string,
 	bindingTypes map[string]bindingToTable,
 ) error {
-	// The default space for the application was updated in
-	// updateDefaultSpace. The default space is represented by
-	// an empty string.
-	delete(bindings, "")
+	// The default space for the application was updated in updateDefaultSpace.
+	// The default space is represented by an empty string, thus cannot be found
+	// in the database. Do not try to update it.
+	bindingsToFind := make(map[string]string, 0)
+	for k, v := range bindings {
+		if k == "" {
+			continue
+		}
+		bindingsToFind[k] = v
+	}
 	if len(bindingTypes) == 0 {
 		return nil
 	}
-	for binding, spaceName := range bindings {
+	for binding, spaceName := range bindingsToFind {
 		var spaceUUID sql.Null[string]
 		uuid, ok := spacesToUUIDs[spaceName]
 		if !ok {
@@ -570,19 +575,19 @@ func (st *State) updateApplicationEndpointSpace(
 	var query string
 	switch binding.BindingType {
 	case BindingRelation:
-		query = fmt.Sprintf(`
+		query = `
 UPDATE application_endpoint
 SET    space_uuid = $updateBinding.space_uuid
 WHERE  application_uuid = $updateBinding.application_uuid
 AND    charm_relation_uuid = $updateBinding.binding_uuid
-`)
+`
 	case BindingExtra:
-		query = fmt.Sprintf(`
+		query = `
 UPDATE application_extra_endpoint
 SET    space_uuid = $updateBinding.space_uuid
 WHERE  application_uuid = $updateBinding.application_uuid
 AND    charm_extra_binding_uuid = $updateBinding.binding_uuid
-`)
+`
 	default:
 		return errors.Errorf("programming error, invalid endpoint type")
 	}
@@ -798,18 +803,16 @@ WHERE  uuid = $applicationID.uuid
 	return endpoints, nil
 }
 
+// BindingType is used to indicate whether an endpoint name is a relation
+// name or an extra endpoint name as defined in the charm metadata. It also
+// identifies which table should be used when updating the endpoint bindings
+// by name.
 type BindingType string
 
 const (
 	BindingRelation BindingType = "relation"
 	BindingExtra    BindingType = "extra"
 )
-
-type bindingToTable struct {
-	Name        string      `db:"name"`
-	UUID        string      `db:"uuid"`
-	BindingType BindingType `db:"binding_type"`
-}
 
 // getBindingTypes validates that the binding names provided exist in
 // the application's charm as relations or extra bindings. Returns a
@@ -885,18 +888,14 @@ func (st *State) getApplicationEndpointSpaceUUIDs(
 	fetchStmt, err := st.Prepare(
 		`
 WITH
-spaces AS (
-    SELECT uuid, name 
-    FROM space
-),
 app_default_space AS (
-    SELECT '' AS name, s.uuid, a.uuid AS app_uuid
+    SELECT s.name, s.uuid, a.uuid AS app_uuid
     FROM   space AS s
     JOIN   application AS a ON s.uuid = a.space_uuid
 )
 SELECT    (s.uuid, s.name) AS (&spaceWithAppDefault.*),
           ads.uuid AS &spaceWithAppDefault.app_uuid
-FROM      spaces AS s
+FROM      space AS s
 LEFT JOIN app_default_space AS ads ON s.uuid = ads.uuid
 WHERE     s.name IN ($spaceInput[:])
 OR        ads.app_uuid = $dbUUID.uuid
