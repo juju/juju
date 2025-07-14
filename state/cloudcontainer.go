@@ -6,8 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
-
-	"github.com/juju/juju/core/network"
 )
 
 // CloudContainer represents the state of a CAAS container, eg pod.
@@ -18,9 +16,6 @@ type CloudContainer interface {
 	// ProviderId returns the id assigned to the container/pod
 	// by the cloud.
 	ProviderId() string
-
-	// Address returns the container address.
-	Address() *network.SpaceAddress
 
 	// Ports returns the open container ports.
 	Ports() []string
@@ -39,7 +34,6 @@ type cloudContainerDoc struct {
 	Id string `bson:"_id"`
 
 	ProviderId string   `bson:"provider-id"`
-	Address    *address `bson:"address"`
 	Ports      []string `bson:"ports"`
 }
 
@@ -56,15 +50,6 @@ func (c *cloudContainer) Unit() string {
 // ProviderId implements CloudContainer.
 func (c *cloudContainer) ProviderId() string {
 	return c.doc.ProviderId
-}
-
-// Address implements CloudContainer.
-func (c *cloudContainer) Address() *network.SpaceAddress {
-	if c.doc.Address == nil {
-		return nil
-	}
-	addr := c.doc.Address.networkAddress()
-	return &addr
 }
 
 // Ports implements CloudContainer.

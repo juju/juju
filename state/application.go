@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
@@ -803,11 +802,6 @@ func (a *Application) addUnitOpsWithCons(
 			}
 			if args.providerId != nil {
 				containerDoc.ProviderId = *args.providerId
-			}
-			if args.address != nil {
-				networkAddr := network.NewSpaceAddress(*args.address, network.WithScope(network.ScopeMachineLocal))
-				addr := fromNetworkAddress(networkAddr, network.OriginProvider)
-				containerDoc.Address = &addr
 			}
 			if args.ports != nil {
 				containerDoc.Ports = *args.ports
