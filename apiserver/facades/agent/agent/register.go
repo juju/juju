@@ -32,6 +32,7 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 		ctx.Resources(),
 		ctx.State(),
 		services.AgentPassword(),
+		services.Controller(),
 		services.ControllerConfig(),
 		services.ControllerNode(),
 		services.ExternalController(),

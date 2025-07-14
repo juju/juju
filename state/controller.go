@@ -4,15 +4,10 @@
 package state
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
-
-	jujucontroller "github.com/juju/juju/controller"
 )
 
 // Controller encapsulates state for the Juju controller as a whole,
@@ -54,16 +49,6 @@ func (ctlr *Controller) Close() error {
 // connection uses the same credentials and policy as the Controller.
 func (ctlr *Controller) GetState(modelTag names.ModelTag) (*PooledState, error) {
 	return ctlr.pool.Get(modelTag.Id())
-}
-
-// Ping probes the Controller's database connection to ensure that it
-// is still alive.
-func (ctlr *Controller) Ping() error {
-	systemState, err := ctlr.pool.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return systemState.Ping()
 }
 
 type controllersDoc struct {
@@ -118,66 +103,6 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		ModelTag:      names.NewModelTag(doc.ModelUUID),
 		ControllerIds: doc.ControllerIds,
 	}, nil
-}
-
-const stateServingInfoKey = "stateServingInfo"
-
-type stateServingInfo struct {
-	APIPort        int    `bson:"apiport"`
-	Cert           string `bson:"cert"`
-	PrivateKey     string `bson:"privatekey"`
-	CAPrivateKey   string `bson:"caprivatekey"`
-	SystemIdentity string `bson:"systemidentity"`
-}
-
-// StateServingInfo returns information for running a controller machine
-func (st *State) StateServingInfo() (jujucontroller.StateServingInfo, error) {
-	controllers, closer := st.db().GetCollection(controllersC)
-	defer closer()
-
-	var info stateServingInfo
-	err := controllers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
-	if err != nil {
-		return jujucontroller.StateServingInfo{}, errors.Trace(err)
-	}
-	return jujucontroller.StateServingInfo{
-		APIPort:        info.APIPort,
-		Cert:           info.Cert,
-		PrivateKey:     info.PrivateKey,
-		CAPrivateKey:   info.CAPrivateKey,
-		SystemIdentity: info.SystemIdentity,
-	}, nil
-}
-
-// SetStateServingInfo stores information needed for running a controller
-func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error {
-	if info.APIPort == 0 ||
-		info.Cert == "" || info.PrivateKey == "" {
-		return errors.Errorf("incomplete state serving info set in state")
-	}
-	if info.CAPrivateKey == "" {
-		// No CA certificate key means we can't generate new controller
-		// certificates when needed to add to the certificate SANs.
-		// Older Juju deployments discard the key because no one realised
-		// the certificate was flawed, so at best we can log a warning
-		// until an upgrade process is written.
-		logger.Warningf(context.TODO(), "state serving info has no CA certificate key")
-	}
-	ops := []txn.Op{{
-		C:  controllersC,
-		Id: stateServingInfoKey,
-		Update: bson.D{{"$set", stateServingInfo{
-			APIPort:        info.APIPort,
-			Cert:           info.Cert,
-			PrivateKey:     info.PrivateKey,
-			CAPrivateKey:   info.CAPrivateKey,
-			SystemIdentity: info.SystemIdentity,
-		}}},
-	}}
-	if err := st.db().RunTransaction(ops); err != nil {
-		return errors.Annotatef(err, "cannot set state serving info")
-	}
-	return nil
 }
 
 // sshServerHostKeyKeyDocId holds the document ID to retrieve the

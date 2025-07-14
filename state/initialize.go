@@ -177,12 +177,6 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		},
 		txn.Op{
 			C:      controllersC,
-			Id:     stateServingInfoKey,
-			Assert: txn.DocMissing,
-			Insert: &stateServingInfo{},
-		},
-		txn.Op{
-			C:      controllersC,
 			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
