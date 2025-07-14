@@ -22,9 +22,12 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	watcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	"github.com/juju/juju/internal/objectstore/remote"
 )
 
 type fileObjectStoreSuite struct {
@@ -44,7 +47,10 @@ func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	store := s.newFileObjectStore(c, c.MkDir())
 	defer workertest.DirtyKill(c, store)
 
-	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound).Times(2)
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+	}, domainobjectstoreerrors.ErrNotFound).Times(2)
+	s.remote.EXPECT().Retrieve(gomock.Any(), "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").Return(nil, -1, remote.BlobNotFound)
 
 	_, _, err := store.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
@@ -56,7 +62,10 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
 	store := s.newFileObjectStore(c, c.MkDir())
 	defer workertest.DirtyKill(c, store)
 
-	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), "0263829").Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound).Times(2)
+	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), "0263829").Return(objectstore.Metadata{
+		SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+	}, domainobjectstoreerrors.ErrNotFound).Times(2)
+	s.remote.EXPECT().Retrieve(gomock.Any(), "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").Return(nil, -1, remote.BlobNotFound)
 
 	_, _, err := store.GetBySHA256Prefix(c.Context(), "0263829")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
@@ -882,6 +891,10 @@ func (s *fileObjectStoreSuite) newFileObjectStore(c *tc.C, path string) TrackedO
 		RemoteRetriever: s.remote,
 	})
 	c.Assert(err, tc.IsNil)
+
+	s.service.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
+	})
 
 	return store
 }

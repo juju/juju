@@ -112,7 +112,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "trace", "object-store-services", "lease-manager", "s3-client"}
+var expectedInputs = []string{"agent", "trace", "object-store-services", "lease-manager", "s3-client", "apiremotecaller"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
