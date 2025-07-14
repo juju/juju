@@ -6,6 +6,9 @@ package remote
 import (
 	"context"
 	"io"
+	"math/rand/v2"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -99,62 +102,67 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadClo
 		return nil, -1, NoRemoteConnections
 	}
 
-	var (
-		reader io.ReadCloser
-		size   int64
-	)
-	for _, remote := range remotes {
-		err := remote.Connection(ctx, func(connectionContext context.Context, conn api.Connection) error {
-			httpClient, err := conn.RootHTTPClient()
-			if err != nil {
-				return errors.Errorf("failed to get root HTTP client: %w", err).Add(HTTPError)
-			}
-
-			client, err := r.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient), r.logger)
-			if err != nil {
-				return errors.Errorf("failed to create object client: %w", err).Add(HTTPError)
-			}
-
-			if r.namespace == database.ControllerNS {
-				tag, _ := conn.ModelTag()
-				r.namespace = tag.Id()
-			}
-
-			// We don't want the connection context to affect the result of
-			// the GetObject call, so we create a new context that has the
-			// connection context as a child. This allows us to ignore the
-			// child context when we call GetObject, but still allows us to
-			// use the parent context for cancellation and deadlines.
-			ctx := &scopedContext{
-				parent: ctx,
-				child:  connectionContext,
-			}
-
-			reader, size, err = client.GetObject(ctx, r.namespace, sha256)
-			if errors.Is(err, jujuerrors.NotFound) {
-				return errors.Errorf("blob %q not found: %w", sha256, err).Add(BlobNotFound)
-			} else if err != nil {
-				return errors.Errorf("failed to get object %q: %w", sha256, err)
-			}
-
-			// Ignore the child context for the rest of the operation.
-			ctx.IgnoreChild()
-
-			return nil
-		})
-		if err == nil {
-			return reader, size, nil
-		}
-
-		if errors.IsOneOf(err, HTTPError, BlobNotFound) {
+	// Iterate over the remotes and try to retrieve the blob from each one.
+	// TODO (stickupkid): We could parallelize this, but that can lead to
+	// flooding of the controller with requests, so we do it sequentially for
+	// now.
+	var errs []string
+	for _, remote := range shuffleRemotes(remotes) {
+		reader, size, err := r.retrieve(ctx, remote, sha256)
+		if errors.Is(err, HTTPError) {
+			errs = append(errs, err.Error())
 			r.logger.Debugf(ctx, "failed to retrieve blob %q from remote: %v", sha256, err)
 			continue
-		} else {
+		} else if errors.Is(err, BlobNotFound) {
+			continue
+		} else if err != nil {
 			return nil, -1, errors.Errorf("failed to retrieve blob %q from remote: %w", sha256, err)
 		}
+
+		return reader, size, nil
 	}
 
-	return nil, -1, BlobNotFound
+	return nil, -1, errors.Errorf(`failed to retrieve %q: %s`, sha256, strings.Join(errs, ",")).Add(BlobNotFound)
+}
+
+func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
+	var reader io.ReadCloser
+	var size int64
+
+	err := remote.Connection(ctx, func(connectionContext context.Context, conn api.Connection) error {
+		httpClient, err := conn.RootHTTPClient()
+		if err != nil {
+			return errors.Errorf("failed to get root HTTP client: %w", err).Add(HTTPError)
+		}
+
+		client, err := r.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient), r.logger)
+		if err != nil {
+			return errors.Errorf("failed to create object client: %w", err).Add(HTTPError)
+		}
+
+		if r.namespace == database.ControllerNS {
+			tag, _ := conn.ModelTag()
+			r.namespace = tag.Id()
+		}
+
+		ctx := &scopedContext{
+			parent: ctx,
+			child:  connectionContext,
+		}
+
+		reader, size, err = client.GetObject(ctx, r.namespace, sha256)
+		if errors.Is(err, jujuerrors.NotFound) {
+			return errors.Errorf("blob %q not found: %w", sha256, err).Add(BlobNotFound)
+		} else if err != nil {
+			return errors.Errorf("failed to get object %q: %w", sha256, err)
+		}
+
+		ctx.IgnoreChild()
+
+		return nil
+	})
+
+	return reader, size, err
 }
 
 // Kill stops the BlobRetriever.
@@ -172,18 +180,45 @@ func (r *BlobRetriever) loop() error {
 	return tomb.ErrDying
 }
 
+// Shuffle the remotes to avoid always hitting the same one first.
+func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecaller.RemoteConnection {
+	if len(remotes) <= 1 {
+		return remotes
+	}
+
+	shuffled := make([]apiremotecaller.RemoteConnection, len(remotes))
+	copy(shuffled, remotes)
+
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	return shuffled
+}
+
+// scopedContext is a context that allows us to ignore the child context
+// when retrieving objects from the remote API. This is vital, because we
+// want to be able to cancel the retrieval operation if the get object process
+// fails, but we don't want the cancellation to propagate once we've received
+// the object. We're not buffering the object reader, so any cancellation
+// will cause the reader to be closed, which is not what we want.
 type scopedContext struct {
 	parent      context.Context
 	child       context.Context
-	ignoreChild int64
+	ignoreChild atomic.Bool
 }
 
+// IgnoreChild sets the ignoreChild flag to true, which means that the child
+// context will be ignored when retrieving objects from the remote API.
 func (c *scopedContext) IgnoreChild() {
-	atomic.AddInt64(&c.ignoreChild, 1)
+	c.ignoreChild.Store(true)
 }
 
+// IsChildIgnored returns true if the child context is ignored, which means
+// that the child context will not be consulted when retrieving objects from the
+// remote API.
 func (c *scopedContext) IsChildIgnored() bool {
-	return atomic.LoadInt64(&c.ignoreChild) > 0
+	return c.ignoreChild.Load()
 }
 
 // Deadline returns the time when work done on behalf of this context
@@ -200,18 +235,26 @@ func (c *scopedContext) Deadline() (deadline time.Time, ok bool) {
 // after the cancel function returns.
 func (c *scopedContext) Done() <-chan struct{} {
 	d := make(chan struct{})
+
+	closeDone := sync.OnceFunc(func() {
+		close(d)
+	})
+
 	go func() {
 		for {
 			select {
 			case <-c.parent.Done():
-				close(d)
+				closeDone()
 				return
 			case <-c.child.Done():
+				// If the child context is ignored, we don't want to close
+				// the done channel, because we don't want to propagate the
+				// cancellation to the caller.
 				if c.IsChildIgnored() {
 					continue
 				}
 
-				close(d)
+				closeDone()
 			}
 		}
 	}()
@@ -223,6 +266,8 @@ func (c *scopedContext) Err() error {
 	if err := c.parent.Err(); err != nil {
 		return err
 	}
+
+	// If the child context is ignored, we don't want to return its error.
 	if c.IsChildIgnored() {
 		return nil
 	}
@@ -239,6 +284,9 @@ func (c *scopedContext) Value(key any) any {
 	if v := c.parent.Value(key); v != nil {
 		return v
 	}
+
+	// If the child context is ignored, we don't want to return any value from
+	// it.
 	if c.IsChildIgnored() {
 		return nil
 	}

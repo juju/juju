@@ -4,28 +4,29 @@
 package remote
 
 import (
-	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	io "io"
-	"math/rand/v2"
-	"sync/atomic"
+	"strings"
 	"testing"
 	"time"
 
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
+	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/api"
+	api "github.com/juju/juju/api"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/worker/apiremotecaller"
+	apiremotecaller "github.com/juju/juju/internal/worker/apiremotecaller"
 )
 
 type retrieverSuite struct {
@@ -43,7 +44,126 @@ func TestRetrieverSuite(t *testing.T) {
 	tc.Run(t, &retrieverSuite{})
 }
 
-func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
+func (s *retrieverSuite) TestRetrieve(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+	s.apiConnection.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
+	s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil)
+
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256")
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveControllerNamespace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+	s.apiConnection.EXPECT().ModelTag().Return(names.NewModelTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"), true)
+	s.apiConnection.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
+	s.client.EXPECT().GetObject(gomock.Any(), "f47ac10b-58cc-4372-a567-0e02b2c3d479", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil)
+
+	ret, err := NewBlobRetriever(s.remoteCallers, database.ControllerNS, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+		return s.client, nil
+	}, s.clock, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256")
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveMultipleRemotes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
+		s.remoteConnection,
+		s.remoteConnection,
+	}, nil)
+
+	gomock.InOrder(
+		s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
+		s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil),
+	)
+
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256")
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveMultipleRemotesAllFailed(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
+		s.remoteConnection,
+		s.remoteConnection,
+	}, nil)
+
+	gomock.InOrder(
+		s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
+		s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
+	)
+
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	c.Assert(err, tc.ErrorIs, BlobNotFound)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveRemotesNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return(nil, jujuerrors.NotFound)
+
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	c.Assert(err, tc.ErrorIs, jujuerrors.NotFound)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveRemotesNoRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return(nil, nil)
@@ -51,25 +171,31 @@ func (s *retrieverSuite) TestRetrieverWithNoAPIRemotes(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err := ret.Retrieve(c.Context(), "foo")
+	_, _, err := ret.Retrieve(c.Context(), "sha256")
 	c.Assert(err, tc.ErrorIs, NoRemoteConnections)
 
 	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *tc.C) {
+func (s *retrieverSuite) TestRetrieveNoHTTPClient(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+	s.apiConnection.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, errors.New("boom"))
+
 	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 
 	workertest.CleanKill(c, ret)
-
-	_, _, err := ret.Retrieve(c.Context(), "foo")
-	c.Assert(err, tc.Not(tc.ErrorIsNil))
-	workertest.CheckKilled(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *tc.C) {
+func (s *retrieverSuite) TestRetrieveCanceled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ret := s.newRetriever(c)
@@ -78,351 +204,57 @@ func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *tc.C) {
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
-	_, _, err := ret.Retrieve(ctx, "foo")
+	_, _, err := ret.Retrieve(ctx, "sha256")
 	c.Assert(err, tc.ErrorIs, context.Canceled)
-
-	workertest.CleanKill(c, ret)
 }
 
-func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *tc.C) {
+func (s *retrieverSuite) TestRetrieveDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	client := &httprequest.Client{
-		BaseURL: "http://example.com",
-	}
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
 
-	b := io.NopCloser(bytes.NewBufferString("hello world"))
-	s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").Return(b, int64(11), nil)
+	ret.Kill()
 
-	s.apiConnection.EXPECT().RootHTTPClient().Return(client, nil)
+	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	c.Assert(err, tc.ErrorIs, tomb.ErrDying)
+}
 
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
-		return fn(ctx, s.apiConnection)
-	})
+// If the connection function context is canceled, and the reader takes that
+// context, then the reader should not prevent the context from being
+// canceled.
+func (s *retrieverSuite) TestRetrievePreventReaderCancelationPropagate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sync := make(chan struct{})
+
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
-
-	ret := s.newRetriever(c)
-	defer workertest.DirtyKill(c, ret)
-
-	readerCloser, size, err := ret.Retrieve(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Ensure that the reader is closed, otherwise the retriever will leak.
-	// You can test this, by commenting out this line!
-	defer readerCloser.Close()
-
-	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, []byte("hello world"))
-	c.Check(size, tc.Equals, int64(11))
-
-	workertest.CleanKill(c, ret)
-}
-
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	client := &httprequest.Client{
-		BaseURL: "http://example.com",
-	}
-
-	b := io.NopCloser(bytes.NewBufferString("hello world"))
-
-	// Ensure the first one blocks until the second one is called.
-
-	done := make(chan struct{})
-	started := make(chan struct{})
-
-	fns := []func(context.Context, string, string) (io.ReadCloser, int64, error){
-		func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
-			select {
-			case <-started:
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting for started")
-			}
-
-			select {
-			case <-done:
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting for done")
-			}
-
-			select {
-			case <-ctx.Done():
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting for context to be done")
-			}
-			return nil, 0, ctx.Err()
-		},
-		func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
-			defer close(done)
-
-			select {
-			case <-started:
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting for started")
-			}
-
-			return b, int64(11), nil
-		},
-	}
-
-	// Shuffle the functions to ensure we detect any issues that are dependant
-	// on order.
-	rand.Shuffle(len(fns), func(i, j int) {
-		fns[i], fns[j] = fns[j], fns[i]
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		ctx, cancel := context.WithCancel(ctx)
+		defer func() {
+			cancel()
+			close(sync)
+		}()
+		return f(ctx, s.apiConnection)
+	})
+	s.apiConnection.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
+	s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").DoAndReturn(func(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
+		return newCancelableReader(ctx, strings.NewReader("test data")), int64(9), nil
 	})
 
-	gomock.InOrder(
-		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(fns[0]),
-		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(fns[1]),
-	)
-
-	var attempts int64
-	s.apiConnection.EXPECT().RootHTTPClient().DoAndReturn(func() (*httprequest.Client, error) {
-		n := atomic.AddInt64(&attempts, 1)
-		if n == 2 {
-			close(started)
-		}
-		return client, nil
-	}).Times(2)
-
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
-		return fn(ctx, s.apiConnection)
-	}).Times(2)
-
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
-		s.remoteConnection,
-		s.remoteConnection,
-	}, nil)
-
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	readerCloser, size, err := ret.Retrieve(c.Context(), "foo")
+	reader, size, err := ret.Retrieve(c.Context(), "sha256")
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Ensure that the reader is closed, otherwise the retriever will leak.
-	// You can test this, by commenting out this line!
-	defer readerCloser.Close()
-
-	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, []byte("hello world"))
-	c.Check(size, tc.Equals, int64(11))
-
-	workertest.CleanKill(c, ret)
-}
-
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	client := &httprequest.Client{
-		BaseURL: "http://example.com",
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("context should not be done yet: %v", c.Context().Err())
 	}
 
-	b := io.NopCloser(bytes.NewBufferString("hello world"))
-
-	started := make(chan struct{})
-
-	notFound := func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
-		select {
-		case <-started:
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out waiting for started")
-		}
-		return nil, 0, jujuerrors.NotFound
-	}
-
-	fns := []func(context.Context, string, string) (io.ReadCloser, int64, error){
-		notFound,
-		notFound,
-		func(ctx context.Context, s1, s2 string) (io.ReadCloser, int64, error) {
-			select {
-			case <-started:
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting for started")
-			}
-			return b, int64(11), nil
-		},
-	}
-
-	// Shuffle the functions to ensure we detect any issues that are dependant
-	// on order.
-	rand.Shuffle(len(fns), func(i, j int) {
-		fns[i], fns[j] = fns[j], fns[i]
-	})
-
-	gomock.InOrder(
-		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(fns[0]),
-		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(fns[1]),
-		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(fns[2]),
-	)
-
-	var attempts int64
-	s.apiConnection.EXPECT().RootHTTPClient().DoAndReturn(func() (*httprequest.Client, error) {
-		n := atomic.AddInt64(&attempts, 1)
-		if n == 3 {
-			close(started)
-		}
-		return client, nil
-	}).Times(3)
-
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
-		return fn(ctx, s.apiConnection)
-	}).Times(3)
-
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
-		s.remoteConnection,
-		s.remoteConnection,
-		s.remoteConnection,
-	}, nil)
-
-	ret := s.newRetriever(c)
-	defer workertest.DirtyKill(c, ret)
-
-	readerCloser, size, err := ret.Retrieve(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Ensure that the reader is closed, otherwise the retriever will leak.
-	// You can test this, by commenting out this line!
-	defer readerCloser.Close()
-
-	result, err := io.ReadAll(readerCloser)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, []byte("hello world"))
-	c.Check(size, tc.Equals, int64(11))
-
-	c.Assert(atomic.LoadInt64(&attempts), tc.Equals, int64(3))
-
-	workertest.CleanKill(c, ret)
-}
-
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	client := &httprequest.Client{
-		BaseURL: "http://example.com",
-	}
-
-	s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").Return(nil, 0, jujuerrors.NotFound).Times(3)
-
-	s.apiConnection.EXPECT().RootHTTPClient().DoAndReturn(func() (*httprequest.Client, error) {
-		return client, nil
-	}).Times(3)
-
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
-		return fn(ctx, s.apiConnection)
-	}).Times(3)
-
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
-		s.remoteConnection,
-		s.remoteConnection,
-		s.remoteConnection,
-	}, nil)
-
-	ret := s.newRetriever(c)
-	defer workertest.DirtyKill(c, ret)
-
-	_, _, err := ret.Retrieve(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIs, BlobNotFound)
-
-	workertest.CleanKill(c, ret)
-}
-
-func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	client := &httprequest.Client{
-		BaseURL: "http://example.com",
-	}
-
-	started := make(chan struct{})
-
-	fail := func(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
-		select {
-		case <-started:
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out waiting for started")
-		}
-		return nil, 0, fmt.Errorf("boom")
-	}
-
-	gomock.InOrder(
-		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(func(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
-			select {
-			case <-started:
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting for started")
-			}
-			return nil, 0, BlobNotFound
-		}),
-		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(fail).MaxTimes(2),
-	)
-
-	var attempts int64
-	s.apiConnection.EXPECT().RootHTTPClient().DoAndReturn(func() (*httprequest.Client, error) {
-		n := atomic.AddInt64(&attempts, 1)
-		if n == 3 {
-			close(started)
-		}
-		return client, nil
-	}).Times(3)
-
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
-		return fn(ctx, s.apiConnection)
-	}).Times(3)
-
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
-		s.remoteConnection,
-		s.remoteConnection,
-		s.remoteConnection,
-	}, nil)
-
-	ret := s.newRetriever(c)
-	defer workertest.DirtyKill(c, ret)
-
-	_, _, err := ret.Retrieve(c.Context(), "foo")
-	c.Assert(err, tc.ErrorMatches, ".*boom")
-
-	workertest.CleanKill(c, ret)
-}
-
-func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	ctx, cancel := context.WithCancel(c.Context())
-	defer cancel()
-
-	requested := make(chan struct{})
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
-		close(requested)
-
-		select {
-		case <-ctx.Done():
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out waiting for context to be done")
-		}
-		return nil
-	})
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
-
-	ret := s.newRetriever(c)
-	defer workertest.DirtyKill(c, ret)
-
-	// If we're waiting for a connection, a cancel should stop the retriever.
-	go func() {
-		select {
-		case <-requested:
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out waiting for connection to be requested")
-		}
-
-		cancel()
-	}()
-
-	_, _, err := ret.Retrieve(ctx, "foo")
-	c.Assert(err, tc.ErrorIs, context.Canceled)
+	s.checkReader(c, reader, size)
 
 	workertest.CleanKill(c, ret)
 }
@@ -447,4 +279,42 @@ func (s *retrieverSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.clock.EXPECT().Now().AnyTimes().Return(time.Now())
 
 	return ctrl
+}
+
+func (s *retrieverSuite) checkReader(c *tc.C, reader io.ReadCloser, size int64) {
+	data, err := io.ReadAll(reader)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(size, tc.Equals, int64(len(data)))
+	c.Check(data, tc.DeepEquals, []byte("test data"))
+
+	err = reader.Close()
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+type cancelableReader struct {
+	reader io.Reader
+	ctx    context.Context
+}
+
+func newCancelableReader(ctx context.Context, r io.Reader) io.ReadCloser {
+	return &cancelableReader{
+		reader: r,
+		ctx:    ctx,
+	}
+}
+
+func (r *cancelableReader) Read(p []byte) (n int, err error) {
+	if r.ctx.Err() != nil {
+		return 0, r.ctx.Err()
+	}
+	return r.reader.Read(p)
+}
+
+func (r *cancelableReader) Close() error {
+	select {
+	case <-r.ctx.Done():
+		return r.ctx.Err()
+	default:
+		return nil
+	}
 }
