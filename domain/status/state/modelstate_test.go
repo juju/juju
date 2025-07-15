@@ -56,6 +56,9 @@ func TestStateSuite(t *testing.T) {
 func (s *modelStateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
+	_, err := s.DB().ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
+	c.Assert(err, tc.ErrorIsNil)
+
 	s.state = NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
@@ -2080,13 +2083,15 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:           ptr("arm64"),
-				Mem:            ptr[uint64](1024),
-				RootDisk:       ptr[uint64](256),
-				RootDiskSource: ptr("/test"),
-				CpuCores:       ptr[uint64](4),
-				CpuPower:       ptr[uint64](75),
-				VirtType:       ptr("virtual-machine"),
+				Arch:             ptr("arm64"),
+				Mem:              ptr[uint64](1024),
+				RootDisk:         ptr[uint64](256),
+				RootDiskSource:   ptr("/test"),
+				CpuCores:         ptr[uint64](4),
+				CpuPower:         ptr[uint64](75),
+				Tags:             ptr([]string{"tag1", "tag2"}),
+				AvailabilityZone: ptr("az-1"),
+				VirtType:         ptr("virtual-machine"),
 			},
 		},
 		mName1: {
@@ -2106,13 +2111,15 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:           ptr("arm64"),
-				Mem:            ptr[uint64](1024),
-				RootDisk:       ptr[uint64](256),
-				RootDiskSource: ptr("/test"),
-				CpuCores:       ptr[uint64](4),
-				CpuPower:       ptr[uint64](75),
-				VirtType:       ptr("virtual-machine"),
+				Arch:             ptr("arm64"),
+				Mem:              ptr[uint64](1024),
+				RootDisk:         ptr[uint64](256),
+				RootDiskSource:   ptr("/test"),
+				CpuCores:         ptr[uint64](4),
+				CpuPower:         ptr[uint64](75),
+				Tags:             ptr([]string{"tag1", "tag2"}),
+				AvailabilityZone: ptr("az-1"),
+				VirtType:         ptr("virtual-machine"),
 			},
 		},
 		mName2: {
@@ -2130,13 +2137,15 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:           ptr("arm64"),
-				Mem:            ptr[uint64](1024),
-				RootDisk:       ptr[uint64](256),
-				RootDiskSource: ptr("/test"),
-				CpuCores:       ptr[uint64](4),
-				CpuPower:       ptr[uint64](75),
-				VirtType:       ptr("virtual-machine"),
+				Arch:             ptr("arm64"),
+				Mem:              ptr[uint64](1024),
+				RootDisk:         ptr[uint64](256),
+				RootDiskSource:   ptr("/test"),
+				CpuCores:         ptr[uint64](4),
+				CpuPower:         ptr[uint64](75),
+				Tags:             ptr([]string{"tag1", "tag2"}),
+				AvailabilityZone: ptr("az-1"),
+				VirtType:         ptr("virtual-machine"),
 			},
 		},
 	})
@@ -2501,14 +2510,15 @@ func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.
 		name.String(),
 		"nonce",
 		&instance.HardwareCharacteristics{
-			Arch:           ptr("arm64"),
-			Mem:            ptr[uint64](1024),
-			RootDisk:       ptr[uint64](256),
-			RootDiskSource: ptr("/test"),
-			CpuCores:       ptr[uint64](4),
-			CpuPower:       ptr[uint64](75),
-			Tags:           ptr([]string{"tag1", "tag2"}),
-			VirtType:       ptr("virtual-machine"),
+			Arch:             ptr("arm64"),
+			Mem:              ptr[uint64](1024),
+			RootDisk:         ptr[uint64](256),
+			RootDiskSource:   ptr("/test"),
+			CpuCores:         ptr[uint64](4),
+			CpuPower:         ptr[uint64](75),
+			Tags:             ptr([]string{"tag1", "tag2"}),
+			AvailabilityZone: ptr("az-1"),
+			VirtType:         ptr("virtual-machine"),
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)

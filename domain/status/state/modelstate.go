@@ -1943,15 +1943,32 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 		return nil, errors.Capture(err)
 	}
 
-	var res []machineStatusDetails
+	tagsStmt, err := st.Prepare(` SELECT &instanceTag.* FROM instance_tag`, instanceTag{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		res     []machineStatusDetails
+		resTags []instanceTag
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&res)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, tagsStmt).GetAll(&resTags)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil
 	}); err != nil {
 		return nil, errors.Capture(err)
+	}
+
+	tags := make(map[string][]string)
+	for _, t := range resTags {
+		tags[t.MachineUUID] = append(tags[t.MachineUUID], t.Tag)
 	}
 
 	result := make(map[coremachine.Name]status.Machine)
@@ -1979,7 +1996,7 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 		hwc := decodeHardwareCharacteristics(
 			s.InstanceArch, s.InstanceCPUCores, s.InstanceCPUPower,
 			s.InstanceMem, s.InstanceRootDisk, s.InstanceRootDiskSource,
-			s.InstanceVirtType, s.InstanceAvailabilityZone,
+			s.InstanceVirtType, tags[s.UUID.String()], s.InstanceAvailabilityZone,
 		)
 
 		cons := decodeConstraints(

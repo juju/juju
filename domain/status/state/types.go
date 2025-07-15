@@ -339,6 +339,11 @@ type machineStatusDetails struct {
 	ConstraintImageID          sql.Null[string]          `db:"constraint_image_id"`
 }
 
+type instanceTag struct {
+	MachineUUID string `db:"machine_uuid"`
+	Tag         string `db:"tag"`
+}
+
 func decodeHardwareCharacteristics(
 	arch sql.Null[string],
 	cpuCores sql.Null[uint64],
@@ -347,6 +352,7 @@ func decodeHardwareCharacteristics(
 	rootDisk sql.Null[uint64],
 	rootDiskSource sql.Null[string],
 	virtType sql.Null[string],
+	tags []string,
 	availabilityZone sql.Null[string],
 ) instance.HardwareCharacteristics {
 	var hwc instance.HardwareCharacteristics
@@ -370,6 +376,9 @@ func decodeHardwareCharacteristics(
 	}
 	if virtType.Valid {
 		hwc.VirtType = ptr(virtType.V)
+	}
+	if len(tags) > 0 {
+		hwc.Tags = &tags
 	}
 	if availabilityZone.Valid {
 		hwc.AvailabilityZone = ptr(availabilityZone.V)
