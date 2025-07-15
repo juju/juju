@@ -7,10 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	corenetwork "github.com/juju/juju/core/network"
@@ -18,6 +21,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -64,6 +68,40 @@ func (s *linkLayerBaseSuite) addApplication(c *tc.C, charmUUID, spaceUUID string
 	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
 		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
 	return appUUID
+}
+
+// addApplicationEndpoint inserts a new application endpoint into the
+// database with the specified UUIDs. Returns the endpoint uuid.
+func (s *linkLayerBaseSuite) addApplicationEndpoint(
+	c *tc.C, applicationUUID coreapplication.ID, charmRelationUUID string, boundSpaceUUID string) string {
+	applicationEndpointUUID := uuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
+VALUES (?, ?, ?, ?)
+`, applicationEndpointUUID, applicationUUID, charmRelationUUID, nilZeroPtr(boundSpaceUUID))
+	return applicationEndpointUUID
+}
+
+// addCharm inserts a new charm record into the database and returns its UUID as a string.
+func (s *linkLayerBaseSuite) addCharm(c *tc.C) string {
+	charmUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
+		charmUUID, charmUUID, time.Now())
+	return charmUUID
+}
+
+// addCharmRelation inserts a new charm relation into the database with the
+// given UUID and attributes. Returns the relation UUID.
+func (s *linkLayerBaseSuite) addCharmRelation(c *tc.C, charmUUID corecharm.ID, r charm.Relation) string {
+	charmRelationUUID := uuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id) 
+VALUES (?, ?, ?,
+       (SELECT id FROM charm_relation_role WHERE name = ?),
+       ?, ?, ?,
+       (SELECT id FROM charm_relation_scope WHERE name = ?))
+`, charmRelationUUID, charmUUID, r.Name, r.Role, r.Interface, r.Optional, r.Limit, r.Scope)
+	return charmRelationUUID
 }
 
 func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
