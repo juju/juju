@@ -622,13 +622,8 @@ func validateCharmStorage(charmStorage map[string]internalcharm.Storage) error {
 				name,
 			)
 		}
-		if storage.CountMax < 0 {
-			return errors.Errorf(
-				"charm storage %q has a maximum count less than zero, negative storage count cannot be achieved",
-				name,
-			)
-		}
-		if storage.CountMin > storage.CountMax {
+
+		if storage.CountMax >= 0 && storage.CountMin > storage.CountMax {
 			return errors.Errorf(
 				"charm storage %q has a minimum count greater than maximum count, this is can't be achieved",
 				name,
