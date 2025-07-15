@@ -11,5 +11,4 @@ import (
 
 type Backend interface {
 	Model() (*state.Model, error)
-	MongoVersion() (string, error)
 }

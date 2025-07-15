@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 
-	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
 )
@@ -110,7 +109,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		}
 		return svc.BlockCommand(), nil
 	}
-	machineServiceGetter := func(c context.Context, modelUUID model.UUID) (commonmodel.MachineService, error) {
+	machineServiceGetter := func(c context.Context, modelUUID model.UUID) (MachineService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -124,6 +123,13 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		}
 		return svc.ModelProvider(), nil
 	}
+	modelMigrationServiceGetter := func(c context.Context, modelUUID model.UUID) (ModelMigrationService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.ModelMigration(), nil
+	}
 
 	return NewControllerAPI(
 		stdCtx,
@@ -136,10 +142,10 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Access(),
-		machineServiceGetter,
 		domainServices.Model(),
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
+		modelMigrationServiceGetter,
 		credentialServiceGetter,
 		upgradeServiceGetter,
 		applicationServiceGetter,
@@ -149,9 +155,10 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,
 		cloudSpecServiceGetter,
+		machineServiceGetter,
 		domainServices.Proxy(),
-		func(c context.Context, modelUUID model.UUID, legacyState facade.LegacyStateExporter) (ModelExporter, error) {
-			return ctx.ModelExporter(c, modelUUID, legacyState)
+		func(c context.Context, modelUUID model.UUID) (ModelExporter, error) {
+			return ctx.ModelExporter(c, modelUUID)
 		},
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
