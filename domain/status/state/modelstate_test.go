@@ -21,6 +21,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -36,6 +37,9 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
+	networkservice "github.com/juju/juju/domain/network/service"
+	networkstate "github.com/juju/juju/domain/network/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
@@ -2022,10 +2026,53 @@ func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
 }
 
-func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
+func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 	uuid0, mName0 := s.createMachine(c)
 	uuid1, mName1 := s.createMachine(c)
 	uuid2, mName2 := s.createMachine(c)
+
+	netService := networkservice.NewService(
+		networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c),
+	)
+	err := netService.SetMachineNetConfig(c.Context(), uuid0, []domainnetwork.NetInterface{
+		{
+			Name:             "eth0",
+			Type:             corenetwork.EthernetDevice,
+			MTU:              ptr[int64](1500),
+			MACAddress:       ptr("00:11:22:33:44:55"),
+			ProviderID:       ptr[corenetwork.Id]("p-id"),
+			IsAutoStart:      true,
+			IsEnabled:        true,
+			ParentDeviceName: "parent",
+			GatewayAddress:   ptr("10.0.0.1"),
+			IsDefaultGateway: true,
+			VLANTag:          100,
+			Addrs: []domainnetwork.NetAddr{
+				{
+					InterfaceName:    "eth0",
+					AddressValue:     "10.0.0.1",
+					AddressType:      corenetwork.IPv4Address,
+					ConfigType:       corenetwork.ConfigDHCP,
+					Origin:           corenetwork.OriginProvider,
+					Scope:            corenetwork.ScopeMachineLocal,
+					ProviderID:       ptr[corenetwork.Id]("p-id2"),
+					ProviderSubnetID: ptr[corenetwork.Id]("p-id2"),
+				},
+				{
+					InterfaceName:    "eth1",
+					AddressValue:     "10.51.45.181",
+					AddressType:      corenetwork.IPv4Address,
+					ConfigType:       corenetwork.ConfigDHCP,
+					Origin:           corenetwork.OriginProvider,
+					Scope:            corenetwork.ScopeCloudLocal,
+					ProviderID:       ptr[corenetwork.Id]("p-id3"),
+					ProviderSubnetID: ptr[corenetwork.Id]("p-id3"),
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.SetMachineStatus(c.Context(), mName0.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
@@ -2039,7 +2086,7 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 	})
 
 	// Act
-	statuses, err := s.state.GetMachineStatuses(c.Context())
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -2070,6 +2117,8 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 			UUID:        uuid0,
 			InstanceID:  instance.Id(mName0),
 			DisplayName: mName0.String(),
+			DNSName:     "10.51.45.181",
+			IPAddresses: []string{"10.51.45.181"},
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status:  status.MachineStatusStarted,
 				Message: "it's started",
@@ -2151,8 +2200,8 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 	})
 }
 
-func (s *modelStateSuite) TestGetMachineStatusesEmptyModel(c *tc.C) {
-	statuses, err := s.state.GetMachineStatuses(c.Context())
+func (s *modelStateSuite) TestGetMachineFullStatusesEmptyModel(c *tc.C) {
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.HasLen, 0)
 }

@@ -1525,13 +1525,15 @@ func (s *serviceSuite) TestGetAllMachineStatuses(c *tc.C) {
 	c.Check(statuses, tc.DeepEquals, expectedStatuses)
 }
 
-func (s *serviceSuite) TestGetMachineStatuses(c *tc.C) {
+func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expectedStatuses := map[machine.Name]Machine{
 		"666": {
-			Name: "666",
-			Life: corelife.Alive,
+			Name:        "666",
+			Life:        corelife.Alive,
+			DNSName:     "10.51.45.181",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Started,
 				Data: map[string]interface{}{
@@ -1543,8 +1545,10 @@ func (s *serviceSuite) TestGetMachineStatuses(c *tc.C) {
 			},
 		},
 		"777": {
-			Name: "777",
-			Life: corelife.Dying,
+			Name:        "777",
+			Life:        corelife.Dying,
+			DNSName:     "10.51.45.182",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Pending,
 				Data: map[string]interface{}{
@@ -1556,8 +1560,10 @@ func (s *serviceSuite) TestGetMachineStatuses(c *tc.C) {
 			},
 		},
 		"888": {
-			Name: "888",
-			Life: corelife.Dead,
+			Name:        "888",
+			Life:        corelife.Dead,
+			DNSName:     "10.51.45.183",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Stopped,
 				Data: map[string]interface{}{
@@ -1569,9 +1575,11 @@ func (s *serviceSuite) TestGetMachineStatuses(c *tc.C) {
 			},
 		},
 	}
-	s.modelState.EXPECT().GetMachineStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
+	s.modelState.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
 		"666": {
-			Life: life.Alive,
+			Life:        life.Alive,
+			DNSName:     "10.51.45.181",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status: status.MachineStatusStarted,
 				Data:   []byte(`{"foo": "bar"}`),
@@ -1581,7 +1589,9 @@ func (s *serviceSuite) TestGetMachineStatuses(c *tc.C) {
 			},
 		},
 		"777": {
-			Life: life.Dying,
+			Life:        life.Dying,
+			DNSName:     "10.51.45.182",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status: status.MachineStatusPending,
 				Data:   []byte(`{"foo": "baz"}`),
@@ -1591,7 +1601,9 @@ func (s *serviceSuite) TestGetMachineStatuses(c *tc.C) {
 			},
 		},
 		"888": {
-			Life: life.Dead,
+			Life:        life.Dead,
+			DNSName:     "10.51.45.183",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status: status.MachineStatusStopped,
 				Data:   []byte(`{"foo": "qux"}`),
@@ -1599,7 +1611,7 @@ func (s *serviceSuite) TestGetMachineStatuses(c *tc.C) {
 		},
 	}, nil)
 
-	statuses, err := s.modelService.GetMachineStatuses(c.Context())
+	statuses, err := s.modelService.GetMachineFullStatuses(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.DeepEquals, expectedStatuses)
 }

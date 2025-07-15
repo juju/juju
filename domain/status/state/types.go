@@ -344,6 +344,17 @@ type instanceTag struct {
 	Tag         string `db:"tag"`
 }
 
+type machineSpaceAddress struct {
+	MachineUUID string         `db:"machine_uuid"`
+	Value       string         `db:"address_value"`
+	ConfigType  string         `db:"config_type_name"`
+	Type        string         `db:"type_name"`
+	Origin      string         `db:"origin_name"`
+	Scope       string         `db:"scope_name"`
+	SpaceUUID   sql.NullString `db:"space_uuid"`
+	SubnetCIDR  sql.NullString `db:"cidr"`
+}
+
 func decodeHardwareCharacteristics(
 	arch sql.Null[string],
 	cpuCores sql.Null[uint64],

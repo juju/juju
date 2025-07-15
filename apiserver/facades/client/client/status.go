@@ -434,7 +434,7 @@ func (c *statusContext) fetchMachines(ctx context.Context) error {
 	c.machines = make(map[coremachine.Name][]statusservice.Machine)
 	c.allMachines = make(map[coremachine.Name]statusservice.Machine)
 
-	machines, err := c.statusService.GetMachineStatuses(ctx)
+	machines, err := c.statusService.GetMachineFullStatuses(ctx)
 	if err != nil {
 		return err
 	}
@@ -705,6 +705,9 @@ func (c *statusContext) makeMachineStatus(
 	status.InstanceStatus = instanceStatus
 	status.Hostname = machine.Hostname
 	status.DisplayName = machine.DisplayName
+
+	status.DNSName = machine.DNSName
+	status.IPAddresses = machine.IPAddresses
 
 	platform := machine.Platform
 	status.Base = params.Base{Name: platform.OSType.String(), Channel: platform.Channel}

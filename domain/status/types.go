@@ -57,6 +57,8 @@ type Machine struct {
 	UUID                    machine.UUID
 	Hostname                string
 	DisplayName             string
+	DNSName                 string
+	IPAddresses             []string
 	InstanceID              instance.Id
 	Life                    life.Life
 	MachineStatus           StatusInfo[MachineStatusType]

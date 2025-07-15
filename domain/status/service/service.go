@@ -192,9 +192,9 @@ type ModelState interface {
 	// indexed by machine name.
 	GetAllMachineStatuses(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)
 
-	// GetMachineStatuses returns all the machine statuses for the model,
+	// GetMachineFullStatuses returns all the machine statuses for the model,
 	// indexed by machine name.
-	GetMachineStatuses(context.Context) (map[machine.Name]status.Machine, error)
+	GetMachineFullStatuses(context.Context) (map[machine.Name]status.Machine, error)
 
 	// GetInstanceStatus returns the cloud specific instance status for the
 	// given machine.
@@ -730,13 +730,13 @@ func (s *Service) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]c
 	return result, nil
 }
 
-// GetMachineStatuses returns all the machine statuses for the model, indexed
+// GetMachineFullStatuses returns all the machine statuses for the model, indexed
 // by machine name.
-func (s *Service) GetMachineStatuses(ctx context.Context) (map[machine.Name]Machine, error) {
+func (s *Service) GetMachineFullStatuses(ctx context.Context) (map[machine.Name]Machine, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	machineStatuses, err := s.modelState.GetMachineStatuses(ctx)
+	machineStatuses, err := s.modelState.GetMachineFullStatuses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1091,6 +1091,8 @@ func (s *Service) decodeMachineStatusDetails(machineName machine.Name, machine s
 		Life:                    life,
 		Hostname:                machine.Hostname,
 		DisplayName:             machine.DisplayName,
+		DNSName:                 machine.DNSName,
+		IPAddresses:             machine.IPAddresses,
 		InstanceID:              machine.InstanceID,
 		MachineStatus:           machineStatus,
 		InstanceStatus:          instanceStatus,

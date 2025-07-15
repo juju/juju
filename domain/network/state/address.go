@@ -42,5 +42,5 @@ WHERE     net_node_uuid = $entityUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIpAddresses(address)
+	return encodeIPAddresses(address)
 }
