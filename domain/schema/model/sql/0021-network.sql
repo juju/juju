@@ -62,6 +62,9 @@ CREATE TABLE link_layer_device (
     REFERENCES virtual_port_type (id)
 );
 
+CREATE UNIQUE INDEX idx_link_layer_device_net_node_uuid_name
+ON link_layer_device (net_node_uuid, name);
+
 CREATE TABLE link_layer_device_parent (
     device_uuid TEXT NOT NULL PRIMARY KEY,
     parent_uuid TEXT NOT NULL,

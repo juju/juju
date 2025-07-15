@@ -784,6 +784,45 @@ func (c *MockStateGetSubnetCall) DoAndReturn(f func(context.Context, string) (*n
 	return c
 }
 
+// GetSubnetCIDRForDevice mocks base method.
+func (m *MockState) GetSubnetCIDRForDevice(arg0 context.Context, arg1, arg2, arg3 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSubnetCIDRForDevice", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSubnetCIDRForDevice indicates an expected call of GetSubnetCIDRForDevice.
+func (mr *MockStateMockRecorder) GetSubnetCIDRForDevice(arg0, arg1, arg2, arg3 any) *MockStateGetSubnetCIDRForDeviceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetCIDRForDevice", reflect.TypeOf((*MockState)(nil).GetSubnetCIDRForDevice), arg0, arg1, arg2, arg3)
+	return &MockStateGetSubnetCIDRForDeviceCall{Call: call}
+}
+
+// MockStateGetSubnetCIDRForDeviceCall wrap *gomock.Call
+type MockStateGetSubnetCIDRForDeviceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetSubnetCIDRForDeviceCall) Return(arg0 string, arg1 error) *MockStateGetSubnetCIDRForDeviceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetSubnetCIDRForDeviceCall) Do(f func(context.Context, string, string, string) (string, error)) *MockStateGetSubnetCIDRForDeviceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetSubnetCIDRForDeviceCall) DoAndReturn(f func(context.Context, string, string, string) (string, error)) *MockStateGetSubnetCIDRForDeviceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSubnetsByCIDR mocks base method.
 func (m *MockState) GetSubnetsByCIDR(arg0 context.Context, arg1 ...string) (network.SubnetInfos, error) {
 	m.ctrl.T.Helper()

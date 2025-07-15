@@ -16,6 +16,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -141,7 +142,7 @@ func (s *containerSuite) TestNICsInSpaces(c *tc.C) {
 	// Act.
 	nics, err := s.state.NICsInSpaces(ctx, nUUID)
 
-	// Assert
+	// Assert.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(nics, tc.DeepEquals, map[string][]network.NetInterface{
 		spUUID1: {{
@@ -164,6 +165,49 @@ func (s *containerSuite) TestNICsInSpaces(c *tc.C) {
 		}},
 	})
 
+}
+
+func (s *containerSuite) TestGetSubnetCIDRForDevice(c *tc.C) {
+	db := s.DB()
+
+	// Arrange. Add a device with an IP address in a subnet.
+	cidr := "10.10.10.0/24"
+	spUUID := s.addSpace(c)
+	subUUID := s.addSubnet(c, cidr, spUUID)
+
+	nUUID := s.addNetNode(c)
+
+	devName := "eth0"
+	dUUID := s.addLinkLayerDevice(c, nUUID, devName, "mac-address", corenetwork.EthernetDevice)
+	addrUUID := s.addIPAddress(c, dUUID, nUUID, "10.10.10.100/24")
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "UPDATE ip_address SET subnet_uuid = ? WHERE uuid = ?", subUUID, addrUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act.
+	gotCIDR, err := s.state.GetSubnetCIDRForDevice(ctx, nUUID, devName, spUUID)
+
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotCIDR, tc.Equals, cidr)
+}
+
+func (s *containerSuite) TestGetSubnetCIDRForDeviceNotFound(c *tc.C) {
+
+	// Arrange. Add a device with no address.
+	// Without an address on this device, we can't locate a subnet.
+	nUUID := s.addNetNode(c)
+
+	devName := "eth0"
+	_ = s.addLinkLayerDevice(c, nUUID, devName, "mac-address", corenetwork.EthernetDevice)
+
+	// Act.
+	_, err := s.state.GetSubnetCIDRForDevice(c.Context(), nUUID, devName, s.addSpace(c))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, errors.SubnetNotFound)
 }
 
 func (s *containerSuite) TestGetContainerNetworkingMethod(c *tc.C) {
