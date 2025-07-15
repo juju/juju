@@ -12,11 +12,12 @@ import (
 
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration AgentBinaryStore,ControllerConfigService,UpgradeService,ApplicationService,RelationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService
+//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration AgentBinaryStore,ControllerConfigService,UpgradeService,ApplicationService,CredentialService,RelationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService,ModelService,ModelMigrationService,MachineService
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter,DomainServices
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination storage_mock_test.go github.com/juju/juju/core/storage ModelStorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v10 Model
@@ -25,11 +26,15 @@ import (
 type precheckBaseSuite struct {
 	testing.BaseSuite
 
-	upgradeService     *MockUpgradeService
-	applicationService *MockApplicationService
-	relationService    *MockRelationService
-	statusService      *MockStatusService
-	agentService       *MockModelAgentService
+	modelService          *MockModelService
+	modelMigrationService *MockModelMigrationService
+	machineService        *MockMachineService
+	upgradeService        *MockUpgradeService
+	applicationService    *MockApplicationService
+	relationService       *MockRelationService
+	statusService         *MockStatusService
+	agentService          *MockModelAgentService
+	credentialService     *MockCredentialService
 }
 
 func (s *precheckBaseSuite) setupMocksWithDefaultAgentVersion(c *tc.C) *gomock.Controller {
@@ -45,6 +50,10 @@ func (s *precheckBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
+	s.credentialService = NewMockCredentialService(ctrl)
+	s.modelMigrationService = NewMockModelMigrationService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	c.Cleanup(func() {
 		s.upgradeService = nil
@@ -52,9 +61,25 @@ func (s *precheckBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.relationService = nil
 		s.statusService = nil
 		s.agentService = nil
+		s.credentialService = nil
+		s.modelMigrationService = nil
+		s.modelService = nil
+		s.machineService = nil
 	})
 
 	return ctrl
+}
+
+func (s *precheckBaseSuite) expectMigrationModeNone() {
+	s.modelMigrationService.EXPECT().ModelMigrationMode(gomock.Any()).Return(modelmigration.MigrationModeNone, nil)
+}
+
+func (s *precheckBaseSuite) expectNoMachines() {
+	s.machineService.EXPECT().AllMachineNames(gomock.Any()).Return(nil, nil)
+}
+
+func (s *precheckBaseSuite) expectNoModels() {
+	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return(nil, nil)
 }
 
 func (s *precheckBaseSuite) expectAllAppsAndUnitsAlive() {

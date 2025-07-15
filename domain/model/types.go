@@ -216,3 +216,11 @@ type ModelState struct {
 	// InvalidCloudCredentialReason is a string that describes the reason for the model's cloud credential being invalid.
 	InvalidCloudCredentialReason string
 }
+
+// ModelRedirection is a placeholder type.
+type ModelRedirection struct {
+	Addresses       []string
+	CACert          string
+	ControllerUUID  string
+	ControllerAlias string
+}

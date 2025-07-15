@@ -45,23 +45,6 @@ func ParseModelType(raw string) (ModelType, error) {
 	return "", errors.NotValidf("model type %v", raw)
 }
 
-// MigrationMode specifies where the Model is with respect to migration.
-type MigrationMode string
-
-const (
-	// MigrationModeNone is the default mode for a model and reflects
-	// that it isn't involved with a model migration.
-	MigrationModeNone = MigrationMode("")
-
-	// MigrationModeExporting reflects a model that is in the process of being
-	// exported from one controller to another.
-	MigrationModeExporting = MigrationMode("exporting")
-
-	// MigrationModeImporting reflects a model that is being imported into a
-	// controller, but is not yet fully active.
-	MigrationModeImporting = MigrationMode("importing")
-)
-
 // Model represents the state of a model.
 type Model struct {
 	st  *State
@@ -70,13 +53,12 @@ type Model struct {
 
 // modelDoc represents the internal state of the model in MongoDB.
 type modelDoc struct {
-	UUID           string        `bson:"_id"`
-	Name           string        `bson:"name"`
-	Type           ModelType     `bson:"type"`
-	Life           Life          `bson:"life"`
-	Owner          string        `bson:"owner"`
-	ControllerUUID string        `bson:"controller-uuid"`
-	MigrationMode  MigrationMode `bson:"migration-mode"`
+	UUID           string    `bson:"_id"`
+	Name           string    `bson:"name"`
+	Type           ModelType `bson:"type"`
+	Life           Life      `bson:"life"`
+	Owner          string    `bson:"owner"`
+	ControllerUUID string    `bson:"controller-uuid"`
 
 	// Cloud is the name of the cloud to which the model is deployed.
 	Cloud string `bson:"cloud"`
@@ -204,9 +186,6 @@ type ModelArgs struct {
 	// Owner is the user that owns the model.
 	Owner names.UserTag
 
-	// MigrationMode is the initial migration mode of the model.
-	MigrationMode MigrationMode
-
 	// PasswordHash is used by the caas model operator.
 	PasswordHash string
 }
@@ -218,11 +197,6 @@ func (m ModelArgs) Validate() error {
 	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
-	}
-	switch m.MigrationMode {
-	case MigrationModeNone, MigrationModeImporting:
-	default:
-		return errors.NotValidf("initial migration mode %q", m.MigrationMode)
 	}
 	return nil
 }
@@ -426,29 +400,6 @@ func (m *Model) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 		return names.NewCloudCredentialTag(m.doc.CloudCredential), true
 	}
 	return names.CloudCredentialTag{}, false
-}
-
-// MigrationMode returns whether the model is active or being migrated.
-func (st *State) MigrationMode() (MigrationMode, error) {
-	m, err := st.Model()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return m.doc.MigrationMode, nil
-}
-
-// SetMigrationMode updates the migration mode of the model.
-func (st *State) SetMigrationMode(mode MigrationMode) error {
-	ops := []txn.Op{{
-		C:      modelsC,
-		Id:     st.ModelUUID(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"migration-mode", mode}}}},
-	}}
-	if err := st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // Life returns whether the model is Alive, Dying or Dead.
@@ -1093,7 +1044,6 @@ func createModelOp(
 	owner names.UserTag,
 	name, uuid, controllerUUID, cloudName, cloudRegion, passwordHash string,
 	cloudCredential names.CloudCredentialTag,
-	migrationMode MigrationMode,
 ) txn.Op {
 	doc := &modelDoc{
 		Type:            modelType,
@@ -1102,7 +1052,6 @@ func createModelOp(
 		Life:            Alive,
 		Owner:           owner.Id(),
 		ControllerUUID:  controllerUUID,
-		MigrationMode:   migrationMode,
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredential.Id(),
@@ -1171,11 +1120,6 @@ func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op 
 	}
 }
 
-// assertAliveOp returns a txn.Op that asserts the model is alive.
-func (m *Model) assertActiveOp() txn.Op {
-	return assertModelActiveOp(m.UUID())
-}
-
 // assertModelActiveOp returns a txn.Op that asserts the given
 // model UUID refers to an Alive model.
 func assertModelActiveOp(modelUUID string) txn.Op {
@@ -1186,7 +1130,7 @@ func assertModelUsableOp(modelUUID string, lifeAssertion bson.D) txn.Op {
 	return txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
-		Assert: append(lifeAssertion, bson.DocElem{Name: "migration-mode", Value: MigrationModeNone}),
+		Assert: lifeAssertion, // bson.DocElem{Name: "migration-mode", Value: MigrationModeNone}),
 	}
 }
 
@@ -1202,10 +1146,6 @@ func checkModelUsable(st *State, validLife func(Life) bool) error {
 
 	if !validLife(model.Life()) {
 		return errors.Errorf("model %q is %s", model.Name(), model.Life().String())
-	}
-
-	if model.doc.MigrationMode != MigrationModeNone {
-		return errors.Errorf("model %q is being migrated", model.Name())
 	}
 
 	return nil

@@ -5,11 +5,7 @@ package migrationflag_test
 
 import (
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/internal/testhelpers"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // agentAuth implements facade.Authorizer for use in the tests.
@@ -33,74 +29,6 @@ func (auth agentAuth) AuthUnitAgent() bool {
 // AuthApplicationAgent is part of the facade.Authorizer interface.
 func (auth agentAuth) AuthApplicationAgent() bool {
 	return auth.application
-}
-
-// newMockBackend returns a mock Backend that will add calls to the
-// supplied testing.Stub, and return errors in the sequence it
-// specifies.
-func newMockBackend(stub *testhelpers.Stub) *mockBackend {
-	return &mockBackend{
-		stub: stub,
-	}
-}
-
-// mockBackend implements migrationflag.Backend for use in the tests.
-type mockBackend struct {
-	stub *testhelpers.Stub
-}
-
-// ModelUUID is part of the migrationflag.Backend interface.
-func (mock *mockBackend) ModelUUID() string {
-	return coretesting.ModelTag.Id()
-}
-
-// MigrationPhase is part of the migrationflag.Backend interface.
-func (mock *mockBackend) MigrationPhase() (migration.Phase, error) {
-	mock.stub.AddCall("MigrationPhase")
-	if err := mock.stub.NextErr(); err != nil {
-		return migration.UNKNOWN, err
-	}
-	return migration.REAP, nil
-}
-
-// WatchMigrationPhase is part of the migrationflag.Backend interface.
-func (mock *mockBackend) WatchMigrationPhase() state.NotifyWatcher {
-	mock.stub.AddCall("WatchMigrationPhase")
-	return newMockWatcher(mock.stub)
-}
-
-// newMockWatcher consumes an error from the supplied testing.Stub, and
-// returns a state.NotifyWatcher that either works or doesn't depending
-// on whether the error was nil.
-func newMockWatcher(stub *testhelpers.Stub) *mockWatcher {
-	changes := make(chan struct{}, 1)
-	err := stub.NextErr()
-	if err == nil {
-		changes <- struct{}{}
-	} else {
-		close(changes)
-	}
-	return &mockWatcher{
-		err:     err,
-		changes: changes,
-	}
-}
-
-// mockWatcher implements state.NotifyWatcher for use in the tests.
-type mockWatcher struct {
-	state.NotifyWatcher
-	changes chan struct{}
-	err     error
-}
-
-// Changes is part of the state.NotifyWatcher interface.
-func (mock *mockWatcher) Changes() <-chan struct{} {
-	return mock.changes
-}
-
-// Err is part of the state.NotifyWatcher interface.
-func (mock *mockWatcher) Err() error {
-	return mock.err
 }
 
 // entities is a convenience constructor for params.Entities.

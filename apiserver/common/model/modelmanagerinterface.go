@@ -6,15 +6,11 @@ package model
 import (
 	"context"
 
-	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -34,8 +30,6 @@ type ModelManagerBackend interface {
 	AllMachines() (machines []Machine, err error)
 	AllFilesystems() ([]state.Filesystem, error)
 	AllVolumes() ([]state.Volume, error)
-	Export(store objectstore.ObjectStore) (description.Model, error)
-	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 
 	Close() error
 }
@@ -154,39 +148,8 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 	}
 	otherModel, err := otherState.Model()
 	if err != nil {
-		defer otherState.Release()
-		if !errors.Is(err, errors.NotFound) || st.user.Id() == "" {
-			return nil, nil, err
-		}
-
-		// Check if this model has been migrated and this user had
-		// access to it before its migration.
-		mig, mErr := otherState.CompletedMigration()
-		if mErr != nil && !errors.Is(mErr, errors.NotFound) {
-			return nil, nil, errors.Trace(mErr)
-		}
-
-		// TODO(aflynn): Also return this error if, in the migration info, the
-		// user had access to the migrated model (JUJU-6669).
-		if mig == nil {
-			return nil, nil, errors.Trace(err) // return original NotFound error
-		}
-
-		target, mErr := mig.TargetInfo()
-		if mErr != nil {
-			return nil, nil, errors.Trace(mErr)
-		}
-
-		hps, mErr := network.ParseProviderHostPorts(target.Addrs...)
-		if mErr != nil {
-			return nil, nil, errors.Trace(mErr)
-		}
-
-		return nil, nil, &apiservererrors.RedirectError{
-			Servers:         []network.ProviderHostPorts{hps},
-			CACert:          target.CACert,
-			ControllerAlias: target.ControllerAlias,
-		}
+		otherState.Release()
+		return nil, nil, errors.Trace(err)
 	}
 	return modelManagerStateShim{
 		State: otherState.State,

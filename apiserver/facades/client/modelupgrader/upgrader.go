@@ -15,7 +15,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
@@ -42,6 +44,17 @@ type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
 }
 
+// MachineService provides access to machine base information.
+type MachineService interface {
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(ctx context.Context) ([]machine.Name, error)
+	// GetMachineBase returns the base for the given machine.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
+}
+
 // ControllerConfigService is an interface that allows us to get the
 // controller config.
 type ControllerConfigService interface {
@@ -64,11 +77,13 @@ type ModelUpgraderAPI struct {
 	toolsFinder   common.ToolsFinder
 
 	modelAgentServiceGetter func(ctx context.Context, modelUUID coremodel.UUID) (ModelAgentService, error)
+	machineServiceGetter    func(ctx context.Context, modelUUID coremodel.UUID) (MachineService, error)
 	controllerAgentService  ModelAgentService
 	controllerConfigService ControllerConfigService
 	modelAgentService       ModelAgentService
 	modelInfoService        ModelInfoService
 	upgradeService          UpgradeService
+	machineService          MachineService
 
 	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	logger          corelogger.Logger
@@ -84,9 +99,11 @@ func NewModelUpgraderAPI(
 	authorizer facade.Authorizer,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	modelAgentServiceGetter func(ctx context.Context, modelUUID coremodel.UUID) (ModelAgentService, error),
+	machineServiceGetter func(ctx context.Context, modelUUID coremodel.UUID) (MachineService, error),
 	controllerAgentService ModelAgentService,
 	controllerConfigService ControllerConfigService,
 	modelAgentService ModelAgentService,
+	machineService MachineService,
 	modelInfoService ModelInfoService,
 	upgradeService UpgradeService,
 	logger corelogger.Logger,
@@ -105,6 +122,8 @@ func NewModelUpgraderAPI(
 		upgradeService:          upgradeService,
 		modelAgentServiceGetter: modelAgentServiceGetter,
 		modelAgentService:       modelAgentService,
+		machineServiceGetter:    machineServiceGetter,
+		machineService:          machineService,
 		modelInfoService:        modelInfoService,
 		controllerAgentService:  controllerAgentService,
 		controllerConfigService: controllerConfigService,
@@ -271,10 +290,15 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 	}()
 
+	validationServices := upgradevalidation.ValidatorServices{
+		ModelAgentService: m.modelAgentService,
+		MachineService:    m.machineService,
+	}
+
 	if !model.IsControllerModel {
 		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion)
-		checker := upgradevalidation.NewModelUpgradeCheck(st, model.UUID.String(), m.modelAgentService, validators...)
-		blockers, err = checker.Validate()
+		checker := upgradevalidation.NewModelUpgradeCheck(model.UUID.String(), validationServices, validators...)
+		blockers, err = checker.Validate(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -282,10 +306,10 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	}
 
 	checker := upgradevalidation.NewModelUpgradeCheck(
-		st, model.UUID.String(), m.modelAgentService,
+		model.UUID.String(), validationServices,
 		upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion)...,
 	)
-	blockers, err = checker.Validate()
+	blockers, err = checker.Validate(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -318,12 +342,17 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion)
 
 		modelNameKey := fmt.Sprintf("%s/%s", stModel.Owner().Id(), stModel.Name())
-		modelAgentVersionService, err := m.modelAgentServiceGetter(ctx, coremodel.UUID(modelUUID))
+		modelAgentService, err := m.modelAgentServiceGetter(ctx, coremodel.UUID(modelUUID))
 		if err != nil {
 			return errors.Trace(err)
 		}
-		checker := upgradevalidation.NewModelUpgradeCheck(st, modelNameKey, modelAgentVersionService, validators...)
-		blockersForModel, err := checker.Validate()
+
+		validationServices := upgradevalidation.ValidatorServices{
+			ModelAgentService: modelAgentService,
+			MachineService:    m.machineService,
+		}
+		checker := upgradevalidation.NewModelUpgradeCheck(modelNameKey, validationServices, validators...)
+		blockersForModel, err := checker.Validate(ctx)
 		if err != nil {
 			return errors.Annotatef(err, "validating model %q for controller upgrade", stModel.Name())
 		}

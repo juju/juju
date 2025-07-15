@@ -28,14 +28,6 @@ type ControllerConfigService interface {
 	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
-// ControllerNodeService defines API address functionality required by the
-// migration watchers.
-type ControllerNodeService interface {
-	// GetAllAPIAddressesForClients returns a string slice of api
-	// addresses available for agents.
-	GetAllAPIAddressesForClients(ctx context.Context) ([]string, error)
-}
-
 // ProxyService defines the methods required to get proxy details.
 type ProxyService interface {
 	// GetConnectionProxyInfo returns the proxy information for the controller.

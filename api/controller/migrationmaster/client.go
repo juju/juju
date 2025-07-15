@@ -113,13 +113,13 @@ func (c *Client) MigrationStatus(ctx context.Context) (migration.MigrationStatus
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: controllerTag,
-			Addrs:         target.Addrs,
-			CACert:        target.CACert,
-			AuthTag:       authTag,
-			Password:      target.Password,
-			Macaroons:     macs,
-			Token:         target.Token,
+			ControllerUUID: controllerTag.Id(),
+			Addrs:          target.Addrs,
+			CACert:         target.CACert,
+			User:           authTag.Id(),
+			Password:       target.Password,
+			Macaroons:      macs,
+			Token:          target.Token,
 		},
 	}, nil
 }

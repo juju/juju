@@ -189,9 +189,6 @@ type ModelExporter interface {
 	// ExportModel exports the current model into a description model. This
 	// can be serialized into yaml and then imported.
 	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
-	// ExportModelPartial exports the current model into a partial description
-	// model. This can be serialized into yaml and then imported.
-	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 }
 
 // LegacyStateExporter describes interface on state required to export a
@@ -200,22 +197,19 @@ type ModelExporter interface {
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
 	Export(objectstore.ObjectStore) (description.Model, error)
-	// ExportPartial produces a partial export based based on the input
-	// config.
-	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 }
 
 // ModelImporter defines an interface for importing models.
 type ModelImporter interface {
 	// ImportModel takes a serialized description model (yaml bytes) and returns
 	// a state model and state state.
-	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
+	ImportModel(ctx context.Context, bytes []byte) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.
 type ModelMigrationFactory interface {
 	// ModelExporter returns a model exporter for the current model.
-	ModelExporter(context.Context, model.UUID, LegacyStateExporter) (ModelExporter, error)
+	ModelExporter(context.Context, model.UUID) (ModelExporter, error)
 
 	// ModelImporter returns a model importer.
 	ModelImporter() ModelImporter

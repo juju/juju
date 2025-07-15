@@ -752,7 +752,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 
 	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(objects.NewObjectsCharmHTTPHandler(
-		&stateGetter{authFunc: httpCtxt.stateForRequestAuthenticatedUser},
 		&applicationServiceGetter{ctxt: httpCtxt},
 		objects.CharmURLFromLocator,
 	), "charms")
@@ -849,7 +848,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	), "units")
 
 	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(objects.NewObjectsCharmHTTPHandler(
-		&stateGetter{authFunc: httpCtxt.stateForMigrationImporting},
 		&migratingObjectsApplicationServiceGetter{ctxt: httpCtxt},
 		objects.CharmURLFromLocatorDuringMigration,
 	), "charms")
@@ -1199,34 +1197,6 @@ func (srv *Server) monitoredHandler(handler http.Handler, label string) http.Han
 		defer gauge.Dec()
 		handler.ServeHTTP(w, r)
 	})
-}
-
-type stateGetter struct {
-	authFunc func(*http.Request) (*state.PooledState, error)
-}
-
-func (s *stateGetter) GetState(r *http.Request) (objects.State, error) {
-	st, err := s.authFunc(r)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-	return &stateGetterModel{
-		pooledState: st,
-		st:          st.State,
-	}, nil
-}
-
-type stateGetterModel struct {
-	pooledState *state.PooledState
-	st          *state.State
-}
-
-func (s *stateGetterModel) MigrationMode() (state.MigrationMode, error) {
-	return s.st.MigrationMode()
-}
-
-func (s *stateGetterModel) Release() bool {
-	return s.pooledState.Release()
 }
 
 type applicationServiceGetter struct {

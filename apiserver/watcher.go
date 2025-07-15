@@ -14,8 +14,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/migration"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -365,116 +363,6 @@ func (w *srvEntitiesWatcher) Next(ctx context.Context) (params.EntitiesWatchResu
 	return params.EntitiesWatchResult{
 		Changes: mapped,
 	}, nil
-}
-
-var getMigrationBackend = func(st *state.State) migrationBackend {
-	return st
-}
-
-var getAllAPIAddressesForClients = func(ctx context.Context, controllerNodeService ControllerNodeService) ([]string, error) {
-	return controllerNodeService.GetAllAPIAddressesForClients(ctx)
-}
-
-// migrationBackend defines model State functionality required by the
-// migration watchers.
-type migrationBackend interface {
-	LatestMigration() (state.ModelMigration, error)
-}
-
-func newMigrationStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	auth := context.Auth()
-	if !isAgent(auth) {
-		return nil, apiservererrors.ErrPerm
-	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	watcher, ok := w.(corewatcher.NotifyWatcher)
-	if !ok {
-		return nil, apiservererrors.ErrUnknownWatcher
-	}
-	var (
-		st = context.State()
-	)
-	return &srvMigrationStatusWatcher{
-		watcherCommon:           newWatcherCommon(context),
-		watcher:                 watcher,
-		st:                      getMigrationBackend(st),
-		controllerNodeService:   context.DomainServices().ControllerNode(),
-		controllerConfigService: context.DomainServices().ControllerConfig(),
-	}, nil
-}
-
-type srvMigrationStatusWatcher struct {
-	watcherCommon
-	watcher                 corewatcher.NotifyWatcher
-	st                      migrationBackend
-	controllerNodeService   ControllerNodeService
-	controllerConfigService ControllerConfigService
-}
-
-// Next returns when the status for a model migration for the
-// associated model changes. The current details for the active
-// migration are returned.
-func (w *srvMigrationStatusWatcher) Next(ctx context.Context) (params.MigrationStatus, error) {
-	_, err := internal.FirstResult[struct{}](ctx, w.watcher)
-	if err != nil {
-		return params.MigrationStatus{}, errors.Trace(err)
-	}
-
-	mig, err := w.st.LatestMigration()
-	if errors.Is(err, errors.NotFound) {
-		return params.MigrationStatus{
-			Phase: migration.NONE.String(),
-		}, nil
-	} else if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "migration lookup")
-	}
-
-	phase, err := mig.Phase()
-	if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "retrieving migration phase")
-	}
-
-	sourceAddrs, err := getAllAPIAddressesForClients(ctx, w.controllerNodeService)
-	if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source addresses")
-	}
-
-	cfg, err := w.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "retrieving controller config")
-	}
-	sourceCACert, err := getControllerCACert(cfg)
-	if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source CA cert")
-	}
-
-	target, err := mig.TargetInfo()
-	if err != nil {
-		return params.MigrationStatus{}, errors.Annotate(err, "retrieving target info")
-	}
-
-	return params.MigrationStatus{
-		MigrationId:    mig.Id(),
-		Attempt:        mig.Attempt(),
-		Phase:          phase.String(),
-		SourceAPIAddrs: sourceAddrs,
-		SourceCACert:   sourceCACert,
-		TargetAPIAddrs: target.Addrs,
-		TargetCACert:   target.CACert,
-	}, nil
-}
-
-// This is a shim to avoid the need to use a working State into the
-// unit tests. It is tested as part of the client side API tests.
-var getControllerCACert = func(controllerConfig controller.Config) (string, error) {
-	cacert, ok := controllerConfig.CACert()
-	if !ok {
-		return "", errors.New("missing CA cert for controller model")
-	}
-	return cacert, nil
 }
 
 // newModelSummaryWatcher exists solely to be registered with regRaw.

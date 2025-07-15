@@ -26,6 +26,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -90,7 +91,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		return fail, errAlreadyLoggedIn
 	}
 
-	migrationMode, modelExists, err := a.getModelMigrationDetails(req)
+	migrationMode, modelExists, err := a.getModelMigrationDetails(ctx, req)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
@@ -346,7 +347,7 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 	return result, nil
 }
 
-func (a *admin) getModelMigrationDetails(req params.LoginRequest) (state.MigrationMode, bool, error) {
+func (a *admin) getModelMigrationDetails(ctx context.Context, req params.LoginRequest) (modelmigration.MigrationMode, bool, error) {
 	// If the login attempt is by a user for a migrated model,
 	// return a redirect error.
 	// TODO - we'd want to use the model service here but migration
@@ -355,24 +356,24 @@ func (a *admin) getModelMigrationDetails(req params.LoginRequest) (state.Migrati
 	//    - model type
 	//    - model name
 	//    - migration mode
-	st, err := a.root.shared.statePool.Get(a.root.modelUUID.String())
+
+	exists, err := a.root.domainServices.Model().CheckModelExists(ctx, a.root.modelUUID)
 	if err != nil {
 		return "", false, errors.Trace(err)
-	}
-	defer func() { _ = st.Release() }()
-
-	migrationMode, err := st.MigrationMode()
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	} else if !exists {
+		err := a.maybeEmitRedirectError(ctx, req)
 		return "", false, errors.Trace(err)
-	} else if errors.Is(err, errors.NotFound) {
-		err := a.maybeEmitRedirectError(st.State, req)
+	}
+
+	migrationMode, err := a.root.domainServices.ModelMigration().ModelMigrationMode(ctx)
+	if err != nil {
 		return "", false, errors.Trace(err)
 	}
 
 	return migrationMode, true, nil
 }
 
-func (a *admin) maybeEmitRedirectError(st *state.State, req params.LoginRequest) error {
+func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequest) error {
 	// Only need to redirect for user logins.
 	if req.AuthTag == "" {
 		return nil
@@ -385,10 +386,12 @@ func (a *admin) maybeEmitRedirectError(st *state.State, req params.LoginRequest)
 		return nil
 	}
 
-	// Check if the model was not found due to
-	// being migrated to another controller.
-	mig, err := st.CompletedMigration()
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	// Check if the model was not found due to being migrated to another
+	// controller.
+	redirectionTarget, err := a.root.domainServices.Model().ModelRedirection(ctx, a.root.modelUUID)
+	if errors.Is(err, modelerrors.ModelNotRedirected) {
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -397,25 +400,17 @@ func (a *admin) maybeEmitRedirectError(st *state.State, req params.LoginRequest)
 	// We need to return redirects if possible for anonymous logins in order
 	// to ensure post-migration operation of CMRs.
 	// TODO(aflynn): reinstate check for unauthorised user (JUJU-6669).
-	if mig == nil {
-		return nil
-	}
 
-	target, err := mig.TargetInfo()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	hps, err := network.ParseProviderHostPorts(target.Addrs...)
+	hps, err := network.ParseProviderHostPorts(redirectionTarget.Addresses...)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return &apiservererrors.RedirectError{
 		Servers:         []network.ProviderHostPorts{hps},
-		CACert:          target.CACert,
-		ControllerTag:   target.ControllerTag,
-		ControllerAlias: target.ControllerAlias,
+		CACert:          redirectionTarget.CACert,
+		ControllerTag:   names.NewControllerTag(redirectionTarget.ControllerUUID),
+		ControllerAlias: redirectionTarget.ControllerAlias,
 	}
 }
 

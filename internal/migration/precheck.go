@@ -14,16 +14,17 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/credential"
+	corelife "github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/modelmigration"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
-	"github.com/juju/juju/state"
 )
 
 // SourcePrecheck checks the state of the source controller to make
@@ -31,17 +32,22 @@ import (
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(
 	ctx context.Context,
-	backend PrecheckBackend,
 	modelUUID coremodel.UUID,
 	controllerModelUUID coremodel.UUID,
+	modelService ModelService,
+	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error),
 	credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
 	upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
 	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
 	relationServiceGetter func(context.Context, coremodel.UUID) (RelationService, error),
 	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
+	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
 ) error {
-
+	modelMigrationService, err := modelMigrationServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	modelCredentialService, err := credentialServiceGetter(ctx, modelUUID)
 	if err != nil {
 		return errors.Trace(err)
@@ -64,8 +70,19 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	machineService, err := machineServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	c := newPrecheckModel(backend, modelCredentialService, modelApplicationService, modelRelationService, modelStatusService, modelModelAgentService)
+	model, err := modelService.Model(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	c := newPrecheckModel(model, modelMigrationService, modelCredentialService,
+		modelApplicationService, modelRelationService, modelStatusService,
+		modelModelAgentService, machineService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -82,17 +99,15 @@ func SourcePrecheck(
 		return errors.Trace(err)
 	}
 
-	if cleanupNeeded, err := backend.NeedsCleanup(); err != nil {
-		return errors.Annotate(err, "checking cleanups")
-	} else if cleanupNeeded {
-		return errors.New("cleanup needed")
-	}
+	// TODO(modelmigration): add check before migration can start that the model
+	// does not have any queued removal.
+	//if cleanupNeeded, err := backend.NeedsCleanup(); err != nil {
+	//	return errors.Annotate(err, "checking cleanups")
+	//} else if cleanupNeeded {
+	//	return errors.New("cleanup needed")
+	//}
 
 	// Check the source controller.
-	controllerBackend, err := backend.ControllerBackend()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	controllerUpgradeService, err := upgradeServiceGetter(ctx, controllerModelUUID)
 	if err != nil {
 		return errors.Trace(err)
@@ -105,8 +120,16 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	controllerMachineService, err := machineServiceGetter(ctx, controllerModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	controllerCtx := newPrecheckController(controllerBackend, controllerUpgradeService, controllerStatusService, controllerModelAgentService)
+	controllerCtx := newPrecheckController(
+		controllerUpgradeService,
+		controllerStatusService,
+		controllerModelAgentService,
+		controllerMachineService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -137,28 +160,16 @@ func ImportDescriptionPrecheck(
 // backend provided must be for the target controller.
 func TargetPrecheck(
 	ctx context.Context,
-	backend PrecheckBackend,
-	pool Pool,
 	modelInfo coremigration.ModelInfo,
+	modelService ModelService,
 	upgradeService UpgradeService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
+	machineService MachineService,
+	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error),
 ) error {
 	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
-	}
-
-	// This check is necessary because there is a window between the
-	// REAP phase and then end of the DONE phase where a model's
-	// documents have been deleted but the migration isn't quite done
-	// yet. Migrating a model back into the controller during this
-	// window can upset the migrationmaster worker.
-	//
-	// See also https://lpad.tv/1611391
-	if migrating, err := backend.IsMigrationActive(modelInfo.UUID); err != nil {
-		return errors.Annotate(err, "checking for active migration")
-	} else if migrating {
-		return errors.New("model is being migrated out of target controller")
 	}
 
 	controllerVersion, err := modelAgentService.GetModelTargetAgentVersion(ctx)
@@ -176,37 +187,53 @@ func TargetPrecheck(
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckController(backend, upgradeService, statusService, modelAgentService)
+	controllerCtx := newPrecheckController(
+		upgradeService,
+		statusService,
+		modelAgentService,
+		machineService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Check for conflicts with existing models
-	modelUUIDs, err := backend.AllModelUUIDs()
+	models, err := modelService.ListAllModels(ctx)
 	if err != nil {
 		return errors.Annotate(err, "retrieving models")
 	}
-	for _, modelUUID := range modelUUIDs {
-		model, release, err := pool.GetModel(modelUUID)
+	for _, model := range models {
+		migrationService, err := modelMigrationServiceGetter(ctx, model.UUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer release()
-
-		mode, err := model.MigrationMode()
+		mode, err := migrationService.ModelMigrationMode(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
-
 		// If the model is importing then it's probably left behind
 		// from a previous migration attempt. It will be removed
 		// before the next import.
-		if model.UUID() == modelInfo.UUID && mode != state.MigrationModeImporting {
-			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
+		if model.UUID.String() == modelInfo.UUID {
+			switch mode {
+			case modelmigration.MigrationModeExporting:
+				// This check is necessary because there is a window between the
+				// REAP phase and then end of the DONE phase where a model's
+				// documents have been deleted but the migration isn't quite done
+				// yet. Migrating a model back into the controller during this
+				// window can upset the migrationmaster worker.
+				//
+				// See also https://lpad.tv/1611391
+				return errors.New("model is being migrated out of target controller")
+			case modelmigration.MigrationModeNone:
+				return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
+			case modelmigration.MigrationModeImporting:
+				// Idempotency for models that are the same, we continue importing.
+				return nil
+			}
 		}
-		// TODO - model owner comes from mongo and will be replace by a Qualifier.
-		if model.Name() == modelInfo.Name && coremodel.QualifierFromUserTag(model.Owner()) == modelInfo.Qualifier {
-			return errors.Errorf("model named %q already exists", model.Name())
+		// This logic needs to be handled in the model domain.
+		if model.Name == modelInfo.Name && model.Qualifier == modelInfo.Qualifier {
+			return errors.Errorf("model named %q already exists", modelInfo.Name)
 		}
 	}
 
@@ -214,17 +241,12 @@ func TargetPrecheck(
 }
 
 type precheckContext struct {
-	backend           PrecheckBackend
 	statusService     StatusService
 	modelAgentService ModelAgentService
+	machineService    MachineService
 }
 
 func (c *precheckContext) checkMachines(ctx context.Context) error {
-	machines, err := c.backend.AllMachines()
-	if err != nil {
-		return errors.Annotate(err, "retrieving machines")
-	}
-
 	agentLaggingMachines, err := c.modelAgentService.GetMachinesNotAtTargetAgentVersion(ctx)
 	if err != nil {
 		return internalerrors.Errorf(
@@ -243,9 +265,18 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 		return internalerrors.Errorf("pre-checking machine statuses for migration: %w", err)
 	}
 
-	for _, machine := range machines {
-		if machine.Life() != state.Alive {
-			return errors.Errorf("machine %s is %s", machine.Id(), machine.Life())
+	// TODO(modelmigration): this should be a single service call.
+	machineNames, err := c.machineService.AllMachineNames(ctx)
+	if err != nil {
+		return errors.Annotate(err, "retrieving machines")
+	}
+	for _, machineName := range machineNames {
+		machineLife, err := c.machineService.GetMachineLife(ctx, machineName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if machineLife != corelife.Alive {
+			return errors.Errorf("machine %s is %s", machineName, machineLife)
 		}
 
 		// TODO(gfouillet): Restore this once machine fully migrated to dqlite
@@ -264,30 +295,23 @@ type precheckController struct {
 }
 
 func newPrecheckController(
-	backend PrecheckBackend,
 	upgradeService UpgradeService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
+	machineService MachineService,
 ) *precheckController {
 	return &precheckController{
 		precheckContext: precheckContext{
-			backend:           backend,
 			statusService:     statusService,
 			modelAgentService: modelAgentService,
+			machineService:    machineService,
 		},
 		upgradeService: upgradeService,
 	}
 }
 
 func (c *precheckController) checkController(ctx context.Context) error {
-	model, err := c.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
-	}
-	if model.Life() != state.Alive {
-		return errors.Errorf("model is %s", model.Life())
-	}
-
+	// TODO(modelmigration): check the model is alive?
 	if upgrading, err := c.upgradeService.IsUpgrading(ctx); err != nil {
 		return errors.Annotate(err, "checking for upgrades")
 	} else if upgrading {
@@ -299,28 +323,34 @@ func (c *precheckController) checkController(ctx context.Context) error {
 
 type precheckModel struct {
 	precheckContext
-	credentialService  CredentialService
-	applicationService ApplicationService
-	relationService    RelationService
+	model                 coremodel.Model
+	modelMigrationService ModelMigrationService
+	credentialService     CredentialService
+	applicationService    ApplicationService
+	relationService       RelationService
 }
 
 func newPrecheckModel(
-	backend PrecheckBackend,
+	model coremodel.Model,
+	modelMigrationService ModelMigrationService,
 	credentialService CredentialService,
 	applicationService ApplicationService,
 	relationService RelationService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
+	machineService MachineService,
 ) *precheckModel {
 	return &precheckModel{
+		model: model,
 		precheckContext: precheckContext{
-			backend:           backend,
 			statusService:     statusService,
 			modelAgentService: modelAgentService,
+			machineService:    machineService,
 		},
-		applicationService: applicationService,
-		credentialService:  credentialService,
-		relationService:    relationService,
+		modelMigrationService: modelMigrationService,
+		applicationService:    applicationService,
+		credentialService:     credentialService,
+		relationService:       relationService,
 	}
 }
 
@@ -399,22 +429,20 @@ func (c *precheckModel) checkRelations(ctx context.Context) error {
 }
 
 func (ctx *precheckModel) checkModel(stdCtx context.Context) error {
-	model, err := ctx.backend.Model()
-	if err != nil {
-		return errors.Annotate(err, "retrieving model")
+	// TODO(modelmigration): wire through model life?
+	if ctx.model.Life != corelife.Alive {
+		return errors.Errorf("model is %s", ctx.model.Life)
 	}
-	if model.Life() != state.Alive {
-		return errors.Errorf("model is %s", model.Life())
-	}
-	mode, err := model.MigrationMode()
+	mode, err := ctx.modelMigrationService.ModelMigrationMode(stdCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if mode == state.MigrationModeImporting {
+	if mode == modelmigration.MigrationModeImporting {
 		return errors.New("model is being imported as part of another migration")
 	}
-	if credTag, found := model.CloudCredentialTag(); found {
-		creds, err := ctx.credentialService.CloudCredential(stdCtx, credential.KeyFromTag(credTag))
+
+	if ctx.model.Credential != (credential.Key{}) {
+		creds, err := ctx.credentialService.CloudCredential(stdCtx, ctx.model.Credential)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -424,9 +452,14 @@ func (ctx *precheckModel) checkModel(stdCtx context.Context) error {
 	}
 
 	validators := upgradevalidation.ValidatorsForModelMigrationSource()
-	modelGroupedName := fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name())
-	checker := upgradevalidation.NewModelUpgradeCheck(ctx.backend, modelGroupedName, ctx.modelAgentService, validators...)
-	blockers, err := checker.Validate()
+	modelGroupedName := fmt.Sprintf("%s/%s", ctx.model.Qualifier, ctx.model.Name)
+
+	validationServices := upgradevalidation.ValidatorServices{
+		ModelAgentService: ctx.modelAgentService,
+		MachineService:    ctx.machineService,
+	}
+	checker := upgradevalidation.NewModelUpgradeCheck(modelGroupedName, validationServices, validators...)
+	blockers, err := checker.Validate(stdCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -4,8 +4,11 @@
 package modelmigration
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/migration"
 )
 
 // MigrationMachineDiscrepancy describes a divergent machine between what Juju
@@ -21,4 +24,29 @@ type MigrationMachineDiscrepancy struct {
 
 	// CloudInstanceId is the unique id given to an instance from the cloud.
 	CloudInstanceId instance.Id
+}
+
+// MigrationMode specifies where the Model is with respect to migration.
+type MigrationMode string
+
+const (
+	// MigrationModeNone is the default mode for a model and reflects
+	// that it isn't involved with a model migration.
+	MigrationModeNone = MigrationMode("")
+
+	// MigrationModeExporting reflects a model that is in the process of being
+	// exported from one controller to another.
+	MigrationModeExporting = MigrationMode("exporting")
+
+	// MigrationModeImporting reflects a model that is being imported into a
+	// controller, but is not yet fully active.
+	MigrationModeImporting = MigrationMode("importing")
+)
+
+type Migration struct {
+	UUID             string
+	Attempt          int
+	Phase            migration.Phase
+	PhaseChangedTime time.Time
+	Target           migration.TargetInfo
 }

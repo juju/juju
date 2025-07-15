@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	stdtesting "testing"
 	"time"
 
@@ -25,10 +24,7 @@ import (
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -37,18 +33,12 @@ import (
 	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
-	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/secrets/provider/juju"
-	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 const (
@@ -409,110 +399,8 @@ func (s *loginSuite) testLoginDuringMaintenance(c *tc.C, check func(api.Connecti
 	check(st)
 }
 
-var index uint32
-
-func uniqueInteger() int {
-	return int(atomic.AddUint32(&index, 1))
-}
-
-func uniqueModelName(name string) string {
-	return fmt.Sprintf("%s-%d", name, uniqueInteger())
-}
-
-func makeModel(
-	c *tc.C, txnRunnerFactory database.TxnRunnerFactory, ownerUUID user.UUID, modelUUID coremodel.UUID, name string,
-) string {
-	uniqueName := uniqueModelName(name)
-	domainModelSt := modelstate.NewState(txnRunnerFactory)
-	err := domainModelSt.Create(c.Context(), modelUUID, coremodel.IAAS, model.GlobalModelCreationArgs{
-		Cloud:         "dummy",
-		CloudRegion:   "dummy-region",
-		Name:          uniqueName,
-		Qualifier:     "prod",
-		SecretBackend: juju.BackendName,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	err = domainModelSt.Activate(c.Context(), modelUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	return uniqueName
-}
-
-func (s *loginSuite) TestMigratedModelLogin(c *tc.C) {
-	info := s.ControllerModelApiInfo()
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-
-	// The migration info is still read from mongo state.
-	// So for this test we need to mirror the model creation
-	// and deletion in both mongo and dqlite.
-
-	modelUUID := testing.GenModelUUID(c)
-	name := makeModel(c, s.TxnRunnerFactory(), s.AdminUserUUID, modelUUID, "another-model")
-
-	ownerName := usertesting.GenNewName(c, "modelOwner")
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		UUID:  modelUUID,
-		Name:  name,
-		Owner: names.NewUserTag(ownerName.Name()),
-	})
-	defer modelState.Close()
-
-	model, err := modelState.Model()
-	c.Assert(err, tc.ErrorIsNil)
-
-	controllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
-
-	// Migrate the model and delete it from the state
-	mig, err := modelState.CreateMigration(state.MigrationSpec{
-		InitiatedBy: names.NewUserTag("admin"),
-		TargetInfo: migration.TargetInfo{
-			ControllerTag:   controllerTag,
-			ControllerAlias: "target",
-			Addrs:           []string{"1.2.3.4:5555"},
-			CACert:          coretesting.CACert,
-			AuthTag:         names.NewUserTag("user2"),
-			Password:        "secret",
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	for _, phase := range migration.SuccessfulMigrationPhases() {
-		c.Assert(mig.SetPhase(phase), tc.ErrorIsNil)
-	}
-	c.Assert(model.Destroy(state.DestroyModelParams{}), tc.ErrorIsNil)
-	c.Assert(modelState.RemoveDyingModel(), tc.ErrorIsNil)
-
-	domainModelSt := modelstate.NewState(s.TxnRunnerFactory())
-	err = domainModelSt.Delete(c.Context(), modelUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	info.ModelTag = model.ModelTag()
-
-	// Attempt to open an API connection to the migrated model as a user
-	// that had access to the model before it got migrated. We should still
-	// be able to connect to the API but we should get back a Redirect
-	// error when we actually try to login.
-	info.Tag = names.NewUserTag(ownerName.Name())
-	info.Password = "secret"
-	_, err = api.Open(c.Context(), info, fastDialOpts)
-	redirErr, ok := errors.Cause(err).(*api.RedirectError)
-	c.Assert(ok, tc.Equals, true)
-
-	nhp := network.NewMachineHostPorts(5555, "1.2.3.4")
-	c.Assert(redirErr.Servers, tc.DeepEquals, []network.MachineHostPorts{nhp})
-	c.Assert(redirErr.CACert, tc.Equals, coretesting.CACert)
-	c.Assert(redirErr.FollowRedirect, tc.Equals, false)
-	c.Assert(redirErr.ControllerTag, tc.Equals, controllerTag)
-	c.Assert(redirErr.ControllerAlias, tc.Equals, "target")
-
-	// Attempt to open an API connection to the migrated model as a user
-	// that had NO access to the model before it got migrated. The server
-	// should return a not-authorized error when attempting to log in.
-	// Attempt to open an API connection to the migrated model as the
-	// anonymous user; this should also be allowed on account of CMRs.
-	info.Tag = names.NewUserTag(api.AnonymousUsername)
-	_, err = api.Open(c.Context(), info, fastDialOpts)
-	_, ok = errors.Cause(err).(*api.RedirectError)
-	c.Assert(ok, tc.Equals, true)
+func (s *loginSuite) TestMigratedModelLoginRedirect(c *tc.C) {
+	c.Skip("check login to a migrated model results in a redirect")
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *tc.C) {
@@ -829,20 +717,8 @@ type migrationSuite struct {
 }
 
 func (s *migrationSuite) TestExportingModel(c *tc.C) {
-	err := s.ControllerModel(c).State().SetMigrationMode(state.MigrationModeExporting)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Users should be able to log in but RPC requests should fail.
-	userConn := s.OpenControllerModelAPI(c)
-	defer userConn.Close()
-
-	// Status is fine.
-	_, err = apiclient.NewClient(userConn, loggertesting.WrapCheckLog(c)).Status(c.Context(), nil)
-	c.Check(err, tc.ErrorIsNil)
-
-	// Modifying commands like destroy machines are not.
-	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(c.Context(), false, false, false, nil, "42")
-	c.Check(err, tc.ErrorMatches, "model migration in progress")
+	c.Skip(`check that a model that is being exported can be logged in to but
+		unabled to mutate it, such as removing a machine`)
 }
 
 type loginV3Suite struct {

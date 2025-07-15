@@ -39,6 +39,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -431,7 +432,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 	mergedCons, err := a.modelInfoService.ResolveConstraints(ctx, cons)
-	if err != nil {
+	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
 		return nil, errors.Trace(err)
 	}
 	resourceTags := tags.ResourceTags(

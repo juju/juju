@@ -23,11 +23,12 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -127,6 +128,17 @@ type ExternalControllerService interface {
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 }
 
+// ModelService is an interface that provides information about hosted models.
+type ModelService interface {
+	// CheckModelExists checks if a model exists within the controller. True or
+	// false is returned indiciating of the model exists.
+	CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
+
+	// ModelRedirection returns redirection information for the current model. If it
+	// is not redirected, [modelmigrationerrors.ModelNotRedirected] is returned.
+	ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
+}
+
 // ModelConfigService is an interface that provides access to the
 // model configuration.
 type ModelConfigService interface {
@@ -162,6 +174,7 @@ func NewAgentAPI(
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
 	externalControllerService ExternalControllerService,
+	modelService ModelService,
 	machineService MachineService,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
@@ -176,10 +189,10 @@ func NewAgentAPI(
 		RebootFlagClearer:  common.NewRebootFlagClearer(machineService, getCanChange),
 		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
-			st,
 			controllerConfigService,
 			controllerNodeService,
 			externalControllerService,
+			modelService,
 		),
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
@@ -260,9 +273,9 @@ func (api *AgentAPI) getOneEntity(ctx context.Context, tag names.Tag) params.Age
 
 		// All machines can host units, so we just need to work out if it's
 		// a controller machine, then it can host models.
-		jobs := []model.MachineJob{model.JobHostUnits}
+		jobs := []coremodel.MachineJob{coremodel.JobHostUnits}
 		if isController {
-			jobs = append(jobs, model.JobManageModel)
+			jobs = append(jobs, coremodel.JobManageModel)
 		}
 
 		return params.AgentGetEntitiesResult{

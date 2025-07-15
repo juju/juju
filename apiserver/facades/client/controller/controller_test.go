@@ -24,7 +24,6 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
-	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
@@ -54,7 +53,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -226,7 +224,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		}
 		return svc.BlockCommand(), nil
 	}
-	machineServiceGetter := func(c context.Context, modelUUID model.UUID) (commonmodel.MachineService, error) {
+	machineServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.MachineService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -240,6 +238,13 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		}
 		return svc.ModelProvider(), nil
 	}
+	modelMigrationServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.ModelMigrationService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.ModelMigration(), nil
+	}
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
@@ -252,10 +257,10 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Access(),
-		machineServiceGetter,
 		s.mockModelService,
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
+		modelMigrationServiceGetter,
 		credentialServiceGetter,
 		upgradeServiceGetter,
 		applicationServiceGetter,
@@ -265,9 +270,10 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,
 		cloudSpecServiceGetter,
+		machineServiceGetter,
 		domainServices.Proxy(),
-		func(c context.Context, modelUUID model.UUID, legacyState facade.LegacyStateExporter) (controller.ModelExporter, error) {
-			return ctx.ModelExporter(c, modelUUID, legacyState)
+		func(c context.Context, modelUUID model.UUID) (controller.ModelExporter, error) {
+			return ctx.ModelExporter(c, modelUUID)
 		},
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
@@ -505,6 +511,7 @@ func (s *controllerSuite) TestRemoveBlocksNotAll(c *tc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
+	c.Skip("re-implement test when model migrations are implemented in dqlite")
 	defer s.setupMocks(c).Finish()
 	// Create two hosted models to migrate.
 	st1 := s.Factory.MakeModel(c, nil)
@@ -536,7 +543,7 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
 	c.Assert(err, tc.ErrorIsNil)
 
-	controller.SetPrecheckResult(s, nil)
+	// TODO(modelmigration): skip/mock migration pre-check
 
 	// Kick off migrations
 	args := params.InitiateMigrationArgs{
@@ -571,40 +578,10 @@ func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 	out, err := s.controller.InitiateMigration(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 2)
-
-	states := []*state.State{st1, st2}
-	for i, spec := range args.Specs {
-		c.Log(i)
-		st := states[i]
-		result := out.Results[i]
-
-		c.Assert(result.Error, tc.IsNil)
-		c.Check(result.ModelTag, tc.Equals, spec.ModelTag)
-
-		// Ensure the migration made it into the DB correctly.
-		mig, err := st.LatestMigration()
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(mig.InitiatedBy(), tc.Equals, s.Owner.Id())
-
-		targetInfo, err := mig.TargetInfo()
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(targetInfo.ControllerTag.String(), tc.Equals, spec.TargetInfo.ControllerTag)
-		c.Check(targetInfo.ControllerAlias, tc.Equals, spec.TargetInfo.ControllerAlias)
-		c.Check(targetInfo.Addrs, tc.SameContents, spec.TargetInfo.Addrs)
-		c.Check(targetInfo.CACert, tc.Equals, spec.TargetInfo.CACert)
-		c.Check(targetInfo.AuthTag.String(), tc.Equals, spec.TargetInfo.AuthTag)
-		c.Check(targetInfo.Password, tc.Equals, spec.TargetInfo.Password)
-		c.Check(targetInfo.Token, tc.Equals, spec.TargetInfo.Token)
-
-		if spec.TargetInfo.Macaroons != "" {
-			macJSONdb, err := json.Marshal(targetInfo.Macaroons)
-			c.Assert(err, tc.ErrorIsNil)
-			c.Check(string(macJSONdb), tc.Equals, spec.TargetInfo.Macaroons)
-		}
-	}
 }
 
 func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
+	c.Skip("re-implement test when model migrations are implemented in dqlite")
 	defer s.setupMocks(c).Finish()
 	// Create a hosted model to migrate.
 	st := s.Factory.MakeModel(c, nil)
@@ -637,10 +614,12 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
+	c.Skip("re-implement test when model migrations are implemented in dqlite")
 	defer s.setupMocks(c).Finish()
 	st := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st.Close() }()
-	controller.SetPrecheckResult(s, nil)
+
+	// TODO(modelmigration): skip/mock migration pre-check
 
 	m, err := st.Model()
 	c.Assert(err, tc.ErrorIsNil)
@@ -724,6 +703,8 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
+	c.Skip("re-implement test when model migrations are implemented in dqlite")
+
 	// For the test to run properly with part of the model in mongo and
 	// part in a service domain, a model with the same uuid is required
 	// in both places for the test to work. Necessary after model config
@@ -732,7 +713,8 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{UUID: s.DefaultModelUUID})
 	defer st.Close()
 
-	controller.SetPrecheckResult(s, errors.New("boom"))
+	// TODO(modelmigration): skip/mock migration pre-check
+	//controller.SetPrecheckResult(s, errors.New("boom"))
 
 	m, err := st.Model()
 	c.Assert(err, tc.ErrorIsNil)
@@ -762,10 +744,6 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out.Results, tc.HasLen, 1)
 	c.Check(out.Results[0].Error, tc.ErrorMatches, "boom")
-
-	active, err := st.IsMigrationActive()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(active, tc.IsFalse)
 }
 
 func randomControllerTag() string {
@@ -967,18 +945,6 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 	})
 }
 
-func (s *controllerSuite) TestMongoVersion(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	result, err := s.controller.MongoVersion(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	var resErr *params.Error
-	c.Assert(result.Error, tc.Equals, resErr)
-	// We can't guarantee which version of mongo is running, so let's just
-	// attempt to match it to a very basic version (major.minor.patch)
-	c.Assert(result.Result, tc.Matches, "^([0-9]{1,}).([0-9]{1,}).([0-9]{1,})$")
-}
-
 func (s *controllerSuite) TestIdentityProviderURL(c *tc.C) {
 	c.Skip("FIXME: This test calls setup test and tear down test... it should not.")
 	// Preserve default controller config as we will be mutating it just
@@ -1164,7 +1130,6 @@ func (s *accessSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
-
 	api, err := controller.NewControllerAPI(
 		c.Context(),
 		s.State,
@@ -1176,8 +1141,9 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		s.accessService,
-		nil,
 		s.modelService,
+		nil,
+		nil,
 		nil,
 		nil,
 		nil,

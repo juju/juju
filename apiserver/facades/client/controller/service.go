@@ -9,16 +9,23 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
+	"github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/relation"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs/cloudspec"
@@ -75,6 +82,12 @@ type ModelService interface {
 	ListAllModels(ctx context.Context) ([]coremodel.Model, error)
 	// ListModelUUIDs returns a list of all model UUIDs in the controller.
 	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
+	// CheckModelExists checks if a model exists within the controller. True or
+	// false is returned indiciating of the model exists.
+	CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
+	// ModelRedirection returns redirection information for the current model. If it
+	// is not redirected, [modelmigrationerrors.ModelNotRedirected] is returned.
+	ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
 }
 
 // ModelInfoService defines domain service methods for managing a model.
@@ -135,6 +148,34 @@ type StatusService interface {
 	GetAllMachineStatuses(context.Context) (map[machine.Name]status.StatusInfo, error)
 }
 
+// MachineService is used to get the life of all machines before migrating.
+type MachineService interface {
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(ctx context.Context) ([]machine.Name, error)
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	GetMachineLife(ctx context.Context, machineName machine.Name) (life.Value, error)
+	// GetMachineBase returns the base for the given machine.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineNotFound] if the machine does not exist.
+	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+	// GetInstanceIDAndName returns the cloud specific instance ID and display name for
+	// this machine.
+	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	// GetHardwareCharacteristics returns the hardware characteristics of the
+	// specified machine.
+	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	// WatchModelMachines watches for additions or updates to non-container
+	// machines. It is used by workers that need to factor life value changes,
+	// and so does not factor machine removals, which are considered to be
+	// after their transition to the dead state.
+	// It emits machine names rather than UUIDs.
+	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
+}
+
 // ProxyService provides access to the proxy service.
 type ProxyService interface {
 	// GetProxyToApplication returns the proxy information for the application
@@ -159,6 +200,14 @@ type BlockCommandService interface {
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given key.
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+}
+
+// ModelMigrationService provides access to migration status.
+type ModelMigrationService interface {
+	// ModelMigrationMode returns the current migration mode for the model.
+	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
+	// InitiateMigration kicks off migrating this model to the target controller.
+	InitiateMigration(ctx context.Context, targetInfo migration.TargetInfo, userName string) (string, error)
 }
 
 // ModelConfigService is an interface that provides access to the

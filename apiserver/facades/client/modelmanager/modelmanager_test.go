@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
@@ -62,7 +61,6 @@ type modelManagerSuite struct {
 	accessService        *MockAccessService
 	modelService         *MockModelService
 	modelDefaultService  *MockModelDefaultsService
-	modelExporter        *MockModelExporter
 	domainServicesGetter *MockDomainServicesGetter
 	domainServices       *MockModelDomainServices
 	applicationService   *MockApplicationService
@@ -84,7 +82,6 @@ func TestModelManagerSuite(t *testing.T) {
 func (s *modelManagerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.modelExporter = NewMockModelExporter(ctrl)
 	s.modelService = NewMockModelService(ctrl)
 	s.modelDefaultService = NewMockModelDefaultsService(ctrl)
 	s.accessService = NewMockAccessService(ctrl)
@@ -94,6 +91,18 @@ func (s *modelManagerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.domainServices = NewMockModelDomainServices(ctrl)
 	s.modelStatusAPI = NewMockModelStatusAPI(ctrl)
+
+	c.Cleanup(func() {
+		s.modelService = nil
+		s.modelDefaultService = nil
+		s.accessService = nil
+		s.domainServicesGetter = nil
+		s.applicationService = nil
+		s.blockCommandService = nil
+		s.machineService = nil
+		s.domainServices = nil
+		s.modelStatusAPI = nil
+	})
 
 	return ctrl
 }
@@ -159,7 +168,6 @@ func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomoc
 		user.Name() == "admin",
 		user,
 		s.modelStatusAPI,
-		modelExporter(s.modelExporter),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -662,65 +670,15 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *tc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModel(c *tc.C) {
-	defer s.setUpAPI(c).Finish()
-
-	s.modelExporter.EXPECT().ExportModelPartial(
-		gomock.Any(),
-		state.ExportConfig{IgnoreIncompleteModel: true},
-		gomock.Any(),
-	).Times(1).Return(
-		&fakeModelDescription{ModelUUID: s.st.model.UUID()},
-		nil)
-	results := s.api.DumpModels(c.Context(), params.DumpModelRequest{
-		Entities: []params.Entity{{
-			Tag: "bad-tag",
-		}, {
-			Tag: "application-foo",
-		}, {
-			Tag: s.st.ModelTag().String(),
-		}}})
-
-	c.Assert(results.Results, tc.HasLen, 3)
-	bad, notApp, good := results.Results[0], results.Results[1], results.Results[2]
-	c.Check(bad.Result, tc.Equals, "")
-	c.Check(bad.Error.Message, tc.Equals, `"bad-tag" is not a valid tag`)
-
-	c.Check(notApp.Result, tc.Equals, "")
-	c.Check(notApp.Error.Message, tc.Equals, `"application-foo" is not a valid model tag`)
-
-	c.Check(good.Error, tc.IsNil)
-	c.Check(good.Result, tc.DeepEquals, "model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d\n")
+	c.Skip("re-implement dump model")
 }
 
 func (s *modelManagerSuite) TestDumpModelMissingModel(c *tc.C) {
-	defer s.setUpAPI(c).Finish()
-
-	s.st.SetErrors(errors.NotFoundf("boom"))
-	_, modelTag := generateModelUUIDAndTag(c)
-	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: modelTag.String()}}}
-	results := s.api.DumpModels(c.Context(), models)
-	s.st.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "GetBackend", Args: []interface{}{modelTag.Id()}},
-	})
-	c.Assert(results.Results, tc.HasLen, 1)
-	result := results.Results[0]
-	c.Assert(result.Result, tc.Equals, "")
-	c.Assert(result.Error, tc.NotNil)
-	c.Check(result.Error.Code, tc.Equals, `not found`)
-	c.Check(result.Error.Message, tc.Equals, `id not found`)
+	c.Skip("re-implement dump model")
 }
 
 func (s *modelManagerSuite) TestDumpModelUsers(c *tc.C) {
-	defer s.setUpAPIWithUser(c, names.NewUserTag("otheruser")).Finish()
-
-	_, modelTag := generateModelUUIDAndTag(c)
-	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: modelTag.String()}}}
-	results := s.api.DumpModels(c.Context(), models)
-	c.Assert(results.Results, tc.HasLen, 1)
-	result := results.Results[0]
-	c.Assert(result.Result, tc.Equals, "")
-	c.Assert(result.Error, tc.NotNil)
-	c.Check(result.Error.Message, tc.Equals, `permission denied`)
+	c.Skip("re-implement dump model")
 }
 
 func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
@@ -1056,7 +1014,6 @@ func (s *modelManagerStateSuite) setAPIUser(c *tc.C, user names.UserTag) {
 		user.Name() == "admin",
 		user,
 		s.modelStatusAPI,
-		nil,
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1130,12 +1087,6 @@ func (s *modelManagerStateSuite) TestModifyModelAccessFailedPermissionDenied(c *
 	result, err := s.modelmanager.ModifyModelAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorMatches, `permission denied`)
-}
-
-func modelExporter(exporter *MockModelExporter) func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (modelmanager.ModelExporter, error) {
-	return func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (modelmanager.ModelExporter, error) {
-		return exporter, nil
-	}
 }
 
 type fakeProvider struct {

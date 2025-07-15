@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -84,8 +83,7 @@ type ModelManagerAPI struct {
 	modelDefaultsService ModelDefaultsService
 	secretBackendService SecretBackendService
 
-	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error)
-	store         objectstore.ObjectStore
+	store objectstore.ObjectStore
 
 	controllerUUID uuid.UUID
 }
@@ -98,7 +96,6 @@ func NewModelManagerAPI(
 	isAdmin bool,
 	apiUser names.UserTag,
 	modelStatusAPI ModelStatusAPI,
-	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	controllerUUID uuid.UUID,
 	services Services,
 	blockChecker common.BlockCheckerInterface,
@@ -110,7 +107,6 @@ func NewModelManagerAPI(
 		ModelStatusAPI:       modelStatusAPI,
 		state:                st,
 		domainServicesGetter: services.DomainServicesGetter,
-		modelExporter:        modelExporter,
 		credentialService:    services.CredentialService,
 		applicationService:   services.ApplicationService,
 		store:                services.ObjectStore,
@@ -438,31 +434,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity) ([]
 		}
 	}
 
-	modelState, release, err := m.state.GetBackend(modelTag.Id())
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(apiservererrors.ErrBadId)
-		}
-		return nil, errors.Trace(err)
-	}
-	defer release()
-
-	exportConfig := state.ExportConfig{IgnoreIncompleteModel: true}
-	// TODO: remove mongo state from the mode exporter.
-	modelExporter, err := m.modelExporter(ctx, coremodel.UUID(modelTag.Id()), modelState)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	model, err := modelExporter.ExportModelPartial(ctx, exportConfig, m.store)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bytes, err := description.Serialize(model)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return bytes, nil
+	return nil, errors.NotImplemented
 }
 
 // DumpModels will export the models into the database agnostic

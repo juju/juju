@@ -24,13 +24,13 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/modelmigration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/registry"
-	domainmodelmigration "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/services"
@@ -158,7 +158,7 @@ func newAPIHandler(
 		// migrated allow clients to connect and wait for a login
 		// request to decide whether the users should be redirected to
 		// the new controller for this model or not.
-		if _, migErr := st.CompletedMigration(); migErr != nil {
+		if _, migErr := domainServices.Model().ModelRedirection(ctx, modelUUID); migErr != nil {
 			return nil, errors.NotFoundf("model %q", modelUUID) // return errors.NotFound on any error
 		}
 	}
@@ -487,7 +487,7 @@ func newAPIRoot(
 func restrictAPIRoot(
 	srv *Server,
 	apiRoot rpc.Root,
-	migrationMode state.MigrationMode,
+	migrationMode modelmigration.MigrationMode,
 	modelType model.ModelType,
 	auth authResult,
 ) (rpc.Root, error) {
@@ -519,7 +519,7 @@ func restrictAPIRoot(
 func restrictAPIRootDuringMaintenance(
 	srv *Server,
 	apiRoot rpc.Root,
-	migrationMode state.MigrationMode,
+	migrationMode modelmigration.MigrationMode,
 	authTag names.Tag,
 ) (rpc.Root, error) {
 	describeLogin := func() string {
@@ -542,11 +542,11 @@ func restrictAPIRootDuringMaintenance(
 	// For user logins, we limit access during migrations.
 	if _, ok := authTag.(names.UserTag); ok {
 		switch migrationMode {
-		case state.MigrationModeImporting:
+		case modelmigration.MigrationModeImporting:
 			// The user is not able to access a model that is currently being
 			// imported until the model has been activated.
 			apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
-		case state.MigrationModeExporting:
+		case modelmigration.MigrationModeExporting:
 			// The user is not allowed to change anything in a model that is
 			// currently being moved to another controller.
 			apiRoot = restrictRoot(apiRoot, migrationClientMethodsOnly)
@@ -891,7 +891,7 @@ func (c modelObjectStore) GetObjectStore(ctx context.Context) (objectstore.Objec
 }
 
 // ModelExporter returns a model exporter for the current model.
-func (ctx *facadeContext) ModelExporter(c context.Context, modelUUID model.UUID, backend facade.LegacyStateExporter) (facade.ModelExporter, error) {
+func (ctx *facadeContext) ModelExporter(c context.Context, modelUUID model.UUID) (facade.ModelExporter, error) {
 	logger := ctx.Logger()
 	clock := ctx.r.clock
 
@@ -900,13 +900,13 @@ func (ctx *facadeContext) ModelExporter(c context.Context, modelUUID model.UUID,
 		return nil, errors.Trace(err)
 	}
 
-	coordinator := modelmigration.NewCoordinator(logger)
+	coordinator := coremodelmigration.NewCoordinator(logger)
 
 	objectStoreGetter := modelObjectStore(func(stdCtx context.Context) (objectstore.ObjectStore, error) {
 		return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, ctx.ModelUUID().String())
 	})
 
-	exporter := domainmodelmigration.NewExporter(
+	exporter := modelmigration.NewExporter(
 		coordinator,
 		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
 			storageService := domainServices.Storage()
@@ -918,7 +918,6 @@ func (ctx *facadeContext) ModelExporter(c context.Context, modelUUID model.UUID,
 	)
 	return migration.NewModelExporter(
 		exporter,
-		backend,
 		ctx.migrationScope(modelUUID),
 		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
 			storageService := domainServices.Storage()
@@ -934,9 +933,7 @@ func (ctx *facadeContext) ModelExporter(c context.Context, modelUUID model.UUID,
 func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 	domainServices := ctx.DomainServices()
 
-	pool := ctx.r.shared.statePool
 	return migration.NewModelImporter(
-		state.NewController(pool),
 		ctx.migrationScope,
 		ctx.DomainServices().ControllerConfig(),
 		ctx.r.domainServicesGetter,
@@ -1020,8 +1017,8 @@ func (ctx *facadeContext) modelDB(modelUUID model.UUID) (changestream.WatchableD
 // migrationScope is a protected method, do not expose this directly in to the
 // facade context. It is expect that users of the facade context will use the
 // higher level abstractions.
-func (ctx *facadeContext) migrationScope(modelUUID model.UUID) modelmigration.Scope {
-	return modelmigration.NewScope(
+func (ctx *facadeContext) migrationScope(modelUUID model.UUID) coremodelmigration.Scope {
+	return coremodelmigration.NewScope(
 		changestream.NewTxnRunnerFactory(ctx.controllerDB),
 		changestream.NewTxnRunnerFactory(func() (changestream.WatchableDB, error) {
 			return ctx.modelDB(modelUUID)
