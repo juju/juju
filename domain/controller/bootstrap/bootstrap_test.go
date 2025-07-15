@@ -37,7 +37,7 @@ func (s *bootstrapSuite) TestInsertInitialController(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var cert, pk, caPK, si string
-	row := s.DB().QueryRow("SELECT cert, private_key, ca_private_key, system_identity FROM controller", controller.CACertKey)
+	row := s.DB().QueryRow("SELECT cert, private_key, ca_private_key, system_identity FROM controller")
 	c.Assert(row.Scan(&cert, &pk, &caPK, &si), tc.ErrorIsNil)
 
 	c.Check(cert, tc.Equals, "a")

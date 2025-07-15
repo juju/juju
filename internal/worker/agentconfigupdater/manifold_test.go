@@ -144,7 +144,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *tc.C, a agent.Agent, mockAPIP
 	return s.manifold.Start(c.Context(), getter)
 }
 
-func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
+func (s *AgentConfigUpdaterSuite) TestControllerAgentInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupManifold(c, func() (bool, error) {
 		return true, nil
@@ -156,7 +156,6 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
 	}, nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(wc, nil)
 
-	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
 	a := &mockAgent{}
@@ -166,13 +165,13 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
 	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
-	c.Assert(a.conf.ssiSet, tc.IsTrue)
-	c.Assert(a.conf.ssi.APIPort, tc.Equals, mockAPIPort)
-	c.Assert(a.conf.ssi.Cert, tc.Equals, "cert")
-	c.Assert(a.conf.ssi.PrivateKey, tc.Equals, "key")
+	c.Assert(a.conf.caiSet, tc.IsTrue)
+	c.Assert(a.conf.cai.APIPort, tc.Equals, mockAPIPort)
+	c.Assert(a.conf.cai.Cert, tc.Equals, "cert")
+	c.Assert(a.conf.cai.PrivateKey, tc.Equals, "key")
 }
 
-func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) {
+func (s *AgentConfigUpdaterSuite) TestControllerAgentInfoNotOverwriteCert(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupManifold(c, func() (bool, error) {
 		return true, nil
@@ -184,13 +183,12 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) 
 	}, nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(wc, nil)
 
-	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
 	a := &mockAgent{}
 	existingCert := "some cert set by certupdater"
 	existingKey := "some key set by certupdater"
-	a.conf.SetStateServingInfo(controller.ControllerAgentInfo{
+	a.conf.SetControllerAgentInfo(controller.ControllerAgentInfo{
 		Cert:       existingCert,
 		PrivateKey: existingKey,
 	})
@@ -201,10 +199,10 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) 
 	workertest.CleanKill(c, w)
 
 	// Verify that the state serving info was actually set.
-	c.Assert(a.conf.ssiSet, tc.IsTrue)
-	c.Assert(a.conf.ssi.APIPort, tc.Equals, mockAPIPort)
-	c.Assert(a.conf.ssi.Cert, tc.Equals, existingCert)
-	c.Assert(a.conf.ssi.PrivateKey, tc.Equals, existingKey)
+	c.Assert(a.conf.caiSet, tc.IsTrue)
+	c.Assert(a.conf.cai.APIPort, tc.Equals, mockAPIPort)
+	c.Assert(a.conf.cai.Cert, tc.Equals, existingCert)
+	c.Assert(a.conf.cai.PrivateKey, tc.Equals, existingKey)
 }
 
 func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *tc.C) {
@@ -243,7 +241,7 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *tc.C, job model.MachineJ
 	c.Assert(err, tc.Equals, dependency.ErrUninstall)
 
 	// State serving info shouldn't have been set for this job type.
-	c.Assert(a.conf.ssiSet, tc.IsFalse)
+	c.Assert(a.conf.caiSet, tc.IsFalse)
 }
 
 func (s *AgentConfigUpdaterSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -294,8 +292,8 @@ func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
 type mockConfig struct {
 	agent.ConfigSetter
 	tag    names.Tag
-	ssiSet bool
-	ssi    controller.ControllerAgentInfo
+	caiSet bool
+	cai    controller.ControllerAgentInfo
 
 	queryTracingEnabled    bool
 	queryTracingEnabledSet bool
@@ -340,13 +338,13 @@ func (mc *mockConfig) Controller() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
-	return mc.ssi, mc.ssiSet
+func (mc *mockConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
+	return mc.cai, mc.caiSet
 }
 
-func (mc *mockConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
-	mc.ssiSet = true
-	mc.ssi = info
+func (mc *mockConfig) SetControllerAgentInfo(info controller.ControllerAgentInfo) {
+	mc.caiSet = true
+	mc.cai = info
 }
 
 func (mc *mockConfig) QueryTracingEnabled() bool {

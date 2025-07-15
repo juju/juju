@@ -97,7 +97,7 @@ func (w *apiserverCertWatcher) setup() error {
 	config := w.agent.CurrentConfig()
 	info, ok := config.ControllerAgentInfo()
 	if !ok {
-		return errors.New("no state serving info in agent config")
+		return errors.New("no controller agent info in agent config")
 	}
 
 	caCert := config.CACert()

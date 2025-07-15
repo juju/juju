@@ -58,7 +58,7 @@ func (s *stateSuite) TestGetControllerAgentInfoNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "DELETE FROM controller", s.controllerModelUUID)
+		_, err := tx.ExecContext(ctx, "DELETE FROM controller")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

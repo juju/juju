@@ -38,7 +38,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = new(mockAgent)
-	s.agent.conf.setStateServingInfo(true)
+	s.agent.conf.setControllerAgentInfo(true)
 	s.agent.conf.tag = names.NewMachineTag("99")
 
 	s.getter = dt.StubGetter(map[string]interface{}{
@@ -101,7 +101,7 @@ func (s *ManifoldSuite) TestOutputWrongType(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *tc.C) {
-	s.agent.conf.setStateServingInfo(false)
+	s.agent.conf.setControllerAgentInfo(false)
 	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, w)
@@ -113,7 +113,7 @@ func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestOutputSuccessStateServer(c *tc.C) {
-	s.agent.conf.setStateServingInfo(true)
+	s.agent.conf.setControllerAgentInfo(true)
 	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	defer checkStop(c, w)
@@ -125,7 +125,7 @@ func (s *ManifoldSuite) TestOutputSuccessStateServer(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
-	s.agent.conf.setStateServingInfo(false)
+	s.agent.conf.setControllerAgentInfo(false)
 	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	checkNotExiting(c, w)
@@ -148,7 +148,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 
 	// Now change the config to include state serving info, worker
 	// should bounce.
-	s.agent.conf.setStateServingInfo(true)
+	s.agent.conf.setControllerAgentInfo(true)
 	s.agentConfigChanged.Set(0)
 	checkExitsWithError(c, w, dependency.ErrBounce)
 
@@ -165,7 +165,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 	checkOutput(true)
 
 	// Now remove the state serving info, the agent should bounce.
-	s.agent.conf.setStateServingInfo(false)
+	s.agent.conf.setControllerAgentInfo(false)
 	s.agentConfigChanged.Set(0)
 	checkExitsWithError(c, w, dependency.ErrBounce)
 }
@@ -229,25 +229,25 @@ func (ma *mockAgent) CurrentConfig() coreagent.Config {
 
 type mockConfig struct {
 	coreagent.ConfigSetter
-	tag         names.Tag
-	mu          sync.Mutex
-	ssInfoIsSet bool
+	tag    names.Tag
+	mu     sync.Mutex
+	caiSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
 	return mc.tag
 }
 
-func (mc *mockConfig) setStateServingInfo(isSet bool) {
+func (mc *mockConfig) setControllerAgentInfo(isSet bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	mc.ssInfoIsSet = isSet
+	mc.caiSet = isSet
 }
 
-func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
+func (mc *mockConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	return controller.ControllerAgentInfo{}, mc.ssInfoIsSet
+	return controller.ControllerAgentInfo{}, mc.caiSet
 }
 
 type dummyWorker struct {

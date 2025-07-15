@@ -4,6 +4,7 @@
 package state
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/juju/tc"
@@ -64,6 +65,7 @@ func (s *stateSuite) TestControllerConfigReadWithoutData(c *tc.C) {
 
 	// This is set at bootstrap time.
 	c.Check(controllerConfig, tc.DeepEquals, map[string]string{
+		controller.APIPort:           strconv.Itoa(controller.DefaultAPIPort),
 		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
 		controller.CACertKey:         jujutesting.CACert,
 	})
