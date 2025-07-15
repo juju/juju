@@ -12,6 +12,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -43,6 +45,10 @@ type ModelInfoService interface {
 type ModelService interface {
 	// ListModelUUIDs returns a list of all model UUIDs in the controller.
 	ListModelUUIDs(context.Context) ([]coremodel.UUID, error)
+
+	// ModelRedirection returns redirection information for the current model. If it
+	// is not redirected, [modelmigrationerrors.ModelNotRedirected] is returned.
+	ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
 }
 
 // ModelStatusAPI implements the ModelStatus() API.
@@ -51,6 +57,7 @@ type ModelStatusAPI struct {
 	apiUser           names.UserTag
 	backend           ModelManagerBackend
 	controllerTag     names.ControllerTag
+	modelService      ModelService
 	getMachineService MachineServiceGetter
 	getStatusService  StatusServiceGetter
 }
@@ -59,6 +66,7 @@ type ModelStatusAPI struct {
 func NewModelStatusAPI(
 	backend ModelManagerBackend,
 	controllerUUID string,
+	modelService ModelService,
 	getMachineService MachineServiceGetter,
 	getStatusService StatusServiceGetter,
 	authorizer facade.Authorizer,
@@ -70,6 +78,7 @@ func NewModelStatusAPI(
 		apiUser:           apiUser,
 		backend:           backend,
 		controllerTag:     controllerTag,
+		modelService:      modelService,
 		getMachineService: getMachineService,
 		getStatusService:  getStatusService,
 	}
@@ -107,7 +116,25 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 
 	st := c.backend
 
+	modelUUID := coremodel.UUID(modelTag.Id())
+
 	if modelTag != c.backend.ModelTag() {
+		modelRedirection, err := c.modelService.ModelRedirection(ctx, modelUUID)
+		if err == nil {
+			hps, mErr := network.ParseProviderHostPorts(modelRedirection.Addressess...)
+			if mErr != nil {
+				return status, errors.Trace(mErr)
+			}
+			return status, &apiservererrors.RedirectError{
+				Servers:         []network.ProviderHostPorts{hps},
+				CACert:          modelRedirection.CACert,
+				ControllerTag:   names.NewControllerTag(modelRedirection.ControllerUUID),
+				ControllerAlias: modelRedirection.ControllerAlias,
+			}
+		} else if err != nil && !errors.Is(err, modelerrors.ModelNotRedirected) {
+			return status, errors.Trace(err)
+		}
+
 		otherSt, releaser, err := c.backend.GetBackend(modelTag.Id())
 		if err != nil {
 			return status, errors.Trace(err)
@@ -115,8 +142,6 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		defer releaser()
 		st = otherSt
 	}
-
-	modelUUID := coremodel.UUID(modelTag.Id())
 
 	// TODO: update model DB drop detection logic. Currently, statusService.GetModelStatusInfo does not
 	// return NotFound because model data is read from the cache within the same DB connection.
