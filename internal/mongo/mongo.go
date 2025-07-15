@@ -66,9 +66,6 @@ type EnsureServerParams struct {
 	// APIPort is the port to connect to the api server.
 	APIPort int
 
-	// StatePort is the port to connect to the mongo server.
-	StatePort int
-
 	// Cert is the certificate.
 	Cert string
 
@@ -103,9 +100,6 @@ type EnsureServerParams struct {
 	// SetNUMAControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
 	SetNUMAControlPolicy bool
-
-	// The channel for installing the mongo snap in focal and later.
-	JujuDBSnapChannel string
 }
 
 // EnsureServerInstalled ensures that the MongoDB server is installed,
@@ -127,22 +121,17 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 		args.ConfigDir = systemd.EtcSystemdDir
 	}
 
-	logger.Infof(context.TODO(),
-		"Ensuring mongo server is running; data directory %s; port %d",
-		args.MongoDataDir, args.StatePort,
-	)
-
 	if err := setupDataDirectory(args); err != nil {
 		return errors.Annotatef(err, "cannot set up data directory")
 	}
 
 	// TODO(wallyworld) - set up Numactl if requested in args.SetNUMAControlPolicy
-	svc, err := mongoSnapService(args.JujuDataDir, args.ConfigDir, args.JujuDBSnapChannel)
+	svc, err := mongoSnapService(args.JujuDataDir, args.ConfigDir)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create mongo snap service")
 	}
 
-	if err := installMongod(args.JujuDBSnapChannel, svc); err != nil {
+	if err := installMongod(svc); err != nil {
 		return errors.Annotatef(err, "cannot install mongod")
 	}
 
@@ -281,7 +270,7 @@ func logVersion(mongoPath string) {
 	logger.Debugf(context.TODO(), "using mongod: %s --version:\n%s", mongoPath, output)
 }
 
-func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService, error) {
+func mongoSnapService(dataDir, configDir string) (MongoSnapService, error) {
 	jujuDbLocalSnapPattern := regexp.MustCompile(`juju-db_[0-9]+\.snap`)
 	jujuDbLocalAssertsPattern := regexp.MustCompile(`juju-db_[0-9]+\.assert`)
 
@@ -325,7 +314,6 @@ func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService,
 		Conf:               conf,
 		SnapExecutable:     snap.Command,
 		ConfigDir:          configDir,
-		Channel:            snapChannel,
 		BackgroundServices: backgroundServices,
 	})
 	return svc, errors.Trace(err)
@@ -334,14 +322,14 @@ func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService,
 // Override for testing.
 var installMongo = dependency.InstallMongo
 
-func installMongod(snapChannel string, snapSvc MongoSnapService) error {
+func installMongod(snapSvc MongoSnapService) error {
 	// Do either a local snap install or a real install from the store.
 	if snapSvc.IsLocal() {
 		// Local snap.
 		return snapSvc.Install()
 	}
 	// Store snap.
-	return installMongo(snapChannel)
+	return installMongo()
 }
 
 // dbDir returns the dir where mongo storage is.

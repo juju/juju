@@ -78,7 +78,6 @@ func newEnsureMongoParams(agentConfig agent.Config) (mongo.EnsureServerParams, e
 
 	params := mongo.EnsureServerParams{
 		APIPort:        si.APIPort,
-		StatePort:      si.StatePort,
 		Cert:           si.Cert,
 		PrivateKey:     si.PrivateKey,
 		CAPrivateKey:   si.CAPrivateKey,
@@ -86,8 +85,6 @@ func newEnsureMongoParams(agentConfig agent.Config) (mongo.EnsureServerParams, e
 
 		OplogSize:            oplogSize,
 		SetNUMAControlPolicy: numaCtlPolicy,
-
-		JujuDBSnapChannel: agentConfig.JujuDBSnapChannel(),
 	}
 	return params, nil
 }

@@ -302,7 +302,6 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 
 	result = params.StateServingInfo{
 		APIPort:        info.APIPort,
-		StatePort:      info.StatePort,
 		Cert:           info.Cert,
 		PrivateKey:     info.PrivateKey,
 		CAPrivateKey:   info.CAPrivateKey,

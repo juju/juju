@@ -291,10 +291,6 @@ Controller configuration keys:
     identity-url:
       type: string
       description: The url of the identity manager
-    juju-db-snap-channel:
-      type: string
-      description: Sets channel for installing mongo snaps when bootstrapping on focal
-        or later
     juju-mgmt-space:
       type: string
       description: The network space that agents should use to communicate with controllers
@@ -396,9 +392,6 @@ Controller configuration keys:
     ssh-server-port:
       type: int
       description: The port used for ssh connections to the controller
-    state-port:
-      type: int
-      description: The port used for mongo connections
     system-ssh-keys:
       type: string
       description: Defines the system ssh keys

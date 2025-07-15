@@ -83,8 +83,8 @@ func (s *ConfigSuite) addFiles(c *tc.C, files ...testhelpers.TestFile) {
 
 func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *tc.C) {
 	s.addFiles(c, []testhelpers.TestFile{
-		{"ca-cert.pem", testing.CACert},
-		{"ca-private-key.pem", testing.CAKey},
+		{Name: "ca-cert.pem", Data: testing.CACert},
+		{Name: "ca-private-key.pem", Data: testing.CAKey},
 	}...)
 
 	cfg, err := bootstrap.NewConfig(nil)
@@ -96,8 +96,8 @@ func (s *ConfigSuite) TestDefaultConfigReadsDefaultCACertKeyFiles(c *tc.C) {
 
 func (s *ConfigSuite) TestConfigReadsCACertKeyFilesFromPaths(c *tc.C) {
 	s.addFiles(c, []testhelpers.TestFile{
-		{"ca-cert-2.pem", testing.OtherCACert},
-		{"ca-private-key-2.pem", testing.OtherCAKey},
+		{Name: "ca-cert-2.pem", Data: testing.OtherCACert},
+		{Name: "ca-private-key-2.pem", Data: testing.OtherCAKey},
 	}...)
 
 	cfg, err := bootstrap.NewConfig(map[string]interface{}{

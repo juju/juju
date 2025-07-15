@@ -198,7 +198,7 @@ func generateConfig(args EnsureServerParams) *ConfigArgs {
 		DataDir: args.MongoDataDir,
 		DBDir:   dbDir(args.MongoDataDir),
 		LogPath: logPath(args.MongoDataDir),
-		Port:    args.StatePort,
+		Port:    37017,
 		IPv6:    supportsIPv6(),
 		// Switch from syslog to appending to dataDir, because snaps don't
 		// have the same permissions.

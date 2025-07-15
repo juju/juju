@@ -197,7 +197,7 @@ func (p BootstrapParams) Validate() error {
 	if p.CAPrivateKey == "" {
 		return errors.New("empty ca-private-key")
 	}
-	if p.SupportedBootstrapBases == nil || len(p.SupportedBootstrapBases) == 0 {
+	if len(p.SupportedBootstrapBases) == 0 {
 		return errors.NotValidf("supported bootstrap bases")
 	}
 
@@ -773,7 +773,6 @@ func finalizeInstanceBootstrapConfig(
 	}
 
 	icfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
-		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),
@@ -844,7 +843,6 @@ func finalizePodBootstrapConfig(
 	}
 
 	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
-		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),

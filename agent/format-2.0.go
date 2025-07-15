@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"time"
 
@@ -60,9 +59,7 @@ type format_2_0Serialization struct {
 	ControllerKey         string        `yaml:"controllerkey,omitempty"`
 	CAPrivateKey          string        `yaml:"caprivatekey,omitempty"`
 	APIPort               int           `yaml:"apiport,omitempty"`
-	StatePort             int           `yaml:"stateport,omitempty"`
 	SystemIdentity        string        `yaml:"systemidentity,omitempty"`
-	JujuDBSnapChannel     string        `yaml:"juju-db-snap-channel,omitempty"`
 	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
 	QueryTracingThreshold time.Duration `yaml:"querytracingthreshold,omitempty"`
 
@@ -149,30 +146,10 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			PrivateKey:     format.ControllerKey,
 			CAPrivateKey:   format.CAPrivateKey,
 			APIPort:        format.APIPort,
-			StatePort:      format.StatePort,
 			SystemIdentity: format.SystemIdentity,
 		}
-		// If private key is not present, infer it from the ports in the state addresses.
-		if config.servingInfo.StatePort == 0 {
-			if len(format.StateAddresses) == 0 {
-				return nil, errors.New("server key found but no state port")
-			}
-
-			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
-			if err != nil {
-				return nil, err
-			}
-			statePort, err := strconv.Atoi(portString)
-			if err != nil {
-				return nil, err
-			}
-			config.servingInfo.StatePort = statePort
-		}
 	}
 
-	if format.JujuDBSnapChannel != "" {
-		config.jujuDBSnapChannel = format.JujuDBSnapChannel
-	}
 	if format.OpenTelemetryEndpoint != "" {
 		config.openTelemetryEndpoint = format.OpenTelemetryEndpoint
 	}
@@ -230,16 +207,12 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.ControllerKey = config.servingInfo.PrivateKey
 		format.CAPrivateKey = config.servingInfo.CAPrivateKey
 		format.APIPort = config.servingInfo.APIPort
-		format.StatePort = config.servingInfo.StatePort
 		format.SystemIdentity = config.servingInfo.SystemIdentity
 		format.StatePassword = config.statePassword
 	}
 	if config.apiDetails != nil {
 		format.APIAddresses = config.apiDetails.addresses
 		format.APIPassword = config.apiDetails.password
-	}
-	if config.jujuDBSnapChannel != "" {
-		format.JujuDBSnapChannel = config.jujuDBSnapChannel
 	}
 	if config.openTelemetryEndpoint != "" {
 		format.OpenTelemetryEndpoint = config.openTelemetryEndpoint

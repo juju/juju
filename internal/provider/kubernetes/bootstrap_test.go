@@ -77,7 +77,6 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.cfg = cfg
 
 	s.controllerCfg = coretesting.FakeControllerConfig()
-	s.controllerCfg["juju-db-snap-channel"] = controller.DefaultJujuDBSnapChannel
 	s.controllerCfg[controller.CAASImageRepo] = ""
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
 		s.controllerCfg, controllerName, "ubuntu", constraints.MustParse("root-disk=10000M mem=4000M"))
@@ -97,14 +96,12 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,
-		StatePort:    123,
 		APIPort:      456,
 	}
 	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,
-		StatePort:    123,
 		APIPort:      456,
 	}
 	pcfg.Bootstrap.ControllerConfig = s.controllerCfg
@@ -589,7 +586,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 	probCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
-			fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
+			fmt.Sprintf("--port=%d", controller.DefaultStatePort),
 			"--eval",
 			"db.adminCommand('ping')",
 		},
@@ -684,12 +681,12 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			},
 			Args: []string{
 				"-c",
-				`printf 'args="--dbpath=/var/lib/juju/db --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --noauth --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
+				`printf 'args="--dbpath=/var/lib/juju/db --port=37017 --journal --replSet=juju --quiet --oplogSize=1024 --noauth --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
 			},
 			Ports: []core.ContainerPort{
 				{
 					Name:          "mongodb",
-					ContainerPort: int32(s.controllerCfg.StatePort()),
+					ContainerPort: int32(controller.DefaultStatePort),
 					Protocol:      "TCP",
 				},
 			},

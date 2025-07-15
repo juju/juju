@@ -89,9 +89,6 @@ const (
 	// new versions of Juju will be honoured.
 	ReadOnlyMethodsWildcard = "ReadOnlyMethods"
 
-	// StatePort is the port used for mongo connections.
-	StatePort = "state-port"
-
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
 
@@ -136,10 +133,6 @@ const (
 	// connect to models they have been authorized for, even when
 	// they don't have any access rights to the controller itself.
 	AllowModelAccessKey = "allow-model-access"
-
-	// JujuDBSnapChannel selects the channel to use when installing Mongo
-	// snaps for focal or later. The value is ignored for older releases.
-	JujuDBSnapChannel = "juju-db-snap-channel"
 
 	// MaxDebugLogDuration is used to provide a backstop to the execution of a
 	// debug-log command. If someone starts a debug-log session in a remote
@@ -352,10 +345,6 @@ const (
 	// DefaultAPIPortOpenDelay is the default value for api-port-open-delay.
 	DefaultAPIPortOpenDelay = 2 * time.Second
 
-	// DefaultJujuDBSnapChannel is the default snap channel for installing
-	// mongo in focal or later.
-	DefaultJujuDBSnapChannel = "4.4/stable"
-
 	// DefaultMaxDebugLogDuration is the default duration that debug-log
 	// commands can run before being terminated by the API server.
 	DefaultMaxDebugLogDuration = 24 * time.Hour
@@ -475,8 +464,6 @@ var (
 		IdentityPublicKey,
 		IdentityURL,
 		SetNUMAControlPolicyKey,
-		StatePort,
-		JujuDBSnapChannel,
 		MaxDebugLogDuration,
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
@@ -709,11 +696,6 @@ func (c Config) durationOrDefault(name string, defaultVal time.Duration) time.Du
 	return defaultVal
 }
 
-// StatePort returns the mongo server port for the environment.
-func (c Config) StatePort() int {
-	return c.mustInt(StatePort)
-}
-
 // APIPort returns the API server port for the environment.
 func (c Config) APIPort() int {
 	return c.mustInt(APIPort)
@@ -877,11 +859,6 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 // LoginTokenRefreshURL returns the URL of the login jwt well known endpoint.
 func (c Config) LoginTokenRefreshURL() string {
 	return c.asString(LoginTokenRefreshURL)
-}
-
-// JujuDBSnapChannel returns the channel for installing mongo snaps.
-func (c Config) JujuDBSnapChannel() string {
-	return c.asString(JujuDBSnapChannel)
 }
 
 // JujudControllerSnapSource returns the source of the jujud-controller snap.
@@ -1353,9 +1330,6 @@ func Validate(c Config) error {
 		}
 		if v == c.APIPort() {
 			return errors.NotValidf("ssh-server-port matching api-port")
-		}
-		if v == c.StatePort() {
-			return errors.NotValidf("ssh-server-port matching state-port")
 		}
 	}
 

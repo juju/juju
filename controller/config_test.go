@@ -405,13 +405,6 @@ var newConfigTests = []struct {
 		controller.SSHServerPort: 17070,
 	},
 	expectError: `ssh-server-port matching api-port not valid`,
-}, {
-	about: "SSH port equals state port",
-	config: controller.Config{
-		controller.StatePort:     17075,
-		controller.SSHServerPort: 17075,
-	},
-	expectError: `ssh-server-port matching state-port not valid`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *tc.C) {
@@ -804,26 +797,6 @@ func (s *ConfigSuite) TestAgentRateLimitRate(c *tc.C) {
 
 	cfg[controller.AgentRateLimitRate] = "500ms"
 	c.Assert(cfg.AgentRateLimitRate(), tc.Equals, 500*time.Millisecond)
-}
-
-func (s *ConfigSuite) TestJujuDBSnapChannel(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.JujuDBSnapChannel(), tc.Equals, controller.DefaultJujuDBSnapChannel)
-
-	cfg, err = controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			"juju-db-snap-channel": "latest/candidate",
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.JujuDBSnapChannel(), tc.Equals, "latest/candidate")
 }
 
 func (s *ConfigSuite) TestMigrationMinionWaitMax(c *tc.C) {

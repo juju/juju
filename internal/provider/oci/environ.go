@@ -17,6 +17,7 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 
+	"github.com/juju/juju/controller"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -523,7 +524,7 @@ func (e *Environ) startInstance(
 	// status is not necessary
 	if args.InstanceConfig.IsController() {
 		apiPort = args.InstanceConfig.ControllerConfig.APIPort()
-		statePort = args.InstanceConfig.ControllerConfig.StatePort()
+		statePort = controller.DefaultStatePort
 		desiredStatus = ociCore.InstanceLifecycleStateRunning
 	} else {
 		desiredStatus = ociCore.InstanceLifecycleStateProvisioning

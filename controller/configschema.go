@@ -21,7 +21,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogExcludeMethods:             schema.String(),
 	APIPort:                            schema.ForceInt(),
 	ControllerName:                     schema.NonEmptyString(ControllerName),
-	StatePort:                          schema.ForceInt(),
 	LoginTokenRefreshURL:               schema.String(),
 	IdentityURL:                        schema.String(),
 	IdentityPublicKey:                  schema.String(),
@@ -29,7 +28,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:                     schema.String(),
 	AutocertDNSNameKey:                 schema.String(),
 	AllowModelAccessKey:                schema.Bool(),
-	JujuDBSnapChannel:                  schema.String(),
 	MaxDebugLogDuration:                schema.TimeDurationString(),
 	MaxTxnLogSize:                      schema.String(),
 	MaxPruneTxnBatchSize:               schema.ForceInt(),
@@ -77,7 +75,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogMaxSize:                    fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
 	AuditLogMaxBackups:                 DefaultAuditLogMaxBackups,
 	AuditLogExcludeMethods:             DefaultAuditLogExcludeMethods,
-	StatePort:                          DefaultStatePort,
 	LoginTokenRefreshURL:               schema.Omit,
 	IdentityURL:                        schema.Omit,
 	IdentityPublicKey:                  schema.Omit,
@@ -85,7 +82,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:                     schema.Omit,
 	AutocertDNSNameKey:                 schema.Omit,
 	AllowModelAccessKey:                schema.Omit,
-	JujuDBSnapChannel:                  DefaultJujuDBSnapChannel,
 	MaxDebugLogDuration:                DefaultMaxDebugLogDuration,
 	MaxTxnLogSize:                      fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:               DefaultMaxPruneTxnBatchSize,
@@ -172,10 +168,6 @@ var ConfigSchema = configschema.Fields{
 		Type:        configschema.Tstring,
 		Description: `The canonical name of the controller`,
 	},
-	StatePort: {
-		Type:        configschema.Tint,
-		Description: `The port used for mongo connections`,
-	},
 	LoginTokenRefreshURL: {
 		Type:        configschema.Tstring,
 		Description: `The url of the jwt well known endpoint`,
@@ -205,10 +197,6 @@ var ConfigSchema = configschema.Fields{
 		Description: `Determines if the controller allows users to
 connect to models they have been authorized for even when
 they don't have any access rights to the controller itself`,
-	},
-	JujuDBSnapChannel: {
-		Type:        configschema.Tstring,
-		Description: `Sets channel for installing mongo snaps when bootstrapping on focal or later`,
 	},
 	MaxDebugLogDuration: {
 		Type:        configschema.Tstring,

@@ -531,44 +531,6 @@ func (c *MockConfigJobsCall) DoAndReturn(f func() []model.MachineJob) *MockConfi
 	return c
 }
 
-// JujuDBSnapChannel mocks base method.
-func (m *MockConfig) JujuDBSnapChannel() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel.
-func (mr *MockConfigMockRecorder) JujuDBSnapChannel() *MockConfigJujuDBSnapChannelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfig)(nil).JujuDBSnapChannel))
-	return &MockConfigJujuDBSnapChannelCall{Call: call}
-}
-
-// MockConfigJujuDBSnapChannelCall wrap *gomock.Call
-type MockConfigJujuDBSnapChannelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigJujuDBSnapChannelCall) Return(arg0 string) *MockConfigJujuDBSnapChannelCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigJujuDBSnapChannelCall) Do(f func() string) *MockConfigJujuDBSnapChannelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigJujuDBSnapChannelCall) DoAndReturn(f func() string) *MockConfigJujuDBSnapChannelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // LogDir mocks base method.
 func (m *MockConfig) LogDir() string {
 	m.ctrl.T.Helper()
@@ -1890,44 +1852,6 @@ func (c *MockConfigSetterJobsCall) DoAndReturn(f func() []model.MachineJob) *Moc
 	return c
 }
 
-// JujuDBSnapChannel mocks base method.
-func (m *MockConfigSetter) JujuDBSnapChannel() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel.
-func (mr *MockConfigSetterMockRecorder) JujuDBSnapChannel() *MockConfigSetterJujuDBSnapChannelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfigSetter)(nil).JujuDBSnapChannel))
-	return &MockConfigSetterJujuDBSnapChannelCall{Call: call}
-}
-
-// MockConfigSetterJujuDBSnapChannelCall wrap *gomock.Call
-type MockConfigSetterJujuDBSnapChannelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigSetterJujuDBSnapChannelCall) Return(arg0 string) *MockConfigSetterJujuDBSnapChannelCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterJujuDBSnapChannelCall) Do(f func() string) *MockConfigSetterJujuDBSnapChannelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterJujuDBSnapChannelCall) DoAndReturn(f func() string) *MockConfigSetterJujuDBSnapChannelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // LogDir mocks base method.
 func (m *MockConfigSetter) LogDir() string {
 	m.ctrl.T.Helper()
@@ -2607,42 +2531,6 @@ func (c *MockConfigSetterSetCACertCall) Do(f func(string)) *MockConfigSetterSetC
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockConfigSetterSetCACertCall) DoAndReturn(f func(string)) *MockConfigSetterSetCACertCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetJujuDBSnapChannel mocks base method.
-func (m *MockConfigSetter) SetJujuDBSnapChannel(arg0 string) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetJujuDBSnapChannel", arg0)
-}
-
-// SetJujuDBSnapChannel indicates an expected call of SetJujuDBSnapChannel.
-func (mr *MockConfigSetterMockRecorder) SetJujuDBSnapChannel(arg0 any) *MockConfigSetterSetJujuDBSnapChannelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetJujuDBSnapChannel", reflect.TypeOf((*MockConfigSetter)(nil).SetJujuDBSnapChannel), arg0)
-	return &MockConfigSetterSetJujuDBSnapChannelCall{Call: call}
-}
-
-// MockConfigSetterSetJujuDBSnapChannelCall wrap *gomock.Call
-type MockConfigSetterSetJujuDBSnapChannelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigSetterSetJujuDBSnapChannelCall) Return() *MockConfigSetterSetJujuDBSnapChannelCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterSetJujuDBSnapChannelCall) Do(f func(string)) *MockConfigSetterSetJujuDBSnapChannelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterSetJujuDBSnapChannelCall) DoAndReturn(f func(string)) *MockConfigSetterSetJujuDBSnapChannelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

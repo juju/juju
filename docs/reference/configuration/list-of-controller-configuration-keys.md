@@ -293,19 +293,6 @@ created locally on the controller.
 **Can be changed after bootstrap:** no
 
 
-(controller-config-juju-db-snap-channel)=
-## `juju-db-snap-channel`
-
-`juju-db-snap-channel` selects the channel to use when installing Mongo
-snaps for focal or later. The value is ignored for older releases.
-
-**Type:** string
-
-**Default value:** 4.4/stable
-
-**Can be changed after bootstrap:** no
-
-
 (controller-config-juju-mgmt-space)=
 ## `juju-mgmt-space`
 
@@ -711,18 +698,6 @@ connections to the controller.
 **Type:** integer
 
 **Default value:** 17022
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-state-port)=
-## `state-port`
-
-`state-port` is the port used for mongo connections.
-
-**Type:** integer
-
-**Default value:** 37017
 
 **Can be changed after bootstrap:** no
 

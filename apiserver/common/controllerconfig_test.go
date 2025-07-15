@@ -65,7 +65,6 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *tc.C) {
 			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
 			controller.CACertKey:         testing.CACert,
 			controller.APIPort:           4321,
-			controller.StatePort:         1234,
 		},
 		nil,
 	)
@@ -75,7 +74,6 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *tc.C) {
 	c.Assert(map[string]interface{}(result.Config), tc.DeepEquals, map[string]interface{}{
 		"ca-cert":         testing.CACert,
 		"controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-		"state-port":      1234,
 		"api-port":        4321,
 	})
 }

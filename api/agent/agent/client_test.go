@@ -36,7 +36,6 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 		c.Assert(result, tc.FitsTypeOf, &params.StateServingInfo{})
 		*result.(*params.StateServingInfo) = params.StateServingInfo{
 			APIPort:        666,
-			StatePort:      669,
 			Cert:           "some-cert",
 			PrivateKey:     "some-key",
 			CAPrivateKey:   "private-key",
@@ -50,7 +49,6 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, controller.StateServingInfo{
 		APIPort:        666,
-		StatePort:      669,
 		Cert:           "some-cert",
 		PrivateKey:     "some-key",
 		CAPrivateKey:   "private-key",

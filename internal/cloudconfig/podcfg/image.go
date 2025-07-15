@@ -29,7 +29,7 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 }
 
 func (cfg *ControllerPodConfig) dbVersion() (semversion.Number, error) {
-	snapChannel := cfg.Controller.JujuDBSnapChannel()
+	snapChannel := "4.4/stable"
 	vers := strings.Split(snapChannel, "/")[0] + ".0"
 	return semversion.Parse(vers)
 }
@@ -47,7 +47,7 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
 	path := fmt.Sprintf("%s/%s", imageRepo, JujudbOCIName)
 	mongoVers, err := cfg.dbVersion()
 	if err != nil {
-		return "", errors.Annotatef(err, "cannot parse %q from controller config", controller.JujuDBSnapChannel)
+		return "", errors.Annotatef(err, "cannot parse %q from controller config", "4.4/stable")
 	}
 	tag := fmt.Sprintf("%d.%d", mongoVers.Major, mongoVers.Minor)
 	return tagImagePath(path, tag)

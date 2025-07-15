@@ -441,7 +441,6 @@ func (s *controllerSuite) TestControllerConfig(c *tc.C) {
 	cfgFromDB, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], tc.Equals, cfgFromDB.ControllerUUID())
-	c.Assert(cfg.Config["state-port"], tc.Equals, cfgFromDB.StatePort())
 	c.Assert(cfg.Config["api-port"], tc.Equals, cfgFromDB.APIPort())
 }
 
@@ -471,7 +470,6 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *tc.C) {
 	cfgFromDB, err := controllerConfigService.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], tc.Equals, cfgFromDB.ControllerUUID())
-	c.Assert(cfg.Config["state-port"], tc.Equals, cfgFromDB.StatePort())
 	c.Assert(cfg.Config["api-port"], tc.Equals, cfgFromDB.APIPort())
 }
 

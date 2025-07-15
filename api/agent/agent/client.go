@@ -69,7 +69,6 @@ func (st *Client) StateServingInfo(ctx context.Context) (controller.StateServing
 	}
 	return controller.StateServingInfo{
 		APIPort:        results.APIPort,
-		StatePort:      results.StatePort,
 		Cert:           results.Cert,
 		PrivateKey:     results.PrivateKey,
 		CAPrivateKey:   results.CAPrivateKey,

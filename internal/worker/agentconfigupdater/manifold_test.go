@@ -152,8 +152,7 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *tc.C) {
 
 	wc := watchertest.NewMockStringsWatcher(nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
-		controller.ObjectStoreType:   objectstore.FileBackend.String(),
+		controller.ObjectStoreType: objectstore.FileBackend.String(),
 	}, nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(wc, nil)
 
@@ -181,8 +180,7 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) 
 
 	wc := watchertest.NewMockStringsWatcher(nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
-		controller.ObjectStoreType:   objectstore.FileBackend.String(),
+		controller.ObjectStoreType: objectstore.FileBackend.String(),
 	}, nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(wc, nil)
 
@@ -299,9 +297,6 @@ type mockConfig struct {
 	ssiSet bool
 	ssi    controller.StateServingInfo
 
-	snapChannel    string
-	snapChannelSet bool
-
 	queryTracingEnabled    bool
 	queryTracingEnabledSet bool
 
@@ -352,18 +347,6 @@ func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 func (mc *mockConfig) SetStateServingInfo(info controller.StateServingInfo) {
 	mc.ssiSet = true
 	mc.ssi = info
-}
-
-func (mc *mockConfig) JujuDBSnapChannel() string {
-	if mc.snapChannel == "" {
-		return controller.DefaultJujuDBSnapChannel
-	}
-	return mc.snapChannel
-}
-
-func (mc *mockConfig) SetJujuDBSnapChannel(snapChannel string) {
-	mc.snapChannel = snapChannel
-	mc.snapChannelSet = true
 }
 
 func (mc *mockConfig) QueryTracingEnabled() bool {

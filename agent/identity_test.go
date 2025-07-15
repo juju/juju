@@ -39,7 +39,6 @@ var servingInfo = controller.StateServingInfo{
 	Cert:           "old cert",
 	PrivateKey:     "old key",
 	CAPrivateKey:   "old ca key",
-	StatePort:      69,
 	APIPort:        47,
 	SystemIdentity: "identity",
 }

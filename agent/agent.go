@@ -272,10 +272,6 @@ type Config interface {
 	// collected metrics.
 	MetricsSpoolDir() string
 
-	// JujuDBSnapChannel returns the channel for installing mongo snaps in
-	// focal or later.
-	JujuDBSnapChannel() string
-
 	// AgentLogfileMaxSizeMB returns the maximum file size in MB of each
 	// agent/controller log file.
 	AgentLogfileMaxSizeMB() int
@@ -354,10 +350,6 @@ type configSetterOnly interface {
 	// SetStateServingInfo sets the information needed
 	// to run a controller
 	SetStateServingInfo(info controller.StateServingInfo)
-
-	// SetJujuDBSnapChannel sets the channel for installing mongo snaps
-	// when bootstrapping focal or later.
-	SetJujuDBSnapChannel(string)
 
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
@@ -464,7 +456,6 @@ type configInternal struct {
 	servingInfo                        *controller.StateServingInfo
 	loggingConfig                      string
 	values                             map[string]string
-	jujuDBSnapChannel                  string
 	agentLogfileMaxSizeMB              int
 	agentLogfileMaxBackups             int
 	queryTracingEnabled                bool
@@ -493,7 +484,6 @@ type AgentConfigParams struct {
 	APIAddresses                       []string
 	CACert                             string
 	Values                             map[string]string
-	JujuDBSnapChannel                  string
 	AgentLogfileMaxSizeMB              int
 	AgentLogfileMaxBackups             int
 	QueryTracingEnabled                bool
@@ -565,7 +555,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		caCert:                             configParams.CACert,
 		oldPassword:                        configParams.Password,
 		values:                             configParams.Values,
-		jujuDBSnapChannel:                  configParams.JujuDBSnapChannel,
 		agentLogfileMaxSizeMB:              configParams.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups:             configParams.AgentLogfileMaxBackups,
 		queryTracingEnabled:                configParams.QueryTracingEnabled,
@@ -605,9 +594,6 @@ func NewStateMachineConfig(configParams AgentConfigParams, serverInfo controller
 	}
 	if serverInfo.CAPrivateKey == "" {
 		return nil, errors.Trace(requiredError("ca cert key"))
-	}
-	if serverInfo.StatePort == 0 {
-		return nil, errors.Trace(requiredError("state port"))
 	}
 	if serverInfo.APIPort == 0 {
 		return nil, errors.Trace(requiredError("api port"))
@@ -860,16 +846,6 @@ func (c *configInternal) check() error {
 	return nil
 }
 
-// JujuDBSnapChannel implements Config.
-func (c *configInternal) JujuDBSnapChannel() string {
-	return c.jujuDBSnapChannel
-}
-
-// SetJujuDBSnapChannel implements configSetterOnly.
-func (c *configInternal) SetJujuDBSnapChannel(snapChannel string) {
-	c.jujuDBSnapChannel = snapChannel
-}
-
 // AgentLogfileMaxSizeMB implements Config.
 func (c *configInternal) AgentLogfileMaxSizeMB() int {
 	return c.agentLogfileMaxSizeMB
@@ -1049,7 +1025,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if c.apiDetails == nil || c.apiDetails.addresses == nil {
 		return nil, false
 	}
-	ssi, ok := c.StateServingInfo()
+	_, ok = c.StateServingInfo()
 	if !ok {
 		return nil, false
 	}
@@ -1067,7 +1043,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	}
 	// We should only be connecting to mongo on cloud local addresses,
 	// not fan or public etc.
-	hostPorts := network.SpaceAddressesWithPort(netAddrs, ssi.StatePort)
+	hostPorts := network.SpaceAddressesWithPort(netAddrs, 37017)
 	mongoAddrs := hostPorts.AllMatchingScope(network.ScopeMatchCloudLocal)
 
 	// We return localhost first and then all addresses of known API
@@ -1076,7 +1052,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
-	local := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
+	local := net.JoinHostPort("localhost", strconv.Itoa(37017))
 	mongoAddrs = append([]string{local}, mongoAddrs...)
 	logger.Debugf(context.TODO(), "potential mongo addresses: %v", mongoAddrs)
 	return &mongo.MongoInfo{

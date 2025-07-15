@@ -288,7 +288,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 
-		agentConfig.SetJujuDBSnapChannel(args.ControllerConfig.JujuDBSnapChannel())
 		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
 		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())
 		agentConfig.SetOpenTelemetryEnabled(args.ControllerConfig.OpenTelemetryEnabled())
@@ -438,7 +437,7 @@ func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs ne
 	if err != nil {
 		return err
 	}
-	servingInfo, ok := agentConfig.StateServingInfo()
+	_, ok = agentConfig.StateServingInfo()
 	if !ok {
 		return fmt.Errorf("agent config has no state serving info")
 	}
@@ -449,7 +448,7 @@ func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs ne
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
 	dialInfo.Addrs = []string{
-		net.JoinHostPort("localhost", fmt.Sprint(servingInfo.StatePort)),
+		net.JoinHostPort("localhost", fmt.Sprint(37017)),
 	}
 
 	if !isCAAS {
@@ -468,7 +467,7 @@ func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs ne
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
-	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(37017))
 
 	if err := initiateMongoServer(webscale.InitiateMongoParams{
 		DialInfo:       dialInfo,
