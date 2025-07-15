@@ -54,6 +54,13 @@ func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 		}
 		return svc.Agent(), nil
 	}
+	machineServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (MachineService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Machine(), nil
+	}
 
 	return NewModelUpgraderAPI(
 		ctx.ControllerUUID(),
@@ -63,9 +70,11 @@ func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 		auth,
 		registry.New,
 		modelAgentServiceGetter,
+		machineServiceGetter,
 		controllerAgentService,
 		controllerConfigService,
 		domainServices.Agent(),
+		domainServices.Machine(),
 		domainServices.ModelInfo(),
 		domainServices.Upgrade(),
 		ctx.Logger().Child("modelupgrader"),
