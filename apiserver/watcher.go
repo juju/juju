@@ -232,13 +232,9 @@ func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWat
 	return params.OfferStatusWatchResult{}, nil
 }
 
-// srvMachineStorageIdsWatcher defines the API wrapping a StringsWatcher
+// srvMachineStorageIdsWatcher defines the API wrapping a [corewatcher.MachineStorageIDsWatcher]
 // watching machine/storage attachments. This watcher notifies about storage
 // entities (volumes/filesystems) being attached to and detached from machines.
-//
-// TODO(axw) state needs a new watcher, this is a bt of a hack. State watchers
-// could do with some deduplication of logic, and I don't want to add to that
-// spaghetti right now.
 type srvMachineStorageIdsWatcher struct {
 	watcher corewatcher.MachineStorageIDsWatcher
 }

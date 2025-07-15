@@ -777,17 +777,35 @@ type machineAttachmentsWatcher struct {
 	out                         chan []watcher.MachineStorageID
 }
 
-// NewStorageAttachmentsWatcher returns a MachineStorageIdsWatcher which
-// communicates with the StorageAttachmentsWatcher API facade to watch
-// storage attachments.
-func NewStorageAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
+// NewVolumeAttachmentsWatcher returns a MachineStorageIdsWatcher which
+// communicates with the VolumeAttachmentsWatcher API facade to watch
+// volume attachments.
+func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
+	return newMachineStorageIdsWatcher("VolumeAttachmentsWatcher", caller, result)
+}
+
+// NewVolumeAttachmentPlansWatcher returns a MachineStorageIdsWatcher which
+// communicates with the VolumeAttachmentPlansWatcher API facade to watch
+// volume attachments.
+func NewVolumeAttachmentPlansWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
+	return newMachineStorageIdsWatcher("VolumeAttachmentPlansWatcher", caller, result)
+}
+
+// NewFilesystemAttachmentsWatcher returns a MachineStorageIdsWatcher which
+// communicates with the FilesystemAttachmentsWatcher API facade to watch
+// filesystem attachments.
+func NewFilesystemAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
+	return newMachineStorageIdsWatcher("FilesystemAttachmentsWatcher", caller, result)
+}
+
+func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIDsWatcher {
 	w := &machineAttachmentsWatcher{
 		caller:                      caller,
 		machineAttachmentsWatcherId: result.MachineStorageIdsWatcherId,
 		out:                         make(chan []watcher.MachineStorageID),
 	}
 	w.tomb.Go(func() error {
-		return w.loop("StorageAttachmentsWatcher", result.Changes)
+		return w.loop(facade, result.Changes)
 	})
 	return w
 }

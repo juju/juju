@@ -112,19 +112,19 @@ func (st *Client) watchStorageEntities(ctx context.Context, method string, scope
 // WatchVolumeAttachments watches for changes to volume attachments
 // scoped to the entity with the specified tag.
 func (st *Client) WatchVolumeAttachments(ctx context.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error) {
-	return st.watchAttachments(ctx, "WatchVolumeAttachments", scope, apiwatcher.NewStorageAttachmentsWatcher)
+	return st.watchAttachments(ctx, "WatchVolumeAttachments", scope, apiwatcher.NewVolumeAttachmentsWatcher)
 }
 
 // WatchVolumeAttachmentPlans watches for changes to volume attachments
 // scoped to the entity with the tag passed to NewClient.
 func (st *Client) WatchVolumeAttachmentPlans(ctx context.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error) {
-	return st.watchAttachments(ctx, "WatchVolumeAttachmentPlans", scope, apiwatcher.NewStorageAttachmentsWatcher)
+	return st.watchAttachments(ctx, "WatchVolumeAttachmentPlans", scope, apiwatcher.NewVolumeAttachmentPlansWatcher)
 }
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the specified tag.
 func (st *Client) WatchFilesystemAttachments(ctx context.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error) {
-	return st.watchAttachments(ctx, "WatchFilesystemAttachments", scope, apiwatcher.NewStorageAttachmentsWatcher)
+	return st.watchAttachments(ctx, "WatchFilesystemAttachments", scope, apiwatcher.NewFilesystemAttachmentsWatcher)
 }
 
 func (st *Client) watchAttachments(
