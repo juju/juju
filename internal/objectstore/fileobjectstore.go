@@ -33,13 +33,9 @@ import (
 const (
 	defaultFileDirectory = "objectstore"
 
-	// shortRemoteTimeout is the default timeout for retrieving blobs from
+	// remoteTimeout is the default timeout for retrieving blobs from
 	// remote API servers when it's from a get request.
-	shortRemoteTimeout = time.Second * 30
-
-	// longRemoteTimeout is the default timeout for retrieving blobs from
-	// remote API servers when it's from a change request.
-	longRemoteTimeout = time.Minute * 5
+	remoteTimeout = time.Second * 30
 )
 
 // FallBackStrategy is the strategy to use when there is no local file to
@@ -820,7 +816,7 @@ func basePath(rootDir, namespace string) string {
 // getFromRemote fetches the object from the remote API server, writes it to
 // the file store, and then retrieves the object from the file store.
 func (t *fileObjectStore) getFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
-	ctx, cancel := context.WithTimeout(ctx, shortRemoteTimeout)
+	ctx, cancel := context.WithTimeout(ctx, remoteTimeout)
 	defer cancel()
 
 	reader, size, err := t.fetchReaderFromRemote(ctx, metadata)
