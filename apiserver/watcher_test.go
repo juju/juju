@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -136,27 +135,6 @@ func (w *fakeStringsWatcher) Kill() {}
 
 func (w *fakeStringsWatcher) Wait() error {
 	return nil
-}
-
-type fakeMigrationBackend struct {
-	noMigration bool
-}
-
-func (b *fakeMigrationBackend) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
-	return []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"}, nil
-}
-
-func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
-	return nil, nil
-}
-
-func (b *fakeMigrationBackend) ControllerConfig() (controller.Config, error) {
-	return nil, nil
-}
-
-type migrationStatusWatcher interface {
-	Next(context.Context) (params.MigrationStatus, error)
-	Stop() error
 }
 
 func nopDispose() {}

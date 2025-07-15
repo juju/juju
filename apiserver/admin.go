@@ -401,7 +401,7 @@ func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequ
 	// to ensure post-migration operation of CMRs.
 	// TODO(aflynn): reinstate check for unauthorised user (JUJU-6669).
 
-	hps, err := network.ParseProviderHostPorts(redirectionTarget.Addressess...)
+	hps, err := network.ParseProviderHostPorts(redirectionTarget.Addresses...)
 	if err != nil {
 		return errors.Trace(err)
 	}

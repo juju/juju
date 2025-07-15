@@ -15,10 +15,8 @@ import (
 
 	"github.com/juju/juju/core/base"
 	corelife "github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
@@ -35,7 +33,7 @@ var (
 	modelName            = "model-name"
 	modelUUID            = "model-uuid"
 	otherModelUUID       = "model-otheruuid"
-	modelOwner           = model.Qualifier("owner")
+	modelOwner           = coremodel.Qualifier("owner")
 	backendVersionBinary = semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 	backendVersion       = backendVersionBinary.Number
 )
@@ -231,9 +229,9 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *tc.C) {
 	s.expectModel()
 	s.expectMigrationModeNone()
 
-	s.machineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{"0", "1"}, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("0")).Return(base.MustParseBaseFromString("ubuntu@22.04"), nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machine.Name("1")).Return(base.MustParseBaseFromString("ubuntu@18.04"), nil)
+	s.machineService.EXPECT().AllMachineNames(gomock.Any()).Return([]coremachine.Name{"0", "1"}, nil)
+	s.machineService.EXPECT().GetMachineBase(gomock.Any(), coremachine.Name("0")).Return(base.MustParseBaseFromString("ubuntu@22.04"), nil)
+	s.machineService.EXPECT().GetMachineBase(gomock.Any(), coremachine.Name("1")).Return(base.MustParseBaseFromString("ubuntu@18.04"), nil)
 
 	err := s.sourcePrecheck(c)
 	c.Assert(err.Error(), tc.Equals, `
@@ -950,7 +948,7 @@ func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *tc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	models := []coremodel.Model{
-		{Name: modelName, Qualifier: model.Qualifier("tom"), UUID: coremodel.UUID(otherModelUUID), Life: corelife.Alive},
+		{Name: modelName, Qualifier: coremodel.Qualifier("tom"), UUID: coremodel.UUID(otherModelUUID), Life: corelife.Alive},
 	}
 	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return(models, nil)
 	s.otherModelMigrationService.EXPECT().ModelMigrationMode(gomock.Any()).Return(modelmigration.MigrationModeNone, nil)

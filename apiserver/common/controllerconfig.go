@@ -153,7 +153,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 	err = s.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 		ControllerUUID: modelRedirection.ControllerUUID,
 		Alias:          modelRedirection.ControllerAlias,
-		Addrs:          modelRedirection.Addressess,
+		Addrs:          modelRedirection.Addresses,
 		CACert:         modelRedirection.CACert,
 		ModelUUIDs:     []string{modelUUID.String()},
 	})
@@ -161,7 +161,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 	return params.ControllerAPIInfoResult{
-		Addresses: modelRedirection.Addressess,
+		Addresses: modelRedirection.Addresses,
 		CACert:    modelRedirection.CACert,
 	}, nil
 }

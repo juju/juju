@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -115,13 +114,6 @@ func checkPermissions(ctx context.Context, tag names.Tag, acceptFunc common.GetA
 		return true, nil
 	}
 	return false, errors.NotValidf("tag kind %v", tag.Kind())
-}
-
-// stateForRequestAuthenticatedUser is like stateAndEntityForRequestAuthenticatedUser
-// but doesn't return the entity.
-func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.PooledState, error) {
-	st, _, err := ctxt.stateAndEntityForRequestAuthenticatedUser(r)
-	return st, err
 }
 
 // stateAndEntityForRequestAuthenticatedUser is like stateForRequestAuthenticated

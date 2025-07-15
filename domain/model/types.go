@@ -219,7 +219,7 @@ type ModelState struct {
 
 // ModelRedirection is a placeholder type.
 type ModelRedirection struct {
-	Addressess      []string
+	Addresses       []string
 	CACert          string
 	ControllerUUID  string
 	ControllerAlias string

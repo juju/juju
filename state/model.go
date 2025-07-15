@@ -1120,11 +1120,6 @@ func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op 
 	}
 }
 
-// assertAliveOp returns a txn.Op that asserts the model is alive.
-func (m *Model) assertActiveOp() txn.Op {
-	return assertModelActiveOp(m.UUID())
-}
-
 // assertModelActiveOp returns a txn.Op that asserts the given
 // model UUID refers to an Alive model.
 func assertModelActiveOp(modelUUID string) txn.Op {

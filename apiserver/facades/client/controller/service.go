@@ -207,7 +207,7 @@ type ModelMigrationService interface {
 	// ModelMigrationMode returns the current migration mode for the model.
 	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
 	// InitiateMigration kicks off migrating this model to the target controller.
-	InitiateMigration(targetInfo migration.TargetInfo, userName string) (string, error)
+	InitiateMigration(ctx context.Context, targetInfo migration.TargetInfo, userName string) (string, error)
 }
 
 // ModelConfigService is an interface that provides access to the

@@ -594,7 +594,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	migrationID, err := modelMigrationService.InitiateMigration(targetInfo, c.apiUser.Id())
+	migrationID, err := modelMigrationService.InitiateMigration(ctx, targetInfo, c.apiUser.Id())
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -121,7 +121,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if modelTag != c.backend.ModelTag() {
 		modelRedirection, err := c.modelService.ModelRedirection(ctx, modelUUID)
 		if err == nil {
-			hps, mErr := network.ParseProviderHostPorts(modelRedirection.Addressess...)
+			hps, mErr := network.ParseProviderHostPorts(modelRedirection.Addresses...)
 			if mErr != nil {
 				return status, errors.Trace(mErr)
 			}

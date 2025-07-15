@@ -183,7 +183,7 @@ func (s *Service) CheckMachines(
 
 // ModelMigrationMode returns the current migration mode for the model.
 func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	// TODO(modelmigration): implement migration mode reporting.
 	return modelmigration.MigrationModeNone, nil
@@ -191,7 +191,7 @@ func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.Migrat
 
 // Migration returns status about migration of this model.
 func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	// TODO(modelmigration): implement migration info reporting.
 	return modelmigration.Migration{
@@ -200,7 +200,9 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 }
 
 // InitiateMigration kicks off migrating this model to the target controller.
-func (s *Service) InitiateMigration(targetInfo migration.TargetInfo, userName string) (string, error) {
+func (s *Service) InitiateMigration(ctx context.Context, targetInfo migration.TargetInfo, userName string) (string, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement migration info reporting.
 	return "", errors.ConstError("migration is not implemented")
 }
@@ -208,6 +210,8 @@ func (s *Service) InitiateMigration(targetInfo migration.TargetInfo, userName st
 // WatchForMigration returns a notification watcher that fires when this model
 // undergoes migration.
 func (s *Service) WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement migration watcher.
 	return watcher.TODO[struct{}](), nil
 }
@@ -215,6 +219,8 @@ func (s *Service) WatchForMigration(ctx context.Context) (watcher.NotifyWatcher,
 // WatchMigrationPhase returns a notification watcher that fires when this
 // model's migration phase changes.
 func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement migration watcher.
 	return watcher.TODO[struct{}](), nil
 }
@@ -222,6 +228,8 @@ func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatche
 // ReportFromUnit accepts a phase report from a migration minion for a unit
 // agent.
 func (s *Service) ReportFromUnit(ctx context.Context, unitName unit.Name, phase migration.Phase) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement reporting phase from a unit.
 	return errors.ConstError("migration report from a unit is not implemented")
 }
@@ -229,12 +237,16 @@ func (s *Service) ReportFromUnit(ctx context.Context, unitName unit.Name, phase 
 // ReportFromMachine accepts a phase report from a migration minion for a
 // machine agent.
 func (s *Service) ReportFromMachine(ctx context.Context, machineName machine.Name, phase migration.Phase) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement reporting phase from a machine.
 	return errors.ConstError("migration report from a machine is not implemented")
 }
 
 // SetMigrationPhase is called by the migration master to progress migration.
 func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement reporting phase from migration master.
 	return errors.ConstError("setting migration phase is not implemented")
 }
@@ -242,6 +254,8 @@ func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) 
 // SetMigrationStatusMessage is called by the migration master to report on
 // migration status.
 func (s *Service) SetMigrationStatusMessage(ctx context.Context, message string) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement setting migration status message.
 	return errors.ConstError("setting migration status message is not implemented")
 }
@@ -249,22 +263,32 @@ func (s *Service) SetMigrationStatusMessage(ctx context.Context, message string)
 // WatchMinionReports returns a notification watcher that fires when any minion
 // reports a update to their phase.
 func (s *Service) WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement watching minion reports.
 	return watcher.TODO[struct{}](), nil
 }
 
 // MinionReports returns phase information about minions in this model.
 func (s *Service) MinionReports(ctx context.Context) (migration.MinionReports, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 	// TODO(modelmigration): implement getting minion reports.
 	return migration.MinionReports{}, errors.ConstError("getting minion reports is not implemented")
 }
 
 // AbortImport stops the import of the model.
 func (s *Service) AbortImport(ctx context.Context) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	// TODO(modelmigration): implement aborting model import.
 	return errors.ConstError("aborting the import of a model is not implemented")
 }
 
 // ActivateImport finalises the import of the model.
 func (s *Service) ActivateImport(ctx context.Context) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	// TODO(modelmigration): implement activate imported model.
 	return errors.ConstError("activating an imported model is not implemented")
 }

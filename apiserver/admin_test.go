@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	stdtesting "testing"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -35,11 +33,8 @@ import (
 	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
-	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -402,34 +397,6 @@ func (s *loginSuite) testLoginDuringMaintenance(c *tc.C, check func(api.Connecti
 	c.Assert(err, tc.ErrorIsNil)
 
 	check(st)
-}
-
-var index uint32
-
-func uniqueInteger() int {
-	return int(atomic.AddUint32(&index, 1))
-}
-
-func uniqueModelName(name string) string {
-	return fmt.Sprintf("%s-%d", name, uniqueInteger())
-}
-
-func makeModel(
-	c *tc.C, txnRunnerFactory database.TxnRunnerFactory, ownerUUID user.UUID, modelUUID coremodel.UUID, name string,
-) string {
-	uniqueName := uniqueModelName(name)
-	domainModelSt := modelstate.NewState(txnRunnerFactory)
-	err := domainModelSt.Create(c.Context(), modelUUID, coremodel.IAAS, model.GlobalModelCreationArgs{
-		Cloud:         "dummy",
-		CloudRegion:   "dummy-region",
-		Name:          uniqueName,
-		Qualifier:     "prod",
-		SecretBackend: juju.BackendName,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	err = domainModelSt.Activate(c.Context(), modelUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	return uniqueName
 }
 
 func (s *loginSuite) TestMigratedModelLoginRedirect(c *tc.C) {

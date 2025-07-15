@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/life"
 	corelife "github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -431,7 +430,7 @@ func (c *precheckModel) checkRelations(ctx context.Context) error {
 
 func (ctx *precheckModel) checkModel(stdCtx context.Context) error {
 	// TODO(modelmigration): wire through model life?
-	if ctx.model.Life != life.Alive {
+	if ctx.model.Life != corelife.Alive {
 		return errors.Errorf("model is %s", ctx.model.Life)
 	}
 	mode, err := ctx.modelMigrationService.ModelMigrationMode(stdCtx)

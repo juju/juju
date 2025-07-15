@@ -228,9 +228,3 @@ func (st *State) findCharm(curl *charm.URL) (CharmRefFull, error) {
 	}
 	return fromInternalCharm(ch, curl.String()), nil
 }
-
-const charmRevSeqPrefix = "charmrev-"
-
-func isCharmRevSeqName(name string) bool {
-	return strings.HasPrefix(name, charmRevSeqPrefix)
-}

@@ -165,19 +165,6 @@ func (k StorageKind) String() string {
 	}
 }
 
-// parseStorageKind is used by the migration code to go from the
-// string representation back to the enum.
-func parseStorageKind(value string) StorageKind {
-	switch value {
-	case "block":
-		return StorageKindBlock
-	case "filesystem":
-		return StorageKindFilesystem
-	default:
-		return StorageKindUnknown
-	}
-}
-
 func (s *storageInstance) Tag() names.Tag {
 	return s.StorageTag()
 }
