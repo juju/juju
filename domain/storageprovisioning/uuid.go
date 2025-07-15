@@ -8,25 +8,25 @@ import (
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
-// StorageFilesystemUUID represents the unique id for a storage filesystem
+// FilesystemUUID represents the unique id for a storage filesystem
 // instance.
-type StorageFilesystemUUID uuid
+type FilesystemUUID uuid
 
-// StorageVolumeUUID represents the unique id for a storage volume instance.
-type StorageVolumeUUID uuid
+// VolumeUUID represents the unique id for a storage volume instance.
+type VolumeUUID uuid
 
 type uuid string
 
 // NewStorageFileystemUUID creates a new, valid storage filesystem identifier.
-func NewStorageFileystemUUID() (StorageFilesystemUUID, error) {
+func NewStorageFileystemUUID() (FilesystemUUID, error) {
 	u, err := newUUID()
-	return StorageFilesystemUUID(u), err
+	return FilesystemUUID(u), err
 }
 
 // NewStorageVolumeUUID creates a new, valid storage volume identifier.
-func NewStorageVolumeUUID() (StorageVolumeUUID, error) {
+func NewStorageVolumeUUID() (VolumeUUID, error) {
 	u, err := newUUID()
-	return StorageVolumeUUID(u), err
+	return VolumeUUID(u), err
 }
 
 // newUUID creates a new UUID using the internal uuid package.
@@ -40,13 +40,13 @@ func newUUID() (uuid, error) {
 
 // String returns the string representation of this uuid. This function
 // satisfies the [fmt.Stringer] interface.
-func (u StorageFilesystemUUID) String() string {
+func (u FilesystemUUID) String() string {
 	return uuid(u).String()
 }
 
 // String returns the string representation of this uuid. This function
 // satisfies the [fmt.Stringer] interface.
-func (u StorageVolumeUUID) String() string {
+func (u VolumeUUID) String() string {
 	return uuid(u).String()
 }
 
@@ -56,13 +56,13 @@ func (u uuid) String() string {
 	return string(u)
 }
 
-// Validate returns an error if the [StorageFilesystemUUID] is not valid.
-func (u StorageFilesystemUUID) Validate() error {
+// Validate returns an error if the [FilesystemUUID] is not valid.
+func (u FilesystemUUID) Validate() error {
 	return uuid(u).validate()
 }
 
-// Validate returns an error if the [StorageVolumeUUID] is not valid.
-func (u StorageVolumeUUID) Validate() error {
+// Validate returns an error if the [VolumeUUID] is not valid.
+func (u VolumeUUID) Validate() error {
 	return uuid(u).validate()
 }
 
