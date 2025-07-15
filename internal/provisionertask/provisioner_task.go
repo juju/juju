@@ -674,9 +674,11 @@ func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead 
 			}
 
 			// If the instance is not found we can't stop it.
+			task.machinesMutex.RLock()
 			if inst, found := task.instances[instId]; found {
 				deadInstances = append(deadInstances, inst)
 			}
+			task.machinesMutex.RUnlock()
 		}
 	}
 	return deadInstances
