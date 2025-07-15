@@ -43,11 +43,11 @@ func (s *serviceSuite) TestControllerModelUUID(c *tc.C) {
 	c.Check(uuid, tc.Equals, controllerModelUUID)
 }
 
-func (s *serviceSuite) TestGetStateServingInfo(c *tc.C) {
+func (s *serviceSuite) TestGetControllerAgentInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	st := NewService(s.state)
 
-	servingInfo := controller.StateServingInfo{
+	servingInfo := controller.ControllerAgentInfo{
 		APIPort:        1234,
 		Cert:           "test-cert",
 		PrivateKey:     "test-private-key",
@@ -55,9 +55,9 @@ func (s *serviceSuite) TestGetStateServingInfo(c *tc.C) {
 		SystemIdentity: "test-system-identity",
 	}
 
-	s.state.EXPECT().GetStateServingInfo(gomock.Any()).Return(servingInfo, nil)
+	s.state.EXPECT().GetControllerAgentInfo(gomock.Any()).Return(servingInfo, nil)
 
-	info, err := st.GetStateServingInfo(c.Context())
+	info, err := st.GetControllerAgentInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info, tc.Equals, servingInfo)
 }

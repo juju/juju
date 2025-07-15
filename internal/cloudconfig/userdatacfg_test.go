@@ -88,7 +88,7 @@ func metricsSpoolDir(osname string) string {
 	return paths.MetricsSpoolDir(paths.OSType(osname))
 }
 
-var stateServingInfo = controller.StateServingInfo{
+var controllerAgentInfo = controller.ControllerAgentInfo{
 	Cert:         string(serverCert),
 	PrivateKey:   string(serverKey),
 	CAPrivateKey: "ca-private-key",
@@ -227,8 +227,8 @@ func (cfg *testInstanceConfig) setController() *testInstanceConfig {
 			BootstrapMachineConstraints: bootstrapConstraints,
 			ModelConstraints:            envConstraints,
 		},
-		StateServingInfo: stateServingInfo,
-		Timeout:          time.Minute * 10,
+		ControllerAgentInfo: controllerAgentInfo,
+		Timeout:             time.Minute * 10,
 	}
 	cfg.Jobs = allMachineJobs
 	cfg.APIInfo.Tag = nil
@@ -995,16 +995,16 @@ var verifyTests = []struct {
 		}
 	}},
 	{"invalid bootstrap configuration: missing controller certificate", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap.StateServingInfo.Cert = ""
+		cfg.Bootstrap.ControllerAgentInfo.Cert = ""
 	}},
 	{"invalid bootstrap configuration: missing controller private key", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap.StateServingInfo.PrivateKey = ""
+		cfg.Bootstrap.ControllerAgentInfo.PrivateKey = ""
 	}},
 	{"invalid bootstrap configuration: missing ca cert private key", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap.StateServingInfo.CAPrivateKey = ""
+		cfg.Bootstrap.ControllerAgentInfo.CAPrivateKey = ""
 	}},
 	{"invalid bootstrap configuration: missing API port", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap.StateServingInfo.APIPort = 0
+		cfg.Bootstrap.ControllerAgentInfo.APIPort = 0
 	}},
 	{"missing var directory", func(cfg *instancecfg.InstanceConfig) {
 		cfg.DataDir = ""
@@ -1043,7 +1043,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *tc.C) {
 					BootstrapMachineInstanceId: "i-bootstrap",
 					ControllerModelConfig:      minimalModelConfig(c),
 				},
-				StateServingInfo: stateServingInfo,
+				ControllerAgentInfo: controllerAgentInfo,
 			},
 			ControllerConfig: controller.Config{},
 			ControllerTag:    testing.ControllerTag,

@@ -190,7 +190,7 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *tc.C) 
 	a := &mockAgent{}
 	existingCert := "some cert set by certupdater"
 	existingKey := "some key set by certupdater"
-	a.conf.SetStateServingInfo(controller.StateServingInfo{
+	a.conf.SetStateServingInfo(controller.ControllerAgentInfo{
 		Cert:       existingCert,
 		PrivateKey: existingKey,
 	})
@@ -295,7 +295,7 @@ type mockConfig struct {
 	agent.ConfigSetter
 	tag    names.Tag
 	ssiSet bool
-	ssi    controller.StateServingInfo
+	ssi    controller.ControllerAgentInfo
 
 	queryTracingEnabled    bool
 	queryTracingEnabledSet bool
@@ -340,11 +340,11 @@ func (mc *mockConfig) Controller() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	return mc.ssi, mc.ssiSet
 }
 
-func (mc *mockConfig) SetStateServingInfo(info controller.StateServingInfo) {
+func (mc *mockConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
 	mc.ssiSet = true
 	mc.ssi = info
 }

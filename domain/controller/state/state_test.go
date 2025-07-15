@@ -36,13 +36,13 @@ func (s *stateSuite) TestControllerModelUUID(c *tc.C) {
 	c.Assert(uuid, tc.Equals, s.controllerModelUUID)
 }
 
-func (s *stateSuite) TestGetStateServingInfo(c *tc.C) {
+func (s *stateSuite) TestGetControllerAgentInfo(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	servingInfo, err := st.GetStateServingInfo(c.Context())
+	servingInfo, err := st.GetControllerAgentInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(servingInfo, tc.DeepEquals, controller.StateServingInfo{
+	c.Check(servingInfo, tc.DeepEquals, controller.ControllerAgentInfo{
 		APIPort:        17070,
 		Cert:           "test-cert",
 		PrivateKey:     "test-private-key",

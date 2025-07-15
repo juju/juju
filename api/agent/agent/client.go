@@ -61,13 +61,13 @@ func (st *Client) getEntity(ctx context.Context, tag names.Tag) (*params.AgentGe
 	return &results.Entities[0], nil
 }
 
-func (st *Client) StateServingInfo(ctx context.Context) (controller.StateServingInfo, error) {
+func (st *Client) StateServingInfo(ctx context.Context) (controller.ControllerAgentInfo, error) {
 	var results params.StateServingInfo
 	err := st.facade.FacadeCall(ctx, "StateServingInfo", nil, &results)
 	if err != nil {
-		return controller.StateServingInfo{}, errors.Trace(err)
+		return controller.ControllerAgentInfo{}, errors.Trace(err)
 	}
-	return controller.StateServingInfo{
+	return controller.ControllerAgentInfo{
 		APIPort:        results.APIPort,
 		Cert:           results.Cert,
 		PrivateKey:     results.PrivateKey,

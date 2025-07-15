@@ -403,7 +403,7 @@ func ensureSSHServerHostKey(args *instancecfg.StateInitializationParams) error {
 func ensureKeys(
 	isCAAS bool,
 	args *instancecfg.StateInitializationParams,
-	info *controller.StateServingInfo,
+	info *controller.ControllerAgentInfo,
 ) error {
 	if isCAAS {
 		return nil

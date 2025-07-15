@@ -92,13 +92,13 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	}
 	pcfg.Bootstrap.ControllerModelConfig = s.cfg
 	pcfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
-	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
+	pcfg.Bootstrap.ControllerAgentInfo = controller.ControllerAgentInfo{
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,
 		APIPort:      456,
 	}
-	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
+	pcfg.Bootstrap.ControllerAgentInfo = controller.ControllerAgentInfo{
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,

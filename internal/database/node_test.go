@@ -451,9 +451,9 @@ func (cfg fakeAgentConfig) CACert() string {
 	return jujutesting.CACert
 }
 
-// StateServingInfo implements agent.AgentConfig.
-func (cfg fakeAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
-	return controller.StateServingInfo{
+// ControllerAgentInfo implements agent.AgentConfig.
+func (cfg fakeAgentConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
+	return controller.ControllerAgentInfo{
 		CAPrivateKey: jujutesting.CAKey,
 		Cert:         jujutesting.ServerCert,
 		PrivateKey:   jujutesting.ServerKey,

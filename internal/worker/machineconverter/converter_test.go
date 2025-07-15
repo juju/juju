@@ -73,13 +73,13 @@ func (s *converterSuite) TestHandle(c *tc.C) {
 
 	// Notice that we ignore what was already set and just replace what
 	// the agent has set.
-	s.agentClient.EXPECT().StateServingInfo(gomock.Any()).Return(controller.StateServingInfo{
+	s.agentClient.EXPECT().StateServingInfo(gomock.Any()).Return(controller.ControllerAgentInfo{
 		APIPort: 1234,
 	}, nil)
-	s.agentConfigSetter.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
+	s.agentConfigSetter.EXPECT().StateServingInfo().Return(controller.ControllerAgentInfo{
 		APIPort: 4321,
 	}, false)
-	s.agentConfigSetter.EXPECT().SetStateServingInfo(controller.StateServingInfo{
+	s.agentConfigSetter.EXPECT().SetStateServingInfo(controller.ControllerAgentInfo{
 		APIPort: 1234,
 	})
 
@@ -104,10 +104,10 @@ func (s *converterSuite) TestHandleAlreadyHasInfo(c *tc.C) {
 	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(true, nil)
 
 	// If the information is already set, prevent the update from happening.
-	s.agentClient.EXPECT().StateServingInfo(gomock.Any()).Return(controller.StateServingInfo{
+	s.agentClient.EXPECT().StateServingInfo(gomock.Any()).Return(controller.ControllerAgentInfo{
 		APIPort: 1234,
 	}, nil)
-	s.agentConfigSetter.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
+	s.agentConfigSetter.EXPECT().StateServingInfo().Return(controller.ControllerAgentInfo{
 		APIPort: 4321,
 	}, true)
 

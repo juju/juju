@@ -69,7 +69,7 @@ func (c *configFromEnv) WriteCommands(renderer shell.Renderer) ([]string, error)
 	panic("not implemented")
 }
 
-func (c *configFromEnv) StateServingInfo() (controller.StateServingInfo, bool) {
+func (c *configFromEnv) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	panic("not implemented")
 }
 

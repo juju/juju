@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
+	controllererrors "github.com/juju/juju/domain/controller/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -57,29 +58,30 @@ FROM   controller
 	return model.UUID(uuid.UUID), nil
 }
 
-// GetStateServingInfo returns the state serving information.
-func (st *State) GetStateServingInfo(ctx context.Context) (controller.StateServingInfo, error) {
+// GetControllerAgentInfo returns the information that a controller agent
+// needs when it's responsible for serving the API.
+func (st *State) GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error) {
 	db, err := st.DB()
 	if err != nil {
-		return controller.StateServingInfo{}, errors.Capture(err)
+		return controller.ControllerAgentInfo{}, errors.Capture(err)
 	}
-	var info controllerStateServingInfo
-	stmt, err := st.Prepare(`SELECT &controllerStateServingInfo.* FROM controller`, info)
+	var info controllerControllerAgentInfo
+	stmt, err := st.Prepare(`SELECT &controllerControllerAgentInfo.* FROM controller`, info)
 	if err != nil {
-		return controller.StateServingInfo{}, errors.Errorf("preparing select state serving info statement: %w", err)
+		return controller.ControllerAgentInfo{}, errors.Errorf("preparing select controller agent info statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&info)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("internal error: state serving info not found")
+			return errors.Errorf("internal error: controller agent info not found").Add(controllererrors.NotFound)
 		}
 		return err
 	})
 	if err != nil {
-		return controller.StateServingInfo{}, errors.Errorf("getting state serving info: %w", err)
+		return controller.ControllerAgentInfo{}, errors.Errorf("getting controller agent info: %w", err)
 	}
-	return controller.StateServingInfo{
+	return controller.ControllerAgentInfo{
 		APIPort:        info.APIPort,
 		Cert:           info.Cert,
 		PrivateKey:     info.PrivateKey,

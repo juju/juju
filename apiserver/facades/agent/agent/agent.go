@@ -153,8 +153,8 @@ type ModelConfigService interface {
 // ControllerService defines the methods that the controller facade
 // needs from the controller state.
 type ControllerService interface {
-	// GetStateServingInfo returns the state serving info for the controller.
-	GetStateServingInfo(ctx context.Context) (controller.StateServingInfo, error)
+	// GetControllerAgentInfo returns the state serving info for the controller.
+	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
 }
 
 // AgentAPI implements the version 3 of the API provided to an agent.
@@ -320,7 +320,7 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 		err = apiservererrors.ErrPerm
 		return
 	}
-	info, err := api.controllerService.GetStateServingInfo(ctx)
+	info, err := api.controllerService.GetControllerAgentInfo(ctx)
 	if err != nil {
 		return params.StateServingInfo{}, errors.Trace(err)
 	}

@@ -60,7 +60,7 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 	s.agentConfig = mockAgentConfig{
 		dataDir: c.MkDir(),
 		logDir:  c.MkDir(),
-		info: &controller.StateServingInfo{
+		info: &controller.ControllerAgentInfo{
 			APIPort: 0, // listen on any port
 		},
 	}

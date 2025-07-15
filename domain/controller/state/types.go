@@ -8,7 +8,7 @@ type controllerModelUUID struct {
 	UUID string `db:"model_uuid"`
 }
 
-type controllerStateServingInfo struct {
+type controllerControllerAgentInfo struct {
 	APIPort        int    `db:"api_port"`
 	Cert           string `db:"cert"`
 	PrivateKey     string `db:"private_key"`

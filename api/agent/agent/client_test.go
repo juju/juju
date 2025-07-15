@@ -47,7 +47,7 @@ func (s *clientSuite) TestStateServingInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	info, err := client.StateServingInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(info, tc.DeepEquals, controller.StateServingInfo{
+	c.Assert(info, tc.DeepEquals, controller.ControllerAgentInfo{
 		APIPort:        666,
 		Cert:           "some-cert",
 		PrivateKey:     "some-key",

@@ -772,7 +772,7 @@ func finalizeInstanceBootstrapConfig(
 		return errors.New("finalising instance bootstrap config, agent version not set on model config")
 	}
 
-	icfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
+	icfg.Bootstrap.ControllerAgentInfo = controller.ControllerAgentInfo{
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),
@@ -842,7 +842,7 @@ func finalizePodBootstrapConfig(
 		return errors.Annotate(err, "encoding default controller cert to pem")
 	}
 
-	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
+	pcfg.Bootstrap.ControllerAgentInfo = controller.ControllerAgentInfo{
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),

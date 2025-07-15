@@ -39,7 +39,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.agent = &mockAgent{
 		conf: mockConfig{
 			caCert: coretesting.OtherCACert,
-			info: &controller.StateServingInfo{
+			info: &controller.ControllerAgentInfo{
 				CAPrivateKey: coretesting.OtherCAKey,
 				Cert:         coretesting.ServerCert,
 				PrivateKey:   coretesting.ServerKey,
@@ -106,7 +106,7 @@ type mockConfig struct {
 	agent.Config
 
 	mu     sync.Mutex
-	info   *controller.StateServingInfo
+	info   *controller.ControllerAgentInfo
 	caCert string
 }
 
@@ -116,11 +116,11 @@ func (mc *mockConfig) CACert() string {
 	return mc.caCert
 }
 
-func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	if mc.info != nil {
 		return *mc.info, true
 	}
-	return controller.StateServingInfo{}, false
+	return controller.ControllerAgentInfo{}, false
 }

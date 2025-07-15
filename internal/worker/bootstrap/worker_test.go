@@ -435,7 +435,7 @@ func (s *workerSuite) expectAuthorizedKeys() {
 }
 
 func (s *workerSuite) expectStateServingInfo() {
-	s.agentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
+	s.agentConfig.EXPECT().StateServingInfo().Return(controller.ControllerAgentInfo{
 		APIPort: 42,
 	}, true)
 }

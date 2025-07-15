@@ -37,7 +37,7 @@ type Machine interface {
 // agent api.
 type AgentClient interface {
 	// StateServingInfo returns the state serving info for the agent.
-	StateServingInfo(ctx context.Context) (controller.StateServingInfo, error)
+	StateServingInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
 }
 
 // Config holds the configuration for the converter NotifyWatchHandler.

@@ -80,7 +80,7 @@ func (*formatSuite) TestRead(c *tc.C) {
 }
 
 func (*formatSuite) TestReadWriteStateConfig(c *tc.C) {
-	servingInfo := controller.StateServingInfo{
+	servingInfo := controller.ControllerAgentInfo{
 		Cert:         "some special cert",
 		PrivateKey:   "a special key",
 		CAPrivateKey: "ca special key",

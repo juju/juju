@@ -141,7 +141,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 	if len(format.ControllerKey) != 0 {
-		config.servingInfo = &controller.StateServingInfo{
+		config.servingInfo = &controller.ControllerAgentInfo{
 			Cert:           format.ControllerCert,
 			PrivateKey:     format.ControllerKey,
 			CAPrivateKey:   format.CAPrivateKey,

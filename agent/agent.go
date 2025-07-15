@@ -235,7 +235,7 @@ type Config interface {
 	// StateServingInfo returns the details needed to run
 	// a controller and reports whether those details
 	// are available
-	StateServingInfo() (controller.StateServingInfo, bool)
+	StateServingInfo() (controller.ControllerAgentInfo, bool)
 
 	// APIInfo returns details for connecting to the API server and
 	// reports whether the details are available.
@@ -349,7 +349,7 @@ type configSetterOnly interface {
 
 	// SetStateServingInfo sets the information needed
 	// to run a controller
-	SetStateServingInfo(info controller.StateServingInfo)
+	SetStateServingInfo(info controller.ControllerAgentInfo)
 
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
@@ -453,7 +453,7 @@ type configInternal struct {
 	apiDetails                         *apiDetails
 	statePassword                      string
 	oldPassword                        string
-	servingInfo                        *controller.StateServingInfo
+	servingInfo                        *controller.ControllerAgentInfo
 	loggingConfig                      string
 	values                             map[string]string
 	agentLogfileMaxSizeMB              int
@@ -585,7 +585,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the controller.
-func NewStateMachineConfig(configParams AgentConfigParams, serverInfo controller.StateServingInfo) (ConfigSetterWriter, error) {
+func NewStateMachineConfig(configParams AgentConfigParams, serverInfo controller.ControllerAgentInfo) (ConfigSetterWriter, error) {
 	if serverInfo.Cert == "" {
 		return nil, errors.Trace(requiredError("controller cert"))
 	}
@@ -793,14 +793,14 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
-func (c *configInternal) StateServingInfo() (controller.StateServingInfo, bool) {
+func (c *configInternal) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	if c.servingInfo == nil {
-		return controller.StateServingInfo{}, false
+		return controller.ControllerAgentInfo{}, false
 	}
 	return *c.servingInfo, true
 }
 
-func (c *configInternal) SetStateServingInfo(info controller.StateServingInfo) {
+func (c *configInternal) SetStateServingInfo(info controller.ControllerAgentInfo) {
 	c.servingInfo = &info
 	if c.statePassword == "" && c.apiDetails != nil {
 		c.statePassword = c.apiDetails.password

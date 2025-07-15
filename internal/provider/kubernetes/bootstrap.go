@@ -267,7 +267,7 @@ func newControllerStack(
 	}
 
 	agentConfig.SetStateServingInfo(si)
-	pcfg.Bootstrap.StateServingInfo = si
+	pcfg.Bootstrap.ControllerAgentInfo = si
 
 	unitAgentConfig, err := pcfg.UnitAgentConfig()
 	if err != nil {

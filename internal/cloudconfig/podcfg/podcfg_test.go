@@ -148,7 +148,7 @@ func (*podcfgSuite) TestUnitAgentConfig(c *tc.C) {
 		ModelTag: testing.ModelTag,
 		CACert:   testing.CACert,
 	}
-	podConfig.Bootstrap.StateServingInfo.APIPort = 1234
+	podConfig.Bootstrap.ControllerAgentInfo.APIPort = 1234
 	podConfig.JujuVersion = semversion.MustParse("6.6.6")
 	c.Assert(err, tc.ErrorIsNil)
 	agentCfg, err := podConfig.UnitAgentConfig()

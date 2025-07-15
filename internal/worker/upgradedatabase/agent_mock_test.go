@@ -1141,10 +1141,10 @@ func (c *MockConfigQueryTracingThresholdCall) DoAndReturn(f func() time.Duration
 }
 
 // StateServingInfo mocks base method.
-func (m *MockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+func (m *MockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateServingInfo")
-	ret0, _ := ret[0].(controller.StateServingInfo)
+	ret0, _ := ret[0].(controller.ControllerAgentInfo)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -1162,19 +1162,19 @@ type MockConfigStateServingInfoCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConfigStateServingInfoCall) Return(arg0 controller.StateServingInfo, arg1 bool) *MockConfigStateServingInfoCall {
+func (c *MockConfigStateServingInfoCall) Return(arg0 controller.ControllerAgentInfo, arg1 bool) *MockConfigStateServingInfoCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConfigStateServingInfoCall) Do(f func() (controller.StateServingInfo, bool)) *MockConfigStateServingInfoCall {
+func (c *MockConfigStateServingInfoCall) Do(f func() (controller.ControllerAgentInfo, bool)) *MockConfigStateServingInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigStateServingInfoCall) DoAndReturn(f func() (controller.StateServingInfo, bool)) *MockConfigStateServingInfoCall {
+func (c *MockConfigStateServingInfoCall) DoAndReturn(f func() (controller.ControllerAgentInfo, bool)) *MockConfigStateServingInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2968,7 +2968,7 @@ func (c *MockConfigSetterSetQueryTracingThresholdCall) DoAndReturn(f func(time.D
 }
 
 // SetStateServingInfo mocks base method.
-func (m *MockConfigSetter) SetStateServingInfo(arg0 controller.StateServingInfo) {
+func (m *MockConfigSetter) SetStateServingInfo(arg0 controller.ControllerAgentInfo) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetStateServingInfo", arg0)
 }
@@ -2992,13 +2992,13 @@ func (c *MockConfigSetterSetStateServingInfoCall) Return() *MockConfigSetterSetS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterSetStateServingInfoCall) Do(f func(controller.StateServingInfo)) *MockConfigSetterSetStateServingInfoCall {
+func (c *MockConfigSetterSetStateServingInfoCall) Do(f func(controller.ControllerAgentInfo)) *MockConfigSetterSetStateServingInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterSetStateServingInfoCall) DoAndReturn(f func(controller.StateServingInfo)) *MockConfigSetterSetStateServingInfoCall {
+func (c *MockConfigSetterSetStateServingInfoCall) DoAndReturn(f func(controller.ControllerAgentInfo)) *MockConfigSetterSetStateServingInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3076,10 +3076,10 @@ func (c *MockConfigSetterSetValueCall) DoAndReturn(f func(string, string)) *Mock
 }
 
 // StateServingInfo mocks base method.
-func (m *MockConfigSetter) StateServingInfo() (controller.StateServingInfo, bool) {
+func (m *MockConfigSetter) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateServingInfo")
-	ret0, _ := ret[0].(controller.StateServingInfo)
+	ret0, _ := ret[0].(controller.ControllerAgentInfo)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -3097,19 +3097,19 @@ type MockConfigSetterStateServingInfoCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConfigSetterStateServingInfoCall) Return(arg0 controller.StateServingInfo, arg1 bool) *MockConfigSetterStateServingInfoCall {
+func (c *MockConfigSetterStateServingInfoCall) Return(arg0 controller.ControllerAgentInfo, arg1 bool) *MockConfigSetterStateServingInfoCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterStateServingInfoCall) Do(f func() (controller.StateServingInfo, bool)) *MockConfigSetterStateServingInfoCall {
+func (c *MockConfigSetterStateServingInfoCall) Do(f func() (controller.ControllerAgentInfo, bool)) *MockConfigSetterStateServingInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterStateServingInfoCall) DoAndReturn(f func() (controller.StateServingInfo, bool)) *MockConfigSetterStateServingInfoCall {
+func (c *MockConfigSetterStateServingInfoCall) DoAndReturn(f func() (controller.ControllerAgentInfo, bool)) *MockConfigSetterStateServingInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

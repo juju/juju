@@ -16,8 +16,9 @@ type State interface {
 	// GetControllerModelUUID returns the model UUID of the controller model.
 	GetControllerModelUUID(ctx context.Context) (model.UUID, error)
 
-	// GetStateServingInfo returns the state serving information.
-	GetStateServingInfo(ctx context.Context) (controller.StateServingInfo, error)
+	// GetControllerAgentInfo returns the controller agent information needed by
+	// the controller.
+	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -40,10 +41,11 @@ func (s *Service) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
 	return s.st.GetControllerModelUUID(ctx)
 }
 
-// GetStateServingInfo returns the state serving information.
-func (s *Service) GetStateServingInfo(ctx context.Context) (controller.StateServingInfo, error) {
+// GetControllerAgentInfo returns the controller agent information needed by the
+// controller.
+func (s *Service) GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetStateServingInfo(ctx)
+	return s.st.GetControllerAgentInfo(ctx)
 }

@@ -244,10 +244,10 @@ func (mc *mockConfig) setStateServingInfo(isSet bool) {
 	mc.ssInfoIsSet = isSet
 }
 
-func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	return controller.StateServingInfo{}, mc.ssInfoIsSet
+	return controller.ControllerAgentInfo{}, mc.ssInfoIsSet
 }
 
 type dummyWorker struct {

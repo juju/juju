@@ -121,7 +121,7 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://tools.testing/tools/released/juju.tgz",
-			Version: semversion.Binary{semversion.MustParse("1.2.3"), "jammy", "amd64"},
+			Version: semversion.Binary{Number: semversion.MustParse("1.2.3"), Release: "jammy", Arch: "amd64"},
 		},
 	}
 	envConfig, err := config.New(config.NoDefaults, testing.FakeConfig())
@@ -163,7 +163,7 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 				ControllerConfig:      controllerCfg,
 				ControllerModelConfig: envConfig,
 			},
-			StateServingInfo: controller.StateServingInfo{
+			ControllerAgentInfo: controller.ControllerAgentInfo{
 				APIPort:      controllerCfg.APIPort(),
 				Cert:         testing.ServerCert,
 				PrivateKey:   testing.ServerKey,
