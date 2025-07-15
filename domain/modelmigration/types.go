@@ -4,8 +4,11 @@
 package modelmigration
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/migration"
 )
 
 // MigrationMachineDiscrepancy describes a divergent machine between what Juju
@@ -39,3 +42,11 @@ const (
 	// controller, but is not yet fully active.
 	MigrationModeImporting = MigrationMode("importing")
 )
+
+type Migration struct {
+	UUID             string
+	Attempt          int
+	Phase            migration.Phase
+	PhaseChangedTime time.Time
+	Target           migration.TargetInfo
+}
