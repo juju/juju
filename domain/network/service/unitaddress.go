@@ -90,7 +90,7 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 	if len(matchedAddrs) == 0 {
 		return nil, network.NoAddressError(string(network.ScopePublic))
 	}
-	sort.Slice(matchedAddrs, matchedAddrs.Less)
+	sort.Sort(matchedAddrs)
 
 	return matchedAddrs, nil
 }

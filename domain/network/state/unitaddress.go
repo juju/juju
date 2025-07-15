@@ -56,7 +56,7 @@ WHERE     ua.unit_uuid = $entityUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIpAddresses(address)
+	return encodeIPAddresses(address)
 }
 
 // GetUnitAddresses returns the addresses of the specified unit.
@@ -96,7 +96,7 @@ WHERE     u.uuid = $entityUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIpAddresses(address)
+	return encodeIPAddresses(address)
 }
 
 // GetControllerUnitUUIDByName returns the UUID for the named unit if it
@@ -217,10 +217,10 @@ WHERE uuid = $entityUUID.uuid;
 	}
 }
 
-func encodeIpAddresses(addresses []spaceAddress) (corenetwork.SpaceAddresses, error) {
+func encodeIPAddresses(addresses []spaceAddress) (corenetwork.SpaceAddresses, error) {
 	res := make(corenetwork.SpaceAddresses, len(addresses))
 	for i, addr := range addresses {
-		encodedIP, err := encodeIpAddress(addr)
+		encodedIP, err := encodeIPAddress(addr)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -229,7 +229,7 @@ func encodeIpAddresses(addresses []spaceAddress) (corenetwork.SpaceAddresses, er
 	return res, nil
 }
 
-func encodeIpAddress(address spaceAddress) (corenetwork.SpaceAddress, error) {
+func encodeIPAddress(address spaceAddress) (corenetwork.SpaceAddress, error) {
 	spaceUUID := corenetwork.AlphaSpaceId
 	if address.SpaceUUID.Valid {
 		spaceUUID = corenetwork.SpaceUUID(address.SpaceUUID.String)

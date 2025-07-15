@@ -21,6 +21,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -36,6 +37,9 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
+	networkservice "github.com/juju/juju/domain/network/service"
+	networkstate "github.com/juju/juju/domain/network/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
@@ -55,6 +59,9 @@ func TestStateSuite(t *testing.T) {
 
 func (s *modelStateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
+
+	_, err := s.DB().ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state = NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
@@ -2019,10 +2026,53 @@ func (s *modelStateSuite) TestGetMachineMachineStatusNotFoundError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, statuserrors.MachineStatusNotFound)
 }
 
-func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
+func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 	uuid0, mName0 := s.createMachine(c)
 	uuid1, mName1 := s.createMachine(c)
 	uuid2, mName2 := s.createMachine(c)
+
+	netService := networkservice.NewService(
+		networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c),
+	)
+	err := netService.SetMachineNetConfig(c.Context(), uuid0, []domainnetwork.NetInterface{
+		{
+			Name:             "eth0",
+			Type:             corenetwork.EthernetDevice,
+			MTU:              ptr[int64](1500),
+			MACAddress:       ptr("00:11:22:33:44:55"),
+			ProviderID:       ptr[corenetwork.Id]("p-id"),
+			IsAutoStart:      true,
+			IsEnabled:        true,
+			ParentDeviceName: "parent",
+			GatewayAddress:   ptr("10.0.0.1"),
+			IsDefaultGateway: true,
+			VLANTag:          100,
+			Addrs: []domainnetwork.NetAddr{
+				{
+					InterfaceName:    "eth0",
+					AddressValue:     "10.0.0.1",
+					AddressType:      corenetwork.IPv4Address,
+					ConfigType:       corenetwork.ConfigDHCP,
+					Origin:           corenetwork.OriginProvider,
+					Scope:            corenetwork.ScopeMachineLocal,
+					ProviderID:       ptr[corenetwork.Id]("p-id2"),
+					ProviderSubnetID: ptr[corenetwork.Id]("p-id2"),
+				},
+				{
+					InterfaceName:    "eth1",
+					AddressValue:     "10.51.45.181",
+					AddressType:      corenetwork.IPv4Address,
+					ConfigType:       corenetwork.ConfigDHCP,
+					Origin:           corenetwork.OriginProvider,
+					Scope:            corenetwork.ScopeCloudLocal,
+					ProviderID:       ptr[corenetwork.Id]("p-id3"),
+					ProviderSubnetID: ptr[corenetwork.Id]("p-id3"),
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.SetMachineStatus(c.Context(), mName0.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
@@ -2036,7 +2086,7 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 	})
 
 	// Act
-	statuses, err := s.state.GetMachineStatuses(c.Context())
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -2067,6 +2117,8 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 			UUID:        uuid0,
 			InstanceID:  instance.Id(mName0),
 			DisplayName: mName0.String(),
+			DNSName:     "10.51.45.181",
+			IPAddresses: []string{"10.51.45.181"},
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status:  status.MachineStatusStarted,
 				Message: "it's started",
@@ -2080,13 +2132,15 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:           ptr("arm64"),
-				Mem:            ptr[uint64](1024),
-				RootDisk:       ptr[uint64](256),
-				RootDiskSource: ptr("/test"),
-				CpuCores:       ptr[uint64](4),
-				CpuPower:       ptr[uint64](75),
-				VirtType:       ptr("virtual-machine"),
+				Arch:             ptr("arm64"),
+				Mem:              ptr[uint64](1024),
+				RootDisk:         ptr[uint64](256),
+				RootDiskSource:   ptr("/test"),
+				CpuCores:         ptr[uint64](4),
+				CpuPower:         ptr[uint64](75),
+				Tags:             ptr([]string{"tag1", "tag2"}),
+				AvailabilityZone: ptr("az-1"),
+				VirtType:         ptr("virtual-machine"),
 			},
 		},
 		mName1: {
@@ -2106,13 +2160,15 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:           ptr("arm64"),
-				Mem:            ptr[uint64](1024),
-				RootDisk:       ptr[uint64](256),
-				RootDiskSource: ptr("/test"),
-				CpuCores:       ptr[uint64](4),
-				CpuPower:       ptr[uint64](75),
-				VirtType:       ptr("virtual-machine"),
+				Arch:             ptr("arm64"),
+				Mem:              ptr[uint64](1024),
+				RootDisk:         ptr[uint64](256),
+				RootDiskSource:   ptr("/test"),
+				CpuCores:         ptr[uint64](4),
+				CpuPower:         ptr[uint64](75),
+				Tags:             ptr([]string{"tag1", "tag2"}),
+				AvailabilityZone: ptr("az-1"),
+				VirtType:         ptr("virtual-machine"),
 			},
 		},
 		mName2: {
@@ -2130,20 +2186,22 @@ func (s *modelStateSuite) TestGetMachineStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:           ptr("arm64"),
-				Mem:            ptr[uint64](1024),
-				RootDisk:       ptr[uint64](256),
-				RootDiskSource: ptr("/test"),
-				CpuCores:       ptr[uint64](4),
-				CpuPower:       ptr[uint64](75),
-				VirtType:       ptr("virtual-machine"),
+				Arch:             ptr("arm64"),
+				Mem:              ptr[uint64](1024),
+				RootDisk:         ptr[uint64](256),
+				RootDiskSource:   ptr("/test"),
+				CpuCores:         ptr[uint64](4),
+				CpuPower:         ptr[uint64](75),
+				Tags:             ptr([]string{"tag1", "tag2"}),
+				AvailabilityZone: ptr("az-1"),
+				VirtType:         ptr("virtual-machine"),
 			},
 		},
 	})
 }
 
-func (s *modelStateSuite) TestGetMachineStatusesEmptyModel(c *tc.C) {
-	statuses, err := s.state.GetMachineStatuses(c.Context())
+func (s *modelStateSuite) TestGetMachineFullStatusesEmptyModel(c *tc.C) {
+	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.HasLen, 0)
 }
@@ -2501,14 +2559,15 @@ func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.
 		name.String(),
 		"nonce",
 		&instance.HardwareCharacteristics{
-			Arch:           ptr("arm64"),
-			Mem:            ptr[uint64](1024),
-			RootDisk:       ptr[uint64](256),
-			RootDiskSource: ptr("/test"),
-			CpuCores:       ptr[uint64](4),
-			CpuPower:       ptr[uint64](75),
-			Tags:           ptr([]string{"tag1", "tag2"}),
-			VirtType:       ptr("virtual-machine"),
+			Arch:             ptr("arm64"),
+			Mem:              ptr[uint64](1024),
+			RootDisk:         ptr[uint64](256),
+			RootDiskSource:   ptr("/test"),
+			CpuCores:         ptr[uint64](4),
+			CpuPower:         ptr[uint64](75),
+			Tags:             ptr([]string{"tag1", "tag2"}),
+			AvailabilityZone: ptr("az-1"),
+			VirtType:         ptr("virtual-machine"),
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)

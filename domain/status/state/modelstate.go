@@ -6,10 +6,13 @@ package state
 import (
 	"context"
 	"database/sql"
+	"net"
+	"sort"
 	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
@@ -17,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -1882,9 +1886,9 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 	return result, nil
 }
 
-// GetMachineStatuses returns all the machine statuses for the model, indexed
+// GetMachineFullStatuses returns all the machine statuses for the model, indexed
 // by machine name.
-func (st *ModelState) GetMachineStatuses(ctx context.Context) (map[coremachine.Name]status.Machine, error) {
+func (st *ModelState) GetMachineFullStatuses(ctx context.Context) (map[coremachine.Name]status.Machine, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1943,15 +1947,65 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 		return nil, errors.Capture(err)
 	}
 
-	var res []machineStatusDetails
+	tagsStmt, err := st.Prepare(` SELECT &instanceTag.* FROM instance_tag`, instanceTag{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	addressesStmt, err := st.Prepare(`
+SELECT 
+	m.uuid AS &machineSpaceAddress.machine_uuid,
+	ipa.address_value AS &machineSpaceAddress.address_value,
+	ipa.config_type_name AS &machineSpaceAddress.config_type_name,
+	ipa.type_name AS &machineSpaceAddress.type_name,
+	ipa.origin_name AS &machineSpaceAddress.origin_name,
+	ipa.scope_name AS &machineSpaceAddress.scope_name,
+	sn.space_uuid AS &machineSpaceAddress.space_uuid,
+	sn.cidr AS &machineSpaceAddress.cidr
+FROM machine AS m
+JOIN link_layer_device AS lld ON m.net_node_uuid = lld.net_node_uuid
+JOIN v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
+LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+`, machineSpaceAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		res     []machineStatusDetails
+		resTags []instanceTag
+		resAddr []machineSpaceAddress
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&res)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, tagsStmt).GetAll(&resTags)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, addressesStmt).GetAll(&resAddr)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil
 	}); err != nil {
 		return nil, errors.Capture(err)
+	}
+
+	tags := make(map[string][]string)
+	for _, t := range resTags {
+		tags[t.MachineUUID] = append(tags[t.MachineUUID], t.Tag)
+	}
+
+	addresses := make(map[string]corenetwork.SpaceAddresses)
+	for _, a := range resAddr {
+		addr, err := encodeIPAddress(a)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		addresses[a.MachineUUID] = append(addresses[a.MachineUUID], addr)
 	}
 
 	result := make(map[coremachine.Name]status.Machine)
@@ -1979,7 +2033,7 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 		hwc := decodeHardwareCharacteristics(
 			s.InstanceArch, s.InstanceCPUCores, s.InstanceCPUPower,
 			s.InstanceMem, s.InstanceRootDisk, s.InstanceRootDiskSource,
-			s.InstanceVirtType, s.InstanceAvailabilityZone,
+			s.InstanceVirtType, tags[s.UUID.String()], s.InstanceAvailabilityZone,
 		)
 
 		cons := decodeConstraints(
@@ -1990,12 +2044,25 @@ LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 			s.ConstraintAllocatePublicIP, s.ConstraintImageID,
 		)
 
+		machineAddresses := addresses[s.UUID.String()]
+		matchedAddrs := machineAddresses.AllMatchingScope(corenetwork.ScopeMatchPublic)
+		sort.Sort(matchedAddrs)
+		ipAddresses := transform.Slice(matchedAddrs, func(addr corenetwork.SpaceAddress) string {
+			return addr.Value
+		})
+		var dnsName string
+		if len(matchedAddrs) > 0 {
+			dnsName = matchedAddrs[0].Value
+		}
+
 		result[s.Name] = status.Machine{
 			UUID:        s.UUID,
 			Life:        s.LifeID,
 			Hostname:    hostname,
 			InstanceID:  instanceID,
 			DisplayName: displayName,
+			DNSName:     dnsName,
+			IPAddresses: ipAddresses,
 			Platform:    platform,
 			MachineStatus: status.StatusInfo[status.MachineStatusType]{
 				Status:  s.MachineStatusID,
@@ -2262,6 +2329,38 @@ VALUES ($setMachineStatus.*)
 		}
 		return nil
 	})
+}
+
+func encodeIPAddress(address machineSpaceAddress) (corenetwork.SpaceAddress, error) {
+	spaceUUID := corenetwork.AlphaSpaceId
+	if address.SpaceUUID.Valid {
+		spaceUUID = corenetwork.SpaceUUID(address.SpaceUUID.String)
+	}
+	// The saved address value is in the form 192.0.2.1/24,
+	// parse the parts for the MachineAddress
+	ipAddr, ipNet, err := net.ParseCIDR(address.Value)
+	if err != nil {
+		// Note: IP addresses from Kubernetes do not contain subnet
+		// mask suffixes yet. Handle that scenario here. Eventually
+		// an error should be returned instead.
+		ipAddr = net.ParseIP(address.Value)
+	}
+	cidr := ipNet.String()
+	// Prefer the subnet cidr if one exists.
+	if address.SubnetCIDR.Valid {
+		cidr = address.SubnetCIDR.String
+	}
+	return corenetwork.SpaceAddress{
+		SpaceID: spaceUUID,
+		Origin:  corenetwork.Origin(address.Origin),
+		MachineAddress: corenetwork.MachineAddress{
+			Value:      ipAddr.String(),
+			CIDR:       cidr,
+			Type:       corenetwork.AddressType(address.Type),
+			Scope:      corenetwork.Scope(address.Scope),
+			ConfigType: corenetwork.AddressConfigType(address.ConfigType),
+		},
+	}, nil
 }
 
 func ptr[T any](v T) *T {

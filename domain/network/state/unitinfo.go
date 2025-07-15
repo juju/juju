@@ -207,7 +207,7 @@ AND space_uuid IN ($uuids[:])
 		return nil, errors.Capture(err)
 	}
 	return transform.SliceOrErr(address, func(f spaceAddressWithDevice) (unitAddress, error) {
-		encodedIP, err := encodeIpAddress(spaceAddress(f.InSpaceAddress))
+		encodedIP, err := encodeIPAddress(spaceAddress(f.InSpaceAddress))
 		return unitAddress{
 			SpaceAddress: encodedIP,
 			Device:       f.Device,
