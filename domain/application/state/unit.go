@@ -1172,31 +1172,37 @@ func (st *State) insertCAASUnit(
 		return errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	unitStorageDirectives, err := st.createUnitStorageDirectives(
+	unitStorageDirectives, err := st.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
 		return errors.Errorf(
-			"creating storage directives for unit %q: %w", args.UnitName, err,
+			"inserting storage directives for unit %q: %w", args.UnitName, err,
 		)
 	}
 
-	err = st.createUnitStorageInstances(ctx, tx, unitStorageDirectives)
+	err = st.insertUnitStorageInstances(
+		ctx, tx, unitStorageDirectives, args.StorageInstances,
+	)
 	if err != nil {
 		return errors.Errorf(
-			"creating storage instances for unit %q: %w", args.UnitName, err,
+			"inserting storage instances for unit %q: %w", args.UnitName, err,
 		)
 	}
 
-	// TODO (tlm): Handle storage attachment and type creation.
-	//attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
-	//if err != nil {
-	//	return errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
-	//}
-	//err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
-	//if err != nil {
-	//	return errors.Errorf("attaching storage for unit %q: %w", args.UnitName, err)
-	//}
+	err = st.insertUnitStorageAttachments(
+		ctx,
+		tx,
+		unitUUID,
+		domainnetwork.NetNodeUUID(netNodeUUID),
+		args.StorageToAttach,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"inserting storage attachments for unit %q: %w", args.UnitName, err,
+		)
+	}
+
 	return nil
 }
 
@@ -1246,7 +1252,7 @@ func (st *State) insertIAASUnit(
 		return nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 	}
 
-	unitStorageDirectives, err := st.createUnitStorageDirectives(
+	unitStorageDirectives, err := st.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
@@ -1255,7 +1261,7 @@ func (st *State) insertIAASUnit(
 		)
 	}
 
-	err = st.createUnitStorageInstances(ctx, tx, unitStorageDirectives)
+	err = st.insertUnitStorageInstances(ctx, tx, unitStorageDirectives, args.StorageInstances)
 	if err != nil {
 		return nil, errors.Errorf(
 			"creating storage instances for unit %q: %w", args.UnitName, err,

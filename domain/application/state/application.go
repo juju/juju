@@ -354,12 +354,10 @@ func (st *State) insertIAASApplicationUnits(
 
 		insertUnits[i] = application.InsertIAASUnitArg{
 			InsertUnitArg: application.InsertUnitArg{
-				UnitName:    unitName,
-				Constraints: unit.Constraints,
-				Placement:   unit.Placement,
-				// For new application units we follow the application directives
-				// verbatum.
-				StorageDirectives: args.StorageDirectives,
+				UnitName:             unitName,
+				Constraints:          unit.Constraints,
+				Placement:            unit.Placement,
+				CreateUnitStorageArg: unit.CreateUnitStorageArg,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    unit.UnitStatusArg.AgentStatus,
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
@@ -396,12 +394,10 @@ func (st *State) insertCAASApplicationUnits(
 		}
 
 		insertUnits[i] = application.InsertUnitArg{
-			UnitName:    unitName,
-			Constraints: unit.Constraints,
-			Placement:   unit.Placement,
-			// For new application units we follow the application directives
-			// verbatum.
-			StorageDirectives: args.StorageDirectives,
+			UnitName:             unitName,
+			Constraints:          unit.Constraints,
+			Placement:            unit.Placement,
+			CreateUnitStorageArg: unit.CreateUnitStorageArg,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus:    unit.UnitStatusArg.AgentStatus,
 				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
