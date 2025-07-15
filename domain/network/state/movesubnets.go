@@ -17,8 +17,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// MoveSubnetsToSpace moves the specified subnets to a given network space,
-// enforcing space constraints if applicable.
+// MoveSubnetsToSpace transfers a list of subnets to a specified network
+// space. It verifies that existing machines will still satisfy their
+// constraints and bindings. The check can be ignored if forced. In this
+// case, failed constraints will be logged.
+// Returns the details of moved subnets or an error if any issue occurs
+// during the operation.
 func (st *State) MoveSubnetsToSpace(
 	ctx context.Context,
 	subnetUUIDs []string,
@@ -203,7 +207,8 @@ WHERE a.subnet_uuid IN ($uuids[:])
 }
 
 // handleFailures processes and formats positive and negative space constraint
-// failures for logging or error return.
+// failures. Those errors are either logged or returned depending on the `force`
+// input parameter.
 // Group failures by machine name, format the messages, sort them consistently,
 // and log or return them based on conditions.
 func (st *State) handleFailures(ctx context.Context,

@@ -87,8 +87,9 @@ type SpaceState interface {
 	IsSpaceUsedInConstraints(ctx context.Context, name network.SpaceName) (bool, error)
 
 	// MoveSubnetsToSpace transfers a list of subnets to a specified network
-	// space, optionally forcing the move if set. It verifies that existing
-	// machines will still satisfy their constraints and bindings.
+	// space. It verifies that existing machines will still satisfy their
+	// constraints and bindings. The check can be ignored if forced. In this
+	// case, failed constraints will be logged.
 	// Returns the details of moved subnets or an error if any issue occurs
 	// during the operation.
 	MoveSubnetsToSpace(ctx context.Context, subnetUUIDs []string, spaceName string,
