@@ -9,11 +9,13 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/logsink"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type migrationLoggingStrategy struct {
@@ -38,13 +40,20 @@ func newMigrationLogWriteFunc(ctxt httpContext, modelLogger corelogger.ModelLogg
 }
 
 func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
-	// Require MigrationModeNone because logtransfer happens after the
-	// model proper is completely imported.
-	st, err := ctxt.stateForMigration(req, state.MigrationModeNone)
+	domainServices, err := ctxt.domainServicesForRequest(req.Context())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = st.Release() }()
+	migrationMode, err := domainServices.ModelMigration().ModelMigrationMode(req.Context())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Require MigrationModeNone because logtransfer happens after the
+	// model proper is completely imported.
+	if migrationMode != modelmigration.MigrationModeNone {
+		return errors.BadRequestf(
+			"model migration mode is %q instead of None", migrationMode)
+	}
 
 	// Here the log messages are expected to be coming from another
 	// Juju controller, so the version number provided should be the
@@ -54,11 +63,14 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 	// conversion of log messages from an old client.
 	_, err = common.JujuClientVersionFromRequest(req)
 	if err != nil {
-		st.Release()
 		return errors.Trace(err)
 	}
 
-	s.modelUUID = coremodel.UUID(st.State.ModelUUID())
+	modelUUID, valid := httpcontext.RequestModelUUID(req.Context())
+	if !valid {
+		return errors.Trace(apiservererrors.ErrPerm)
+	}
+	s.modelUUID = coremodel.UUID(modelUUID)
 
 	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)

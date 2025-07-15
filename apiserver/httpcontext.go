@@ -117,43 +117,6 @@ func checkPermissions(ctx context.Context, tag names.Tag, acceptFunc common.GetA
 	return false, errors.NotValidf("tag kind %v", tag.Kind())
 }
 
-// stateForMigration asserts that the incoming connection is from a user that
-// has admin permissions on the controller model. The method also gets the
-// model uuid for the model being migrated from a request header, and returns
-// the state instance for that model.
-func (ctxt *httpContext) stateForMigration(
-	r *http.Request,
-	requiredMode state.MigrationMode,
-) (_ *state.PooledState, err error) {
-	modelUUID, _ := httpcontext.MigrationRequestModelUUID(r)
-	migrationSt, err := ctxt.srv.shared.statePool.Get(modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer func() {
-		// Here err is the named return arg.
-		if err != nil {
-			migrationSt.Release()
-		}
-	}()
-	mode, err := migrationSt.MigrationMode()
-	if errors.Is(err, errors.NotFound) {
-		return nil, fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if mode != requiredMode {
-		return nil, errors.BadRequestf(
-			"model migration mode is %q instead of %q", mode, requiredMode)
-	}
-	return migrationSt, nil
-}
-
-func (ctxt *httpContext) stateForMigrationImporting(r *http.Request) (*state.PooledState, error) {
-	return ctxt.stateForMigration(r, state.MigrationModeImporting)
-}
-
 // stateForRequestAuthenticatedUser is like stateAndEntityForRequestAuthenticatedUser
 // but doesn't return the entity.
 func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.PooledState, error) {
