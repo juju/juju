@@ -69,7 +69,7 @@ imported storage baz/0
 	s.importer.CheckCalls(c, []testing.StubCall{
 		{"ImportStorage", []interface{}{
 			jujustorage.StorageKindFilesystem,
-			"foo", "bar", "baz",
+			"foo", "bar", "baz", false,
 		}},
 		{"Close", nil},
 	})
@@ -109,7 +109,7 @@ imported storage baz/0
 	s.importer.CheckCalls(c, []testing.StubCall{
 		{"ImportStorage", []interface{}{
 			jujustorage.StorageKindFilesystem,
-			"foo", "bar", "baz",
+			"foo", "bar", "baz", false,
 		}},
 		{"Close", nil},
 	})
@@ -130,6 +130,25 @@ func (s *ImportFilesystemSuite) TestImportErrorCAASNotSupport(c *gc.C) {
 
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *ImportFilesystemSuite) TestImportWithForce(c *gc.C) {
+	ctx, err := s.run(c, "--force", "foo", "bar", "baz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+importing "bar" from storage pool "foo" as storage "baz"
+imported storage baz/0
+`[1:])
+
+	s.importer.CheckCalls(c, []testing.StubCall{
+		{"ImportStorage", []interface{}{
+			jujustorage.StorageKindFilesystem,
+			"foo", "bar", "baz", true,
+		}},
+		{"Close", nil},
+	})
 }
 
 func (s *ImportFilesystemSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -153,7 +172,8 @@ func (m *mockStorageImporter) Close() error {
 func (m *mockStorageImporter) ImportStorage(
 	k jujustorage.StorageKind,
 	pool, providerId, storageName string,
+	force bool,
 ) (names.StorageTag, error) {
-	m.MethodCall(m, "ImportStorage", k, pool, providerId, storageName)
+	m.MethodCall(m, "ImportStorage", k, pool, providerId, storageName, force)
 	return names.NewStorageTag(storageName + "/0"), m.NextErr()
 }

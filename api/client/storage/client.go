@@ -290,6 +290,7 @@ func (c *Client) Import(
 	storagePool string,
 	storageProviderId string,
 	storageName string,
+	force bool,
 ) (names.StorageTag, error) {
 	var results params.ImportStorageResults
 	args := params.BulkImportStorageParams{
@@ -298,8 +299,13 @@ func (c *Client) Import(
 			Kind:        params.StorageKind(kind),
 			Pool:        storagePool,
 			ProviderId:  storageProviderId,
+			Force:       force,
 		}},
 	}
+	if force && c.BestAPIVersion() < 7 {
+		return names.StorageTag{}, errors.NotSupportedf("Force import filesystem on this version of Juju")
+	}
+
 	if err := c.facade.FacadeCall("Import", args, &results); err != nil {
 		return names.StorageTag{}, errors.Trace(err)
 	}

@@ -566,7 +566,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 			"foo", map[string]string{
 				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-			},
+			}, false,
 		}},
 	})
 	s.stub.CheckCalls(c, []testing.StubCall{
@@ -746,11 +746,51 @@ type volumeImporter struct {
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (v volumeImporter) ImportVolume(ctx context.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
-	v.MethodCall(v, "ImportVolume", ctx, providerId, tags)
+func (v volumeImporter) ImportVolume(ctx context.ProviderCallContext, providerId string, tags map[string]string, force bool) (storage.VolumeInfo, error) {
+	v.MethodCall(v, "ImportVolume", ctx, providerId, tags, force)
 	return storage.VolumeInfo{
 		VolumeId:   providerId,
 		Size:       123,
 		HardwareId: "hw",
 	}, v.NextErr()
+}
+
+func (s *storageSuite) TestStorageAPIv6ImportWithForceNotSupported(c *gc.C) {
+	// Test that StorageAPIv6.Import returns error when Force is true
+	apiv6 := &facadestorage.StorageAPIv6{StorageAPI: s.api}
+	results, err := apiv6.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+		Force:       true,
+	}}})
+	c.Assert(err, gc.ErrorMatches, "Force import filesystem on this version of Juju not supported")
+	c.Assert(results, gc.DeepEquals, params.ImportStorageResults{})
+
+	// Verify that StorageAPI.Import was not called since we returned early
+	s.stub.CheckNoCalls(c)
+}
+
+func (s *storageSuite) TestStorageAPIv6ImportWithoutForceDelegatesToStorageAPI(c *gc.C) {
+	// Test that StorageAPIv6.Import delegates to StorageAPI when Force is false
+	// Block all changes to create a known error condition that proves delegation occurred
+	s.blockAllChanges(c, "import blocked for testing")
+
+	apiv6 := &facadestorage.StorageAPIv6{StorageAPI: s.api}
+	_, err := apiv6.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+		Force:       false,
+	}}})
+
+	// Verify that we get the blocked error, proving StorageAPI.Import was called
+	s.assertBlocked(c, err, "import blocked for testing")
+
+	// Verify that the block check was called (proving delegation to StorageAPI.Import)
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+	})
 }

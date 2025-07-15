@@ -16,6 +16,7 @@ test_storage_k8s() {
 
 		export JUJU_DEV_FEATURE_FLAGS=k8s-attach-storage
 		test_import_filesystem
+		test_force_import_filesystem
 		test_deploy_attach_storage
 		;;
 	*)

@@ -1058,7 +1058,7 @@ func (s *ebsSuite) TestImportVolume(c *gc.C) {
 	volID := aws.ToString(resp.VolumeId)
 	volInfo, err := vs.(storage.VolumeImporter).ImportVolume(s.cloudCallCtx, volID, map[string]string{
 		"foo": "bar",
-	})
+	}, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volInfo, jc.DeepEquals, storage.VolumeInfo{
 		VolumeId:   volID,
@@ -1090,7 +1090,7 @@ func (s *ebsSuite) TestImportVolumeCredentialError(c *gc.C) {
 
 	_, err = vs.(storage.VolumeImporter).ImportVolume(s.cloudCallCtx, aws.ToString(resp.VolumeId), map[string]string{
 		"foo": "bar",
-	})
+	}, false)
 	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 }
 
@@ -1103,7 +1103,7 @@ func (s *ebsSuite) TestImportVolumeInUse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	volId := params[0].VolumeId
-	_, err = vs.(storage.VolumeImporter).ImportVolume(s.cloudCallCtx, volId, map[string]string{})
+	_, err = vs.(storage.VolumeImporter).ImportVolume(s.cloudCallCtx, volId, map[string]string{}, false)
 	c.Assert(err, gc.ErrorMatches, `cannot import volume with status "in-use"`)
 }
 
