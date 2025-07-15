@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	jujutesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/state"
 )
 
 type ExportImportSuite struct {
@@ -49,12 +48,9 @@ that are needed now.
 
 func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 	bytes := []byte(modelYaml)
-	st := &state.State{}
-	m := &state.Model{}
-	controller := &fakeImporter{st: st, m: m}
 	scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	importer := migration.NewModelImporter(
-		controller, scope, s.controllerConfigService, s.domainServicesGetter,
+		scope, s.controllerConfigService, s.domainServicesGetter,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
@@ -62,11 +58,8 @@ func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
-	gotM, gotSt, err := importer.ImportModel(c.Context(), bytes)
+	err := importer.ImportModel(c.Context(), bytes)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(controller.model.UUID(), tc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
-	c.Assert(gotM, tc.Equals, m)
-	c.Assert(gotSt, tc.Equals, st)
 }
 
 func (s *ExportImportSuite) TestExportImportModel(c *tc.C) {

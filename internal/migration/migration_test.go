@@ -14,12 +14,10 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resource"
@@ -34,7 +32,6 @@ import (
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/state"
 )
 
 type ExportSuite struct {
@@ -74,7 +71,6 @@ func (s *ExportSuite) TestExportValidates(c *tc.C) {
 
 	exporter := migration.NewModelExporter(
 		s.operationsExporter,
-		nil,
 		scope,
 		s.storageRegistryGetter,
 		s.coordinator,
@@ -96,7 +92,6 @@ func (s *ExportSuite) TestExportValidationFails(c *tc.C) {
 
 	exporter := migration.NewModelExporter(
 		s.operationsExporter,
-		nil,
 		scope,
 		s.storageRegistryGetter,
 		s.coordinator,
@@ -129,9 +124,8 @@ func (s *ImportSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *ImportSuite) TestBadBytes(c *tc.C) {
 	bytes := []byte("not a model")
 	scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
-	controller := &fakeImporter{}
 	importer := migration.NewModelImporter(
-		controller, scope, nil, nil,
+		scope, nil, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
@@ -139,9 +133,7 @@ func (s *ImportSuite) TestBadBytes(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
-	model, st, err := importer.ImportModel(c.Context(), bytes)
-	c.Check(st, tc.IsNil)
-	c.Check(model, tc.IsNil)
+	err := importer.ImportModel(c.Context(), bytes)
 	c.Assert(err, tc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
@@ -342,19 +334,6 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *tc.C) {
 	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorMatches,
 		"cannot upload charms: charm ch:foo/bar-2 unexpectedly assigned ch:foo/bar-100")
-}
-
-type fakeImporter struct {
-	model            description.Model
-	st               *state.State
-	m                *state.Model
-	controllerConfig controller.Config
-}
-
-func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config) (*state.Model, *state.State, error) {
-	i.model = model
-	i.controllerConfig = controllerConfig
-	return i.m, i.st, nil
 }
 
 type fakeDownloader struct {
