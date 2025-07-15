@@ -165,13 +165,13 @@ SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID.String()).Scan(&n
 
 		_, err = s.DB().ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
-VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
+VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name1", 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
 			return err
 		}
 		_, err = s.DB().ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
-VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "66:11:22:33:44:56", 0, 0)
+VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name2", 1500, "66:11:22:33:44:56", 0, 0)
 		if err != nil {
 			return err
 		}
