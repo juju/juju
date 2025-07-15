@@ -52,7 +52,6 @@ type APIv8 struct {
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
-	backend            Backend
 	store              objectstore.ObjectStore
 	authorizer         facade.Authorizer
 	networkService     NetworkService
@@ -63,10 +62,8 @@ type BundleAPI struct {
 // NewFacade provides the required signature for facade registration.
 func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 	authorizer := ctx.Auth()
-	st := ctx.State()
 
 	return NewBundleAPI(
-		NewStateShim(st),
 		ctx.ObjectStore(),
 		authorizer,
 		ctx.DomainServices().Network(),
@@ -77,7 +74,6 @@ func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 
 // NewBundleAPI returns the new Bundle API facade.
 func NewBundleAPI(
-	st Backend,
 	store objectstore.ObjectStore,
 	auth facade.Authorizer,
 	networkService NetworkService,
@@ -89,7 +85,6 @@ func NewBundleAPI(
 	}
 
 	return &BundleAPI{
-		backend:            st,
 		store:              store,
 		authorizer:         auth,
 		networkService:     networkService,

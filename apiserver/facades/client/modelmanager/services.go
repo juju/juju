@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/description/v10"
-
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/agentbinary"
@@ -29,7 +27,6 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/state"
 )
 
 // ModelDomainServices is a factory for creating model info services.
@@ -235,13 +232,6 @@ type ModelInfoService interface {
 	// The following errors may be returned:
 	// - [modelerrors.NotFound] when the model no longer exists.
 	HasValidCredential(ctx context.Context) (bool, error)
-}
-
-// ModelExporter defines a interface for exporting models.
-type ModelExporter interface {
-	// ExportModelPartial exports the current model into a partial description
-	// model. This can be serialized into yaml and then imported.
-	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 }
 
 // CredentialService exposes State methods needed by credential manager.

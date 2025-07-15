@@ -22,7 +22,6 @@ type bundleSuite struct {
 	coretesting.BaseSuite
 	auth               *apiservertesting.FakeAuthorizer
 	facade             *bundle.APIv8
-	st                 *mockState
 	store              *mockObjectStore
 	networkService     *MockNetworkService
 	applicationService *MockApplicationService
@@ -46,12 +45,10 @@ func (s *bundleSuite) SetUpTest(c *tc.C) {
 		Tag: names.NewUserTag("read"),
 	}
 
-	s.st = newMockState()
 }
 
 func (s *bundleSuite) makeAPI(c *tc.C) *bundle.APIv8 {
 	api, err := bundle.NewBundleAPI(
-		s.st,
 		s.store,
 		s.auth,
 		s.networkService,
