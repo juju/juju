@@ -83,9 +83,6 @@ func (p InitializeParams) Validate() error {
 	if err := p.ControllerModelArgs.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	//if p.ControllerModelArgs.MigrationMode != MigrationModeNone {
-	//	return errors.NotValidf("migration mode %q", p.ControllerModelArgs.MigrationMode)
-	//}
 	if p.MongoSession == nil {
 		return errors.NotValidf("nil MongoSession")
 	}

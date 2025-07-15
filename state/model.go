@@ -1148,9 +1148,5 @@ func checkModelUsable(st *State, validLife func(Life) bool) error {
 		return errors.Errorf("model %q is %s", model.Name(), model.Life().String())
 	}
 
-	//if model.doc.MigrationMode != MigrationModeNone {
-	//	return errors.Errorf("model %q is being migrated", model.Name())
-	//}
-
 	return nil
 }
