@@ -15896,7 +15896,7 @@
     {
         "Name": "Storage",
         "Description": "",
-        "Version": 6,
+        "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -15954,7 +15954,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/BulkImportStorageParams"
+                            "$ref": "#/definitions/BulkImportStorageParamsV2"
                         },
                         "Result": {
                             "$ref": "#/definitions/ImportStorageResults"
@@ -16093,13 +16093,13 @@
                         "results"
                     ]
                 },
-                "BulkImportStorageParams": {
+                "BulkImportStorageParamsV2": {
                     "type": "object",
                     "properties": {
                         "storage": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ImportStorageParams"
+                                "$ref": "#/definitions/ImportStorageParamsV2"
                             }
                         }
                     },
@@ -16375,9 +16375,12 @@
                         "storage-tag"
                     ]
                 },
-                "ImportStorageParams": {
+                "ImportStorageParamsV2": {
                     "type": "object",
                     "properties": {
+                        "force": {
+                            "type": "boolean"
+                        },
                         "kind": {
                             "type": "integer"
                         },

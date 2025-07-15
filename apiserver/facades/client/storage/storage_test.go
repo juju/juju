@@ -498,7 +498,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(params.BulkImportStorageParamsV2{[]params.ImportStorageParamsV2{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -548,7 +548,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(params.BulkImportStorageParamsV2{[]params.ImportStorageParamsV2{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -563,10 +563,10 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	volumeSource.CheckCalls(c, []testing.StubCall{
 		{"ImportVolume", []interface{}{
 			s.callContext,
-			"foo", map[string]string{
+			"foo", "pgdata", map[string]string{
 				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-			},
+			}, false,
 		}},
 	})
 	s.stub.CheckCalls(c, []testing.StubCall{
@@ -599,7 +599,7 @@ func (s *storageSuite) TestImportFilesystemError(c *gc.C) {
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
 	filesystemSource.SetErrors(errors.New("nope"))
-	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(params.BulkImportStorageParamsV2{[]params.ImportStorageParamsV2{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -624,7 +624,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(params.BulkImportStorageParamsV2{[]params.ImportStorageParamsV2{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -655,7 +655,7 @@ func (s *storageSuite) TestImportFilesystemK8sProvider(c *gc.C) {
 	}
 	s.registry.Providers[k8sconstants.StorageProviderType] = dummyStorageProvider
 
-	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(params.BulkImportStorageParamsV2{[]params.ImportStorageParamsV2{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        k8sconstants.CAASProviderType,
 		ProviderId:  "foo",
@@ -670,7 +670,7 @@ func (s *storageSuite) TestImportFilesystemK8sProvider(c *gc.C) {
 }
 
 func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
-	results, err := s.api.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(params.BulkImportStorageParamsV2{[]params.ImportStorageParamsV2{{
 		Kind:        params.StorageKindBlock,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -746,11 +746,53 @@ type volumeImporter struct {
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (v volumeImporter) ImportVolume(ctx context.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
-	v.MethodCall(v, "ImportVolume", ctx, providerId, tags)
+func (v volumeImporter) ImportVolume(ctx context.ProviderCallContext, providerId string, storageName string, tags map[string]string, force bool) (storage.VolumeInfo, error) {
+	v.MethodCall(v, "ImportVolume", ctx, providerId, storageName, tags, force)
 	return storage.VolumeInfo{
 		VolumeId:   providerId,
 		Size:       123,
 		HardwareId: "hw",
 	}, v.NextErr()
+}
+
+func (s *storageSuite) TestStorageAPIv6Import(c *gc.C) {
+	// Test that StorageAPIv6.Import converts v6 params to v7 params correctly
+	s.state.modelTag = coretesting.ModelTag
+	filesystemSource := filesystemImporter{&dummy.FilesystemSource{}}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		FilesystemSourceFunc: func(*storage.Config) (storage.FilesystemSource, error) {
+			return filesystemSource, nil
+		},
+	}
+	s.registry.Providers["radiance"] = dummyStorageProvider
+
+	apiv6 := &facadestorage.StorageAPIv6{StorageAPI: s.api}
+	results, err := apiv6.Import(params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "radiance",
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ImportStorageResult{{
+		Result: &params.ImportStorageDetails{
+			StorageTag: "storage-data-0",
+		},
+	}})
+
+	// Verify that Force is set to false and delegation occurred
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+		{addExistingFilesystemCall, []interface{}{
+			state.FilesystemInfo{
+				FilesystemId: "foo",
+				Pool:         "radiance",
+				Size:         123,
+			},
+			(*state.VolumeInfo)(nil),
+			"pgdata",
+		}},
+	})
 }
