@@ -4,12 +4,15 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
+	controllererrors "github.com/juju/juju/domain/controller/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -39,14 +42,27 @@ func (s *stateSuite) TestControllerModelUUID(c *tc.C) {
 func (s *stateSuite) TestGetControllerAgentInfo(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	servingInfo, err := st.GetControllerAgentInfo(c.Context())
+	controllerAgentInfo, err := st.GetControllerAgentInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(servingInfo, tc.DeepEquals, controller.ControllerAgentInfo{
+	c.Check(controllerAgentInfo, tc.DeepEquals, controller.ControllerAgentInfo{
 		APIPort:        17070,
 		Cert:           "test-cert",
 		PrivateKey:     "test-private-key",
 		CAPrivateKey:   "test-ca-private-key",
 		SystemIdentity: "test-system-identity",
 	})
+}
+
+func (s *stateSuite) TestGetControllerAgentInfoNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM controller", s.controllerModelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetControllerAgentInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, controllererrors.NotFound)
 }
