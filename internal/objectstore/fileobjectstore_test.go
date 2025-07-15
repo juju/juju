@@ -894,7 +894,7 @@ func (s *fileObjectStoreSuite) newFileObjectStore(c *tc.C, path string) TrackedO
 
 	s.service.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
-	})
+	}).AnyTimes()
 
 	return store
 }
