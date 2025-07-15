@@ -146,8 +146,6 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
-<<<<<<< HEAD
-=======
 
 	c.Cleanup(func() {
 		s.state = nil
@@ -160,7 +158,6 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 		s.leadership = nil
 		s.validator = nil
 	})
->>>>>>> 562a844fbf (feat: wire up support for validating provider storage)
 
 	return ctrl
 
