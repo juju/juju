@@ -78,7 +78,7 @@ func (s *linkLayerBaseSuite) addApplicationEndpoint(
 	s.query(c, `
 INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
 VALUES (?, ?, ?, ?)
-`, applicationEndpointUUID, applicationUUID, charmRelationUUID, ptrZeroAsNil(boundSpaceUUID))
+`, applicationEndpointUUID, applicationUUID, charmRelationUUID, nilZeroPtr(boundSpaceUUID))
 	return applicationEndpointUUID
 }
 
