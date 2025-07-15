@@ -654,14 +654,8 @@
                         "cert": {
                             "type": "string"
                         },
-                        "controller-api-port": {
-                            "type": "integer"
-                        },
                         "private-key": {
                             "type": "string"
-                        },
-                        "state-port": {
-                            "type": "integer"
                         },
                         "system-identity": {
                             "type": "string"
@@ -670,7 +664,6 @@
                     "additionalProperties": false,
                     "required": [
                         "api-port",
-                        "state-port",
                         "cert",
                         "private-key",
                         "ca-private-key",
