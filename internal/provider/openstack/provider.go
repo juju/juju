@@ -302,6 +302,7 @@ type Environ struct {
 	common.CredentialInvalidator
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
+	environs.NoLXDProfiler
 
 	name           string
 	modelUUID      string
