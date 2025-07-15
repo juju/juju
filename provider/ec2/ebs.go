@@ -1040,7 +1040,7 @@ func detachVolumes(client Client, ctx context.ProviderCallContext, attachParams 
 }
 
 // ImportVolume is specified on the storage.VolumeImporter interface.
-func (v *ebsVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, tags map[string]string) (storage.VolumeInfo, error) {
+func (v *ebsVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, tags map[string]string, force bool) (storage.VolumeInfo, error) {
 	resp, err := v.env.ec2Client.DescribeVolumes(ctx, &ec2.DescribeVolumesInput{
 		VolumeIds: []string{volumeId},
 	})

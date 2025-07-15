@@ -290,18 +290,38 @@ func (c *Client) Import(
 	storagePool string,
 	storageProviderId string,
 	storageName string,
+	force bool,
 ) (names.StorageTag, error) {
-	var results params.ImportStorageResults
-	args := params.BulkImportStorageParams{
-		[]params.ImportStorageParams{{
-			StorageName: storageName,
-			Kind:        params.StorageKind(kind),
-			Pool:        storagePool,
-			ProviderId:  storageProviderId,
-		}},
+	if force && c.BestAPIVersion() < 7 {
+		return names.StorageTag{}, errors.NotSupportedf("force import filesystem on this version of Juju")
 	}
-	if err := c.facade.FacadeCall("Import", args, &results); err != nil {
-		return names.StorageTag{}, errors.Trace(err)
+
+	var results params.ImportStorageResults
+	if c.BestAPIVersion() < 7 {
+		args := params.BulkImportStorageParams{
+			[]params.ImportStorageParams{{
+				StorageName: storageName,
+				Kind:        params.StorageKind(kind),
+				Pool:        storagePool,
+				ProviderId:  storageProviderId,
+			}},
+		}
+		if err := c.facade.FacadeCall("Import", args, &results); err != nil {
+			return names.StorageTag{}, errors.Trace(err)
+		}
+	} else {
+		args := params.BulkImportStorageParamsV2{
+			[]params.ImportStorageParamsV2{{
+				StorageName: storageName,
+				Kind:        params.StorageKind(kind),
+				Pool:        storagePool,
+				ProviderId:  storageProviderId,
+				Force:       force,
+			}},
+		}
+		if err := c.facade.FacadeCall("Import", args, &results); err != nil {
+			return names.StorageTag{}, errors.Trace(err)
+		}
 	}
 	if len(results.Results) != 1 {
 		return names.StorageTag{}, errors.Errorf(
