@@ -1372,13 +1372,6 @@ func (st *State) GetSSHHostKeys(ctx context.Context, mUUID string) ([]string, er
 	}
 
 	machineUUID := machineUUID{UUID: mUUID}
-	checkMachineExistsStmt, err := st.Prepare(`
-SELECT uuid AS &machineUUID.uuid
-FROM   machine
-WHERE  machine.uuid = $machineUUID.uuid`, machineUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 
 	query := `SELECT &sshHostKey.*
 FROM machine_ssh_host_key
@@ -1390,11 +1383,9 @@ WHERE machine_uuid = $machineUUID.uuid`
 
 	var sshHostKeys []sshHostKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, checkMachineExistsStmt, machineUUID).Get(&machineUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return machineerrors.MachineNotFound
-		} else if err != nil {
-			return errors.Errorf("checking if machine %q exists: %w", mUUID, err)
+		// Check if the machine exists.
+		if err := st.checkMachineNotDead(ctx, tx, mUUID); err != nil {
+			return errors.Capture(err)
 		}
 
 		err = tx.Query(ctx, queryStmt, machineUUID).GetAll(&sshHostKeys)
@@ -1430,13 +1421,6 @@ func (st *State) SetSSHHostKeys(ctx context.Context, mUUID string, sshHostKeys [
 	}
 
 	machineUUID := machineUUID{UUID: mUUID}
-	checkMachineExistsStmt, err := st.Prepare(`
-SELECT uuid AS &machineUUID.uuid
-FROM   machine
-WHERE  machine.uuid = $machineUUID.uuid`, machineUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
 
 	removePreviousKeysStmt, err := st.Prepare(`
 DELETE FROM machine_ssh_host_key
@@ -1468,11 +1452,8 @@ VALUES      ($sshHostKey.*)`, sshHostKey{})
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the machine exists.
-		err := tx.Query(ctx, checkMachineExistsStmt, machineUUID).Get(&machineUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return machineerrors.MachineNotFound
-		} else if err != nil {
-			return errors.Errorf("checking if machine %q exists: %w", mUUID, err)
+		if err := st.checkMachineNotDead(ctx, tx, mUUID); err != nil {
+			return errors.Capture(err)
 		}
 
 		// Remove any previous SSH host keys for the machine.
