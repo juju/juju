@@ -15,7 +15,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/authorizer_mock.go github.com/juju/juju/apiserver/common Authorizer
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCommandService,CloudService,ControllerConfigState,ControllerConfigService,ExternalControllerService,ToolsFinder,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,ModelAgentService,MachineRebootService,WatchableMachineService,UnitStateService,ApplicationService,MachineService,StatusService,AgentPasswordService,AgentBinaryService
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCommandService,CloudService,ControllerConfigService,ExternalControllerService,ToolsFinder,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,ModelAgentService,MachineRebootService,WatchableMachineService,UnitStateService,ApplicationService,MachineService,StatusService,AgentPasswordService,AgentBinaryService,ModelService
 //go:generate go run go.uber.org/mock/mockgen -typed -package common -destination package_mock.go github.com/juju/juju/apiserver/common APIAddressAccessor
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/binarystorage StorageCloser
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mocks.go github.com/juju/juju/state EntityFinder,Entity

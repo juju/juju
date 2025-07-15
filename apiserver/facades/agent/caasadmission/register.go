@@ -29,10 +29,10 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 
 	return &Facade{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
-			ctx.State(),
 			domainServices.ControllerConfig(),
 			domainServices.ControllerNode(),
 			domainServices.ExternalController(),
+			domainServices.Model(),
 		),
 	}, nil
 }

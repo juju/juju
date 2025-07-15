@@ -43,10 +43,10 @@ func NewFacadeV2AuthCheck(ctx facade.ModelContext) (*FacadeV2, error) {
 			domainServices.Config(), registry,
 		),
 		common.NewControllerConfigAPI(
-			ctx.State(),
 			domainServices.ControllerConfig(),
 			domainServices.ControllerNode(),
 			domainServices.ExternalController(),
+			domainServices.Model(),
 		),
 		domainServices.ModelProvider(),
 		modelCredentialWatcher,

@@ -158,6 +158,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	cloudImageMetadataService := domainServices.CloudImageMetadata()
 	agentProvisionerService := domainServices.AgentProvisioner()
 	externalControllerService := domainServices.ExternalController()
+	modelService := domainServices.Model()
 
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:              model,
@@ -198,10 +199,10 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		ModelConfigWatcher:   modelConfigWatcher,
 		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(st, machineService, watcherRegistry, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
-			st,
 			controllerConfigService,
 			controllerNodeServices,
 			externalControllerService,
+			modelService,
 		),
 		networkService:            networkService,
 		st:                        st,
