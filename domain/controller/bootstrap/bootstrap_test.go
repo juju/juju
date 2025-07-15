@@ -31,6 +31,7 @@ func (s *bootstrapSuite) TestInsertInitialController(c *tc.C) {
 	modelUUID, err := coremodel.NewUUID()
 	c.Assert(err, tc.IsNil)
 	err = controllerconfigbootstrap.InsertInitialControllerConfig(cfg, modelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = InsertInitialController("a", "b", "c", "d")(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
