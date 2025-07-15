@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/constraints"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
@@ -49,9 +49,9 @@ type BaseAddApplicationArg struct {
 	// PendingResources are the uuids of resources added before the
 	// application is created.
 	PendingResources []resource.UUID
-	// Storage defines the list of storage directives to add to an application.
-	// The Name values should match the storage defined in the Charm.
-	Storage []ApplicationStorageArg
+	// StorageDirectives defines the list of storage directives to add to an
+	// application. The Name values must match the storage defined in the Charm.
+	StorageDirectives []ApplicationStorageDirectiveArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]ApplicationConfig
@@ -60,9 +60,6 @@ type BaseAddApplicationArg struct {
 	Settings ApplicationSettings
 	// Status contains the status of the application.
 	Status *status.StatusInfo[status.WorkloadStatusType]
-	// StoragePoolKind holds a mapping of the kind of storage supported
-	// by the named storage pool / provider type.
-	StoragePoolKind map[string]storage.StorageKind
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
@@ -99,13 +96,33 @@ type AddApplicationResourceArg struct {
 	Origin   charmresource.Origin
 }
 
-// ApplicationStorageArg describes details of storage for an application.
-type ApplicationStorageArg struct {
-	Name           corestorage.Name
-	PoolNameOrType string
-	Size           uint64
-	Count          uint64
+// StorageDirectiveArg defines the arguments required to add a storage
+// directive to the model.
+type StorageDirectiveArg struct {
+	// Count represents the number of storage instances that should be made for
+	// this directive.
+	Count uint32
+
+	// Name relates to the charm storage name definition and must match up.
+	Name domainstorage.Name
+
+	// PoolUUID defines the storage pool uuid to use for the directive. This is
+	// an optional value and if not set it is expected that
+	// [ApplicationStorageDirectiveArg.ProviderType] is set.
+	PoolUUID *domainstorage.StoragePoolUUID
+
+	// ProviderType defines the storage provider type to use for the directive.
+	// This is an optional value and if not set it is expected that
+	// [ApplicationStorageDirectiveArg.PoolUUID] is set.
+	ProviderType *string
+
+	// Size defines the size of the storage directive in MiB.
+	Size uint64
 }
+
+// ApplicationStorageDirectiveArg defines an individual storage directive to be
+// associated with an application.
+type ApplicationStorageDirectiveArg = StorageDirectiveArg
 
 // CharmOrigin represents the origin of a charm.
 type CharmOrigin struct {
@@ -212,16 +229,19 @@ type AddIAASUnitArg struct {
 	Nonce    *string
 }
 
+// UnitStorageDirectiveArg describes the arguments required for making storage
+// directives on a unit.
+type UnitStorageDirectiveArg = StorageDirectiveArg
+
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
-	UnitName        coreunit.Name
-	CloudContainer  *CloudContainer
-	Password        *PasswordInfo
-	Constraints     constraints.Constraints
-	Placement       deployment.Placement
-	Storage         []ApplicationStorageArg
-	StoragePoolKind map[string]storage.StorageKind
+	UnitName          coreunit.Name
+	CloudContainer    *CloudContainer
+	Password          *PasswordInfo
+	Constraints       constraints.Constraints
+	Placement         deployment.Placement
+	StorageDirectives []UnitStorageDirectiveArg
 	UnitStatusArg
 }
 
@@ -395,13 +415,11 @@ type ExportUnit struct {
 
 // ImportUnitArg is used to import a unit.
 type ImportUnitArg struct {
-	UnitName        coreunit.Name
-	CloudContainer  *CloudContainer
-	Password        *PasswordInfo
-	Constraints     constraints.Constraints
-	Machine         machine.Name
-	Storage         []ApplicationStorageArg
-	StoragePoolKind map[string]storage.StorageKind
+	UnitName       coreunit.Name
+	CloudContainer *CloudContainer
+	Password       *PasswordInfo
+	Constraints    constraints.Constraints
+	Machine        machine.Name
 	// Principal contains the name of the units principal unit. If the unit is
 	// not a subordinate, this field is empty.
 	Principal coreunit.Name

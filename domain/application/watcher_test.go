@@ -44,8 +44,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -1673,17 +1672,19 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		return nil, coreerrors.NotSupported
 	}
 
+	registryGetter := corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
+		return internalstorage.NotImplementedProviderRegistry{}
+	})
+	state := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	return service.NewWatchableService(
-		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		state,
 		domaintesting.NoopLeaderEnsurer(),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return provider.CommonStorageProviders()
-		}),
-		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,
 		providerGetter,
 		caasProviderGetter,
+		service.NewStorageProviderValidator(registryGetter, state),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

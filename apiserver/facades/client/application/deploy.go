@@ -170,7 +170,6 @@ func DeployApplication(
 
 		applicationArg := applicationservice.AddApplicationArgs{
 			ReferenceName:    chURL.Name,
-			Storage:          args.Storage,
 			DownloadInfo:     downloadInfo,
 			PendingResources: pendingResources,
 			EndpointBindings: args.EndpointBindings,

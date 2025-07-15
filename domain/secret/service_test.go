@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationservicetest "github.com/juju/juju/domain/application/service/testing"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/schema/testing"
@@ -30,7 +30,6 @@ import (
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -129,10 +128,6 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 	appService := applicationservice.NewProviderService(
 		st,
 		domaintesting.NoopLeaderEnsurer(),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return storage.NotImplementedProviderRegistry{}
-		}),
-		s.modelUUID,
 		nil,
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil
@@ -140,6 +135,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
+		applicationservicetest.StorageProviderValidator{},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

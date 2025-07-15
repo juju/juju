@@ -13,6 +13,7 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -434,7 +435,9 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 func (st *State) AddIAASUnits(
-	ctx context.Context, appUUID coreapplication.ID, args ...application.AddIAASUnitArg,
+	ctx context.Context,
+	appUUID coreapplication.ID,
+	args ...application.AddIAASUnitArg,
 ) ([]coreunit.Name, []coremachine.Name, error) {
 	if len(args) == 0 {
 		return nil, nil, nil
@@ -454,7 +457,15 @@ func (st *State) AddIAASUnits(
 			return errors.Capture(err)
 		}
 
-		// TODO(storage) - read and use storage directives
+		stDirectives, err := st.getApplicationStorageDirectiveAsArgs(
+			ctx, tx, appUUID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting appllication %q storage directives: %w", appUUID, err,
+			)
+		}
+
 		for _, arg := range args {
 			unitName, err := st.newUnitName(ctx, tx, appUUID)
 			if err != nil {
@@ -464,9 +475,10 @@ func (st *State) AddIAASUnits(
 
 			insertArg := application.InsertIAASUnitArg{
 				InsertUnitArg: application.InsertUnitArg{
-					UnitName:    unitName,
-					Constraints: arg.Constraints,
-					Placement:   arg.Placement,
+					UnitName:          unitName,
+					Constraints:       arg.Constraints,
+					Placement:         arg.Placement,
+					StorageDirectives: stDirectives,
 					UnitStatusArg: application.UnitStatusArg{
 						AgentStatus:    arg.UnitStatusArg.AgentStatus,
 						WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
@@ -505,7 +517,15 @@ func (st *State) AddCAASUnits(
 
 	var unitNames []coreunit.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// TODO(storage) - read and use storage directives
+		stDirectives, err := st.getApplicationStorageDirectiveAsArgs(
+			ctx, tx, appUUID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting application %q storage directives: %w", appUUID, err,
+			)
+		}
+
 		for _, arg := range args {
 			unitName, err := st.newUnitName(ctx, tx, appUUID)
 			if err != nil {
@@ -514,9 +534,10 @@ func (st *State) AddCAASUnits(
 			unitNames = append(unitNames, unitName)
 
 			insertArg := application.InsertUnitArg{
-				UnitName:    unitName,
-				Constraints: arg.Constraints,
-				Placement:   arg.Placement,
+				UnitName:          unitName,
+				Constraints:       arg.Constraints,
+				Placement:         arg.Placement,
+				StorageDirectives: stDirectives,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
@@ -573,12 +594,23 @@ func (st *State) AddIAASSubordinateUnit(
 			return errors.Errorf("getting new unit name for application %q: %w", arg.SubordinateAppID, err)
 		}
 
+		stDirectives, err := st.getApplicationStorageDirectiveAsArgs(
+			ctx, tx, arg.SubordinateAppID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting subordinate application %q storage directives: %w",
+				arg.SubordinateAppID, err,
+			)
+		}
+
 		// Insert the new unit.
 		// TODO(storage) - read and use storage directives
 		insertArg := application.InsertIAASUnitArg{
 			InsertUnitArg: application.InsertUnitArg{
-				UnitName:      unitName,
-				UnitStatusArg: arg.UnitStatusArg,
+				StorageDirectives: stDirectives,
+				UnitName:          unitName,
+				UnitStatusArg:     arg.UnitStatusArg,
 			},
 		}
 		// Place the subordinate on the same machine as the principal unit.
@@ -1035,6 +1067,16 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 			}
 
+			stDirectives, err := st.getApplicationStorageDirectiveAsArgs(
+				ctx, tx, appUUID,
+			)
+			if err != nil {
+				return errors.Errorf(
+					"getting application %q storage directives: %w", appUUID, err,
+				)
+			}
+			insertArg.StorageDirectives = stDirectives
+
 			return st.insertCAASUnit(ctx, tx, appUUID, insertArg)
 		} else if err != nil {
 			return errors.Errorf("checking unit life %q: %w", arg.UnitName, err)
@@ -1114,7 +1156,13 @@ func (st *State) insertCAASUnit(
 		return errors.Capture(err)
 	}
 
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,
 		Password:       args.Password,
@@ -1124,19 +1172,31 @@ func (st *State) insertCAASUnit(
 		return errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	// If there is no storage, return early.
-	if len(args.Storage) == 0 {
-		return nil
+	unitStorageDirectives, err := st.createUnitStorageDirectives(
+		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"creating storage directives for unit %q: %w", args.UnitName, err,
+		)
 	}
 
-	attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
+	err = st.createUnitStorageInstances(ctx, tx, unitStorageDirectives)
 	if err != nil {
-		return errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
+		return errors.Errorf(
+			"creating storage instances for unit %q: %w", args.UnitName, err,
+		)
 	}
-	err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
-	if err != nil {
-		return errors.Errorf("attaching storage for unit %q: %w", args.UnitName, err)
-	}
+
+	// TODO (tlm): Handle storage attachment and type creation.
+	//attachArgs, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind)
+	//if err != nil {
+	//	return errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
+	//}
+	//err = st.attachUnitStorage(ctx, tx, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
+	//if err != nil {
+	//	return errors.Errorf("attaching storage for unit %q: %w", args.UnitName, err)
+	//}
 	return nil
 }
 
@@ -1170,7 +1230,13 @@ func (st *State) insertIAASUnit(
 		return nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}
 
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, nodeUUID, insertUnitArg{
+		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,
 		Password:       args.Password,
@@ -1179,13 +1245,32 @@ func (st *State) insertIAASUnit(
 	}); err != nil {
 		return nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 	}
-	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
-		return nil, errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
+
+	unitStorageDirectives, err := st.createUnitStorageDirectives(
+		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"creating storage directives for unit %q: %w", args.UnitName, err,
+		)
 	}
+
+	err = st.createUnitStorageInstances(ctx, tx, unitStorageDirectives)
+	if err != nil {
+		return nil, errors.Errorf(
+			"creating storage instances for unit %q: %w", args.UnitName, err,
+		)
+	}
+
+	// TODO (tlm): Handle storage attachment and type creation.
+	//if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
+	//	return nil, errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
+	//}
 	return machineNames, nil
 }
 
 type insertUnitArg struct {
+	CharmUUID      charm.ID
 	UnitName       coreunit.Name
 	CloudContainer *application.CloudContainer
 	Password       *application.PasswordInfo
@@ -1204,15 +1289,10 @@ func (st *State) insertUnit(
 		return errors.Capture(err)
 	}
 
-	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
-	if err != nil {
-		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
-	}
-
 	createParams := unitDetails{
 		ApplicationID: appUUID,
 		UnitUUID:      unitUUID,
-		CharmUUID:     charmUUID,
+		CharmUUID:     args.CharmUUID,
 		Name:          args.UnitName,
 		NetNodeID:     netNodeUUID,
 		LifeID:        life.Alive,
