@@ -811,18 +811,6 @@ type setApplicationExtraEndpointBinding struct {
 	Space         sql.Null[string]   `db:"space_uuid"`
 }
 
-type updateApplicationEndpointBinding struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	RelationUUID  string             `db:"charm_relation_uuid"`
-	Space         sql.Null[string]   `db:"space_uuid"`
-}
-
-type updateApplicationExtraEndpointBinding struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	RelationUUID  string             `db:"charm_extra_binding_uuid"`
-	Space         sql.Null[string]   `db:"space_uuid"`
-}
-
 type setConstraint struct {
 	UUID             string  `db:"uuid"`
 	Arch             *string `db:"arch"`
@@ -864,8 +852,8 @@ type setConstraintZone struct {
 }
 
 type setDefaultSpace struct {
-	UUID  coreapplication.ID `db:"uuid"`
-	Space network.SpaceName  `db:"space"`
+	UUID  string `db:"uuid"`
+	Space string `db:"space"`
 }
 
 type applicationSpaceUUID struct {
@@ -883,6 +871,11 @@ type unitConstraintUUID struct {
 
 type constraintUUID struct {
 	ConstraintUUID string `db:"constraint_uuid"`
+}
+
+type unitSpaceName struct {
+	SpaceName string `db:"space_name"`
+	UnitName  string `db:"unit_name"`
 }
 
 type space struct {
@@ -1208,6 +1201,12 @@ type endpointBinding struct {
 	EndpointName string                      `db:"name"`
 }
 
+type updateBinding struct {
+	ApplicationID string           `db:"application_uuid"`
+	BindingUUID   string           `db:"binding_uuid"`
+	Space         sql.Null[string] `db:"space_uuid"`
+}
+
 type unitWorkloadVersion struct {
 	UnitUUID coreunit.UUID `db:"unit_uuid"`
 	Version  string        `db:"version"`
@@ -1304,4 +1303,10 @@ type insertUnitStorageDirective struct {
 	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
 	StorageType     sql.Null[string] `db:"storage_type"`
 	UnitUUID        string           `db:"unit_uuid"`
+}
+
+type bindingToTable struct {
+	Name        string       `db:"name"`
+	UUID        string       `db:"uuid"`
+	BindingType bindingTable `db:"binding_type"`
 }

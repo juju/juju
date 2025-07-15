@@ -874,19 +874,6 @@ func (st *State) AddApplication(
 
 	app := newApplication(st, appDoc)
 
-	// The app has no existing bindings yet.
-	b, err := app.bindingsForOps(nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	endpointBindingsOp, err := b.createOp(
-		args.EndpointBindings,
-		args.Charm.Meta(),
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	statusDoc := statusDoc{
 		ModelUUID: st.ModelUUID(),
 		Status:    status.Unset,
@@ -924,7 +911,6 @@ func (st *State) AddApplication(
 		// so we add it here.
 		ops := []txn.Op{
 			assertModelActiveOp(st.ModelUUID()),
-			endpointBindingsOp,
 		}
 		addOps, err := addApplicationOps(st, app, addApplicationOpsArgs{
 			applicationDoc:    appDoc,
@@ -1250,60 +1236,6 @@ func (st *State) addMachineWithPlacement(
 	data *placementData,
 	lookup network.SpaceInfos,
 ) (*Machine, error) {
-	unitCons, err := unit.constraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Turn any endpoint bindings for the unit's application into machine
-	// constraints. This prevents a possible race condition where the
-	// provisioner can act on a newly created container before the unit is
-	// assigned to it, missing the required spaces for bridging based on
-	// endpoint bindings.
-	// TODO (manadart 2019-10-08): This step is not necessary when a single
-	// transaction is used based on the comment below.
-	app, err := unit.application()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bindings, err := app.endpointBindings()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Space constraints must be space name format as they are
-	// used by the providers directly.
-	bindingsNameMap, err := bindings.MapWithSpaceNames(lookup)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	spaces := set.NewStrings()
-	for _, name := range bindingsNameMap {
-		// TODO (manadart 2019-10-08): "alpha" is not guaranteed to have
-		// subnets, which the provisioner expects, so can not be used as
-		// a constraint.  This also preserves behavior from when the
-		// AlphaSpaceName was "". This condition will be removed with
-		// the institution of universal mutable spaces.
-		if name != network.AlphaSpaceName.String() {
-			spaces.Add(name)
-		}
-	}
-
-	// Merging constraints returns an error if any spaces are already set,
-	// so we "move" any existing constraints over to the bind spaces before
-	// parsing and merging.
-	if unitCons.Spaces != nil {
-		for _, sp := range *unitCons.Spaces {
-			spaces.Add(sp)
-		}
-		unitCons.Spaces = nil
-	}
-	spaceCons := constraints.MustParse("spaces=" + strings.Join(spaces.Values(), ","))
-
-	cons, err := constraints.Merge(*unitCons, spaceCons)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	// Create any new machine marked as dirty so that
 	// nothing else will grab it before we assign the unit to it.
@@ -1312,7 +1244,11 @@ func (st *State) addMachineWithPlacement(
 	// https://launchpad.net/bugs/1506994
 
 	mId := data.machineId
-	var machine *Machine
+	var (
+		machine *Machine
+		err     error
+	)
+
 	if data.machineId != "" {
 		machine, err = st.Machine(mId)
 		if err != nil {
@@ -1324,9 +1260,8 @@ func (st *State) addMachineWithPlacement(
 	case containerPlacement:
 		// If a container is to be used, create it.
 		template := MachineTemplate{
-			Base:        unit.doc.Base,
-			Dirty:       true,
-			Constraints: cons,
+			Base:  unit.doc.Base,
+			Dirty: true,
 		}
 		if mId != "" {
 			return st.AddMachineInsideMachine(template, mId, data.containerType)
