@@ -255,7 +255,7 @@ func (st *State) handleFailures(ctx context.Context,
 
 	// If forced, log everything
 	for _, message := range messages {
-		st.logger.Infof(ctx, message)
+		st.logger.Warningf(ctx, "MoveSubnetsToSpace: %s", message)
 	}
 	return nil
 }
