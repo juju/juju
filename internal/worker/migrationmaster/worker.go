@@ -382,9 +382,9 @@ func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationSt
 		return errors.Annotate(err, "failed to connect to target controller during prechecks")
 	}
 	defer targetConn.Close()
-	if targetConn.ControllerTag() != status.TargetInfo.ControllerTag {
+	if targetConn.ControllerTag() != names.NewControllerTag(status.TargetInfo.ControllerUUID) {
 		return errors.Errorf("unexpected target controller UUID (got %s, expected %s)",
-			targetConn.ControllerTag(), status.TargetInfo.ControllerTag)
+			targetConn.ControllerTag().Id(), status.TargetInfo.ControllerUUID)
 	}
 	targetClient := migrationtarget.NewClient(targetConn)
 	// If we have cross model relations to other models on this controller,
@@ -926,10 +926,16 @@ func (w *Worker) openAPIConnForModel(ctx context.Context, targetInfo coremigrati
 		ModelTag:  names.NewModelTag(modelUUID),
 		Macaroons: targetInfo.Macaroons,
 	}
-	// Only local users must be added to the api info.
-	// For external users, the tag needs to be left empty.
-	if targetInfo.AuthTag.IsLocal() {
-		apiInfo.Tag = targetInfo.AuthTag
+	if targetInfo.User != "" {
+		if !names.IsValidUser(targetInfo.User) {
+			return nil, errors.Errorf("user %q not valid", targetInfo.User)
+		}
+		authTag := names.NewUserTag(targetInfo.User)
+		// Only local users must be added to the api info.
+		// For external users, the tag needs to be left empty.
+		if authTag.IsLocal() {
+			apiInfo.Tag = authTag
+		}
 	}
 	loginProvider := migration.NewLoginProvider(targetInfo)
 	return w.config.APIOpen(ctx, apiInfo, migration.ControllerDialOpts(loginProvider))

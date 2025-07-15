@@ -9,15 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -28,37 +30,38 @@ import (
 	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/modelmigration"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type Suite struct {
 	coretesting.BaseSuite
 
-	backend         *mocks.MockBackend
 	modelExporter   *mocks.MockModelExporter
-	precheckBackend *mocks.MockPrecheckBackend
 	store           *mocks.MockObjectStore
+	watcherRegistry *facademocks.MockWatcherRegistry
 
 	agentService            *mocks.MockModelAgentService
 	applicationService      *mocks.MockApplicationService
-	relationService         *mocks.MockRelationService
-	statusService           *mocks.MockStatusService
 	controllerConfigService *mocks.MockControllerConfigService
 	controllerNodeService   *mocks.MockControllerNodeService
 	credentialService       *mocks.MockCredentialService
+	machineService          *mocks.MockMachineService
 	modelInfoService        *mocks.MockModelInfoService
+	modelMigrationService   *mocks.MockModelMigrationService
 	modelService            *mocks.MockModelService
+	relationService         *mocks.MockRelationService
+	statusService           *mocks.MockStatusService
 	upgradeService          *mocks.MockUpgradeService
 
 	controllerModelUUID model.UUID
 	controllerUUID      string
 	modelUUID           string
 	model               description.Model
-	resources           *common.Resources
 	authorizer          apiservertesting.FakeAuthorizer
 	cloudSpec           environscloudspec.CloudSpec
 }
@@ -76,20 +79,19 @@ func (s *Suite) SetUpTest(c *tc.C) {
 
 	s.model = description.NewModel(description.ModelArgs{
 		Type:               "iaas",
-		Config:             map[string]interface{}{"uuid": s.modelUUID},
+		Config:             map[string]any{"uuid": s.modelUUID},
 		Owner:              "admin",
 		LatestToolsVersion: jujuversion.Current.String(),
 	})
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
-
 	s.authorizer = apiservertesting.FakeAuthorizer{Controller: true}
 	s.cloudSpec = environscloudspec.CloudSpec{Type: "lxd"}
-
 }
 
 func (s *Suite) TestNotController(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	s.authorizer.Controller = false
 
 	api, err := s.makeAPI()
@@ -98,65 +100,53 @@ func (s *Suite) TestNotController(c *tc.C) {
 }
 
 func (s *Suite) TestWatch(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	// Watcher with an initial event in the pipe.
-	w := mocks.NewMockNotifyWatcher(ctrl)
-	w.EXPECT().Kill().AnyTimes()
-	w.EXPECT().Wait().Return(nil).AnyTimes()
-
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}
-	w.EXPECT().Changes().Return(ch).Times(2)
+	w := watchertest.NewMockNotifyWatcher(ch)
+	defer workertest.CleanKill(c, w)
 
-	s.backend.EXPECT().WatchForMigration().Return(w)
+	s.modelMigrationService.EXPECT().WatchForMigration(gomock.Any()).Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("123", nil)
 
 	result := s.mustMakeAPI(c).Watch(c.Context())
 	c.Assert(result.Error, tc.IsNil)
-
-	resource := s.resources.Get(result.NotifyWatcherId)
-	watcher, _ := resource.(state.NotifyWatcher)
-	c.Assert(watcher, tc.NotNil)
-
-	select {
-	case <-watcher.Changes():
-		c.Fatalf("initial event not consumed")
-	case <-time.After(coretesting.ShortWait):
-	}
+	c.Assert(result.NotifyWatcherId, tc.Equals, "123")
 }
 
 func (s *Suite) TestMigrationStatus(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	password := "secret"
 	token := "token"
 
-	mig := mocks.NewMockModelMigration(ctrl)
-
 	mac, err := macaroon.New([]byte(password), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)
 
-	targetInfo := coremigration.TargetInfo{
-		ControllerTag: names.NewControllerTag(s.controllerUUID),
-		Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
-		CACert:        "trust me",
-		AuthTag:       names.NewUserTag("admin"),
-		Password:      password,
-		Macaroons:     []macaroon.Slice{{mac}},
-		Token:         token,
+	modelInfo := model.ModelInfo{
+		UUID: model.UUID(s.modelUUID),
 	}
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
 
-	exp := mig.EXPECT()
-	exp.TargetInfo().Return(&targetInfo, nil)
-	exp.Phase().Return(coremigration.IMPORT, nil)
-	exp.ModelUUID().Return(s.modelUUID)
-	exp.Id().Return("ID")
 	now := time.Now()
-	exp.PhaseChangedTime().Return(now)
-
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
+	targetInfo := coremigration.TargetInfo{
+		ControllerUUID: s.controllerUUID,
+		Addrs:          []string{"1.1.1.1:1", "2.2.2.2:2"},
+		CACert:         "trust me",
+		User:           "admin",
+		Password:       password,
+		Macaroons:      []macaroon.Slice{{mac}},
+		Token:          token,
+	}
+	mig := modelmigration.Migration{
+		UUID:             "ID",
+		Phase:            coremigration.IMPORT,
+		PhaseChangedTime: now,
+		Target:           targetInfo,
+	}
+	s.modelMigrationService.EXPECT().Migration(gomock.Any()).Return(mig, nil)
 
 	api := s.mustMakeAPI(c)
 	status, err := api.MigrationStatus(c.Context())
@@ -236,31 +226,15 @@ func (s *Suite) TestSetPhase(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().SetPhase(coremigration.ABORT).Return(nil)
-
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
+	s.modelMigrationService.EXPECT().SetMigrationPhase(gomock.Any(), coremigration.ABORT).Return(nil)
 
 	err := s.mustMakeAPI(c).SetPhase(c.Context(), params.SetMigrationPhaseArgs{Phase: "ABORT"})
 	c.Assert(err, tc.ErrorIsNil)
-
-}
-
-func (s *Suite) TestSetPhaseNoMigration(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.backend.EXPECT().LatestMigration().Return(nil, errors.New("boom"))
-
-	err := s.mustMakeAPI(c).SetPhase(c.Context(), params.SetMigrationPhaseArgs{Phase: "ABORT"})
-	c.Assert(err, tc.ErrorMatches, "could not get migration: boom")
 }
 
 func (s *Suite) TestSetPhaseBadPhase(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	mig := mocks.NewMockModelMigration(ctrl)
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
 	err := s.mustMakeAPI(c).SetPhase(c.Context(), params.SetMigrationPhaseArgs{Phase: "wat"})
 	c.Assert(err, tc.ErrorMatches, `invalid phase: "wat"`)
@@ -270,10 +244,7 @@ func (s *Suite) TestSetPhaseError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().SetPhase(coremigration.ABORT).Return(errors.New("blam"))
-
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
+	s.modelMigrationService.EXPECT().SetMigrationPhase(gomock.Any(), coremigration.ABORT).Return(errors.New("blam"))
 
 	err := s.mustMakeAPI(c).SetPhase(c.Context(), params.SetMigrationPhaseArgs{Phase: "ABORT"})
 	c.Assert(err, tc.ErrorMatches, "failed to set phase: blam")
@@ -283,32 +254,17 @@ func (s *Suite) TestSetStatusMessage(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().SetStatusMessage("foo").Return(nil)
-
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
+	s.modelMigrationService.EXPECT().SetMigrationStatusMessage(gomock.Any(), "foo").Return(nil)
 
 	err := s.mustMakeAPI(c).SetStatusMessage(c.Context(), params.SetMigrationStatusMessageArgs{Message: "foo"})
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *Suite) TestSetStatusMessageNoMigration(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.backend.EXPECT().LatestMigration().Return(nil, errors.New("boom"))
-
-	err := s.mustMakeAPI(c).SetStatusMessage(c.Context(), params.SetMigrationStatusMessageArgs{Message: "foo"})
-	c.Assert(err, tc.ErrorMatches, "could not get migration: boom")
 }
 
 func (s *Suite) TestSetStatusMessageError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().SetStatusMessage("foo").Return(errors.New("blam"))
-
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
+	s.modelMigrationService.EXPECT().SetMigrationStatusMessage(gomock.Any(), "foo").Return(errors.New("blam"))
 
 	err := s.mustMakeAPI(c).SetStatusMessage(c.Context(), params.SetMigrationStatusMessageArgs{Message: "foo"})
 	c.Assert(err, tc.ErrorMatches, "failed to set status message: blam")
@@ -426,35 +382,20 @@ func (s *Suite) TestReap(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	mig := mocks.NewMockModelMigration(ctrl)
-
-	exp := s.backend.EXPECT()
-	exp.LatestMigration().Return(mig, nil)
-
-	// Reaping should set the migration phase to DONE - otherwise
-	// there's a race between the migrationmaster worker updating the
-	// phase and being stopped because the model's gone. This leaves
-	// the migration as active in the source controller, which will
-	// prevent the model from being migrated back.
-	exp.RemoveExportingModelDocs().Return(nil)
-	mig.EXPECT().SetPhase(coremigration.DONE).Return(nil)
+	s.modelMigrationService.EXPECT().SetMigrationPhase(gomock.Any(), coremigration.DONE).Return(nil)
 
 	err := s.mustMakeAPI(c).Reap(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-
 }
 
 func (s *Suite) TestReapError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	mig := mocks.NewMockModelMigration(ctrl)
-
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
-	s.backend.EXPECT().RemoveExportingModelDocs().Return(errors.New("boom"))
+	s.modelMigrationService.EXPECT().SetMigrationPhase(gomock.Any(), coremigration.DONE).Return(errors.New("boom"))
 
 	err := s.mustMakeAPI(c).Reap(c.Context())
-	c.Check(err, tc.ErrorMatches, "boom")
+	c.Check(err, tc.ErrorMatches, "failed to set phase: boom")
 }
 
 func (s *Suite) TestWatchMinionReports(c *tc.C) {
@@ -462,31 +403,17 @@ func (s *Suite) TestWatchMinionReports(c *tc.C) {
 	defer ctrl.Finish()
 
 	// Watcher with an initial event in the pipe.
-	w := mocks.NewMockNotifyWatcher(ctrl)
-	w.EXPECT().Kill().AnyTimes()
-	w.EXPECT().Wait().Return(nil).AnyTimes()
-
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}
-	w.EXPECT().Changes().Return(ch).Times(2)
+	w := watchertest.NewMockNotifyWatcher(ch)
+	defer workertest.CleanKill(c, w)
 
-	mig := mocks.NewMockModelMigration(ctrl)
-	mig.EXPECT().WatchMinionReports().Return(w, nil)
-
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
+	s.modelMigrationService.EXPECT().WatchMinionReports(gomock.Any()).Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("123", nil)
 
 	result := s.mustMakeAPI(c).WatchMinionReports(c.Context())
 	c.Assert(result.Error, tc.IsNil)
-
-	resource := s.resources.Get(result.NotifyWatcherId)
-	watcher, _ := resource.(state.NotifyWatcher)
-	c.Assert(watcher, tc.NotNil)
-
-	select {
-	case <-watcher.Changes():
-		c.Fatalf("initial event not consumed")
-	case <-time.After(coretesting.ShortWait):
-	}
+	c.Assert(result.NotifyWatcherId, tc.Equals, "123")
 }
 
 func (s *Suite) TestMinionReports(c *tc.C) {
@@ -501,24 +428,25 @@ func (s *Suite) TestMinionReports(c *tc.C) {
 	}
 	m50c0 := names.NewMachineTag("50/lxd/0")
 	m50c1 := names.NewMachineTag("50/lxd/1")
-	m50 := names.NewMachineTag("50")
-	m51 := names.NewMachineTag("51")
 	m52 := names.NewMachineTag("52")
-	u0 := names.NewUnitTag("foo/0")
 	u1 := names.NewUnitTag("foo/1")
 
-	mig := mocks.NewMockModelMigration(ctrl)
+	mig := modelmigration.Migration{
+		UUID:  "ID",
+		Phase: coremigration.IMPORT,
+	}
+	s.modelMigrationService.EXPECT().Migration(gomock.Any()).Return(mig, nil)
 
-	exp := mig.EXPECT()
-	exp.Id().Return("ID")
-	exp.Phase().Return(coremigration.IMPORT, nil)
-	exp.MinionReports().Return(&state.MinionReports{
-		Succeeded: []names.Tag{m50, m51, u0},
-		Failed:    []names.Tag{u1, m52, m50c1, m50c0},
-		Unknown:   unknown,
-	}, nil)
-
-	s.backend.EXPECT().LatestMigration().Return(mig, nil)
+	minionReports := coremigration.MinionReports{
+		MigrationId:         "ID",
+		Phase:               coremigration.IMPORT,
+		SuccessCount:        3,
+		UnknownCount:        len(unknown),
+		FailedMachines:      []string{m52.Id(), m50c1.Id(), m50c0.Id()},
+		FailedUnits:         []string{u1.Id()},
+		SomeUnknownMachines: transform.Slice(unknown, names.Tag.Id),
+	}
+	s.modelMigrationService.EXPECT().MinionReports(gomock.Any()).Return(minionReports, nil)
 
 	reports, err := s.mustMakeAPI(c).MinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -566,33 +494,36 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.agentService = mocks.NewMockModelAgentService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
-	s.relationService = mocks.NewMockRelationService(ctrl)
-	s.statusService = mocks.NewMockStatusService(ctrl)
-	s.backend = mocks.NewMockBackend(ctrl)
-	s.credentialService = mocks.NewMockCredentialService(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 	s.controllerNodeService = mocks.NewMockControllerNodeService(ctrl)
+	s.credentialService = mocks.NewMockCredentialService(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
 	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
+	s.modelMigrationService = mocks.NewMockModelMigrationService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
-	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
+	s.relationService = mocks.NewMockRelationService(ctrl)
+	s.statusService = mocks.NewMockStatusService(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
 	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
 	c.Cleanup(func() {
 		s.agentService = nil
 		s.applicationService = nil
-		s.relationService = nil
-		s.statusService = nil
-		s.backend = nil
-		s.credentialService = nil
 		s.controllerConfigService = nil
+		s.controllerNodeService = nil
+		s.credentialService = nil
+		s.machineService = nil
 		s.modelExporter = nil
 		s.modelInfoService = nil
+		s.modelMigrationService = nil
 		s.modelService = nil
-		s.precheckBackend = nil
+		s.relationService = nil
+		s.statusService = nil
 		s.store = nil
 		s.upgradeService = nil
+		s.watcherRegistry = nil
 	})
 	return ctrl
 }
@@ -605,15 +536,15 @@ func (s *Suite) mustMakeAPI(c *tc.C) *migrationmaster.API {
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 	return migrationmaster.NewAPI(
-		s.backend,
 		s.modelExporter,
 		s.store,
 		s.controllerModelUUID,
-		s.precheckBackend,
-		nil, // pool
-		s.resources,
+		s.watcherRegistry,
 		s.authorizer,
 		stubLeadership{},
+		func(context.Context, model.UUID) (migrationmaster.ModelMigrationService, error) {
+			return s.modelMigrationService, nil
+		},
 		func(context.Context, model.UUID) (migrationmaster.CredentialService, error) {
 			return s.credentialService, nil
 		},
@@ -632,10 +563,14 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		func(context.Context, model.UUID) (migrationmaster.ModelAgentService, error) {
 			return s.agentService, nil
 		},
+		func(context.Context, model.UUID) (migrationmaster.MachineService, error) {
+			return s.machineService, nil
+		},
 		s.controllerConfigService,
 		s.controllerNodeService,
 		s.modelInfoService,
 		s.modelService,
+		s.modelMigrationService,
 	)
 }
 

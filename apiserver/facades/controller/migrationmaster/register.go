@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/migration"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -38,27 +37,19 @@ func newMigrationMasterFacadeV4(stdCtx context.Context, ctx facade.MultiModelCon
 // newMigrationMasterFacade exists to provide the required signature for API
 // registration, converting st to backend.
 func newMigrationMasterFacade(stdCtx context.Context, ctx facade.MultiModelContext) (*API, error) {
-	pool := ctx.StatePool()
-	modelState := ctx.State()
-
-	controllerState, err := pool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	preCheckBackend, err := migration.PrecheckShim(modelState, controllerState)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating precheck backend")
-	}
-
 	leadership, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	backend := newBacked(modelState)
-
 	domainServices := ctx.DomainServices()
+	modelMigrationServiceGetter := func(stdctx context.Context, modelUUID model.UUID) (ModelMigrationService, error) {
+		domainServices, err := ctx.DomainServicesForModel(stdctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return domainServices.ModelMigration(), nil
+	}
 	credentialServiceGetter := func(stdctx context.Context, modelUUID model.UUID) (CredentialService, error) {
 		domainServices, err := ctx.DomainServicesForModel(stdctx, modelUUID)
 		if err != nil {
@@ -101,31 +92,38 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.MultiModelConte
 		}
 		return domainServices.Agent(), nil
 	}
+	machineServiceGetter := func(stdctx context.Context, modelUUID model.UUID) (MachineService, error) {
+		domainServices, err := ctx.DomainServicesForModel(stdctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return domainServices.Machine(), nil
+	}
 
-	modelExporter, err := ctx.ModelExporter(stdCtx, ctx.ModelUUID(), backend)
+	modelExporter, err := ctx.ModelExporter(stdCtx, ctx.ModelUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return NewAPI(
-		backend,
 		modelExporter,
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
-		preCheckBackend,
-		migration.PoolShim(pool),
-		ctx.Resources(),
+		ctx.WatcherRegistry(),
 		ctx.Auth(),
 		leadership,
+		modelMigrationServiceGetter,
 		credentialServiceGetter,
 		upgradeServiceGetter,
 		applicationServiceGetter,
 		relationServiceGetter,
 		statusServiceGetter,
 		modelAgentServiceGetter,
+		machineServiceGetter,
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.ModelInfo(),
 		domainServices.Model(),
+		domainServices.ModelMigration(),
 	)
 }

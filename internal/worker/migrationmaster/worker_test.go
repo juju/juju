@@ -216,11 +216,11 @@ func (s *Suite) makeStatus(phase coremigration.Phase) coremigration.MigrationSta
 		Phase:            phase,
 		PhaseChangedTime: s.clock.Now(),
 		TargetInfo: coremigration.TargetInfo{
-			ControllerTag: targetControllerTag,
-			Addrs:         []string{"1.2.3.4:5"},
-			CACert:        "cert",
-			AuthTag:       names.NewUserTag("admin"),
-			Password:      "secret",
+			ControllerUUID: targetControllerTag.Id(),
+			Addrs:          []string{"1.2.3.4:5"},
+			CACert:         "cert",
+			User:           "admin",
+			Password:       "secret",
 		},
 	}
 }
@@ -876,7 +876,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 	// Use ABORT because it involves an API connection to the target
 	// and is convenient.
 	status := s.makeStatus(coremigration.ABORT)
-	status.TargetInfo.AuthTag = authUser
+	status.TargetInfo.User = authUser.Id()
 
 	// Set up macaroon based auth to the target.
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
@@ -927,8 +927,7 @@ func (s *Suite) TestAPIConnectionWithToken(c *tc.C) {
 	// Use ABORT because it involves an API connection to the target
 	// and is convenient.
 	status := s.makeStatus(coremigration.ABORT)
-	authUser := names.NewUserTag("fred@external")
-	status.TargetInfo.AuthTag = authUser
+	status.TargetInfo.User = "fred@external"
 
 	// Set up token based auth to the target.
 	status.TargetInfo.Password = ""
