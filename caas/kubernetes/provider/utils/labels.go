@@ -48,6 +48,9 @@ const (
 	// ErrUnexpectedApplicationLabels is returned when the namespace does not have
 	// any of the expected variants of model labels.
 	ErrUnexpectedApplicationLabels errors.ConstError = "unexpected application labels"
+	// ErrUnexpectedStorageLabels is returned when the storage does not have
+	// any of the expected variants of labels.
+	ErrUnexpectedStorageLabels errors.ConstError = "unexpected storage labels"
 )
 
 // MatchModelLabelVersion checks to see if the provided model is running on an older
@@ -103,6 +106,21 @@ func MatchApplicationMetaLabelVersion(meta meta.ObjectMeta, appName string) (con
 		}
 	}
 	return -1, ErrUnexpectedApplicationLabels
+}
+
+// MatchStorageMetaLabelVersion checks to see if the provided resource is running on an older
+// storage labeling scheme or a newer one and returns the detected label version.
+func MatchStorageMetaLabelVersion(meta meta.ObjectMeta, storageName string) (constants.LabelVersion, error) {
+	for i := constants.LastLabelVersion; i >= constants.FirstLabelVersion; i-- {
+		want := LabelsForStorage(storageName, i)
+		if i != constants.LegacyLabelVersion {
+			want = labels.Merge(want, LabelsJuju)
+		}
+		if HasLabels(meta.Labels, want) {
+			return i, nil
+		}
+	}
+	return -1, ErrUnexpectedStorageLabels
 }
 
 // LabelsForApp returns the labels that should be on a k8s object for a given

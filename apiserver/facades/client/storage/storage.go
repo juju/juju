@@ -27,7 +27,12 @@ import (
 
 type storageMetadataFunc func() (poolmanager.PoolManager, storage.ProviderRegistry, error)
 
-// StorageAPI implements the latest version (v6) of the Storage API.
+// StorageAPIv6 provides the Storage API facade for version 6.
+type StorageAPIv6 struct {
+	*StorageAPI
+}
+
+// StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
 	backend         backend
 	storageAccess   storageAccess
@@ -703,7 +708,7 @@ func (a *StorageAPI) Attach(args params.StorageAttachmentIds) (params.ErrorResul
 
 // Import imports existing storage into the model.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) Import(args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
+func (a *StorageAPI) Import(args params.BulkImportStorageParamsV2) (params.ImportStorageResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ImportStorageResults{}, errors.Trace(err)
 	}
@@ -725,7 +730,24 @@ func (a *StorageAPI) Import(args params.BulkImportStorageParams) (params.ImportS
 	return params.ImportStorageResults{Results: results}, nil
 }
 
-func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.ImportStorageDetails, error) {
+// Import imports existing storage into the model.
+// A "CHANGE" block can block this operation.
+func (a *StorageAPIv6) Import(args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
+	v2Args := params.BulkImportStorageParamsV2{Storage: make([]params.ImportStorageParamsV2, len(args.Storage))}
+	for idx, param := range args.Storage {
+		v2Args.Storage[idx] = params.ImportStorageParamsV2{
+			Kind:        param.Kind,
+			Pool:        param.Pool,
+			ProviderId:  param.ProviderId,
+			StorageName: param.StorageName,
+			// Always false since force is not supported in v6.
+			Force: false,
+		}
+	}
+	return a.StorageAPI.Import(v2Args)
+}
+
+func (a *StorageAPI) importStorage(arg params.ImportStorageParamsV2) (*params.ImportStorageDetails, error) {
 	if arg.Kind != params.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.
 		return nil, errors.NotSupportedf("storage kind %q", arg.Kind.String())
@@ -760,7 +782,7 @@ func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.Impo
 }
 
 func (a *StorageAPI) importFilesystem(
-	arg params.ImportStorageParams,
+	arg params.ImportStorageParamsV2,
 	provider storage.Provider,
 	cfg *storage.Config,
 ) (*params.ImportStorageDetails, error) {
@@ -803,7 +825,7 @@ func (a *StorageAPI) importFilesystem(
 				cfg.Provider(),
 			)
 		}
-		info, err := volumeImporter.ImportVolume(a.callContext, arg.ProviderId, resourceTags)
+		info, err := volumeImporter.ImportVolume(a.callContext, arg.ProviderId, arg.StorageName, resourceTags, arg.Force)
 		if err != nil {
 			return nil, errors.Annotate(err, "importing volume")
 		}
