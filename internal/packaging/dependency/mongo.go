@@ -4,8 +4,6 @@
 package dependency
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/internal/packaging/manager"
 )
 
@@ -13,5 +11,5 @@ import (
 // snap channel.
 func InstallMongo() error {
 	snapManager := manager.NewSnapPackageManager()
-	return snapManager.Install(fmt.Sprintf("juju-db"))
+	return snapManager.Install("juju-db --channel 4.4/stable")
 }
