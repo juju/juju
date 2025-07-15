@@ -301,3 +301,12 @@ SELECT
 FROM machine_platform AS mp
 JOIN os ON mp.os_id = os.id
 JOIN architecture AS a ON mp.architecture_id = a.id;
+
+CREATE TABLE machine_ssh_host_key (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    machine_uuid TEXT NOT NULL,
+    ssh_key TEXT NOT NULL,
+    CONSTRAINT fk_machine_ssh_host_key_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);

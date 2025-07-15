@@ -905,6 +905,45 @@ func (c *MockStateGetNamesForUUIDsCall) DoAndReturn(f func(context.Context, []st
 	return c
 }
 
+// GetSSHHostKeys mocks base method.
+func (m *MockState) GetSSHHostKeys(ctx context.Context, mUUID string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSSHHostKeys", ctx, mUUID)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSSHHostKeys indicates an expected call of GetSSHHostKeys.
+func (mr *MockStateMockRecorder) GetSSHHostKeys(ctx, mUUID any) *MockStateGetSSHHostKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSSHHostKeys", reflect.TypeOf((*MockState)(nil).GetSSHHostKeys), ctx, mUUID)
+	return &MockStateGetSSHHostKeysCall{Call: call}
+}
+
+// MockStateGetSSHHostKeysCall wrap *gomock.Call
+type MockStateGetSSHHostKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetSSHHostKeysCall) Return(arg0 []string, arg1 error) *MockStateGetSSHHostKeysCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetSSHHostKeysCall) Do(f func(context.Context, string) ([]string, error)) *MockStateGetSSHHostKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetSSHHostKeysCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetSSHHostKeysCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSupportedContainersTypes mocks base method.
 func (m *MockState) GetSupportedContainersTypes(ctx context.Context, mUUID string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -1594,6 +1633,44 @@ func (c *MockStateSetRunningAgentBinaryVersionCall) Do(f func(context.Context, s
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetRunningAgentBinaryVersionCall) DoAndReturn(f func(context.Context, string, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetSSHHostKeys mocks base method.
+func (m *MockState) SetSSHHostKeys(ctx context.Context, mUUID string, sshHostKeys []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetSSHHostKeys", ctx, mUUID, sshHostKeys)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetSSHHostKeys indicates an expected call of SetSSHHostKeys.
+func (mr *MockStateMockRecorder) SetSSHHostKeys(ctx, mUUID, sshHostKeys any) *MockStateSetSSHHostKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSSHHostKeys", reflect.TypeOf((*MockState)(nil).SetSSHHostKeys), ctx, mUUID, sshHostKeys)
+	return &MockStateSetSSHHostKeysCall{Call: call}
+}
+
+// MockStateSetSSHHostKeysCall wrap *gomock.Call
+type MockStateSetSSHHostKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetSSHHostKeysCall) Return(arg0 error) *MockStateSetSSHHostKeysCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetSSHHostKeysCall) Do(f func(context.Context, string, []string) error) *MockStateSetSSHHostKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetSSHHostKeysCall) DoAndReturn(f func(context.Context, string, []string) error) *MockStateSetSSHHostKeysCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

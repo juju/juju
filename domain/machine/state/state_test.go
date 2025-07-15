@@ -1239,6 +1239,29 @@ func (s *stateSuite) TestCountMachinesInSpaceMultipleSubnets(c *tc.C) {
 	c.Check(count, tc.Equals, int64(3))
 }
 
+func (s *stateSuite) TestGetSSHHostKeys(c *tc.C) {
+	machineUUID, _ := s.addMachine(c)
+
+	// Set SSH host keys for the machine.
+	err := s.state.SetSSHHostKeys(c.Context(), machineUUID.String(), []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC0="})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Retrieve the SSH host keys.
+	keys, err := s.state.GetSSHHostKeys(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC0="})
+}
+
+func (s *stateSuite) TestSetSSHHostKeysMachineNotFound(c *tc.C) {
+	err := s.state.SetSSHHostKeys(c.Context(), "foo", []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC0="})
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestGetSSHHostKeysMachineNotFound(c *tc.C) {
+	_, err := s.state.GetSSHHostKeys(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{

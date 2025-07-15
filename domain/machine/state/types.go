@@ -464,3 +464,9 @@ type dbConstraintZone struct {
 type entityUUID struct {
 	UUID string `db:"uuid"`
 }
+
+type sshHostKey struct {
+	UUID        string `db:"uuid"`
+	MachineUUID string `db:"machine_uuid"`
+	Key         string `db:"ssh_key"`
+}
