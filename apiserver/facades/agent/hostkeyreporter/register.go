@@ -21,7 +21,10 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade wraps New to express the supplied *state.State as a Backend.
 func newFacade(ctx facade.ModelContext) (*Facade, error) {
-	facade, err := New(ctx.State(), ctx.Auth())
+	domainServices := ctx.DomainServices()
+	machineService := domainServices.Machine()
+
+	facade, err := New(machineService, ctx.Auth())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

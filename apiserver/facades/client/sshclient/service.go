@@ -55,4 +55,6 @@ type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns an errors.MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error)
+	// GetSSHHostKeys returns the SSH host keys for the given machine UUID.
+	GetSSHHostKeys(ctx context.Context, mUUID machine.UUID) ([]string, error)
 }

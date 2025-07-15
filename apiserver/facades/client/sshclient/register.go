@@ -28,7 +28,7 @@ func newFacadeV5(ctx facade.ModelContext) (*FacadeV5, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &FacadeV5{facade}, nil
+	return &FacadeV5{Facade: facade}, nil
 }
 
 func newFacadeV4(ctx facade.ModelContext) (*FacadeV4, error) {
@@ -36,26 +36,19 @@ func newFacadeV4(ctx facade.ModelContext) (*FacadeV4, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &FacadeV4{facade}, nil
+	return &FacadeV4{FacadeV5: facade}, nil
 }
 
 func newFacadeBase(ctx facade.ModelContext) (*Facade, error) {
-	st := ctx.State()
-	leadershipReader, err := ctx.LeadershipReader()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	domainServices := ctx.DomainServices()
 	return internalFacade(
 		names.NewControllerTag(ctx.ControllerUUID()),
 		names.NewModelTag(ctx.ModelUUID().String()),
-		st,
 		domainServices.Application(),
 		domainServices.Machine(),
 		domainServices.Network(),
 		domainServices.Config(),
 		domainServices.ModelProvider(),
-		leadershipReader,
 		ctx.Auth(),
 	)
 }
