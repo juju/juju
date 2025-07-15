@@ -8,23 +8,45 @@ import (
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
+// FilesystemAttachmentUUID represents the unique id for a storage filesystem
+// attachment in the model.
+type FilesystemAttachmentUUID uuid
+
 // FilesystemUUID represents the unique id for a storage filesystem
-// instance.
+// in the model.
 type FilesystemUUID uuid
+
+// VolumeAttachmentUUID represents the unique id for a storage volume
+// attachment in the model.
+type VolumeAttachmentUUID uuid
 
 // VolumeUUID represents the unique id for a storage volume instance.
 type VolumeUUID uuid
 
 type uuid string
 
-// NewStorageFileystemUUID creates a new, valid storage filesystem identifier.
-func NewStorageFileystemUUID() (FilesystemUUID, error) {
+// NewFileystemAttachmentUUID creates a new, valid storage filesystem attachment
+// identifier.
+func NewFilesystemAttachmentUUID() (FilesystemAttachmentUUID, error) {
+	u, err := newUUID()
+	return FilesystemAttachmentUUID(u), err
+}
+
+// NewFileystemUUID creates a new, valid storage filesystem identifier.
+func NewFileystemUUID() (FilesystemUUID, error) {
 	u, err := newUUID()
 	return FilesystemUUID(u), err
 }
 
-// NewStorageVolumeUUID creates a new, valid storage volume identifier.
-func NewStorageVolumeUUID() (VolumeUUID, error) {
+// NewVolumeAttachmentUUID creates a new, valid storage volume attachment
+// identifier.
+func NewVolumeAttachmentUUID() (VolumeAttachmentUUID, error) {
+	u, err := newUUID()
+	return VolumeAttachmentUUID(u), err
+}
+
+// NewVolumeUUID creates a new, valid storage volume identifier.
+func NewVolumeUUID() (VolumeUUID, error) {
 	u, err := newUUID()
 	return VolumeUUID(u), err
 }
@@ -40,7 +62,19 @@ func newUUID() (uuid, error) {
 
 // String returns the string representation of this uuid. This function
 // satisfies the [fmt.Stringer] interface.
+func (u FilesystemAttachmentUUID) String() string {
+	return uuid(u).String()
+}
+
+// String returns the string representation of this uuid. This function
+// satisfies the [fmt.Stringer] interface.
 func (u FilesystemUUID) String() string {
+	return uuid(u).String()
+}
+
+// String returns the string representation of this uuid. This function
+// satisfies the [fmt.Stringer] interface.
+func (u VolumeAttachmentUUID) String() string {
 	return uuid(u).String()
 }
 
@@ -56,8 +90,18 @@ func (u uuid) String() string {
 	return string(u)
 }
 
+// Validate returns an error if the [FilesystemAttachmentUUID] is not valid.
+func (u FilesystemAttachmentUUID) Validate() error {
+	return uuid(u).validate()
+}
+
 // Validate returns an error if the [FilesystemUUID] is not valid.
 func (u FilesystemUUID) Validate() error {
+	return uuid(u).validate()
+}
+
+// Validate returns an error if the [VolumeAttachmentUUID] is not valid.
+func (u VolumeAttachmentUUID) Validate() error {
 	return uuid(u).validate()
 }
 
