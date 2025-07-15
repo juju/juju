@@ -4381,6 +4381,71 @@
         }
     },
     {
+        "Name": "MigrationStatusWatcher",
+        "Description": "",
+        "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Next": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/MigrationStatus"
+                        }
+                    }
+                },
+                "Stop": {
+                    "type": "object"
+                }
+            },
+            "definitions": {
+                "MigrationStatus": {
+                    "type": "object",
+                    "properties": {
+                        "attempt": {
+                            "type": "integer"
+                        },
+                        "migration-id": {
+                            "type": "string"
+                        },
+                        "phase": {
+                            "type": "string"
+                        },
+                        "source-api-addrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "source-ca-cert": {
+                            "type": "string"
+                        },
+                        "target-api-addrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "target-ca-cert": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "migration-id",
+                        "attempt",
+                        "phase",
+                        "source-api-addrs",
+                        "source-ca-cert",
+                        "target-api-addrs",
+                        "target-ca-cert"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "PayloadsHookContext",
         "Description": "",
         "Version": 2,

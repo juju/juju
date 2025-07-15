@@ -8,19 +8,16 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -122,61 +119,6 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *tc.C) {
 	})
 }
 
-func (s *watcherSuite) TestMigrationStatusWatcher(c *tc.C) {
-	w := apiservertesting.NewFakeNotifyWatcher()
-	id := s.resources.Register(w)
-	s.authorizer.Tag = names.NewMachineTag("12")
-	apiserver.PatchGetMigrationBackend(s, c.Context(), new(fakeMigrationBackend), new(fakeMigrationBackend))
-	apiserver.PatchGetControllerCACert(s, "no worries")
-
-	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
-	defer c.Check(facade.Stop(), tc.ErrorIsNil)
-	result, err := facade.Next(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
-		MigrationId:    "id",
-		Attempt:        2,
-		Phase:          "IMPORT",
-		SourceAPIAddrs: []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"},
-		SourceCACert:   "no worries",
-		TargetAPIAddrs: []string{"1.2.3.4:5555"},
-		TargetCACert:   "trust me",
-	})
-}
-
-func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *tc.C) {
-	w := apiservertesting.NewFakeNotifyWatcher()
-	id := s.resources.Register(w)
-	s.authorizer.Tag = names.NewMachineTag("12")
-	backend := &fakeMigrationBackend{noMigration: true}
-	apiserver.PatchGetMigrationBackend(s, c.Context(), backend, backend)
-
-	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
-	defer c.Check(facade.Stop(), tc.ErrorIsNil)
-	result, err := facade.Next(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
-		Phase: "NONE",
-	})
-}
-
-func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *tc.C) {
-	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
-	s.authorizer.Tag = names.NewUserTag("frogdog")
-
-	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = factory(c.Context(), facadetest.MultiModelContext{
-		ModelContext: facadetest.ModelContext{
-			Resources_:      s.resources,
-			Auth_:           s.authorizer,
-			ID_:             id,
-			DomainServices_: s.ControllerDomainServices(c),
-		},
-	})
-	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
-}
-
 type machineStorageIdsWatcher interface {
 	Next(context.Context) (params.MachineStorageIdsWatchResult, error)
 }
@@ -200,13 +142,6 @@ type fakeMigrationBackend struct {
 	noMigration bool
 }
 
-func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
-	if b.noMigration {
-		return nil, errors.NotFoundf("migration")
-	}
-	return new(fakeModelMigration), nil
-}
-
 func (b *fakeMigrationBackend) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
 	return []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"}, nil
 }
@@ -217,32 +152,6 @@ func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
 
 func (b *fakeMigrationBackend) ControllerConfig() (controller.Config, error) {
 	return nil, nil
-}
-
-type fakeModelMigration struct {
-	state.ModelMigration
-}
-
-func (m *fakeModelMigration) Id() string {
-	return "id"
-}
-
-func (m *fakeModelMigration) Attempt() int {
-	return 2
-}
-
-func (m *fakeModelMigration) Phase() (migration.Phase, error) {
-	return migration.IMPORT, nil
-}
-
-func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {
-	return &migration.TargetInfo{
-		ControllerTag: names.NewControllerTag("uuid"),
-		Addrs:         []string{"1.2.3.4:5555"},
-		CACert:        "trust me",
-		AuthTag:       names.NewUserTag("admin"),
-		Password:      "sekret",
-	}, nil
 }
 
 type migrationStatusWatcher interface {

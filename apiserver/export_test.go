@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
@@ -165,25 +164,6 @@ func TestingCAASModelOnlyRoot() rpc.Root {
 func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, check)
-}
-
-// PatchGetMigrationBackend overrides the getMigrationBackend function
-// to support testing.
-func PatchGetMigrationBackend(p Patcher, ctx context.Context, controllerNodeService ControllerNodeService, st migrationBackend) {
-	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
-		return st
-	})
-	p.PatchValue(&getAllAPIAddressesForClients, func(context.Context, ControllerNodeService) ([]string, error) {
-		return controllerNodeService.GetAllAPIAddressesForClients(ctx)
-	})
-}
-
-// PatchGetControllerCACert overrides the getControllerCACert function
-// to support testing.
-func PatchGetControllerCACert(p Patcher, cert string) {
-	p.PatchValue(&getControllerCACert, func(controller.Config) (string, error) {
-		return cert, nil
-	})
 }
 
 // ServerWaitGroup exposes the underlying wait group used to track running API calls
