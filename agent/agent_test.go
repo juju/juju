@@ -332,14 +332,6 @@ func (*suite) TestNewStateMachineConfig(c *tc.C) {
 		},
 		checkErr: "ca cert key not found in configuration",
 	}, {
-		about: "missing state port",
-		servingInfo: controller.StateServingInfo{
-			Cert:         "server cert",
-			PrivateKey:   "server key",
-			CAPrivateKey: "ca key",
-		},
-		checkErr: "state port not found in configuration",
-	}, {
 		about: "params api port",
 		servingInfo: controller.StateServingInfo{
 			Cert:         "server cert",
@@ -383,7 +375,6 @@ var attributeParams = agent.AgentConfigParams{
 	Nonce:                  "a nonce",
 	Controller:             testing.ControllerTag,
 	Model:                  testing.ModelTag,
-	JujuDBSnapChannel:      controller.DefaultJujuDBSnapChannel,
 	AgentLogfileMaxSizeMB:  150,
 	AgentLogfileMaxBackups: 4,
 }
@@ -391,17 +382,18 @@ var attributeParams = agent.AgentConfigParams{
 func (*suite) TestAttributes(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(conf.DataDir(), tc.Equals, "/data/dir")
+
+	c.Check(conf.DataDir(), tc.Equals, "/data/dir")
+	c.Check(conf.Tag(), tc.Equals, names.NewMachineTag("1"))
+	c.Check(conf.Dir(), tc.Equals, "/data/dir/agents/machine-1")
+	c.Check(conf.Nonce(), tc.Equals, "a nonce")
+	c.Check(conf.UpgradedToVersion(), tc.DeepEquals, jujuversion.Current)
+	c.Check(conf.AgentLogfileMaxSizeMB(), tc.Equals, 150)
+	c.Check(conf.AgentLogfileMaxBackups(), tc.Equals, 4)
+
 	compareSystemIdentityPath := filepath.FromSlash("/data/dir/system-identity")
 	systemIdentityPath := filepath.FromSlash(conf.SystemIdentityPath())
-	c.Assert(systemIdentityPath, tc.Equals, compareSystemIdentityPath)
-	c.Assert(conf.Tag(), tc.Equals, names.NewMachineTag("1"))
-	c.Assert(conf.Dir(), tc.Equals, "/data/dir/agents/machine-1")
-	c.Assert(conf.Nonce(), tc.Equals, "a nonce")
-	c.Assert(conf.UpgradedToVersion(), tc.DeepEquals, jujuversion.Current)
-	c.Assert(conf.JujuDBSnapChannel(), tc.Equals, "4.4/stable")
-	c.Assert(conf.AgentLogfileMaxSizeMB(), tc.Equals, 150)
-	c.Assert(conf.AgentLogfileMaxBackups(), tc.Equals, 4)
+	c.Check(systemIdentityPath, tc.Equals, compareSystemIdentityPath)
 }
 
 func (*suite) TestStateServingInfo(c *tc.C) {
@@ -486,51 +478,6 @@ func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *tc.C) {
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:47", "foo.example:1235"})
-}
-
-func (*suite) TestMongoInfo(c *tc.C) {
-	attrParams := attributeParams
-	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88", "3.4.2.1:1070"}
-	servingInfo := stateServingInfo()
-	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, tc.ErrorIsNil)
-	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, tc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
-	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
-}
-
-func (*suite) TestMongoInfoNoCloudLocalAvailable(c *tc.C) {
-	attrParams := attributeParams
-	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
-	servingInfo := stateServingInfo()
-	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, tc.ErrorIsNil)
-	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, tc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
-	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
-}
-
-func (*suite) TestPromotedMongoInfo(c *tc.C) {
-	attrParams := attributeParams
-	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88", "3.4.2.1:1070"}
-	conf, err := agent.NewAgentConfig(attrParams)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, ok := conf.MongoInfo()
-	c.Assert(ok, tc.IsFalse)
-
-	// Promote the agent to a controller by
-	// setting state serving info. As soon
-	// as this is done, we should be able
-	// to use MongoInfo.
-	conf.SetStateServingInfo(stateServingInfo())
-
-	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, tc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
-	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
 }
 
 func (*suite) TestAPIInfoDoesNotAddLocalhostWhenNoServingInfo(c *tc.C) {
@@ -653,18 +600,6 @@ func (*suite) TestSetCACert(c *tc.C) {
 
 	conf.SetCACert("new ca cert")
 	c.Assert(conf.CACert(), tc.Equals, "new ca cert")
-}
-
-func (*suite) TestSetJujuDBSnapChannel(c *tc.C) {
-	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, tc.ErrorIsNil)
-
-	snapChannel := conf.JujuDBSnapChannel()
-	c.Assert(snapChannel, tc.Equals, attributeParams.JujuDBSnapChannel)
-
-	conf.SetJujuDBSnapChannel("latest/candidate")
-	snapChannel = conf.JujuDBSnapChannel()
-	c.Assert(snapChannel, tc.Equals, "latest/candidate", tc.Commentf("juju db snap channel setting not updated"))
 }
 
 func (*suite) TestSetQueryTracingEnabled(c *tc.C) {

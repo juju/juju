@@ -682,7 +682,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			},
 			Args: []string{
 				"-c",
-				`printf 'args="--dbpath=/var/lib/juju/db --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --noauth --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
+				`printf 'args="--dbpath=/var/lib/juju/db --port=37017 --journal --replSet=juju --quiet --oplogSize=1024 --noauth --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
 			},
 			Ports: []core.ContainerPort{
 				{

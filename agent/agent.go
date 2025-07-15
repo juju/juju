@@ -272,10 +272,6 @@ type Config interface {
 	// collected metrics.
 	MetricsSpoolDir() string
 
-	// JujuDBSnapChannel returns the channel for installing mongo snaps in
-	// focal or later.
-	JujuDBSnapChannel() string
-
 	// AgentLogfileMaxSizeMB returns the maximum file size in MB of each
 	// agent/controller log file.
 	AgentLogfileMaxSizeMB() int
@@ -354,10 +350,6 @@ type configSetterOnly interface {
 	// SetStateServingInfo sets the information needed
 	// to run a controller
 	SetStateServingInfo(info controller.StateServingInfo)
-
-	// SetJujuDBSnapChannel sets the channel for installing mongo snaps
-	// when bootstrapping focal or later.
-	SetJujuDBSnapChannel(string)
 
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
@@ -464,7 +456,6 @@ type configInternal struct {
 	servingInfo                        *controller.StateServingInfo
 	loggingConfig                      string
 	values                             map[string]string
-	jujuDBSnapChannel                  string
 	agentLogfileMaxSizeMB              int
 	agentLogfileMaxBackups             int
 	queryTracingEnabled                bool
@@ -493,7 +484,6 @@ type AgentConfigParams struct {
 	APIAddresses                       []string
 	CACert                             string
 	Values                             map[string]string
-	JujuDBSnapChannel                  string
 	AgentLogfileMaxSizeMB              int
 	AgentLogfileMaxBackups             int
 	QueryTracingEnabled                bool
@@ -565,7 +555,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		caCert:                             configParams.CACert,
 		oldPassword:                        configParams.Password,
 		values:                             configParams.Values,
-		jujuDBSnapChannel:                  configParams.JujuDBSnapChannel,
 		agentLogfileMaxSizeMB:              configParams.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups:             configParams.AgentLogfileMaxBackups,
 		queryTracingEnabled:                configParams.QueryTracingEnabled,
@@ -855,16 +844,6 @@ func (c *configInternal) check() error {
 		}
 	}
 	return nil
-}
-
-// JujuDBSnapChannel implements Config.
-func (c *configInternal) JujuDBSnapChannel() string {
-	return c.jujuDBSnapChannel
-}
-
-// SetJujuDBSnapChannel implements configSetterOnly.
-func (c *configInternal) SetJujuDBSnapChannel(snapChannel string) {
-	c.jujuDBSnapChannel = snapChannel
 }
 
 // AgentLogfileMaxSizeMB implements Config.
