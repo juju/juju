@@ -183,6 +183,7 @@ define link_flags_version
 -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
 -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
 -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
+-X $(PROJECT)/version.Grade=$(JUJU_GRADE) \
 -X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS)
 endef
 
