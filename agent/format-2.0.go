@@ -141,7 +141,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 	if len(format.ControllerKey) != 0 {
-		config.servingInfo = &controller.ControllerAgentInfo{
+		config.controllerAgentInfo = &controller.ControllerAgentInfo{
 			Cert:           format.ControllerCert,
 			PrivateKey:     format.ControllerKey,
 			CAPrivateKey:   format.CAPrivateKey,
@@ -202,12 +202,12 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 
 		DqlitePort: config.dqlitePort,
 	}
-	if config.servingInfo != nil {
-		format.ControllerCert = config.servingInfo.Cert
-		format.ControllerKey = config.servingInfo.PrivateKey
-		format.CAPrivateKey = config.servingInfo.CAPrivateKey
-		format.APIPort = config.servingInfo.APIPort
-		format.SystemIdentity = config.servingInfo.SystemIdentity
+	if config.controllerAgentInfo != nil {
+		format.ControllerCert = config.controllerAgentInfo.Cert
+		format.ControllerKey = config.controllerAgentInfo.PrivateKey
+		format.CAPrivateKey = config.controllerAgentInfo.CAPrivateKey
+		format.APIPort = config.controllerAgentInfo.APIPort
+		format.SystemIdentity = config.controllerAgentInfo.SystemIdentity
 		format.StatePassword = config.statePassword
 	}
 	if config.apiDetails != nil {

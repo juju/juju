@@ -128,12 +128,12 @@ func (c *converter) Handle(ctx context.Context) error {
 	}
 
 	err = c.agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
-		_, hasInfo := config.StateServingInfo()
+		_, hasInfo := config.ControllerAgentInfo()
 		if hasInfo {
 			return nil
 		}
 
-		config.SetStateServingInfo(info)
+		config.SetControllerAgentInfo(info)
 		return nil
 	})
 	if err != nil {

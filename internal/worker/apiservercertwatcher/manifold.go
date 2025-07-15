@@ -95,7 +95,7 @@ func (w *apiserverCertWatcher) Kill() {
 
 func (w *apiserverCertWatcher) setup() error {
 	config := w.agent.CurrentConfig()
-	info, ok := config.StateServingInfo()
+	info, ok := config.ControllerAgentInfo()
 	if !ok {
 		return errors.New("no state serving info in agent config")
 	}

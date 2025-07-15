@@ -175,9 +175,9 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	if agentConfig.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(agentConfig.Tag().Kind()) {
 		return errors.Errorf("InitializeState not called with bootstrap controller's configuration")
 	}
-	servingInfo, ok := agentConfig.StateServingInfo()
+	controllerAgentInfo, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
-		return errors.Errorf("state serving information not available")
+		return errors.Errorf("controller agent info not available")
 	}
 
 	// N.B. no users are set up when we're initializing the state,
@@ -267,7 +267,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		// The controller config needs to be inserted before the admin users
 		// because the admin users permissions require the controller UUID.
 		controllerconifgbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig, controllerModelUUID),
-		controllerbootstrap.InsertInitialController(servingInfo.Cert, servingInfo.PrivateKey, servingInfo.CAPrivateKey, servingInfo.SystemIdentity),
+		controllerbootstrap.InsertInitialController(controllerAgentInfo.Cert, controllerAgentInfo.PrivateKey, controllerAgentInfo.CAPrivateKey, controllerAgentInfo.SystemIdentity),
 		// The admin user needs to be added before everything else that
 		// requires being owned by a Juju user.
 		addAdminUser,
@@ -340,7 +340,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	defer func() {
 		_ = ctrl.Close()
 	}()
-	b.agentConfig.SetStateServingInfo(servingInfo)
+	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
 
 	st, err := ctrl.SystemState()
 	if err != nil {

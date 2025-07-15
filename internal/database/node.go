@@ -289,7 +289,7 @@ func (m *NodeManager) WithAddressOption(ip string) app.Option {
 // WithTLSOption returns a Dqlite application Option for TLS encryption
 // of traffic between clients and clustered application nodes.
 func (m *NodeManager) WithTLSOption() (app.Option, error) {
-	stateInfo, ok := m.cfg.StateServingInfo()
+	stateInfo, ok := m.cfg.ControllerAgentInfo()
 	if !ok {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}
@@ -340,7 +340,7 @@ func (m *NodeManager) TLSDialer(ctx context.Context) (client.DialFunc, error) {
 		return client.DefaultDialFunc, nil
 	}
 
-	stateInfo, ok := m.cfg.StateServingInfo()
+	stateInfo, ok := m.cfg.ControllerAgentInfo()
 	if !ok {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}

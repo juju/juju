@@ -76,10 +76,10 @@ func (s *converterSuite) TestHandle(c *tc.C) {
 	s.agentClient.EXPECT().StateServingInfo(gomock.Any()).Return(controller.ControllerAgentInfo{
 		APIPort: 1234,
 	}, nil)
-	s.agentConfigSetter.EXPECT().StateServingInfo().Return(controller.ControllerAgentInfo{
+	s.agentConfigSetter.EXPECT().ControllerAgentInfo().Return(controller.ControllerAgentInfo{
 		APIPort: 4321,
 	}, false)
-	s.agentConfigSetter.EXPECT().SetStateServingInfo(controller.ControllerAgentInfo{
+	s.agentConfigSetter.EXPECT().SetControllerAgentInfo(controller.ControllerAgentInfo{
 		APIPort: 1234,
 	})
 
@@ -107,7 +107,7 @@ func (s *converterSuite) TestHandleAlreadyHasInfo(c *tc.C) {
 	s.agentClient.EXPECT().StateServingInfo(gomock.Any()).Return(controller.ControllerAgentInfo{
 		APIPort: 1234,
 	}, nil)
-	s.agentConfigSetter.EXPECT().StateServingInfo().Return(controller.ControllerAgentInfo{
+	s.agentConfigSetter.EXPECT().ControllerAgentInfo().Return(controller.ControllerAgentInfo{
 		APIPort: 4321,
 	}, true)
 

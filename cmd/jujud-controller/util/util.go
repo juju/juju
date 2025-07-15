@@ -71,9 +71,9 @@ func newEnsureMongoParams(agentConfig agent.Config) (mongo.EnsureServerParams, e
 		}
 	}
 
-	si, ok := agentConfig.StateServingInfo()
+	si, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
-		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
+		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no controller agent info")
 	}
 
 	params := mongo.EnsureServerParams{

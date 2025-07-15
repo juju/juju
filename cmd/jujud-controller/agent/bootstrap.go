@@ -270,7 +270,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot read config")
 	}
 	agentConfig := c.CurrentConfig()
-	info, ok := agentConfig.StateServingInfo()
+	info, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
@@ -286,7 +286,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
-		agentConfig.SetStateServingInfo(info)
+		agentConfig.SetControllerAgentInfo(info)
 
 		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
 		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())
@@ -437,8 +437,8 @@ func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs ne
 	if err != nil {
 		return err
 	}
-	_, ok = agentConfig.StateServingInfo()
-	if !ok {
+
+	if _, ok := agentConfig.ControllerAgentInfo(); !ok {
 		return fmt.Errorf("agent config has no state serving info")
 	}
 	// Use localhost to dial the mongo server, because it's running in

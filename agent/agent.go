@@ -232,10 +232,10 @@ type Config interface {
 	// elements.
 	WriteCommands(renderer shell.Renderer) ([]string, error)
 
-	// StateServingInfo returns the details needed to run
+	// ControllerAgentInfo returns the details needed to run
 	// a controller and reports whether those details
 	// are available
-	StateServingInfo() (controller.ControllerAgentInfo, bool)
+	ControllerAgentInfo() (controller.ControllerAgentInfo, bool)
 
 	// APIInfo returns details for connecting to the API server and
 	// reports whether the details are available.
@@ -347,9 +347,9 @@ type configSetterOnly interface {
 	// SetCACert sets the CA cert used for validating API connections.
 	SetCACert(string)
 
-	// SetStateServingInfo sets the information needed
+	// SetControllerAgentInfo sets the information needed
 	// to run a controller
-	SetStateServingInfo(info controller.ControllerAgentInfo)
+	SetControllerAgentInfo(info controller.ControllerAgentInfo)
 
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
@@ -453,7 +453,7 @@ type configInternal struct {
 	apiDetails                         *apiDetails
 	statePassword                      string
 	oldPassword                        string
-	servingInfo                        *controller.ControllerAgentInfo
+	controllerAgentInfo                *controller.ControllerAgentInfo
 	loggingConfig                      string
 	values                             map[string]string
 	agentLogfileMaxSizeMB              int
@@ -602,7 +602,7 @@ func NewStateMachineConfig(configParams AgentConfigParams, serverInfo controller
 	if err != nil {
 		return nil, err
 	}
-	config.SetStateServingInfo(serverInfo)
+	config.SetControllerAgentInfo(serverInfo)
 	return config, nil
 }
 
@@ -668,9 +668,9 @@ func (c0 *configInternal) Clone() Config {
 	for key, val := range c0.values {
 		c1.values[key] = val
 	}
-	if c0.servingInfo != nil {
-		info := *c0.servingInfo
-		c1.servingInfo = &info
+	if c0.controllerAgentInfo != nil {
+		info := *c0.controllerAgentInfo
+		c1.controllerAgentInfo = &info
 	}
 	return &c1
 }
@@ -724,7 +724,7 @@ func (c *configInternal) SetOldPassword(oldPassword string) {
 }
 
 func (c *configInternal) SetPassword(newPassword string) {
-	if c.servingInfo != nil {
+	if c.controllerAgentInfo != nil {
 		c.statePassword = newPassword
 	}
 	if c.apiDetails != nil {
@@ -793,15 +793,15 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
-func (c *configInternal) StateServingInfo() (controller.ControllerAgentInfo, bool) {
-	if c.servingInfo == nil {
+func (c *configInternal) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
+	if c.controllerAgentInfo == nil {
 		return controller.ControllerAgentInfo{}, false
 	}
-	return *c.servingInfo, true
+	return *c.controllerAgentInfo, true
 }
 
-func (c *configInternal) SetStateServingInfo(info controller.ControllerAgentInfo) {
-	c.servingInfo = &info
+func (c *configInternal) SetControllerAgentInfo(info controller.ControllerAgentInfo) {
+	c.controllerAgentInfo = &info
 	if c.statePassword == "" && c.apiDetails != nil {
 		c.statePassword = c.apiDetails.password
 	}
@@ -989,7 +989,7 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	if c.apiDetails == nil || c.apiDetails.addresses == nil {
 		return nil, false
 	}
-	servingInfo, isController := c.StateServingInfo()
+	controllerAgentInfo, isController := c.ControllerAgentInfo()
 	addrs := c.apiDetails.addresses
 	// For controllers, we return only localhost - we should not connect
 	// to other controllers if we can talk locally.
@@ -997,7 +997,7 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
-		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(servingInfo.APIPort))
+		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(controllerAgentInfo.APIPort))
 
 		// TODO (manadart 2023-03-27): This is a temporary change from using
 		// *only* the localhost address, to fix an issue where we can get the
@@ -1025,8 +1025,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if c.apiDetails == nil || c.apiDetails.addresses == nil {
 		return nil, false
 	}
-	_, ok = c.StateServingInfo()
-	if !ok {
+	if _, ok = c.ControllerAgentInfo(); !ok {
 		return nil, false
 	}
 	addrs := c.apiDetails.addresses

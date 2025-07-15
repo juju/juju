@@ -396,11 +396,11 @@ func (*suite) TestAttributes(c *tc.C) {
 	c.Check(systemIdentityPath, tc.Equals, compareSystemIdentityPath)
 }
 
-func (*suite) TestStateServingInfo(c *tc.C) {
+func (*suite) TestControllerAgentInfo(c *tc.C) {
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
 	c.Assert(err, tc.ErrorIsNil)
-	gotInfo, ok := conf.StateServingInfo()
+	gotInfo, ok := conf.ControllerAgentInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(gotInfo, tc.DeepEquals, servingInfo)
 	newInfo := controller.ControllerAgentInfo{
@@ -410,17 +410,17 @@ func (*suite) TestStateServingInfo(c *tc.C) {
 		CAPrivateKey:   "new ca key",
 		SystemIdentity: "new identity",
 	}
-	conf.SetStateServingInfo(newInfo)
-	gotInfo, ok = conf.StateServingInfo()
+	conf.SetControllerAgentInfo(newInfo)
+	gotInfo, ok = conf.ControllerAgentInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(gotInfo, tc.DeepEquals, newInfo)
 }
 
-func (*suite) TestStateServingInfoNotAvailable(c *tc.C) {
+func (*suite) TestControllerAgentInfoNotAvailable(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, available := conf.StateServingInfo()
+	_, available := conf.ControllerAgentInfo()
 	c.Assert(available, tc.IsFalse)
 }
 
