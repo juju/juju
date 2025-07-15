@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/registry"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type watcherSuite struct {
@@ -83,11 +83,14 @@ func getFacadeFactory(c *tc.C, name string, version int) facade.MultiModelFactor
 }
 
 func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *tc.C) {
-	ch := make(chan []string, 1)
-	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
+	ch := make(chan []corewatcher.MachineStorageID, 1)
+	id := s.resources.Register(&fakeMachineStorageIDsWatcher{ch: ch})
 	s.authorizer.Tag = names.NewMachineTag("123")
 
-	ch <- []string{"0:1", "1:2"}
+	ch <- []corewatcher.MachineStorageID{
+		{MachineTag: "machine-0", AttachmentTag: "volume-1"},
+		{MachineTag: "machine-1", AttachmentTag: "volume-2"},
+	}
 	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -100,12 +103,36 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *tc.C) {
 	})
 }
 
-func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *tc.C) {
-	ch := make(chan []string, 1)
-	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
+func (s *watcherSuite) TestVolumeAttachmentPlansWatcher(c *tc.C) {
+	ch := make(chan []corewatcher.MachineStorageID, 1)
+	id := s.resources.Register(&fakeMachineStorageIDsWatcher{ch: ch})
 	s.authorizer.Tag = names.NewMachineTag("123")
 
-	ch <- []string{"0:1", "1:2"}
+	ch <- []corewatcher.MachineStorageID{
+		{MachineTag: "machine-0", AttachmentTag: "volume-1"},
+		{MachineTag: "machine-1", AttachmentTag: "volume-2"},
+	}
+	facade := s.getFacade(c, "VolumeAttachmentPlansWatcher", 1, id, nopDispose).(machineStorageIdsWatcher)
+	result, err := facade.Next(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
+		Changes: []params.MachineStorageId{
+			{MachineTag: "machine-0", AttachmentTag: "volume-1"},
+			{MachineTag: "machine-1", AttachmentTag: "volume-2"},
+		},
+	})
+}
+
+func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *tc.C) {
+	ch := make(chan []corewatcher.MachineStorageID, 1)
+	id := s.resources.Register(&fakeMachineStorageIDsWatcher{ch: ch})
+	s.authorizer.Tag = names.NewMachineTag("123")
+
+	ch <- []corewatcher.MachineStorageID{
+		{MachineTag: "machine-0", AttachmentTag: "filesystem-1"},
+		{MachineTag: "machine-1", AttachmentTag: "filesystem-2"},
+	}
 	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -122,18 +149,18 @@ type machineStorageIdsWatcher interface {
 	Next(context.Context) (params.MachineStorageIdsWatchResult, error)
 }
 
-type fakeStringsWatcher struct {
-	state.StringsWatcher
-	ch chan []string
+type fakeMachineStorageIDsWatcher struct {
+	corewatcher.MachineStorageIDsWatcher
+	ch chan []corewatcher.MachineStorageID
 }
 
-func (w *fakeStringsWatcher) Changes() <-chan []string {
+func (w *fakeMachineStorageIDsWatcher) Changes() <-chan []corewatcher.MachineStorageID {
 	return w.ch
 }
 
-func (w *fakeStringsWatcher) Kill() {}
+func (w *fakeMachineStorageIDsWatcher) Kill() {}
 
-func (w *fakeStringsWatcher) Wait() error {
+func (w *fakeMachineStorageIDsWatcher) Wait() error {
 	return nil
 }
 
