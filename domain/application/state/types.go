@@ -811,18 +811,6 @@ type setApplicationExtraEndpointBinding struct {
 	Space         sql.Null[string]   `db:"space_uuid"`
 }
 
-type updateApplicationEndpointBinding struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	RelationUUID  string             `db:"charm_relation_uuid"`
-	Space         sql.Null[string]   `db:"space_uuid"`
-}
-
-type updateApplicationExtraEndpointBinding struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	RelationUUID  string             `db:"charm_extra_binding_uuid"`
-	Space         sql.Null[string]   `db:"space_uuid"`
-}
-
 type setConstraint struct {
 	UUID             string  `db:"uuid"`
 	Arch             *string `db:"arch"`

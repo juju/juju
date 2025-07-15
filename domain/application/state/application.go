@@ -1710,9 +1710,7 @@ func (st *State) SetApplicationCharm(ctx context.Context, id coreapplication.ID,
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
 			return k, v.String()
 		})
-		err = st.mergeApplicationEndpointBindings(ctx, tx, id.String(), bindings, false)
-
-		return nil
+		return st.mergeApplicationEndpointBindings(ctx, tx, id.String(), bindings, false)
 	}); err != nil {
 		return errors.Capture(err)
 	}
