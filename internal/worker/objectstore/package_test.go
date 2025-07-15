@@ -20,18 +20,20 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination claimer_mock_test.go github.com/juju/juju/internal/objectstore Claimer
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination lease_mock_test.go github.com/juju/juju/core/lease Manager
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination client_mock_test.go github.com/juju/juju/core/objectstore Client,Session
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination apiremotecaller_mock_test.go github.com/juju/juju/internal/worker/apiremotecaller APIRemoteCallers
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
 	logger logger.Logger
 
-	clock        *MockClock
-	agent        *MockAgent
-	agentConfig  *MockConfig
-	leaseManager *MockManager
-	claimer      *MockClaimer
-	s3Client     *MockClient
+	clock           *MockClock
+	agent           *MockAgent
+	agentConfig     *MockConfig
+	leaseManager    *MockManager
+	claimer         *MockClaimer
+	s3Client        *MockClient
+	apiRemoteCaller *MockAPIRemoteCallers
 
 	controllerConfigService *MockControllerConfigService
 	metadataService         *MockMetadataService
@@ -46,6 +48,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.leaseManager = NewMockManager(ctrl)
 	s.claimer = NewMockClaimer(ctrl)
 	s.s3Client = NewMockClient(ctrl)
+	s.apiRemoteCaller = NewMockAPIRemoteCallers(ctrl)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.metadataService = NewMockMetadataService(ctrl)

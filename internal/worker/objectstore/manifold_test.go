@@ -60,6 +60,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.APIRemoteCallerName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -79,6 +83,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ObjectStoreServicesName: "object-store-services",
 		LeaseManagerName:        "lease-manager",
 		S3ClientName:            "s3-client",
+		APIRemoteCallerName:     "apiremotecaller",
 		Clock:                   s.clock,
 		Logger:                  s.logger,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
@@ -103,11 +108,12 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 		"object-store-services": &stubObjectStoreServicesGetter{},
 		"lease-manager":         s.leaseManager,
 		"s3-client":             s.s3Client,
+		"apiremotecaller":       s.apiRemoteCaller,
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "trace", "object-store-services", "lease-manager", "s3-client"}
+var expectedInputs = []string{"agent", "trace", "object-store-services", "lease-manager", "s3-client", "apiremotecaller"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)

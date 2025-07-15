@@ -13,6 +13,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
+	watcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -65,5 +67,15 @@ func (s *objectStoreFactorySuite) setupMocks(c *tc.C) *gomock.Controller {
 type stubMetadataService struct{}
 
 func (stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
-	return nil
+	return stubObjectStore{}
+}
+
+type stubObjectStore struct {
+	objectstore.ObjectStoreMetadata
+}
+
+// Watch returns a watcher that emits the path changes that either have been
+// added or removed.
+func (stubObjectStore) Watch() (watcher.StringsWatcher, error) {
+	return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
 }

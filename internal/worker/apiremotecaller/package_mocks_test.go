@@ -251,41 +251,41 @@ func (c *MockControllerNodeServiceGetAPIAddressesByControllerIDForAgentsCall) Do
 	return c
 }
 
-// WatchControllerNodes mocks base method.
-func (m *MockControllerNodeService) WatchControllerNodes(arg0 context.Context) (watcher.Watcher[struct{}], error) {
+// WatchControllerAPIAddresses mocks base method.
+func (m *MockControllerNodeService) WatchControllerAPIAddresses(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchControllerNodes", arg0)
+	ret := m.ctrl.Call(m, "WatchControllerAPIAddresses", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchControllerNodes indicates an expected call of WatchControllerNodes.
-func (mr *MockControllerNodeServiceMockRecorder) WatchControllerNodes(arg0 any) *MockControllerNodeServiceWatchControllerNodesCall {
+// WatchControllerAPIAddresses indicates an expected call of WatchControllerAPIAddresses.
+func (mr *MockControllerNodeServiceMockRecorder) WatchControllerAPIAddresses(arg0 any) *MockControllerNodeServiceWatchControllerAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchControllerNodes", reflect.TypeOf((*MockControllerNodeService)(nil).WatchControllerNodes), arg0)
-	return &MockControllerNodeServiceWatchControllerNodesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchControllerAPIAddresses", reflect.TypeOf((*MockControllerNodeService)(nil).WatchControllerAPIAddresses), arg0)
+	return &MockControllerNodeServiceWatchControllerAPIAddressesCall{Call: call}
 }
 
-// MockControllerNodeServiceWatchControllerNodesCall wrap *gomock.Call
-type MockControllerNodeServiceWatchControllerNodesCall struct {
+// MockControllerNodeServiceWatchControllerAPIAddressesCall wrap *gomock.Call
+type MockControllerNodeServiceWatchControllerAPIAddressesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerNodeServiceWatchControllerNodesCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockControllerNodeServiceWatchControllerNodesCall {
+func (c *MockControllerNodeServiceWatchControllerAPIAddressesCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockControllerNodeServiceWatchControllerAPIAddressesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerNodeServiceWatchControllerNodesCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockControllerNodeServiceWatchControllerNodesCall {
+func (c *MockControllerNodeServiceWatchControllerAPIAddressesCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockControllerNodeServiceWatchControllerAPIAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerNodeServiceWatchControllerNodesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockControllerNodeServiceWatchControllerNodesCall {
+func (c *MockControllerNodeServiceWatchControllerAPIAddressesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockControllerNodeServiceWatchControllerAPIAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

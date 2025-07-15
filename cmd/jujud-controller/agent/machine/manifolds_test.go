@@ -541,6 +541,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -574,6 +575,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"api-address-setter": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -585,11 +587,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-primary-controller-flag",
 		"lease-manager",
 		"log-sink",
-		"object-store",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
 		"object-store-services",
+		"object-store",
 		"provider-services",
 		"provider-tracker",
 		"query-logger",
@@ -619,34 +621,18 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"api-remote-caller": {
 		"agent",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
-		"domain-services",
 		"file-notify-watcher",
-		"http-client",
-		"is-bootstrap-flag",
-		"is-bootstrap-gate",
 		"is-controller-flag",
-		"lease-manager",
-		"log-sink",
-		"object-store-facade",
-		"object-store-fortress",
-		"object-store-s3-caller",
 		"object-store-services",
-		"object-store",
-		"provider-services",
-		"provider-tracker",
 		"query-logger",
 		"state-config-watcher",
-		"storage-registry",
-		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"api-server": {
 		"agent",
+		"api-remote-caller",
 		"audit-config-updater",
 		"change-stream",
 		"clock",
@@ -681,6 +667,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"audit-config-updater": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -708,6 +695,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"bootstrap": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -749,6 +737,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"certificate-updater": {
 		"agent",
+		"api-remote-caller",
 		"certificate-watcher",
 		"change-stream",
 		"clock",
@@ -812,6 +801,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"control-socket": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -916,6 +906,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"http-server": {
 		"agent",
+		"api-remote-caller",
 		"api-server",
 		"audit-config-updater",
 		"certificate-watcher",
@@ -952,6 +943,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"http-server-args": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1016,6 +1008,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"jwt-parser": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1159,6 +1152,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"model-worker-manager": {
 		"agent",
+		"api-remote-caller",
 		"certificate-watcher",
 		"change-stream",
 		"clock",
@@ -1216,6 +1210,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"object-store-facade": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1250,6 +1245,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"object-store": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1334,6 +1330,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"domain-services": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1384,6 +1381,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"ssh-server": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1411,6 +1409,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"state": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1515,6 +1514,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"upgrade-database-runner": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1547,6 +1547,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"upgrade-steps-runner": {
 		"agent",
 		"api-caller",
+		"api-remote-caller",
 		"api-config-watcher",
 		"change-stream",
 		"clock",
@@ -1596,6 +1597,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"agent-config-updater": {
 		"agent",
 		"api-caller",
+		"api-remote-caller",
 		"api-config-watcher",
 		"change-stream",
 		"clock",
@@ -1630,6 +1632,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"api-address-setter": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1663,34 +1666,18 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"api-remote-caller": {
 		"agent",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
-		"domain-services",
 		"file-notify-watcher",
-		"http-client",
-		"is-bootstrap-flag",
-		"is-bootstrap-gate",
 		"is-controller-flag",
-		"lease-manager",
-		"log-sink",
-		"object-store",
-		"object-store-facade",
-		"object-store-fortress",
-		"object-store-s3-caller",
 		"object-store-services",
-		"provider-services",
-		"provider-tracker",
 		"query-logger",
 		"state-config-watcher",
-		"storage-registry",
-		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"api-server": {
 		"agent",
+		"api-remote-caller",
 		"audit-config-updater",
 		"change-stream",
 		"clock",
@@ -1725,6 +1712,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"audit-config-updater": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1752,6 +1740,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"bootstrap": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1812,6 +1801,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"control-socket": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1886,6 +1876,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"http-server": {
 		"agent",
+		"api-remote-caller",
 		"api-server",
 		"audit-config-updater",
 		"certificate-watcher",
@@ -1922,6 +1913,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"http-server-args": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -1984,6 +1976,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"jwt-parser": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -2079,6 +2072,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"model-worker-manager": {
 		"agent",
+		"api-remote-caller",
 		"certificate-watcher",
 		"change-stream",
 		"clock",
@@ -2136,6 +2130,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"object-store-facade": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -2170,6 +2165,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"object-store": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -2242,6 +2238,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"domain-services": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -2280,6 +2277,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"ssh-server": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -2307,6 +2305,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"state": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -2368,6 +2367,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"upgrade-database-runner": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
@@ -2400,6 +2400,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"upgrade-steps-runner": {
 		"agent",
 		"api-caller",
+		"api-remote-caller",
 		"api-config-watcher",
 		"change-stream",
 		"clock",

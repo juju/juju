@@ -5,14 +5,15 @@ package remote
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"math/rand/v2"
+	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
-	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
 )
 
@@ -32,6 +32,9 @@ const (
 	// BlobNotFound is returned when the requested blob is not found on any of
 	// the remote connections.
 	BlobNotFound = errors.ConstError("blob not found")
+
+	// HTTPError is added to errors that occur when making HTTP requests.
+	HTTPError = errors.ConstError("http error")
 )
 
 // BlobsClient is an interface for retrieving objects from an object store.
@@ -46,67 +49,47 @@ type NewBlobsClientFunc func(url string, client s3client.HTTPClient, logger logg
 
 // BlobRetriever is responsible for retrieving blobs from remote API servers.
 type BlobRetriever struct {
-	catacomb catacomb.Catacomb
+	tomb tomb.Tomb
 
 	namespace string
 
 	apiRemoteCallers apiremotecaller.APIRemoteCallers
 	newBlobsClient   NewBlobsClientFunc
 
-	runner *worker.Runner
-
 	clock  clock.Clock
 	logger logger.Logger
-
-	index uint64
 }
 
 // NewBlobRetriever creates a new BlobRetriever.
 func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
-	runner, err := worker.NewRunner(worker.RunnerParams{
-		Name: "blob-retriever",
-		IsFatal: func(err error) bool {
-			return false
-		},
-		ShouldRestart: func(err error) bool {
-			return false
-		},
-		Clock:  clock,
-		Logger: internalworker.WrapLogger(logger),
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 	w := &BlobRetriever{
 		namespace:        namespace,
 		newBlobsClient:   newBlobsClient,
 		apiRemoteCallers: apiRemoteCallers,
 		clock:            clock,
 		logger:           logger,
-
-		runner: runner,
 	}
 
-	if err := catacomb.Invoke(catacomb.Plan{
-		Name: "blob-retriever",
-		Site: &w.catacomb,
-		Work: w.loop,
-		Init: []worker.Worker{w.runner},
-	}); err != nil {
-		return nil, err
-	}
+	w.tomb.Go(w.loop)
 
 	return w, nil
 }
 
-type indexMap map[uint64]struct{}
+// Report returns a map of internal state for the BlobRetriever.
+func (r *BlobRetriever) Report() map[string]any {
+	report := make(map[string]any)
+
+	report["namespace"] = r.namespace
+
+	return report
+}
 
 // Retrieve returns a reader for the blob with the given SHA256.
 func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
 	// Check if we're already dead or dying before we start to do anything.
 	select {
-	case <-r.catacomb.Dying():
-		return nil, -1, r.catacomb.ErrDying()
+	case <-r.tomb.Dying():
+		return nil, -1, tomb.ErrDying
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
 	default:
@@ -119,302 +102,194 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadClo
 		return nil, -1, NoRemoteConnections
 	}
 
-	indexes, result, err := r.spawn(ctx, remotes, sha256)
-	if err != nil {
-		return nil, -1, err
-	}
-
-	return r.collect(ctx, indexes, sha256, result)
-}
-
-func (r *BlobRetriever) spawn(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string) (indexMap, chan retrievalResult, error) {
-	result := make(chan retrievalResult)
-
-	// Retrieve the blob from all the remotes concurrently.
-	indexes := make(indexMap)
-	for _, remote := range remotes {
-		index := atomic.AddUint64(&r.index, 1)
-		indexes[index] = struct{}{}
-
-		if err := r.runner.StartWorker(ctx, name(index, sha256), func(ctx context.Context) (worker.Worker, error) {
-			return newRetriever(index, remote, r.newBlobsClient, r.clock, r.logger), nil
-		}); errors.Is(err, jujuerrors.AlreadyExists) {
-			return nil, nil, errors.Errorf("retriever %d already exists", index)
+	// Iterate over the remotes and try to retrieve the blob from each one.
+	// TODO (stickupkid): We could parallelize this, but that can lead to
+	// flooding of the controller with requests, so we do it sequentially for
+	// now.
+	var errs []string
+	for _, remote := range shuffleRemotes(remotes) {
+		reader, size, err := r.retrieve(ctx, remote, sha256)
+		if errors.Is(err, HTTPError) {
+			errs = append(errs, err.Error())
+			r.logger.Debugf(ctx, "failed to retrieve blob %q from remote: %v", sha256, err)
+			continue
+		} else if errors.Is(err, BlobNotFound) {
+			continue
 		} else if err != nil {
-			return nil, nil, err
+			return nil, -1, errors.Errorf("failed to retrieve blob %q from remote: %w", sha256, err)
 		}
 
-		go func(index uint64) {
-			w, err := r.runner.Worker(name(index, sha256), r.catacomb.Dying())
-			if err != nil {
-				select {
-				case <-r.catacomb.Dying():
-				case <-ctx.Done():
-				case result <- retrievalResult{
-					index: index,
-					err:   err,
-				}:
-				}
-				return
-			}
-
-			ret := w.(*retriever)
-			reader, size, err := ret.Retrieve(ctx, r.namespace, sha256)
-			select {
-			case <-r.catacomb.Dying():
-			case <-ctx.Done():
-			case result <- retrievalResult{
-				index:  ret.index,
-				reader: reader,
-				size:   size,
-				err:    err,
-			}:
-			}
-		}(index)
+		return reader, size, nil
 	}
 
-	return indexes, result, nil
+	return nil, -1, errors.Errorf(`failed to retrieve %q: %s`, sha256, strings.Join(errs, ",")).Add(BlobNotFound)
 }
 
-func (r *BlobRetriever) collect(ctx context.Context, indexes indexMap, sha256 string, result chan retrievalResult) (_ io.ReadCloser, _ int64, err error) {
-	// If the function returns an error, we want to stop all the retrievers. If
-	// there is an error, we will return the retriever that was successful and
-	// close the other readers. Once the reader is closed, the retriever will be
-	// stopped, which will then clean up this set of requests.
-	defer func() {
-		if err == nil {
-			return
-		}
+func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
+	var reader io.ReadCloser
+	var size int64
 
-		r.stopAllRetrievers(ctx, indexes, sha256)
-	}()
-
-	// We want to run it like this so we can return the first successful result
-	// and close the other readers. If we use for range over the channel, we
-	// have no way to close the result.
-	results := make(indexMap)
-	for {
-		select {
-		case <-r.catacomb.Dying():
-			return nil, -1, r.catacomb.ErrDying()
-
-		case <-ctx.Done():
-			return nil, -1, ctx.Err()
-
-		case res := <-result:
-			results[res.index] = struct{}{}
-
-			// If the blob is not found on that remote, continue to the next one
-			// until it is exhausted. This is a race to find it first.
-			if err := res.err; errors.Is(err, BlobNotFound) {
-				if len(results) == len(indexes) {
-					return nil, -1, BlobNotFound
-				}
-				continue
-			} else if err != nil {
-				// If there is an error that is not BlobNotFound, return it
-				return nil, -1, err
-			}
-
-			// Stop all the other retrievers, we don't want to cancel the
-			// retriever that is currently being used, as that will cause the
-			// reader to be closed.
-			for index := range indexes {
-				if index == res.index {
-					continue
-				}
-
-				if err := r.runner.StopWorker(name(index, sha256)); err != nil {
-					return nil, -1, errors.Errorf("failed to stop retriever %d: %w", index, err)
-				}
-			}
-
-			return &retrieverReaderCloser{
-				reader: res.reader,
-				closer: func() {
-					r.stopAllRetrievers(ctx, indexes, sha256)
-				},
-			}, res.size, nil
-		}
-	}
-}
-
-// Kill stops the BlobRetriever.
-func (r *BlobRetriever) Kill() {
-	r.catacomb.Kill(nil)
-}
-
-// Wait waits for the BlobRetriever to stop.
-func (r *BlobRetriever) Wait() error {
-	return r.catacomb.Wait()
-}
-
-func (r *BlobRetriever) loop() error {
-	<-r.catacomb.Dying()
-	return r.catacomb.ErrDying()
-}
-
-// stopAllRetrievers stops all the retrievers and waits for them to stop. This
-// ensures that there are no dangling goroutines.
-func (r *BlobRetriever) stopAllRetrievers(ctx context.Context, indexes map[uint64]struct{}, sha256 string) {
-	// Kill 'Em All.
-	for index := range indexes {
-		if err := r.runner.StopWorker(name(index, sha256)); err != nil && !errors.Is(err, jujuerrors.NotFound) {
-			r.logger.Errorf(ctx, "failed to stop retriever %d: %v", index, err)
-		}
-	}
-}
-
-type retriever struct {
-	tomb tomb.Tomb
-
-	index          uint64
-	remote         apiremotecaller.RemoteConnection
-	newBlobsClient NewBlobsClientFunc
-	clock          clock.Clock
-	logger         logger.Logger
-	requests       chan retrievalRequest
-}
-
-func newRetriever(index uint64, remote apiremotecaller.RemoteConnection, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) *retriever {
-	t := &retriever{
-		index:          index,
-		remote:         remote,
-		newBlobsClient: newBlobsClient,
-		clock:          clock,
-		logger:         logger,
-		requests:       make(chan retrievalRequest),
-	}
-
-	t.tomb.Go(t.loop)
-
-	return t
-}
-
-// Retrieve requests a blob from the remote API server, if there is not a remote
-// connection, it will retry a number of times before returning an error. This
-// is to allow time for the API connection to come up on a new HA node, or after
-// a restart. If the blob isn't found or any other non-retryable error it will
-// return an error right away. If the context is cancelled, it will stop
-// processing the request as soon as possible.
-func (t *retriever) Retrieve(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
-	res := make(chan retrievalResult)
-	select {
-	case <-t.tomb.Dying():
-		return nil, -1, t.tomb.Err()
-	case t.requests <- retrievalRequest{
-		ctx:       ctx,
-		namespace: namespace,
-		sha256:    sha256,
-		result:    res,
-	}:
-	}
-
-	select {
-	case <-t.tomb.Dying():
-		return nil, -1, t.tomb.Err()
-	case res := <-res:
-		return res.reader, res.size, res.err
-	}
-}
-
-func (t *retriever) Kill() {
-	t.tomb.Kill(nil)
-}
-
-func (t *retriever) Wait() error {
-	return t.tomb.Wait()
-}
-
-func (t *retriever) loop() error {
-	for {
-		select {
-		case <-t.tomb.Dying():
-			return t.tomb.Err()
-		case req := <-t.requests:
-			reader, size, err := t.retrieve(req.ctx, req.namespace, req.sha256)
-			select {
-			case <-t.tomb.Dying():
-				// If we get killed whilst attempting to return the result,
-				// ensure we clean up the reader.
-				if reader != nil {
-					reader.Close()
-				}
-			case req.result <- retrievalResult{
-				index:  t.index,
-				reader: reader,
-				size:   size,
-				err:    err,
-			}:
-			}
-		}
-	}
-}
-
-func (t *retriever) retrieve(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
-	ctx, cancel := context.WithCancel(t.tomb.Context(ctx))
-	defer cancel()
-
-	var (
-		reader io.ReadCloser
-		size   int64
-	)
-	err := t.remote.Connection(ctx, func(ctx context.Context, conn api.Connection) error {
+	err := remote.Connection(ctx, func(connectionContext context.Context, conn api.Connection) error {
 		httpClient, err := conn.RootHTTPClient()
 		if err != nil {
-			return errors.Errorf("failed to get root HTTP client: %w", err)
+			return errors.Errorf("failed to get root HTTP client: %w", err).Add(HTTPError)
 		}
 
-		client, err := t.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient), t.logger)
+		client, err := r.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient), r.logger)
 		if err != nil {
-			return errors.Errorf("failed to create object client: %w", err)
+			return errors.Errorf("failed to create object client: %w", err).Add(HTTPError)
 		}
 
-		if namespace == database.ControllerNS {
+		if r.namespace == database.ControllerNS {
 			tag, _ := conn.ModelTag()
-			namespace = tag.Id()
+			r.namespace = tag.Id()
 		}
 
-		reader, size, err = client.GetObject(ctx, namespace, sha256)
+		ctx := &scopedContext{
+			parent: ctx,
+			child:  connectionContext,
+		}
+
+		reader, size, err = client.GetObject(ctx, r.namespace, sha256)
 		if errors.Is(err, jujuerrors.NotFound) {
 			return errors.Errorf("blob %q not found: %w", sha256, err).Add(BlobNotFound)
 		} else if err != nil {
 			return errors.Errorf("failed to get object %q: %w", sha256, err)
 		}
+
+		ctx.IgnoreChild()
+
 		return nil
 	})
+
 	return reader, size, err
 }
 
-type retrievalRequest struct {
-	ctx       context.Context
-	namespace string
-	sha256    string
-	result    chan<- retrievalResult
+// Kill stops the BlobRetriever.
+func (r *BlobRetriever) Kill() {
+	r.tomb.Kill(nil)
 }
 
-type retrievalResult struct {
-	index  uint64
-	reader io.ReadCloser
-	size   int64
-	err    error
+// Wait waits for the BlobRetriever to stop.
+func (r *BlobRetriever) Wait() error {
+	return r.tomb.Wait()
 }
 
-type retrieverReaderCloser struct {
-	reader io.ReadCloser
-	closer func()
+func (r *BlobRetriever) loop() error {
+	<-r.tomb.Dying()
+	return tomb.ErrDying
 }
 
-func (t *retrieverReaderCloser) Read(p []byte) (n int, err error) {
-	return t.reader.Read(p)
+// Shuffle the remotes to avoid always hitting the same one first.
+func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecaller.RemoteConnection {
+	if len(remotes) <= 1 {
+		return remotes
+	}
+
+	shuffled := make([]apiremotecaller.RemoteConnection, len(remotes))
+	copy(shuffled, remotes)
+
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	return shuffled
 }
 
-func (t *retrieverReaderCloser) Close() error {
-	err := t.reader.Close()
-	t.closer()
-	return err
+// scopedContext is a context that allows us to ignore the child context
+// when retrieving objects from the remote API. This is vital, because we
+// want to be able to cancel the retrieval operation if the get object process
+// fails, but we don't want the cancellation to propagate once we've received
+// the object. We're not buffering the object reader, so any cancellation
+// will cause the reader to be closed, which is not what we want.
+type scopedContext struct {
+	parent      context.Context
+	child       context.Context
+	ignoreChild atomic.Bool
 }
 
-func name(index uint64, sha256 string) string {
-	return fmt.Sprintf("retriever-%s-%d", sha256, index)
+// IgnoreChild sets the ignoreChild flag to true, which means that the child
+// context will be ignored when retrieving objects from the remote API.
+func (c *scopedContext) IgnoreChild() {
+	c.ignoreChild.Store(true)
+}
+
+// IsChildIgnored returns true if the child context is ignored, which means
+// that the child context will not be consulted when retrieving objects from the
+// remote API.
+func (c *scopedContext) IsChildIgnored() bool {
+	return c.ignoreChild.Load()
+}
+
+// Deadline returns the time when work done on behalf of this context
+// should be canceled. Deadline returns ok==false when no deadline is
+// set. Successive calls to Deadline return the same results.
+func (c *scopedContext) Deadline() (deadline time.Time, ok bool) {
+	return c.parent.Deadline()
+}
+
+// Done returns a channel that's closed when work done on behalf of this
+// context should be canceled. Done may return nil if this context can
+// never be canceled. Successive calls to Done return the same value.
+// The close of the Done channel may happen asynchronously,
+// after the cancel function returns.
+func (c *scopedContext) Done() <-chan struct{} {
+	d := make(chan struct{})
+
+	closeDone := sync.OnceFunc(func() {
+		close(d)
+	})
+
+	go func() {
+		for {
+			select {
+			case <-c.parent.Done():
+				closeDone()
+				return
+			case <-c.child.Done():
+				// If the child context is ignored, we don't want to close
+				// the done channel, because we don't want to propagate the
+				// cancellation to the caller.
+				if c.IsChildIgnored() {
+					continue
+				}
+
+				closeDone()
+			}
+		}
+	}()
+	return d
+}
+
+// If Done is not yet closed, Err returns nil.
+func (c *scopedContext) Err() error {
+	if err := c.parent.Err(); err != nil {
+		return err
+	}
+
+	// If the child context is ignored, we don't want to return its error.
+	if c.IsChildIgnored() {
+		return nil
+	}
+	if err := c.child.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Value returns the value associated with this context for key, or nil
+// if no value is associated with key. Successive calls to Value with
+// the same key returns the same result.
+func (c *scopedContext) Value(key any) any {
+	if v := c.parent.Value(key); v != nil {
+		return v
+	}
+
+	// If the child context is ignored, we don't want to return any value from
+	// it.
+	if c.IsChildIgnored() {
+		return nil
+	}
+
+	return c.child.Value(key)
 }

@@ -20,6 +20,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	internalworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/apiremotecaller"
 	"github.com/juju/juju/internal/worker/trace"
 )
 
@@ -33,6 +34,7 @@ const (
 type TrackedObjectStore interface {
 	worker.Worker
 	objectstore.ObjectStore
+	Report() map[string]any
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -44,6 +46,7 @@ type WorkerConfig struct {
 	Clock                      clock.Clock
 	Logger                     logger.Logger
 	S3Client                   objectstore.Client
+	APIRemoteCaller            apiremotecaller.APIRemoteCallers
 	NewObjectStoreWorker       internalobjectstore.ObjectStoreWorkerFunc
 	ObjectStoreType            objectstore.BackendType
 	ControllerMetadataService  MetadataService
@@ -71,6 +74,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.S3Client == nil {
 		return errors.NotValidf("nil S3Client")
+	}
+	if c.APIRemoteCaller == nil {
+		return errors.NotValidf("nil APIRemoteCaller")
 	}
 	if c.NewObjectStoreWorker == nil {
 		return errors.NotValidf("nil NewObjectStoreWorker")
@@ -291,6 +297,7 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
 			internalobjectstore.WithRootBucket(w.cfg.RootBucket),
 			internalobjectstore.WithS3Client(w.cfg.S3Client),
+			internalobjectstore.WithAPIRemoveCallers(w.cfg.APIRemoteCaller),
 			internalobjectstore.WithMetadataService(metadataService),
 			internalobjectstore.WithClaimer(claimer),
 			internalobjectstore.WithLogger(w.cfg.Logger),
@@ -309,6 +316,11 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+// Report returns a map of internal state for the worker.
+func (w *objectStoreWorker) Report() map[string]any {
+	return w.runner.Report()
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
@@ -362,4 +374,8 @@ func (t *tracedWorker) Put(ctx context.Context, path string, r io.Reader, length
 	}()
 
 	return t.TrackedObjectStore.Put(ctx, path, r, length)
+}
+
+func (t *tracedWorker) Report() map[string]any {
+	return t.TrackedObjectStore.Report()
 }

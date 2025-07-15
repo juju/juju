@@ -761,6 +761,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ObjectStoreServicesName:    objectStoreServicesName,
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
+			APIRemoteCallerName:        apiRemoteCallerName,
 			Clock:                      config.Clock,
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
@@ -852,13 +853,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
 		}),
 
-		apiRemoteCallerName: ifBootstrapComplete(ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
-			AgentName:          agentName,
-			DomainServicesName: domainServicesName,
-			Clock:              config.Clock,
-			Logger:             internallogger.GetLogger("juju.worker.apiremotecaller"),
-			NewWorker:          apiremotecaller.NewWorker,
-		}))),
+		apiRemoteCallerName: ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
+			AgentName:               agentName,
+			ObjectStoreServicesName: objectStoreServicesName,
+			Clock:                   config.Clock,
+			Logger:                  internallogger.GetLogger("juju.worker.apiremotecaller"),
+			NewWorker:               apiremotecaller.NewWorker,
+		})),
 
 		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
 			GetControllerConfigService: jwtparser.GetControllerConfigService,

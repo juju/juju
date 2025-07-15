@@ -189,6 +189,30 @@ juju_db_repl () {
   fi
 }
 
+juju_object_store_contents () {
+  res=$(juju_object_store_contents_ "/var/lib/juju/objectstore")
+  res="Model    Name\n$res"
+  echo -e $res | column -t
+}
+
+juju_object_store_contents_ () {
+  target=${1:-.}
+  for i in "$target"; do
+    if [ -d "$i" ]; then
+      for sub in "$i"/*; do
+        s=$(juju_object_store_contents_ "$sub")
+        if [ -n "$s" ]; then
+           echo $s
+        fi
+      done
+    elif [ -f "$i" ]; then
+      m=$(dirname "$i" | xargs basename)
+      f=$(basename "$i")
+      echo "$m  $f\n"
+    fi
+  done
+}
+
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.
 shell=$(ps -p "$$" -o comm --no-headers)

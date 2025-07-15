@@ -78,7 +78,7 @@ func (s *WorkerSuite) TestWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	watcher := watchertest.NewMockNotifyWatcher(make(<-chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -95,7 +95,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
 
 	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{}, nil)
 
@@ -126,7 +126,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServerError(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
 
 	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{}, controllernodeerrors.EmptyAPIAddresses)
 
@@ -157,7 +157,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
 
 	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 		"0": {
@@ -197,7 +197,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
 
 	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
 		"0": {
@@ -273,7 +273,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
@@ -351,7 +351,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
@@ -446,7 +446,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
