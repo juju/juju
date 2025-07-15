@@ -1858,7 +1858,7 @@ func (s *Service) MergeApplicationEndpointBindings(ctx context.Context, appID co
 	defer span.End()
 
 	b := transform.Map(bindings, func(k string, v network.SpaceName) (string, string) {
-		return k, string(v)
+		return k, v.String()
 	})
 	return s.st.MergeApplicationEndpointBindings(ctx, appID.String(), b, force)
 }

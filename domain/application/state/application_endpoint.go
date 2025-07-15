@@ -480,7 +480,7 @@ desired_unit_spaces AS (
            s.uuid AS space_uuid,
            s.name AS space_name
     FROM unit AS u
-    LEFT JOIN space AS s ON s.uuid IN ($spaces[:])
+    JOIN space AS s ON s.uuid IN ($spaces[:])
     WHERE u.application_uuid = $dbUUID.uuid
 ),
 diff_spaces AS (
@@ -491,6 +491,7 @@ diff_spaces AS (
 SELECT &unitSpaceName.* FROM diff_spaces
 `, dbUUID{}, spaces{}, unitSpaceName{})
 	if err != nil {
+		return errors.Errorf("preparing desired unit spaces: %w", err)
 	}
 
 	var unitSpaceFailure []unitSpaceName
@@ -542,6 +543,8 @@ func (st *State) updateValidatedApplicationEndpointSpaces(
 				Valid: true,
 			}
 		}
+		// bindingTypes contains all keys for the bindings, it's safe
+		// to not check if the key exists in the map.
 		bindingType, _ := bindingTypes[binding]
 		err := st.updateApplicationEndpointSpace(ctx, tx, appID, bindingType, spaceUUID)
 		if err != nil {
@@ -879,24 +882,29 @@ func (st *State) getApplicationEndpointSpaceUUIDs(
 		`
 WITH
 app_default_space AS (
-    SELECT s.name, s.uuid, a.uuid AS app_uuid
+    SELECT s.uuid, '' AS name
     FROM   space AS s
     JOIN   application AS a ON s.uuid = a.space_uuid
+    WHERE  a.uuid = $dbUUID.uuid
+),
+input_spaces AS (
+    SELECT s.uuid, s.name
+    FROM   space AS s
+    WHERE  s.name IN ($spaceInput[:])
+),
+requested_spaces AS (
+    SELECT    * FROM app_default_space
+    UNION ALL
+    SELECT    * FROM input_spaces
 )
-SELECT    (s.uuid, s.name) AS (&spaceWithAppDefault.*),
-          ads.uuid AS &spaceWithAppDefault.app_uuid
-FROM      space AS s
-LEFT JOIN app_default_space AS ads ON s.uuid = ads.uuid
-WHERE     s.name IN ($spaceInput[:])
-OR        ads.app_uuid = $dbUUID.uuid
-`, spaceWithAppDefault{}, spaceInput{}, dbUUID{})
+SELECT &space.*
+FROM   requested_spaces
+`, space{}, spaceInput{}, dbUUID{})
 	if err != nil {
 		return nil, errors.Errorf("preparing fetch space: %w", err)
 	}
 
-	var (
-		spaces []spaceWithAppDefault
-	)
+	var spaces []space
 	err = tx.Query(ctx, fetchStmt, spaceInput(spaceNames.Values()), dbUUID{UUID: appID}).GetAll(&spaces)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, networkerrors.SpaceNotFound
@@ -904,12 +912,8 @@ OR        ads.app_uuid = $dbUUID.uuid
 		return nil, errors.Errorf("fetching space: %w", err)
 	}
 
-	result := transform.SliceToMap(spaces, func(s spaceWithAppDefault) (string, string) {
-		name := s.Name
-		if s.AppUUID != "" {
-			name = ""
-		}
-		return name, s.UUID
+	result := transform.SliceToMap(spaces, func(s space) (string, string) {
+		return s.Name, s.UUID
 	})
 
 	// Results always contain the application's default space.

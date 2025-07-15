@@ -1410,7 +1410,7 @@ func (s *applicationEndpointStateSuite) addUnitAnotherIPWithSpace(c *tc.C, unitU
 			return errors.Errorf("failed to update unit net_node_uuid: %v", err)
 		}
 		insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertLLD, lldUUID, netNodeUUID, "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
+		_, err = tx.ExecContext(ctx, insertLLD, lldUUID, netNodeUUID, lldUUID, 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
 			return errors.Errorf("failed to insert link_layer_device: %v", err)
 		}

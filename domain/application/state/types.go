@@ -903,15 +903,6 @@ type spaceUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// spaceWithAppDefault includes a valid app_uuid when the space is
-// the application's default space. Otherwise the app_uuid will be
-// empty when used with getApplicationEndpointSpaceUUIDs.
-type spaceWithAppDefault struct {
-	UUID    string `db:"uuid"`
-	Name    string `db:"name"`
-	AppUUID string `db:"app_uuid"`
-}
-
 type storageInstance struct {
 	StorageUUID      corestorage.UUID `db:"uuid"`
 	StorageID        corestorage.ID   `db:"storage_id"`
