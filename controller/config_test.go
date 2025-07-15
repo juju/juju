@@ -799,26 +799,6 @@ func (s *ConfigSuite) TestAgentRateLimitRate(c *tc.C) {
 	c.Assert(cfg.AgentRateLimitRate(), tc.Equals, 500*time.Millisecond)
 }
 
-func (s *ConfigSuite) TestJujuDBSnapChannel(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.JujuDBSnapChannel(), tc.Equals, controller.DefaultJujuDBSnapChannel)
-
-	cfg, err = controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			"juju-db-snap-channel": "latest/candidate",
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.JujuDBSnapChannel(), tc.Equals, "latest/candidate")
-}
-
 func (s *ConfigSuite) TestMigrationMinionWaitMax(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),

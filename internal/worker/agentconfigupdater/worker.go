@@ -36,7 +36,6 @@ type ControllerConfigService interface {
 type WorkerConfig struct {
 	Agent                              coreagent.Agent
 	ControllerConfigService            ControllerConfigService
-	JujuDBSnapChannel                  string
 	QueryTracingEnabled                bool
 	QueryTracingThreshold              time.Duration
 	OpenTelemetryEnabled               bool
@@ -68,7 +67,6 @@ type agentConfigUpdater struct {
 
 	config WorkerConfig
 
-	jujuDBSnapChannel                  string
 	queryTracingEnabled                bool
 	queryTracingThreshold              time.Duration
 	openTelemetryEnabled               bool
@@ -88,7 +86,6 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 
 	w := &agentConfigUpdater{
 		config:                             config,
-		jujuDBSnapChannel:                  config.JujuDBSnapChannel,
 		queryTracingEnabled:                config.QueryTracingEnabled,
 		queryTracingThreshold:              config.QueryTracingThreshold,
 		openTelemetryEnabled:               config.OpenTelemetryEnabled,
@@ -141,9 +138,6 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
-	jujuDBSnapChannel := config.JujuDBSnapChannel()
-	jujuDBSnapChannelChanged := jujuDBSnapChannel != w.jujuDBSnapChannel
-
 	queryTracingEnabled := config.QueryTracingEnabled()
 	queryTracingEnabledChanged := queryTracingEnabled != w.queryTracingEnabled
 
@@ -171,8 +165,7 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	objectStoreType := config.ObjectStoreType()
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
-	changeDetected := jujuDBSnapChannelChanged ||
-		queryTracingEnabledChanged ||
+	changeDetected := queryTracingEnabledChanged ||
 		queryTracingThresholdChanged ||
 		openTelemetryEnabledChanged ||
 		openTelemetryEndpointChanged ||
@@ -189,10 +182,6 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	}
 
 	err = w.config.Agent.ChangeConfig(func(setter coreagent.ConfigSetter) error {
-		if jujuDBSnapChannelChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config mongo snap channel: %q => %q", w.jujuDBSnapChannel, jujuDBSnapChannel)
-			setter.SetJujuDBSnapChannel(jujuDBSnapChannel)
-		}
 		if queryTracingEnabledChanged {
 			w.config.Logger.Debugf(ctx, "setting agent config query tracing enabled: %v => %v", w.queryTracingEnabled, queryTracingEnabled)
 			setter.SetQueryTracingEnabled(queryTracingEnabled)
@@ -244,9 +233,6 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	}
 
 	reason := []string{}
-	if jujuDBSnapChannelChanged {
-		reason = append(reason, controller.JujuDBSnapChannel)
-	}
 	if queryTracingEnabledChanged {
 		reason = append(reason, controller.QueryTracingEnabled)
 	}

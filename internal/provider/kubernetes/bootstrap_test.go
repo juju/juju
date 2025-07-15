@@ -77,7 +77,6 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.cfg = cfg
 
 	s.controllerCfg = coretesting.FakeControllerConfig()
-	s.controllerCfg["juju-db-snap-channel"] = controller.DefaultJujuDBSnapChannel
 	s.controllerCfg[controller.CAASImageRepo] = ""
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
 		s.controllerCfg, controllerName, "ubuntu", constraints.MustParse("root-disk=10000M mem=4000M"))

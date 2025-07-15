@@ -61,7 +61,6 @@ func testPodLabels(c *tc.C, cfg *config.Config, jobs []model.MachineJob, expectT
 
 func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *tc.C) {
 	cfg := testing.FakeControllerConfig()
-	cfg["juju-db-snap-channel"] = "9.9/stable"
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
@@ -75,13 +74,12 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *tc.C) {
 	c.Assert(path, tc.Equals, "docker.io/jujusolutions/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(path, tc.Equals, "docker.io/jujusolutions/juju-db:9.9")
+	c.Assert(path, tc.Equals, "docker.io/jujusolutions/juju-db:4.4")
 }
 
 func (*podcfgSuite) TestOperatorImagesCustomRepo(c *tc.C) {
 	cfg := testing.FakeControllerConfig()
 	cfg["caas-image-repo"] = "path/to/my/repo"
-	cfg["juju-db-snap-channel"] = "9.9"
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
@@ -96,7 +94,7 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *tc.C) {
 	c.Assert(path, tc.Equals, "path/to/my/repo/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(path, tc.Equals, "path/to/my/repo/juju-db:9.9")
+	c.Assert(path, tc.Equals, "path/to/my/repo/juju-db:4.4")
 }
 
 func (*podcfgSuite) TestBootstrapConstraints(c *tc.C) {

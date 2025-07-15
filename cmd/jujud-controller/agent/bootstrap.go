@@ -288,7 +288,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 
-		agentConfig.SetJujuDBSnapChannel(args.ControllerConfig.JujuDBSnapChannel())
 		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
 		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())
 		agentConfig.SetOpenTelemetryEnabled(args.ControllerConfig.OpenTelemetryEnabled())

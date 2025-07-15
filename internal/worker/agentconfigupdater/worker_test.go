@@ -121,46 +121,6 @@ func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newConfig := maps.Clone(s.controllerConfig)
-	newConfig[controller.JujuDBSnapChannel] = "latest/candidate"
-
-	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched1:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	// Snap channel is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched2:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
-}
-
 func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -530,7 +490,6 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.agent = &mockAgent{
 		conf: mockConfig{
-			snapChannel:                        controller.DefaultJujuDBSnapChannel,
 			queryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 			queryTracingThreshold:              controller.DefaultQueryTracingThreshold,
 			openTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
@@ -544,7 +503,6 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.config = agentconfigupdater.WorkerConfig{
 		Agent:                              s.agent,
 		ControllerConfigService:            s.controllerConifgService,
-		JujuDBSnapChannel:                  controller.DefaultJujuDBSnapChannel,
 		QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 		QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
 		OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
@@ -556,7 +514,6 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		Logger:                             loggertesting.WrapCheckLog(c),
 	}
 	s.controllerConfig = controller.Config{
-		controller.JujuDBSnapChannel:                  controller.DefaultJujuDBSnapChannel,
 		controller.QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 		controller.QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
 		controller.OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,

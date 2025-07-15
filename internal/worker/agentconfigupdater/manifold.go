@@ -116,10 +116,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Capture(err)
 			}
 
-			agentsJujuDBSnapChannel := currentConfig.JujuDBSnapChannel()
-			configJujuDBSnapChannel := controllerConfig.JujuDBSnapChannel()
-			jujuDBSnapChannelChanged := agentsJujuDBSnapChannel != configJujuDBSnapChannel
-
 			agentsQueryTracingEnabled := currentConfig.QueryTracingEnabled()
 			configQueryTracingEnabled := controllerConfig.QueryTracingEnabled()
 			queryTracingEnabledChanged := agentsQueryTracingEnabled != configQueryTracingEnabled
@@ -179,10 +175,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					info.PrivateKey = existing.PrivateKey
 				}
 				config.SetStateServingInfo(info)
-				if jujuDBSnapChannelChanged {
-					logger.Debugf(ctx, "setting agent config mongo snap channel: %q => %q", agentsJujuDBSnapChannel, configJujuDBSnapChannel)
-					config.SetJujuDBSnapChannel(configJujuDBSnapChannel)
-				}
+
 				if queryTracingEnabledChanged {
 					logger.Debugf(ctx, "setting agent config query tracing enabled: %t => %t", agentsQueryTracingEnabled, configQueryTracingEnabled)
 					config.SetQueryTracingEnabled(configQueryTracingEnabled)
@@ -228,10 +221,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// If we need a restart, return the fatal error.
 			reason := []string{}
-			if jujuDBSnapChannelChanged {
-				logger.Infof(ctx, "restarting agent for new mongo snap channel")
-				reason = append(reason, controller.JujuDBSnapChannel)
-			}
 			if queryTracingEnabledChanged {
 				logger.Infof(ctx, "restarting agent for new query tracing enabled")
 				reason = append(reason, controller.QueryTracingEnabled)
@@ -276,7 +265,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return NewWorker(WorkerConfig{
 				Agent:                              agent,
 				ControllerConfigService:            controllerConfigService,
-				JujuDBSnapChannel:                  configJujuDBSnapChannel,
 				QueryTracingEnabled:                configQueryTracingEnabled,
 				QueryTracingThreshold:              configQueryTracingThreshold,
 				OpenTelemetryEnabled:               configOpenTelemetryEnabled,

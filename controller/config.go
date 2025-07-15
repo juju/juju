@@ -134,10 +134,6 @@ const (
 	// they don't have any access rights to the controller itself.
 	AllowModelAccessKey = "allow-model-access"
 
-	// JujuDBSnapChannel selects the channel to use when installing Mongo
-	// snaps for focal or later. The value is ignored for older releases.
-	JujuDBSnapChannel = "juju-db-snap-channel"
-
 	// MaxDebugLogDuration is used to provide a backstop to the execution of a
 	// debug-log command. If someone starts a debug-log session in a remote
 	// screen for example, it is very easy to disconnect from the screen while
@@ -349,10 +345,6 @@ const (
 	// DefaultAPIPortOpenDelay is the default value for api-port-open-delay.
 	DefaultAPIPortOpenDelay = 2 * time.Second
 
-	// DefaultJujuDBSnapChannel is the default snap channel for installing
-	// mongo in focal or later.
-	DefaultJujuDBSnapChannel = "4.4/stable"
-
 	// DefaultMaxDebugLogDuration is the default duration that debug-log
 	// commands can run before being terminated by the API server.
 	DefaultMaxDebugLogDuration = 24 * time.Hour
@@ -472,7 +464,6 @@ var (
 		IdentityPublicKey,
 		IdentityURL,
 		SetNUMAControlPolicyKey,
-		JujuDBSnapChannel,
 		MaxDebugLogDuration,
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
@@ -868,11 +859,6 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 // LoginTokenRefreshURL returns the URL of the login jwt well known endpoint.
 func (c Config) LoginTokenRefreshURL() string {
 	return c.asString(LoginTokenRefreshURL)
-}
-
-// JujuDBSnapChannel returns the channel for installing mongo snaps.
-func (c Config) JujuDBSnapChannel() string {
-	return c.asString(JujuDBSnapChannel)
 }
 
 // JujudControllerSnapSource returns the source of the jujud-controller snap.
