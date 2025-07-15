@@ -61,6 +61,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig()
 	cfg.APIRemoteCallerName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Clock = nil
