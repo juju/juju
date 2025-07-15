@@ -165,6 +165,10 @@ type modelMigDoc struct {
 	// with a JIMM controller.
 	TargetToken string `bson:"target-token,omitempty"`
 
+	// SkipUserChecks indicates whether pre-check validation should
+	// skip checks for the existence of users on the target controller.
+	SkipUserChecks bool `bson:"skip-user-checks,omitempty"`
+
 	// The list of users and their access-level to the model being migrated.
 	ModelUsers []modelMigUserDoc `bson:"model-users,omitempty"`
 }
@@ -299,6 +303,7 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		AuthTag:         authTag,
 		Password:        mig.doc.TargetPassword,
 		Macaroons:       macs,
+		SkipUserChecks:  mig.doc.SkipUserChecks,
 		Token:           mig.doc.TargetToken,
 	}, nil
 }
@@ -758,6 +763,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			ModelUUID:             modelUUID,
 			Attempt:               attempt,
 			InitiatedBy:           spec.InitiatedBy.Id(),
+			SkipUserChecks:        spec.TargetInfo.SkipUserChecks,
 			TargetController:      spec.TargetInfo.ControllerTag.Id(),
 			TargetControllerAlias: spec.TargetInfo.ControllerAlias,
 			TargetAddrs:           spec.TargetInfo.Addrs,
