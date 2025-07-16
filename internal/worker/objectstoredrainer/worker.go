@@ -4,13 +4,11 @@
 package objectstoredrainer
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
-	"fmt"
 	"io"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -19,6 +17,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
 )
 
@@ -43,11 +42,13 @@ type HashFileSystemAccessor interface {
 	DeleteByHash(ctx context.Context, hash string) error
 }
 
-// ObjectStoreService provides access to the object store for draining
+// NewHashFileSystemAccessorFunc is a function that creates a new
+// HashFileSystemAccessor.
+type NewHashFileSystemAccessorFunc func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor
+
+// GuardService provides access to the object store for draining
 // operations.
-type ObjectStoreService interface {
-	// ListMetadata returns the persistence metadata.
-	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
+type GuardService interface {
 	// GetDrainingPhase returns the current active draining phase of the
 	// object store.
 	GetDrainingPhase(ctx context.Context) (objectstore.Phase, error)
@@ -56,14 +57,24 @@ type ObjectStoreService interface {
 	WatchDraining(ctx context.Context) (watcher.Watcher[struct{}], error)
 }
 
+// ControllerService provides access to the controller for draining
+// operations.
+type ControllerService interface {
+	// GetModelNamespaces returns the model namespaces of all models in the
+	// state.
+	GetModelNamespaces(ctx context.Context) ([]string, error)
+}
+
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
-	Guard                  fortress.Guard
-	ObjectStoreService     ObjectStoreService
-	HashFileSystemAccessor HashFileSystemAccessor
-	S3Client               objectstore.Client
-	SelectFileHash         SelectFileHashFunc
-	Logger                 logger.Logger
+	Guard                     fortress.Guard
+	GuardService              GuardService
+	ControllerService         ControllerService
+	NewHashFileSystemAccessor NewHashFileSystemAccessorFunc
+	S3Client                  objectstore.Client
+	SelectFileHash            SelectFileHashFunc
+	Logger                    logger.Logger
+	Clock                     clock.Clock
 }
 
 // Validate returns an error if the config cannot be expected to
@@ -72,11 +83,14 @@ func (config Config) Validate() error {
 	if config.Guard == nil {
 		return errors.Errorf("nil Guard").Add(coreerrors.NotValid)
 	}
-	if config.ObjectStoreService == nil {
-		return errors.Errorf("nil ObjectStoreService").Add(coreerrors.NotValid)
+	if config.GuardService == nil {
+		return errors.Errorf("nil GuardService").Add(coreerrors.NotValid)
 	}
-	if config.HashFileSystemAccessor == nil {
-		return errors.Errorf("nil HashFileSystemAccessor").Add(coreerrors.NotValid)
+	if config.ControllerService == nil {
+		return errors.Errorf("nil ControllerService").Add(coreerrors.NotValid)
+	}
+	if config.NewHashFileSystemAccessor == nil {
+		return errors.Errorf("nil NewHashFileSystemAccessor").Add(coreerrors.NotValid)
 	}
 	if config.S3Client == nil {
 		return errors.Errorf("nil S3Client").Add(coreerrors.NotValid)
@@ -87,6 +101,9 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.Errorf("nil Logger").Add(coreerrors.NotValid)
 	}
+	if config.Clock == nil {
+		return errors.Errorf("nil Clock").Add(coreerrors.NotValid)
+	}
 	return nil
 }
 
@@ -96,14 +113,34 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		return nil, errors.Capture(err)
 	}
 
-	w := &Worker{
-		guard: config.Guard,
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "objectstore-drainer",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return true
+		},
+		RestartDelay: time.Second * 10,
+		Clock:        config.Clock,
+		Logger:       internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
-		metadataService: config.ObjectStoreService,
-		fileSystem:      config.HashFileSystemAccessor,
-		client:          config.S3Client,
+	w := &Worker{
+		guard:        config.Guard,
+		guardService: config.GuardService,
+
+		controllerService: config.ControllerService,
+
+		newFileSystem: config.NewHashFileSystemAccessor,
+		client:        config.S3Client,
 
 		selectFileHash: config.SelectFileHash,
+
+		runner: runner,
 
 		logger: config.Logger,
 	}
@@ -112,6 +149,9 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		Name: "objectstoredrainer",
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{
+			runner,
+		},
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -126,13 +166,17 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	guard fortress.Guard
+	guard        fortress.Guard
+	guardService GuardService
 
-	metadataService ObjectStoreService
-	fileSystem      HashFileSystemAccessor
-	client          objectstore.Client
+	controllerService ControllerService
+
+	newFileSystem NewHashFileSystemAccessorFunc
+	client        objectstore.Client
 
 	selectFileHash SelectFileHashFunc
+
+	runner worker.Runner
 
 	logger logger.Logger
 }
@@ -150,10 +194,16 @@ func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report returns a report of the worker's state. This is used for
+// debugging and monitoring purposes.
+func (w *Worker) Report() map[string]any {
+	return w.runner.Report()
+}
+
 func (w *Worker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	watcher, err := w.metadataService.WatchDraining(ctx)
+	watcher, err := w.guardService.WatchDraining(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -166,7 +216,7 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-watcher.Changes():
-			phase, err := w.metadataService.GetDrainingPhase(ctx)
+			phase, err := w.guardService.GetDrainingPhase(ctx)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -192,166 +242,45 @@ func (w *Worker) loop() error {
 			// another. For now, we just log that we're in the draining phase
 			// from file to s3.
 
-			if err := w.drainFiles(ctx); err != nil {
-				return errors.Errorf("failed to drain files: %v", err)
+			namespaces, err := w.controllerService.GetModelNamespaces(ctx)
+			if err != nil {
+				return errors.Errorf("getting model namespaces: %w", err)
+			}
+
+			if err := w.drainModels(ctx, namespaces); err != nil {
+				return errors.Errorf("draining models: %w", err)
+			}
+
+			w.logger.Infof(ctx, "object store draining complete, unlocking guard")
+
+			if err := w.guard.Unlock(ctx); err != nil {
+				return errors.Errorf("failed to update guard: %v", err)
 			}
 		}
 	}
 }
 
-func (w *Worker) drainFiles(ctx context.Context) error {
-	// Drain any files from the file object store to the s3 object store.
-	// This will locate any files from the metadata service that are not
-	// present in the s3 object store and copy them over.
-	metadata, err := w.metadataService.ListMetadata(ctx)
-	if err != nil {
-		return errors.Errorf("listing metadata for draining: %w", err)
-	}
+func (w *Worker) drainModels(ctx context.Context, namespaces []string) error {
+	for _, namespace := range namespaces {
+		w.logger.Infof(ctx, "draining model %q", namespace)
 
-	for _, m := range metadata {
-		hash := w.selectFileHash(m)
-
-		if err := w.drainFile(ctx, m.Path, hash, m.Size); err != nil {
-			// This will crash the s3ObjectStore worker if this is a fatal
-			// error. We don't want to continue processing if we can't drain
-			// the files to the s3 object store.
-
-			return errors.Errorf("draining file %q to s3 object store: %w", m.Path, err)
+		err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
+			fileSystem := w.newFileSystem(namespace, w.client.RootDir(), w.logger)
+			return newDrainWorker(
+				fileSystem,
+				w.client,
+				metadataService,
+				rootBucket,
+				namespace,
+				w.selectFileHash,
+				w.logger,
+			), nil
+		})
+		if errors.Is(err, coreerrors.AlreadyExists) {
+			continue
+		} else if err != nil {
+			return errors.Errorf("starting worker for model %q: %w", namespace, err)
 		}
-	}
-
-	return nil
-}
-
-func (w *Worker) drainFile(ctx context.Context, path, hash string, metadataSize int64) error {
-	// If the file isn't on the file backed object store, then we can skip it.
-	// It's expected that this has already been drained to the s3 object store.
-	if err := w.fileSystem.HashExists(ctx, hash); errors.Is(err, coreerrors.NotFound) {
-		return nil
-	} else if err != nil {
-		return errors.Errorf("checking if file %q exists in file object store: %w", path, err)
-	}
-
-	// If the file is already in the s3 object store, then we can skip it.
-	// Note: we want to check the s3 object store each request, just in
-	// case the file was added to the s3 object store while we were
-	// draining the files.
-	if err := w.objectAlreadyExists(ctx, hash); err != nil && !errors.Is(err, coreerrors.NotFound) {
-		return errors.Errorf("checking if file %q exists in s3 object store: %w", path, err)
-	} else if err == nil {
-		// File already contains the hash, so we can skip it.
-		w.logger.Tracef(ctx, "file %q already exists in s3 object store, skipping", path)
-		return nil
-	}
-
-	w.logger.Debugf(ctx, "draining file %q to s3 object store", path)
-
-	// Grab the file from the file backed object store and drain it to the
-	// s3 object store.
-	reader, fileSize, err := w.fileSystem.GetByHash(ctx, hash)
-	if err != nil {
-		// The file doesn't exist in the file backed object store, but also
-		// doesn't exist in the s3 object store. This is a problem, so we
-		// should skip it.
-		if errors.Is(err, coreerrors.NotFound) {
-			w.logger.Warningf(ctx, "file %q doesn't exist in file object store, unable to drain", path)
-			return nil
-		}
-		return errors.Errorf("getting file %q from file object store: %w", path, err)
-	}
-
-	// Ensure we close the reader when we're done.
-	defer reader.Close()
-
-	// If the file size doesn't match the metadata size, then the file is
-	// potentially corrupt, so we should skip it.
-	if fileSize != metadataSize {
-		w.logger.Warningf(ctx, "file %q has a size mismatch, unable to drain", path)
-		return nil
-	}
-
-	// We need to compute the sha256 hash here, juju by default uses SHA384,
-	// but s3 defaults to SHA256.
-	// If the reader is a Seeker, then we can seek back to the beginning of
-	// the file, so that we can read it again.
-	s3Reader, s3EncodedHash, err := w.computeS3Hash(reader)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// We can drain the file to the s3 object store.
-	err = w.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-		err := s.PutObject(ctx, w.rootBucket, w.filePath(hash), s3Reader, s3EncodedHash)
-		if err != nil {
-			return errors.Errorf("putting file %q to s3 object store: %w", path, err)
-		}
-		return nil
-	})
-	if errors.Is(err, coreerrors.AlreadyExists) {
-		// File already contains the hash, so we can skip it.
-		return w.removeDrainedFile(ctx, hash)
-	} else if err != nil {
-		return errors.Capture(err)
-	}
-
-	// We can remove the file from the file backed object store, because it
-	// has been successfully drained to the s3 object store.
-	if err := w.removeDrainedFile(ctx, hash); err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
-}
-
-func (w *Worker) computeS3Hash(reader io.Reader) (io.Reader, string, error) {
-	s3Hash := sha256.New()
-
-	// This is an optimization for the case where the reader is a Seeker. We
-	// can seek back to the beginning of the file, so that we can read it
-	// again, without having to copy the entire file into memory.
-	if seekReader, ok := reader.(io.Seeker); ok {
-		if _, err := io.Copy(s3Hash, reader); err != nil {
-			return nil, "", errors.Errorf("computing hash: %w", err)
-		}
-
-		if _, err := seekReader.Seek(0, io.SeekStart); err != nil {
-			return nil, "", errors.Errorf("seeking back to start: %w", err)
-		}
-
-		return reader, base64.StdEncoding.EncodeToString(s3Hash.Sum(nil)), nil
-	}
-
-	// If the reader is not a Seeker, then we need to copy the entire file
-	// into memory, so that we can compute the hash.
-	memReader := new(bytes.Buffer)
-	if _, err := io.Copy(io.MultiWriter(s3Hash, memReader), reader); err != nil {
-		return nil, "", errors.Errorf("computing hash: %w", err)
-	}
-
-	return memReader, base64.StdEncoding.EncodeToString(s3Hash.Sum(nil)), nil
-}
-
-func (w *Worker) objectAlreadyExists(ctx context.Context, hash string) error {
-	if err := w.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-		err := s.ObjectExists(ctx, w.rootBucket, w.filePath(hash))
-		return errors.Capture(err)
-	}); err != nil {
-		return errors.Errorf("checking if file %q exists in s3 object store: %w", hash, err)
 	}
 	return nil
-}
-
-func (w *Worker) removeDrainedFile(ctx context.Context, hash string) error {
-	if err := w.fileSystem.DeleteByHash(ctx, hash); err != nil {
-		// If we're unable to remove the file from the file backed object
-		// store, then we should log a warning, but continue processing.
-		// This is not a terminal case, we can continue processing.
-		w.logger.Warningf(ctx, "unable to remove file %q from file object store: %v", hash, err)
-		return nil
-	}
-	return nil
-}
-
-func (w *Worker) filePath(hash string) string {
-	return fmt.Sprintf("%s/%s", w.namespace, hash)
 }
