@@ -15,11 +15,13 @@ import (
 	"github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	"github.com/juju/juju/domain/machine/internal"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
@@ -313,6 +315,59 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
 	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")
 	c.Check(*merged.Mem, tc.Equals, uint64(42))
+}
+
+func (s *providerServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	machineID := "7"
+	result := []internal.CreateLXDProfileDetails{
+		{
+			ApplicationName: "ubuntu",
+			CharmRevision:   4,
+			LXDProfile:      []byte(`{"config": {"foo":"bar"}, "description": "description", "devices": {"gpu":{"baz": "x"}}}`),
+		}, {
+			ApplicationName: "test",
+			CharmRevision:   8,
+			LXDProfile:      []byte(`{"config": {"foo":"baz"}, "description": "another"}`),
+		},
+	}
+	pName0 := "juju-test-ubuntu-4"
+	pName1 := "juju-test-test-8"
+	s.state.EXPECT().GetLXDProfilesForMachine(gomock.Any(), machineID).Return(result, nil)
+	s.provider.EXPECT().SupportsLXDProfiles().Return(true)
+	s.provider.EXPECT().MaybeWriteLXDProfile(pName0, lxdprofile.Profile{
+		Config:      map[string]string{"foo": "bar"},
+		Description: "description",
+		Devices:     map[string]map[string]string{"gpu": {"baz": "x"}},
+	}).Return(nil)
+	s.provider.EXPECT().MaybeWriteLXDProfile(pName1, lxdprofile.Profile{
+		Config:      map[string]string{"foo": "baz"},
+		Description: "another",
+	}).Return(nil)
+
+	// Act
+	obtainedProfileNames, err := s.service.UpdateLXDProfiles(c.Context(), "test", machineID)
+
+	// Assert:
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtainedProfileNames, tc.SameContents, []string{pName0, pName1})
+}
+
+func (s *providerServiceSuite) TestUpdateLXDProfilesNoSupport(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange: the provider does not support LXDProfiles
+	s.provider.EXPECT().SupportsLXDProfiles().Return(false)
+
+	// Act
+	_, err := s.service.UpdateLXDProfiles(c.Context(), "blue", "7")
+
+	// Assert: no work is done and the method doesn't fail
+	c.Assert(err, tc.IsNil)
 }
 
 func (s *providerServiceSuite) expectCreateMachineStatusHistory(c *tc.C, machineName machine.Name) {
