@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/container"
-	"github.com/juju/juju/internal/network/containerizer"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -881,7 +880,7 @@ type perContainerHandler interface {
 	ProcessOneContainer(
 		ctx context.Context,
 		env environs.Environ,
-		policy BridgePolicy, idx int,
+		idx int,
 		hostIsManual bool,
 		guestMachineName coremachine.Name,
 		preparedInfo network.InterfaceInfos,
@@ -932,16 +931,6 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return errors.Trace(err)
 	}
 
-	containerNetworkingMethod, err := api.agentProvisionerService.ContainerNetworkingMethod(ctx)
-	if err != nil {
-		return fmt.Errorf("cannot get container networking method: %w", err)
-	}
-
-	policy, err := containerizer.NewBridgePolicy(ctx, api.networkService, containerNetworkingMethod)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	allSubnets, err := api.networkService.GetAllSubnets(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -988,7 +977,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		mappedPreparedInfo := toInterfaceInfos(preparedInfo)
 		if err := handler.ProcessOneContainer(
 			ctx,
-			env, policy, i,
+			env, i,
 			hostIsManual,
 			coremachine.Name(guestTag.Id()),
 			mappedPreparedInfo,
@@ -1092,7 +1081,7 @@ func (h *prepareOrGetHandler) ConfigType() string {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *prepareOrGetHandler) ProcessOneContainer(
 	ctx context.Context,
-	env environs.Environ, policy BridgePolicy,
+	env environs.Environ,
 	idx int,
 	hostIsManual bool,
 	guestMachineName coremachine.Name,
@@ -1246,7 +1235,7 @@ type containerProfileHandler struct {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
-	_ environs.Environ, _ BridgePolicy, idx int,
+	_ environs.Environ, idx int,
 	_ bool,
 	guestMachineName coremachine.Name,
 	preparedInfo network.InterfaceInfos,

@@ -6,7 +6,6 @@ package provisioner
 import (
 	"github.com/juju/names/v6"
 
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/network/containerizer"
 )
 
@@ -17,14 +16,4 @@ type Machine interface {
 	containerizer.Container
 
 	MachineTag() names.MachineTag
-}
-
-// BridgePolicy is an indirection for containerizer.BridgePolicy.
-type BridgePolicy interface {
-	// PopulateContainerLinkLayerDevices sets the link-layer devices of the input
-	// guest, setting each device to be a child of the corresponding bridge on the
-	// host machine.
-	PopulateContainerLinkLayerDevices(
-		containerizer.Machine, containerizer.Container, bool,
-	) (corenetwork.InterfaceInfos, error)
 }
