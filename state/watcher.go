@@ -180,6 +180,26 @@ func (st *State) WatchModelLives() StringsWatcher {
 	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }
 
+// WatchStorageAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all storage instances attached to the
+// specified unit.
+func (sb *storageBackend) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
+	members := bson.D{{"unitid", unit.Id()}}
+	prefix := unitGlobalKey(unit.Id()) + "#"
+	filter := func(id interface{}) bool {
+		k, err := sb.mb.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, prefix)
+	}
+	tr := func(id string) string {
+		// Transform storage attachment document ID to storage ID.
+		return id[len(prefix):]
+	}
+	return newLifecycleWatcher(sb.mb, storageAttachmentsC, members, filter, tr)
+}
+
 // WatchModelMachineStartTimes watches the non-container machines in the model
 // for changes to the Life or AgentStartTime fields and reports them as a batch
 // after the specified quiesceInterval time has passed without seeing any new
