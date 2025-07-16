@@ -516,13 +516,6 @@ func (f *filesystem) Detachable() bool {
 	return f.doc.HostId == ""
 }
 
-func (f *filesystem) pool() string {
-	if f.doc.Info != nil {
-		return f.doc.Info.Pool
-	}
-	return f.doc.Params.Pool
-}
-
 // isDetachableFilesystemPool reports whether or not the given
 // storage pool will create a filesystem that is not inherently
 // bound to a machine, and therefore can be detached.
@@ -569,18 +562,6 @@ func (sb *storageBackend) DetachFilesystem(host names.Tag, filesystem names.File
 		return ops, nil
 	}
 	return sb.mb.db().Run(buildTxn)
-}
-
-func (sb *storageBackend) filesystemVolumeAttachment(host names.Tag, f names.FilesystemTag) (VolumeAttachment, error) {
-	filesystem, err := getFilesystemByTag(sb.mb, f)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	v, err := filesystem.Volume()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return sb.VolumeAttachment(host, v)
 }
 
 func detachFilesystemOps(host names.Tag, f names.FilesystemTag) []txn.Op {

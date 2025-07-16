@@ -24,7 +24,6 @@ import (
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // StorageInstance represents the state of a unit or application-wide storage
@@ -358,85 +357,6 @@ func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAt
 	return
 }
 
-func checkStoragePoolReleasable(im *storageBackend, pool string) error {
-	providerType, aProvider, _, err := poolStorageProvider(im, pool)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !aProvider.Releasable() {
-		return errors.WithType(errors.Errorf(
-			"storage provider %q does not support releasing storage",
-			providerType,
-		), stateerrors.StorageNotReleasableError)
-	}
-	return nil
-}
-
-// validateRemoveOwnerStorageInstanceOps checks that the given storage
-// instance can be removed from its current owner, returning txn.Ops to
-// ensure the same in a transaction. If the owner is not alive, then charm
-// storage requirements are ignored.
-func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error) {
-	var ops []txn.Op
-	var charmMeta *charm.Meta
-	owner := si.maybeOwner()
-	switch owner.Kind() {
-	case names.ApplicationTagKind:
-		app, err := si.sb.application(owner.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if app.life() != Alive {
-			return nil, nil
-		}
-		ch, _, err := app.charm()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		charmMeta = ch.Meta()
-		ops = append(ops, txn.Op{
-			C:  applicationsC,
-			Id: app.name(),
-			Assert: bson.D{
-				{"life", Alive},
-				{"charmurl", ch.URL()},
-			},
-		})
-	case names.UnitTagKind:
-		u, err := si.sb.unit(owner.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if u.life() != Alive {
-			return nil, nil
-		}
-		ch, err := u.charm()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		charmMeta = ch.Meta()
-		ops = append(ops, txn.Op{
-			C:      unitsC,
-			Id:     u.doc.Name,
-			Assert: bson.D{{"life", Alive}},
-		})
-		ops = append(ops, u.assertCharmOps(ch)...)
-	default:
-		return nil, errors.Errorf(
-			"invalid storage owner %s",
-			names.ReadableString(owner),
-		)
-	}
-	_, currentCountOp, err := validateStorageCountChange(
-		si.sb, owner, si.StorageName(), -1, charmMeta,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, currentCountOp)
-	return ops, nil
-}
-
 // validateStorageCountChange validates the desired storage count change,
 // and returns the current storage count, and a txn.Op that ensures the
 // current storage count does not change before the transaction is executed.
@@ -466,21 +386,6 @@ func increfEntityStorageOp(mb modelBackend, owner names.Tag, storageName string,
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, n)
 	return incRefOp, errors.Trace(err)
-}
-
-// decrefEntityStorageOp returns a txn.Op that decrements the reference
-// count for a storage instance from a given application or unit. This
-// should be called when removing a shared storage instance, or when
-// detaching a non-shared storage instance from a unit.
-func decrefEntityStorageOp(mb modelBackend, owner names.Tag, storageName string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
-	defer closer()
-	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
-	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageRefcountKey)
-	if err != nil {
-		return txn.Op{}, errors.Trace(err)
-	}
-	return decRefOp, nil
 }
 
 // machineAssignable is used by createStorageOps to determine what machine
@@ -995,174 +900,12 @@ func detachStorageOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
 	return ops
 }
 
-func (sb *storageBackend) storageHostAttachment(
-	si *storageInstance,
-	unitTag names.UnitTag,
-	hostTag names.Tag,
-) (VolumeAttachment, FilesystemAttachment, error) {
-	switch si.Kind() {
-	case StorageKindBlock:
-		volume, err := sb.storageInstanceVolume(si.StorageTag())
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		att, err := sb.VolumeAttachment(hostTag, volume.VolumeTag())
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		return att, nil, nil
-
-	case StorageKindFilesystem:
-		filesystem, err := sb.storageInstanceFilesystem(si.StorageTag())
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		att, err := sb.FilesystemAttachment(hostTag, filesystem.FilesystemTag())
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		return nil, att, nil
-
-	default:
-		return nil, nil, errors.Errorf("unknown storage type %q", si.Kind())
-	}
-}
-
 // RemoveStorageAttachment removes the storage attachment from state, and may
 // remove its storage instance as well, if the storage instance is Dying and
 // no other references to it exist.
 // It will fail if the storage attachment is not Dying.
 func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag, force bool) (err error) {
 	return
-}
-
-func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTag names.UnitTag, force bool) ([]txn.Op, error) {
-	unit, err := sb.unit(unitTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var hostTag names.Tag = unitTag
-	if sb.modelType == ModelTypeIAAS {
-		machineId, err := unit.AssignedMachineId()
-		if errors.Is(err, errors.NotAssigned) {
-			return []txn.Op{unit.noAssignedMachineOp()}, nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		hostTag = names.NewMachineTag(machineId)
-	}
-
-	switch si.Kind() {
-	case StorageKindBlock:
-		volume, err := sb.storageInstanceVolume(si.StorageTag())
-		if errors.Is(err, errors.NotFound) {
-			// The volume has already been removed, so must have
-			// already been detached.
-			logger.Debugf(context.TODO(), "%s", err)
-			return nil, nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		} else if !volume.Detachable() {
-			// Non-detachable volumes are left attached to the
-			// machine, since the only other option is to destroy
-			// them. The user can remove them explicitly, or else
-			// leave them to be removed along with the machine.
-			logger.Debugf(context.TODO(),
-				"%s for %s is non-detachable",
-				names.ReadableString(volume.Tag()),
-				names.ReadableString(si.StorageTag()),
-			)
-			return nil, nil
-		} else if volume.Life() != Alive {
-			// The volume is not alive, so either is already
-			// or will soon be detached.
-			logger.Debugf(context.TODO(),
-				"%s is %s",
-				names.ReadableString(volume.Tag()),
-				volume.Life(),
-			)
-			return nil, nil
-		}
-		att, err := sb.VolumeAttachment(hostTag, volume.VolumeTag())
-		if errors.Is(err, errors.NotFound) {
-			// Since the storage attachment is Dying, it is not
-			// possible to create a volume attachment for the
-			// machine, associated with the same storage.
-			logger.Debugf(context.TODO(), "%s", err)
-			return nil, nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if att.Life() != Alive {
-			logger.Debugf(context.TODO(),
-				"%s is detaching from %s",
-				names.ReadableString(volume.Tag()),
-				names.ReadableString(hostTag),
-			)
-			return nil, nil
-		}
-
-		if plans, err := sb.machineVolumeAttachmentPlans(hostTag, volume.VolumeTag()); err != nil {
-			return nil, errors.Trace(err)
-		} else {
-			if len(plans) > 0 {
-				return sb.detachVolumeAttachmentPlanOps(hostTag, volume.VolumeTag(), force)
-			}
-		}
-		return sb.detachVolumeOps(hostTag, volume.VolumeTag(), force)
-
-	case StorageKindFilesystem:
-		filesystem, err := sb.storageInstanceFilesystem(si.StorageTag())
-		if errors.Is(err, errors.NotFound) {
-			// The filesystem has already been removed, so must
-			// have already been detached.
-			logger.Debugf(context.TODO(), "%s", err)
-			return nil, nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		} else if !filesystem.Detachable() {
-			// Non-detachable filesystems are left attached to the
-			// machine, since the only other option is to destroy
-			// them. The user can remove them explicitly, or else
-			// leave them to be removed along with the machine.
-			logger.Debugf(context.TODO(),
-				"%s for %s is non-detachable",
-				names.ReadableString(filesystem.Tag()),
-				names.ReadableString(si.StorageTag()),
-			)
-			return nil, nil
-		} else if filesystem.Life() != Alive {
-			logger.Debugf(context.TODO(),
-				"%s is %s",
-				names.ReadableString(filesystem.Tag()),
-				filesystem.Life(),
-			)
-			return nil, nil
-		}
-		att, err := sb.FilesystemAttachment(hostTag, filesystem.FilesystemTag())
-		if errors.Is(err, errors.NotFound) {
-			// Since the storage attachment is Dying, it is not
-			// possible to create a volume attachment for the
-			// machine, associated with the same storage.
-			logger.Debugf(context.TODO(), "%s", err)
-			return nil, nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if att.Life() != Alive {
-			logger.Debugf(context.TODO(),
-				"%s is detaching from %s",
-				names.ReadableString(filesystem.Tag()),
-				names.ReadableString(hostTag),
-			)
-			return nil, nil
-		}
-		return detachFilesystemOps(hostTag, filesystem.FilesystemTag()), nil
-
-	default:
-		return nil, errors.Errorf("unknown storage type %q", si.Kind())
-	}
 }
 
 // storageConstraintsDoc contains storage constraints for an entity.
@@ -1203,14 +946,6 @@ func replaceStorageConstraintsOp(key string, cons map[string]StorageConstraints)
 		Id:     key,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"constraints", cons}}}},
-	}
-}
-
-func removeStorageConstraintsOp(key string) txn.Op {
-	return txn.Op{
-		C:      storageConstraintsC,
-		Id:     key,
-		Remove: true,
 	}
 }
 

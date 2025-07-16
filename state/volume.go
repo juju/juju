@@ -615,26 +615,9 @@ func IsContainsFilesystem(err error) bool {
 	return ok
 }
 
-// isDetachableVolumeTag reports whether or not the volume with the specified
-// tag is detachable.
-func isDetachableVolumeTag(db Database, tag names.VolumeTag) (bool, error) {
-	doc, err := getVolumeDocByTag(db, tag)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return detachableVolumeDoc(&doc), nil
-}
-
 // Detachable reports whether or not the volume is detachable.
 func (v *volume) Detachable() bool {
 	return detachableVolumeDoc(&v.doc)
-}
-
-func (v *volume) pool() string {
-	if v.doc.Info != nil {
-		return v.doc.Info.Pool
-	}
-	return v.doc.Params.Pool
 }
 
 func detachableVolumeDoc(doc *volumeDoc) bool {

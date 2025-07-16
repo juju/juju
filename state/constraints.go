@@ -167,14 +167,6 @@ func setConstraintsOp(id string, cons constraints.Value) txn.Op {
 	}
 }
 
-func removeConstraintsOp(id string) txn.Op {
-	return txn.Op{
-		C:      constraintsC,
-		Id:     id,
-		Remove: true,
-	}
-}
-
 func readConstraints(mb modelBackend, id string) (constraints.Value, error) {
 	constraintsCollection, closer := mb.db().GetCollection(constraintsC)
 	defer closer()

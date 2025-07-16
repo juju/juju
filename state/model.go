@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -541,10 +540,6 @@ func (m *Model) Destroy(args DestroyModelParams) (err error) {
 	return
 }
 
-// errModelNotAlive is a signal emitted from destroyOps to indicate
-// that model destruction is already underway.
-var errModelNotAlive = errors.New("model is no longer alive")
-
 // getEntityRefs reads the current model entity refs document for the model.
 func (m *Model) getEntityRefs() (*modelEntityRefsDoc, error) {
 	modelEntityRefs, closer := m.st.db().GetCollection(modelEntityRefsC)
@@ -606,123 +601,6 @@ func checkModelEntityRefsEmpty(doc *modelEntityRefsDoc) ([]txn.Op, error) {
 	}}, nil
 }
 
-// checkModelEntityRefsNoPersistentStorage checks that there is no
-// persistent storage in the model. If there is, then an error of
-// type hasPersistentStorageError is returned. If there is not,
-// txn.Ops are returned to assert the same.
-func checkModelEntityRefsNoPersistentStorage(
-	db Database, doc *modelEntityRefsDoc,
-) ([]txn.Op, error) {
-	for _, volumeId := range doc.Volumes {
-		volumeTag := names.NewVolumeTag(volumeId)
-		detachable, err := isDetachableVolumeTag(db, volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if detachable {
-			return nil, stateerrors.PersistentStorageError
-		}
-	}
-	for _, filesystemId := range doc.Filesystems {
-		filesystemTag := names.NewFilesystemTag(filesystemId)
-		detachable, err := isDetachableFilesystemTag(db, filesystemTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if detachable {
-			return nil, stateerrors.PersistentStorageError
-		}
-	}
-	return noNewStorageModelEntityRefs(doc), nil
-}
-
-// checkModelEntityRefsAllReleasableStorage checks that there all
-// persistent storage in the model is releasable. If it is, then
-// txn.Ops are returned to assert the same; if it is not, then an
-// error is returned.
-func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEntityRefsDoc, force bool) ([]txn.Op, error) {
-	for _, volumeId := range doc.Volumes {
-		volumeTag := names.NewVolumeTag(volumeId)
-		volume, err := getVolumeByTag(sb.mb, volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !volume.Detachable() {
-			continue
-		}
-		if err := checkStoragePoolReleasable(sb, volume.pool()); err != nil {
-			logger.Warningf(context.TODO(), "error checking releasable volumes for model %s: %v", doc.UUID, err)
-			if !force {
-				// If the storage cannot be released, return the error without
-				// additional annotation.
-				if errors.Is(err, stateerrors.StorageNotReleasableError) {
-					return nil, errors.Trace(err)
-				}
-				return nil, errors.Annotatef(err,
-					"checking %s is releasable", names.ReadableString(volumeTag),
-				)
-			}
-		}
-	}
-	for _, filesystemId := range doc.Filesystems {
-		filesystemTag := names.NewFilesystemTag(filesystemId)
-		filesystem, err := getFilesystemByTag(sb.mb, filesystemTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !filesystem.Detachable() {
-			continue
-		}
-		if err := checkStoragePoolReleasable(sb, filesystem.pool()); err != nil {
-			logger.Warningf(context.TODO(), "error checking releasable filesystems for model %s: %v", doc.UUID, err)
-			if !force {
-				// If the storage cannot be released, return the error without
-				// additional annotation.
-				if errors.Is(err, stateerrors.StorageNotReleasableError) {
-					return nil, errors.Trace(err)
-				}
-				return nil, errors.Annotatef(err,
-					"checking %s is releasable", names.ReadableString(filesystemTag),
-				)
-			}
-		}
-	}
-	return noNewStorageModelEntityRefs(doc), nil
-}
-
-func noNewStorageModelEntityRefs(doc *modelEntityRefsDoc) []txn.Op {
-	noNewVolumes := bson.DocElem{
-		"volumes", bson.D{{
-			"$not", bson.D{{
-				"$elemMatch", bson.D{{
-					"$nin", doc.Volumes,
-				}},
-			}},
-		}},
-		// There are no volumes that are not in
-		// the set of volumes we previously knew
-		// about => the current set of volumes
-		// is a subset of the previously known set.
-	}
-	noNewFilesystems := bson.DocElem{
-		Name: "filesystems", Value: bson.D{{
-			"$not", bson.D{{
-				"$elemMatch", bson.D{{
-					"$nin", doc.Filesystems,
-				}},
-			}},
-		}},
-	}
-	return []txn.Op{{
-		C:  modelEntityRefsC,
-		Id: doc.UUID,
-		Assert: bson.D{
-			noNewVolumes,
-			noNewFilesystems,
-		},
-	}}
-}
-
 func addModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
 	return addModelEntityRefOp(mb, "machines", machineId)
 }
@@ -731,24 +609,12 @@ func addModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {
 	return addModelEntityRefOp(mb, "applications", applicationname)
 }
 
-func removeModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {
-	return removeModelEntityRefOp(mb, "applications", applicationname)
-}
-
 func addModelVolumeRefOp(mb modelBackend, volumeId string) txn.Op {
 	return addModelEntityRefOp(mb, "volumes", volumeId)
 }
 
-func removeModelVolumeRefOp(mb modelBackend, volumeId string) txn.Op {
-	return removeModelEntityRefOp(mb, "volumes", volumeId)
-}
-
 func addModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
 	return addModelEntityRefOp(mb, "filesystems", filesystemId)
-}
-
-func removeModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
-	return removeModelEntityRefOp(mb, "filesystems", filesystemId)
 }
 
 func addModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
@@ -757,14 +623,6 @@ func addModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 		Id:     mb.ModelUUID(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$addToSet", bson.D{{entityField, entityId}}}},
-	}
-}
-
-func removeModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
-	return txn.Op{
-		C:      modelEntityRefsC,
-		Id:     mb.ModelUUID(),
-		Update: bson.D{{"$pull", bson.D{{entityField, entityId}}}},
 	}
 }
 
@@ -811,14 +669,6 @@ type hostedModelCountDoc struct {
 	// RefCount is the number of models in the Juju system.
 	// We do not count the system model.
 	RefCount int `bson:"refcount"`
-}
-
-func assertHostedModelsOp(n int) txn.Op {
-	return txn.Op{
-		C:      controllersC,
-		Id:     hostedModelCountKey,
-		Assert: bson.D{{"refcount", n}},
-	}
 }
 
 func incHostedModelCountOp() txn.Op {

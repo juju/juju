@@ -142,8 +142,6 @@ func (a *Application) life() Life {
 	return a.doc.Life
 }
 
-var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
-
 // charm returns the application's charm and whether units should upgrade to that
 // charm even if they are in an error state.
 func (a *Application) charm() (CharmRefFull, bool, error) {
@@ -1332,25 +1330,4 @@ func (op *AddUnitOperation) Done(err error) error {
 		return nil
 	}
 	return nil
-}
-
-// unitCount returns the of number of units for this application.
-func (a *Application) unitCount() int {
-	return a.doc.UnitCount
-}
-
-// finalAppCharmRemoveOps returns operations to delete the settings
-// and storage, device constraints documents and queue a charm cleanup.
-func finalAppCharmRemoveOps(appName string, curl *string) []txn.Op {
-	settingsKey := applicationCharmConfigKey(appName, curl)
-	removeSettingsOp := txn.Op{
-		C:      settingsC,
-		Id:     settingsKey,
-		Remove: true,
-	}
-	// ensure removing storage constraints doc
-	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
-	removeStorageConstraintsOp := removeStorageConstraintsOp(storageConstraintsKey)
-
-	return []txn.Op{removeSettingsOp, removeStorageConstraintsOp}
 }

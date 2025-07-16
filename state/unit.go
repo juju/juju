@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/charm"
-	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -36,8 +35,6 @@ func unitAgentGlobalKey(name string) string {
 
 // unitAgentGlobalKeyPrefix is the string we use to denote unit agent kind.
 const unitAgentGlobalKeyPrefix = "u#"
-
-var unitLogger = internallogger.GetLogger("juju.state.unit")
 
 // MachineRef is a reference to a machine, without being a full machine.
 // This exists to allow us to use state functions without requiring a
@@ -91,16 +88,6 @@ func newUnit(st *State, modelType ModelType, udoc *unitDoc) *Unit {
 	return unit
 }
 
-// shouldBeAssigned returns whether the unit should be assigned to a machine.
-// IAAS models require units to be assigned.
-func (u *Unit) shouldBeAssigned() bool {
-	return !u.isCaas()
-}
-
-func (u *Unit) isCaas() bool {
-	return u.modelType == ModelTypeCAAS
-}
-
 // application returns the application.
 func (u *Unit) application() (*Application, error) {
 	return u.st.Application(u.doc.Application)
@@ -134,12 +121,6 @@ func (u *Unit) globalAgentKey() string {
 // globalKey returns the global database key for the unit.
 func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
-}
-
-// globalCloudContainerKey returns the global database key for the unit's
-// Cloud Container info.
-func (u *Unit) globalCloudContainerKey() string {
-	return globalCloudContainerKey(u.doc.Name)
 }
 
 // life returns whether the unit is Alive, Dying or Dead.
@@ -224,13 +205,6 @@ func (u *Unit) RemoveWithForce(store objectstore.ObjectStore, force bool, maxWai
 // and can therefore have subordinate applications deployed alongside it.
 func (u *Unit) isPrincipal() bool {
 	return u.doc.Principal == ""
-}
-
-// subordinateNames returns the names of any subordinate units.
-func (u *Unit) subordinateNames() []string {
-	subNames := make([]string, len(u.doc.Subordinates))
-	copy(subNames, u.doc.Subordinates)
-	return subNames
 }
 
 // machine returns the unit's machine.

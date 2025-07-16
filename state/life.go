@@ -4,7 +4,6 @@
 package state
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/core/life"
@@ -52,11 +51,7 @@ func (l Life) Value() life.Value {
 var (
 	isAliveDoc = bson.D{{"life", Alive}}
 	isDyingDoc = bson.D{{"life", Dying}}
-	isDeadDoc  = bson.D{{"life", Dead}}
 	notDeadDoc = bson.D{{"life", bson.D{{"$ne", Dead}}}}
-
-	errAlreadyDying   = errors.New("already dying")
-	errAlreadyRemoved = errors.New("already removed")
 )
 
 func isAlive(mb modelBackend, collName string, id interface{}) (bool, error) {

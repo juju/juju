@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 
@@ -41,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -300,14 +298,4 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 		return *stateParams.ControllerCloudCredential, cloudCredentialTag, nil
 	}
 	return cloud.Credential{}, cloudCredentialTag, nil
-}
-
-// initMongo dials the initial MongoDB connection, setting a
-// password for the admin user, and returning the session.
-func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*mgo.Session, error) {
-	session, err := mongo.DialWithInfo(mongo.MongoInfo{Info: info}, dialOpts)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return session, nil
 }

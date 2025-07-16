@@ -70,26 +70,6 @@ type State struct {
 	workers *workers
 }
 
-func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
-	session := st.session.Copy()
-	newSt, err := newState(
-		st.controllerTag,
-		names.NewModelTag(modelUUID),
-		st.controllerModelTag,
-		session,
-		st.newPolicy,
-		st.stateClock,
-		st.charmServiceGetter,
-		st.maxTxnAttempts,
-	)
-	// We explicitly don't start the workers.
-	if err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
-	return newSt, nil
-}
-
 // IsController returns true if this state instance has the bootstrap
 // model UUID.
 func (st *State) IsController() bool {

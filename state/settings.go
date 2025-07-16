@@ -258,15 +258,6 @@ func createSettingsOp(collection, key string, values map[string]interface{}) txn
 	}
 }
 
-func removeSettingsOp(collection, key string) txn.Op {
-	return txn.Op{
-		C:      collection,
-		Id:     key,
-		Assert: txn.DocExists,
-		Remove: true,
-	}
-}
-
 // replaceSettingsOp returns a txn.Op that deletes the document's contents and
 // replaces it with the supplied values, and a function that should be called on
 // txn failure to determine whether this operation failed (due to a concurrent

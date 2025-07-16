@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/core/network"
 )
@@ -77,15 +76,6 @@ func (c *cloudContainer) Ports() []string {
 // cloud container status key for this unit.
 func globalCloudContainerKey(name string) string {
 	return unitGlobalKey(name) + "#container"
-}
-
-func (u *Unit) removeCloudContainerOps() []txn.Op {
-	ops := []txn.Op{{
-		C:      cloudContainersC,
-		Id:     u.globalKey(),
-		Remove: true,
-	}}
-	return ops
 }
 
 // Containers returns the containers for the specified provider ids.

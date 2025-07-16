@@ -229,13 +229,3 @@ func createStatusOp(mb modelBackend, globalKey string, doc statusDoc) txn.Op {
 		Insert: &doc,
 	}
 }
-
-// removeStatusOp returns the operation needed to remove the status
-// document associated with the given globalKey.
-func removeStatusOp(mb modelBackend, globalKey string) txn.Op {
-	return txn.Op{
-		C:      statusesC,
-		Id:     mb.docID(globalKey),
-		Remove: true,
-	}
-}
