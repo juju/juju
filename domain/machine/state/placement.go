@@ -267,9 +267,9 @@ func insertNetNode(ctx context.Context, tx *sqlair.TX, preparer domain.Preparer)
 		return "", errors.Capture(err)
 	}
 
-	netNodeUUID := netNodeUUID{NetNodeUUID: uuid.String()}
+	netNodeUUID := entityUUID{UUID: uuid.String()}
 
-	createNode := `INSERT INTO net_node (uuid) VALUES ($netNodeUUID.*)`
+	createNode := `INSERT INTO net_node (uuid) VALUES ($entityUUID.*)`
 	createNodeStmt, err := preparer.Prepare(createNode, netNodeUUID)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -279,7 +279,7 @@ func insertNetNode(ctx context.Context, tx *sqlair.TX, preparer domain.Preparer)
 		return "", errors.Errorf("creating net node for machine: %w", err)
 	}
 
-	return netNodeUUID.NetNodeUUID, nil
+	return netNodeUUID.UUID, nil
 }
 
 func insertMachinePlatform(
@@ -547,8 +547,8 @@ VALUES ($setConstraint.*)
 	}
 
 	// Check that spaces provided as constraints do exist in the space table.
-	selectSpaceQuery := `SELECT &spaceUUID.uuid FROM space WHERE name = $spaceName.name`
-	selectSpaceStmt, err := preparer.Prepare(selectSpaceQuery, spaceUUID{}, spaceName{})
+	selectSpaceQuery := `SELECT &entityUUID.uuid FROM space WHERE name = $entityName.name`
+	selectSpaceStmt, err := preparer.Prepare(selectSpaceQuery, entityUUID{}, entityName{})
 	if err != nil {
 		return errors.Errorf("preparing select space query: %w", err)
 	}
@@ -600,8 +600,8 @@ VALUES ($setConstraint.*)
 	if cons.Spaces != nil {
 		for _, space := range *cons.Spaces {
 			// Make sure the space actually exists.
-			var spaceUUID spaceUUID
-			err := tx.Query(ctx, selectSpaceStmt, spaceName{Name: space.SpaceName}).Get(&spaceUUID)
+			var spaceUUID entityUUID
+			err := tx.Query(ctx, selectSpaceStmt, entityName{Name: space.SpaceName}).Get(&spaceUUID)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("cannot set constraints, space %q does not exist", space.SpaceName).Add(machineerrors.InvalidMachineConstraints)
 			}

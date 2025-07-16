@@ -124,10 +124,6 @@ type machineName struct {
 	Name machine.Name `db:"name"`
 }
 
-type machineUUID struct {
-	UUID string `db:"uuid"`
-}
-
 type machineInstanceUUID struct {
 	MachineUUID string `db:"machine_uuid"`
 	LifeID      int64  `db:"life_id"`
@@ -194,10 +190,6 @@ type machinePlatformUUID struct {
 	ArchitectureID int              `db:"architecture_id"`
 }
 
-type netNodeUUID struct {
-	NetNodeUUID string `db:"uuid"`
-}
-
 type machineNameWithNetNodeUUID struct {
 	Name        machine.Name `db:"name"`
 	NetNodeUUID string       `db:"net_node_uuid"`
@@ -233,10 +225,6 @@ type containerType struct {
 type machineContainerType struct {
 	MachineUUID     string `db:"machine_uuid"`
 	ContainerTypeID int    `db:"container_type_id"`
-}
-
-type appName struct {
-	Name string `db:"name"`
 }
 
 type insertMachineAndNetNodeArgs struct {
@@ -341,14 +329,6 @@ type containerTypeID struct {
 
 type containerTypeVal struct {
 	Value string `db:"value"`
-}
-
-type spaceUUID struct {
-	UUID string `db:"uuid"`
-}
-
-type spaceName struct {
-	Name string `db:"name"`
 }
 
 // dbConstraint represents a single row within the v_model_constraint view.
@@ -471,6 +451,10 @@ type dbConstraintZone struct {
 
 type entityUUID struct {
 	UUID string `db:"uuid"`
+}
+
+type entityName struct {
+	Name string `db:"name"`
 }
 
 type sshHostKey struct {
