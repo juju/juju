@@ -15,7 +15,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Constraints,Address,NetworkService,ControllerConfigService,ApplicationService,MachineService
+//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Constraints,NetworkService,ControllerConfigService,ApplicationService,MachineService
 
 // APIBaseSuite is used to test API calls using mocked model operations.
 type APIBaseSuite struct {

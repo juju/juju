@@ -22,20 +22,6 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 	}, nil
 }
 
-// AllConstraints returns all constraints in the model,
-// wrapped in the Constraints indirection.
-func (s *stateShim) AllConstraints() ([]Constraints, error) {
-	found, err := s.State.AllConstraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cons := make([]Constraints, len(found))
-	for i, v := range found {
-		cons[i] = v
-	}
-	return cons, nil
-}
-
 func (s *stateShim) ConstraintsBySpaceName(spaceName string) ([]Constraints, error) {
 	found, err := s.State.ConstraintsBySpaceName(spaceName)
 	if err != nil {
