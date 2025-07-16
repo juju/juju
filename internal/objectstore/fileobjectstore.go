@@ -595,7 +595,7 @@ func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string, 
 }
 
 func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
-	hash := selectFileHash(metadata)
+	hash := SelectFileHash(metadata)
 
 	file, err := t.fs.Open(hash)
 	if errors.Is(err, os.ErrNotExist) {
@@ -782,7 +782,7 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		return errors.Errorf("get metadata: %w", err)
 	}
 
-	hash := selectFileHash(metadata)
+	hash := SelectFileHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return errors.Errorf("remove metadata: %w", err)
@@ -909,7 +909,7 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 
 	// If the file already exists for the hash, we don't need to do anything,
 	// we've already written the file.
-	hash := selectFileHash(metadata)
+	hash := SelectFileHash(metadata)
 	_, err = os.Stat(t.filePath(hash))
 	if err == nil {
 		t.logger.Debugf(ctx, "file for path %q already exists, nothing to do", path)
