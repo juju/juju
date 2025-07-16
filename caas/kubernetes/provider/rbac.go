@@ -238,18 +238,22 @@ func (k *kubernetesClient) ensureServiceAccount(sa *core.ServiceAccount) (out *c
 		return nil, cleanups, errors.Trace(err)
 	}
 
-	if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
-		return nil, cleanups, errors.Errorf("service account %q exists and is not managed by Juju", sa.GetName())
+	var existingLabelVersion constants.LabelVersion
+	switch name := sa.GetName(); name {
+	case ExecRBACResourceName, modelOperatorName:
+		existingLabelVersion, err = utils.DetectOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	default:
+		if isOperatorName(name) {
+			existingLabelVersion, err = utils.DetectOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
+		} else {
+			existingLabelVersion, err = utils.DetectApplicationMetaLabelVersion(existing.ObjectMeta, name)
+		}
 	}
-	// A "operator.juju.is/name" label might exist if this is for a model operator.
-	if existingNameValue, ok := existing.Labels[constants.LabelJujuOperatorName]; ok &&
-		existingNameValue != sa.Labels[constants.LabelJujuOperatorName] {
-		return nil, cleanups, errors.Errorf("service account %q exists and is not used by a Juju model operator", sa.GetName())
+	if err != nil {
+		return nil, cleanups, errors.Annotatef(err, "ensuring ServiceAccount %q with labels %v ", sa.GetName(), existing.Labels)
 	}
-	// A "app.kubernetes.io/name" label might exist if this is for an application.
-	if existingNameValue, ok := existing.Labels[constants.LabelKubernetesAppName]; ok &&
-		existingNameValue != sa.Labels[constants.LabelKubernetesAppName] {
-		return nil, cleanups, errors.Errorf("service account %q exists and diverges from the Juju application", sa.GetName())
+	if existingLabelVersion < k.labelVersion {
+		logger.Warningf("updating label version for existing ServiceAccount %q from %d to %d ", sa.GetName(), existingLabelVersion, k.labelVersion)
 	}
 
 	out, err = k.updateServiceAccount(sa)
@@ -334,18 +338,22 @@ func (k *kubernetesClient) ensureRole(role *rbacv1.Role) (out *rbacv1.Role, clea
 		return nil, cleanups, errors.Trace(err)
 	}
 
-	if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
-		return nil, cleanups, errors.Errorf("role %q exists and is not managed by Juju", role.GetName())
+	var existingLabelVersion constants.LabelVersion
+	switch name := role.GetName(); name {
+	case ExecRBACResourceName, modelOperatorName:
+		existingLabelVersion, err = utils.DetectOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	default:
+		if isOperatorName(name) {
+			existingLabelVersion, err = utils.DetectOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
+		} else {
+			existingLabelVersion, err = utils.DetectApplicationMetaLabelVersion(existing.ObjectMeta, name)
+		}
 	}
-	// A "operator.juju.is/name" label might exist if this is for a model operator.
-	if existingNameValue, ok := existing.Labels[constants.LabelJujuOperatorName]; ok &&
-		existingNameValue != role.Labels[constants.LabelJujuOperatorName] {
-		return nil, cleanups, errors.Errorf("role %q exists and is not used by a Juju model operator", role.GetName())
+	if err != nil {
+		return nil, cleanups, errors.Annotatef(err, "ensuring Role %q with labels %v ", role.GetName(), existing.Labels)
 	}
-	// A "app.kubernetes.io/name" label might exist if this is for an application.
-	if existingNameValue, ok := existing.Labels[constants.LabelKubernetesAppName]; ok &&
-		existingNameValue != role.Labels[constants.LabelKubernetesAppName] {
-		return nil, cleanups, errors.Errorf("role %q exists and diverges from the Juju application", role.GetName())
+	if existingLabelVersion < k.labelVersion {
+		logger.Warningf("updating label version for existing Role %q from %d to %d ", role.GetName(), existingLabelVersion, k.labelVersion)
 	}
 
 	out, err = k.updateRole(role)
