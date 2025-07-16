@@ -128,10 +128,6 @@ type MachineService interface {
 
 	// GetMachineBase returns the base for the given machine.
 	GetMachineBase(ctx context.Context, mName coremachine.Name) (base.Base, error)
-
-	// IsContainer returns true if the given machine is a container (i.e. if it has
-	// a parent).
-	IsContainer(ctx context.Context, mName coremachine.Name) (bool, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status

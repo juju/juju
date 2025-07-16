@@ -207,10 +207,6 @@ type State interface {
 	// addresses, meaning that if a machine has multiple addresses in the same
 	// subnet it will be counted only once.
 	CountMachinesInSpace(ctx context.Context, spUUID string) (int64, error)
-
-	// IsContainer returns true if the given machine is a container (i.e. if it has
-	// a parent).
-	IsContainer(ctx context.Context, mName machine.Name) (bool, error)
 }
 
 // StatusHistory records status information into a generalized way.
@@ -583,19 +579,6 @@ func (s *Service) CountMachinesInSpace(ctx context.Context, spaceID network.Spac
 	defer span.End()
 
 	return s.st.CountMachinesInSpace(ctx, spaceID.String())
-}
-
-// IsContainer returns true if the given machine is a container (i.e. if it has
-// a parent).
-func (s *Service) IsContainer(ctx context.Context, mName machine.Name) (bool, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := mName.Validate(); err != nil {
-		return false, errors.Errorf("validating machine name %q: %w", mName, err)
-	}
-
-	return s.st.IsContainer(ctx, mName)
 }
 
 func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusHistory, machineName machine.Name, clock clock.Clock) error {

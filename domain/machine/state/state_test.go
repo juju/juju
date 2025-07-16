@@ -1239,36 +1239,6 @@ func (s *stateSuite) TestCountMachinesInSpaceMultipleSubnets(c *tc.C) {
 	c.Check(count, tc.Equals, int64(3))
 }
 
-func (s *stateSuite) TestIsContainer(c *tc.C) {
-	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
-		Directive: deployment.Placement{
-			Type:      deployment.PlacementTypeContainer,
-			Container: deployment.ContainerTypeLXD,
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	isContainerParent, err := s.state.IsContainer(c.Context(), mNames[0])
-	c.Assert(err, tc.ErrorIsNil)
-	isContainerChild, err := s.state.IsContainer(c.Context(), mNames[1])
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isContainerParent, tc.Equals, false)
-	c.Check(isContainerChild, tc.Equals, true)
-}
-
-func (s *stateSuite) TestIsContainerWithNoParent(c *tc.C) {
-	_, mName := s.addMachine(c)
-
-	isContainer, err := s.state.IsContainer(c.Context(), mName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isContainer, tc.Equals, false)
-}
-
-func (s *stateSuite) TestIsContainerNotExists(c *tc.C) {
-	_, err := s.state.IsContainer(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
 func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{

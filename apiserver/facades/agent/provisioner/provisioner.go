@@ -747,10 +747,11 @@ func (api *ProvisionerAPI) Constraints(ctx context.Context, args params.Entities
 			continue
 		}
 		cons, err := api.machineService.GetMachineConstraints(ctx, coremachine.Name(tag.Id()))
-		if err == nil {
-			result.Results[i].Constraints = cons
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i].Constraints = cons
 	}
 	return result, nil
 }
@@ -948,11 +949,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		}
 
 		guestMachineName := coremachine.Name(guestTag.Id())
-		isContainer, err := api.machineService.IsContainer(ctx, guestMachineName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !isContainer {
+		if !guestMachineName.IsContainer() {
 			err = errors.Errorf("cannot prepare %s config for %q: not a container", handler.ConfigType(), guestTag)
 			handler.SetError(i, err)
 			continue
@@ -1016,8 +1013,8 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 					IsSecondary: addr.IsSecondary,
 				},
 				SpaceName:        network.SpaceName(addr.Space),
-				ProviderID:       derefNetworkId(addr.ProviderID),
-				ProviderSubnetID: derefNetworkId(addr.ProviderSubnetID),
+				ProviderID:       deref(addr.ProviderID),
+				ProviderSubnetID: deref(addr.ProviderSubnetID),
 			})
 		}
 
@@ -1028,7 +1025,7 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 
 		res[i] = network.InterfaceInfo{
 			MACAddress:          mac,
-			ProviderId:          derefNetworkId(netInterface.ProviderID),
+			ProviderId:          deref(netInterface.ProviderID),
 			VLANTag:             int(netInterface.VLANTag),
 			InterfaceName:       netInterface.Name,
 			ParentInterfaceName: netInterface.ParentDeviceName,
@@ -1039,7 +1036,7 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 			DNSServers:          netInterface.DNSAddresses,
 			MTU:                 mtu,
 			DNSSearchDomains:    netInterface.DNSSearchDomains,
-			GatewayAddress:      network.ProviderAddress{MachineAddress: network.MachineAddress{Value: derefString(netInterface.GatewayAddress)}},
+			GatewayAddress:      network.ProviderAddress{MachineAddress: network.MachineAddress{Value: deref(netInterface.GatewayAddress)}},
 			IsDefaultGateway:    netInterface.IsDefaultGateway,
 			VirtualPortType:     netInterface.VirtualPortType,
 			Origin:              origin,
@@ -1048,18 +1045,12 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 	return res
 }
 
-func derefNetworkId(id *network.Id) network.Id {
-	if id != nil {
-		return *id
+func deref[T any](v *T) T {
+	var zero T
+	if v != nil {
+		return *v
 	}
-	return ""
-}
-
-func derefString(s *string) string {
-	if s != nil {
-		return *s
-	}
-	return ""
+	return zero
 }
 
 type prepareOrGetHandler struct {
@@ -1104,12 +1095,13 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 		askProviderForAddress = environs.SupportsContainerAddresses(ctx, env)
 	}
 
-	guestMachineTag := names.NewMachineTag(guestMachineName.String())
 	allocatedInfo := preparedInfo
 	if askProviderForAddress {
+		guestMachineTag := names.NewMachineTag(guestMachineName.String())
 		// supportContainerAddresses already checks that we can cast to an environ.Networking
 		networking := env.(environs.Networking)
-		allocatedInfo, err := networking.AllocateContainerAddresses(
+		var err error
+		allocatedInfo, err = networking.AllocateContainerAddresses(
 			ctx, hostInstanceID, guestMachineTag, preparedInfo)
 		if err != nil {
 			return errors.Trace(err)

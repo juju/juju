@@ -861,34 +861,3 @@ func (s *serviceSuite) TestCountMachinesInSpaceError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 	c.Assert(count, tc.Equals, int64(0))
 }
-
-func (s *serviceSuite) TestIsContainerSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().IsContainer(gomock.Any(), machine.Name("666")).Return(true, nil)
-
-	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		IsContainer(c.Context(), machine.Name("666"))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isController, tc.IsTrue)
-}
-
-func (s *serviceSuite) TestIsContainerError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	rErr := errors.New("boom")
-	s.state.EXPECT().IsContainer(gomock.Any(), machine.Name("666")).Return(false, rErr)
-
-	isController, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		IsContainer(c.Context(), machine.Name("666"))
-	c.Assert(err, tc.ErrorIs, rErr)
-	c.Check(isController, tc.IsFalse)
-}
-
-func (s *serviceSuite) TestIsContainerInvalidMachineName(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		IsContainer(c.Context(), machine.Name("a/b/c/d"))
-	c.Assert(err, tc.ErrorMatches, `.*validating machine name "a/b/c/d".*`)
-}

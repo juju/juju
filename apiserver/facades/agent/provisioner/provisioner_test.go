@@ -46,9 +46,7 @@ type provisionerMockSuite struct {
 	authorizer *facademocks.MockAuthorizer
 
 	// All these need deprecation.
-	environ   *environtesting.MockNetworkingEnviron
-	host      *MockMachine
-	container *MockMachine
+	environ *environtesting.MockNetworkingEnviron
 
 	api ProvisionerAPI
 }
@@ -612,8 +610,6 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.environ = environtesting.NewMockNetworkingEnviron(ctrl)
-	s.host = NewMockMachine(ctrl)
-	s.container = NewMockMachine(ctrl)
 	s.clock = testclock.NewClock(time.Now())
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 
@@ -643,8 +639,6 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 
 	c.Cleanup(func() {
 		s.environ = nil
-		s.host = nil
-		s.container = nil
 		s.applicationService = nil
 		s.machineService = nil
 		s.statusService = nil

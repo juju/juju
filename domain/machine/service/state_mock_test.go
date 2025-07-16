@@ -1101,45 +1101,6 @@ func (c *MockStateInitialWatchStatementCall) DoAndReturn(f func() (string, strin
 	return c
 }
 
-// IsContainer mocks base method.
-func (m *MockState) IsContainer(ctx context.Context, mName machine.Name) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsContainer", ctx, mName)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsContainer indicates an expected call of IsContainer.
-func (mr *MockStateMockRecorder) IsContainer(ctx, mName any) *MockStateIsContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsContainer", reflect.TypeOf((*MockState)(nil).IsContainer), ctx, mName)
-	return &MockStateIsContainerCall{Call: call}
-}
-
-// MockStateIsContainerCall wrap *gomock.Call
-type MockStateIsContainerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateIsContainerCall) Return(arg0 bool, arg1 error) *MockStateIsContainerCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateIsContainerCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockStateIsContainerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsContainerCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockStateIsContainerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // IsMachineController mocks base method.
 func (m *MockState) IsMachineController(arg0 context.Context, arg1 machine.Name) (bool, error) {
 	m.ctrl.T.Helper()
