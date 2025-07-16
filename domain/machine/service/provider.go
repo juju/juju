@@ -86,7 +86,11 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 	precheckInstanceParams := environs.PrecheckInstanceParams{
 		Base:        base,
 		Constraints: mergedCons,
-		Placement:   args.Directive.Directive,
+	}
+	// We only precheck placement directive with the provider if the placement
+	// type is provider.
+	if args.Directive.Type == deployment.PlacementTypeProvider {
+		precheckInstanceParams.Placement = args.Directive.Directive
 	}
 	if err := provider.PrecheckInstance(ctx, precheckInstanceParams); err != nil {
 		return AddMachineResults{}, errors.Errorf("prechecking instance for create machine: %w", err)
