@@ -301,6 +301,21 @@ func (mr *MockNetworkingNeutronMockRecorder) AllocateFloatingIPV2(arg0 any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocateFloatingIPV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).AllocateFloatingIPV2), arg0)
 }
 
+// CreatePolicyTargetV2 mocks base method.
+func (m *MockNetworkingNeutron) CreatePolicyTargetV2(arg0 neutron.PolicyTargetV2) (*neutron.PolicyTargetV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePolicyTargetV2", arg0)
+	ret0, _ := ret[0].(*neutron.PolicyTargetV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreatePolicyTargetV2 indicates an expected call of CreatePolicyTargetV2.
+func (mr *MockNetworkingNeutronMockRecorder) CreatePolicyTargetV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePolicyTargetV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).CreatePolicyTargetV2), arg0)
+}
+
 // CreatePortV2 mocks base method.
 func (m *MockNetworkingNeutron) CreatePortV2(arg0 neutron.PortV2) (*neutron.PortV2, error) {
 	m.ctrl.T.Helper()
@@ -314,6 +329,64 @@ func (m *MockNetworkingNeutron) CreatePortV2(arg0 neutron.PortV2) (*neutron.Port
 func (mr *MockNetworkingNeutronMockRecorder) CreatePortV2(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePortV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).CreatePortV2), arg0)
+}
+
+// CreateSecurityGroupRuleV2 mocks base method.
+func (m *MockNetworkingNeutron) CreateSecurityGroupRuleV2(arg0 neutron.RuleInfoV2) (*neutron.SecurityGroupRuleV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSecurityGroupRuleV2", arg0)
+	ret0, _ := ret[0].(*neutron.SecurityGroupRuleV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSecurityGroupRuleV2 indicates an expected call of CreateSecurityGroupRuleV2.
+func (mr *MockNetworkingNeutronMockRecorder) CreateSecurityGroupRuleV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecurityGroupRuleV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).CreateSecurityGroupRuleV2), arg0)
+}
+
+// CreateSecurityGroupV2 mocks base method.
+func (m *MockNetworkingNeutron) CreateSecurityGroupV2(arg0, arg1 string, arg2 []string) (*neutron.SecurityGroupV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSecurityGroupV2", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*neutron.SecurityGroupV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSecurityGroupV2 indicates an expected call of CreateSecurityGroupV2.
+func (mr *MockNetworkingNeutronMockRecorder) CreateSecurityGroupV2(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecurityGroupV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).CreateSecurityGroupV2), arg0, arg1, arg2)
+}
+
+// DeleteFloatingIPV2 mocks base method.
+func (m *MockNetworkingNeutron) DeleteFloatingIPV2(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFloatingIPV2", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFloatingIPV2 indicates an expected call of DeleteFloatingIPV2.
+func (mr *MockNetworkingNeutronMockRecorder) DeleteFloatingIPV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFloatingIPV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeleteFloatingIPV2), arg0)
+}
+
+// DeletePolicyTargetV2 mocks base method.
+func (m *MockNetworkingNeutron) DeletePolicyTargetV2(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeletePolicyTargetV2", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeletePolicyTargetV2 indicates an expected call of DeletePolicyTargetV2.
+func (mr *MockNetworkingNeutronMockRecorder) DeletePolicyTargetV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePolicyTargetV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeletePolicyTargetV2), arg0)
 }
 
 // DeletePortV2 mocks base method.
@@ -330,6 +403,49 @@ func (mr *MockNetworkingNeutronMockRecorder) DeletePortV2(arg0 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePortV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeletePortV2), arg0)
 }
 
+// DeleteSecurityGroupRuleV2 mocks base method.
+func (m *MockNetworkingNeutron) DeleteSecurityGroupRuleV2(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSecurityGroupRuleV2", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSecurityGroupRuleV2 indicates an expected call of DeleteSecurityGroupRuleV2.
+func (mr *MockNetworkingNeutronMockRecorder) DeleteSecurityGroupRuleV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecurityGroupRuleV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeleteSecurityGroupRuleV2), arg0)
+}
+
+// DeleteSecurityGroupV2 mocks base method.
+func (m *MockNetworkingNeutron) DeleteSecurityGroupV2(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSecurityGroupV2", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSecurityGroupV2 indicates an expected call of DeleteSecurityGroupV2.
+func (mr *MockNetworkingNeutronMockRecorder) DeleteSecurityGroupV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecurityGroupV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeleteSecurityGroupV2), arg0)
+}
+
+// GetFloatingIPV2 mocks base method.
+func (m *MockNetworkingNeutron) GetFloatingIPV2(arg0 string) (*neutron.FloatingIPV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFloatingIPV2", arg0)
+	ret0, _ := ret[0].(*neutron.FloatingIPV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFloatingIPV2 indicates an expected call of GetFloatingIPV2.
+func (mr *MockNetworkingNeutronMockRecorder) GetFloatingIPV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFloatingIPV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).GetFloatingIPV2), arg0)
+}
+
 // GetNetworkV2 mocks base method.
 func (m *MockNetworkingNeutron) GetNetworkV2(arg0 string) (*neutron.NetworkV2, error) {
 	m.ctrl.T.Helper()
@@ -343,6 +459,36 @@ func (m *MockNetworkingNeutron) GetNetworkV2(arg0 string) (*neutron.NetworkV2, e
 func (mr *MockNetworkingNeutronMockRecorder) GetNetworkV2(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).GetNetworkV2), arg0)
+}
+
+// GetPolicyTargetV2 mocks base method.
+func (m *MockNetworkingNeutron) GetPolicyTargetV2(arg0 string) (*neutron.PolicyTargetV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPolicyTargetV2", arg0)
+	ret0, _ := ret[0].(*neutron.PolicyTargetV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPolicyTargetV2 indicates an expected call of GetPolicyTargetV2.
+func (mr *MockNetworkingNeutronMockRecorder) GetPolicyTargetV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPolicyTargetV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).GetPolicyTargetV2), arg0)
+}
+
+// GetSubnetV2 mocks base method.
+func (m *MockNetworkingNeutron) GetSubnetV2(arg0 string) (*neutron.SubnetV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSubnetV2", arg0)
+	ret0, _ := ret[0].(*neutron.SubnetV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSubnetV2 indicates an expected call of GetSubnetV2.
+func (mr *MockNetworkingNeutronMockRecorder) GetSubnetV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).GetSubnetV2), arg0)
 }
 
 // ListFloatingIPsV2 mocks base method.
@@ -383,6 +529,25 @@ func (mr *MockNetworkingNeutronMockRecorder) ListNetworksV2(arg0 ...any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListNetworksV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).ListNetworksV2), arg0...)
 }
 
+// ListPolicyTargetsV2 mocks base method.
+func (m *MockNetworkingNeutron) ListPolicyTargetsV2(arg0 ...*neutron.Filter) ([]neutron.PolicyTargetV2, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListPolicyTargetsV2", varargs...)
+	ret0, _ := ret[0].([]neutron.PolicyTargetV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListPolicyTargetsV2 indicates an expected call of ListPolicyTargetsV2.
+func (mr *MockNetworkingNeutronMockRecorder) ListPolicyTargetsV2(arg0 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPolicyTargetsV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).ListPolicyTargetsV2), arg0...)
+}
+
 // ListPortsV2 mocks base method.
 func (m *MockNetworkingNeutron) ListPortsV2(arg0 ...*neutron.Filter) ([]neutron.PortV2, error) {
 	m.ctrl.T.Helper()
@@ -402,6 +567,21 @@ func (mr *MockNetworkingNeutronMockRecorder) ListPortsV2(arg0 ...any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPortsV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).ListPortsV2), arg0...)
 }
 
+// ListSecurityGroupsV2 mocks base method.
+func (m *MockNetworkingNeutron) ListSecurityGroupsV2(arg0 neutron.ListSecurityGroupsV2Query) ([]neutron.SecurityGroupV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecurityGroupsV2", arg0)
+	ret0, _ := ret[0].([]neutron.SecurityGroupV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSecurityGroupsV2 indicates an expected call of ListSecurityGroupsV2.
+func (mr *MockNetworkingNeutronMockRecorder) ListSecurityGroupsV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecurityGroupsV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).ListSecurityGroupsV2), arg0)
+}
+
 // ListSubnetsV2 mocks base method.
 func (m *MockNetworkingNeutron) ListSubnetsV2() ([]neutron.SubnetV2, error) {
 	m.ctrl.T.Helper()
@@ -415,6 +595,65 @@ func (m *MockNetworkingNeutron) ListSubnetsV2() ([]neutron.SubnetV2, error) {
 func (mr *MockNetworkingNeutronMockRecorder) ListSubnetsV2() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSubnetsV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).ListSubnetsV2))
+}
+
+// PortByIdV2 mocks base method.
+func (m *MockNetworkingNeutron) PortByIdV2(arg0 string) (neutron.PortV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PortByIdV2", arg0)
+	ret0, _ := ret[0].(neutron.PortV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PortByIdV2 indicates an expected call of PortByIdV2.
+func (mr *MockNetworkingNeutronMockRecorder) PortByIdV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortByIdV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).PortByIdV2), arg0)
+}
+
+// ReplaceAllTags mocks base method.
+func (m *MockNetworkingNeutron) ReplaceAllTags(arg0, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplaceAllTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplaceAllTags indicates an expected call of ReplaceAllTags.
+func (mr *MockNetworkingNeutronMockRecorder) ReplaceAllTags(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceAllTags", reflect.TypeOf((*MockNetworkingNeutron)(nil).ReplaceAllTags), arg0, arg1, arg2)
+}
+
+// SecurityGroupByNameV2 mocks base method.
+func (m *MockNetworkingNeutron) SecurityGroupByNameV2(arg0 string) ([]neutron.SecurityGroupV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecurityGroupByNameV2", arg0)
+	ret0, _ := ret[0].([]neutron.SecurityGroupV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SecurityGroupByNameV2 indicates an expected call of SecurityGroupByNameV2.
+func (mr *MockNetworkingNeutronMockRecorder) SecurityGroupByNameV2(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecurityGroupByNameV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).SecurityGroupByNameV2), arg0)
+}
+
+// UpdateSecurityGroupV2 mocks base method.
+func (m *MockNetworkingNeutron) UpdateSecurityGroupV2(arg0, arg1, arg2 string, arg3 []string) (*neutron.SecurityGroupV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecurityGroupV2", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*neutron.SecurityGroupV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecurityGroupV2 indicates an expected call of UpdateSecurityGroupV2.
+func (mr *MockNetworkingNeutronMockRecorder) UpdateSecurityGroupV2(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecurityGroupV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).UpdateSecurityGroupV2), arg0, arg1, arg2, arg3)
 }
 
 // MockNetworkingAuthenticatingClient is a mock of NetworkingAuthenticatingClient interface.
