@@ -207,10 +207,14 @@ type machinePlacement struct {
 }
 
 type exportMachine struct {
-	Name   string `db:"name"`
-	UUID   string `db:"uuid"`
-	LifeID int    `db:"life_id"`
-	Nonce  string `db:"nonce"`
+	Name               string `db:"name"`
+	UUID               string `db:"uuid"`
+	Nonce              string `db:"nonce"`
+	PasswordHash       string `db:"password_hash"`
+	PlacementDirective string `db:"directive"`
+	OSName             string `db:"os_name"`
+	Channel            string `db:"channel"`
+	InstanceID         string `db:"instance_id"`
 }
 
 type machineHostName struct {

@@ -1106,6 +1106,76 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMes
 - unit "foo/66\d" workload not active or viable`)
 }
 
+func (s *serviceSuite) TestExportMachineStatusesEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.MachineStatusType]{}, nil)
+	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.InstanceStatusType]{}, nil)
+
+	machineStatuses, instanceStatuses, err := s.modelService.ExportMachineStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineStatuses, tc.HasLen, 0)
+	c.Check(instanceStatuses, tc.HasLen, 0)
+}
+
+func (s *serviceSuite) TestExportMachineStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mStatuses := map[string]status.StatusInfo[status.MachineStatusType]{
+		"0": {
+			Status:  status.MachineStatusStarted,
+			Message: "it's started",
+			Data:    []byte(`{"foo":"bar"}`),
+		},
+		"1": {
+			Status:  status.MachineStatusPending,
+			Message: "it's pending",
+			Data:    []byte(`{"foo":"baz"}`),
+		},
+	}
+	iStatuses := map[string]status.StatusInfo[status.InstanceStatusType]{
+		"0": {
+			Status:  status.InstanceStatusRunning,
+			Message: "it's running",
+			Data:    []byte(`{"foo":"bar"}`),
+		},
+		"1": {
+			Status:  status.InstanceStatusPending,
+			Message: "it's pending",
+			Data:    []byte(`{"foo":"baz"}`),
+		},
+	}
+	s.modelState.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(mStatuses, nil)
+	s.modelState.EXPECT().GetAllInstanceStatuses(gomock.Any()).Return(iStatuses, nil)
+
+	machineStatuses, instanceStatuses, err := s.modelService.ExportMachineStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineStatuses, tc.DeepEquals, map[machine.Name]corestatus.StatusInfo{
+		"0": {
+			Status:  corestatus.Started,
+			Message: "it's started",
+			Data:    map[string]any{"foo": "bar"},
+		},
+		"1": {
+			Status:  corestatus.Pending,
+			Message: "it's pending",
+			Data:    map[string]any{"foo": "baz"},
+		},
+	})
+	c.Check(instanceStatuses, tc.DeepEquals, map[machine.Name]corestatus.StatusInfo{
+		"0": {
+			Status:  corestatus.Running,
+			Message: "it's running",
+			Data:    map[string]any{"foo": "bar"},
+		},
+		"1": {
+			Status:  corestatus.Pending,
+			Message: "it's pending",
+			Data:    map[string]any{"foo": "baz"},
+		},
+	})
+}
+
 func (s *serviceSuite) TestExportUnitStatusesEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

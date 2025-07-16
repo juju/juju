@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"slices"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v10"
@@ -73,80 +72,91 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	machines, err := e.service.GetMachines(ctx)
+	exportMachines, err := e.service.GetMachines(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving machines for export: %w", err)
 	}
+	exportContainers := []machine.ExportMachine{}
+	machines := map[string]description.Machine{}
 
-	for _, m := range model.Machines() {
-		index := slices.IndexFunc(machines, func(em machine.ExportMachine) bool {
-			return em.Name == coremachine.Name(m.Id())
+	for _, m := range exportMachines {
+		if m.Name.IsContainer() {
+			exportContainers = append(exportContainers, m)
+			continue
+		}
+		machine := model.AddMachine(description.MachineArgs{
+			Id:        m.Name.String(),
+			Placement: m.Placement,
+			Base:      m.Base,
 		})
-		if index == -1 {
-			// The machine is not in the exported model, so we skip it.
-			continue
-		}
-
-		machine := machines[index]
-
-		m.SetNonce(machine.Nonce)
-
-		instanceID, err := e.service.GetInstanceID(ctx, machine.UUID)
-		if errors.Is(err, machineerrors.NotProvisioned) {
-			// TODO(nvinuesa): Here we should remove the machine from the
-			// exported model because we should not migrate non-provisioned
-			// machines. This used to be checked in model.Description, but was
-			// removed in https://github.com/juju/description/pull/157.
-			// We should revisit this once we finish migrating machines over to
-			// dqlite (by not adding the machine to the exported model to begin
-			// with if it's not provisioned).
-			continue
-		}
+		err := e.exportMachine(ctx, m, machine)
 		if err != nil {
-			return errors.Errorf("retrieving instance ID for machine %q: %w", machine.Name, err)
+			return errors.Errorf("exporting machine %q: %w", m.Name, err)
 		}
-		instanceArgs := description.CloudInstanceArgs{
-			InstanceId: instanceID.String(),
-		}
-		hardwareCharacteristics, err := e.service.GetHardwareCharacteristics(ctx, machine.UUID)
-		if errors.Is(err, machineerrors.NotProvisioned) {
-			continue
-		}
-		if err != nil {
-			return errors.Errorf("retrieving hardware characteristics for machine %q: %w", machine.Name, err)
-		}
-		if hardwareCharacteristics.Arch != nil {
-			instanceArgs.Architecture = *hardwareCharacteristics.Arch
-		}
-		if hardwareCharacteristics.Mem != nil {
-			instanceArgs.Memory = *hardwareCharacteristics.Mem
-		}
-		if hardwareCharacteristics.RootDisk != nil {
-			instanceArgs.RootDisk = *hardwareCharacteristics.RootDisk
-		}
-		if hardwareCharacteristics.RootDiskSource != nil {
-			instanceArgs.RootDiskSource = *hardwareCharacteristics.RootDiskSource
-		}
-		if hardwareCharacteristics.CpuCores != nil {
-			instanceArgs.CpuCores = *hardwareCharacteristics.CpuCores
-		}
-		if hardwareCharacteristics.CpuPower != nil {
-			instanceArgs.CpuPower = *hardwareCharacteristics.CpuPower
-		}
-		if hardwareCharacteristics.Tags != nil {
-			instanceArgs.Tags = *hardwareCharacteristics.Tags
-		}
-		if hardwareCharacteristics.AvailabilityZone != nil {
-			instanceArgs.AvailabilityZone = *hardwareCharacteristics.AvailabilityZone
-		}
-		if hardwareCharacteristics.VirtType != nil {
-			instanceArgs.VirtType = *hardwareCharacteristics.VirtType
-		}
-
-		m.SetInstance(instanceArgs)
-
-		instance := m.Instance()
-		instance.SetStatus(description.StatusArgs{})
+		machines[m.Name.String()] = machine
 	}
+
+	for _, c := range exportContainers {
+		parentName := c.Name.Parent()
+		parent, ok := machines[parentName.String()]
+		if !ok {
+			return errors.Errorf("parent machine %q not exported", parentName)
+		}
+		container := parent.AddContainer(description.MachineArgs{
+			Id:        c.Name.String(),
+			Placement: c.Placement,
+			Base:      c.Base,
+		})
+		err := e.exportMachine(ctx, c, container)
+		if err != nil {
+			return errors.Errorf("exporting container machine %q: %w", c.Name, err)
+		}
+	}
+	return nil
+}
+
+func (e *exportOperation) exportMachine(ctx context.Context, m machine.ExportMachine, machine description.Machine) error {
+	machine.SetNonce(m.Nonce)
+	machine.SetPasswordHash(m.PasswordHash)
+
+	instanceArgs := description.CloudInstanceArgs{
+		InstanceId: m.InstanceID,
+	}
+	hardwareCharacteristics, err := e.service.GetHardwareCharacteristics(ctx, m.UUID)
+	if errors.Is(err, machineerrors.NotProvisioned) {
+		return nil
+	}
+	if err != nil {
+		return errors.Errorf("retrieving hardware characteristics for machine %q: %w", m.Name, err)
+	}
+	if hardwareCharacteristics.Arch != nil {
+		instanceArgs.Architecture = *hardwareCharacteristics.Arch
+	}
+	if hardwareCharacteristics.Mem != nil {
+		instanceArgs.Memory = *hardwareCharacteristics.Mem
+	}
+	if hardwareCharacteristics.RootDisk != nil {
+		instanceArgs.RootDisk = *hardwareCharacteristics.RootDisk
+	}
+	if hardwareCharacteristics.RootDiskSource != nil {
+		instanceArgs.RootDiskSource = *hardwareCharacteristics.RootDiskSource
+	}
+	if hardwareCharacteristics.CpuCores != nil {
+		instanceArgs.CpuCores = *hardwareCharacteristics.CpuCores
+	}
+	if hardwareCharacteristics.CpuPower != nil {
+		instanceArgs.CpuPower = *hardwareCharacteristics.CpuPower
+	}
+	if hardwareCharacteristics.Tags != nil {
+		instanceArgs.Tags = *hardwareCharacteristics.Tags
+	}
+	if hardwareCharacteristics.AvailabilityZone != nil {
+		instanceArgs.AvailabilityZone = *hardwareCharacteristics.AvailabilityZone
+	}
+	if hardwareCharacteristics.VirtType != nil {
+		instanceArgs.VirtType = *hardwareCharacteristics.VirtType
+	}
+
+	machine.SetInstance(instanceArgs)
 	return nil
 }
