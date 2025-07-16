@@ -530,7 +530,7 @@ func (t *s3ObjectStore) getBySHA256Prefix(ctx context.Context, sha256Prefix stri
 }
 
 func (t *s3ObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
-	hash := selectFileHash(metadata)
+	hash := SelectFileHash(metadata)
 
 	var reader io.ReadCloser
 	var size int64
@@ -668,7 +668,7 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 		return errors.Errorf("get metadata: %w", err)
 	}
 
-	hash := selectFileHash(metadata)
+	hash := SelectFileHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return errors.Errorf("remove metadata: %w", err)
