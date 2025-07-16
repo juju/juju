@@ -118,3 +118,42 @@ func (c *MockStateGetControllerModelUUIDCall) DoAndReturn(f func(context.Context
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// GetModelNamespaces mocks base method.
+func (m *MockState) GetModelNamespaces(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelNamespaces", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelNamespaces indicates an expected call of GetModelNamespaces.
+func (mr *MockStateMockRecorder) GetModelNamespaces(arg0 any) *MockStateGetModelNamespacesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelNamespaces", reflect.TypeOf((*MockState)(nil).GetModelNamespaces), arg0)
+	return &MockStateGetModelNamespacesCall{Call: call}
+}
+
+// MockStateGetModelNamespacesCall wrap *gomock.Call
+type MockStateGetModelNamespacesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelNamespacesCall) Return(arg0 []string, arg1 error) *MockStateGetModelNamespacesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelNamespacesCall) Do(f func(context.Context) ([]string, error)) *MockStateGetModelNamespacesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelNamespacesCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateGetModelNamespacesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

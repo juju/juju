@@ -61,3 +61,16 @@ func (s *serviceSuite) TestGetControllerAgentInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info, tc.Equals, servingInfo)
 }
+
+func (s *serviceSuite) TestGetModelNamespaces(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	st := NewService(s.state)
+
+	namespaces := []string{"namespace1", "namespace2"}
+
+	s.state.EXPECT().GetModelNamespaces(gomock.Any()).Return(namespaces, nil)
+
+	allNamespaces, err := st.GetModelNamespaces(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(allNamespaces, tc.DeepEquals, namespaces)
+}
