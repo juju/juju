@@ -31,6 +31,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -1361,6 +1362,111 @@ WHERE sp.uuid = $spaceUUID.uuid
 	}
 
 	return count.Count, nil
+}
+
+// GetSSHHostKeys returns the SSH host keys for the given machine.
+func (st *State) GetSSHHostKeys(ctx context.Context, mUUID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	machineUUID := machineUUID{UUID: mUUID}
+
+	query := `SELECT &sshHostKey.*
+FROM machine_ssh_host_key
+WHERE machine_uuid = $machineUUID.uuid`
+	queryStmt, err := st.Prepare(query, sshHostKey{}, machineUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var sshHostKeys []sshHostKey
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check if the machine exists.
+		if err := st.checkMachineNotDead(ctx, tx, mUUID); err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, queryStmt, machineUUID).GetAll(&sshHostKeys)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("querying SSH host keys for machine %q: %w", mUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	// Convert the SSH host keys to a slice of strings.
+	result := make([]string, len(sshHostKeys))
+	for i, key := range sshHostKeys {
+		result[i] = key.Key
+	}
+	return result, nil
+}
+
+// SetSSHHostKeys sets the SSH host keys for the given machine.
+// This will overwrite the existing SSH host keys for the machine.
+// [machineerrors.MachineNotFound] will be returned if the machine does not
+// exist.
+func (st *State) SetSSHHostKeys(ctx context.Context, mUUID string, sshHostKeys []string) error {
+	if len(sshHostKeys) == 0 {
+		return nil // Nothing to do, no SSH host keys to set.
+	}
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machineUUID := machineUUID{UUID: mUUID}
+
+	removePreviousKeysStmt, err := st.Prepare(`
+DELETE FROM machine_ssh_host_key
+WHERE  machine_uuid = $machineUUID.uuid`, machineUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	setSSHHostKeyStmt, err := st.Prepare(`
+INSERT INTO machine_ssh_host_key (*)
+VALUES      ($sshHostKey.*)`, sshHostKey{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	keysToInsert := make([]sshHostKey, len(sshHostKeys))
+	for i, key := range sshHostKeys {
+		uuid, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Errorf("generating UUID for SSH host key %d: %w", i, err)
+		}
+
+		keysToInsert[i] = sshHostKey{
+			UUID:        uuid.String(),
+			MachineUUID: mUUID,
+			Key:         key,
+		}
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check if the machine exists.
+		if err := st.checkMachineNotDead(ctx, tx, mUUID); err != nil {
+			return errors.Capture(err)
+		}
+
+		// Remove any previous SSH host keys for the machine.
+		if err := tx.Query(ctx, removePreviousKeysStmt, machineUUID).Run(); err != nil {
+			return errors.Errorf("removing previous SSH host keys for machine %q: %w", mUUID, err)
+		}
+
+		// Insert the new SSH host keys.
+		if err := tx.Query(ctx, setSSHHostKeyStmt, keysToInsert).Run(); err != nil {
+			return errors.Errorf("setting SSH host keys %v for machine %q: %w", sshHostKeys, mUUID, err)
+		}
+		return nil
+	})
 }
 
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching

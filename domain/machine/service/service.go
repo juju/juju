@@ -176,16 +176,16 @@ type State interface {
 	// given machine.
 	GetSupportedContainersTypes(ctx context.Context, mUUID string) ([]string, error)
 
-	// GetMachineContainers returns the names of the machines which have as parent
-	// the specified machine.
+	// GetMachineContainers returns the names of the machines which have as
+	// parent the specified machine.
 	GetMachineContainers(ctx context.Context, mUUID string) ([]string, error)
 
 	// GetMachinePrincipalApplications returns the names of the principal
 	// (non-subordinate) applications for the specified machine.
 	GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error)
 
-	// GetMachinePlacement returns the placement structure as it was recorded for
-	// the given machine.
+	// GetMachinePlacement returns the placement structure as it was recorded
+	// for the given machine.
 	GetMachinePlacementDirective(ctx context.Context, mName string) (*string, error)
 
 	// GetMachineConstraints returns the constraints for the given machine.
@@ -193,20 +193,27 @@ type State interface {
 	// machine.
 	GetMachineConstraints(ctx context.Context, mName string) (constraints.Constraints, error)
 
-	// GetMachineBase returns the base for the given machine.
-	// Since the machine_platform table is populated when creating a machine, there
-	// should always be a base for a machine.
+	// GetMachineBase returns the base for the given machine. Since the
+	// machine_platform table is populated when creating a machine, there should
+	// always be a base for a machine.
 	GetMachineBase(ctx context.Context, mName string) (base.Base, error)
 
 	// GetModelConstraints returns the currently set constraints for the model.
 	// Note: This method should mirror the model domain method of the same name.
 	GetModelConstraints(ctx context.Context) (constraints.Constraints, error)
 
-	// CountMachinesInSpace counts the number of machines with address in a given
-	// space. This method counts the distinct occurrences of net nodes of the
-	// addresses, meaning that if a machine has multiple addresses in the same
-	// subnet it will be counted only once.
+	// CountMachinesInSpace counts the number of machines with address in a
+	// given space. This method counts the distinct occurrences of net nodes of
+	// the addresses, meaning that if a machine has multiple addresses in the
+	// same subnet it will be counted only once.
 	CountMachinesInSpace(ctx context.Context, spUUID string) (int64, error)
+
+	// GetSSHHostKeys returns the SSH host keys for the given machine.
+	GetSSHHostKeys(ctx context.Context, mUUID string) ([]string, error)
+
+	// SetSSHHostKeys sets the SSH host keys for the given machine.
+	// This will overwrite the existing SSH host keys for the machine.
+	SetSSHHostKeys(ctx context.Context, mUUID string, sshHostKeys []string) error
 }
 
 // StatusHistory records status information into a generalized way.
@@ -578,7 +585,42 @@ func (s *Service) CountMachinesInSpace(ctx context.Context, spaceID network.Spac
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if err := spaceID.Validate(); err != nil {
+		return 0, errors.Errorf("validating space UUID %q: %w", spaceID, err)
+	}
+
 	return s.st.CountMachinesInSpace(ctx, spaceID.String())
+}
+
+// GetSSHHostKeys returns the SSH host keys for the given machine UUID.
+func (s *Service) GetSSHHostKeys(ctx context.Context, mUUID machine.UUID) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mUUID.Validate(); err != nil {
+		return nil, errors.Errorf("validating machine UUID %q: %w", mUUID, err)
+	}
+
+	keys, err := s.st.GetSSHHostKeys(ctx, mUUID.String())
+	if err != nil {
+		return nil, errors.Errorf("getting SSH host keys for machine with UUID %q: %w", mUUID, err)
+	}
+	return keys, nil
+}
+
+// SetSSHHostKeys sets the SSH host keys for the given machine UUID.
+func (s *Service) SetSSHHostKeys(ctx context.Context, mUUID machine.UUID, keys []string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := mUUID.Validate(); err != nil {
+		return errors.Errorf("validating machine UUID %q: %w", mUUID, err)
+	}
+
+	if err := s.st.SetSSHHostKeys(ctx, mUUID.String(), keys); err != nil {
+		return errors.Errorf("setting SSH host keys for machine with UUID %q: %w", mUUID, err)
+	}
+	return nil
 }
 
 func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusHistory, machineName machine.Name, clock clock.Clock) error {

@@ -17,7 +17,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -841,7 +841,7 @@ func (s *serviceSuite) TestGetMachineBaseNotFound(c *tc.C) {
 func (s *serviceSuite) TestCountMachinesInSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceID := network.SpaceUUID("space-uuid")
+	spaceID := networktesting.GenSpaceUUID(c)
 	s.state.EXPECT().CountMachinesInSpace(gomock.Any(), spaceID.String()).Return(int64(42), nil)
 
 	count, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
@@ -853,11 +853,38 @@ func (s *serviceSuite) TestCountMachinesInSpace(c *tc.C) {
 func (s *serviceSuite) TestCountMachinesInSpaceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceID := network.SpaceUUID("space-uuid")
+	spaceID := networktesting.GenSpaceUUID(c)
 	s.state.EXPECT().CountMachinesInSpace(gomock.Any(), spaceID.String()).Return(int64(0), errors.Errorf("boom"))
 
 	count, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		CountMachinesInSpace(c.Context(), spaceID)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 	c.Assert(count, tc.Equals, int64(0))
+}
+
+func (s *serviceSuite) TestGetSSHHostKeys(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	expectedKeys := []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICD1"}
+
+	s.state.EXPECT().GetSSHHostKeys(gomock.Any(), machineUUID.String()).Return(expectedKeys, nil)
+
+	keys, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetSSHHostKeys(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, expectedKeys)
+}
+
+func (s *serviceSuite) TestSetSSHHostKeys(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	keys := []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICD1"}
+
+	s.state.EXPECT().SetSSHHostKeys(gomock.Any(), machineUUID.String(), keys).Return(nil)
+
+	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		SetSSHHostKeys(c.Context(), machineUUID, keys)
+	c.Assert(err, tc.ErrorIsNil)
 }

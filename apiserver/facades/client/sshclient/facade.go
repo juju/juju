@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -26,10 +25,7 @@ import (
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
-	backend    Backend
 	authorizer facade.Authorizer
-
-	leadershipReader leadership.Reader
 
 	applicationService   ApplicationService
 	machineService       MachineService
@@ -54,20 +50,18 @@ type FacadeV4 struct {
 func internalFacade(
 	controllerTag names.ControllerTag,
 	modelTag names.ModelTag,
-	backend Backend,
 	applicationService ApplicationService,
 	machineService MachineService,
 	networkService NetworkService,
 	modelConfigService ModelConfigService,
 	modelProviderService ModelProviderService,
-	leadershipReader leadership.Reader, auth facade.Authorizer,
+	auth facade.Authorizer,
 ) (*Facade, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &Facade{
-		backend:              backend,
 		applicationService:   applicationService,
 		modelConfigService:   modelConfigService,
 		modelProviderService: modelProviderService,
@@ -76,7 +70,6 @@ func internalFacade(
 		controllerTag:        controllerTag,
 		modelTag:             modelTag,
 		authorizer:           auth,
-		leadershipReader:     leadershipReader,
 	}, nil
 }
 
@@ -178,20 +171,21 @@ func (facade *Facade) getAllEntityAddresses(ctx context.Context, args params.Ent
 		Results: make([]params.SSHAddressesResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		machineUUID, _, err := facade.getMachineForEntity(ctx, entity.Tag)
+		machineUUID, err := facade.getMachineForEntity(ctx, entity.Tag)
 		if err != nil {
 			out.Results[i].Error = apiservererrors.ServerError(err)
-		} else {
-			addresses, err := getter(ctx, machineUUID)
-			if err != nil {
-				out.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
+			continue
+		}
 
-			out.Results[i].Addresses = make([]string, len(addresses))
-			for j := range addresses {
-				out.Results[i].Addresses[j] = addresses[j].Value
-			}
+		addresses, err := getter(ctx, machineUUID)
+		if err != nil {
+			out.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		out.Results[i].Addresses = make([]string, len(addresses))
+		for j := range addresses {
+			out.Results[i].Addresses[j] = addresses[j].Value
 		}
 	}
 	return out, nil
@@ -221,9 +215,12 @@ func (facade *Facade) getAddressPerEntity(ctx context.Context, args params.Entit
 	for i, result := range fullResults.Results {
 		if result.Error != nil {
 			out.Results[i].Error = result.Error
-		} else {
-			out.Results[i].Address = result.Addresses[0]
+			continue
+		} else if len(result.Addresses) == 0 {
+			continue
 		}
+
+		out.Results[i].Address = result.Addresses[0]
 	}
 
 	return out, nil
@@ -240,17 +237,19 @@ func (facade *Facade) PublicKeys(ctx context.Context, args params.Entities) (par
 		Results: make([]params.SSHPublicKeysResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		_, machineTag, err := facade.getMachineForEntity(ctx, entity.Tag)
+		machineUUID, err := facade.getMachineForEntity(ctx, entity.Tag)
 		if err != nil {
 			out.Results[i].Error = apiservererrors.ServerError(err)
-		} else {
-			keys, err := facade.backend.GetSSHHostKeys(machineTag)
-			if err != nil {
-				out.Results[i].Error = apiservererrors.ServerError(err)
-			} else {
-				out.Results[i].PublicKeys = keys
-			}
+			continue
 		}
+
+		keys, err := facade.machineService.GetSSHHostKeys(ctx, machineUUID)
+		if err != nil {
+			out.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		out.Results[i].PublicKeys = keys
 	}
 	return out, nil
 }
@@ -290,28 +289,30 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 	return result, nil
 }
 
-func (facade *Facade) getMachineForEntity(ctx context.Context, tagString string) (machine.UUID, names.MachineTag, error) {
+func (facade *Facade) getMachineForEntity(ctx context.Context, tagString string) (machine.UUID, error) {
 	tag, err := names.ParseTag(tagString)
 	if err != nil {
-		return "", names.MachineTag{}, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	switch tag := tag.(type) {
 	case names.MachineTag:
 		machineName := machine.Name(tag.Id())
 		machineUUID, err := facade.machineService.GetMachineUUID(ctx, machineName)
-		return machineUUID, tag, errors.Trace(err)
+		return machineUUID, errors.Trace(err)
+
 	case names.UnitTag:
 		machineName, err := facade.applicationService.GetUnitMachineName(ctx, unit.Name(tag.Id()))
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return "", names.MachineTag{}, errors.NotFoundf("unit %q", tag.Id())
+			return "", errors.NotFoundf("unit %q", tag.Id())
 		} else if err != nil {
-			return "", names.MachineTag{}, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 		machineUUID, err := facade.machineService.GetMachineUUID(ctx, machineName)
-		return machineUUID, names.NewMachineTag(machineName.String()), errors.Trace(err)
+		return machineUUID, errors.Trace(err)
+
 	default:
-		return "", names.MachineTag{}, errors.Errorf("unsupported entity: %q", tagString)
+		return "", errors.Errorf("unsupported entity: %q", tagString)
 	}
 }
 

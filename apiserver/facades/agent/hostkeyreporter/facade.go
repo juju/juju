@@ -5,31 +5,39 @@ package hostkeyreporter
 
 import (
 	"context"
+	"errors"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-// Backend defines the State API used by the hostkeyreporter facade.
-type Backend interface {
-	SetSSHHostKeys(names.MachineTag, state.SSHHostKeys) error
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns an errors.MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error)
+	// SetSSHHostKeys sets the SSH host keys for the given machine UUID.
+	SetSSHHostKeys(ctx context.Context, mUUID machine.UUID, keys []string) error
 }
 
 // Facade implements the API required by the hostkeyreporter worker.
 type Facade struct {
-	backend      Backend
-	getCanModify common.GetAuthFunc
+	machineService MachineService
+	getCanModify   common.GetAuthFunc
 }
 
 // New returns a new API facade for the hostkeyreporter worker.
-func New(backend Backend, authorizer facade.Authorizer) (*Facade, error) {
+func New(machineService MachineService, authorizer facade.Authorizer) (*Facade, error) {
 	return &Facade{
-		backend: backend,
+		machineService: machineService,
 		getCanModify: func(context.Context) (common.AuthFunc, error) {
 			return authorizer.AuthOwner, nil
 		},
@@ -53,11 +61,29 @@ func (facade *Facade) ReportKeys(ctx context.Context, args params.SSHHostKeySet)
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canModify(tag) {
-			err = facade.backend.SetSSHHostKeys(tag, state.SSHHostKeys(arg.PublicKeys))
+
+		if !canModify(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		results.Results[i].Error = apiservererrors.ServerError(err)
+
+		machineUUID, err := facade.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", tag))
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = facade.machineService.SetSSHHostKeys(ctx, machineUUID, arg.PublicKeys)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", tag))
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return results, nil
 }
