@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 
@@ -21,6 +22,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
@@ -37,9 +39,11 @@ import (
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	secretbackendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -69,9 +73,12 @@ func CheckJWKSReachable(url string) error {
 
 // AgentBootstrap is used to initialize the state for a new controller.
 type AgentBootstrap struct {
-	adminUser                 names.UserTag
-	agentConfig               agent.ConfigSetter
-	bootstrapDqlite           DqliteInitializerFunc
+	adminUser       names.UserTag
+	agentConfig     agent.ConfigSetter
+	mongoDialOpts   mongo.DialOpts
+	stateNewPolicy  state.NewPolicyFunc
+	bootstrapDqlite DqliteInitializerFunc
+
 	stateInitializationParams instancecfg.StateInitializationParams
 
 	// StorageProviderRegistry is used to determine and store the
@@ -85,6 +92,9 @@ type AgentBootstrap struct {
 type AgentBootstrapArgs struct {
 	AdminUser                 names.UserTag
 	AgentConfig               agent.ConfigSetter
+	BootstrapEnviron          environs.BootstrapEnviron
+	BootstrapMachineAddresses corenetwork.ProviderAddresses
+	MongoDialOpts             mongo.DialOpts
 	StateInitializationParams instancecfg.StateInitializationParams
 	StorageProviderRegistry   storage.ProviderRegistry
 	BootstrapDqlite           DqliteInitializerFunc
@@ -92,6 +102,9 @@ type AgentBootstrapArgs struct {
 }
 
 func (a *AgentBootstrapArgs) validate() error {
+	if a.BootstrapEnviron == nil {
+		return errors.NotValidf("bootstrap environ")
+	}
 	if a.AdminUser == (names.UserTag{}) {
 		return errors.NotValidf("admin user")
 	}
@@ -131,6 +144,7 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		agentConfig:               args.AgentConfig,
 		bootstrapDqlite:           args.BootstrapDqlite,
 		logger:                    args.Logger,
+		mongoDialOpts:             args.MongoDialOpts,
 		stateInitializationParams: args.StateInitializationParams,
 		storageProviderRegistry:   args.StorageProviderRegistry,
 	}, nil
@@ -148,6 +162,14 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	if !ok {
 		return errors.Errorf("controller agent info not available")
 	}
+
+	// N.B. no users are set up when we're initializing the state,
+	// so don't use any tag or password when opening it.
+	info, ok := agentConfig.MongoInfo()
+	if !ok {
+		return errors.Errorf("state info not available")
+	}
+	info.Tag = nil
 
 	stateParams := b.stateInitializationParams
 
@@ -266,6 +288,41 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	session, err := b.initMongo(info.Info, b.mongoDialOpts)
+	if err != nil {
+		return errors.Annotate(err, "failed to initialize mongo")
+	}
+	defer session.Close()
+
+	b.logger.Debugf(ctx, "initializing address %v", info.Addrs)
+
+	ctrl, err := state.Initialize(state.InitializeParams{
+		SSHServerHostKey: stateParams.SSHServerHostKey,
+		Clock:            clock.WallClock,
+		ControllerModelArgs: state.ModelArgs{
+			Name:            stateParams.ControllerModelConfig.Name(),
+			UUID:            coremodel.UUID(stateParams.ControllerModelConfig.UUID()),
+			Type:            modelType,
+			Owner:           b.adminUser,
+			CloudName:       stateParams.ControllerCloud.Name,
+			CloudRegion:     stateParams.ControllerCloudRegion,
+			CloudCredential: cloudCredTag,
+		},
+		StoragePools:              stateParams.StoragePools,
+		CloudName:                 stateParams.ControllerCloud.Name,
+		ControllerConfig:          stateParams.ControllerConfig,
+		ControllerInheritedConfig: stateParams.ControllerInheritedConfig,
+		RegionInheritedConfig:     stateParams.RegionInheritedConfig,
+		MongoSession:              session,
+		NewPolicy:                 b.stateNewPolicy,
+	})
+	if err != nil {
+		return errors.Errorf("failed to initialize state: %v", err)
+	}
+	b.logger.Debugf(ctx, "connected to initial state")
+	defer func() {
+		_ = ctrl.Close()
+	}()
 	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
 
 	// Create a new password. It is used down below to set  the agent's initial
@@ -298,4 +355,14 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 		return *stateParams.ControllerCloudCredential, cloudCredentialTag, nil
 	}
 	return cloud.Credential{}, cloudCredentialTag, nil
+}
+
+// initMongo dials the initial MongoDB connection, setting a
+// password for the admin user, and returning the session.
+func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*mgo.Session, error) {
+	session, err := mongo.DialWithInfo(mongo.MongoInfo{Info: info}, dialOpts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return session, nil
 }

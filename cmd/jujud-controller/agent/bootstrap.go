@@ -338,9 +338,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		adminTag := names.NewLocalUserTag(coreuser.AdminUserName.Name())
 		bootstrap, err := c.BootstrapAgent(agentbootstrap.AgentBootstrapArgs{
 			AgentConfig:               agentConfig,
+			BootstrapEnviron:          env,
 			AdminUser:                 adminTag,
 			StateInitializationParams: args,
+			BootstrapMachineAddresses: addrs,
 			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
+			MongoDialOpts:             dialOpts,
 			BootstrapDqlite:           c.DqliteInitializer,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
 		})

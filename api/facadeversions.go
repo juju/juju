@@ -39,7 +39,6 @@ var facadeVersions = facades.FacadeVersions{
 	"CAASModelOperator":            {1},
 	"CAASOperatorUpgrader":         {1},
 	"Charms":                       {7},
-	"Cleaner":                      {2},
 	"Client":                       {8},
 	"Cloud":                        {7},
 	"Controller":                   {12, 13},
