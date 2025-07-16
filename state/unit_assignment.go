@@ -29,9 +29,3 @@ type UnitAssignment struct {
 	// Directive is the placement directive to apply to the unit.
 	Directive string
 }
-
-// UnitAssignmentResult is the result of running a staged unit assignment.
-type UnitAssignmentResult struct {
-	Unit  string
-	Error error
-}

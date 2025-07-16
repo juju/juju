@@ -14,12 +14,6 @@ import (
 	"github.com/juju/juju/internal/tools"
 )
 
-// EntityFinder is implemented by *State. See State.FindEntity
-// for documentation on the method.
-type EntityFinder interface {
-	FindEntity(names.Tag) (Entity, error)
-}
-
 // Entity represents any entity that can be returned
 // by State.FindEntity. All entities have a tag.
 type Entity interface {

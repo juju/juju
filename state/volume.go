@@ -301,43 +301,12 @@ func (v *volume) Releasing() bool {
 
 // Status is required to implement StatusGetter.
 func (v *volume) Status() (status.StatusInfo, error) {
-	return getStatus(v.mb.db(), volumeGlobalKey(v.VolumeTag().Id()), "volume")
+	return status.StatusInfo{}, errors.New("volume status not implemented")
 }
 
 // SetStatus is required to implement StatusSetter.
 func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
-	switch volumeStatus.Status {
-	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
-	case status.Error:
-		if volumeStatus.Message == "" {
-			return errors.Errorf("cannot set status %q without message", volumeStatus.Status)
-		}
-	case status.Pending:
-		// If a volume is not yet provisioned, we allow its status
-		// to be set back to pending (when a retry is to occur).
-		// First refresh.
-		v, err := getVolumeByTag(v.mb, v.VolumeTag())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		_, err = v.Info()
-		if errors.Is(err, errors.NotProvisioned) {
-			break
-		}
-		return errors.Errorf("cannot set status %q", volumeStatus.Status)
-	default:
-		return errors.Errorf("cannot set invalid status %q", volumeStatus.Status)
-	}
-	return setStatus(v.mb.db(), setStatusParams{
-		badge:      "volume",
-		statusKind: v.Kind(),
-		statusId:   v.VolumeTag().Id(),
-		globalKey:  volumeGlobalKey(v.VolumeTag().Id()),
-		status:     volumeStatus.Status,
-		message:    volumeStatus.Message,
-		rawData:    volumeStatus.Data,
-		updated:    timeOrNow(volumeStatus.Since, v.mb.clock()),
-	})
+	return errors.New("volume status not implemented")
 }
 
 func (v *volumeAttachmentPlan) Volume() names.VolumeTag {
@@ -903,21 +872,11 @@ func (sb *storageConfigBackend) addVolumeOps(params VolumeParams, hostId string)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
-	statusDoc := statusDoc{
-		Status:  status.Pending,
-		Updated: sb.mb.clock().Now().UnixNano(),
-	}
 	doc := volumeDoc{
 		Name:      name,
 		StorageId: params.storage.Id(),
 	}
-	if params.volumeInfo != nil {
-		// We're importing an already provisioned volume into the
-		// model. Set provisioned info rather than params, and set
-		// the status to "detached".
-		statusDoc.Status = status.Detached
-		doc.Info = params.volumeInfo
-	} else {
+	if params.volumeInfo == nil {
 		// Every new volume is created with one attachment.
 		doc.Params = &params
 		doc.AttachmentCount = 1
@@ -925,12 +884,11 @@ func (sb *storageConfigBackend) addVolumeOps(params VolumeParams, hostId string)
 	if !detachable {
 		doc.HostId = origHostId
 	}
-	return sb.newVolumeOps(doc, statusDoc), names.NewVolumeTag(name), nil
+	return sb.newVolumeOps(doc), names.NewVolumeTag(name), nil
 }
 
-func (sb *storageBackend) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {
+func (sb *storageBackend) newVolumeOps(doc volumeDoc) []txn.Op {
 	return []txn.Op{
-		createStatusOp(sb.mb, volumeGlobalKey(doc.Name), status),
 		{
 			C:      volumesC,
 			Id:     doc.Name,
@@ -1027,21 +985,6 @@ func createMachineVolumeAttachmentsOps(hostId string, attachments []volumeAttach
 		}
 	}
 	return ops
-}
-
-// setMachineVolumeAttachmentInfo sets the volume attachment
-// info for the specified machine. Each volume attachment info
-// structure is keyed by the name of the volume it corresponds
-// to.
-func setMachineVolumeAttachmentInfo(sb *storageBackend, machineId string, attachments map[names.VolumeTag]VolumeAttachmentInfo) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set volume attachment info for machine %s", machineId)
-	machineTag := names.NewMachineTag(machineId)
-	for volumeTag, info := range attachments {
-		if err := sb.setVolumeAttachmentInfo(machineTag, volumeTag, info); err != nil {
-			return errors.Annotatef(err, "setting attachment info for volume %s", volumeTag.Id())
-		}
-	}
-	return nil
 }
 
 // SetVolumeAttachmentInfo sets the VolumeAttachmentInfo for the specified
@@ -1241,18 +1184,6 @@ func (sb *storageBackend) removeVolumeAttachmentPlanOps(hostTag names.Tag, volum
 	}}
 	removeOps = append(removeOps, detachOps...)
 	return removeOps, nil
-}
-
-// setProvisionedVolumeInfo sets the initial info for newly
-// provisioned volumes. If non-empty, machineId must be the
-// machine ID associated with the volumes.
-func setProvisionedVolumeInfo(sb *storageBackend, volumes map[names.VolumeTag]VolumeInfo) error {
-	for volumeTag, info := range volumes {
-		if err := sb.SetVolumeInfo(volumeTag, info); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 // SetVolumeInfo sets the VolumeInfo for the specified volume.

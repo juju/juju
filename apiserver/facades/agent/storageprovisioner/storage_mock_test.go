@@ -1443,45 +1443,6 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// FindEntity mocks base method.
-func (m *MockBackend) FindEntity(arg0 names.Tag) (state.Entity, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindEntity", arg0)
-	ret0, _ := ret[0].(state.Entity)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindEntity indicates an expected call of FindEntity.
-func (mr *MockBackendMockRecorder) FindEntity(arg0 any) *MockBackendFindEntityCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEntity", reflect.TypeOf((*MockBackend)(nil).FindEntity), arg0)
-	return &MockBackendFindEntityCall{Call: call}
-}
-
-// MockBackendFindEntityCall wrap *gomock.Call
-type MockBackendFindEntityCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendFindEntityCall) Return(arg0 state.Entity, arg1 error) *MockBackendFindEntityCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendFindEntityCall) Do(f func(names.Tag) (state.Entity, error)) *MockBackendFindEntityCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendFindEntityCall) DoAndReturn(f func(names.Tag) (state.Entity, error)) *MockBackendFindEntityCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchMachine mocks base method.
 func (m *MockBackend) WatchMachine(arg0 names.MachineTag) (state.NotifyWatcher, error) {
 	m.ctrl.T.Helper()

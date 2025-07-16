@@ -61,30 +61,6 @@ var activeStatus = set.NewStrings(
 	string(ActionAborting),
 )
 
-type actionNotificationDoc struct {
-	// DocId is the composite _id that can be matched by an
-	// idPrefixWatcher that is configured to watch for the
-	// ActionReceiver Name() which makes up the first part of this
-	// composite _id.
-	DocId string `bson:"_id"`
-
-	// ModelUUID is the model identifier.
-	ModelUUID string `bson:"model-uuid"`
-
-	// Receiver is the Name of the Unit or any other ActionReceiver for
-	// which this notification is queued.
-	Receiver string `bson:"receiver"`
-
-	// ActionID is the unique identifier for the Action this notification
-	// represents.
-	ActionID string `bson:"actionid"`
-
-	// Changed represents the time when the corresponding Action had a change
-	// worthy of notifying on.
-	// NOTE: changed should not be set on pending actions, see actionNotificationWatcher.
-	Changed time.Time `bson:"changed,omitempty"`
-}
-
 type actionDoc struct {
 	// DocId is the key for this document; it is a UUID.
 	DocId string `bson:"_id"`
@@ -646,71 +622,4 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 		results = append(results, newAction(m.st, doc))
 	}
 	return results, errors.Trace(iter.Close())
-}
-
-// matchingActions finds actions that match ActionReceiver.
-func (st *State) matchingActions(ar ActionReceiver) ([]Action, error) {
-	return st.matchingActionsByReceiverId(ar.Tag().Id())
-}
-
-// matchingActionsByReceiverId finds actions that match ActionReceiver name.
-func (st *State) matchingActionsByReceiverId(id string) ([]Action, error) {
-	var doc actionDoc
-	var actions []Action
-
-	actionsCollection, closer := st.db().GetCollection(actionsC)
-	defer closer()
-
-	iter := actionsCollection.Find(bson.D{{"receiver", id}}).Iter()
-	for iter.Next(&doc) {
-		actions = append(actions, newAction(st, doc))
-	}
-	return actions, errors.Trace(iter.Close())
-}
-
-// matchingActionsPending finds actions that match ActionReceiver and
-// that are pending.
-func (st *State) matchingActionsPending(ar ActionReceiver) ([]Action, error) {
-	pending := bson.D{{"status", ActionPending}}
-	return st.matchingActionsByReceiverAndStatus(ar.Tag(), pending)
-}
-
-// matchingActionsRunning finds actions that match ActionReceiver and
-// that are running.
-func (st *State) matchingActionsRunning(ar ActionReceiver) ([]Action, error) {
-	running := bson.D{{"$or", []bson.D{
-		{{"status", ActionRunning}},
-		{{"status", ActionAborting}},
-	}}}
-	return st.matchingActionsByReceiverAndStatus(ar.Tag(), running)
-}
-
-// matchingActionsCompleted finds actions that match ActionReceiver and
-// that are complete.
-func (st *State) matchingActionsCompleted(ar ActionReceiver) ([]Action, error) {
-	completed := bson.D{{"$or", []bson.D{
-		{{"status", ActionCompleted}},
-		{{"status", ActionCancelled}},
-		{{"status", ActionFailed}},
-		{{"status", ActionAborted}},
-	}}}
-	return st.matchingActionsByReceiverAndStatus(ar.Tag(), completed)
-}
-
-// matchingActionsByReceiverAndStatus finds actionNotifications that
-// match ActionReceiver.
-func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusCondition bson.D) ([]Action, error) {
-	var doc actionDoc
-	var actions []Action
-
-	actionsCollection, closer := st.db().GetCollection(actionsC)
-	defer closer()
-
-	sel := append(bson.D{{"receiver", tag.Id()}}, statusCondition...)
-	iter := actionsCollection.Find(sel).Iter()
-
-	for iter.Next(&doc) {
-		actions = append(actions, newAction(st, doc))
-	}
-	return actions, errors.Trace(iter.Close())
 }

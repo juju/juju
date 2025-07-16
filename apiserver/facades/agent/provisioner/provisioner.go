@@ -190,8 +190,8 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	resources := ctx.Resources()
 
 	api := &ProvisionerAPI{
-		PasswordChanger:      common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
-		LifeGetter:           common.NewLifeGetter(applicationService, machineService, st, getAuthFunc, ctx.Logger()),
+		PasswordChanger:      common.NewPasswordChanger(agentPasswordService, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(applicationService, machineService, getAuthFunc, ctx.Logger()),
 		APIAddresser:         common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		ModelConfigWatcher:   modelConfigWatcher,
 		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(st, machineService, watcherRegistry, authorizer),

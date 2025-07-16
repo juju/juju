@@ -146,6 +146,10 @@ func (addr *Address) Device() (*LinkLayerDevice, error) {
 	return dev, errors.Trace(err)
 }
 
+func linkLayerDeviceDocIDFromName(st *State, machineID, deviceName string) string {
+	return st.docID(linkLayerDeviceGlobalKey(machineID, deviceName))
+}
+
 // SubnetCIDR returns the CIDR of the subnet this IP address comes from.
 func (addr *Address) SubnetCIDR() string {
 	return addr.doc.SubnetCIDR

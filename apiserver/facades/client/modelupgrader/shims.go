@@ -24,8 +24,6 @@ type State interface {
 	Model() (Model, error)
 	Release() bool
 	AllModelUUIDs() ([]string, error)
-	MachineCountForBase(base ...state.Base) (map[string]int, error)
-	AllMachinesCount() (int, error)
 	SetModelAgentVersion(newVersion semversion.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error
 }
 
@@ -80,22 +78,6 @@ type stateShim struct {
 
 func (s stateShim) Model() (Model, error) {
 	return s.PooledState.Model()
-}
-
-func (s stateShim) MachineCountForBase(base ...state.Base) (map[string]int, error) {
-	count, err := s.PooledState.MachineCountForBase(base...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return count, nil
-}
-
-func (s stateShim) AllMachinesCount() (int, error) {
-	count, err := s.PooledState.AllMachinesCount()
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
-	return count, nil
 }
 
 func (s stateShim) SetModelAgentVersion(newVersion semversion.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error {

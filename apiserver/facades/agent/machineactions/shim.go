@@ -20,10 +20,6 @@ func (shim backendShim) ActionByTag(tag names.ActionTag) (state.Action, error) {
 	return shim.st.ActionByTag(tag)
 }
 
-func (shim backendShim) FindEntity(tag names.Tag) (state.Entity, error) {
-	return shim.st.FindEntity(tag)
-}
-
 func (shim backendShim) TagToActionReceiverFn(findEntity func(names.Tag) (state.Entity, error)) func(string) (state.ActionReceiver, error) {
 	return common.TagToActionReceiverFn(findEntity)
 }

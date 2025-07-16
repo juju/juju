@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -150,7 +149,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 
 	logger.Infof(context.TODO(), "initializing controller model %s", modelTag.Id())
 
-	modelOps, _, err := st.modelSetupOps(
+	modelOps, err := st.modelSetupOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs,
 	)
@@ -201,20 +200,11 @@ func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.C
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op, statusDoc, error) {
-	var modelStatusDoc statusDoc
-
+func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op, error) {
 	controllerModelUUID := st.controllerModelTag.Id()
 	modelUUID := args.UUID.String()
-	modelStatusDoc = statusDoc{
-		ModelUUID: modelUUID,
-		Updated:   st.clock().Now().UnixNano(),
-		Status:    status.Available,
-	}
 
-	ops := []txn.Op{
-		createStatusOp(st, modelGlobalKey, modelStatusDoc),
-	}
+	ops := []txn.Op{}
 	// Inc ref count for hosted models.
 	if controllerModelUUID != modelUUID {
 		ops = append(ops, incHostedModelCountOp())
@@ -235,5 +225,5 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs) ([]txn.Op,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Name),
 	)
-	return ops, modelStatusDoc, nil
+	return ops, nil
 }

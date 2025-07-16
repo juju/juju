@@ -45,45 +45,6 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// FindEntity mocks base method.
-func (m *MockState) FindEntity(arg0 names.Tag) (state.Entity, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindEntity", arg0)
-	ret0, _ := ret[0].(state.Entity)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindEntity indicates an expected call of FindEntity.
-func (mr *MockStateMockRecorder) FindEntity(arg0 any) *MockStateFindEntityCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEntity", reflect.TypeOf((*MockState)(nil).FindEntity), arg0)
-	return &MockStateFindEntityCall{Call: call}
-}
-
-// MockStateFindEntityCall wrap *gomock.Call
-type MockStateFindEntityCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateFindEntityCall) Return(arg0 state.Entity, arg1 error) *MockStateFindEntityCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateFindEntityCall) Do(f func(names.Tag) (state.Entity, error)) *MockStateFindEntityCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateFindEntityCall) DoAndReturn(f func(names.Tag) (state.Entity, error)) *MockStateFindEntityCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetMacaroon mocks base method.
 func (m *MockState) GetMacaroon(arg0 names.Tag) (*macaroon.Macaroon, error) {
 	m.ctrl.T.Helper()

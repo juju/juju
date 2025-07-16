@@ -53,21 +53,6 @@ func (b Base) Normalise() Base {
 	return nb
 }
 
-func (b Base) compatibleWith(other Base) bool {
-	if b.OS != other.OS {
-		return false
-	}
-	c1, err := corebase.ParseChannel(b.Channel)
-	if err != nil {
-		return false
-	}
-	c2, err := corebase.ParseChannel(other.Channel)
-	if err != nil {
-		return false
-	}
-	return c1 == c2
-}
-
 // DisplayString prints the base without the rask component.
 func (b Base) DisplayString() string {
 	if b.OS == "" || b.Channel == "" {

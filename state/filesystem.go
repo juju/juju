@@ -259,43 +259,12 @@ func (f *filesystem) Releasing() bool {
 
 // Status is required to implement StatusGetter.
 func (f *filesystem) Status() (status.StatusInfo, error) {
-	return getStatus(f.mb.db(), filesystemGlobalKey(f.FilesystemTag().Id()), "filesystem")
+	return status.StatusInfo{}, errors.New("filesystem status not implemented")
 }
 
 // SetStatus is required to implement StatusSetter.
 func (f *filesystem) SetStatus(fsStatus status.StatusInfo) error {
-	switch fsStatus.Status {
-	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
-	case status.Error:
-		if fsStatus.Message == "" {
-			return errors.Errorf("cannot set status %q without message", fsStatus.Status)
-		}
-	case status.Pending:
-		// If a filesystem is not yet provisioned, we allow its status
-		// to be set back to pending (when a retry is to occur).
-		// First refresh.
-		f, err := getFilesystemByTag(f.mb, f.FilesystemTag())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		_, err = f.Info()
-		if errors.Is(err, errors.NotProvisioned) {
-			break
-		}
-		return errors.Errorf("cannot set status %q", fsStatus.Status)
-	default:
-		return errors.Errorf("cannot set invalid status %q", fsStatus.Status)
-	}
-	return setStatus(f.mb.db(), setStatusParams{
-		badge:      "filesystem",
-		statusKind: f.Kind(),
-		statusId:   f.FilesystemTag().Id(),
-		globalKey:  filesystemGlobalKey(f.FilesystemTag().Id()),
-		status:     fsStatus.Status,
-		message:    fsStatus.Message,
-		rawData:    fsStatus.Data,
-		updated:    timeOrNow(fsStatus.Since, f.mb.clock()),
-	})
+	return errors.New("filesystem status not implemented")
 }
 
 // Filesystem is required to implement FilesystemAttachment.
@@ -799,26 +768,12 @@ func (sb *storageConfigBackend) addFilesystemOps(params FilesystemParams, hostId
 		ops = append(ops, volumeOps...)
 	}
 
-	statusDoc := statusDoc{
-		Status:  status.Pending,
-		Updated: sb.mb.clock().Now().UnixNano(),
-	}
 	doc := filesystemDoc{
 		FilesystemId: filesystemId,
 		VolumeId:     volumeId,
 		StorageId:    params.storage.Id(),
 	}
-	if params.filesystemId != "" {
-		// We're importing an already provisioned filesystem into the
-		// model. Set provisioned info rather than params, and set the
-		// status to "detached".
-		statusDoc.Status = status.Detached
-		doc.Info = &FilesystemInfo{
-			Size:         params.Size,
-			Pool:         params.Pool,
-			FilesystemId: params.filesystemId,
-		}
-	} else {
+	if params.filesystemId == "" {
 		// Every new filesystem is created with one attachment.
 		doc.Params = &params
 		doc.AttachmentCount = 1
@@ -826,13 +781,12 @@ func (sb *storageConfigBackend) addFilesystemOps(params FilesystemParams, hostId
 	if !detachable {
 		doc.HostId = origHostId
 	}
-	ops = append(ops, sb.newFilesystemOps(doc, statusDoc)...)
+	ops = append(ops, sb.newFilesystemOps(doc)...)
 	return ops, filesystemTag, volumeTag, nil
 }
 
-func (sb *storageBackend) newFilesystemOps(doc filesystemDoc, status statusDoc) []txn.Op {
+func (sb *storageBackend) newFilesystemOps(doc filesystemDoc) []txn.Op {
 	return []txn.Op{
-		createStatusOp(sb.mb, filesystemGlobalKey(doc.FilesystemId), status),
 		{
 			C:      filesystemsC,
 			Id:     doc.FilesystemId,
@@ -1090,98 +1044,6 @@ func FilesystemMountPoint(
 		storageDir = meta.Location
 	}
 	return path.Join(storageDir, tag.Id()), nil
-}
-
-// validateFilesystemMountPoints validates the mount points of filesystems
-// being attached to the specified machine. If there are any mount point
-// path conflicts, an error will be returned.
-func validateFilesystemMountPoints(st *State, m MachineRef, newFilesystems []filesystemAttachmentTemplate) error {
-	sb, err := NewStorageBackend(st)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	attachments, err := sb.MachineFilesystemAttachments(m.MachineTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	existing := make(map[names.FilesystemTag]string)
-	for _, a := range attachments {
-		params, ok := a.Params()
-		if ok {
-			existing[a.Filesystem()] = params.Location
-			continue
-		}
-		info, err := a.Info()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		existing[a.Filesystem()] = info.MountPoint
-	}
-
-	storageName := func(
-		filesystemTag names.FilesystemTag,
-		storageTag names.StorageTag,
-	) string {
-		if storageTag == (names.StorageTag{}) {
-			return names.ReadableString(filesystemTag)
-		}
-		// We know the tag is valid, so ignore the error.
-		storageName, _ := names.StorageName(storageTag.Id())
-		return fmt.Sprintf("%q storage", storageName)
-	}
-
-	containsPath := func(a, b string) bool {
-		a = path.Clean(a) + "/"
-		b = path.Clean(b) + "/"
-		return strings.HasPrefix(b, a)
-	}
-
-	// These sets are expected to be small, so sorting and comparing
-	// adjacent values is not worth the cost of creating a reverse
-	// lookup from location to filesystem.
-	for _, template := range newFilesystems {
-		newMountPoint := template.params.Location
-		for oldFilesystemTag, oldMountPoint := range existing {
-			var conflicted, swapOrder bool
-			if containsPath(oldMountPoint, newMountPoint) {
-				conflicted = true
-			} else if containsPath(newMountPoint, oldMountPoint) {
-				conflicted = true
-				swapOrder = true
-			}
-			if !conflicted {
-				continue
-			}
-
-			// Get a helpful identifier for the new filesystem. If it
-			// is being created for a storage instance, then use
-			// the storage name; otherwise use the filesystem name.
-			newStorageName := storageName(template.tag, template.storage)
-
-			// Likewise for the old filesystem, but this time we'll
-			// need to consult state.
-			oldFilesystem, err := sb.Filesystem(oldFilesystemTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			storageTag, err := oldFilesystem.Storage()
-			if errors.Is(err, errors.NotAssigned) {
-				storageTag = names.StorageTag{}
-			} else if err != nil {
-				return errors.Trace(err)
-			}
-			oldStorageName := storageName(oldFilesystemTag, storageTag)
-
-			lhs := fmt.Sprintf("mount point %q for %s", oldMountPoint, oldStorageName)
-			rhs := fmt.Sprintf("mount point %q for %s", newMountPoint, newStorageName)
-			if swapOrder {
-				lhs, rhs = rhs, lhs
-			}
-			return errors.Errorf("%s contains %s", lhs, rhs)
-		}
-	}
-	return nil
 }
 
 // AllFilesystems returns all Filesystems for this state.

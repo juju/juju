@@ -14,21 +14,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 )
 
-func readTxnRevno(db Database, collectionName string, id interface{}) (int64, error) {
-	collection, closer := db.GetCollection(collectionName)
-	defer closer()
-	query := collection.FindId(id).Select(bson.D{{"txn-revno", 1}})
-	var result struct {
-		TxnRevno int64 `bson:"txn-revno"`
-	}
-	err := query.One(&result)
-	return result.TxnRevno, errors.Trace(err)
-}
-
-func (st *State) runRawTransaction(ops []txn.Op) error {
-	return st.database.RunRawTransaction(ops)
-}
-
 type multiModelRunner struct {
 	rawRunner jujutxn.Runner
 	schema    CollectionSchema

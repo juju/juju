@@ -314,8 +314,6 @@ type EntitiesWatcher interface {
 	corewatcher.StringsWatcher
 
 	// MapChanges maps the received strings to their according tag strings.
-	// The EntityFinder interface representing state or a mock has to be
-	// upcasted into the needed sub-interface of state for the real mapping.
 	MapChanges(in []string) ([]string, error)
 }
 

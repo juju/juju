@@ -8,14 +8,12 @@ import (
 	"net"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/network"
 	domainnetwork "github.com/juju/juju/domain/network"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = internallogger.GetLogger("juju.apiserver.common.network")
@@ -114,92 +112,4 @@ func nilIfEmpty[T comparable](in T) *T {
 		return nil
 	}
 	return &in
-}
-
-// NetworkInterfacesToStateArgs splits the given interface list into a slice of
-// state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress.
-func NetworkInterfacesToStateArgs(devs network.InterfaceInfos) (
-	[]state.LinkLayerDeviceArgs,
-	[]state.LinkLayerDeviceAddress,
-) {
-	var devicesArgs []state.LinkLayerDeviceArgs
-	var devicesAddrs []state.LinkLayerDeviceAddress
-
-	ctx := context.TODO()
-
-	seenDeviceNames := set.NewStrings()
-	for _, dev := range devs {
-		if !seenDeviceNames.Contains(dev.InterfaceName) {
-			// First time we see this, add it to devicesArgs.
-			seenDeviceNames.Add(dev.InterfaceName)
-
-			args := networkDeviceToStateArgs(dev)
-			devicesArgs = append(devicesArgs, args)
-		}
-
-		if dev.PrimaryAddress().Value == "" {
-			continue
-		}
-		devicesAddrs = append(devicesAddrs, networkAddressesToStateArgs(ctx, dev, dev.Addresses)...)
-	}
-	return devicesArgs, devicesAddrs
-}
-
-func networkDeviceToStateArgs(dev network.InterfaceInfo) state.LinkLayerDeviceArgs {
-	var mtu uint
-	if dev.MTU >= 0 {
-		mtu = uint(dev.MTU)
-	}
-
-	return state.LinkLayerDeviceArgs{
-		Name:            dev.InterfaceName,
-		MTU:             mtu,
-		ProviderID:      dev.ProviderId,
-		Type:            dev.InterfaceType,
-		MACAddress:      dev.MACAddress,
-		IsAutoStart:     !dev.NoAutoStart,
-		IsUp:            !dev.Disabled,
-		ParentName:      dev.ParentInterfaceName,
-		VirtualPortType: dev.VirtualPortType,
-	}
-}
-
-func networkAddressesToStateArgs(
-	ctx context.Context,
-	dev network.InterfaceInfo, addrs []network.ProviderAddress,
-) []state.LinkLayerDeviceAddress {
-	var res []state.LinkLayerDeviceAddress
-
-	for _, addr := range addrs {
-		cidrAddress, err := addr.ValueWithMask()
-		if err != nil {
-			continue
-		}
-
-		// Prefer the config method supplied with the address.
-		// Fallback first to the device, then to "static".
-		configType := addr.AddressConfigType()
-		if configType == network.ConfigUnknown {
-			configType = dev.ConfigType
-		}
-		if configType == network.ConfigUnknown {
-			configType = network.ConfigStatic
-		}
-
-		res = append(res, state.LinkLayerDeviceAddress{
-			DeviceName:       dev.InterfaceName,
-			ProviderID:       dev.ProviderAddressId,
-			ProviderSubnetID: dev.ProviderSubnetId,
-			ConfigMethod:     configType,
-			CIDRAddress:      cidrAddress,
-			DNSServers:       dev.DNSServers,
-			DNSSearchDomains: dev.DNSSearchDomains,
-			GatewayAddress:   dev.GatewayAddress.Value,
-			IsDefaultGateway: dev.IsDefaultGateway,
-			Origin:           dev.Origin,
-			IsSecondary:      addr.IsSecondary,
-		})
-	}
-
-	return res
 }

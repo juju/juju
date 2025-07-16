@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // MachineService defines the methods that the facade assumes from the Machine
@@ -52,17 +51,10 @@ type ApplicationService interface {
 	WatchUnitLife(ctx context.Context, unitName unit.Name) (watcher.NotifyWatcher, error)
 }
 
-// Backend represents the interface required for this facade to retried entity
-// information.
-type Backend interface {
-	state.EntityFinder
-}
-
 // NewFacade constructs a new life flag facade.
 func NewFacade(
 	applicationService ApplicationService,
 	machineService MachineService,
-	backend Backend,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	logger logger.Logger,
@@ -75,7 +67,7 @@ func NewFacade(
 			return authorizer.AuthOwner(tag)
 		}, nil
 	}
-	life := common.NewLifeGetter(applicationService, machineService, backend, getCanAccess, logger)
+	life := common.NewLifeGetter(applicationService, machineService, getCanAccess, logger)
 	return &Facade{
 		LifeGetter:         life,
 		watcherRegistry:    watcherRegistry,

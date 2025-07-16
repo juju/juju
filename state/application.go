@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
-	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -101,10 +100,6 @@ const appGlobalKeyPrefix = "a#"
 // globalKey returns the global database key for the application.
 func (a *Application) globalKey() string {
 	return applicationGlobalKey(a.doc.Name)
-}
-
-func applicationGlobalOperatorKey(appName string) string {
-	return applicationGlobalKey(appName) + "#operator"
 }
 
 func applicationCharmConfigKey(appName string, curl *string) string {
@@ -801,25 +796,11 @@ func (a *Application) addUnitOpsWithCons(
 	if args.passwordHash != nil {
 		udoc.PasswordHash = *args.passwordHash
 	}
-	now := a.st.clock().Now()
-	agentStatusDoc := statusDoc{
-		Status:  status.Allocating,
-		Updated: now.UnixNano(),
-	}
-
 	m, err := a.st.Model()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	unitStatusDoc := &statusDoc{
-		Status:     status.Waiting,
-		StatusInfo: status.MessageInstallingAgent,
-		Updated:    now.UnixNano(),
-	}
 
-	if m.Type() != ModelTypeCAAS {
-		unitStatusDoc.StatusInfo = status.MessageWaitForMachine
-	}
 	var containerDoc *cloudContainerDoc
 	if m.Type() == ModelTypeCAAS {
 		if args.providerId != nil || args.address != nil || args.ports != nil {
@@ -841,10 +822,8 @@ func (a *Application) addUnitOpsWithCons(
 	}
 
 	ops, err := addUnitOps(a.st, addUnitOpsArgs{
-		unitDoc:           udoc,
-		containerDoc:      containerDoc,
-		agentStatusDoc:    agentStatusDoc,
-		workloadStatusDoc: unitStatusDoc,
+		unitDoc:      udoc,
+		containerDoc: containerDoc,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -1213,12 +1192,10 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 
 type addApplicationOpsArgs struct {
 	applicationDoc    *applicationDoc
-	statusDoc         statusDoc
 	constraints       constraints.Value
 	storage           map[string]StorageConstraints
 	applicationConfig map[string]interface{}
 	charmConfig       map[string]interface{}
-	operatorStatus    *statusDoc
 }
 
 // addApplicationOps returns the operations required to add an application to the
@@ -1237,19 +1214,7 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
 		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
 		createSettingsOp(settingsC, applicationConfigKey, args.applicationConfig),
-		createStatusOp(mb, globalKey, args.statusDoc),
 		addModelApplicationRefOp(mb, app.name()),
-	}
-	m, err := app.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if m.Type() == ModelTypeCAAS {
-		operatorStatusDoc := args.statusDoc
-		if args.operatorStatus != nil {
-			operatorStatusDoc = *args.operatorStatus
-		}
-		ops = append(ops, createStatusOp(mb, applicationGlobalOperatorKey(app.name()), operatorStatusDoc))
 	}
 
 	ops = append(ops, txn.Op{
@@ -1304,19 +1269,6 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 
 	op.unitName = name
 	ops = append(ops, addOps...)
-
-	if op.props.CloudContainerStatus != nil {
-		now := op.application.st.clock().Now()
-		doc := statusDoc{
-			Status:     op.props.CloudContainerStatus.Status,
-			StatusInfo: op.props.CloudContainerStatus.Message,
-			StatusData: mgoutils.EscapeKeys(op.props.CloudContainerStatus.Data),
-			Updated:    now.UnixNano(),
-		}
-
-		newStatusOps := createStatusOp(op.application.st, globalCloudContainerKey(name), doc)
-		ops = append(ops, newStatusOps)
-	}
 
 	return ops, nil
 }

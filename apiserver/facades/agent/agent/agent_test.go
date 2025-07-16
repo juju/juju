@@ -40,7 +40,7 @@ func (s *agentSuite) TestSetUnitPassword(c *tc.C) {
 		Return(nil)
 
 	api := &AgentAPI{
-		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
+		PasswordChanger: common.NewPasswordChanger(s.passwordService, alwaysAllow),
 	}
 
 	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
@@ -69,7 +69,7 @@ func (s *agentSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 		Return(applicationerrors.UnitNotFound)
 
 	api := &AgentAPI{
-		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
+		PasswordChanger: common.NewPasswordChanger(s.passwordService, alwaysAllow),
 	}
 
 	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
@@ -98,7 +98,7 @@ func (s *agentSuite) TestSetMachinePassword(c *tc.C) {
 		Return(nil)
 
 	api := &AgentAPI{
-		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
+		PasswordChanger: common.NewPasswordChanger(s.passwordService, alwaysAllow),
 	}
 
 	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
@@ -127,7 +127,7 @@ func (s *agentSuite) TestSetMachinePasswordMachineNotFound(c *tc.C) {
 		Return(machineerrors.MachineNotFound)
 
 	api := &AgentAPI{
-		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
+		PasswordChanger: common.NewPasswordChanger(s.passwordService, alwaysAllow),
 	}
 
 	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{

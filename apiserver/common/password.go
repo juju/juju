@@ -18,7 +18,6 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = internallogger.GetLogger("juju.apiserver.common")
@@ -45,16 +44,14 @@ type AgentPasswordService interface {
 // various facades.
 type PasswordChanger struct {
 	agentPasswordService AgentPasswordService
-	st                   state.EntityFinder
 	getCanChange         GetAuthFunc
 }
 
 // NewPasswordChanger returns a new PasswordChanger. The GetAuthFunc will be
 // used on each invocation of SetPasswords to determine current permissions.
-func NewPasswordChanger(agentPasswordService AgentPasswordService, st state.EntityFinder, getCanChange GetAuthFunc) *PasswordChanger {
+func NewPasswordChanger(agentPasswordService AgentPasswordService, getCanChange GetAuthFunc) *PasswordChanger {
 	return &PasswordChanger{
 		agentPasswordService: agentPasswordService,
-		st:                   st,
 		getCanChange:         getCanChange,
 	}
 }
@@ -124,29 +121,6 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 	//  - model
 
 	default:
-		return pc.legacySetPassword(tag, password)
+		return errors.Errorf("unsupported tag %s", tag)
 	}
-}
-
-func (pc *PasswordChanger) legacySetPassword(tag names.Tag, password string) error {
-	// This is being removed, this is to ensure we just set up the mongo
-	// password. If the state is nil, just ignore the request.
-	if pc.st == nil {
-		return nil
-	}
-
-	var err error
-	entity0, err := pc.st.FindEntity(tag)
-	if err != nil {
-		return err
-	}
-	entity, ok := entity0.(state.Authenticator)
-	if !ok {
-		return apiservererrors.NotSupportedError(tag, "authentication")
-	}
-
-	err = entity.SetPassword(password)
-	logger.Infof(context.TODO(), "setting password for %q", tag)
-
-	return err
 }

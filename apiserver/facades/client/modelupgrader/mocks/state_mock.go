@@ -106,45 +106,6 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// AllMachinesCount mocks base method.
-func (m *MockState) AllMachinesCount() (int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllMachinesCount")
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllMachinesCount indicates an expected call of AllMachinesCount.
-func (mr *MockStateMockRecorder) AllMachinesCount() *MockStateAllMachinesCountCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachinesCount", reflect.TypeOf((*MockState)(nil).AllMachinesCount))
-	return &MockStateAllMachinesCountCall{Call: call}
-}
-
-// MockStateAllMachinesCountCall wrap *gomock.Call
-type MockStateAllMachinesCountCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAllMachinesCountCall) Return(arg0 int, arg1 error) *MockStateAllMachinesCountCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAllMachinesCountCall) Do(f func() (int, error)) *MockStateAllMachinesCountCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAllMachinesCountCall) DoAndReturn(f func() (int, error)) *MockStateAllMachinesCountCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AllModelUUIDs mocks base method.
 func (m *MockState) AllModelUUIDs() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -180,49 +141,6 @@ func (c *MockStateAllModelUUIDsCall) Do(f func() ([]string, error)) *MockStateAl
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateAllModelUUIDsCall) DoAndReturn(f func() ([]string, error)) *MockStateAllModelUUIDsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MachineCountForBase mocks base method.
-func (m *MockState) MachineCountForBase(arg0 ...state.Base) (map[string]int, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "MachineCountForBase", varargs...)
-	ret0, _ := ret[0].(map[string]int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MachineCountForBase indicates an expected call of MachineCountForBase.
-func (mr *MockStateMockRecorder) MachineCountForBase(arg0 ...any) *MockStateMachineCountForBaseCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineCountForBase", reflect.TypeOf((*MockState)(nil).MachineCountForBase), arg0...)
-	return &MockStateMachineCountForBaseCall{Call: call}
-}
-
-// MockStateMachineCountForBaseCall wrap *gomock.Call
-type MockStateMachineCountForBaseCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateMachineCountForBaseCall) Return(arg0 map[string]int, arg1 error) *MockStateMachineCountForBaseCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateMachineCountForBaseCall) Do(f func(...state.Base) (map[string]int, error)) *MockStateMachineCountForBaseCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateMachineCountForBaseCall) DoAndReturn(f func(...state.Base) (map[string]int, error)) *MockStateMachineCountForBaseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

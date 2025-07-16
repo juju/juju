@@ -24,7 +24,6 @@ func newFacade(ctx facade.ModelContext) (*Facade, error) {
 	return NewFacade(
 		domainServices.Application(),
 		domainServices.Machine(),
-		ctx.State(),
 		ctx.WatcherRegistry(),
 		ctx.Auth(),
 		ctx.Logger(),

@@ -44,7 +44,6 @@ type API struct {
 // NewAPI is alternative means of constructing a controller model facade.
 func NewAPI(
 	authorizer facade.Authorizer,
-	st CAASModelOperatorState,
 	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
@@ -60,7 +59,7 @@ func NewAPI(
 	return &API{
 		auth:                    authorizer,
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
-		PasswordChanger:         common.NewPasswordChanger(agentPasswordService, st, common.AuthFuncForTagKind(names.ModelTagKind)),
+		PasswordChanger:         common.NewPasswordChanger(agentPasswordService, common.AuthFuncForTagKind(names.ModelTagKind)),
 		controllerConfigService: controllerConfigService,
 		controllerNodeService:   controllerNodeService,
 		modelConfigService:      modelConfigService,

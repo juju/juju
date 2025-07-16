@@ -150,14 +150,6 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeStopped,
 }, {
-	err:        stateerrors.NewHasAssignedUnitsError("42", []string{"a"}),
-	code:       params.CodeHasAssignedUnits,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeHasAssignedUnits,
-	targetTester: func(e error) bool {
-		return errors.Is(e, stateerrors.HasAssignedUnitsError)
-	},
-}, {
 	err:        apiservererrors.ErrTryAgain,
 	code:       params.CodeTryAgain,
 	status:     http.StatusInternalServerError,

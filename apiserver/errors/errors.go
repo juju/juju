@@ -58,7 +58,6 @@ func OperationBlockedError(msg string) error {
 var singletonErrorCodes = map[errors.ConstError]string{
 	stateerrors.ErrUnitHasSubordinates:           params.CodeUnitHasSubordinates,
 	stateerrors.ErrDead:                          params.CodeDead,
-	stateerrors.ErrApplicationShouldNotHaveUnits: params.CodeAppShouldNotHaveUnits,
 	jujutxn.ErrExcessiveContention:               params.CodeExcessiveContention, // TODO(dqlite): remove jujutxn.ErrExcessiveContention from api errors
 	errors.ConstError(leadership.ErrClaimDenied): params.CodeLeadershipClaimDenied,
 	errors.ConstError(lease.ErrClaimDenied):      params.CodeLeaseClaimDenied,
@@ -203,8 +202,6 @@ func ServerError(err error) *params.Error {
 		code = params.CodeSecretBackendAlreadyExists
 	case errors.Is(err, errors.NotAssigned):
 		code = params.CodeNotAssigned
-	case errors.Is(err, stateerrors.HasAssignedUnitsError):
-		code = params.CodeHasAssignedUnits
 	case errors.Is(err, stateerrors.HasHostedModelsError):
 		code = params.CodeHasHostedModels
 	case errors.Is(err, stateerrors.PersistentStorageError):
@@ -218,14 +215,8 @@ func ServerError(err error) *params.Error {
 	case errors.Is(err, params.UpgradeInProgressError),
 		errors.Is(err, upgrade.ErrUpgradeInProgress):
 		code = params.CodeUpgradeInProgress
-	case errors.Is(err, stateerrors.HasAttachmentsError):
-		code = params.CodeMachineHasAttachedStorage
-	case errors.Is(err, stateerrors.HasContainersError):
-		code = params.CodeMachineHasContainers
 	case errors.Is(err, stateerrors.StorageAttachedError):
 		code = params.CodeStorageAttached
-	case errors.Is(err, stateerrors.IsControllerMemberError):
-		code = params.CodeTryAgain
 	case errors.Is(err, UnknownModelError):
 		code = params.CodeModelNotFound
 	case errors.Is(err, errors.NotSupported):

@@ -20,7 +20,6 @@ import (
 
 type Backend interface {
 	ActionByTag(tag names.ActionTag) (state.Action, error)
-	FindEntity(tag names.Tag) (state.Entity, error)
 	TagToActionReceiverFn(findEntity func(names.Tag) (state.Entity, error)) func(string) (state.ActionReceiver, error)
 	ConvertActions(ar state.ActionReceiver, fn common.GetActionsFn) ([]params.ActionResult, error)
 }

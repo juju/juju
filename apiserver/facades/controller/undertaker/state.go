@@ -12,8 +12,6 @@ import (
 // State defines the needed methods of state.State
 // for the work of the undertaker API.
 type State interface {
-	state.EntityFinder
-
 	// Model returns the model entity.
 	Model() (Model, error)
 

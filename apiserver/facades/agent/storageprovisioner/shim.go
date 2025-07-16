@@ -18,8 +18,6 @@ import (
 // *trivially* correct, you would be Doing It Wrong.
 
 type Backend interface {
-	state.EntityFinder
-
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 }
 

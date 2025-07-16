@@ -4,10 +4,6 @@
 package upgrader_test
 
 import (
-	"fmt"
-	"net/url"
-	"path"
-	"strings"
 	"testing"
 
 	"github.com/juju/names/v6"
@@ -19,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
-	"github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -35,7 +30,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 )
 
 type upgraderSuite struct {
@@ -43,10 +37,11 @@ type upgraderSuite struct {
 
 	mockModelUUID coremodel.UUID
 
+	rawMachineTag names.MachineTag
+	apiMachineTag names.MachineTag
+
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
-	rawMachine *state.Machine
-	apiMachine *state.Machine
 	upgrader   *upgrader.UpgraderAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -79,18 +74,12 @@ func (s *upgraderSuite) SetUpTest(c *tc.C) {
 	// we may add a different hosted model later.
 	s.hosted = s.ControllerModel(c).State()
 
-	// Create a machine to work with
-	var err error
-	// The first machine created is the only one allowed to
-	// JobManageModel
-	s.apiMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"))
-	c.Assert(err, tc.ErrorIsNil)
-	s.rawMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"))
-	c.Assert(err, tc.ErrorIsNil)
+	s.rawMachineTag = names.NewMachineTag("0")
+	s.apiMachineTag = names.NewMachineTag("1")
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.rawMachine.Tag(),
+		Tag: s.apiMachineTag,
 	}
 
 	domainServices := s.ControllerDomainServices(c)
@@ -174,7 +163,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *tc.C) {
 	)
 
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
+		Entities: []params.Entity{{Tag: s.rawMachineTag.String()}},
 	}
 	results, err := anUpgrader.Tools(c.Context(), args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -182,57 +171,6 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *tc.C) {
 	c.Check(results.Results, tc.HasLen, 1)
 	toolResult := results.Results[0]
 	c.Assert(toolResult.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
-}
-
-func (s *upgraderSuite) TestToolsForAgent(c *tc.C) {
-	c.Skip("(tlm) skipping till we can move this test to mocks")
-	defer s.setupMocks(c).Finish()
-
-	current := coretesting.CurrentVersion()
-	agent := params.Entity{Tag: s.rawMachine.Tag().String()}
-
-	// Seed the newer agent in storage.
-	stor, err := s.ControllerModel(c).State().ToolsStorage(s.store)
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() {
-		_ = stor.Close()
-	}()
-	content := jujuversion.Current.String()
-	hash := fmt.Sprintf("sha256(%s)", content)
-	v := semversion.Binary{
-		Number:  jujuversion.Current,
-		Release: "ubuntu",
-		Arch:    arch.HostArch(),
-	}
-	err = stor.Add(c.Context(), strings.NewReader(content), binarystorage.Metadata{
-		Version: v.String(),
-		Size:    int64(len(content)),
-		SHA256:  hash,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// The machine must have its existing tools set before we query for the
-	// next tools. This is so that we can grab Arch and OSType without
-	// having to pass it in again
-	err = s.rawMachine.SetAgentVersion(current)
-	c.Assert(err, tc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{agent}}
-	results, err := s.upgrader.Tools(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	assertTools := func() {
-		c.Check(results.Results, tc.HasLen, 1)
-		c.Assert(results.Results[0].Error, tc.IsNil)
-		agentTools := results.Results[0].ToolsList[0]
-
-		url := &url.URL{}
-		url.Host = s.ControllerModelApiInfo().Addrs[0]
-		url.Scheme = "https"
-		url.Path = path.Join("model", coretesting.ModelTag.Id(), "tools", current.String())
-		c.Check(agentTools.URL, tc.Equals, url.String())
-		c.Check(agentTools.Version, tc.DeepEquals, current)
-	}
-	assertTools()
 }
 
 // TestSetToolsNothing tests that SetTools does nothing and returns no errors
@@ -662,7 +600,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *tc.C) {
 		s.machineService,
 	)
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
+		Entities: []params.Entity{{Tag: s.rawMachineTag.String()}},
 	}
 	results, err := anUpgrader.DesiredVersion(c.Context(), args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -678,7 +616,7 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.rawMachine.Tag().String()},
+		{Tag: s.rawMachineTag.String()},
 		{Tag: "machine-12345"},
 	}}
 	results, err := s.upgrader.DesiredVersion(c.Context(), args)
@@ -699,7 +637,7 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachineTag.String()}}}
 	results, err := s.upgrader.DesiredVersion(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 1)
@@ -720,7 +658,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *tc.C) {
 
 	// Grab a different Upgrader for the apiMachine
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag: s.apiMachine.Tag(),
+		Tag: s.apiMachineTag,
 	}
 
 	upgraderAPI := upgrader.NewUpgraderAPI(
@@ -733,7 +671,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *tc.C) {
 		s.agentService,
 		s.machineService,
 	)
-	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachineTag.String()}}}
 	results, err := upgraderAPI.DesiredVersion(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 1)
@@ -747,7 +685,7 @@ func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *tc.C) {
 	c.Skip("skipping till we can move this test to mocks")
 
 	defer s.setupMocks(c).Finish()
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachineTag.String()}}}
 	results, err := s.upgrader.DesiredVersion(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results.Results, tc.HasLen, 1)
