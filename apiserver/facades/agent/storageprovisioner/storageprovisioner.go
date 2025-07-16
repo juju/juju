@@ -458,6 +458,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(ctx context.Context, ar
 				}
 				if !names.IsValidVolume(id.VolumeID) {
 					// This should never happen.
+					s.logger.Errorf(ctx, "invalid volume tag ID %q", id.VolumeID)
 					continue
 				}
 				machineStorageId := corewatcher.MachineStorageID{
@@ -468,6 +469,10 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(ctx context.Context, ar
 				} else if id.UnitName != nil {
 					if !names.IsValidUnit(id.UnitName.String()) {
 						// This should never happen.
+						s.logger.Errorf(ctx,
+							"invalid unit name %q for volume ID %v",
+							id.UnitName.String(), id.VolumeID,
+						)
 						continue
 					}
 					machineStorageId.MachineTag = names.NewUnitTag(id.UnitName.String()).String()
@@ -505,6 +510,7 @@ func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(ctx context.Context
 				}
 				if !names.IsValidFilesystem(id.FilesystemID) {
 					// This should never happen.
+					s.logger.Errorf(ctx, "invalid filesystem tag ID %q", id.FilesystemID)
 					continue
 				}
 				machineStorageId := corewatcher.MachineStorageID{
@@ -515,6 +521,10 @@ func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(ctx context.Context
 				} else if id.UnitName != nil {
 					if !names.IsValidUnit(id.UnitName.String()) {
 						// This should never happen.
+						s.logger.Errorf(ctx,
+							"invalid unit name %q for filesystem ID %q",
+							id.UnitName.String(), id.FilesystemID,
+						)
 						continue
 					}
 					machineStorageId.MachineTag = names.NewUnitTag(id.UnitName.String()).String()
@@ -570,6 +580,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(ctx context.Context
 				for i, volumeID := range volumeIDs {
 					if !names.IsValidVolume(volumeID) {
 						// This should never happen.
+						s.logger.Errorf(ctx, "invalid volume tag ID %q", volumeID)
 						continue
 					}
 					out[i] = corewatcher.MachineStorageID{
