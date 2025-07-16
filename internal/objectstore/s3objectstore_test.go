@@ -36,10 +36,9 @@ const (
 type s3ObjectStoreSuite struct {
 	baseSuite
 
-	states                 chan string
-	session                *MockSession
-	hashFileSystemAccessor *MockHashFileSystemAccessor
-	client                 *client
+	states  chan string
+	session *MockSession
+	client  *client
 }
 
 func TestS3ObjectStoreSuite(t *stdtesting.T) {
@@ -702,38 +701,6 @@ func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 	workertest.CleanKill(c, store)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFilesWithError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test that we can drain files from the object store.
-	// We expect that the draining tests will be covered by the drainFile
-	// tests.
-	// The drain state shouldn't be reached if there's an error.
-
-	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
-	s.expectListMetadata([]objectstore.Metadata{{
-		SHA384: "foo",
-		SHA256: "foo",
-		Path:   "foo",
-		Size:   12,
-	}})
-	done := s.expectHashToExistError("foo", errors.Errorf("boom"))
-
-	store := s.newDrainingS3ObjectStore(c)
-	defer workertest.DirtyKill(c, store)
-
-	// Note: the drained state is never reached because of the error.
-
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for drain")
-	}
-
-	err := workertest.CheckKill(c, store)
-	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
-}
-
 func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -764,14 +731,12 @@ func (s *s3ObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.states = make(chan string, 3)
 
 	s.session = NewMockSession(ctrl)
-	s.hashFileSystemAccessor = NewMockHashFileSystemAccessor(ctrl)
 	s.client = &client{session: s.session}
 
 	c.Cleanup(func() {
 		s.states = nil
 
 		s.session = nil
-		s.hashFileSystemAccessor = nil
 		s.client = nil
 	})
 
@@ -799,39 +764,16 @@ func (s *s3ObjectStoreSuite) expectBySHA256PrefixFailure(sha string, err error) 
 	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), sha).Return(objectstore.Metadata{}, err)
 }
 
-func (s *s3ObjectStoreSuite) expectListMetadata(metadata []objectstore.Metadata) {
-	s.service.EXPECT().ListMetadata(gomock.Any()).Return(metadata, nil)
-}
-
-func (s *s3ObjectStoreSuite) expectHashToExistError(hash string, err error) <-chan struct{} {
-	ch := make(chan struct{})
-	s.hashFileSystemAccessor.EXPECT().HashExists(gomock.Any(), hash).DoAndReturn(func(ctx context.Context, hash string) error {
-		close(ch)
-		return err
-	})
-	return ch
-}
-
 func (s *s3ObjectStoreSuite) newS3ObjectStore(c *tc.C) TrackedObjectStore {
-	return s.newS3ObjectStoreConfig(c, false)
-}
-
-func (s *s3ObjectStoreSuite) newDrainingS3ObjectStore(c *tc.C) TrackedObjectStore {
-	return s.newS3ObjectStoreConfig(c, true)
-}
-
-func (s *s3ObjectStoreSuite) newS3ObjectStoreConfig(c *tc.C, allowDraining bool) TrackedObjectStore {
 	store, err := newS3ObjectStore(S3ObjectStoreConfig{
-		RootBucket:             defaultBucketName,
-		Namespace:              "inferi",
-		RootDir:                c.MkDir(),
-		Client:                 s.client,
-		MetadataService:        s.service,
-		Claimer:                s.claimer,
-		Logger:                 loggertesting.WrapCheckLog(c),
-		Clock:                  clock.WallClock,
-		HashFileSystemAccessor: s.hashFileSystemAccessor,
-		AllowDraining:          allowDraining,
+		RootBucket:      defaultBucketName,
+		Namespace:       "inferi",
+		RootDir:         c.MkDir(),
+		Client:          s.client,
+		MetadataService: s.service,
+		Claimer:         s.claimer,
+		Logger:          loggertesting.WrapCheckLog(c),
+		Clock:           clock.WallClock,
 	}, s.states)
 	c.Assert(err, tc.IsNil)
 	return store

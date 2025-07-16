@@ -30,23 +30,6 @@ const (
 	defaultPruneInterval = time.Hour * 6
 )
 
-// HashFileSystemAccessor is the interface for reading and deleting files from
-// the file system.
-// The file system accessor is used for draining files from the file backed
-// object store to the s3 object store. It should at no point be used for
-// writing files to the file system.
-type HashFileSystemAccessor interface {
-	// HashExists checks if the file exists in the file backed object store.
-	// Returns a NotFound error if the file doesn't exist.
-	HashExists(ctx context.Context, hash string) error
-
-	// GetByHash returns an io.ReadCloser for the file at the given hash.
-	GetByHash(ctx context.Context, hash string) (io.ReadCloser, int64, error)
-
-	// DeleteByHash deletes the file at the given hash.
-	DeleteByHash(ctx context.Context, hash string) error
-}
-
 // S3ObjectStoreConfig is the configuration for the s3 object store.
 type S3ObjectStoreConfig struct {
 	// RootDir is the root directory for the object store. This is the location
@@ -66,12 +49,6 @@ type S3ObjectStoreConfig struct {
 	MetadataService objectstore.ObjectStoreMetadata
 	// Claimer is the claimer for locking files.
 	Claimer Claimer
-	// HashFileSystemAccessor is used for draining files from the file backed
-	// object store to the s3 object store.
-	HashFileSystemAccessor HashFileSystemAccessor
-	// AllowDraining is a flag to allow draining files from the file backed
-	// object store to the s3 object store.
-	AllowDraining bool
 
 	Logger logger.Logger
 	Clock  clock.Clock
