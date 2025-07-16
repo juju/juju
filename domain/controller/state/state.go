@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
@@ -88,4 +89,36 @@ func (st *State) GetControllerAgentInfo(ctx context.Context) (controller.Control
 		CAPrivateKey:   info.CAPrivateKey,
 		SystemIdentity: info.SystemIdentity,
 	}, nil
+}
+
+// GetModelNamespaces returns the model namespaces of all models in the state.
+func (st *State) GetModelNamespaces(ctx context.Context) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`SELECT &namespace.* FROM namespace_list`, namespace{})
+	if err != nil {
+		return nil, errors.Errorf("preparing select model namespaces statement: %w", err)
+	}
+
+	var namespaces []namespace
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&namespaces)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No namespaces found, return an empty slice.
+			return nil
+		} else if err != nil {
+			return errors.Errorf("getting all model namespaces: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting all model namespaces: %w", err)
+	}
+
+	return transform.Slice(namespaces, func(ns namespace) string {
+		return ns.Namespace
+	}), nil
 }
