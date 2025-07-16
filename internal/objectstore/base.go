@@ -13,8 +13,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4/catacomb"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -78,30 +76,11 @@ type response struct {
 }
 
 type baseObjectStore struct {
-	catacomb        catacomb.Catacomb
 	path            string
 	metadataService objectstore.ObjectStoreMetadata
 	claimer         Claimer
 	logger          logger.Logger
 	clock           clock.Clock
-}
-
-// Kill implements the worker.Worker interface.
-func (s *baseObjectStore) Kill() {
-	s.catacomb.Kill(nil)
-}
-
-// Wait implements the worker.Worker interface.
-func (s *baseObjectStore) Wait() error {
-	return s.catacomb.Wait()
-}
-
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (w *baseObjectStore) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
 }
 
 func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, func() error, error) {
@@ -160,38 +139,22 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 		_ = w.claimer.Release(ctx, hash)
 	}()
 
-	runnerCtx, runnerCtxCancel := context.WithCancelCause(ctx)
-	defer runnerCtxCancel(nil)
+	runnerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	// Extend the lock for the duration of the operation.
-	var runner tomb.Tomb
-	runner.Go(func() error {
-		defer runnerCtxCancel(nil)
-
-		return f(runnerCtx)
-	})
-
-	// We need to use a raw goroutine here, because the first tomb goroutine can
-	// potentially start and finish before the second one starts. This means
-	// that the attempt to run the second tomb goroutine will panic. This is
-	// non-recoverable. Utilizing a raw goroutine that it will spawn the
-	// goroutine, but if it has already finished we correctly handle the case
-	// and close it.
-	// I've only ever witnessed this in tests, but it's a possibility in the
-	// real world.
+	// Start a goroutine to extend the lock while the function is running.
+	// If we fail to extend the lock, then we cancel the context. This will
+	// cause the function to witness a context cancellation.
 	go func() {
 		for {
 			select {
-			case <-w.catacomb.Dying():
-				// Cancel runnerCtx with tomb dying as the reason.
-				runnerCtxCancel(tomb.ErrDying)
-				return
-			case <-runnerCtx.Done():
+			case <-ctx.Done():
 				return
 			case <-w.clock.After(extender.Duration()):
 				// Attempt to extend the lock if the function is still running.
-				if err := extender.Extend(runnerCtx); err != nil {
-					runnerCtxCancel(nil)
+				if err := extender.Extend(ctx); err != nil {
+					cancel()
+
 					w.logger.Infof(ctx, "failed to extend lock for %q: %v", hash, err)
 					return
 				}
@@ -199,27 +162,7 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 		}
 	}()
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-runner.Dying():
-		err := runner.Err()
-		if errors.Is(err, context.Canceled) &&
-			errors.Is(context.Cause(runnerCtx), tomb.ErrDying) {
-			// If the reason the context was cancelled was because w.tomb was killed,
-			// then this is the true error. Otherwise context cancelled is the error.
-			return tomb.ErrDying
-		}
-		return errors.Trace(err)
-	case <-w.catacomb.Dying():
-		// Ensure that we cancel the context if the runner is dying.
-		runner.Kill(nil)
-		err := runner.Wait()
-		if err != nil {
-			w.logger.Errorf(ctx, "error while object store dying in lock: %v", err)
-		}
-		return tomb.ErrDying
-	}
+	return errors.Trace(f(runnerCtx))
 }
 
 func (w *baseObjectStore) ensureDirectories() error {

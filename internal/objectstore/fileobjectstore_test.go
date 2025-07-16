@@ -853,6 +853,10 @@ func (s *fileObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.remote = NewMockRemoteRetriever(ctrl)
 
+	c.Cleanup(func() {
+		s.remote = nil
+	})
+
 	return ctrl
 }
 

@@ -81,6 +81,9 @@ type FileObjectStoreConfig struct {
 
 type fileObjectStore struct {
 	baseObjectStore
+
+	catacomb catacomb.Catacomb
+
 	fs              fs.FS
 	remoteRetriever RemoteRetriever
 	remoteRunner    *worker.Runner
@@ -235,7 +238,7 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	}
 
 	// Sequence the get request with the put and remove requests.
-	response := make(chan response)
+	response := make(chan response, 1)
 	select {
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
@@ -263,7 +266,7 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 
 // Put stores data from reader at path, namespaced to the model.
 func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
-	response := make(chan response)
+	response := make(chan response, 1)
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
@@ -295,7 +298,7 @@ func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, siz
 // Put stores data from reader at path, namespaced to the model.
 // It also ensures the stored data has the correct hash.
 func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) (objectstore.UUID, error) {
-	response := make(chan response)
+	response := make(chan response, 1)
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
@@ -326,7 +329,7 @@ func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io
 
 // Remove removes data at path, namespaced to the model.
 func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
-	response := make(chan response)
+	response := make(chan response, 1)
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -360,6 +363,24 @@ func (t *fileObjectStore) Report() map[string]any {
 	report["remote"] = t.remoteRunner.Report()
 
 	return report
+}
+
+// Kill implements the worker.Worker interface.
+func (s *fileObjectStore) Kill() {
+	s.catacomb.Kill(nil)
+}
+
+// Wait implements the worker.Worker interface.
+func (s *fileObjectStore) Wait() error {
+	return s.catacomb.Wait()
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *fileObjectStore) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
 }
 
 func (t *fileObjectStore) loop() error {

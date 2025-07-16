@@ -102,12 +102,14 @@ const (
 
 type s3ObjectStore struct {
 	baseObjectStore
+
 	internalStates chan string
-	client         objectstore.Client
-	rootBucket     string
-	namespace      string
-	requests       chan request
-	drainRequests  chan drainRequest
+	catacomb       catacomb.Catacomb
+
+	client     objectstore.Client
+	rootBucket string
+	namespace  string
+	requests   chan request
 
 	// HashFileSystemAccessor is used for draining files from the file backed
 	// object store to the s3 object store.
@@ -140,8 +142,7 @@ func newS3ObjectStore(cfg S3ObjectStoreConfig, internalStates chan string) (*s3O
 		fileSystemAccessor: cfg.HashFileSystemAccessor,
 		allowDraining:      cfg.AllowDraining,
 
-		requests:      make(chan request),
-		drainRequests: make(chan drainRequest),
+		requests: make(chan request),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -376,6 +377,24 @@ func (t *s3ObjectStore) Report() map[string]any {
 	return report
 }
 
+// Kill implements the worker.Worker interface.
+func (s *s3ObjectStore) Kill() {
+	s.catacomb.Kill(nil)
+}
+
+// Wait implements the worker.Worker interface.
+func (s *s3ObjectStore) Wait() error {
+	return s.catacomb.Wait()
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *s3ObjectStore) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
+}
+
 func (t *s3ObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
@@ -421,11 +440,9 @@ func (t *s3ObjectStore) loop() error {
 			return errors.Errorf("listing metadata for draining: %w", err)
 		}
 
-		go func() {
-			if err := t.drainFiles(metadata)(); err != nil {
-				t.catacomb.Kill(err)
-			}
-		}()
+		if err := t.drainFiles(metadata); err != nil {
+			t.catacomb.Kill(err)
+		}
 
 		// If we allow draining, then we can attempt to use the file accessor.
 		fileFallback = useFileAccessor
@@ -535,20 +552,6 @@ func (t *s3ObjectStore) loop() error {
 			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
 				t.logger.Errorf(ctx, "prune: %v", err)
 				continue
-			}
-
-		case req, ok := <-t.drainRequests:
-			if !ok {
-				// File draining has completed, so we can stop processing
-				// requests to the file backed object store.
-				fileFallback = noFileFallback
-				continue
-			}
-
-			select {
-			case <-t.catacomb.Dying():
-				return t.catacomb.ErrDying()
-			case req.response <- t.drainFile(ctx, req.path, req.hash, req.size):
 			}
 		}
 	}
@@ -799,79 +802,42 @@ func (t *s3ObjectStore) deleteObject(ctx context.Context, hash string) error {
 	})
 }
 
-// drainRequest is similar to the request type, but is used for draining files
-// from the file backed object store to the s3 object store.
-type drainRequest struct {
-	path     string
-	hash     string
-	size     int64
-	response chan error
-}
-
 // The drainFiles method will drain the files from the file object store to the
 // s3 object store. This will locate any files from the metadata service that
 // are not present in the s3 object store and copy them over.
-func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error {
-	// We require the capture closure to ensure that the metadata is captured
-	// at the time of the call, rather than at the time of the execution. This
-	// prevents any data races.
-	return func() error {
-		ctx, cancel := t.scopedContext()
-		defer cancel()
+func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) error {
+	ctx, cancel := t.scopedContext()
+	defer cancel()
 
-		t.logger.Infof(ctx, "draining started for %q, processing %d", t.namespace, len(metadata))
+	t.logger.Infof(ctx, "draining started for %q, processing %d", t.namespace, len(metadata))
 
-		// Process each file in the metadata service, and drain it to the s3 object
-		// store.
-		// Note: we could do this in parallel, but everything is sequenced with
-		// the requests channel, so we don't need to worry about it.
-		for _, m := range metadata {
-			result := make(chan error)
+	// Process each file in the metadata service, and drain it to the s3 object
+	// store.
+	// Note: we could do this in parallel, but everything is sequenced with
+	// the requests channel, so we don't need to worry about it.
+	for _, m := range metadata {
+		hash := selectFileHash(m)
 
-			hash := selectFileHash(m)
+		t.logger.Debugf(ctx, "draining file %q to s3 object store %q", m.Path, hash)
 
-			t.logger.Debugf(ctx, "draining file %q to s3 object store %q", m.Path, hash)
+		if err := t.drainFile(ctx, m.Path, hash, m.Size); err != nil {
+			// This will crash the s3ObjectStore worker if this is a fatal
+			// error. We don't want to continue processing if we can't drain
+			// the files to the s3 object store.
 
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-t.catacomb.Dying():
-				return t.catacomb.ErrDying()
-			case t.drainRequests <- drainRequest{
-				path:     m.Path,
-				hash:     hash,
-				size:     m.Size,
-				response: result,
-			}:
-			}
+			return errors.Errorf("draining file %q to s3 object store: %w", m.Path, err)
 
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-t.catacomb.Dying():
-				return t.catacomb.ErrDying()
-			case err := <-result:
-				t.reportInternalState(fmt.Sprintf(stateFileDrained, hash))
-				// This will crash the s3ObjectStore worker if this is a fatal
-				// error. We don't want to continue processing if we can't drain
-				// the files to the s3 object store.
-				if err != nil {
-					return errors.Errorf("draining file %q to s3 object store: %w", m.Path, err)
-				}
-			}
 		}
 
-		// Ensure we close the drain requests channel, so that we can prevent
-		// any further requests to the local file system.
-		close(t.drainRequests)
-
-		t.logger.Infof(ctx, "draining completed for %q, processed %d", t.namespace, len(metadata))
-
-		// Report the drained state completed.
-		t.reportInternalState(stateDrained)
-
-		return nil
+		t.reportInternalState(fmt.Sprintf(stateFileDrained, hash))
 	}
+
+	t.logger.Infof(ctx, "draining completed for %q, processed %d", t.namespace, len(metadata))
+
+	// Report the drained state completed.
+	t.reportInternalState(stateDrained)
+
+	return nil
 }
 
 func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metadataSize int64) error {
