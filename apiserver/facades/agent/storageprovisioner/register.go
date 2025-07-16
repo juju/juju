@@ -14,9 +14,26 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("StorageProvisioner", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacadeV4(stdCtx, ctx)
-	}, reflect.TypeOf((*StorageProvisionerAPIv4)(nil)))
+	registry.MustRegister(
+		"StorageProvisioner", 4,
+		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+			return newFacadeV4(stdCtx, ctx)
+		},
+		reflect.TypeOf((*StorageProvisionerAPIv4)(nil)),
+	)
+
+	registry.MustRegister(
+		"VolumeAttachmentsWatcher", 2,
+		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+	)
+	registry.MustRegister(
+		"VolumeAttachmentPlansWatcher", 1,
+		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+	)
+	registry.MustRegister(
+		"FilesystemAttachmentsWatcher", 2,
+		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+	)
 }
 
 // newFacadeV4 provides the signature required for facade registration.

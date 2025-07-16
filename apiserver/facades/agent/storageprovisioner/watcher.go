@@ -9,8 +9,12 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/rpc/params"
 )
 
 // stringSourcedWatcher is a generic watcher that listens to changes from a source
@@ -75,7 +79,11 @@ func (w *stringSourcedWatcher[T]) loop() error {
 				continue
 			}
 
-			changes = append(changes, results...)
+			if changes == nil {
+				changes = results
+			} else {
+				changes = append(changes, results...)
+			}
 			// If we have changes, we need to dispatch them.
 			out = w.out
 		case out <- changes:
@@ -106,4 +114,77 @@ func (w *stringSourcedWatcher[T]) Kill() {
 // and returns the error with which it was killed.
 func (w *stringSourcedWatcher[T]) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// machineStorageIdsWatcher defines the API wrapping a [corewatcher.MachineStorageIDsWatcher]
+// watching machine/storage attachments. This watcher notifies about storage
+// entities (volumes/filesystems) being attached to and detached from machines.
+type machineStorageIdsWatcher struct {
+	stop    func() error
+	watcher watcher.MachineStorageIDsWatcher
+}
+
+func newMachineStorageIdsWatcherFromContext(
+	_ context.Context,
+	ctx facade.ModelContext,
+) (facade.Facade, error) {
+	return newMachineStorageIdsWatcher(
+		ctx.WatcherRegistry(),
+		ctx.Auth(),
+		ctx.ID(),
+		ctx.Dispose,
+	)
+}
+
+func newMachineStorageIdsWatcher(
+	watcherRegistry facade.WatcherRegistry,
+	authorizer facade.Authorizer,
+	watcherID string,
+	dispose func(),
+) (*machineStorageIdsWatcher, error) {
+	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthModelAgent()) {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	w, err := watcherRegistry.Get(watcherID)
+	if err != nil {
+		return nil, errors.Errorf("getting watcher %q: %w", watcherID, err)
+	}
+	watcher, ok := w.(watcher.MachineStorageIDsWatcher)
+	if !ok {
+		return nil, apiservererrors.ErrUnknownWatcher
+	}
+	stop := func() error {
+		dispose()
+		return watcherRegistry.Stop(watcherID)
+	}
+	return &machineStorageIdsWatcher{
+		watcher: watcher,
+		stop:    stop,
+	}, nil
+}
+
+// Next returns when a change has occurred to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the machineStorageIdsWatcher.
+func (w *machineStorageIdsWatcher) Next(ctx context.Context) (params.MachineStorageIdsWatchResult, error) {
+	changes, err := internal.FirstResult(ctx, w.watcher)
+	if err != nil {
+		return params.MachineStorageIdsWatchResult{}, errors.Capture(err)
+	}
+	out := params.MachineStorageIdsWatchResult{
+		Changes: make([]params.MachineStorageId, len(changes)),
+	}
+	for i, change := range changes {
+		out.Changes[i] = params.MachineStorageId{
+			MachineTag:    change.MachineTag,
+			AttachmentTag: change.AttachmentTag,
+		}
+	}
+	return out, nil
+}
+
+// Stop stops the watcher.
+func (w *machineStorageIdsWatcher) Stop() error {
+	return w.stop()
 }

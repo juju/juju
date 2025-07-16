@@ -232,51 +232,6 @@ func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWat
 	return params.OfferStatusWatchResult{}, nil
 }
 
-// srvMachineStorageIdsWatcher defines the API wrapping a [corewatcher.MachineStorageIDsWatcher]
-// watching machine/storage attachments. This watcher notifies about storage
-// entities (volumes/filesystems) being attached to and detached from machines.
-type srvMachineStorageIdsWatcher struct {
-	watcher corewatcher.MachineStorageIDsWatcher
-}
-
-func newMachineStorageIdsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	auth := context.Auth()
-	if !isAgent(auth) {
-		return nil, apiservererrors.ErrPerm
-	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	watcher, ok := w.(corewatcher.MachineStorageIDsWatcher)
-	if !ok {
-		return nil, apiservererrors.ErrUnknownWatcher
-	}
-	return &srvMachineStorageIdsWatcher{
-		watcher: watcher,
-	}, nil
-}
-
-// Next returns when a change has occurred to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvMachineStorageIdsWatcher.
-func (w *srvMachineStorageIdsWatcher) Next(ctx context.Context) (params.MachineStorageIdsWatchResult, error) {
-	changes, err := internal.FirstResult(ctx, w.watcher)
-	if err != nil {
-		return params.MachineStorageIdsWatchResult{}, errors.Trace(err)
-	}
-	out := params.MachineStorageIdsWatchResult{
-		Changes: make([]params.MachineStorageId, len(changes)),
-	}
-	for i, change := range changes {
-		out.Changes[i] = params.MachineStorageId{
-			MachineTag:    change.MachineTag,
-			AttachmentTag: change.AttachmentTag,
-		}
-	}
-	return out, nil
-}
-
 // EntitiesWatcher defines an interface based on the StringsWatcher
 // but also providing a method for the mapping of the received
 // strings to the tags of the according entities.
