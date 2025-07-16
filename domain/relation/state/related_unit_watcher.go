@@ -41,7 +41,6 @@ func (st *State) InitialWatchRelatedUnits(
 	if err != nil {
 		return nil, nil, nil, errors.Errorf("getting endpoints for relation %q: %w", relationUUID, err)
 	}
-	isPeer := len(appByEndpoint) == 1
 
 	return []string{relationApplicationSettingNamespace, relationUnitSettingNamespace, relationUnitNamespace},
 		// Initial query.
@@ -70,19 +69,16 @@ func (st *State) InitialWatchRelatedUnits(
 			// Populate data structures for convenient lookups.
 			// Exclude the input unit from the list of related units.
 			// Determine the endpoint to watch for application settings changes.
-			var endpointForAppSettingsChange string
+			var localEndpointUUID string
+			endpointUUIDs := set.NewStrings()
 			unitByRelationUnit := make(map[string]string)
 			relatedUnits := set.NewStrings()
 			for _, u := range unitsInRelation {
-				if u.UnitUUID == unitUUID {
-					if isPeer {
-						endpointForAppSettingsChange = u.RelationEndpointUUID
-					}
-					continue
-				}
+				endpointUUIDs.Add(u.RelationEndpointUUID)
 
-				if endpointForAppSettingsChange == "" {
-					endpointForAppSettingsChange = u.RelationEndpointUUID
+				if u.UnitUUID == unitUUID {
+					localEndpointUUID = u.RelationEndpointUUID
+					continue
 				}
 
 				if u.RelationUnitUUID != "" {
@@ -90,6 +86,20 @@ func (st *State) InitialWatchRelatedUnits(
 				}
 
 				relatedUnits.Add(u.UnitUUID)
+			}
+			// If this is a peer relation, we will have only one endpointUUID,
+			// which will be the one.
+			// Else, we will have 2 endpoints, and we will want the remote one.
+			var endpointForAppSettingsChange string
+			if endpointUUIDs.Size() > 1 {
+				endpointUUIDs.Remove(localEndpointUUID)
+			}
+			if endpointUUIDs.Size() == 1 {
+				endpointForAppSettingsChange = endpointUUIDs.Values()[0]
+			} else {
+				return nil, errors.Errorf(
+					"programming error: we should have 1 endpoint to watch at this point, but have %d for relation %q",
+					endpointUUIDs.Size(), relationUUID)
 			}
 
 			var out []string
