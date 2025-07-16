@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -132,7 +131,7 @@ type MachineService interface {
 
 	// IsContainer returns true if the given machine is a container (i.e. if it has
 	// a parent).
-	IsContainer(ctx context.Context, mName machine.Name) (bool, error)
+	IsContainer(ctx context.Context, mName coremachine.Name) (bool, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status
@@ -185,7 +184,7 @@ type NetworkService interface {
 
 	// DevicesForGuest returns the network devices that should be configured in the
 	// guest machine with the input UUID, based on the host machine's bridges.
-	DevicesForGuest(ctx context.Context, hostUUID, guestUUID machine.UUID) ([]domainnetwork.NetInterface, error)
+	DevicesForGuest(ctx context.Context, hostUUID, guestUUID coremachine.UUID) ([]domainnetwork.NetInterface, error)
 }
 
 // KeyUpdaterService provides access to authorised keys in a model.
