@@ -237,6 +237,8 @@ func (s *destroyControllerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - Successfully destroying a controller (life->dying) whose model has apps with storage when --destroy-storage is included.
 - An error when destroying a controller also with storage, but without including --destroy-storage.
+- Test when controller is killed, all hosted models are killed.
+- Test a controller with no hosted models is killed.
 `)
 }
 
@@ -280,24 +282,6 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *
 	c.Assert(len(numBlocks), tc.Equals, 2)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.mockModelService.EXPECT().ListModelUUIDs(gomock.Any()).Return(
-		[]coremodel.UUID{
-			coremodel.UUID(s.ControllerUUID),
-		}, nil,
-	)
-	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
-	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
-
-	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{
-		DestroyModels: true,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Dying)
-}
-
 func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -315,35 +299,6 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 	numBlocks, err := s.DefaultModelDomainServices(c).BlockCommand().GetBlocks(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(numBlocks), tc.Equals, 2)
-}
-
-func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	domainServices := s.DefaultModelDomainServices(c)
-
-	err := model.DestroyModel(
-		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), domainServices.ModelInfo(),
-		nil, nil, nil, nil,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.otherModel.Refresh(), tc.ErrorIsNil)
-	c.Assert(s.otherModel.Life(), tc.Equals, state.Dying)
-	c.Assert(s.otherModel.State().RemoveDyingModel(), tc.ErrorIsNil)
-	c.Assert(s.otherModel.Refresh(), tc.ErrorIs, errors.NotFound)
-
-	s.mockModelService.EXPECT().ListModelUUIDs(gomock.Any()).Return(
-		[]coremodel.UUID{
-			coremodel.UUID(s.ControllerUUID),
-			coremodel.UUID(s.otherModelUUID),
-		}, nil,
-	)
-	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
-	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
-	err = s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Dying)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *tc.C) {

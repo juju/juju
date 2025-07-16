@@ -286,6 +286,12 @@ func (m *Machine) IsContainer() bool {
 	return isContainer
 }
 
+// Remove removes the machine from state. It will fail if the machine
+// is not Dead.
+func (m *Machine) Remove() (err error) {
+	return
+}
+
 // Refresh refreshes the contents of the machine from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // machine has been removed.

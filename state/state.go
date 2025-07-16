@@ -70,26 +70,6 @@ type State struct {
 	workers *workers
 }
 
-func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
-	session := st.session.Copy()
-	newSt, err := newState(
-		st.controllerTag,
-		names.NewModelTag(modelUUID),
-		st.controllerModelTag,
-		session,
-		st.newPolicy,
-		st.stateClock,
-		st.charmServiceGetter,
-		st.maxTxnAttempts,
-	)
-	// We explicitly don't start the workers.
-	if err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
-	return newSt, nil
-}
-
 // IsController returns true if this state instance has the bootstrap
 // model UUID.
 func (st *State) IsController() bool {
@@ -633,34 +613,6 @@ type SaveCloudServiceArgs struct {
 
 	Generation            int64
 	DesiredScaleProtected bool
-}
-
-// SaveCloudService creates a cloud service.
-func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add cloud service %q", args.ProviderId)
-
-	doc := cloudServiceDoc{
-		DocID:                 applicationGlobalKey(args.Id),
-		ProviderId:            args.ProviderId,
-		Addresses:             fromNetworkAddresses(args.Addresses, network.OriginProvider),
-		Generation:            args.Generation,
-		DesiredScaleProtected: args.DesiredScaleProtected,
-	}
-	buildTxn := func(int) ([]txn.Op, error) {
-		return buildCloudServiceOps(st, doc)
-	}
-
-	if err := st.db().Run(buildTxn); err != nil {
-		return nil, errors.Annotate(err, "failed to save cloud service")
-	}
-	// refresh then return updated CloudService.
-	return newCloudService(st, &doc).CloudService()
-}
-
-// CloudService returns a cloud service state by Id.
-func (st *State) CloudService(id string) (*CloudService, error) {
-	svc := newCloudService(st, &cloudServiceDoc{DocID: st.docID(applicationGlobalKey(id))})
-	return svc.CloudService()
 }
 
 // CharmRef is an indirection to a charm, this allows us to pass in a charm,

@@ -15,7 +15,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	coreagent "github.com/juju/juju/core/agent"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -41,14 +40,11 @@ import (
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	secretbackendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
@@ -64,9 +60,6 @@ type DqliteInitializerFunc func(
 	options ...database.BootstrapOpt,
 ) error
 
-// ProviderFunc is a function that returns an EnvironProvider.
-type ProviderFunc func(string) (environs.EnvironProvider, error)
-
 // CheckJWKSReachable checks if the given JWKS URL is reachable.
 func CheckJWKSReachable(url string) error {
 	ctx, cancelF := context.WithTimeout(context.TODO(), 30*time.Second)
@@ -80,19 +73,13 @@ func CheckJWKSReachable(url string) error {
 
 // AgentBootstrap is used to initialize the state for a new controller.
 type AgentBootstrap struct {
-	bootstrapEnviron environs.BootstrapEnviron
-	adminUser        names.UserTag
-	agentConfig      agent.ConfigSetter
-	mongoDialOpts    mongo.DialOpts
-	stateNewPolicy   state.NewPolicyFunc
-	bootstrapDqlite  DqliteInitializerFunc
+	adminUser       names.UserTag
+	agentConfig     agent.ConfigSetter
+	mongoDialOpts   mongo.DialOpts
+	stateNewPolicy  state.NewPolicyFunc
+	bootstrapDqlite DqliteInitializerFunc
 
 	stateInitializationParams instancecfg.StateInitializationParams
-	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
-	bootstrapMachineAddresses corenetwork.ProviderAddresses
-
-	// Provider is called to obtain an EnvironProvider.
-	provider func(string) (environs.EnvironProvider, error)
 
 	// StorageProviderRegistry is used to determine and store the
 	// details of the default storage pools.
@@ -111,7 +98,6 @@ type AgentBootstrapArgs struct {
 	StateInitializationParams instancecfg.StateInitializationParams
 	StorageProviderRegistry   storage.ProviderRegistry
 	BootstrapDqlite           DqliteInitializerFunc
-	Provider                  ProviderFunc
 	Logger                    logger.Logger
 }
 
@@ -157,11 +143,8 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		adminUser:                 args.AdminUser,
 		agentConfig:               args.AgentConfig,
 		bootstrapDqlite:           args.BootstrapDqlite,
-		bootstrapEnviron:          args.BootstrapEnviron,
-		bootstrapMachineAddresses: args.BootstrapMachineAddresses,
 		logger:                    args.Logger,
 		mongoDialOpts:             args.MongoDialOpts,
-		provider:                  args.Provider,
 		stateInitializationParams: args.StateInitializationParams,
 		storageProviderRegistry:   args.StorageProviderRegistry,
 	}, nil
@@ -342,32 +325,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	}()
 	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
 
-	st, err := ctrl.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	cloudSpec, err := environscloudspec.MakeCloudSpec(
-		stateParams.ControllerCloud,
-		stateParams.ControllerCloudRegion,
-		stateParams.ControllerCloudCredential,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cloudSpec.IsControllerCloud = true
-
-	provider, err := b.provider(cloudSpec.Type)
-	if err != nil {
-		return errors.Annotate(err, "getting environ provider")
-	}
-
-	if isCAAS {
-		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
-			return errors.Annotate(err, "cannot initialize cloud service")
-		}
-	}
-
 	// Create a new password. It is used down below to set  the agent's initial
 	// API password in agent config.
 	newPassword, err := password.RandomPassword()
@@ -400,24 +357,6 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 	return cloud.Credential{}, cloudCredentialTag, nil
 }
 
-func (b *AgentBootstrap) getEnviron(
-	ctx context.Context,
-	controllerUUID string,
-	cloudSpec environscloudspec.CloudSpec,
-	modelConfig *config.Config,
-	provider environs.EnvironProvider,
-) (env environs.BootstrapEnviron, err error) {
-	openParams := environs.OpenParams{
-		ControllerUUID: controllerUUID,
-		Cloud:          cloudSpec,
-		Config:         modelConfig,
-	}
-	if cloud.CloudTypeIsCAAS(cloudSpec.Type) {
-		return caas.Open(ctx, provider, openParams, environs.NoopCredentialInvalidator())
-	}
-	return environs.Open(ctx, provider, openParams, environs.NoopCredentialInvalidator())
-}
-
 // initMongo dials the initial MongoDB connection, setting a
 // password for the admin user, and returning the session.
 func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*mgo.Session, error) {
@@ -426,59 +365,4 @@ func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*m
 		return nil, errors.Trace(err)
 	}
 	return session, nil
-}
-
-// initControllerCloudService creates cloud service for controller service.
-func (b *AgentBootstrap) initControllerCloudService(
-	ctx context.Context,
-	cloudSpec environscloudspec.CloudSpec,
-	provider environs.EnvironProvider,
-	st *state.State,
-) error {
-	stateParams := b.stateInitializationParams
-	controllerUUID := stateParams.ControllerConfig.ControllerUUID()
-	env, err := b.getEnviron(ctx, controllerUUID, cloudSpec, stateParams.ControllerModelConfig, provider)
-	if err != nil {
-		return errors.Annotate(err, "getting environ")
-	}
-
-	broker, ok := env.(caas.ServiceManager)
-	if !ok {
-		// this should never happen.
-		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
-	}
-	svc, err := broker.GetService(ctx, k8sconstants.JujuControllerStackName, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(svc.Addresses) == 0 {
-		// this should never happen because we have already checked in k8s controller bootstrap stacker.
-		return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
-	}
-	addrs := b.getAlphaSpaceAddresses(svc.Addresses)
-
-	svcId := controllerUUID
-	b.logger.Infof(ctx, "creating cloud service for k8s controller %q", svcId)
-	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
-		Id:         svcId,
-		ProviderId: svc.Id,
-		Addresses:  addrs,
-	})
-	b.logger.Debugf(ctx, "created cloud service %v for controller", cloudSvc)
-	return errors.Trace(err)
-}
-
-// getAlphaSpaceAddresses returns a SpaceAddresses created from the input
-// providerAddresses and using the alpha space ID as their SpaceID.
-// We set all the spaces of the output SpaceAddresses to be the alpha space ID.
-func (b *AgentBootstrap) getAlphaSpaceAddresses(providerAddresses corenetwork.ProviderAddresses) corenetwork.SpaceAddresses {
-	sas := make(corenetwork.SpaceAddresses, len(providerAddresses))
-	for i, pa := range providerAddresses {
-		sas[i] = corenetwork.SpaceAddress{MachineAddress: pa.MachineAddress}
-		if pa.SpaceName != "" {
-			sas[i].SpaceID = corenetwork.AlphaSpaceId
-		}
-	}
-	return sas
 }

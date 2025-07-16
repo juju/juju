@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
-	jujutxn "github.com/juju/txn/v3"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
@@ -539,279 +537,7 @@ func (m *Model) uniqueIndexID() string {
 // an empty hosted model, the lifecycle will be advanced
 // straight to Dead.
 func (m *Model) Destroy(args DestroyModelParams) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to destroy model")
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// On the first attempt, we assume memory state is recent
-		// enough to try using...
-		if attempt != 0 {
-			// ...but on subsequent attempts, we read fresh environ
-			// state from the DB. Note that we do *not* refresh the
-			// original `m` itself, as detailed in doc/hacking-state.txt
-			if attempt == 1 {
-				mCopy := *m
-				m = &mCopy
-			}
-			if err := m.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		ops, err := m.destroyOps(args, false, false)
-		if err == errModelNotAlive {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
-	}
-	return m.st.db().Run(buildTxn)
-}
-
-// errModelNotAlive is a signal emitted from destroyOps to indicate
-// that model destruction is already underway.
-var errModelNotAlive = errors.New("model is no longer alive")
-
-// destroyOps returns the txn operations necessary to begin model
-// destruction, or an error indicating why it can't.
-//
-// If ensureEmpty is true, then destroyOps will return an error
-// if the model is non-empty.
-//
-// If destroyingController is true, then destroyOps will progress
-// empty models to Dead, but otherwise will return only non-mutating
-// ops to assert the current state of the model, and will leave it
-// to the "models" cleanup to destroy the model.
-func (m *Model) destroyOps(
-	args DestroyModelParams,
-	ensureEmpty bool,
-	destroyingController bool,
-) ([]txn.Op, error) {
-	modelUUID := m.UUID()
-	force := args.Force != nil && *args.Force
-	if m.Life() != Alive && !force {
-		currentTimeout := m.DestroyTimeout()
-		if !destroyingController && ((currentTimeout == nil && args.Timeout != nil) ||
-			(currentTimeout != nil && args.Timeout != nil && *currentTimeout != *args.Timeout)) {
-			var ops []txn.Op
-			modelOp := txn.Op{
-				C:      modelsC,
-				Id:     modelUUID,
-				Assert: bson.D{{"life", m.Life()}},
-			}
-			modelOp.Update = bson.D{{
-				"$set",
-				bson.D{
-					{"destroy-timeout", args.Timeout},
-				},
-			}}
-			ops = append(ops, modelOp)
-			return ops, nil
-		}
-		return nil, errModelNotAlive
-	}
-
-	// Check if the model is empty. If it is, we can advance the model's
-	// lifecycle state directly to Dead.
-	modelEntityRefs, err := m.getEntityRefs()
-	if err != nil {
-		if !force {
-			return nil, errors.Annotatef(err, "getting model %v entity refs", m.UUID())
-		}
-		logger.Warningf(context.TODO(), "getting model %v entity refs: %v", m.UUID(), err)
-	}
-	isEmpty := true
-	nextLife := Dying
-
-	prereqOps, err := checkModelEntityRefsEmpty(modelEntityRefs)
-	if err != nil {
-		if ensureEmpty {
-			return nil, errors.Trace(err)
-		}
-		isEmpty = false
-		prereqOps = nil
-		if args.DestroyStorage == nil {
-			// The model is non-empty, and the user has not specified
-			// whether storage should be destroyed or released. Make
-			// sure there are no filesystems or volumes in the model.
-			storageOps, err := checkModelEntityRefsNoPersistentStorage(m.st.db(), modelEntityRefs)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			prereqOps = storageOps
-		} else if !*args.DestroyStorage {
-			// The model is non-empty, and the user has specified that
-			// storage should be released. Make sure the storage is
-			// all releasable.
-			sb, err := NewStorageBackend(m.st)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			force := args.Force != nil && *args.Force
-			storageOps, err := checkModelEntityRefsAllReleasableStorage(sb, modelEntityRefs, force)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			prereqOps = storageOps
-		}
-	}
-
-	if m.IsControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {
-		// This is the controller model, and we've not been instructed
-		// to destroy hosted models, or we've not been instructed to
-		// destroy storage.
-		//
-		// Check for any Dying or alive but non-empty models. If there
-		// are any and we have not been instructed to destroy them, we
-		// return an error indicating that there are hosted models.
-		//
-		// The same logic applies even if the destruction is forced since really
-		// we are talking about a controller model here and any forceful destruction of the controller
-		// needs to be dealt through destroy-controller code path.
-
-		modelUUIDs, err := m.st.AllModelUUIDsIncludingDead()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		var aliveEmpty, aliveNonEmpty, dying, dead int
-		for _, aModelUUID := range modelUUIDs {
-			if aModelUUID == m.UUID() {
-				// Ignore the controller model.
-				continue
-			}
-			newSt, err := m.st.newStateNoWorkers(aModelUUID)
-			if err != nil {
-				// This model could have been removed.
-				if errors.Is(err, errors.NotFound) {
-					continue
-				}
-				// TODO (force 2019-4-24) we should not break out here but
-				// continue with other models.
-				return nil, errors.Trace(err)
-			}
-			defer newSt.Close()
-
-			model, err := newSt.Model()
-			if err != nil {
-				// TODO (force 2019-4-24) we should not break out here but
-				// continue with other models.
-				return nil, errors.Trace(err)
-			}
-
-			if model.Life() == Dead {
-				// Dead hosted models don't affect
-				// whether the controller can be
-				// destroyed or not, but they are
-				// still counted in the hosted models.
-				dead++
-				continue
-			}
-			// See if the model is empty, and if it is,
-			// get the ops required to ensure it can be
-			// destroyed, but without effecting the
-			// destruction. The destruction is carried
-			// out by the cleanup.
-			ops, err := model.destroyOps(args, !args.DestroyHostedModels, true)
-			switch err {
-			case errModelNotAlive:
-				// this empty hosted model is still dying.
-				dying++
-			case nil:
-				prereqOps = append(prereqOps, ops...)
-				aliveEmpty++
-			default:
-				if !errors.Is(err, stateerrors.ModelNotEmptyError) {
-					// TODO (force 2019-4-24) we should not break out here but
-					// continue with other models.
-					return nil, errors.Trace(err)
-				}
-				aliveNonEmpty++
-			}
-		}
-		if !args.DestroyHostedModels && (dying > 0 || aliveNonEmpty > 0) {
-			// There are Dying, or Alive but non-empty models.
-			// We cannot destroy the controller without first
-			// destroying the models and waiting for them to
-			// become Dead.
-			return nil, errors.Trace(
-				stateerrors.NewHasHostedModelsError(dying + aliveNonEmpty + aliveEmpty),
-			)
-		}
-		// Ensure that the number of active models has not changed
-		// between the query and when the transaction is applied.
-		//
-		// Note that we assert that each empty model that we intend
-		// move to Dead is still Alive, so we're protected from an
-		// ABA style problem where an empty model is concurrently
-		// removed, and replaced with a non-empty model.
-		prereqOps = append(prereqOps,
-			assertHostedModelsOp(aliveEmpty+aliveNonEmpty+dying+dead),
-		)
-	}
-
-	assert := isAliveDoc
-	if force {
-		assert = bson.D{{"life", m.Life()}}
-	}
-	var ops []txn.Op
-	modelOp := txn.Op{
-		C:      modelsC,
-		Id:     modelUUID,
-		Assert: assert,
-	}
-	if !destroyingController {
-		modelOp.Update = bson.D{
-			{
-				"$set",
-				bson.D{
-					{"life", nextLife},
-					{"time-of-dying", m.st.nowToTheSecond()},
-					{"force-destroyed", force},
-					{"destroy-timeout", args.Timeout},
-				},
-			},
-		}
-	}
-	ops = append(ops, modelOp)
-	if destroyingController {
-		// We're destroying the controller model, and being asked
-		// to check the validity of destroying hosted models,
-		// progressing empty models to Dead. We don't want to
-		// include the cleanups below, as they assume we're
-		// destroying the model.
-		return append(prereqOps, ops...), nil
-	}
-
-	// Because txn operations execute in order, and may encounter
-	// arbitrarily long delays, we need to make sure every op
-	// causes a state change that's still consistent; so we make
-	// sure the cleanup ops are the last thing that will execute.
-	if m.IsControllerModel() {
-		ops = append(ops, newCleanupOp(
-			cleanupModelsForDyingController, modelUUID,
-			// pass through the DestroyModelArgs to the cleanup,
-			// so the models can be destroyed according to the
-			// same rules.
-			args,
-		))
-	}
-	if !isEmpty {
-		// We only need to destroy resources if the model is non-empty.
-		// It wouldn't normally be harmful to enqueue the cleanups
-		// otherwise, except for when we're destroying an empty
-		// model in the course of destroying the controller. In
-		// that case we'll get errors if we try to enqueue model
-		// cleanups, because the cleanups collection is non-global.
-		ops = append(ops, newCleanupOp(cleanupApplicationsForDyingModel, modelUUID, args))
-		if args.DestroyStorage != nil {
-			// The user has specified that the storage should be destroyed
-			// or released, which we can do in a cleanup. If the user did
-			// not specify either, then we have already added prereq ops
-			// to assert that there is no storage in the model.
-			ops = append(ops, newCleanupOp(cleanupStorageForDyingModel, modelUUID, args))
-		}
-	}
-	return append(prereqOps, ops...), nil
+	return
 }
 
 // getEntityRefs reads the current model entity refs document for the model.
@@ -875,123 +601,6 @@ func checkModelEntityRefsEmpty(doc *modelEntityRefsDoc) ([]txn.Op, error) {
 	}}, nil
 }
 
-// checkModelEntityRefsNoPersistentStorage checks that there is no
-// persistent storage in the model. If there is, then an error of
-// type hasPersistentStorageError is returned. If there is not,
-// txn.Ops are returned to assert the same.
-func checkModelEntityRefsNoPersistentStorage(
-	db Database, doc *modelEntityRefsDoc,
-) ([]txn.Op, error) {
-	for _, volumeId := range doc.Volumes {
-		volumeTag := names.NewVolumeTag(volumeId)
-		detachable, err := isDetachableVolumeTag(db, volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if detachable {
-			return nil, stateerrors.PersistentStorageError
-		}
-	}
-	for _, filesystemId := range doc.Filesystems {
-		filesystemTag := names.NewFilesystemTag(filesystemId)
-		detachable, err := isDetachableFilesystemTag(db, filesystemTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if detachable {
-			return nil, stateerrors.PersistentStorageError
-		}
-	}
-	return noNewStorageModelEntityRefs(doc), nil
-}
-
-// checkModelEntityRefsAllReleasableStorage checks that there all
-// persistent storage in the model is releasable. If it is, then
-// txn.Ops are returned to assert the same; if it is not, then an
-// error is returned.
-func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEntityRefsDoc, force bool) ([]txn.Op, error) {
-	for _, volumeId := range doc.Volumes {
-		volumeTag := names.NewVolumeTag(volumeId)
-		volume, err := getVolumeByTag(sb.mb, volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !volume.Detachable() {
-			continue
-		}
-		if err := checkStoragePoolReleasable(sb, volume.pool()); err != nil {
-			logger.Warningf(context.TODO(), "error checking releasable volumes for model %s: %v", doc.UUID, err)
-			if !force {
-				// If the storage cannot be released, return the error without
-				// additional annotation.
-				if errors.Is(err, stateerrors.StorageNotReleasableError) {
-					return nil, errors.Trace(err)
-				}
-				return nil, errors.Annotatef(err,
-					"checking %s is releasable", names.ReadableString(volumeTag),
-				)
-			}
-		}
-	}
-	for _, filesystemId := range doc.Filesystems {
-		filesystemTag := names.NewFilesystemTag(filesystemId)
-		filesystem, err := getFilesystemByTag(sb.mb, filesystemTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !filesystem.Detachable() {
-			continue
-		}
-		if err := checkStoragePoolReleasable(sb, filesystem.pool()); err != nil {
-			logger.Warningf(context.TODO(), "error checking releasable filesystems for model %s: %v", doc.UUID, err)
-			if !force {
-				// If the storage cannot be released, return the error without
-				// additional annotation.
-				if errors.Is(err, stateerrors.StorageNotReleasableError) {
-					return nil, errors.Trace(err)
-				}
-				return nil, errors.Annotatef(err,
-					"checking %s is releasable", names.ReadableString(filesystemTag),
-				)
-			}
-		}
-	}
-	return noNewStorageModelEntityRefs(doc), nil
-}
-
-func noNewStorageModelEntityRefs(doc *modelEntityRefsDoc) []txn.Op {
-	noNewVolumes := bson.DocElem{
-		"volumes", bson.D{{
-			"$not", bson.D{{
-				"$elemMatch", bson.D{{
-					"$nin", doc.Volumes,
-				}},
-			}},
-		}},
-		// There are no volumes that are not in
-		// the set of volumes we previously knew
-		// about => the current set of volumes
-		// is a subset of the previously known set.
-	}
-	noNewFilesystems := bson.DocElem{
-		Name: "filesystems", Value: bson.D{{
-			"$not", bson.D{{
-				"$elemMatch", bson.D{{
-					"$nin", doc.Filesystems,
-				}},
-			}},
-		}},
-	}
-	return []txn.Op{{
-		C:  modelEntityRefsC,
-		Id: doc.UUID,
-		Assert: bson.D{
-			noNewVolumes,
-			noNewFilesystems,
-		},
-	}}
-}
-
 func addModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
 	return addModelEntityRefOp(mb, "machines", machineId)
 }
@@ -1000,24 +609,12 @@ func addModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {
 	return addModelEntityRefOp(mb, "applications", applicationname)
 }
 
-func removeModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {
-	return removeModelEntityRefOp(mb, "applications", applicationname)
-}
-
 func addModelVolumeRefOp(mb modelBackend, volumeId string) txn.Op {
 	return addModelEntityRefOp(mb, "volumes", volumeId)
 }
 
-func removeModelVolumeRefOp(mb modelBackend, volumeId string) txn.Op {
-	return removeModelEntityRefOp(mb, "volumes", volumeId)
-}
-
 func addModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
 	return addModelEntityRefOp(mb, "filesystems", filesystemId)
-}
-
-func removeModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
-	return removeModelEntityRefOp(mb, "filesystems", filesystemId)
 }
 
 func addModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
@@ -1026,14 +623,6 @@ func addModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 		Id:     mb.ModelUUID(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$addToSet", bson.D{{entityField, entityId}}}},
-	}
-}
-
-func removeModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
-	return txn.Op{
-		C:      modelEntityRefsC,
-		Id:     mb.ModelUUID(),
-		Update: bson.D{{"$pull", bson.D{{entityField, entityId}}}},
 	}
 }
 
@@ -1080,14 +669,6 @@ type hostedModelCountDoc struct {
 	// RefCount is the number of models in the Juju system.
 	// We do not count the system model.
 	RefCount int `bson:"refcount"`
-}
-
-func assertHostedModelsOp(n int) txn.Op {
-	return txn.Op{
-		C:      controllersC,
-		Id:     hostedModelCountKey,
-		Assert: bson.D{{"refcount", n}},
-	}
 }
 
 func incHostedModelCountOp() txn.Op {

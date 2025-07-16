@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"path"
 	"regexp"
@@ -517,13 +516,6 @@ func (f *filesystem) Detachable() bool {
 	return f.doc.HostId == ""
 }
 
-func (f *filesystem) pool() string {
-	if f.doc.Info != nil {
-		return f.doc.Info.Pool
-	}
-	return f.doc.Params.Pool
-}
-
 // isDetachableFilesystemPool reports whether or not the given
 // storage pool will create a filesystem that is not inherently
 // bound to a machine, and therefore can be detached.
@@ -572,18 +564,6 @@ func (sb *storageBackend) DetachFilesystem(host names.Tag, filesystem names.File
 	return sb.mb.db().Run(buildTxn)
 }
 
-func (sb *storageBackend) filesystemVolumeAttachment(host names.Tag, f names.FilesystemTag) (VolumeAttachment, error) {
-	filesystem, err := getFilesystemByTag(sb.mb, f)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	v, err := filesystem.Volume()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return sb.VolumeAttachment(host, v)
-}
-
 func detachFilesystemOps(host names.Tag, f names.FilesystemTag) []txn.Op {
 	return []txn.Op{{
 		C:      filesystemAttachmentsC,
@@ -597,218 +577,13 @@ func detachFilesystemOps(host names.Tag, f names.FilesystemTag) []txn.Op {
 // Removing a volume-backed filesystem attachment will cause the volume to
 // be detached.
 func (sb *storageBackend) RemoveFilesystemAttachment(host names.Tag, filesystem names.FilesystemTag, force bool) (err error) {
-	defer errors.DeferredAnnotatef(&err, "removing attachment of filesystem %s from %s", filesystem.Id(), names.ReadableString(host))
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		attachment, err := sb.FilesystemAttachment(host, filesystem)
-		if errors.Is(err, errors.NotFound) && attempt > 0 {
-			// We only ignore IsNotFound on attempts after the
-			// first, since we expect the filesystem attachment to
-			// be there initially.
-			return nil, jujutxn.ErrNoOperations
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if attachment.Life() != Dying {
-			return nil, errors.New("filesystem attachment is not dying")
-		}
-		f, err := getFilesystemByTag(sb.mb, filesystem)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops, err := removeFilesystemAttachmentOps(sb, host, f, force)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		volumeAttachment, err := sb.filesystemVolumeAttachment(host, filesystem)
-		if err != nil {
-			if !errors.Is(err, ErrNoBackingVolume) && !errors.Is(err, errors.NotFound) {
-				return nil, errors.Trace(err)
-			}
-		} else {
-			// The filesystem is backed by a volume. Since the
-			// filesystem has been detached, we should now
-			// detach the volume as well if it is detachable.
-			// If the volume is not detachable, we'll just
-			// destroy it along with the filesystem.
-			volume := volumeAttachment.Volume()
-			v, err := sb.Volume(volume)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if v.Detachable() {
-				plans, err := sb.machineVolumeAttachmentPlans(host, volume)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				// NOTE(gsamfira): if we're upgrading, we might not have plans set up,
-				// so we check if volume plans were created, and if not, just skip to
-				// detaching the actual disk
-				var volOps []txn.Op
-				if len(plans) == 0 {
-					volOps, err = sb.detachVolumeOps(host, volume, force)
-				} else {
-					volOps, err = sb.detachVolumeAttachmentPlanOps(host, volume, force)
-				}
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				ops = append(ops, volOps...)
-			}
-		}
-		return ops, nil
-	}
-	return sb.mb.db().Run(buildTxn)
-}
-
-func removeFilesystemAttachmentOps(sb *storageBackend, host names.Tag, f *filesystem, force bool) ([]txn.Op, error) {
-	var ops []txn.Op
-	if f.doc.VolumeId != "" && f.doc.Life == Dying && f.doc.AttachmentCount == 1 {
-		// Volume-backed filesystems are removed immediately, instead
-		// of transitioning to Dead.
-		assert := bson.D{
-			{"life", Dying},
-			{"attachmentcount", 1},
-		}
-		removeFilesystemOps, err := removeFilesystemOps(sb, f, f.doc.Releasing, force, assert)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = removeFilesystemOps
-	} else {
-		decrefFilesystemOp := machineStorageDecrefOp(
-			filesystemsC, f.doc.FilesystemId,
-			f.doc.AttachmentCount, f.doc.Life,
-		)
-		ops = []txn.Op{decrefFilesystemOp}
-	}
-	ops = append(ops, txn.Op{
-		C:      filesystemAttachmentsC,
-		Id:     filesystemAttachmentId(host.Id(), f.doc.FilesystemId),
-		Assert: bson.D{{"life", Dying}},
-		Remove: true,
-	})
-	if host.Kind() == names.MachineTagKind {
-		ops = append(ops, txn.Op{
-			C:      machinesC,
-			Id:     host.Id(),
-			Assert: txn.DocExists,
-			Update: bson.D{{"$pull", bson.D{{"filesystems", f.doc.FilesystemId}}}},
-		})
-	}
-	return ops, nil
+	return
 }
 
 // DestroyFilesystem ensures that the filesystem and any attachments to it will
 // be destroyed and removed from state at some point in the future.
 func (sb *storageBackend) DestroyFilesystem(tag names.FilesystemTag, force bool) (err error) {
-	defer errors.DeferredAnnotatef(&err, "destroying filesystem %s", tag.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		filesystem, err := getFilesystemByTag(sb.mb, tag)
-		if errors.Is(err, errors.NotFound) && attempt > 0 {
-			// On the first attempt, we expect it to exist.
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		if !force && filesystem.Life() != Alive || filesystem.Life() == Dead {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		// If we are not forcing the destruction of this file system,
-		// it must not be attached to a storage instance.
-		if filesystem.doc.StorageId != "" {
-			err := errors.Errorf("filesystem is assigned to %s",
-				names.ReadableString(names.NewStorageTag(filesystem.doc.StorageId)))
-			if !force {
-				return nil, err
-			}
-			logger.Warningf(context.TODO(), "%s", err.Error())
-		}
-
-		var assertNoStorageAssignment bson.D
-		if !force {
-			assertNoStorageAssignment = bson.D{{"$or", []bson.D{
-				{{"storageid", ""}},
-				{{"storageid", bson.D{{"$exists", false}}}},
-			}}}
-		}
-
-		ops, err := destroyFilesystemOps(sb, filesystem, false, force, assertNoStorageAssignment)
-		return ops, errors.Trace(err)
-	}
-
-	return errors.Trace(sb.mb.db().Run(buildTxn))
-}
-
-func destroyFilesystemOps(sb *storageBackend, f *filesystem, release, force bool, extraAssert bson.D) ([]txn.Op, error) {
-	lifeAssert := isAliveDoc
-	if force {
-		// Since we are force destroying, life assert should be current volume's life.
-		lifeAssert = bson.D{{"life", f.doc.Life}}
-	}
-	baseAssert := append(lifeAssert, extraAssert...)
-	setFields := bson.D{}
-	if release {
-		setFields = append(setFields, bson.DocElem{Name: "releasing", Value: true})
-	}
-	if f.doc.AttachmentCount == 0 {
-		hasNoAttachments := bson.D{{"attachmentcount", 0}}
-		assert := append(hasNoAttachments, baseAssert...)
-		if f.doc.VolumeId != "" {
-			// Filesystem is volume-backed, and since it has no
-			// attachments, it has no provisioner responsible
-			// for it. Removing the filesystem will destroy the
-			// backing volume, which effectively destroys the
-			// filesystem contents anyway.
-			return removeFilesystemOps(sb, f, release, force, assert)
-		}
-		// The filesystem is not volume-backed, so leave it to the
-		// storage provisioner to destroy it.
-		setFields = append(setFields, bson.DocElem{Name: "life", Value: Dead})
-		return []txn.Op{{
-			C:      filesystemsC,
-			Id:     f.doc.FilesystemId,
-			Assert: assert,
-			Update: bson.D{{"$set", setFields}},
-		}}, nil
-	}
-	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
-	setFields = append(setFields, bson.DocElem{Name: "life", Value: Dying})
-	ops := []txn.Op{{
-		C:      filesystemsC,
-		Id:     f.doc.FilesystemId,
-		Assert: append(hasAttachments, baseAssert...),
-		Update: bson.D{{"$set", setFields}},
-	}}
-	if !f.Detachable() {
-		// This filesystem cannot be directly detached, so we do
-		// not issue a cleanup. Since there can (should!) be only
-		// one attachment for the lifetime of the filesystem, we
-		// can look it up and destroy it along with the filesystem.
-		attachments, err := sb.FilesystemAttachments(f.FilesystemTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(attachments) != 1 {
-			return nil, errors.Errorf(
-				"expected 1 attachment, found %d",
-				len(attachments),
-			)
-		}
-		detachOps := detachFilesystemOps(
-			attachments[0].Host(),
-			f.FilesystemTag(),
-		)
-		ops = append(ops, detachOps...)
-	} else {
-		ops = append(ops, newCleanupOp(
-			cleanupAttachmentsForDyingFilesystem,
-			f.doc.FilesystemId,
-		))
-	}
-	return ops, nil
+	return
 }
 
 // RemoveFilesystem removes the filesystem from state. RemoveFilesystem will
@@ -816,51 +591,7 @@ func destroyFilesystemOps(sb *storageBackend, f *filesystem, release, force bool
 // Dying. Removing a volume-backed filesystem will cause the volume to be
 // destroyed.
 func (sb *storageBackend) RemoveFilesystem(tag names.FilesystemTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "removing filesystem %s", tag.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		filesystem, err := getFilesystemByTag(sb.mb, tag)
-		if errors.Is(err, errors.NotFound) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if filesystem.Life() != Dead {
-			return nil, errors.New("filesystem is not dead")
-		}
-		return removeFilesystemOps(sb, filesystem, false, false, isDeadDoc)
-	}
-	return sb.mb.db().Run(buildTxn)
-}
-
-func removeFilesystemOps(sb *storageBackend, filesystem Filesystem, release, force bool, assert interface{}) ([]txn.Op, error) {
-	ops := []txn.Op{
-		{
-			C:      filesystemsC,
-			Id:     filesystem.Tag().Id(),
-			Assert: assert,
-			Remove: true,
-		},
-		removeModelFilesystemRefOp(sb.mb, filesystem.Tag().Id()),
-		removeStatusOp(sb.mb, filesystem.globalKey()),
-	}
-	// If the filesystem is backed by a volume, the volume should
-	// be destroyed once the filesystem is removed. The volume must
-	// not be destroyed before the filesystem is removed.
-	volumeTag, err := filesystem.Volume()
-	if err == nil {
-		volume, err := getVolumeByTag(sb.mb, volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		volOps, err := destroyVolumeOps(sb, volume, release, force, nil)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, volOps...)
-	} else if err != ErrNoBackingVolume {
-		return nil, errors.Trace(err)
-	}
-	return ops, nil
+	return
 }
 
 // AddExistingFilesystem imports an existing, already-provisioned

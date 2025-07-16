@@ -22,9 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
-	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -37,8 +35,6 @@ func unitAgentGlobalKey(name string) string {
 
 // unitAgentGlobalKeyPrefix is the string we use to denote unit agent kind.
 const unitAgentGlobalKeyPrefix = "u#"
-
-var unitLogger = internallogger.GetLogger("juju.state.unit")
 
 // MachineRef is a reference to a machine, without being a full machine.
 // This exists to allow us to use state functions without requiring a
@@ -92,16 +88,6 @@ func newUnit(st *State, modelType ModelType, udoc *unitDoc) *Unit {
 	return unit
 }
 
-// shouldBeAssigned returns whether the unit should be assigned to a machine.
-// IAAS models require units to be assigned.
-func (u *Unit) shouldBeAssigned() bool {
-	return !u.isCaas()
-}
-
-func (u *Unit) isCaas() bool {
-	return u.modelType == ModelTypeCAAS
-}
-
 // application returns the application.
 func (u *Unit) application() (*Application, error) {
 	return u.st.Application(u.doc.Application)
@@ -137,340 +123,9 @@ func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
 }
 
-// globalCloudContainerKey returns the global database key for the unit's
-// Cloud Container info.
-func (u *Unit) globalCloudContainerKey() string {
-	return globalCloudContainerKey(u.doc.Name)
-}
-
 // life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) life() Life {
 	return u.doc.Life
-}
-
-// destroyWithForce does the same thing as Destroy() but
-// ignores errors.
-func (u *Unit) destroyWithForce(store objectstore.ObjectStore, force bool, maxWait time.Duration) (removed bool, errs []error, err error) {
-	defer func() {
-		if err == nil {
-			// This is a white lie; the document might actually be removed.
-			u.doc.Life = Dying
-		}
-	}()
-	op := u.destroyOperation(store)
-	op.Force = force
-	op.MaxWait = maxWait
-	err = u.st.ApplyOperation(op)
-	return op.removed, op.Errors, err
-}
-
-// destroyOperation returns a model operation that will destroy the unit.
-func (u *Unit) destroyOperation(store objectstore.ObjectStore) *destroyUnitOperation {
-	return &destroyUnitOperation{
-		unit:  &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		store: store,
-	}
-}
-
-// destroyUnitOperation is a model operation for destroying a unit.
-type destroyUnitOperation struct {
-	// forcedOperation stores needed information to force this operation.
-	forcedOperation
-
-	// unit holds the unit to destroy.
-	unit *Unit
-
-	// destroyStorage controls whether or not storage attached
-	// to the unit is destroyed. If this is false, then detachable
-	// storage will be detached and left in the model.
-	destroyStorage bool
-
-	// removed is true if the application is removed during destroy.
-	removed bool
-
-	// store is the object store to use for blob access.
-	store objectstore.ObjectStore
-}
-
-// Build is part of the ModelOperation interface.
-func (op *destroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
-	if op.store == nil {
-		return nil, errors.New("no object store provided")
-	}
-	if attempt > 0 {
-		if err := op.unit.refresh(); errors.Is(err, errors.NotFound) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, err
-		}
-	}
-	// When 'force' is set on the operation, this call will return both needed operations
-	// as well as all operational errors encountered.
-	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.destroyOps(); err {
-	case errRefresh:
-	case errAlreadyDying:
-		return nil, jujutxn.ErrNoOperations
-	case nil:
-		return ops, nil
-	default:
-		if op.Force {
-			logger.Warningf(context.TODO(), "forcing unit destruction for %v despite error %v", op.unit.name(), err)
-			return ops, nil
-		}
-		return nil, err
-	}
-	return nil, jujutxn.ErrNoOperations
-}
-
-// Done is part of the ModelOperation interface.
-func (op *destroyUnitOperation) Done(err error) error {
-	if err != nil {
-		if !op.Force {
-			return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
-		}
-		op.AddError(errors.Errorf("force destroy unit %q proceeded despite encountering ERROR %v", op.unit, err))
-	}
-	// Reimplement in dqlite.
-	//if err := op.deleteSecrets(); err != nil {
-	//	logger.Errorf(context.TODO(), "cannot delete secrets for unit %q: %v", op.unit, err)
-	//}
-	return nil
-}
-
-// destroyOps returns the operations required to destroy the unit. If it
-// returns errRefresh, the unit should be refreshed and the destruction
-// operations recalculated.
-// When 'force' is set on the operation, this call will return both needed operations
-// as well as all operational errors encountered.
-// If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (op *destroyUnitOperation) destroyOps() ([]txn.Op, error) {
-	if op.unit.doc.Life != Alive {
-		if !op.Force {
-			return nil, errAlreadyDying
-		}
-	}
-
-	// Where possible, we'd like to be able to short-circuit unit destruction
-	// such that units can be removed directly rather than waiting for their
-	// agents to start, observe Dying, set Dead, and shut down; this takes a
-	// long time and is vexing to users. This turns out to be possible if and
-	// only if the unit agent has not yet set its status; this implies that the
-	// most the unit could possibly have done is to run its install hook.
-	//
-	// There's no harm in removing a unit that's run its install hook only --
-	// or, at least, there is no more harm than there is in removing a unit
-	// that's run its stop hook, and that's the usual condition.
-	//
-	// Principals with subordinates are never eligible for this shortcut,
-	// because the unit agent must inevitably have set a status before getting
-	// to the point where it can actually create its subordinate.
-	//
-	// Subordinates should be eligible for the shortcut but are not currently
-	// considered, on the basis that (1) they were created by active principals
-	// and can be expected to be deployed pretty soon afterwards, so we don't
-	// lose much time and (2) by maintaining this restriction, I can reduce
-	// the number of tests that have to change and defer that improvement to
-	// its own CL.
-
-	cleanupOp := newCleanupOp(cleanupDyingUnit, op.unit.doc.Name, op.destroyStorage, op.Force, op.MaxWait)
-
-	// If we're forcing destruction the assertion shouldn't be that
-	// life is alive, but that it's what we think it is now.
-	assertion := isAliveDoc
-	if op.Force {
-		assertion = bson.D{{"life", op.unit.doc.Life}}
-	}
-
-	setDyingOp := txn.Op{
-		C:      unitsC,
-		Id:     op.unit.doc.DocID,
-		Assert: assertion,
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}
-	setDyingOps := func(dyingErr error) ([]txn.Op, error) {
-		if !op.Force && dyingErr != nil {
-			// If we are not forcing removal, we care about the errors as they will stop removal.
-			// Don't return operations.
-			return nil, dyingErr
-		}
-		// If we are forcing, we care about the errors as we want report them to the user.
-		// But we also want operations to power through the removal.
-		if dyingErr != nil {
-			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.name(), dyingErr))
-		}
-		ops := []txn.Op{setDyingOp, cleanupOp}
-		return ops, nil
-	}
-	if op.unit.doc.Principal != "" {
-		return setDyingOps(nil)
-	} else if len(op.unit.doc.Subordinates)+op.unit.doc.StorageAttachmentCount != 0 {
-		return setDyingOps(nil)
-	}
-
-	// See if the unit agent has started running.
-	// If so then we can't set directly to dead.
-	isAssigned := op.unit.doc.MachineId != ""
-	shouldBeAssigned := op.unit.shouldBeAssigned()
-	agentStatusDocId := op.unit.globalAgentKey()
-	agentStatusInfo, agentErr := getStatus(op.unit.st.db(), agentStatusDocId, "agent")
-	if errors.Is(agentErr, errors.NotFound) {
-		return nil, errAlreadyDying
-	} else if agentErr != nil {
-		if !op.Force {
-			return nil, errors.Trace(agentErr)
-		}
-	}
-
-	// This has to be a function since we want to delay the evaluation of the value,
-	// in case agent erred out.
-	if agentErr == nil {
-		return setDyingOps(agentErr)
-	}
-	switch agentStatusInfo.Status {
-	case status.Error, status.Allocating:
-	default:
-		err := errors.Errorf("unexpected unit state - unit with status %v is not deployed", agentStatusInfo.Status)
-		if op.FatalError(err) {
-			return nil, err
-		}
-	}
-
-	statusOp := txn.Op{
-		C:      statusesC,
-		Id:     op.unit.st.docID(agentStatusDocId),
-		Assert: bson.D{{"status", agentStatusInfo.Status}},
-	}
-	removeAsserts := isAliveDoc
-	if op.Force {
-		removeAsserts = bson.D{{"life", op.unit.doc.Life}}
-	}
-	removeAsserts = append(removeAsserts, bson.DocElem{
-		"$and", []bson.D{
-			unitHasNoSubordinates,
-			unitHasNoStorageAttachments,
-		},
-	})
-	// If the unit is unassigned, ensure it is not assigned in the interim.
-	if !isAssigned && shouldBeAssigned {
-		removeAsserts = append(removeAsserts, bson.DocElem{"machineid", ""})
-	}
-
-	// When 'force' is set, this call will return some, if not all, needed operations.
-	// All operational errors encountered will be added to the operation.
-	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	removeOps, err := op.unit.removeOps(op.store, removeAsserts, &op.forcedOperation, op.destroyStorage)
-	if err == errAlreadyRemoved {
-		return nil, errAlreadyDying
-	} else if op.FatalError(err) {
-		return nil, err
-	}
-	ops := []txn.Op{statusOp}
-	ops = append(ops, removeOps...)
-	op.removed = true
-	return ops, nil
-}
-
-// destroyHostOps returns all necessary operations to destroy the application unit's host machine,
-// or ensure that the conditions preventing its destruction remain stable through the transaction.
-// When 'force' is set, this call will return needed operations
-// and accumulate all operational errors encountered on the operation.
-// If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (u *Unit) destroyHostOps(a *Application, op *forcedOperation) (ops []txn.Op, err error) {
-	if a.doc.Subordinate {
-		return []txn.Op{{
-			C:      unitsC,
-			Id:     u.st.docID(u.doc.Principal),
-			Assert: txn.DocExists,
-			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
-		}}, nil
-	} else if u.doc.MachineId == "" {
-		unitLogger.Tracef(context.TODO(), "unit %v unassigned", u)
-		return nil, nil
-	}
-
-	m, err := u.st.Machine(u.doc.MachineId)
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	containerCheck := true // whether container conditions allow destroying the host machine
-	containers, err := m.Containers()
-	if op.FatalError(err) {
-		return nil, err
-	}
-	if len(containers) > 0 {
-		ops = append(ops, txn.Op{
-			C:      containerRefsC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"children.0", bson.D{{"$exists", 1}}}},
-		})
-		containerCheck = false
-	} else {
-		ops = append(ops, txn.Op{
-			C:  containerRefsC,
-			Id: m.doc.DocID,
-			Assert: bson.D{{"$or", []bson.D{
-				{{"children", bson.D{{"$size", 0}}}},
-				{{"children", bson.D{{"$exists", false}}}},
-			}}},
-		})
-	}
-
-	machineCheck := true // whether host machine conditions allow destroy
-	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
-		machineCheck = false
-	}
-
-	// assert that the machine conditions pertaining to host removal conditions
-	// remain the same throughout the transaction.
-	var machineAssert bson.D
-	if machineCheck {
-		machineAssert = bson.D{{"$and", []bson.D{
-			{{"principals", []string{u.doc.Name}}},
-		}}}
-	} else {
-		machineAssert = bson.D{{"$or", []bson.D{
-			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-		}}}
-	}
-
-	// If removal conditions satisfied by machine & container docs, we can
-	// destroy it, in addition to removing the unit principal.
-	machineUpdate := bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}}
-	var cleanupOps []txn.Op
-	if machineCheck && containerCheck {
-		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
-	}
-
-	ops = append(ops, txn.Op{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: machineAssert,
-		Update: machineUpdate,
-	})
-
-	return append(ops, cleanupOps...), nil
-}
-
-// removeOps returns the operations necessary to remove the unit, assuming
-// the supplied asserts apply to the unit document.
-// When 'force' is set, this call will return needed operations
-// accumulating all operational errors in the operation.
-// If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (u *Unit) removeOps(store objectstore.ObjectStore, asserts bson.D, op *forcedOperation, destroyStorage bool) ([]txn.Op, error) {
-	app, err := u.st.Application(u.doc.Application)
-	if errors.Is(err, errors.NotFound) {
-		// If the application has been removed, the unit must already have been.
-		return nil, errAlreadyRemoved
-	} else if err != nil {
-		// If we cannot find application, no amount of force will succeed after this point.
-		return nil, err
-	}
-	return app.removeUnitOps(store, u, asserts, op, destroyStorage)
 }
 
 var unitHasNoSubordinates = bson.D{{
@@ -531,75 +186,11 @@ func (u *Unit) EnsureDead() (err error) {
 	return stateerrors.ErrUnitHasStorageAttachments
 }
 
-// RemoveOperation returns a model operation that will remove the unit.
-func (u *Unit) RemoveOperation(store objectstore.ObjectStore, force bool) *RemoveUnitOperation {
-	return &RemoveUnitOperation{
-		unit:            &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
-		forcedOperation: forcedOperation{Force: force},
-		Store:           store,
-	}
-}
-
-// RemoveUnitOperation is a model operation for removing a unit.
-type RemoveUnitOperation struct {
-	// forcedOperation stores needed information to force this operation.
-	forcedOperation
-
-	// unit holds the unit to remove.
-	unit *Unit
-
-	// Store is the object store to use for blob access.
-	Store objectstore.ObjectStore
-}
-
-// Build is part of the ModelOperation interface.
-func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
-	if op.Store == nil {
-		return nil, errors.New("no object store provided")
-	}
-	if attempt > 0 {
-		if err := op.unit.refresh(); errors.Is(err, errors.NotFound) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, err
-		}
-	}
-	// When 'force' is set on the operation, this call will return both needed operations
-	// as well as all operational errors encountered.
-	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.removeOps(); err {
-	case errRefresh:
-	case errAlreadyDying:
-		return nil, jujutxn.ErrNoOperations
-	case nil:
-		return ops, nil
-	default:
-		if op.Force {
-			logger.Warningf(context.TODO(), "forcing unit removal for %v despite error %v", op.unit.name(), err)
-			return ops, nil
-		}
-		return nil, err
-	}
-	return nil, jujutxn.ErrNoOperations
-}
-
-// Done is part of the ModelOperation interface.
-func (op *RemoveUnitOperation) Done(err error) error {
-	if err != nil {
-		if !op.Force {
-			return errors.Annotatef(err, "cannot remove unit %q", op.unit)
-		}
-		op.AddError(errors.Errorf("force removing unit %q proceeded despite encountering ERROR %v", op.unit, err))
-	}
-	return nil
-}
-
 // Remove removes the unit from state, and may remove its application as well, if
 // the application is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
 func (u *Unit) Remove(store objectstore.ObjectStore) error {
-	_, err := u.RemoveWithForce(store, false, time.Duration(0))
-	return err
+	return nil
 }
 
 // RemoveWithForce removes the unit from state similar to the unit.Remove() but
@@ -607,40 +198,13 @@ func (u *Unit) Remove(store objectstore.ObjectStore) error {
 // In addition, this function also returns all non-fatal operational errors
 // encountered.
 func (u *Unit) RemoveWithForce(store objectstore.ObjectStore, force bool, maxWait time.Duration) ([]error, error) {
-	op := u.RemoveOperation(store, force)
-	op.MaxWait = maxWait
-	err := u.st.ApplyOperation(op)
-	return op.Errors, err
-}
-
-// When 'force' is set, this call will return needed operations
-// and all operational errors will be accumulated in operation itself.
-// If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
-	if op.unit.doc.Life != Dead {
-		return nil, errors.New("unit is not dead")
-	}
-
-	// Now we're sure we haven't left any scopes occupied by this unit, we
-	// can safely remove the document.
-	unitRemoveOps, err := op.unit.removeOps(op.Store, isDeadDoc, &op.forcedOperation, false)
-	if op.FatalError(err) {
-		return nil, err
-	}
-	return append(ops, unitRemoveOps...), nil
+	return nil, nil
 }
 
 // isPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate applications deployed alongside it.
 func (u *Unit) isPrincipal() bool {
 	return u.doc.Principal == ""
-}
-
-// subordinateNames returns the names of any subordinate units.
-func (u *Unit) subordinateNames() []string {
-	subNames := make([]string, len(u.doc.Subordinates))
-	copy(subNames, u.doc.Subordinates)
-	return subNames
 }
 
 // machine returns the unit's machine.

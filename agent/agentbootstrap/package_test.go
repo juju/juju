@@ -6,13 +6,8 @@ package agentbootstrap_test
 import (
 	"os"
 	stdtesting "testing"
-
-	"github.com/juju/juju/internal/testing"
 )
 
 func TestMain(m *stdtesting.M) {
-	os.Exit(func() int {
-		defer testing.MgoTestMain()()
-		return m.Run()
-	}())
+	os.Exit(m.Run())
 }
