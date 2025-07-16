@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -60,7 +60,6 @@ type DeployFromRepository interface {
 // objects.
 type DeployFromRepositoryState interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	Machine(string) (Machine, error)
 }
 
 // DeployFromRepositoryAPI provides the deploy from repository
@@ -387,7 +386,7 @@ type deployFromRepositoryValidator struct {
 func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
-	if err := checkMachinePlacement(v.state, v.modelInfo.UUID, arg.ApplicationName, arg.Placement); err != nil {
+	if err := checkMachinePlacement(v.modelInfo.UUID, arg.ApplicationName, arg.Placement); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -729,7 +728,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 		return nil, false, nil
 	}
 
-	machines := make([]Machine, 0)
+	machines := make(map[machine.Name]machine.UUID, 0)
 	var machineScopeCnt int
 	// Find which machines in placement actually exist.
 	for _, placement := range placements {
@@ -737,11 +736,16 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 			continue
 		}
 		machineScopeCnt += 1
-		m, err := v.state.Machine(placement.Directive)
-		if err != nil {
-			return nil, false, errors.Annotate(err, "verifying machine for placement")
+
+		machineName := machine.Name(placement.Directive)
+		machineUUID, err := v.machineService.GetMachineUUID(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return nil, false, fmt.Errorf("machine %q not started, please retry when started", machineName)
+		} else if err != nil {
+			return nil, false, err
 		}
-		machines = append(machines, m)
+
+		machines[machineName] = machineUUID
 	}
 
 	if machineScopeCnt == 0 {
@@ -754,24 +758,22 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 	var platform corecharm.Platform
 	// Use a set to determine if all the machines have the same platform.
 	platStrings := set.NewStrings()
-	for _, machine := range machines {
-		b := machine.Base()
-		machineUUID, err := v.machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
-		if err != nil {
-			if errors.Is(err, machineerrors.MachineNotFound) {
-				return nil, false, fmt.Errorf("machine %q not started, please retry when started", machine.Id())
-			}
-			return nil, false, err
-		}
+	for machineName, machineUUID := range machines {
 		hc, err := v.machineService.GetHardwareCharacteristics(ctx, machineUUID)
 		if err != nil {
 			return nil, false, err
 		}
 		mArch := hc.Arch
 		if mArch == nil {
-			return nil, false, fmt.Errorf("machine %q has no saved architecture", machine.Id())
+			return nil, false, fmt.Errorf("machine %q has no saved architecture", machineName)
 		}
-		platString := fmt.Sprintf("%s/%s/%s", *mArch, b.OS, b.Channel)
+
+		machineBase, err := v.machineService.GetMachineBase(ctx, machineName)
+		if err != nil {
+			return nil, false, err
+		}
+
+		platString := fmt.Sprintf("%s/%s/%s", *mArch, machineBase.OS, machineBase.Channel)
 		p, err := corecharm.ParsePlatformNormalize(platString)
 		if err != nil {
 			return nil, false, err

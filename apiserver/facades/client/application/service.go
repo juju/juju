@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloud"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
@@ -98,6 +99,13 @@ type CredentialService interface {
 type NetworkService interface {
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+
+	// GetUnitPublicAddress returns the public address for the specified unit.
+	// For k8s provider, it will return the first public address of the cloud
+	// service if any, the first public address of the cloud container otherwise.
+	// For machines provider, it will return the first public address of the
+	// machine.
+	GetUnitPublicAddress(ctx context.Context, unitName unit.Name) (network.SpaceAddress, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine
@@ -105,9 +113,13 @@ type NetworkService interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+
+	// GetMachineBase returns the base for the given machine.
+	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
 }
 
 // ApplicationService instances save an application to dqlite state.

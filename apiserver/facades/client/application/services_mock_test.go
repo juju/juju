@@ -18,6 +18,7 @@ import (
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
 	application "github.com/juju/juju/core/application"
 	assumes "github.com/juju/juju/core/assumes"
+	base "github.com/juju/juju/core/base"
 	charm "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
@@ -100,6 +101,45 @@ func (c *MockNetworkServiceGetAllSpacesCall) Do(f func(context.Context) (network
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkServiceGetAllSpacesCall) DoAndReturn(f func(context.Context) (network.SpaceInfos, error)) *MockNetworkServiceGetAllSpacesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitPublicAddress mocks base method.
+func (m *MockNetworkService) GetUnitPublicAddress(arg0 context.Context, arg1 unit.Name) (network.SpaceAddress, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitPublicAddress", arg0, arg1)
+	ret0, _ := ret[0].(network.SpaceAddress)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitPublicAddress indicates an expected call of GetUnitPublicAddress.
+func (mr *MockNetworkServiceMockRecorder) GetUnitPublicAddress(arg0, arg1 any) *MockNetworkServiceGetUnitPublicAddressCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitPublicAddress", reflect.TypeOf((*MockNetworkService)(nil).GetUnitPublicAddress), arg0, arg1)
+	return &MockNetworkServiceGetUnitPublicAddressCall{Call: call}
+}
+
+// MockNetworkServiceGetUnitPublicAddressCall wrap *gomock.Call
+type MockNetworkServiceGetUnitPublicAddressCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceGetUnitPublicAddressCall) Return(arg0 network.SpaceAddress, arg1 error) *MockNetworkServiceGetUnitPublicAddressCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceGetUnitPublicAddressCall) Do(f func(context.Context, unit.Name) (network.SpaceAddress, error)) *MockNetworkServiceGetUnitPublicAddressCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceGetUnitPublicAddressCall) DoAndReturn(f func(context.Context, unit.Name) (network.SpaceAddress, error)) *MockNetworkServiceGetUnitPublicAddressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -563,6 +603,45 @@ func (c *MockMachineServiceGetHardwareCharacteristicsCall) Do(f func(context.Con
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceGetHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockMachineServiceGetHardwareCharacteristicsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineBase mocks base method.
+func (m *MockMachineService) GetMachineBase(arg0 context.Context, arg1 machine.Name) (base.Base, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineBase", arg0, arg1)
+	ret0, _ := ret[0].(base.Base)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineBase indicates an expected call of GetMachineBase.
+func (mr *MockMachineServiceMockRecorder) GetMachineBase(arg0, arg1 any) *MockMachineServiceGetMachineBaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineBase", reflect.TypeOf((*MockMachineService)(nil).GetMachineBase), arg0, arg1)
+	return &MockMachineServiceGetMachineBaseCall{Call: call}
+}
+
+// MockMachineServiceGetMachineBaseCall wrap *gomock.Call
+type MockMachineServiceGetMachineBaseCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceGetMachineBaseCall) Return(arg0 base.Base, arg1 error) *MockMachineServiceGetMachineBaseCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceGetMachineBaseCall) Do(f func(context.Context, machine.Name) (base.Base, error)) *MockMachineServiceGetMachineBaseCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceGetMachineBaseCall) DoAndReturn(f func(context.Context, machine.Name) (base.Base, error)) *MockMachineServiceGetMachineBaseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

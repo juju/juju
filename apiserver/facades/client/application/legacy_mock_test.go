@@ -162,45 +162,6 @@ func (c *MockBackendApplyOperationCall) DoAndReturn(f func(state.ModelOperation)
 	return c
 }
 
-// Machine mocks base method.
-func (m *MockBackend) Machine(arg0 string) (Machine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Machine", arg0)
-	ret0, _ := ret[0].(Machine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Machine indicates an expected call of Machine.
-func (mr *MockBackendMockRecorder) Machine(arg0 any) *MockBackendMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockBackend)(nil).Machine), arg0)
-	return &MockBackendMachineCall{Call: call}
-}
-
-// MockBackendMachineCall wrap *gomock.Call
-type MockBackendMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendMachineCall) Return(arg0 Machine, arg1 error) *MockBackendMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendMachineCall) Do(f func(string) (Machine, error)) *MockBackendMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendMachineCall) DoAndReturn(f func(string) (Machine, error)) *MockBackendMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockApplication is a mock of Application interface.
 type MockApplication struct {
 	ctrl     *gomock.Controller

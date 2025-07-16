@@ -510,7 +510,7 @@ func (api *APIBase) deployApplication(
 
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
-	if err := checkMachinePlacement(api.backend, api.modelUUID, args.ApplicationName, args.Placement); err != nil {
+	if err := checkMachinePlacement(api.modelUUID, args.ApplicationName, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -761,15 +761,11 @@ func parseCharmSettings(
 	return appConfig, appCfgSchema, charmSettings, schemaDefaults, nil
 }
 
-type MachinePlacementBackend interface {
-	Machine(string) (Machine, error)
-}
-
 // checkMachinePlacement does a non-exhaustive validation of any supplied
 // placement directives.
 // If the placement scope is for a machine, ensure that the machine exists.
 // If the placement scope is model-uuid, replace it with the actual model uuid.
-func checkMachinePlacement(backend MachinePlacementBackend, modelID model.UUID, app string, placement []*instance.Placement) error {
+func checkMachinePlacement(modelID model.UUID, app string, placement []*instance.Placement) error {
 	for _, p := range placement {
 		if p == nil {
 			continue
@@ -2437,11 +2433,8 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unitName coreunit.Nam
 		return nil, internalerrors.Errorf("getting unit machine name: %w", err)
 	} else {
 		result.Machine = machineName.String()
-		machine, err := api.backend.Machine(machineName.String())
-		if err != nil {
-			return nil, err
-		}
-		publicAddress, err := machine.PublicAddress()
+
+		publicAddress, err := api.networkService.GetUnitPublicAddress(ctx, unitName)
 		if err == nil {
 			result.PublicAddress = publicAddress.Value
 		}

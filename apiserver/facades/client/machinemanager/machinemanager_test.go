@@ -146,7 +146,6 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 			OSType:  deployment.Ubuntu,
 		},
 	})
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	machines, err := s.api.AddMachines(c.Context(), params.AddMachines{MachineParams: apiParams})
 	c.Assert(err, tc.ErrorIsNil)
@@ -162,7 +161,6 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 			OSType:  deployment.Ubuntu,
 		},
 	}).Return(machineservice.AddMachineResults{}, errors.New("boom"))
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 
 	results, err := s.api.AddMachines(c.Context(), params.AddMachines{
 		MachineParams: []params.AddMachineParams{{

@@ -24,7 +24,6 @@ type Backend interface {
 	Application(string) (Application, error)
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	Machine(string) (Machine, error)
 }
 
 // Application defines a subset of the functionality provided by the
@@ -63,16 +62,6 @@ type Charm interface {
 type CharmMeta interface {
 	Manifest() *charm.Manifest
 	Meta() *charm.Meta
-}
-
-// Machine defines a subset of the functionality provided by the
-// state.Machine type, as required by the application facade. For
-// details on the methods, see the methods on state.Machine with
-// the same names.
-type Machine interface {
-	Base() state.Base
-	Id() string
-	PublicAddress() (network.SpaceAddress, error)
 }
 
 type stateShim struct {
@@ -135,14 +124,6 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectsto
 		Application: a,
 		st:          s.State,
 	}, nil
-}
-
-func (s stateShim) Machine(name string) (Machine, error) {
-	m, err := s.State.Machine(name)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 type stateApplicationShim struct {
