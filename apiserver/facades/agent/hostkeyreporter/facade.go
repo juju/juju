@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
