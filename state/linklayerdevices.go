@@ -97,16 +97,6 @@ func (dev *LinkLayerDevice) ProviderID() network.Id {
 	return network.Id(dev.doc.ProviderID)
 }
 
-// MachineID returns the ID of the machine this device belongs to.
-func (dev *LinkLayerDevice) MachineID() string {
-	return dev.doc.MachineID
-}
-
-// Machine returns the Machine this device belongs to.
-func (dev *LinkLayerDevice) Machine() (*Machine, error) {
-	return dev.st.Machine(dev.doc.MachineID)
-}
-
 // Type returns this device's underlying type.
 func (dev *LinkLayerDevice) Type() network.LinkLayerDeviceType {
 	return dev.doc.Type
@@ -207,29 +197,6 @@ func (st *State) LinkLayerDevice(id string) (*LinkLayerDevice, error) {
 	}
 
 	return newLinkLayerDevice(st, doc), nil
-}
-
-// removeLinkLayerDeviceDocOp returns an operation to remove the
-// linkLayerDeviceDoc matching the given linkLayerDeviceDocID, asserting it
-// still exists.
-func removeLinkLayerDeviceDocOp(linkLayerDeviceDocID string) txn.Op {
-	return txn.Op{
-		C:      linkLayerDevicesC,
-		Id:     linkLayerDeviceDocID,
-		Assert: txn.DocExists,
-		Remove: true,
-	}
-}
-
-// removeLinkLayerDeviceUnconditionallyOps returns the list of operations to
-// unconditionally remove the device matching the given linkLayerDeviceDocID,
-// along with its linkLayerDevicesRefsDoc. No asserts are included for the
-// existence of both documents.
-func removeLinkLayerDeviceUnconditionallyOps(linkLayerDeviceDocID string) []txn.Op {
-	// Reuse the regular remove ops, but drop their asserts.
-	removeDeviceDocOp := removeLinkLayerDeviceDocOp(linkLayerDeviceDocID)
-	removeDeviceDocOp.Assert = nil
-	return []txn.Op{removeDeviceDocOp}
 }
 
 // String returns a human-readable representation of the device.

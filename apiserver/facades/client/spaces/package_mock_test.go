@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	set "github.com/juju/collections/set"
 	controller "github.com/juju/juju/controller"
 	constraints "github.com/juju/juju/core/constraints"
 	machine "github.com/juju/juju/core/machine"
@@ -358,45 +357,6 @@ func (c *MockMachineAllAddressesCall) Do(f func() ([]Address, error)) *MockMachi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineAllAddressesCall) DoAndReturn(f func() ([]Address, error)) *MockMachineAllAddressesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AllSpaces mocks base method.
-func (m *MockMachine) AllSpaces(arg0 network.SubnetInfos) (set.Strings, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllSpaces", arg0)
-	ret0, _ := ret[0].(set.Strings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllSpaces indicates an expected call of AllSpaces.
-func (mr *MockMachineMockRecorder) AllSpaces(arg0 any) *MockMachineAllSpacesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces), arg0)
-	return &MockMachineAllSpacesCall{Call: call}
-}
-
-// MockMachineAllSpacesCall wrap *gomock.Call
-type MockMachineAllSpacesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineAllSpacesCall) Return(arg0 set.Strings, arg1 error) *MockMachineAllSpacesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineAllSpacesCall) Do(f func(network.SubnetInfos) (set.Strings, error)) *MockMachineAllSpacesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineAllSpacesCall) DoAndReturn(f func(network.SubnetInfos) (set.Strings, error)) *MockMachineAllSpacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

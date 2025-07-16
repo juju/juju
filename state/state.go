@@ -19,10 +19,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/utils/v4"
 
-	corebase "github.com/juju/juju/core/base"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -30,10 +27,8 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
-	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
@@ -420,50 +415,6 @@ func (st *State) AllMachines() ([]*Machine, error) {
 	return st.allMachines(machinesCollection)
 }
 
-// AllMachinesCount returns thje total number of
-// machines in the model
-func (st *State) AllMachinesCount() (int, error) {
-	allMachines, err := st.AllMachines()
-	if err != nil {
-		return 0, errors.Annotatef(err, "cannot get all machines")
-	}
-	return len(allMachines), nil
-}
-
-// MachineCountForBase counts the machines for the provided bases in the model.
-// The bases must all be for the one os.
-func (st *State) MachineCountForBase(base ...Base) (map[string]int, error) {
-	machinesCollection, closer := st.db().GetCollection(machinesC)
-	defer closer()
-
-	var (
-		os       string
-		channels []string
-	)
-	for _, b := range base {
-		if os != "" && os != b.OS {
-			return nil, errors.New("bases must all be for the same OS")
-		}
-		os = b.OS
-		channels = append(channels, b.Normalise().Channel)
-	}
-
-	var docs []machineDoc
-	err := machinesCollection.Find(bson.D{
-		{"base.channel", bson.D{{"$in", channels}}},
-		{"base.os", os},
-	}).Select(bson.M{"base": 1}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make(map[string]int)
-	for _, m := range docs {
-		b := m.Base.DisplayString()
-		result[b] = result[b] + 1
-	}
-	return result, nil
-}
-
 type machineDocSlice []machineDoc
 
 func (ms machineDocSlice) Len() int { return len(ms) }
@@ -542,59 +493,6 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 		return nil, errors.NotFoundf("machine %s", id)
 	default:
 		return nil, errors.Annotatef(err, "cannot get machine %s", id)
-	}
-}
-
-// FindEntity returns the entity with the given tag.
-//
-// The returned value can be of type *Machine, *Unit,
-// *User, *Application, *Model, or *Action, depending
-// on the tag.
-func (st *State) FindEntity(tag names.Tag) (Entity, error) {
-	id := tag.Id()
-	switch tag := tag.(type) {
-	case names.MachineTag:
-		return st.Machine(id)
-	case names.UnitTag:
-		return st.Unit(id)
-	case names.ApplicationTag:
-		return st.Application(id)
-	case names.ModelTag:
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// Return an invalid entity error if the requested model is not
-		// the current one.
-		if id != model.UUID() {
-			if utils.IsValidUUIDString(id) {
-				return nil, errors.NotFoundf("model %q", id)
-			}
-			return nil, interrors.Errorf("model-tag %q does not match current model UUID %q", id, model.UUID())
-		}
-		return model, nil
-	case names.ActionTag:
-		return st.ActionByTag(tag)
-	case names.OperationTag:
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return model.Operation(tag.Id())
-	case names.VolumeTag:
-		sb, err := NewStorageBackend(st)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return sb.Volume(tag)
-	case names.FilesystemTag:
-		sb, err := NewStorageBackend(st)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return sb.Filesystem(tag)
-	default:
-		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
 }
 
@@ -756,11 +654,9 @@ func (st *State) AddApplication(
 
 	// Perform model specific arg processing.
 	var (
-		placement         string
-		hasResources      bool
-		operatorStatusDoc *statusDoc
+		placement    string
+		hasResources bool
 	)
-	nowNano := st.clock().Now().UnixNano()
 	switch model.Type() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
@@ -773,12 +669,6 @@ func (st *State) AddApplication(
 		}
 		if len(args.Placement) == 1 {
 			placement = args.Placement[0].Directive
-		}
-		operatorStatusDoc = &statusDoc{
-			ModelUUID:  st.ModelUUID(),
-			Status:     status.Waiting,
-			StatusInfo: status.MessageWaitForContainer,
-			Updated:    nowNano,
 		}
 	}
 
@@ -803,12 +693,6 @@ func (st *State) AddApplication(
 	}
 
 	app := newApplication(st, appDoc)
-
-	statusDoc := statusDoc{
-		ModelUUID: st.ModelUUID(),
-		Status:    status.Unset,
-		Updated:   nowNano,
-	}
 
 	if err := args.ApplicationConfig.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -844,8 +728,6 @@ func (st *State) AddApplication(
 		}
 		addOps, err := addApplicationOps(st, app, addApplicationOpsArgs{
 			applicationDoc:    appDoc,
-			statusDoc:         statusDoc,
-			operatorStatus:    operatorStatusDoc,
 			constraints:       args.Constraints,
 			storage:           args.Storage,
 			applicationConfig: appConfigAttrs,
@@ -896,30 +778,7 @@ func (st *State) AddApplication(
 	return nil, errors.Trace(err)
 }
 
-func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Base, error) {
-	// User has specified base. Overriding supported bases is
-	// handled by the client, so args.Release is not necessarily
-	// one of the charm's supported bases. We require that the
-	// specified base is of the same operating system as one of
-	// the supported bases.
-	appBase, err := corebase.ParseBase(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
-	if err != nil {
-		return Base{}, errors.Trace(err)
-	}
-
-	err = corecharm.OSIsCompatibleWithCharm(appBase.OS, args.Charm)
-	if err != nil {
-		return Base{}, errors.Trace(err)
-	}
-	return Base{appBase.OS, appBase.Channel.String()}, errors.Trace(err)
-}
-
 func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
-	appBase, err := st.processCommonModelApplicationArgs(args)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	storagePools := make(set.Strings)
 	for _, storageParams := range args.Storage {
 		storagePools.Add(storageParams.Pool)
@@ -971,18 +830,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 		switch data.placementType() {
 		case machinePlacement:
 			// Ensure that the machine and charm series match.
-			m, err := st.Machine(data.machineId)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			subordinate := args.Charm.Meta().Subordinate
-			if err := validateUnitMachineAssignment(
-				st, m, appBase, subordinate, storagePools,
-			); err != nil {
-				return errors.Annotatef(
-					err, "cannot deploy to machine %s", m,
-				)
-			}
+
 			// This placement directive indicates that we're putting a
 			// unit on a pre-existing machine. There's no need to
 			// precheck the args since we're not starting an instance.
@@ -1022,95 +870,6 @@ func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 		Assert: txn.DocMissing,
 		Insert: udoc,
 	}}
-}
-
-// AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
-// assignments.
-func (st *State) AssignStagedUnits(
-	allSpaces network.SpaceInfos,
-	ids []string,
-) ([]UnitAssignmentResult, error) {
-	query := bson.D{{"_id", bson.D{{"$in", ids}}}}
-	unitAssignments, err := st.unitAssignments(query)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting staged unit assignments")
-	}
-	results := make([]UnitAssignmentResult, len(unitAssignments))
-	for i, a := range unitAssignments {
-		err := st.assignStagedUnit(a, allSpaces)
-		results[i].Unit = a.Unit
-		results[i].Error = err
-	}
-	return results, nil
-}
-
-func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
-	col, closer := st.db().GetCollection(assignUnitC)
-	defer closer()
-
-	var docs []assignUnitDoc
-	if err := col.Find(query).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "cannot get unit assignment docs")
-	}
-	results := make([]UnitAssignment, len(docs))
-	for i, doc := range docs {
-		results[i] = UnitAssignment{
-			st.localID(doc.DocId),
-			doc.Scope,
-			doc.Directive,
-		}
-	}
-	return results, nil
-}
-
-func removeStagedAssignmentOp(id string) txn.Op {
-	return txn.Op{
-		C:      assignUnitC,
-		Id:     id,
-		Remove: true,
-	}
-}
-
-func (st *State) assignStagedUnit(
-	a UnitAssignment,
-	allSpaces network.SpaceInfos,
-) error {
-	u, err := st.Unit(a.Unit)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if a.Scope == "" && a.Directive == "" {
-		return errors.Trace(st.AssignUnit(u))
-	}
-
-	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
-
-	return errors.Trace(st.AssignUnitWithPlacement(u, placement, allSpaces))
-}
-
-// AssignUnitWithPlacement chooses a machine using the given placement directive
-// and then assigns the unit to it.
-func (st *State) AssignUnitWithPlacement(
-	unit *Unit,
-	placement *instance.Placement,
-	allSpaces network.SpaceInfos,
-) error {
-	// TODO(natefinch) this should be done as a single transaction, not two.
-	// Mark https://launchpad.net/bugs/1506994 fixed when done.
-
-	data, err := st.parsePlacement(placement)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if data.placementType() == directivePlacement {
-		return unit.assignToNewMachine(data.directive)
-	}
-
-	m, err := st.addMachineWithPlacement(unit, data, allSpaces)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return unit.assignToMachine(m)
 }
 
 // placementData is a helper type that encodes some of the logic behind how an
@@ -1156,52 +915,6 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 		return &placementData{machineId: placement.Directive}, nil
 	default:
 		return nil, errors.Errorf("placement scope: invalid model UUID %q", placement.Scope)
-	}
-}
-
-// addMachineWithPlacement finds a machine that matches the given
-// placement directive for the given unit.
-func (st *State) addMachineWithPlacement(
-	unit *Unit,
-	data *placementData,
-	lookup network.SpaceInfos,
-) (*Machine, error) {
-
-	// Create any new machine marked as dirty so that
-	// nothing else will grab it before we assign the unit to it.
-	// TODO(natefinch) fix this when we put assignment in the same
-	// transaction as adding a machine.  See bug
-	// https://launchpad.net/bugs/1506994
-
-	mId := data.machineId
-	var (
-		machine *Machine
-		err     error
-	)
-
-	if data.machineId != "" {
-		machine, err = st.Machine(mId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	switch data.placementType() {
-	case containerPlacement:
-		// If a container is to be used, create it.
-		template := MachineTemplate{
-			Base:  unit.doc.Base,
-			Dirty: true,
-		}
-		if mId != "" {
-			return st.AddMachineInsideMachine(template, mId, data.containerType)
-		}
-		return st.AddMachineInsideNewMachine(template, template, data.containerType)
-	case directivePlacement:
-		return nil, errors.NotSupportedf(
-			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.name())
-	default:
-		return machine, nil
 	}
 }
 
@@ -1254,19 +967,6 @@ func (st *State) Unit(name string) (*Unit, error) {
 		return nil, errors.Trace(err)
 	}
 	return newUnit(st, model.Type(), &doc), nil
-}
-
-// AssignUnit places the unit on a machine. Depending on the policy, and the
-// state of the model, this may lead to new instances being launched
-// within the model.
-func (st *State) AssignUnit(
-	u *Unit,
-) (err error) {
-	if !u.isPrincipal() {
-		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
-	}
-	defer errors.DeferredAnnotatef(&err, "cannot assign unit %q to machine", u)
-	return errors.Trace(u.assignToNewMachine(""))
 }
 
 func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {

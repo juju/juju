@@ -31,7 +31,6 @@ type caasProvisionerSuite struct {
 	machineService       *MockMachineService
 	filesystemAttachment *MockFilesystemAttachment
 	volumeAttachment     *MockVolumeAttachment
-	entityFinder         *MockEntityFinder
 	lifer                *MockLifer
 	backend              *MockBackend
 	resources            *MockResources
@@ -114,70 +113,6 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *tc.C) {
 	})
 }
 
-func (s *caasProvisionerSuite) TestFilesystemLife(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.entityFinder.EXPECT().FindEntity(names.NewFilesystemTag("0")).Return(entity{
-		Lifer: s.lifer,
-	}, nil)
-	s.lifer.EXPECT().Life().Return(state.Alive)
-
-	s.entityFinder.EXPECT().FindEntity(names.NewFilesystemTag("1")).Return(entity{
-		Lifer: s.lifer,
-	}, nil)
-	s.lifer.EXPECT().Life().Return(state.Alive)
-
-	s.entityFinder.EXPECT().FindEntity(names.NewFilesystemTag("42")).Return(entity{
-		Lifer: s.lifer,
-	}, errors.NotFoundf(`filesystem "42"`))
-
-	args := params.Entities{Entities: []params.Entity{{Tag: "filesystem-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}}}
-	result, err := s.api.Life(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.LifeResults{
-		Results: []params.LifeResult{
-			{Life: life.Alive},
-			{Life: life.Alive},
-			{Error: &params.Error{
-				Code:    params.CodeNotFound,
-				Message: `filesystem "42" not found`,
-			}},
-		},
-	})
-}
-
-func (s *caasProvisionerSuite) TestVolumeLife(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.entityFinder.EXPECT().FindEntity(names.NewVolumeTag("0")).Return(entity{
-		Lifer: s.lifer,
-	}, nil)
-	s.lifer.EXPECT().Life().Return(state.Alive)
-
-	s.entityFinder.EXPECT().FindEntity(names.NewVolumeTag("1")).Return(entity{
-		Lifer: s.lifer,
-	}, nil)
-	s.lifer.EXPECT().Life().Return(state.Alive)
-
-	s.entityFinder.EXPECT().FindEntity(names.NewVolumeTag("42")).Return(entity{
-		Lifer: s.lifer,
-	}, errors.NotFoundf(`volume "42"`))
-
-	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
-	result, err := s.api.Life(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.LifeResults{
-		Results: []params.LifeResult{
-			{Life: life.Alive},
-			{Life: life.Alive},
-			{Error: &params.Error{
-				Code:    params.CodeNotFound,
-				Message: `volume "42" not found`,
-			}},
-		},
-	})
-}
-
 func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -250,7 +185,6 @@ func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.storageBackend = NewMockStorageBackend(ctrl)
 	s.filesystemAttachment = NewMockFilesystemAttachment(ctrl)
 	s.volumeAttachment = NewMockVolumeAttachment(ctrl)
-	s.entityFinder = NewMockEntityFinder(ctrl)
 	s.lifer = NewMockLifer(ctrl)
 	s.backend = NewMockBackend(ctrl)
 	s.resources = NewMockResources(ctrl)
@@ -261,7 +195,7 @@ func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.api = &StorageProvisionerAPIv4{
 		watcherRegistry: s.watcherRegistry,
-		LifeGetter: common.NewLifeGetter(s.applicationService, s.machineService, s.entityFinder, func(context.Context) (common.AuthFunc, error) {
+		LifeGetter: common.NewLifeGetter(s.applicationService, s.machineService, func(context.Context) (common.AuthFunc, error) {
 			return func(names.Tag) bool {
 				return true
 			}, nil
@@ -276,9 +210,4 @@ func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	}
 
 	return ctrl
-}
-
-type entity struct {
-	state.Lifer
-	state.Entity
 }

@@ -174,7 +174,7 @@ func NewMachinerAPIForState(
 	}
 
 	return &MachinerAPI{
-		LifeGetter:              common.NewLifeGetter(applicationService, machineService, st, getCanAccess, logger),
+		LifeGetter:              common.NewLifeGetter(applicationService, machineService, getCanAccess, logger),
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		networkService:          networkService,
 		machineService:          machineService,

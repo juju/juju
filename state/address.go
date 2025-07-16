@@ -48,23 +48,3 @@ func (addr *address) networkAddress() network.SpaceAddress {
 		SpaceID: network.SpaceUUID(addr.SpaceID),
 	}
 }
-
-// fromNetworkAddresses is a convenience helper to create a state type
-// out of the network type, here for a slice of Address with a given origin.
-func fromNetworkAddresses(netAddrs network.SpaceAddresses, origin network.Origin) []address {
-	addrs := make([]address, len(netAddrs))
-	for i, netAddr := range netAddrs {
-		addrs[i] = fromNetworkAddress(netAddr, origin)
-	}
-	return addrs
-}
-
-// networkAddresses is a convenience helper to return the state type
-// as network type, here for a slice of Address.
-func networkAddresses(addrs []address) network.SpaceAddresses {
-	netAddrs := make(network.SpaceAddresses, len(addrs))
-	for i, addr := range addrs {
-		netAddrs[i] = addr.networkAddress()
-	}
-	return netAddrs
-}

@@ -17,7 +17,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ApplicationService defines the methods required to get the life of a unit.
@@ -35,9 +34,6 @@ type LifeGetter struct {
 	machineService     MachineService
 	getCanRead         GetAuthFunc
 	logger             corelogger.Logger
-
-	// Deprecated: use domain services instead.
-	st state.EntityFinder
 }
 
 // NewLifeGetter returns a new LifeGetter. The GetAuthFunc will be used on
@@ -45,14 +41,12 @@ type LifeGetter struct {
 func NewLifeGetter(
 	applicationService ApplicationService,
 	machineService MachineService,
-	st state.EntityFinder,
 	getCanRead GetAuthFunc,
 	logger corelogger.Logger,
 ) *LifeGetter {
 	return &LifeGetter{
 		applicationService: applicationService,
 		machineService:     machineService,
-		st:                 st,
 		getCanRead:         getCanRead,
 		logger:             logger,
 	}
@@ -121,19 +115,6 @@ func (lg *LifeGetter) OneLife(ctx context.Context, tag names.Tag) (life.Value, e
 		return appLife, nil
 	default:
 		lg.logger.Criticalf(ctx, "OneLife called with unsupported tag %s", tag)
+		return "", errors.Errorf("unsupported tag %s", tag)
 	}
-
-	return lg.legacyOneLifer(tag)
-}
-
-func (lg *LifeGetter) legacyOneLifer(tag names.Tag) (life.Value, error) {
-	entity0, err := lg.st.FindEntity(tag)
-	if err != nil {
-		return "", err
-	}
-	entity, ok := entity0.(state.Lifer)
-	if !ok {
-		return "", apiservererrors.NotSupportedError(tag, "life cycles")
-	}
-	return life.Value(entity.Life().String()), nil
 }

@@ -41,7 +41,7 @@ func (s *passwordSuite) TestSetPasswordsForUnit(c *tc.C) {
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
 		Return(nil)
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
@@ -63,7 +63,7 @@ func (s *passwordSuite) TestSetPasswordsForUnitError(c *tc.C) {
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
 		Return(internalerrors.Errorf("boom"))
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
@@ -85,7 +85,7 @@ func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *tc.C) {
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
 		Return(applicationerrors.UnitNotFound)
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
@@ -107,7 +107,7 @@ func (s *passwordSuite) TestSetPasswordsForMachine(c *tc.C) {
 		SetMachinePassword(gomock.Any(), machine.Name("1"), "password").
 		Return(nil)
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "machine-1",
@@ -129,7 +129,7 @@ func (s *passwordSuite) TestSetPasswordsForMachineError(c *tc.C) {
 		SetMachinePassword(gomock.Any(), machine.Name("1"), "password").
 		Return(internalerrors.Errorf("boom"))
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "machine-1",
@@ -151,7 +151,7 @@ func (s *passwordSuite) TestSetPasswordsForMachineNotFoundError(c *tc.C) {
 		SetMachinePassword(gomock.Any(), machine.Name("1"), "password").
 		Return(applicationerrors.MachineNotFound)
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "machine-1",
@@ -173,7 +173,7 @@ func (s *passwordSuite) TestSetPasswordsForControllerNode(c *tc.C) {
 		SetControllerNodePassword(gomock.Any(), "1", "password").
 		Return(nil)
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "controller-1",
@@ -195,7 +195,7 @@ func (s *passwordSuite) TestSetPasswordsForControllerNodeError(c *tc.C) {
 		SetControllerNodePassword(gomock.Any(), "1", "password").
 		Return(internalerrors.Errorf("boom"))
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "controller-1",
@@ -217,7 +217,7 @@ func (s *passwordSuite) TestSetPasswordsForControllerNodeNotFoundError(c *tc.C) 
 		SetControllerNodePassword(gomock.Any(), "1", "password").
 		Return(controllernodeerrors.NotFound)
 
-	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, alwaysAllow)
 	results, err := changer.SetPasswords(c.Context(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "controller-1",

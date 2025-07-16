@@ -99,7 +99,6 @@ func NewStateFirewallerAPI(
 	lifeGetter := common.NewLifeGetter(
 		applicationService,
 		machineService,
-		st,
 		accessUnitApplicationOrMachineOrRelation,
 		logger,
 	)

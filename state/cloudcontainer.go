@@ -72,12 +72,6 @@ func (c *cloudContainer) Ports() []string {
 	return c.doc.Ports
 }
 
-// globalCloudContainerKey returns the global database key for the
-// cloud container status key for this unit.
-func globalCloudContainerKey(name string) string {
-	return unitGlobalKey(name) + "#container"
-}
-
 // Containers returns the containers for the specified provider ids.
 func (m *CAASModel) Containers(providerIds ...string) ([]CloudContainer, error) {
 	coll, closer := m.st.db().GetCollection(cloudContainersC)

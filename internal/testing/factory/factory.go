@@ -12,16 +12,12 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/relation"
-	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/storage"
@@ -59,56 +55,6 @@ func NewFactory(st *state.State, pool *state.StatePool, controllerConfig control
 func (f *Factory) WithApplicationService(s *applicationservice.WatchableService) *Factory {
 	f.applicationService = s
 	return f
-}
-
-// CharmParams defines the parameters for creating a charm.
-type CharmParams struct {
-	Name         string
-	Series       string
-	Revision     string
-	Architecture string
-	URL          string
-}
-
-// MachineParams are for creating a machine.
-type MachineParams struct {
-	Base            state.Base
-	Password        string
-	Nonce           string
-	Constraints     constraints.Value
-	InstanceId      instance.Id
-	DisplayName     string
-	Characteristics *instance.HardwareCharacteristics
-	Addresses       network.SpaceAddresses
-	Volumes         []state.HostVolumeParams
-	Filesystems     []state.HostFilesystemParams
-}
-
-// ApplicationParams is used when specifying parameters for a new application.
-type ApplicationParams struct {
-	Name                    string
-	Charm                   state.CharmRefFull
-	CharmURL                string
-	CharmOrigin             *state.CharmOrigin
-	ApplicationConfig       map[string]interface{}
-	ApplicationConfigFields configschema.Fields
-	CharmConfig             map[string]interface{}
-	Storage                 map[string]state.StorageConstraints
-	Constraints             constraints.Value
-	EndpointBindings        map[string]string
-	Password                string
-	Placement               []*instance.Placement
-	DesiredScale            int
-}
-
-// UnitParams are used to create units.
-type UnitParams struct {
-	Application *state.Application
-	Machine     *state.Machine
-	Password    string
-	SetCharmURL bool
-	Status      *status.StatusInfo
-	Constraints constraints.Value
 }
 
 // RelationParams are used to create relations.

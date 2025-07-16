@@ -195,7 +195,7 @@ func NewAgentAPI(
 	}
 
 	return &AgentAPI{
-		PasswordChanger:    common.NewPasswordChanger(agentPasswordService, st, getCanChange),
+		PasswordChanger:    common.NewPasswordChanger(agentPasswordService, getCanChange),
 		RebootFlagClearer:  common.NewRebootFlagClearer(machineService, getCanChange),
 		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		ControllerConfigAPI: common.NewControllerConfigAPI(

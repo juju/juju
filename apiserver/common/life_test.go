@@ -57,7 +57,7 @@ func (s *lifeSuite) TestUnitLife(c *tc.C) {
 			return true
 		}, nil
 	}
-	lg := common.NewLifeGetter(s.applicationService, s.machineService, nil, getCanRead, loggertesting.WrapCheckLog(c))
+	lg := common.NewLifeGetter(s.applicationService, s.machineService, getCanRead, loggertesting.WrapCheckLog(c))
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"},
 	}}
@@ -84,7 +84,7 @@ func (s *lifeSuite) TestApplicationLife(c *tc.C) {
 			return true
 		}, nil
 	}
-	lg := common.NewLifeGetter(s.applicationService, s.machineService, nil, getCanRead, loggertesting.WrapCheckLog(c))
+	lg := common.NewLifeGetter(s.applicationService, s.machineService, getCanRead, loggertesting.WrapCheckLog(c))
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "application-x"}, {Tag: "application-y"}, {Tag: "application-z"},
 	}}
@@ -115,7 +115,7 @@ func (s *lifeSuite) TestMachineLife(c *tc.C) {
 	s.machineService.EXPECT().GetMachineLife(gomock.Any(), machine.Name("2")).Return(life.Dead, nil)
 	s.machineService.EXPECT().GetMachineLife(gomock.Any(), machine.Name("3")).Return("", fmt.Errorf("3 error"))
 
-	lg := common.NewLifeGetter(s.applicationService, s.machineService, nil, getCanRead, loggertesting.WrapCheckLog(c))
+	lg := common.NewLifeGetter(s.applicationService, s.machineService, getCanRead, loggertesting.WrapCheckLog(c))
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"}, {Tag: "machine-1"}, {Tag: "machine-2"}, {Tag: "machine-3"}, {Tag: "machine-4"},
 	}}
@@ -138,7 +138,7 @@ func (s *lifeSuite) TestLifeError(c *tc.C) {
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	lg := common.NewLifeGetter(s.applicationService, s.machineService, nil, getCanRead, loggertesting.WrapCheckLog(c))
+	lg := common.NewLifeGetter(s.applicationService, s.machineService, getCanRead, loggertesting.WrapCheckLog(c))
 	_, err := lg.Life(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, tc.ErrorMatches, "pow")
 }
@@ -149,7 +149,7 @@ func (s *lifeSuite) TestLifeNoArgsNoError(c *tc.C) {
 	getCanRead := func(ctx context.Context) (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	lg := common.NewLifeGetter(s.applicationService, s.machineService, nil, getCanRead, loggertesting.WrapCheckLog(c))
+	lg := common.NewLifeGetter(s.applicationService, s.machineService, getCanRead, loggertesting.WrapCheckLog(c))
 	result, err := lg.Life(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)

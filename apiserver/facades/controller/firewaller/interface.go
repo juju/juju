@@ -29,7 +29,6 @@ import (
 type State interface {
 	state.ModelMachinesWatcher
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
-	FindEntity(tag names.Tag) (state.Entity, error)
 	KeyRelation(string) (Relation, error)
 	Machine(string) (Machine, error)
 }

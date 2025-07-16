@@ -254,7 +254,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, _, err := newSt.modelSetupOps(st.controllerTag.Id(), args)
+	modelOps, err := newSt.modelSetupOps(st.controllerTag.Id(), args)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -599,10 +599,6 @@ func checkModelEntityRefsEmpty(doc *modelEntityRefsDoc) ([]txn.Op, error) {
 			isEmpty("filesystems"),
 		},
 	}}, nil
-}
-
-func addModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
-	return addModelEntityRefOp(mb, "machines", machineId)
 }
 
 func addModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {

@@ -14,14 +14,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v6"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -290,17 +287,6 @@ func (sb *storageBackend) watchHostStorageAttachments(host names.Tag, collection
 	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
 
-// WatchApplications returns a StringsWatcher that notifies of changes to
-// the lifecycles of the applications in the model.
-func (st *State) WatchApplications() StringsWatcher {
-	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
-}
-
-// WatchMachines notifies when machines change.
-func (st *State) WatchMachines() StringsWatcher {
-	return newLifecycleWatcher(st, machinesC, nil, isLocalID(st), nil)
-}
-
 // WatchStorageAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all storage instances attached to the
 // specified unit.
@@ -319,21 +305,6 @@ func (sb *storageBackend) WatchStorageAttachments(unit names.UnitTag) StringsWat
 		return id[len(prefix):]
 	}
 	return newLifecycleWatcher(sb.mb, storageAttachmentsC, members, filter, tr)
-}
-
-// WatchUnits returns a StringsWatcher that notifies of changes to the
-// lifecycles of units of a.
-func (a *Application) WatchUnits() StringsWatcher {
-	members := bson.D{{"application", a.doc.Name}}
-	prefix := a.doc.Name + "/"
-	filter := func(unitDocID interface{}) bool {
-		unitName, err := a.st.strictLocalID(unitDocID.(string))
-		if err != nil {
-			return false
-		}
-		return strings.HasPrefix(unitName, prefix)
-	}
-	return newLifecycleWatcher(a.st, unitsC, members, filter, nil)
 }
 
 // WatchModelMachineStartTimes watches the non-container machines in the model
@@ -571,13 +542,6 @@ func (st *State) WatchModelMachines() StringsWatcher {
 	return newLifecycleWatcher(st, machinesC, notContainerQuery, filter, nil)
 }
 
-// WatchContainers returns a StringsWatcher that notifies of changes to the
-// lifecycles of containers of the specified type on a machine.
-func (m *Machine) WatchContainers(ctype instance.ContainerType) StringsWatcher {
-	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.DocID, ctype, names.NumberSnippet)
-	return m.containersWatcher(isChild)
-}
-
 // WatchAllContainers returns a StringsWatcher that notifies of changes to the
 // lifecycles of all containers on a machine.
 func (m *Machine) WatchAllContainers() StringsWatcher {
@@ -795,12 +759,6 @@ func (st *State) WatchModelEntityReferences(mUUID string) NotifyWatcher {
 	return newEntityWatcher(st, modelEntityRefsC, mUUID)
 }
 
-// WatchForUnitAssignment watches for new applications that request units to be
-// assigned to machines.
-func (st *State) WatchForUnitAssignment() StringsWatcher {
-	return newCollectionWatcher(st, colWCfg{col: assignUnitC})
-}
-
 // WatchStorageAttachment returns a watcher for observing changes
 // to a storage attachment.
 func (sb *storageBackend) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
@@ -820,192 +778,6 @@ func (sb *storageBackend) WatchVolumeAttachment(host names.Tag, v names.VolumeTa
 func (sb *storageBackend) WatchFilesystemAttachment(host names.Tag, f names.FilesystemTag) NotifyWatcher {
 	id := filesystemAttachmentId(host.Id(), f.Id())
 	return newEntityWatcher(sb.mb, filesystemAttachmentsC, sb.mb.docID(id))
-}
-
-// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
-// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
-// upgrade completed field that is specific to an application name.  Used by
-// UniterAPI v9.
-func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (StringsWatcher, error) {
-	app, err := m.st.Application(applicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	watchDocId := app.doc.DocID
-	return watchInstanceCharmProfileCompatibilityData(m.st, watchDocId), nil
-}
-
-func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId string) StringsWatcher {
-	initial := ""
-	members := bson.D{{"_id", watchDocId}}
-	collection := applicationsC
-	filter := func(id interface{}) bool {
-		return id.(string) == watchDocId
-	}
-	extract := func(query documentFieldWatcherQuery) (string, error) {
-		var doc applicationDoc
-		if err := query.One(&doc); err != nil {
-			return "", err
-		}
-		return *doc.CharmURL, nil
-	}
-	transform := func(value string) string {
-		return lxdprofile.NotRequiredStatus
-	}
-	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, transform)
-}
-
-// *Deprecated* Although this watcher seems fairly admirable in terms of what
-// it does, it unfortunately does things at the wrong level. With the
-// consequence of wiring up complex structures on something that wasn't intended
-// from the outset for it to do.
-//
-// documentFieldWatcher notifies about any changes to a document field
-// specifically, the watcher looks for changes to a document field, and records
-// the current document field (known value). If the document doesn't exist an
-// initialKnown value can be set for the default.
-// Events are generated when there are changes to a document field that is
-// different from the known value. So setting field multiple times won't
-// dispatch an event, on changes that differ will be dispatched.
-type documentFieldWatcher struct {
-	commonWatcher
-	// docId is used to select the initial interesting entities.
-	collection   string
-	members      bson.D
-	known        *string
-	initialKnown string
-	filter       func(interface{}) bool
-	extract      func(documentFieldWatcherQuery) (string, error)
-	transform    func(string) string
-	out          chan []string
-}
-
-// documentFieldWatcherQuery is a point of use interface, to prevent the leaking
-// of query interface out of the core watcher.
-type documentFieldWatcherQuery interface {
-	One(result interface{}) (err error)
-}
-
-var _ Watcher = (*documentFieldWatcher)(nil)
-
-func newDocumentFieldWatcher(
-	backend modelBackend,
-	collection string,
-	members bson.D,
-	initialKnown string,
-	filter func(interface{}) bool,
-	extract func(documentFieldWatcherQuery) (string, error),
-	transform func(string) string,
-) StringsWatcher {
-	w := &documentFieldWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		collection:    collection,
-		members:       members,
-		initialKnown:  initialKnown,
-		filter:        filter,
-		extract:       extract,
-		transform:     transform,
-		out:           make(chan []string),
-	}
-	w.tomb.Go(func() error {
-		defer close(w.out)
-		return w.loop()
-	})
-	return w
-}
-
-func (w *documentFieldWatcher) initial() error {
-	col, closer := w.db.GetCollection(w.collection)
-	defer closer()
-
-	field := w.initialKnown
-
-	if newField, err := w.extract(col.Find(w.members)); err == nil {
-		field = newField
-	}
-	w.known = &field
-
-	logger.Tracef(context.TODO(), "Started watching %s for %v: %q", w.collection, w.members, field)
-	return nil
-}
-
-func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
-	// we care about change.Revno equalling -1 as we want to know about
-	// documents being deleted.
-	if change.Revno == -1 {
-		// treat this as the document being deleted
-		if w.known != nil {
-			w.known = nil
-			return true, nil
-		}
-		return false, nil
-	}
-	col, closer := w.db.GetCollection(w.collection)
-	defer closer()
-
-	// check the field before adding it to the known value
-	currentField, err := w.extract(col.Find(w.members))
-	if err != nil {
-		if err != mgo.ErrNotFound {
-			logger.Debugf(context.TODO(), "%s NOT mgo err not found", w.collection)
-			return false, err
-		}
-		// treat this as the document being deleted
-		if w.known != nil {
-			w.known = nil
-			return true, nil
-		}
-		return false, nil
-	}
-	if w.known == nil || *w.known != currentField {
-		w.known = &currentField
-
-		logger.Tracef(context.TODO(), "Changes in watching %s for %v: %q", w.collection, w.members, currentField)
-		return true, nil
-	}
-	return false, nil
-}
-
-func (w *documentFieldWatcher) loop() error {
-	err := w.initial()
-	if err != nil {
-		return err
-	}
-
-	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(w.collection, ch, w.filter)
-	defer w.watcher.UnwatchCollection(w.collection, ch)
-
-	out := w.out
-	for {
-		var value string
-		if w.known != nil {
-			value = *w.known
-		}
-		if w.transform != nil {
-			value = w.transform(value)
-		}
-		select {
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case change := <-ch:
-			isChanged, err := w.merge(change)
-			if err != nil {
-				return err
-			}
-			if isChanged {
-				out = w.out
-			}
-		case out <- []string{value}:
-			out = nil
-		}
-	}
-}
-
-func (w *documentFieldWatcher) Changes() <-chan []string {
-	return w.out
 }
 
 func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {
@@ -1311,34 +1083,6 @@ func (w *collectionWatcher) loop() error {
 	}
 }
 
-// makeIdFilter constructs a predicate to filter keys that have the
-// prefix matching one of the passed in ActionReceivers, or returns nil
-// if tags is empty
-func makeIdFilter(backend modelBackend, marker string, receivers ...ActionReceiver) func(interface{}) bool {
-	if len(receivers) == 0 {
-		return nil
-	}
-	ensureMarkerFn := ensureSuffixFn(marker)
-	prefixes := make([]string, len(receivers))
-	for ix, receiver := range receivers {
-		prefixes[ix] = backend.docID(ensureMarkerFn(receiver.Tag().Id()))
-	}
-
-	return func(key interface{}) bool {
-		switch key.(type) {
-		case string:
-			for _, prefix := range prefixes {
-				if strings.HasPrefix(key.(string), prefix) {
-					return true
-				}
-			}
-		default:
-			watchLogger.Errorf(context.TODO(), "key is not type string, got %T", key)
-		}
-		return false
-	}
-}
-
 // initial pre-loads the id's that have already been added to the
 // collection that would otherwise not normally trigger the watcher
 func (w *collectionWatcher) initial() ([]string, error) {
@@ -1419,14 +1163,6 @@ func mergeIds(changes *[]string, updates map[interface{}]bool, idconv func(strin
 	return nil
 }
 
-func actionNotificationIdToActionId(id string) string {
-	ix := strings.Index(id, actionMarker)
-	if ix == -1 {
-		return id
-	}
-	return id[ix+len(actionMarker):]
-}
-
 func indexOf(find string, in []string) (int, bool) {
 	for ix, cur := range in {
 		if cur == find {
@@ -1445,169 +1181,6 @@ func ensureSuffixFn(marker string) func(string) string {
 		}
 		return p
 	}
-}
-
-// watchActionNotificationsFilteredBy starts and returns a StringsWatcher
-// that notifies on new Actions being enqueued on the ActionRecevers
-// being watched as well as changes to non-completed Actions.
-func (st *State) watchActionNotificationsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newActionNotificationWatcher(st, false, receivers...)
-}
-
-// watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher
-// that notifies on new Actions being enqueued on the ActionRecevers
-// being watched.
-func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newActionNotificationWatcher(st, true, receivers...)
-}
-
-// actionNotificationWatcher is a StringsWatcher that watches for changes on the
-// action notification collection, but only triggers events once per action.
-type actionNotificationWatcher struct {
-	commonWatcher
-	source chan watcher.Change
-	sink   chan []string
-	filter func(interface{}) bool
-	// notifyPending when true will notify all pending and running actions as
-	// initial events, but thereafter only notify on pending actions.
-	notifyPending bool
-}
-
-// newActionNotificationWatcher starts and returns a new StringsWatcher configured
-// with the given collection and filter function. notifyPending when true will notify all pending and running actions as
-// initial events, but thereafter only notify on pending actions.
-func newActionNotificationWatcher(backend modelBackend, notifyPending bool, receivers ...ActionReceiver) StringsWatcher {
-	w := &actionNotificationWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		source:        make(chan watcher.Change),
-		sink:          make(chan []string),
-		filter:        makeIdFilter(backend, actionMarker, receivers...),
-		notifyPending: notifyPending,
-	}
-
-	w.tomb.Go(func() error {
-		defer close(w.sink)
-		defer close(w.source)
-		return w.loop()
-	})
-
-	return w
-}
-
-// Changes returns the event channel for this watcher
-func (w *actionNotificationWatcher) Changes() <-chan []string {
-	return w.sink
-}
-
-func (w *actionNotificationWatcher) loop() error {
-	var (
-		changes []string
-		in      = (<-chan watcher.Change)(w.source)
-		out     = (chan<- []string)(w.sink)
-	)
-
-	w.watcher.WatchCollectionWithFilter(actionNotificationsC, w.source, w.filter)
-	defer w.watcher.UnwatchCollection(actionNotificationsC, w.source)
-
-	changes, err := w.initial()
-	if err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case ch := <-in:
-			updates, ok := collect(ch, in, w.tomb.Dying())
-			if !ok {
-				return tomb.ErrDying
-			}
-			if w.notifyPending {
-				if err := w.filterPendingAndMergeIds(&changes, updates); err != nil {
-					return err
-				}
-			} else {
-				if err := w.mergeIds(&changes, updates); err != nil {
-					return err
-				}
-			}
-			if len(changes) > 0 {
-				out = w.sink
-			}
-		case out <- changes:
-			changes = []string{}
-			out = nil
-		}
-	}
-}
-
-func (w *actionNotificationWatcher) initial() ([]string, error) {
-	var ids []string
-	var doc actionNotificationDoc
-	coll, closer := w.db.GetCollection(actionNotificationsC)
-	defer closer()
-	iter := coll.Find(nil).Iter()
-	for iter.Next(&doc) {
-		if w.filter(doc.DocId) {
-			ids = append(ids, actionNotificationIdToActionId(doc.DocId))
-		}
-	}
-	return ids, iter.Close()
-}
-
-// filterPendingAndMergeIds reduces the keys published to the first action notification (pending actions).
-func (w *actionNotificationWatcher) filterPendingAndMergeIds(changes *[]string, updates map[interface{}]bool) error {
-	var newIDs []string
-	for val, idExists := range updates {
-		docID, ok := val.(string)
-		if !ok {
-			return errors.Errorf("id is not of type string, got %T", val)
-		}
-
-		id := actionNotificationIdToActionId(docID)
-		chIx, idAlreadyInChangeset := indexOf(id, *changes)
-		if idExists {
-			if !idAlreadyInChangeset {
-				// add id to fetch from mongo
-				newIDs = append(newIDs, w.backend.localID(docID))
-			}
-		} else {
-			if idAlreadyInChangeset {
-				// remove id from changes
-				*changes = append((*changes)[:chIx], (*changes)[chIx+1:]...)
-			}
-		}
-	}
-
-	coll, closer := w.db.GetCollection(actionNotificationsC)
-	defer closer()
-
-	// query for all documents that match the ids who
-	// don't have a changed field. These are new pending actions.
-	query := bson.D{{"_id", bson.D{{"$in", newIDs}}}}
-	var doc actionNotificationDoc
-	iter := coll.Find(query).Iter()
-	for iter.Next(&doc) {
-		if doc.Changed.IsZero() {
-			*changes = append(*changes, actionNotificationIdToActionId(doc.DocId))
-		}
-	}
-	return iter.Close()
-}
-
-func (w *actionNotificationWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(changes, updates, func(id string) (string, error) {
-		return actionNotificationIdToActionId(id), nil
-	})
-}
-
-// WatchMachineRemovals returns a NotifyWatcher which triggers
-// whenever machine removal records are added or removed.
-func (st *State) WatchMachineRemovals() NotifyWatcher {
-	return newNotifyCollWatcher(st, machineRemovalsC, isLocalID(st))
 }
 
 // notifyCollWatcher implements NotifyWatcher, triggering when a

@@ -190,7 +190,7 @@ func NewDeployerAPI(
 	}
 
 	return &DeployerAPI{
-		PasswordChanger:        common.NewPasswordChanger(agentPasswordService, st, getAuthFunc),
+		PasswordChanger:        common.NewPasswordChanger(agentPasswordService, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		unitStatusSetter:       common.NewUnitStatusSetter(statusService, clock, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,

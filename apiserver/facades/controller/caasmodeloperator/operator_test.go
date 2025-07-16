@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -34,7 +33,6 @@ type ModelOperatorSuite struct {
 
 	authorizer              *apiservertesting.FakeAuthorizer
 	api                     *API
-	state                   *mockState
 	controllerConfigService *MockControllerConfigService
 	controllerNodeService   *MockControllerNodeService
 	modelConfigService      *MockModelConfigService
@@ -65,13 +63,6 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-
-	controllerConf, err := m.state.ControllerConfig()
-	c.Assert(err, tc.ErrorIsNil)
-
-	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(imagePath, tc.Equals, info.ImageDetails.RegistryPath)
 
 	c.Assert(info.ImageDetails.Auth, tc.Equals, `xxxxx==`)
 	c.Assert(info.ImageDetails.Repository, tc.Equals, `test-account`)
@@ -119,7 +110,7 @@ func (s *ModelOperatorSuite) TestSetUnitPassword(c *tc.C) {
 		Return(nil)
 
 	api := &API{
-		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
+		PasswordChanger: common.NewPasswordChanger(s.passwordService, alwaysAllow),
 	}
 
 	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
@@ -148,7 +139,7 @@ func (s *ModelOperatorSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 		Return(applicationerrors.UnitNotFound)
 
 	api := &API{
-		PasswordChanger: common.NewPasswordChanger(s.passwordService, nil, alwaysAllow),
+		PasswordChanger: common.NewPasswordChanger(s.passwordService, alwaysAllow),
 	}
 
 	result, err := api.SetPasswords(c.Context(), params.EntityPasswords{
@@ -184,15 +175,7 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 		Controller: true,
 	}
 
-	m.state = newMockState()
-	m.state.operatorRepo = `
-{
-    "serveraddress": "quay.io",
-    "auth": "xxxxx==",
-    "repository": "test-account"
-}`[1:]
-
-	api, err := NewAPI(m.authorizer, m.state, m.passwordService,
+	api, err := NewAPI(m.authorizer, m.passwordService,
 		m.controllerConfigService, m.controllerNodeService, m.modelConfigService,
 		loggertesting.WrapCheckLog(c), model.UUID(internaltesting.ModelTag.Id()),
 		m.watcherRegistry)
@@ -207,7 +190,6 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 		m.controllerNodeService = nil
 		m.modelConfigService = nil
 		m.passwordService = nil
-		m.state = nil
 		m.watcherRegistry = nil
 	})
 

@@ -6,7 +6,6 @@ package spaces
 import (
 	"context"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/core/constraints"
@@ -31,7 +30,6 @@ type Address interface {
 type Machine interface {
 	Id() string
 	AllAddresses() ([]Address, error)
-	AllSpaces(allSubnets network.SubnetInfos) (set.Strings, error)
 }
 
 // Constraints defines the methods supported by constraints used in the space context.

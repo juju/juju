@@ -12,7 +12,6 @@ import (
 
 var (
 	// State package internal errors.
-	machineNotAliveErr     = stateerrors.NewNotAliveError("machine")
 	applicationNotAliveErr = stateerrors.NewNotAliveError("application")
 	unitNotAliveErr        = stateerrors.NewNotAliveError("unit")
 )
