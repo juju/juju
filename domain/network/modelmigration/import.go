@@ -189,20 +189,6 @@ func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkL
 	data := make([]internal.ImportLinkLayerDevice, len(modelLLD))
 
 	for i, lld := range modelLLD {
-		var (
-			mac        *string
-			mtu        *int64
-			providerID *string
-		)
-		if lld.ProviderID() != "" {
-			providerID = ptr(lld.ProviderID())
-		}
-		if lld.MTU() > 0 {
-			mtu = ptr(int64(lld.MTU()))
-		}
-		if lld.MACAddress() != "" {
-			mac = ptr(lld.MACAddress())
-		}
 		lldUUID, err := uuid.NewUUID()
 		if err != nil {
 			return nil, errors.Errorf("creating UUID for link layer device %q", lld.Name())
@@ -211,9 +197,9 @@ func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkL
 			UUID:             lldUUID.String(),
 			Name:             lld.Name(),
 			MachineID:        lld.MachineID(),
-			MTU:              mtu,
-			MACAddress:       mac,
-			ProviderID:       providerID,
+			MTU:              nilZeroPtr(int64(lld.MTU())),
+			MACAddress:       nilZeroPtr(lld.MACAddress()),
+			ProviderID:       nilZeroPtr(lld.ProviderID()),
 			Type:             corenetwork.LinkLayerDeviceType(lld.Type()),
 			VirtualPortType:  corenetwork.VirtualPortType(lld.VirtualPortType()),
 			IsAutoStart:      lld.IsAutoStart(),
@@ -228,4 +214,12 @@ func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkL
 // ptr returns a reference to a copied value of type T.
 func ptr[T any](i T) *T {
 	return &i
+}
+
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
 }
