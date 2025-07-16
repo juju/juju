@@ -1319,6 +1319,45 @@ func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
 }
 
+// DevicesForGuest mocks base method.
+func (m *MockNetworkService) DevicesForGuest(arg0 context.Context, arg1, arg2 machine.UUID) ([]network0.NetInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DevicesForGuest", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]network0.NetInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DevicesForGuest indicates an expected call of DevicesForGuest.
+func (mr *MockNetworkServiceMockRecorder) DevicesForGuest(arg0, arg1, arg2 any) *MockNetworkServiceDevicesForGuestCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DevicesForGuest", reflect.TypeOf((*MockNetworkService)(nil).DevicesForGuest), arg0, arg1, arg2)
+	return &MockNetworkServiceDevicesForGuestCall{Call: call}
+}
+
+// MockNetworkServiceDevicesForGuestCall wrap *gomock.Call
+type MockNetworkServiceDevicesForGuestCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceDevicesForGuestCall) Return(arg0 []network0.NetInterface, arg1 error) *MockNetworkServiceDevicesForGuestCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceDevicesForGuestCall) Do(f func(context.Context, machine.UUID, machine.UUID) ([]network0.NetInterface, error)) *MockNetworkServiceDevicesForGuestCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceDevicesForGuestCall) DoAndReturn(f func(context.Context, machine.UUID, machine.UUID) ([]network0.NetInterface, error)) *MockNetworkServiceDevicesForGuestCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DevicesToBridge mocks base method.
 func (m *MockNetworkService) DevicesToBridge(arg0 context.Context, arg1, arg2 machine.UUID) ([]network0.DeviceToBridge, error) {
 	m.ctrl.T.Helper()

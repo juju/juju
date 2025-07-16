@@ -177,6 +177,10 @@ type NetworkService interface {
 	// This determination is made based on the guest's space constraints, bindings
 	// of applications to run on the guest, and any host bridges that already exist.
 	DevicesToBridge(ctx context.Context, hostUUID, guestUUID coremachine.UUID) ([]domainnetwork.DeviceToBridge, error)
+
+	// DevicesForGuest returns the network devices that should be configured in the
+	// guest machine with the input UUID, based on the host machine's bridges.
+	DevicesForGuest(ctx context.Context, hostUUID, guestUUID coremachine.UUID) ([]domainnetwork.NetInterface, error)
 }
 
 // KeyUpdaterService provides access to authorised keys in a model.

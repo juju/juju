@@ -26,7 +26,6 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
-	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -47,12 +46,7 @@ type provisionerMockSuite struct {
 	authorizer *facademocks.MockAuthorizer
 
 	// All these need deprecation.
-	environ      *environtesting.MockNetworkingEnviron
-	policy       *MockBridgePolicy
-	host         *MockMachine
-	container    *MockMachine
-	device       *MockLinkLayerDevice
-	parentDevice *MockLinkLayerDevice
+	environ *environtesting.MockNetworkingEnviron
 
 	api ProvisionerAPI
 }
@@ -135,7 +129,12 @@ func (s *provisionerMockSuite) TestHostChangesForContainers(c *tc.C) {
 func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectManuallyProvisionedHostsUseDHCPForContainers()
+	interfaceInfos := network.InterfaceInfos{
+		{
+			InterfaceName: "eth0",
+			ConfigType:    network.ConfigDHCP,
+		},
+	}
 
 	res := params.MachineNetworkConfigResults{
 		Results: []params.MachineNetworkConfigResult{{}},
@@ -143,7 +142,7 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 	ctx := prepareOrGetHandler{result: res, maintain: false, logger: loggertesting.WrapCheckLog(c)}
 
 	// ProviderCallContext is not required by this logical path and can be nil
-	err := ctx.ProcessOneContainer(c.Context(), s.environ, s.policy, 0, s.host, true, s.container, "", "", nil)
+	err := ctx.ProcessOneContainer(c.Context(), s.environ, 0, true, coremachine.Name(""), interfaceInfos, "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results[0].Config, tc.HasLen, 1)
 
@@ -153,34 +152,8 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 	c.Check(cfg.VLANTag, tc.Equals, 0)
 }
 
-func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainers() {
-	s.expectNetworkingEnviron()
-
-	cExp := s.container.EXPECT()
-
-	s.policy.EXPECT().PopulateContainerLinkLayerDevices(s.host, s.container, false).Return(
-		network.InterfaceInfos{
-			{
-				InterfaceName: "eth0",
-				ConfigType:    network.ConfigDHCP,
-			},
-		}, nil)
-
-	cExp.Id().Return("lxd/0").AnyTimes()
-}
-
-// expectNetworkingEnviron stubs an environ that supports container networking.
-func (s *provisionerMockSuite) expectNetworkingEnviron() {
-	eExp := s.environ.EXPECT()
-	eExp.Config().Return(&config.Config{}).AnyTimes()
-	eExp.SupportsContainerAddresses(gomock.Any()).Return(true, nil).AnyTimes()
-}
-
 func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *tc.C) {
 	defer s.setup(c).Finish()
-
-	exp := s.container.EXPECT()
-	exp.Id().Return("0/lxd/0")
 
 	res := params.MachineNetworkConfigResults{
 		Results: []params.MachineNetworkConfigResult{{}},
@@ -192,7 +165,7 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *tc.C) {
 	}
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(c.Context(), s.environ, nil, 0, s.host, false, s.container, "", instance.Id("juju-8ebd6c-0"), nil)
+	err := ctx.ProcessOneContainer(c.Context(), s.environ, 0, false, coremachine.Name("0/lxd/0"), network.InterfaceInfos{}, "", instance.Id("juju-8ebd6c-0"), nil)
 	c.Assert(err, tc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
 }
 
@@ -204,7 +177,6 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 	defer ctrl.Finish()
 
 	machineName := coremachine.Name("0/lxd/0")
-	s.container.EXPECT().Id().Return(machineName.String())
 	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return([]coreunit.Name{"application/0"}, nil)
 	locator := applicationcharm.CharmLocator{
 		Name:     "application",
@@ -230,7 +202,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 	}
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(c.Context(), s.environ, nil, 0, s.host, false, s.container, "", "", nil)
+	err := ctx.ProcessOneContainer(c.Context(), s.environ, 0, false, coremachine.Name("0/lxd/0"), network.InterfaceInfos{}, "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
@@ -250,7 +222,6 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *tc.C) {
 	defer ctrl.Finish()
 
 	machineName := coremachine.Name("0/lxd/0")
-	s.container.EXPECT().Id().Return(machineName.String())
 	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return([]coreunit.Name{"application/0"}, nil)
 	locator := applicationcharm.CharmLocator{
 		Name:     "application",
@@ -271,7 +242,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *tc.C) {
 	}
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(c.Context(), s.environ, nil, 0, s.host, false, s.container, "", "", nil)
+	err := ctx.ProcessOneContainer(c.Context(), s.environ, 0, false, coremachine.Name("0/lxd/0"), network.InterfaceInfos{}, "", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
@@ -639,11 +610,6 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.environ = environtesting.NewMockNetworkingEnviron(ctrl)
-	s.policy = NewMockBridgePolicy(ctrl)
-	s.host = NewMockMachine(ctrl)
-	s.container = NewMockMachine(ctrl)
-	s.device = NewMockLinkLayerDevice(ctrl)
-	s.parentDevice = NewMockLinkLayerDevice(ctrl)
 	s.clock = testclock.NewClock(time.Now())
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 
@@ -673,9 +639,6 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 
 	c.Cleanup(func() {
 		s.environ = nil
-		s.policy = nil
-		s.host = nil
-		s.container = nil
 		s.applicationService = nil
 		s.machineService = nil
 		s.statusService = nil
