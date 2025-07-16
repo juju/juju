@@ -102,15 +102,15 @@ func (c *mockContext) APIContext() upgrades.Context {
 
 type mockAgentConfig struct {
 	agent.ConfigSetter
-	dataDir      string
-	logDir       string
-	tag          names.Tag
-	jobs         []model.MachineJob
-	apiAddresses []string
-	values       map[string]string
-	mongoInfo    *mongo.MongoInfo
-	servingInfo  controller.StateServingInfo
-	modelTag     names.ModelTag
+	dataDir             string
+	logDir              string
+	tag                 names.Tag
+	jobs                []model.MachineJob
+	apiAddresses        []string
+	values              map[string]string
+	mongoInfo           *mongo.MongoInfo
+	controllerAgentInfo controller.ControllerAgentInfo
+	modelTag            names.ModelTag
 }
 
 func (mock *mockAgentConfig) Tag() names.Tag {
@@ -149,12 +149,12 @@ func (mock *mockAgentConfig) MongoInfo() (*mongo.MongoInfo, bool) {
 	return mock.mongoInfo, true
 }
 
-func (mock *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
-	return mock.servingInfo, true
+func (mock *mockAgentConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
+	return mock.controllerAgentInfo, true
 }
 
-func (mock *mockAgentConfig) SetStateServingInfo(info controller.StateServingInfo) {
-	mock.servingInfo = info
+func (mock *mockAgentConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
+	mock.controllerAgentInfo = info
 }
 
 func (mock *mockAgentConfig) Model() names.ModelTag {

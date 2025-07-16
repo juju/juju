@@ -31,7 +31,7 @@ type State interface {
 
 	// NamespaceForWatchControllerConfig returns the namespace identifier
 	// used for watching controller configuration changes.
-	NamespaceForWatchControllerConfig() string
+	NamespaceForWatchControllerConfig() []string
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -271,17 +271,24 @@ func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
 	}
 }
 
-// It's for testing.
-var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
-
 // Watch returns a watcher that returns keys for any changes to controller
 // config.
 func (s *WatchableService) WatchControllerConfig(ctx context.Context) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	namespaces := s.st.NamespaceForWatchControllerConfig()
+	if len(namespaces) == 0 {
+		return nil, errors.Errorf("no namespaces for watching controller config")
+	}
+
+	filters := make([]eventsource.FilterOption, 0, len(namespaces))
+	for _, ns := range namespaces {
+		filters = append(filters, eventsource.NamespaceFilter(ns, changestream.All))
+	}
+
 	return s.watcherFactory.NewNamespaceWatcher(
-		InitialNamespaceChanges(s.st.AllKeysQuery()),
-		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerConfig(), changestream.All),
+		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
+		filters[0], filters[1:]...,
 	)
 }

@@ -39,7 +39,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.agent = &mockAgent{
 		conf: mockConfig{
 			caCert: coretesting.OtherCACert,
-			info: &controller.StateServingInfo{
+			info: &controller.ControllerAgentInfo{
 				CAPrivateKey: coretesting.OtherCAKey,
 				Cert:         coretesting.ServerCert,
 				PrivateKey:   coretesting.ServerKey,
@@ -66,10 +66,10 @@ func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
 	c.Assert(err, tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestNoStateServingInfo(c *tc.C) {
+func (s *ManifoldSuite) TestNoControllerAgentInfo(c *tc.C) {
 	s.agent.conf.info = nil
 	_, err := s.manifold.Start(c.Context(), s.getter)
-	c.Assert(err, tc.ErrorMatches, "setting up initial ca authority: no state serving info in agent config")
+	c.Assert(err, tc.ErrorMatches, "setting up initial ca authority: no controller agent info in agent config")
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
@@ -106,7 +106,7 @@ type mockConfig struct {
 	agent.Config
 
 	mu     sync.Mutex
-	info   *controller.StateServingInfo
+	info   *controller.ControllerAgentInfo
 	caCert string
 }
 
@@ -116,11 +116,11 @@ func (mc *mockConfig) CACert() string {
 	return mc.caCert
 }
 
-func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+func (mc *mockConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	if mc.info != nil {
 		return *mc.info, true
 	}
-	return controller.StateServingInfo{}, false
+	return controller.ControllerAgentInfo{}, false
 }

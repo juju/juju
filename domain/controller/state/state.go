@@ -8,9 +8,11 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
+	controllererrors "github.com/juju/juju/domain/controller/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -26,8 +28,8 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// ControllerModelUUID returns the model UUID of the controller model.
-func (st *State) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
+// GetControllerModelUUID returns the model UUID of the controller model.
+func (st *State) GetControllerModelUUID(ctx context.Context) (model.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -54,4 +56,36 @@ FROM   controller
 	}
 
 	return model.UUID(uuid.UUID), nil
+}
+
+// GetControllerAgentInfo returns the information that a controller agent
+// needs when it's responsible for serving the API.
+func (st *State) GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return controller.ControllerAgentInfo{}, errors.Capture(err)
+	}
+	var info controllerControllerAgentInfo
+	stmt, err := st.Prepare(`SELECT &controllerControllerAgentInfo.* FROM controller`, info)
+	if err != nil {
+		return controller.ControllerAgentInfo{}, errors.Errorf("preparing select controller agent info statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&info)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("internal error: controller agent info not found").Add(controllererrors.NotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return controller.ControllerAgentInfo{}, errors.Errorf("getting controller agent info: %w", err)
+	}
+	return controller.ControllerAgentInfo{
+		APIPort:        info.APIPort,
+		Cert:           info.Cert,
+		PrivateKey:     info.PrivateKey,
+		CAPrivateKey:   info.CAPrivateKey,
+		SystemIdentity: info.SystemIdentity,
+	}, nil
 }

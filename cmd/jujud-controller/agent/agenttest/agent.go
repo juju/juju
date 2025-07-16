@@ -214,7 +214,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 
 			DqlitePort: dqlitePort,
 		},
-		controller.StateServingInfo{
+		controller.ControllerAgentInfo{
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
 			CAPrivateKey: coretesting.CAKey,

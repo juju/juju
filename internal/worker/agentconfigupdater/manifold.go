@@ -164,7 +164,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("getting state serving info: %w", err)
 			}
 			err = agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
-				existing, hasInfo := config.StateServingInfo()
+				existing, hasInfo := config.ControllerAgentInfo()
 				if hasInfo {
 					// Use the existing cert and key as they appear to have been
 					// already updated by the cert updater worker to have this
@@ -174,7 +174,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					info.Cert = existing.Cert
 					info.PrivateKey = existing.PrivateKey
 				}
-				config.SetStateServingInfo(info)
+				config.SetControllerAgentInfo(info)
 
 				if queryTracingEnabledChanged {
 					logger.Debugf(ctx, "setting agent config query tracing enabled: %t => %t", agentsQueryTracingEnabled, configQueryTracingEnabled)

@@ -6,13 +6,19 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 )
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
-	ControllerModelUUID(ctx context.Context) (model.UUID, error)
+	// GetControllerModelUUID returns the model UUID of the controller model.
+	GetControllerModelUUID(ctx context.Context) (model.UUID, error)
+
+	// GetControllerAgentInfo returns the controller agent information needed by
+	// the controller.
+	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -31,5 +37,15 @@ func NewService(st State) *Service {
 func (s *Service) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	return s.st.ControllerModelUUID(ctx)
+
+	return s.st.GetControllerModelUUID(ctx)
+}
+
+// GetControllerAgentInfo returns the controller agent information needed by the
+// controller.
+func (s *Service) GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.GetControllerAgentInfo(ctx)
 }

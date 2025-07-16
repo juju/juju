@@ -308,7 +308,7 @@ type mockAgentConfig struct {
 	agent.Config
 	dataDir string
 	logDir  string
-	info    *controller.StateServingInfo
+	info    *controller.ControllerAgentInfo
 	values  map[string]string
 }
 
@@ -324,11 +324,11 @@ func (c *mockAgentConfig) DataDir() string {
 	return c.dataDir
 }
 
-func (c *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+func (c *mockAgentConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	if c.info != nil {
 		return *c.info, true
 	}
-	return controller.StateServingInfo{}, false
+	return controller.ControllerAgentInfo{}, false
 }
 
 func (c *mockAgentConfig) Value(key string) string {

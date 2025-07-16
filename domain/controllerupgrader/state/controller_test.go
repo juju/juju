@@ -59,10 +59,7 @@ func (s *controllerStateSuite) setInitialControllerTargetVersion(
 	c.Assert(err, tc.ErrorIsNil)
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	_, err = s.DB().Exec(
-		"INSERT INTO controller VALUES (?, ?, ?)",
-		controllerUUID.String(), modelUUID.String(), version,
-	)
+	_, err = s.DB().Exec("INSERT INTO controller (uuid, model_uuid, target_version) VALUES (?, ?, ?)", controllerUUID.String(), modelUUID.String(), version)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

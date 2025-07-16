@@ -261,13 +261,13 @@ func newControllerStack(
 		return nil, errors.Trace(err)
 	}
 
-	si, ok := agentConfig.StateServingInfo()
+	si, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
 		return nil, errors.NewNotValid(nil, "agent config has no state serving info")
 	}
 
-	agentConfig.SetStateServingInfo(si)
-	pcfg.Bootstrap.StateServingInfo = si
+	agentConfig.SetControllerAgentInfo(si)
+	pcfg.Bootstrap.ControllerAgentInfo = si
 
 	unitAgentConfig, err := pcfg.UnitAgentConfig()
 	if err != nil {

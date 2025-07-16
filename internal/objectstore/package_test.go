@@ -39,6 +39,12 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.claimer = NewMockClaimer(ctrl)
 	s.claimExtender = NewMockClaimExtender(ctrl)
 
+	c.Cleanup(func() {
+		s.service = nil
+		s.claimer = nil
+		s.claimExtender = nil
+	})
+
 	return ctrl
 }
 

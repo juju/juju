@@ -35,7 +35,7 @@ var attributeParams = AgentConfigParams{
 	Model:             testing.ModelTag,
 }
 
-var servingInfo = controller.StateServingInfo{
+var servingInfo = controller.ControllerAgentInfo{
 	Cert:           "old cert",
 	PrivateKey:     "old key",
 	CAPrivateKey:   "old ca key",

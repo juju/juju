@@ -28,6 +28,7 @@ import (
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
+	controllerbootstrap "github.com/juju/juju/domain/controller/bootstrap"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
@@ -127,6 +128,15 @@ func (s *DomainServicesSuite) SeedControllerConfig(c *tc.C) {
 		s.ControllerModelUUID,
 	)
 	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+
+	fn = controllerbootstrap.InsertInitialController(
+		"ca-cert",
+		"private-key",
+		"ca-private-key",
+		"system-identity",
+	)
+	err = fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 }
 

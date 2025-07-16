@@ -38,7 +38,7 @@ func (s *format_2_0Suite) TestStatePortNotParsedWithoutSecret(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, tc.ErrorIsNil)
-	_, available := readConfig.StateServingInfo()
+	_, available := readConfig.ControllerAgentInfo()
 	c.Assert(available, tc.IsFalse)
 }
 

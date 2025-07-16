@@ -1235,8 +1235,8 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *tc.C) {
 	})
 	controllerCfg := icfg.ControllerConfig
 	c.Check(controllerCfg["ca-private-key"], tc.IsNil)
-	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, tc.Equals, controllerCfg.APIPort())
-	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, tc.Equals, coretesting.CAKey)
+	c.Check(icfg.Bootstrap.ControllerAgentInfo.APIPort, tc.Equals, controllerCfg.APIPort())
+	c.Check(icfg.Bootstrap.ControllerAgentInfo.CAPrivateKey, tc.Equals, coretesting.CAKey)
 }
 
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *tc.C) {

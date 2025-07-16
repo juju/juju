@@ -248,7 +248,7 @@ type mockConfig struct {
 	agent.ConfigSetter
 	tag      names.Tag
 	ssiSet   bool
-	ssi      controller.StateServingInfo
+	ssi      controller.ControllerAgentInfo
 	dataPath string
 }
 
@@ -267,11 +267,11 @@ func (mc *mockConfig) Controller() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
 	return mc.ssi, mc.ssiSet
 }
 
-func (mc *mockConfig) SetStateServingInfo(info controller.StateServingInfo) {
+func (mc *mockConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
 	mc.ssiSet = true
 	mc.ssi = info
 }

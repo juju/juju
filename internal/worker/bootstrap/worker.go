@@ -251,7 +251,7 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	servingInfo, ok := agentConfig.StateServingInfo()
+	servingInfo, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
 		return errors.Errorf("state serving information not available")
 	}

@@ -49,6 +49,29 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	c.Check(dbTargetVersion, tc.Equals, jujuversion.Current.String())
 }
 
+func (s *bootstrapSuite) TestInsertInitialControllerConfigAPIPort(c *tc.C) {
+	cfg := controller.Config{
+		controller.CACertKey:         testing.CACert,
+		controller.ControllerUUIDKey: testing.ControllerTag.Id(),
+		controller.APIPort:           "17070",
+	}
+	modelUUID, err := coremodel.NewUUID()
+	c.Assert(err, tc.IsNil)
+	err = InsertInitialControllerConfig(cfg, modelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM controller_config where key = ?", controller.APIPort)
+	c.Assert(row.Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	var apiPort string
+	row = s.DB().QueryRow("SELECT api_port FROM controller")
+	c.Assert(row.Scan(&apiPort), tc.ErrorIsNil)
+
+	c.Check(apiPort, tc.Equals, "17070")
+}
+
 func (s *bootstrapSuite) TestValidModelUUID(c *tc.C) {
 	cfg := controller.Config{controller.CACertKey: testing.CACert}
 	err := InsertInitialControllerConfig(cfg, coremodel.UUID("bad-uuid"))(c.Context(), s.TxnRunner(), s.NoopTxnRunner())

@@ -62,6 +62,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 
 	_, _, err := store.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
@@ -78,6 +80,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
 
 	_, _, err := store.GetBySHA256Prefix(c.Context(), "0263829")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
@@ -103,6 +107,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
 
 	_, _, err := store.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *tc.C) {
@@ -128,6 +134,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *tc.C) {
 
 	_, _, err := store.GetBySHA256(c.Context(), hash256)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *tc.C) {
@@ -154,6 +162,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *tc.C) {
 
 	_, _, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *tc.C) {
@@ -193,6 +203,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "hello")
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *tc.C) {
@@ -232,6 +244,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "hello")
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFound(c *tc.C) {
@@ -272,6 +286,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFou
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(size, tc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), tc.Equals, "hello")
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *tc.C) {
@@ -308,6 +324,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *tc.
 
 	_, _, err := store.Get(c.Context(), fileName)
 	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileFoundWithIncorrectSize(c *tc.C) {
@@ -344,6 +362,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileFoundWithIncorrectSiz
 
 	_, _, err := store.GetBySHA256(c.Context(), hash256)
 	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFoundWithIncorrectSize(c *tc.C) {
@@ -381,6 +401,8 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFoundWithIncorr
 
 	_, _, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorMatches, `.*size mismatch.*`)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestPut(c *tc.C) {
@@ -421,6 +443,8 @@ func (s *s3ObjectStoreSuite) TestPut(c *tc.C) {
 	c.Check(received, tc.Equals, uuid)
 
 	c.Check(receivedContent, tc.Equals, content)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *tc.C) {
@@ -460,6 +484,8 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *tc.C) {
 	c.Check(uuid.Validate(), tc.ErrorIsNil)
 
 	c.Check(receivedContent, tc.Equals, content)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *tc.C) {
@@ -479,6 +505,8 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *tc.C) {
 
 	_, err := store.PutAndCheckHash(c.Context(), "foo", strings.NewReader(content), 12, fakeHash)
 	c.Assert(err, tc.ErrorMatches, `.*hash mismatch.*`)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *tc.C) {
@@ -525,6 +553,8 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *tc.C) {
 	c.Check(receivedContent, tc.Equals, content)
 
 	c.Check(uuid0, tc.Equals, uuid1)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *tc.C) {
@@ -559,6 +589,8 @@ func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *tc.C) {
 
 	_, err := store.PutAndCheckHash(c.Context(), "foo", strings.NewReader(content), 12, hexSHA384)
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *tc.C) {
@@ -596,6 +628,8 @@ func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *tc.C) {
 
 	err := store.Remove(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestRemove(c *tc.C) {
@@ -627,6 +661,8 @@ func (s *s3ObjectStoreSuite) TestRemove(c *tc.C) {
 
 	err := store.Remove(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
@@ -663,6 +699,8 @@ func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 		Size:   size,
 	}})
 	c.Check(files, tc.DeepEquals, []string{hexSHA384})
+
+	workertest.CleanKill(c, store)
 }
 
 func (s *s3ObjectStoreSuite) TestDrainFilesWithNoFiles(c *tc.C) {
@@ -674,8 +712,8 @@ func (s *s3ObjectStoreSuite) TestDrainFilesWithNoFiles(c *tc.C) {
 	store := s.newDrainingS3ObjectStore(c)
 	defer workertest.DirtyKill(c, store)
 
-	s.expectStartup(c)
 	s.expectDrain(c)
+	s.expectStartup(c)
 
 	workertest.CleanKill(c, store)
 }
@@ -700,8 +738,9 @@ func (s *s3ObjectStoreSuite) TestDrainFiles(c *tc.C) {
 	store := s.newDrainingS3ObjectStore(c)
 	defer workertest.DirtyKill(c, store)
 
-	s.expectStartup(c)
 	s.expectFileDrained(c, "foo")
+	s.expectDrain(c)
+	s.expectStartup(c)
 
 	workertest.CleanKill(c, store)
 }
@@ -725,9 +764,6 @@ func (s *s3ObjectStoreSuite) TestDrainFilesWithError(c *tc.C) {
 
 	store := s.newDrainingS3ObjectStore(c)
 	defer workertest.DirtyKill(c, store)
-
-	s.expectStartup(c)
-	s.expectFileDrained(c, "foo")
 
 	// Note: the drained state is never reached because of the error.
 
@@ -981,10 +1017,19 @@ func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *tc.C) {
 func (s *s3ObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.states = make(chan string, 2)
+	s.states = make(chan string, 3)
+
 	s.session = NewMockSession(ctrl)
 	s.hashFileSystemAccessor = NewMockHashFileSystemAccessor(ctrl)
 	s.client = &client{session: s.session}
+
+	c.Cleanup(func() {
+		s.states = nil
+
+		s.session = nil
+		s.hashFileSystemAccessor = nil
+		s.client = nil
+	})
 
 	return ctrl
 }
@@ -1039,7 +1084,7 @@ func (s *s3ObjectStoreSuite) expectHashToExist(hash string) {
 func (s *s3ObjectStoreSuite) expectHashToExistError(hash string, err error) <-chan struct{} {
 	ch := make(chan struct{})
 	s.hashFileSystemAccessor.EXPECT().HashExists(gomock.Any(), hash).DoAndReturn(func(ctx context.Context, hash string) error {
-		defer close(ch)
+		close(ch)
 		return err
 	})
 	return ch

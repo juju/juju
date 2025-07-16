@@ -379,7 +379,7 @@ func (a *MachineAgent) Done(err error) {
 // recorded in the agent config and also mongo server.pem contains the
 // DNSNames entries required by Juju.
 func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
-	si, ok := config.StateServingInfo()
+	si, ok := config.ControllerAgentInfo()
 	if !ok || si.CAPrivateKey == "" {
 		// No certificate information exists yet, nothing to do.
 		return nil
@@ -414,7 +414,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 	si.Cert, si.PrivateKey = string(cert), string(privateKey)
 
-	config.SetStateServingInfo(si)
+	config.SetControllerAgentInfo(si)
 	return nil
 }
 

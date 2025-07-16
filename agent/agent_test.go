@@ -297,8 +297,8 @@ func (*suite) TestNewAgentConfig(c *tc.C) {
 	}
 }
 
-func stateServingInfo() controller.StateServingInfo {
-	return controller.StateServingInfo{
+func stateServingInfo() controller.ControllerAgentInfo {
+	return controller.ControllerAgentInfo{
 		Cert:           "cert",
 		PrivateKey:     "key",
 		CAPrivateKey:   "ca key",
@@ -311,7 +311,7 @@ func (*suite) TestNewStateMachineConfig(c *tc.C) {
 	type testStruct struct {
 		about         string
 		params        agent.AgentConfigParams
-		servingInfo   controller.StateServingInfo
+		servingInfo   controller.ControllerAgentInfo
 		checkErr      string
 		inspectConfig func(*tc.C, agent.Config)
 	}
@@ -320,20 +320,20 @@ func (*suite) TestNewStateMachineConfig(c *tc.C) {
 		checkErr: "controller cert not found in configuration",
 	}, {
 		about: "missing controller key",
-		servingInfo: controller.StateServingInfo{
+		servingInfo: controller.ControllerAgentInfo{
 			Cert: "server cert",
 		},
 		checkErr: "controller key not found in configuration",
 	}, {
 		about: "missing ca cert key",
-		servingInfo: controller.StateServingInfo{
+		servingInfo: controller.ControllerAgentInfo{
 			Cert:       "server cert",
 			PrivateKey: "server key",
 		},
 		checkErr: "ca cert key not found in configuration",
 	}, {
 		about: "params api port",
-		servingInfo: controller.StateServingInfo{
+		servingInfo: controller.ControllerAgentInfo{
 			Cert:         "server cert",
 			PrivateKey:   "server key",
 			CAPrivateKey: "ca key",
@@ -396,31 +396,31 @@ func (*suite) TestAttributes(c *tc.C) {
 	c.Check(systemIdentityPath, tc.Equals, compareSystemIdentityPath)
 }
 
-func (*suite) TestStateServingInfo(c *tc.C) {
+func (*suite) TestControllerAgentInfo(c *tc.C) {
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
 	c.Assert(err, tc.ErrorIsNil)
-	gotInfo, ok := conf.StateServingInfo()
+	gotInfo, ok := conf.ControllerAgentInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(gotInfo, tc.DeepEquals, servingInfo)
-	newInfo := controller.StateServingInfo{
+	newInfo := controller.ControllerAgentInfo{
 		APIPort:        147,
 		Cert:           "new cert",
 		PrivateKey:     "new key",
 		CAPrivateKey:   "new ca key",
 		SystemIdentity: "new identity",
 	}
-	conf.SetStateServingInfo(newInfo)
-	gotInfo, ok = conf.StateServingInfo()
+	conf.SetControllerAgentInfo(newInfo)
+	gotInfo, ok = conf.ControllerAgentInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(gotInfo, tc.DeepEquals, newInfo)
 }
 
-func (*suite) TestStateServingInfoNotAvailable(c *tc.C) {
+func (*suite) TestControllerAgentInfoNotAvailable(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, available := conf.StateServingInfo()
+	_, available := conf.ControllerAgentInfo()
 	c.Assert(available, tc.IsFalse)
 }
 

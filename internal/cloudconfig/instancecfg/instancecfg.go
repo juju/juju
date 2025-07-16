@@ -222,11 +222,11 @@ type BootstrapConfig struct {
 	// trample on the host keys of manually provisioned machines.
 	InitialSSHHostKeys SSHHostKeys
 
-	// StateServingInfo holds the information for serving the state.
+	// ControllerAgentInfo holds the information for the controller agent.
 	// This is only specified for bootstrap; controllers started
 	// subsequently will acquire their serving info from another
 	// server.
-	StateServingInfo controller.StateServingInfo
+	ControllerAgentInfo controller.ControllerAgentInfo
 
 	// JujuDbSnapPath is the path to a .snap file that will be used as the juju-db
 	// service.
@@ -531,7 +531,7 @@ func (cfg *InstanceConfig) AgentConfig(
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
 	}
-	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
+	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.ControllerAgentInfo)
 }
 
 // JujuTools returns the directory where Juju tools are stored.
@@ -553,7 +553,7 @@ func (cfg *InstanceConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
 		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort)),
+			"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort)),
 		)
 	}
 	if cfg.APIInfo != nil {
@@ -755,16 +755,16 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.ControllerModelConfig == nil {
 		return errors.New("missing model configuration")
 	}
-	if len(cfg.StateServingInfo.Cert) == 0 {
+	if len(cfg.ControllerAgentInfo.Cert) == 0 {
 		return errors.New("missing controller certificate")
 	}
-	if len(cfg.StateServingInfo.PrivateKey) == 0 {
+	if len(cfg.ControllerAgentInfo.PrivateKey) == 0 {
 		return errors.New("missing controller private key")
 	}
-	if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
+	if len(cfg.ControllerAgentInfo.CAPrivateKey) == 0 {
 		return errors.New("missing ca cert private key")
 	}
-	if cfg.StateServingInfo.APIPort == 0 {
+	if cfg.ControllerAgentInfo.APIPort == 0 {
 		return errors.New("missing API port")
 	}
 	if cfg.BootstrapMachineInstanceId == "" {

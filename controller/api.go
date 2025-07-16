@@ -3,8 +3,8 @@
 
 package controller
 
-// StateServingInfo holds network/auth information needed by a controller.
-type StateServingInfo struct {
+// ControllerAgentInfo holds network/auth information needed by a controller.
+type ControllerAgentInfo struct {
 	APIPort        int
 	Cert           string
 	PrivateKey     string

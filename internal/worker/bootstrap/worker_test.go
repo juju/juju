@@ -75,7 +75,7 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.expectStateServingInfo()
+	s.expectControllerAgentInfo()
 	s.expectReloadSpaces()
 	s.expectInitialiseBakeryConfig(nil)
 	s.expectSetAPIHostPorts()
@@ -102,7 +102,7 @@ func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 	s.expectSetAPIHostPorts()
-	s.expectStateServingInfo()
+	s.expectControllerAgentInfo()
 	controllerCharmDeployerFunc := s.expectReloadSpacesWithFunc(c)
 	s.expectInitialiseBakeryConfig(nil)
 
@@ -434,8 +434,8 @@ func (s *workerSuite) expectAuthorizedKeys() {
 	s.keyManagerService.EXPECT().AddPublicKeysForUser(gomock.Any(), s.adminUserID, []string{}).Return(nil)
 }
 
-func (s *workerSuite) expectStateServingInfo() {
-	s.agentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
+func (s *workerSuite) expectControllerAgentInfo() {
+	s.agentConfig.EXPECT().ControllerAgentInfo().Return(controller.ControllerAgentInfo{
 		APIPort: 42,
 	}, true)
 }

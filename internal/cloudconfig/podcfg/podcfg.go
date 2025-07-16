@@ -114,7 +114,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		OpenTelemetryTailSamplingThreshold: cfg.Controller.OpenTelemetryTailSamplingThreshold(),
 		ObjectStoreType:                    cfg.Controller.ObjectStoreType(),
 	}
-	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
+	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.ControllerAgentInfo)
 }
 
 // UnitAgentConfig returns the agent config file for the controller unit charm.
@@ -135,7 +135,7 @@ func (cfg *ControllerPodConfig) UnitAgentConfig() (agent.ConfigSetterWriter, err
 		Password:          password,
 		// Unit agent should always connect to the local controller.
 		APIAddresses: []string{net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort),
+			"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort),
 		)},
 		CACert:     cfg.APIInfo.CACert,
 		Values:     cfg.AgentEnvironment,
@@ -155,7 +155,7 @@ func (cfg *ControllerPodConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
 		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort)),
+			"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort)),
 		)
 	}
 	if cfg.APIInfo != nil {
@@ -244,16 +244,16 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.ControllerModelConfig == nil {
 		return errors.New("missing model configuration")
 	}
-	if len(cfg.StateServingInfo.Cert) == 0 {
+	if len(cfg.ControllerAgentInfo.Cert) == 0 {
 		return errors.New("missing controller certificate")
 	}
-	if len(cfg.StateServingInfo.PrivateKey) == 0 {
+	if len(cfg.ControllerAgentInfo.PrivateKey) == 0 {
 		return errors.New("missing controller private key")
 	}
-	if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
+	if len(cfg.ControllerAgentInfo.CAPrivateKey) == 0 {
 		return errors.New("missing ca cert private key")
 	}
-	if cfg.StateServingInfo.APIPort == 0 {
+	if cfg.ControllerAgentInfo.APIPort == 0 {
 		return errors.New("missing API port")
 	}
 	return nil

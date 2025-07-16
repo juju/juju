@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -32,27 +31,6 @@ func TestBaseObjectStoreSuite(t *testing.T) {
 	tc.Run(t, &baseObjectStoreSuite{})
 }
 
-func (s *baseObjectStoreSuite) TestScopedContext(c *tc.C) {
-	w := &baseObjectStore{}
-
-	ctx, cancel := w.scopedContext()
-	c.Assert(ctx.Err(), tc.IsNil)
-
-	cancel()
-	c.Assert(ctx.Err(), tc.ErrorIs, context.Canceled)
-}
-
-func (s *baseObjectStoreSuite) TestScopedContextTomb(c *tc.C) {
-	w := &baseObjectStore{}
-
-	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), tc.IsNil)
-
-	w.catacomb.Kill(nil)
-
-	c.Assert(ctx.Err(), tc.ErrorIs, context.Canceled)
-}
-
 func (s *baseObjectStoreSuite) TestLockOnCancelledContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -63,7 +41,7 @@ func (s *baseObjectStoreSuite) TestLockOnCancelledContext(c *tc.C) {
 		claimer: s.claimer,
 	}
 
-	ctx, cancel := w.scopedContext()
+	ctx, cancel := context.WithCancel(c.Context())
 	c.Assert(ctx.Err(), tc.ErrorIsNil)
 
 	cancel()
@@ -92,11 +70,8 @@ func (s *baseObjectStoreSuite) TestLocking(c *tc.C) {
 		clock:   s.clock,
 	}
 
-	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), tc.ErrorIsNil)
-
 	var called bool
-	err := w.withLock(ctx, "hash", func(ctx context.Context) error {
+	err := w.withLock(c.Context(), "hash", func(ctx context.Context) error {
 		called = true
 		return nil
 	})
@@ -117,22 +92,19 @@ func (s *baseObjectStoreSuite) TestLockingForBlockedFunc(c *tc.C) {
 	s.expectClaimRelease("hash")
 	s.expectClockAfter(wait)
 	s.expectExtendDuration(time.Second)
-	s.expectClockAfter(make(chan time.Time))
+	s.maybeExpectClockAfter(make(chan time.Time))
 
 	w := &baseObjectStore{
 		claimer: s.claimer,
 		clock:   s.clock,
 	}
 
-	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), tc.ErrorIsNil)
-
 	s.claimExtender.EXPECT().Extend(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
 		close(block)
 		return nil
 	})
 
-	err := w.withLock(ctx, "hash", func(ctx context.Context) error {
+	err := w.withLock(c.Context(), "hash", func(ctx context.Context) error {
 		close(wait)
 
 		select {
@@ -165,11 +137,8 @@ func (s *baseObjectStoreSuite) TestBlockedLock(c *tc.C) {
 		clock:   clock.WallClock,
 	}
 
-	ctx, _ := w.scopedContext()
-	c.Assert(ctx.Err(), tc.ErrorIsNil)
-
 	var called bool
-	err := w.withLock(ctx, "hash", func(ctx context.Context) error {
+	err := w.withLock(c.Context(), "hash", func(ctx context.Context) error {
 		time.Sleep(time.Second)
 		called = true
 		return nil
@@ -183,7 +152,7 @@ func (s *baseObjectStoreSuite) TestBlockedLock(c *tc.C) {
 	c.Check(attempts > 5, tc.IsTrue)
 }
 
-func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
+func (s *baseObjectStoreSuite) TestLockingForCancel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Expect the claimer to be called and then released when the lock is
@@ -202,22 +171,24 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *tc.C) {
 
 	wait := make(chan struct{})
 
+	ctx, cancel := context.WithCancel(c.Context())
+
 	go func() {
 		select {
 		case <-block:
-			w.Kill()
+			cancel()
 			close(wait)
 		case <-time.After(testhelpers.LongWait):
 			c.Fatal("timed out waiting for block")
 		}
 	}()
 
-	err := w.withLock(c.Context(), "hash", func(ctx context.Context) error {
+	err := w.withLock(ctx, "hash", func(ctx context.Context) error {
 		close(block)
 		time.Sleep(time.Millisecond * 100)
-		return nil
+		return ctx.Err()
 	})
-	c.Assert(err, tc.ErrorIs, tomb.ErrDying)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	select {
 	case <-wait:

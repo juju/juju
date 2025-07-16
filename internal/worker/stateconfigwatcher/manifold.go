@@ -74,7 +74,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	}
 	switch outPointer := out.(type) {
 	case *bool:
-		*outPointer = inWorker.isStateServer()
+		*outPointer = inWorker.isControllerAgent()
 	default:
 		return errors.Errorf("out should be *bool; got %T", out)
 	}
@@ -87,9 +87,9 @@ type stateConfigWatcher struct {
 	agentConfigChanged *voyeur.Value
 }
 
-func (w *stateConfigWatcher) isStateServer() bool {
+func (w *stateConfigWatcher) isControllerAgent() bool {
 	config := w.agent.CurrentConfig()
-	_, ok := config.StateServingInfo()
+	_, ok := config.ControllerAgentInfo()
 	return ok
 }
 
@@ -100,7 +100,7 @@ func (w *stateConfigWatcher) loop() error {
 	watch := w.agentConfigChanged.Watch()
 	defer watch.Close()
 
-	lastValue := w.isStateServer()
+	lastValue := w.isControllerAgent()
 
 	watchCh := make(chan bool)
 	go func() {
@@ -128,11 +128,11 @@ func (w *stateConfigWatcher) loop() error {
 			if !ok {
 				return errors.New("config changed value closed")
 			}
-			if w.isStateServer() != lastValue {
-				// State serving info has been set or unset so restart
-				// so that dependents get notified. ErrBounce ensures
-				// that the manifold is restarted quickly.
-				logger.Debugf(ctx, "state serving info change in agent config")
+			if w.isControllerAgent() != lastValue {
+				// Controller agent info has been set or unset so restart so
+				// that dependents get notified. ErrBounce ensures that the
+				// manifold is restarted quickly.
+				logger.Debugf(ctx, "controller agent info change in agent config")
 				return dependency.ErrBounce
 			}
 		}

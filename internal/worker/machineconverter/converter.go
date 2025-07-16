@@ -37,7 +37,7 @@ type Machine interface {
 // agent api.
 type AgentClient interface {
 	// StateServingInfo returns the state serving info for the agent.
-	StateServingInfo(ctx context.Context) (controller.StateServingInfo, error)
+	StateServingInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
 }
 
 // Config holds the configuration for the converter NotifyWatchHandler.
@@ -128,12 +128,12 @@ func (c *converter) Handle(ctx context.Context) error {
 	}
 
 	err = c.agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
-		_, hasInfo := config.StateServingInfo()
+		_, hasInfo := config.ControllerAgentInfo()
 		if hasInfo {
 			return nil
 		}
 
-		config.SetStateServingInfo(info)
+		config.SetControllerAgentInfo(info)
 		return nil
 	})
 	if err != nil {

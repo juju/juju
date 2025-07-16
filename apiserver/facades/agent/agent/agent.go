@@ -51,6 +51,7 @@ type AgentPasswordService interface {
 
 // ControllerConfigService is the interface that gets ControllerConfig form DB.
 type ControllerConfigService interface {
+	// ControllerConfig returns the current controller config.
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
@@ -149,6 +150,13 @@ type ModelConfigService interface {
 	Watch() (watcher.StringsWatcher, error)
 }
 
+// ControllerService defines the methods that the controller facade
+// needs from the controller state.
+type ControllerService interface {
+	// GetControllerAgentInfo returns the state serving info for the controller.
+	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
+}
+
 // AgentAPI implements the version 3 of the API provided to an agent.
 type AgentAPI struct {
 	*common.PasswordChanger
@@ -157,6 +165,7 @@ type AgentAPI struct {
 	*common.ControllerConfigAPI
 
 	credentialService       CredentialService
+	controllerService       ControllerService
 	controllerConfigService ControllerConfigService
 	applicationService      ApplicationService
 	machineService          MachineService
@@ -171,6 +180,7 @@ func NewAgentAPI(
 	resources facade.Resources,
 	st *state.State,
 	agentPasswordService AgentPasswordService,
+	controllerService ControllerService,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
 	externalControllerService ExternalControllerService,
@@ -194,6 +204,7 @@ func NewAgentAPI(
 			externalControllerService,
 			modelService,
 		),
+		controllerService:       controllerService,
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
 		machineService:          machineService,
@@ -303,12 +314,13 @@ func (api *AgentAPI) getOneEntity(ctx context.Context, tag names.Tag) params.Age
 	}
 }
 
+// StateServingInfo returns the state serving info for the controller.
 func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateServingInfo, err error) {
 	if !api.auth.AuthController() {
 		err = apiservererrors.ErrPerm
 		return
 	}
-	info, err := api.st.StateServingInfo()
+	info, err := api.controllerService.GetControllerAgentInfo(ctx)
 	if err != nil {
 		return params.StateServingInfo{}, errors.Trace(err)
 	}
@@ -324,8 +336,8 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 	return result, nil
 }
 
-// IsMaster is unused and should be removed
-// with the next version of this facade.
+// IsMaster is unused and should be removed with the next version of this
+// facade.
 func (api *AgentAPI) IsMaster(_ context.Context) (params.IsMasterResult, error) {
 	if !api.auth.AuthController() {
 		return params.IsMasterResult{}, apiservererrors.ErrPerm
