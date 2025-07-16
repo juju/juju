@@ -35,7 +35,7 @@ func (s *migrationStateSuite) SetUpTest(c *tc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-func (s *migrationStateSuite) TestCreateMachine(c *tc.C) {
+func (s *migrationStateSuite) TestGetMachinesForExport(c *tc.C) {
 	s.addMachine(c)
 
 	machines, err := s.state.GetMachinesForExport(c.Context())
@@ -43,14 +43,14 @@ func (s *migrationStateSuite) TestCreateMachine(c *tc.C) {
 	c.Check(machines, tc.HasLen, 0)
 }
 
-func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNonce(c *tc.C) {
+func (s *migrationStateSuite) TestGetMachinesForExportAfterProvisionedNonce(c *tc.C) {
 	machineUUID, machineName := s.addMachine(c)
 
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), "foo", "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(c context.Context, tx *sql.Tx) error {
-		tx.ExecContext(c, `UPDATE machine SET password_hash = 'ssssh!' WHERE uuid = 'deadbeef'`)
+		tx.ExecContext(c, `UPDATE machine SET password_hash = 'ssssh!'`)
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -60,14 +60,18 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNonce(c *tc.C) {
 	c.Check(machines, tc.HasLen, 1)
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
-			Name:  machineName,
-			UUID:  machineUUID,
-			Nonce: "nonce",
+			Name:         machineName,
+			UUID:         machineUUID,
+			Nonce:        "nonce",
+			PasswordHash: "ssssh!",
+			Placement:    "place it here",
+			Base:         "ubuntu@24.04/stable",
+			InstanceID:   "foo",
 		},
 	})
 }
 
-func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) {
+func (s *migrationStateSuite) TestGetMachinesForExportAfterProvisionedNoNonce(c *tc.C) {
 	machineUUID, machineName := s.addMachine(c)
 
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), "foo", "", "", nil)
@@ -78,9 +82,12 @@ func (s *migrationStateSuite) TestCreateMachineAfterProvisionedNoNonce(c *tc.C) 
 	c.Check(machines, tc.HasLen, 1)
 	c.Check(machines, tc.DeepEquals, []machine.ExportMachine{
 		{
-			Name:  machineName,
-			UUID:  machineUUID,
-			Nonce: "",
+			Name:       machineName,
+			UUID:       machineUUID,
+			Nonce:      "",
+			Placement:  "place it here",
+			Base:       "ubuntu@24.04/stable",
+			InstanceID: "foo",
 		},
 	})
 }
@@ -99,6 +106,10 @@ func (s *migrationStateSuite) addMachine(c *tc.C) (coremachine.UUID, coremachine
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeProvider,
+			Directive: "place it here",
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
