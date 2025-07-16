@@ -35,6 +35,8 @@ CREATE TABLE charm (
     -- These values are not intended to be used for any other purpose, they
     -- should not be used as a way to "derive" the charm origin. That concept
     -- is for applications.
+    -- Note: revision is used to create lxd profile names, if removed, the
+    -- unique profile naming must be resolved.
 
     source_id INT NOT NULL DEFAULT 1,
     revision INT NOT NULL DEFAULT -1,
