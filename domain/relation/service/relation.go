@@ -251,7 +251,7 @@ type State interface {
 	//
 	// The following error types can be expected to be returned:
 	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
-	IsPeerRelation(ctx context.Context, relationUUID corerelation.UUID) (bool, error)
+	IsPeerRelation(ctx context.Context, relationUUID string) (bool, error)
 
 	// LeaveScope updates the given relation to indicate it is not in scope.
 	//
@@ -304,7 +304,9 @@ type State interface {
 
 	// InitialWatchRelatedUnits initializes a watch for changes related to the
 	// specified unit in the given relation.
-	InitialWatchRelatedUnits(name unit.Name, uuid corerelation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper)
+	InitialWatchRelatedUnits(
+		ctx context.Context, unitUUID, relUUID string,
+	) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error)
 }
 
 // LeadershipService provides the API for working with the statuses of applications
@@ -811,7 +813,7 @@ func (s *Service) GetRelationUUIDForRemoval(
 	if err != nil {
 		return relUUID, errors.Errorf("finding relation uuid for id %d: %w", args.RelationID, err)
 	}
-	isPeer, err := s.st.IsPeerRelation(ctx, relUUID)
+	isPeer, err := s.st.IsPeerRelation(ctx, relUUID.String())
 	if err != nil {
 		return relUUID, errors.Errorf("checking if peer relation %q: %w", relUUID, err)
 	}

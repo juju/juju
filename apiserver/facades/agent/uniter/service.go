@@ -536,7 +536,7 @@ type RelationService interface {
 	// the relation.
 	WatchRelatedUnits(
 		ctx context.Context,
-		unitName coreunit.Name,
+		unitUUID coreunit.UUID,
 		relationUUID corerelation.UUID,
 	) (watcher.StringsWatcher, error)
 }

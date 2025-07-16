@@ -10,240 +10,244 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	corerelation "github.com/juju/juju/core/relation"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/errors"
 )
 
-// InitialWatchRelatedUnits returns namepsaces, initial query and mappers to watch
-// related units.
-func (st *State) InitialWatchRelatedUnits(unitName coreunit.Name, relationUUID corerelation.UUID) ([]string,
-	eventsource.NamespaceQuery, eventsource.Mapper) {
+// InitialWatchRelatedUnits returns namespaces, initial query and mappers to
+// watch related units.
+func (st *State) InitialWatchRelatedUnits(
+	ctx context.Context, unitUUID string, relationUUID string,
+) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error) {
+	const (
+		relationUnitNamespace               = "relation_unit"
+		relationApplicationSettingNamespace = "relation_application_settings_hash"
+		relationUnitSettingNamespace        = "relation_unit_settings_hash"
+	)
 
-	relationUnitNamespace := "relation_unit"
-	relationApplicationSettingNamespace := "relation_application_settings_hash"
-	relationUnitSettingNamespace := "relation_unit_settings_hash"
+	// Get a map of application UUIDs by relation endpoint UUID.
+	// This is used to determine which application UUID to emit for application
+	// settings changes.
+	// We can use the number of endpoints as a proxy for whether this is a peer
+	// relation; peer relations have only one.
+	// For peer relations, we watch the app settings for the input unit's side
+	// of the relation. Otherwise, it's the other side.
+	// These values never change over the lifetime of the relation,
+	// so we can let these be closed over by the functions below.
+	appByEndpoint, err := st.getRelationAppEndpoints(ctx, relationUUID)
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("getting endpoints for relation %q: %w", relationUUID, err)
+	}
+	isPeer := len(appByEndpoint) == 1
 
 	return []string{relationApplicationSettingNamespace, relationUnitSettingNamespace, relationUnitNamespace},
 		// Initial query.
-		func(ctx context.Context,
-			_ database.TxnRunner) ([]string, error) {
-			db, err := st.DB()
+		func(ctx context.Context, _ database.TxnRunner) ([]string, error) {
+			units, err := st.getUnitsInRelation(ctx, relationUUID)
 			if err != nil {
-				return nil, errors.Capture(err)
+				return nil, errors.Errorf("fetching units for relation %q: %w", relationUUID, err)
 			}
-			var units []getRelatedUnit
-			err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-				// Initial Query: return all related unit UUID
-				units, err = st.getRelatedUnits(ctx, tx, unitName, relationUUID)
-				if err != nil {
-					return errors.Errorf("fetching units related to %q, through relation %s: %w", unitName, relationUUID, err)
+
+			// Exclude the input unit from the list of related units.
+			otherUnits := make([]string, 0, len(units)-1)
+			for _, u := range units {
+				if u.UnitUUID != unitUUID {
+					otherUnits = append(otherUnits, relation.EncodeUnitUUID(u.UnitUUID))
 				}
-				return nil
-			})
-			return transform.Slice(units, func(u getRelatedUnit) string {
-					return relation.EncodeUnitUUID(u.UUID)
-				}),
-				errors.Capture(err)
+			}
+			return otherUnits, nil
 		},
 		// Mapper.
 		func(ctx context.Context, events []changestream.ChangeEvent) ([]string, error) {
-			db, err := st.DB()
+			unitsInRelation, err := st.getUnitsInRelation(ctx, relationUUID)
 			if err != nil {
-				return nil, errors.Capture(err)
+				return nil, errors.Errorf("fetching units for relation %q: %w", relationUUID, err)
+			}
+
+			// Populate data structures for convenient lookups.
+			// Exclude the input unit from the list of related units.
+			// Determine the endpoint to watch for application settings changes.
+			var endpointForAppSettingsChange string
+			unitByRelationUnit := make(map[string]string)
+			relatedUnits := set.NewStrings()
+			for _, u := range unitsInRelation {
+				if u.UnitUUID == unitUUID {
+					if isPeer {
+						endpointForAppSettingsChange = u.RelationEndpointUUID
+					}
+					continue
+				}
+
+				if endpointForAppSettingsChange == "" {
+					endpointForAppSettingsChange = u.RelationEndpointUUID
+				}
+
+				if u.RelationUnitUUID != "" {
+					unitByRelationUnit[u.RelationUnitUUID] = u.UnitUUID
+				}
+
+				relatedUnits.Add(u.UnitUUID)
 			}
 
 			var out []string
-			err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-				var relatedUnits set.Strings
-				var unitByRelationUnit map[string]string
-
-				// Helper to fetch related units once, to avoid multiple query if
-				// there is several events coming from the one of the unit
-				// namespaces.
-				fetchRelatedUnits := func() error {
-					if unitByRelationUnit == nil {
-						fetchedRelatedUnits, err := st.getRelatedUnits(ctx, tx, unitName, relationUUID)
-						if err != nil {
-							return errors.Capture(err)
-						}
-						unitByRelationUnit = make(map[string]string, len(fetchedRelatedUnits))
-						relatedUnits = set.NewStrings()
-						for _, u := range fetchedRelatedUnits {
-							relatedUnits.Add(u.UUID.String())
-							unitByRelationUnit[u.RelationUnitUUID.String()] = u.UUID.String()
-						}
-					}
-					return nil
-				}
-				// This is a pointer to allows lazy loading, we fetch it only
-				// if needed (event from application setting namespace), and only
-				// once.
-				var relatedEndpoint *relationEndpoint
-				for _, event := range events {
-					switch event.Namespace() {
-					case relationUnitNamespace: // Changes from relation_unit
-						// Fetch related unit if not already fetched.
-						if err := fetchRelatedUnits(); err != nil {
-							return errors.Errorf("fetching related unit for %q, through relation %s: %w", unitName, relationUUID, err)
-						}
-
-						// Discard event that are not from related units.
-						if !relatedUnits.Contains(event.Changed()) {
-							continue
-						}
-						event = newUnitUUIDEvent(event, coreunit.UUID(event.Changed()))
-					case relationUnitSettingNamespace:
-						// Fetch related unit if not already fetched.
-						if err := fetchRelatedUnits(); err != nil {
-							return errors.Errorf("fetching related unit for %q, through relation %s: %w", unitName, relationUUID, err)
-						}
-
-						// Discard event that are not from related units.
-						unitUUID, ok := unitByRelationUnit[event.Changed()]
-						if !ok {
-							continue
-						}
-						event = newUnitUUIDEvent(event, coreunit.UUID(unitUUID))
-					case relationApplicationSettingNamespace:
-						if relatedEndpoint == nil {
-							endpoint, err := st.getRelatedRelationEndpointForUnit(ctx, tx, unitName, relationUUID)
-							if err != nil {
-								return errors.Errorf("filtering event %q from namespace %q: %w", event.Changed(), event.Namespace(), err)
-							}
-							relatedEndpoint = &endpoint
-						}
-						// Discard event that are not from the expected endpoint
-						if event.Changed() != relatedEndpoint.UUID.String() {
-							continue
-						}
-						event = newApplicationUUIDEvent(event, relatedEndpoint.ApplicationUUID)
-					default:
-						st.logger.Warningf(ctx, "watching related unit: unexpected namespace %q", event.Namespace())
+			for _, event := range events {
+				switch event.Namespace() {
+				case relationUnitNamespace:
+					// Discard events that are not from related units.
+					if !relatedUnits.Contains(event.Changed()) {
 						continue
 					}
-					out = append(out, event.Changed())
+					event = newUnitUUIDEvent(event, event.Changed())
+				case relationUnitSettingNamespace:
+					// Discard events that are not from related units.
+					unitUUID, ok := unitByRelationUnit[event.Changed()]
+					if !ok {
+						continue
+					}
+					event = newUnitUUIDEvent(event, unitUUID)
+				case relationApplicationSettingNamespace:
+					// Discard events that are not from the expected endpoint.
+					if event.Changed() != endpointForAppSettingsChange {
+						continue
+					}
+					appUUID, ok := appByEndpoint[endpointForAppSettingsChange]
+					if !ok {
+						// This should be impossible.
+						return nil, errors.Errorf("no application UUID found for endpoint %q in relation %q",
+							endpointForAppSettingsChange, relationUUID)
+					}
+					event = newApplicationUUIDEvent(event, appUUID)
+				default:
+					st.logger.Warningf(ctx, "watching related unit: unexpected namespace %q", event.Namespace())
+					continue
 				}
-				return nil
-			})
+				out = append(out, event.Changed())
+			}
+
 			return out, errors.Capture(err)
-		}
+		},
+		// Error
+		nil
 }
 
-// maskedEvent is a struct that wraps a changestream.ChangeEvent and applies
-// a custom UUID encoding function.
+// maskedEvent is a struct that wraps a change
+// value and a custom UUID encoding function.
 type maskedEvent struct {
 	changestream.ChangeEvent
+
+	change     string
 	encodeUUID func(string) string
 }
 
-// Changed implements wraps changestream.ChangeEvent. It wraps the masked change
-// event with a specific encoding function, to keep the uuid type.
+// Changed returns the change value with encoding applied.
 func (e maskedEvent) Changed() string {
-	return e.encodeUUID(e.ChangeEvent.Changed())
+	return e.encodeUUID(e.change)
 }
 
 // newApplicationUUIDEvent creates a maskedEvent for application UUIDs,
 // encoding the UUID with a custom function.
-func newApplicationUUIDEvent(event changestream.ChangeEvent, uuid coreapplication.ID) maskedEvent {
+func newApplicationUUIDEvent(event changestream.ChangeEvent, change string) maskedEvent {
 	return maskedEvent{
 		ChangeEvent: event,
-		encodeUUID: func(s string) string {
-			return relation.EncodeApplicationUUID(uuid)
-		},
+		change:      change,
+		encodeUUID:  relation.EncodeApplicationUUID,
 	}
 }
 
 // newApplicationUUIDEvent creates a maskedEvent for unit UUIDs,
 // encoding the UUID with a custom function.
-func newUnitUUIDEvent(event changestream.ChangeEvent, uuid coreunit.UUID) maskedEvent {
+func newUnitUUIDEvent(event changestream.ChangeEvent, change string) maskedEvent {
 	return maskedEvent{
 		ChangeEvent: event,
-		encodeUUID: func(s string) string {
-			return relation.EncodeUnitUUID(uuid)
-		},
+		change:      change,
+		encodeUUID:  relation.EncodeUnitUUID,
 	}
 }
 
-// getRelatedRelationEndpointForUnit fetches the related EndpointUUID linked to
-// a given unit and relation UUID. If there is no such endpoint, return an empty
-// string.
-func (st *State) getRelatedRelationEndpointForUnit(
-	ctx context.Context, tx *sqlair.TX,
-	name coreunit.Name,
-	relationUUID corerelation.UUID,
-) (relationEndpoint, error) {
-	stmt, err := st.Prepare(`
-SELECT 
-    re.uuid AS &relationEndpoint.uuid,
-    ae.application_uuid AS &relationEndpoint.application_uuid
-FROM relation_endpoint AS re
-JOIN application_endpoint AS ae ON  re.endpoint_uuid = ae.uuid
-LEFT JOIN unit AS u ON ae.application_uuid = u.application_uuid AND u.name = $getRelationUnit.name
-WHERE re.relation_uuid = $getRelationUnit.relation_uuid
-`, relationEndpoint{}, getRelationUnit{})
+// getUnitsInRelation fetches all units for applications participating in
+// the input relation, whether or not they have entered scope.
+// Units that are in scope will have a populated RelationUnitUUID.
+// The RelationEndpointUUID can be used to tell what side of the relation
+// the returned units are on.
+func (st *State) getUnitsInRelation(ctx context.Context, relUUID string) ([]relationUnit, error) {
+	db, err := st.DB()
 	if err != nil {
-		return relationEndpoint{}, errors.Capture(err)
-	}
-	var endpoint relationEndpoint
-	err = tx.Query(ctx, stmt, getRelationUnit{
-		RelationUUID: relationUUID,
-		Name:         name,
-	}).Get(&endpoint)
-	// if there is no row, we may be in a peer relation. Returning an empty
-	// string in this case will be ok, it will be discarded in the caller anyway
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return relationEndpoint{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	return endpoint, nil
+	relUnit := relationUnit{RelationUUID: relUUID}
+
+	q := `
+SELECT u.uuid as &relationUnit.unit_uuid,
+	   re.uuid as &relationUnit.relation_endpoint_uuid,
+       IFNULL(ru.uuid, '') as &relationUnit.uuid
+FROM   relation_endpoint re
+       JOIN application_endpoint ae ON re.endpoint_uuid = ae.uuid
+       JOIN unit u ON ae.application_uuid = u.application_uuid
+       LEFT JOIN relation_unit ru ON u.uuid = ru.unit_uuid
+                                  AND re.uuid = ru.relation_endpoint_uuid
+WHERE  re.relation_uuid = $relationUnit.relation_uuid
+-- This aids the domain-level integration tests.
+ORDER BY u.uuid`
+
+	stmt, err := st.Prepare(q, relUnit)
+	if err != nil {
+		return nil, errors.Errorf("preparing units in relation query: %w", err)
+	}
+
+	var units []relationUnit
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, relUnit).GetAll(&units)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("running units in relation query: %w", err)
+		}
+		return nil
+	})
+
+	st.logger.Tracef(ctx, "units in relation: %#v", units)
+
+	return units, errors.Capture(err)
 }
 
-// getRelatedUnits fetches the list of unit UUIDs related to a given unit name
-// through a specific relation UUID, including units from the same application.
-// Returns a slice of related unit UUIDs or an error in case of failure.
-// It returns all potential units, event those not in the relation scope.
-// However, if the relation is in scope, it also return the relation_unit uuid
-func (st *State) getRelatedUnits(
-	ctx context.Context, tx *sqlair.TX,
-	name coreunit.Name,
-	uuid corerelation.UUID,
-) ([]getRelatedUnit, error) {
-	type relation struct {
-		UUID corerelation.UUID `db:"uuid"`
-	}
-
-	unitName := getRelatedUnit{Name: name}
-	relationUUID := relation{UUID: uuid}
-
-	stmt, err := st.Prepare(`
-SELECT 
-	u.name AS &getRelatedUnit.name,
-	u.uuid AS &getRelatedUnit.uuid,
-	ru.uuid AS &getRelatedUnit.relation_unit_uuid
-FROM   unit AS u
-JOIN   application_endpoint AS ae ON u.application_uuid = ae.application_uuid
-JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
-LEFT JOIN relation_unit AS ru ON u.uuid = ru.unit_uuid 
-    						  AND re.uuid = ru.relation_endpoint_uuid
-WHERE  u.name != $getRelatedUnit.name
-AND    re.relation_uuid = $relation.uuid
--- initial query test are flaky when there is several returns. Ordering allows to avoid it.
-ORDER BY u.uuid
-`, unitName, relationUUID)
+func (st *State) getRelationAppEndpoints(ctx context.Context, relationUUID string) (map[string]string, error) {
+	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	var units []getRelatedUnit
-	err = tx.Query(ctx, stmt, unitName, relationUUID).GetAll(&units)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+
+	rUUID := entityUUID{UUID: relationUUID}
+
+	type appEndpoint struct {
+		RelEndpointUUID string `db:"uuid"`
+		ApplicationUUID string `db:"application_uuid"`
+	}
+
+	q := `
+SELECT (re.uuid, ae.application_uuid) AS (&appEndpoint.*)
+FROM   relation_endpoint re JOIN application_endpoint ae ON re.endpoint_uuid = ae.uuid
+WHERE  re.relation_uuid = $entityUUID.uuid`
+
+	stmt, err := st.Prepare(q, appEndpoint{}, rUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing endpoints query: %w", err)
+	}
+
+	var endpoints []appEndpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, rUUID).GetAll(&endpoints)
+		if err != nil {
+			return errors.Errorf("running endpoints query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return units, nil
+	return transform.SliceToMap(endpoints, func(e appEndpoint) (string, string) {
+		return e.RelEndpointUUID, e.ApplicationUUID
+	}), nil
 }

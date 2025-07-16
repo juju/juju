@@ -1949,7 +1949,14 @@ func (u *UniterAPI) WatchRelationUnits(ctx context.Context, args params.Relation
 	}
 	for i, arg := range args.RelationUnits {
 		result.Results[i], err = u.watchOneRelationUnit(ctx, canAccess, arg)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		if errors.Is(err, relationerrors.RelationNotFound) || errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = &params.Error{
+				Code:    params.CodeNotFound,
+				Message: err.Error(),
+			}
+		} else {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return result, nil
 }
@@ -1959,25 +1966,29 @@ func (u *UniterAPI) watchOneRelationUnit(
 	canAccess common.AuthFunc,
 	arg params.RelationUnit,
 ) (params.RelationUnitsWatchResult, error) {
-	unit, err := names.ParseUnitTag(arg.Unit)
+	unitTag, err := names.ParseUnitTag(arg.Unit)
 	if err != nil {
 		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
 	}
-	if !canAccess(unit) {
+	if !canAccess(unitTag) {
 		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
 	}
+
 	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
-		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
+		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
 	}
 	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relKey)
-	if internalerrors.Is(err, relationerrors.RelationNotFound) {
-		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
-	} else if err != nil {
+	if err != nil {
 		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
 	}
 
-	watch, err := newRelationUnitsWatcher(unit, relUUID, u.relationService)
+	unitUUID, err := u.applicationService.GetUnitUUID(ctx, coreunit.Name(unitTag.Id()))
+	if err != nil {
+		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
+	}
+
+	watch, err := newRelationUnitsWatcher(unitUUID, relUUID, u.relationService)
 	if err != nil {
 		return params.RelationUnitsWatchResult{},
 			internalerrors.Capture(internalerrors.Errorf("starting related units watcher: %w", err))

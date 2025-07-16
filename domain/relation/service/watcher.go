@@ -414,20 +414,24 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 // the relation.
 func (s *WatchableService) WatchRelatedUnits(
 	ctx context.Context,
-	unitName unit.Name,
+	unitUUID unit.UUID,
 	relationUUID corerelation.UUID,
 ) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := unitName.Validate(); err != nil {
+	if err := unitUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
 	if err := relationUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
-	namespaces, initialQuery, mapper := s.st.InitialWatchRelatedUnits(unitName,
-		relationUUID)
+
+	namespaces, initialQuery, mapper, err := s.st.InitialWatchRelatedUnits(ctx, unitUUID.String(), relationUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	if len(namespaces) < 1 {
 		// This is an error while updating underlying function. It shouldn't happen.
 		return nil, errors.New("no namespaces found")
@@ -435,8 +439,5 @@ func (s *WatchableService) WatchRelatedUnits(
 	filters := transform.Slice(namespaces, func(ns string) eventsource.FilterOption {
 		return eventsource.NamespaceFilter(ns, changestream.All)
 	})
-	return s.watcherFactory.NewNamespaceMapperWatcher(initialQuery,
-		mapper,
-		filters[0],
-		filters[1:]...)
+	return s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filters[0], filters[1:]...)
 }

@@ -1055,7 +1055,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalID(c *tc.C) {
 		RelationID: 42,
 	}
 	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), args.RelationID).Return(expectedRelUUID, nil)
-	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID).Return(false, nil)
+	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID.String()).Return(false, nil)
 
 	// Act
 	obtainedRelUUID, err := s.service.GetRelationUUIDForRemoval(c.Context(), args)
@@ -1090,7 +1090,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeer(c *tc.C) {
 		RelationID: 42,
 	}
 	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), args.RelationID).Return(expectedRelUUID, nil)
-	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID).Return(true, nil)
+	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID.String()).Return(true, nil)
 
 	// Act
 	_, err := s.service.GetRelationUUIDForRemoval(c.Context(), args)
@@ -1108,7 +1108,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *tc.C
 		RelationID: 42,
 	}
 	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), args.RelationID).Return(expectedRelUUID, nil)
-	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID).Return(false, relationerrors.RelationNotFound)
+	s.state.EXPECT().IsPeerRelation(gomock.Any(), expectedRelUUID.String()).Return(false, relationerrors.RelationNotFound)
 
 	// Act
 	_, err := s.service.GetRelationUUIDForRemoval(c.Context(), args)

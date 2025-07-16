@@ -8,9 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-
-	coreapplication "github.com/juju/juju/core/application"
-	coreunit "github.com/juju/juju/core/unit"
 )
 
 const (
@@ -34,14 +31,14 @@ const (
 // EncodeApplicationUUID encodes an application UUID with a marker which specify
 // the fact that it is an application uuid. It helps to ship multiple uuid kind
 // through watchers and interprets them.
-func EncodeApplicationUUID(uuid coreapplication.ID) string {
+func EncodeApplicationUUID(uuid string) string {
 	return fmt.Sprintf("%s%s%s", ApplicationUUID, separator, uuid)
 }
 
 // EncodeUnitUUID encodes a unit UUID with a marker which specify
 // the fact that it is a unit uuid. It helps to ship multiple uuid kind
 // through watchers and interprets them.
-func EncodeUnitUUID(uuid coreunit.UUID) string {
+func EncodeUnitUUID(uuid string) string {
 	return fmt.Sprintf("%s%s%s", UnitUUID, separator, uuid)
 }
 

@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/application"
+	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
@@ -26,39 +26,43 @@ import (
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
-type watcherrelationunitSuite struct {
+type watcherRelationUnitSuite struct {
 	testhelpers.IsolationSuite
 
-	relationService *MockRelationService
-	watcherRegistry *MockWatcherRegistry
+	applicationService *MockApplicationService
+	relationService    *MockRelationService
+	watcherRegistry    *MockWatcherRegistry
 
 	uniter *UniterAPI
 }
 
-func TestWatcherrelationunitSuite(t *testing.T) {
-	tc.Run(t, &watcherrelationunitSuite{})
+func TestWatcherRelationUnitSuite(t *testing.T) {
+	tc.Run(t, &watcherRelationUnitSuite{})
 }
-func (s *watcherrelationunitSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *watcherRelationUnitSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.applicationService = NewMockApplicationService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	s.uniter = &UniterAPI{
-		relationService: s.relationService,
-		watcherRegistry: s.watcherRegistry,
+		applicationService: s.applicationService,
+		relationService:    s.relationService,
+		watcherRegistry:    s.watcherRegistry,
 	}
 
 	return ctrl
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongUnitTag(c *tc.C) {
+func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitWrongUnitTag(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -76,7 +80,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongUnitTag(c *tc.C)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitCannotAccess(c *tc.C) {
+func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitCannotAccess(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -94,7 +98,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitCannotAccess(c *tc.C)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongRelationKey(c *tc.C) {
+func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitWrongRelationKey(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "##error##"
@@ -109,10 +113,10 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitWrongRelationKey(c *t
 	})
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorMatches, ".* is not a valid tag")
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyNotFound(c *tc.C) {
+func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitKeyNotFound(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -130,10 +134,10 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyNotFound(c *tc.C) 
 	})
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyDomainError(c *tc.C) {
+func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitKeyDomainError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -155,9 +159,34 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnitKeyDomainError(c *tc.
 	c.Assert(err, tc.ErrorIs, domainError)
 }
 
-// TestWatchOneRelationUnit tests the watchOneRelationUnit facade method. It
-// tests that the initial event of the watcher is consumed correctly.
-func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
+func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitUUIDNotFound(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	relationKey := "relation-app1.ep1#app2.ep2"
+	unitTag := "unit-app1-0"
+
+	s.relationService.EXPECT().GetRelationUUIDByKey(
+		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return(
+		corerelationtesting.GenRelationUUID(c), nil)
+
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unit.Name("app1/0")).Return(
+		"", applicationerrors.UnitNotFound)
+
+	// Act
+	_, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
+		return true
+	}, params.RelationUnit{
+		Relation: relationKey,
+		Unit:     unitTag,
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestWatchOneRelationUnit tests the watchOneRelationUnit facade method.
+// It tests that the initial event of the watcher is consumed correctly.
+func (s *watcherRelationUnitSuite) TestWatchOneRelationUnit(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
@@ -166,8 +195,9 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
 	s.relationService.EXPECT().GetRelationUUIDByKey(
 		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return(relationUUID, nil)
 
+	watchedUUID := coreunittesting.GenUnitUUID(c)
 	unitUUIDByName := map[unit.Name]unit.UUID{
-		"app1/0": coreunittesting.GenUnitUUID(c),
+		"app1/0": watchedUUID,
 		"app2/0": coreunittesting.GenUnitUUID(c),
 	}
 	unitUUIDs := slices.Collect(maps.Values(unitUUIDByName))
@@ -175,7 +205,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
 
 	// Generate fake but consistent events from apiserver watcher
 	// Initial event: all unit uuids
-	initialEvent := transform.Slice(unitUUIDs, domainrelation.EncodeUnitUUID)
+	initialEvent := transform.Slice(unitUUIDs, encodeUnitFromUUID)
 
 	// Initial change: all units.
 	initialChange := domainrelation.RelationUnitsChange{
@@ -184,6 +214,8 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
 		}),
 	}
 	s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDs, nil).Return(initialChange, nil)
+
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unit.Name("app1/0")).Return(watchedUUID, nil)
 
 	// Generate watcher id that will be returned by the watcher registry.
 	watcherID := "watcher-id"
@@ -195,28 +227,28 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
 		return watcherID, nil
 	})
 
-	// The notStartedSafeGuard stops the event producer go-routine leaking if the watcher never
-	// starts.
+	// The notStartedSafeGuard stops the event producer go-routine leaking if
+	// the watcher never starts.
 	notStartedSafeGuard := make(chan struct{})
 	defer func() {
 		close(notStartedSafeGuard)
 	}()
-	s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), unit.Name("app1/0"),
-		relationUUID).DoAndReturn(func(context.Context, unit.Name, relation.UUID) (watcher.StringsWatcher, error) {
-		// Start the event producer, simulating the underlying domain watcher.
-		ch := make(chan []string)
-		w := watchertest.NewMockStringsWatcher(ch)
-		go func() {
-			select {
-			case <-notStartedSafeGuard:
-				c.Errorf("consumer was never started")
-				return
-				// Send the initial event for the watcher to process.
-			case ch <- initialEvent:
-			}
-		}()
-		return w, nil
-	})
+	s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), watchedUUID, relationUUID).DoAndReturn(
+		func(context.Context, unit.UUID, relation.UUID) (watcher.StringsWatcher, error) {
+			// Start the event producer, simulating the underlying domain watcher.
+			ch := make(chan []string)
+			w := watchertest.NewMockStringsWatcher(ch)
+			go func() {
+				select {
+				case <-notStartedSafeGuard:
+					c.Errorf("consumer was never started")
+					return
+					// Send the initial event for the watcher to process.
+				case ch <- initialEvent:
+				}
+			}()
+			return w, nil
+		})
 
 	// Act:
 	result, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
@@ -237,18 +269,19 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *tc.C) {
 
 // TestRelationUnitsWatcher checks that the watcher correctly processes and
 // emits events.
-func (s *watcherrelationunitSuite) TestRelationUnitsWatcher(c *tc.C) {
+func (s *watcherRelationUnitSuite) TestRelationUnitsWatcher(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	unitTag := names.NewUnitTag("app1/0")
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
-	appUUIDByName := map[string]application.ID{
+	appUUIDByName := map[string]coreapplication.ID{
 		"app1": coreapplicationtesting.GenApplicationUUID(c),
 		"app2": coreapplicationtesting.GenApplicationUUID(c),
 	}
+
+	watchedUUID := coreunittesting.GenUnitUUID(c)
 	unitUUIDByName := map[unit.Name]unit.UUID{
-		"app1/0": coreunittesting.GenUnitUUID(c),
+		"app1/0": watchedUUID,
 		"app2/0": coreunittesting.GenUnitUUID(c),
 		"app1/1": coreunittesting.GenUnitUUID(c),
 		"app2/1": coreunittesting.GenUnitUUID(c),
@@ -261,12 +294,11 @@ func (s *watcherrelationunitSuite) TestRelationUnitsWatcher(c *tc.C) {
 	// Arrange: Generate fake but consistent events from domain watcher
 	events := [][]string{
 		// initial event: all unit uuids
-		transform.Slice(unitUUIDs, domainrelation.EncodeUnitUUID),
+		transform.Slice(unitUUIDs, encodeUnitFromUUID),
 		// second event: everything
-		append(transform.Slice(unitUUIDs, domainrelation.EncodeUnitUUID),
-			transform.Slice(appUUIDs, domainrelation.EncodeApplicationUUID)...),
+		append(transform.Slice(unitUUIDs, encodeUnitFromUUID), transform.Slice(appUUIDs, encodeAppFromUUID)...),
 		// Third event: all application (unit departed)
-		transform.Slice(appUUIDs, domainrelation.EncodeApplicationUUID),
+		transform.Slice(appUUIDs, encodeAppFromUUID),
 	}
 
 	// Arrange: Generate expected watcher results.
@@ -308,30 +340,30 @@ func (s *watcherrelationunitSuite) TestRelationUnitsWatcher(c *tc.C) {
 	defer func() {
 		close(notStartedSafeGuard)
 	}()
-	s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), unit.Name("app1/0"),
-		relationUUID).DoAndReturn(func(context.Context, unit.Name, relation.UUID) (watcher.StringsWatcher, error) {
-		// Start the event producer, simulating the underlying domain watcher.
-		ch := make(chan []string)
-		w := watchertest.NewMockStringsWatcher(ch)
-		go func() {
-			defer close(ch)
-			for _, event := range events {
-				select {
-				case <-unexpectedFinishSafeGuard:
-					c.Errorf("watcher finished early")
-					return
-				case <-notStartedSafeGuard:
-					c.Errorf("consumer was never started")
-					return
-				case ch <- event:
+	s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), watchedUUID, relationUUID).DoAndReturn(
+		func(context.Context, unit.UUID, relation.UUID) (watcher.StringsWatcher, error) {
+			// Start the event producer, simulating the underlying domain watcher.
+			ch := make(chan []string)
+			w := watchertest.NewMockStringsWatcher(ch)
+			go func() {
+				defer close(ch)
+				for _, event := range events {
+					select {
+					case <-unexpectedFinishSafeGuard:
+						c.Errorf("watcher finished early")
+						return
+					case <-notStartedSafeGuard:
+						c.Errorf("consumer was never started")
+						return
+					case ch <- event:
+					}
 				}
-			}
-		}()
-		return w, nil
-	})
+			}()
+			return w, nil
+		})
 
 	// Act:
-	relUnitsWatcher, err := newRelationUnitsWatcher(unitTag, relationUUID, s.relationService)
+	relUnitsWatcher, err := newRelationUnitsWatcher(watchedUUID, relationUUID, s.relationService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert:

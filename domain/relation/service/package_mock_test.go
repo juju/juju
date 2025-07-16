@@ -984,19 +984,20 @@ func (c *MockStateInitialWatchLifeSuspendedStatusCall) DoAndReturn(f func(applic
 }
 
 // InitialWatchRelatedUnits mocks base method.
-func (m *MockState) InitialWatchRelatedUnits(arg0 unit.Name, arg1 relation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper) {
+func (m *MockState) InitialWatchRelatedUnits(arg0 context.Context, arg1, arg2 string) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchRelatedUnits", arg0, arg1)
+	ret := m.ctrl.Call(m, "InitialWatchRelatedUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(eventsource.NamespaceQuery)
 	ret2, _ := ret[2].(eventsource.Mapper)
-	return ret0, ret1, ret2
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // InitialWatchRelatedUnits indicates an expected call of InitialWatchRelatedUnits.
-func (mr *MockStateMockRecorder) InitialWatchRelatedUnits(arg0, arg1 any) *MockStateInitialWatchRelatedUnitsCall {
+func (mr *MockStateMockRecorder) InitialWatchRelatedUnits(arg0, arg1, arg2 any) *MockStateInitialWatchRelatedUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchRelatedUnits", reflect.TypeOf((*MockState)(nil).InitialWatchRelatedUnits), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchRelatedUnits", reflect.TypeOf((*MockState)(nil).InitialWatchRelatedUnits), arg0, arg1, arg2)
 	return &MockStateInitialWatchRelatedUnitsCall{Call: call}
 }
 
@@ -1006,25 +1007,25 @@ type MockStateInitialWatchRelatedUnitsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchRelatedUnitsCall) Return(arg0 []string, arg1 eventsource.NamespaceQuery, arg2 eventsource.Mapper) *MockStateInitialWatchRelatedUnitsCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockStateInitialWatchRelatedUnitsCall) Return(arg0 []string, arg1 eventsource.NamespaceQuery, arg2 eventsource.Mapper, arg3 error) *MockStateInitialWatchRelatedUnitsCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchRelatedUnitsCall) Do(f func(unit.Name, relation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper)) *MockStateInitialWatchRelatedUnitsCall {
+func (c *MockStateInitialWatchRelatedUnitsCall) Do(f func(context.Context, string, string) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error)) *MockStateInitialWatchRelatedUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchRelatedUnitsCall) DoAndReturn(f func(unit.Name, relation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper)) *MockStateInitialWatchRelatedUnitsCall {
+func (c *MockStateInitialWatchRelatedUnitsCall) DoAndReturn(f func(context.Context, string, string) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error)) *MockStateInitialWatchRelatedUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IsPeerRelation mocks base method.
-func (m *MockState) IsPeerRelation(arg0 context.Context, arg1 relation.UUID) (bool, error) {
+func (m *MockState) IsPeerRelation(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsPeerRelation", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -1051,13 +1052,13 @@ func (c *MockStateIsPeerRelationCall) Return(arg0 bool, arg1 error) *MockStateIs
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateIsPeerRelationCall) Do(f func(context.Context, relation.UUID) (bool, error)) *MockStateIsPeerRelationCall {
+func (c *MockStateIsPeerRelationCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsPeerRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsPeerRelationCall) DoAndReturn(f func(context.Context, relation.UUID) (bool, error)) *MockStateIsPeerRelationCall {
+func (c *MockStateIsPeerRelationCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsPeerRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
