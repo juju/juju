@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -435,27 +434,6 @@ func (st *State) WatchModelMachines() StringsWatcher {
 	return newLifecycleWatcher(st, machinesC, notContainerQuery, filter, nil)
 }
 
-// WatchAllContainers returns a StringsWatcher that notifies of changes to the
-// lifecycles of all containers on a machine.
-func (m *Machine) WatchAllContainers() StringsWatcher {
-	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.DocID, names.ContainerTypeSnippet, names.NumberSnippet)
-	return m.containersWatcher(isChild)
-}
-
-func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
-	members := bson.D{{"_id", bson.D{{"$regex", isChildRegexp}}}}
-	compiled := regexp.MustCompile(isChildRegexp)
-	filter := func(key interface{}) bool {
-		k := key.(string)
-		_, err := m.st.strictLocalID(k)
-		if err != nil {
-			return false
-		}
-		return compiled.MatchString(k)
-	}
-	return newLifecycleWatcher(m.st, machinesC, members, filter, nil)
-}
-
 func newLifecycleWatcher(
 	backend modelBackend,
 	collName string,
@@ -624,11 +602,6 @@ func (w *lifecycleWatcher) loop() error {
 // WatchControllerInfo returns a StringsWatcher for the controllers collection
 func (st *State) WatchControllerInfo() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: controllerNodesC})
-}
-
-// Watch returns a watcher for observing changes to a machine.
-func (m *Machine) Watch() NotifyWatcher {
-	return newEntityWatcher(m.st, machinesC, m.doc.DocID)
 }
 
 // Watch returns a watcher for observing changes to an application.

@@ -38,9 +38,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	st := ctx.State()
 	domainServices := ctx.DomainServices()
 
-	backend := &stateShim{
-		State: st,
-	}
 	pool := &poolShim{ctx.StatePool()}
 
 	logger := ctx.Logger().Child("machinemanager")
@@ -76,7 +73,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 
 	return NewMachineManagerAPI(
 		ctx.ModelUUID(),
-		backend,
+		st,
 		ctx.ControllerObjectStore(),
 		storageAccess,
 		pool,

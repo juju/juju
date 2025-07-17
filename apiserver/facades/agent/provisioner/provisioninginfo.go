@@ -68,7 +68,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 			continue
 		}
 		machineName := coremachine.Name(tag.Id())
-		result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, nil, env, allSpaces)
+		result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, env, allSpaces)
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -78,7 +78,6 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 func (api *ProvisionerAPI) getProvisioningInfo(
 	ctx context.Context,
 	machineName coremachine.Name,
-	m *state.Machine,
 	env environs.Environ,
 	allSpaces network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
@@ -108,7 +107,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	}
 
 	var result params.ProvisioningInfo
-	if result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, m, env, spaceBindings, modelConfig, modelInfo); err != nil {
+	if result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, env, spaceBindings, modelConfig, modelInfo); err != nil {
 		return nil, errors.Capture(err)
 	}
 
@@ -128,7 +127,6 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	ctx context.Context,
 	machineName coremachine.Name,
 	unitNames []coreunit.Name,
-	m *state.Machine,
 	env environs.Environ,
 	endpointBindings map[string]string,
 	modelConfig *config.Config,
@@ -180,7 +178,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		}
 	}
 
-	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, machineName, m, env, modelConfig, modelInfo.UUID); err != nil {
+	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, machineName, env, modelConfig, modelInfo.UUID); err != nil {
 		return result, errors.Capture(err)
 	}
 
@@ -224,7 +222,6 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 func (api *ProvisionerAPI) machineVolumeParams(
 	ctx context.Context,
 	machineName coremachine.Name,
-	m *state.Machine,
 	env environs.Environ,
 	modelConfig *config.Config,
 	modelUUID model.UUID,
