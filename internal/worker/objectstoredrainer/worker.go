@@ -12,8 +12,10 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
@@ -52,6 +54,10 @@ type GuardService interface {
 	// GetDrainingPhase returns the current active draining phase of the
 	// object store.
 	GetDrainingPhase(ctx context.Context) (objectstore.Phase, error)
+
+	// SetDrainingPhase sets the phase of the object store to draining.
+	SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error
+
 	// WatchDraining returns a watcher that watches the draining phase of the
 	// object store.
 	WatchDraining(ctx context.Context) (watcher.Watcher[struct{}], error)
@@ -70,9 +76,12 @@ type Config struct {
 	Guard                     fortress.Guard
 	GuardService              GuardService
 	ControllerService         ControllerService
+	ObjectStoreServicesGetter ObjectStoreServicesGetter
 	NewHashFileSystemAccessor NewHashFileSystemAccessorFunc
 	S3Client                  objectstore.Client
 	SelectFileHash            SelectFileHashFunc
+	RootDir                   string
+	RootBucketName            string
 	Logger                    logger.Logger
 	Clock                     clock.Clock
 }
@@ -98,6 +107,12 @@ func (config Config) Validate() error {
 	if config.SelectFileHash == nil {
 		return errors.Errorf("nil SelectFileHash").Add(coreerrors.NotValid)
 	}
+	if config.RootDir == "" {
+		return errors.Errorf("empty RootDir").Add(coreerrors.NotValid)
+	}
+	if config.RootBucketName == "" {
+		return errors.Errorf("empty RootBucketName").Add(coreerrors.NotValid)
+	}
 	if config.Logger == nil {
 		return errors.Errorf("nil Logger").Add(coreerrors.NotValid)
 	}
@@ -108,7 +123,7 @@ func (config Config) Validate() error {
 }
 
 // NewWorker returns a Worker that tracks the result of the configured.
-func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
+func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -130,17 +145,20 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
+		runner: runner,
+
 		guard:        config.Guard,
 		guardService: config.GuardService,
 
-		controllerService: config.ControllerService,
+		controllerService:         config.ControllerService,
+		objectStoreServicesGetter: config.ObjectStoreServicesGetter,
 
-		newFileSystem: config.NewHashFileSystemAccessor,
-		client:        config.S3Client,
+		newFileSystem:  config.NewHashFileSystemAccessor,
+		client:         config.S3Client,
+		rootDir:        config.RootDir,
+		rootBucketName: config.RootBucketName,
 
 		selectFileHash: config.SelectFileHash,
-
-		runner: runner,
 
 		logger: config.Logger,
 	}
@@ -165,18 +183,20 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 // watching when the worker is killed or when the context is cancelled.
 type Worker struct {
 	catacomb catacomb.Catacomb
+	runner   *worker.Runner
 
 	guard        fortress.Guard
 	guardService GuardService
 
-	controllerService ControllerService
+	controllerService         ControllerService
+	objectStoreServicesGetter ObjectStoreServicesGetter
 
-	newFileSystem NewHashFileSystemAccessorFunc
-	client        objectstore.Client
+	newFileSystem  NewHashFileSystemAccessorFunc
+	client         objectstore.Client
+	rootDir        string
+	rootBucketName string
 
 	selectFileHash SelectFileHashFunc
-
-	runner worker.Runner
 
 	logger logger.Logger
 }
@@ -244,33 +264,43 @@ func (w *Worker) loop() error {
 
 			namespaces, err := w.controllerService.GetModelNamespaces(ctx)
 			if err != nil {
+				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
 				return errors.Errorf("getting model namespaces: %w", err)
 			}
 
 			if err := w.drainModels(ctx, namespaces); err != nil {
+				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
 				return errors.Errorf("draining models: %w", err)
 			}
 
-			w.logger.Infof(ctx, "object store draining complete, unlocking guard")
+			w.logger.Infof(ctx, "object store draining complete, setting phase to completed")
 
-			if err := w.guard.Unlock(ctx); err != nil {
-				return errors.Errorf("failed to update guard: %v", err)
+			if err := w.guardService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
+				return errors.Errorf("failed to set draining phase: %v", err)
 			}
 		}
 	}
 }
 
 func (w *Worker) drainModels(ctx context.Context, namespaces []string) error {
+
 	for _, namespace := range namespaces {
+		// The controller model will drain the controller namespace, so we skip
+		// it.
+		if namespace == database.ControllerNS {
+			continue
+		}
+
 		w.logger.Infof(ctx, "draining model %q", namespace)
 
 		err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
-			fileSystem := w.newFileSystem(namespace, w.client.RootDir(), w.logger)
+			metadataService := w.objectStoreServicesGetter.ServicesForModel(model.UUID(namespace))
+			fileSystem := w.newFileSystem(namespace, w.rootDir, w.logger)
 			return newDrainWorker(
 				fileSystem,
 				w.client,
-				metadataService,
-				rootBucket,
+				metadataService.ObjectStore(),
+				w.rootBucketName,
 				namespace,
 				w.selectFileHash,
 				w.logger,
