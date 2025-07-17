@@ -395,6 +395,13 @@ type ipAddressDML struct {
 	IsShadow     bool    `db:"is_shadow"`
 }
 
+// providerIpAddressDML represents the mapping between an IP address and
+// its provider in the database.
+type providerIpAddressDML struct {
+	AddressUUID string `db:"address_uuid"`
+	ProviderID  string `db:"provider_id"`
+}
+
 // netAddrToDML returns a persistence type for representing a single
 // [network.NetAddr].
 // The incoming map of device name to device UUID should contain an entry for
@@ -571,6 +578,7 @@ type getIpAddress struct {
 	NodeUUID         string  `db:"net_node_uuid"`
 	ProviderID       *string `db:"provider_id"`
 	ProviderSubnetID *string `db:"provider_subnet_id"`
+	SubnetUUID       *string `db:"subnet_uuid"`
 	DeviceUUID       string  `db:"device_uuid"`
 	AddressValue     string  `db:"address_value"`
 	Type             string  `db:"type"`
@@ -719,4 +727,12 @@ func nilstr[T ~string](s *string) *T {
 		res = &cast
 	}
 	return res
+}
+
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
 }
