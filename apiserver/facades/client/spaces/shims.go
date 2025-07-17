@@ -9,25 +9,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// machineShim implements Machine.
-type machineShim struct {
-	*state.Machine
-}
-
-// AllAddresses implements Machine by wrapping each state.Address
-// reference in the Address indirection.
-func (m *machineShim) AllAddresses() ([]Address, error) {
-	addresses, err := m.Machine.AllDeviceAddresses()
-	if err != nil {
-		return nil, err
-	}
-	shimAddr := make([]Address, len(addresses))
-	for i, address := range addresses {
-		shimAddr[i] = address
-	}
-	return shimAddr, nil
-}
-
 // stateShim forwards and adapts state.State
 // methods to Backing methods.
 type stateShim struct {
@@ -39,19 +20,6 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 	return &stateShim{
 		State: st,
 	}, nil
-}
-
-// AllMachines returns all machines and maps it to a corresponding common type.
-func (s *stateShim) AllMachines() ([]Machine, error) {
-	allStateMachines, err := s.State.AllMachines()
-	if err != nil {
-		return nil, err
-	}
-	all := make([]Machine, len(allStateMachines))
-	for i, m := range allStateMachines {
-		all[i] = &machineShim{m}
-	}
-	return all, nil
 }
 
 // AllConstraints returns all constraints in the model,

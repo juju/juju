@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/rpc/params"
@@ -87,9 +88,10 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *tc.C) {
 	s.ApplicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(map[string]map[string]network.SpaceName{}, nil)
 
 	// Using different subnet - triggers no constraint violation.
-	m := expectMachine(ctrl, "0", "20.20.20.0/24")
-	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("0")).Return([]unit.Name{"mysql/0"}, nil)
-	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
+	machineName := machine.Name("0")
+	s.expectMachineWithCIDRs(c, machineName, "20.20.20.0/24")
+	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return([]unit.Name{"mysql/0"}, nil)
+	s.MachineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{machineName}, nil)
 
 	res, err := s.API.MoveSubnets(c.Context(), moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, tc.ErrorIsNil)
@@ -153,9 +155,10 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *tc.C) 
 	cons2.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#wordpress")
 	cons2.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	m := expectMachine(ctrl, "0", cidr)
-	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("0")).Return([]unit.Name{"mysql/0"}, nil)
-	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
+	machineName := machine.Name("0")
+	s.expectMachineWithCIDRs(c, machineName, cidr)
+	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return([]unit.Name{"mysql/0"}, nil)
+	s.MachineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{machineName}, nil)
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons1, cons2}, nil)
@@ -210,9 +213,10 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
 	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	m := expectMachine(ctrl, "0", cidr)
-	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("0")).Return([]unit.Name{"mysql/0"}, nil)
-	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
+	machineName := machine.Name("0")
+	s.expectMachineWithCIDRs(c, machineName, cidr)
+	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return([]unit.Name{"mysql/0"}, nil)
+	s.MachineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{machineName}, nil)
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
@@ -268,9 +272,10 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
 	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	m := expectMachine(ctrl, "0", cidr)
-	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("0")).Return([]unit.Name{"mysql/0"}, nil)
-	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
+	machineName := machine.Name("0")
+	s.expectMachineWithCIDRs(c, machineName, cidr)
+	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return([]unit.Name{"mysql/0"}, nil)
+	s.MachineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{machineName}, nil)
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
@@ -337,15 +342,17 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 
 	// mysql/0 is connected to both the moving subnet and the stationary one.
 	// It will satisfy the constraint even after the subnet relocation.
-	m1 := expectMachine(ctrl, "1", cidr, "20.20.20.0/24")
-	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("1")).Return([]unit.Name{"mysql/0"}, nil)
+	machineName1 := machine.Name("1")
+	s.expectMachineWithCIDRs(c, machineName1, cidr, "20.20.20.0/24")
+	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName1).Return([]unit.Name{"mysql/0"}, nil)
 
 	// This machine's units are connected only to the moving subnet,
 	// which will violate the constraint.
-	m2 := expectMachine(ctrl, "2", cidr)
-	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("2")).Return([]unit.Name{"mysql/1", "mysql/2"}, nil)
+	machineName2 := machine.Name("2")
+	s.expectMachineWithCIDRs(c, machineName2, cidr)
+	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName2).Return([]unit.Name{"mysql/1", "mysql/2"}, nil)
 
-	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m1, m2}, nil)
+	s.MachineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{machineName1, machineName2}, nil)
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
@@ -398,16 +405,18 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
 
 	// mysql/0 is connected to both the moving subnet and the stationary one.
-	// It will satisfy the binding even after the subnet relocation.
-	m1 := expectMachine(ctrl, "1", cidr, "20.20.20.0/24")
-	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("1")).Return([]unit.Name{"mysql/0"}, nil)
+	// It will satisfy the constraint even after the subnet relocation.
+	machineName1 := machine.Name("1")
+	s.expectMachineWithCIDRs(c, machineName1, cidr, "20.20.20.0/24")
+	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName1).Return([]unit.Name{"mysql/0"}, nil)
 
 	// This machine's units are connected only to the moving subnet,
-	// which will violate the binding.
-	m2 := expectMachine(ctrl, "2", cidr)
-	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machine.Name("2")).Return([]unit.Name{"mysql/1", "mysql/2"}, nil)
+	// which will violate the constraint.
+	machineName2 := machine.Name("2")
+	s.expectMachineWithCIDRs(c, machineName2, cidr)
+	s.ApplicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName2).Return([]unit.Name{"mysql/1", "mysql/2"}, nil)
 
-	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m1, m2}, nil)
+	s.MachineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{machineName1, machineName2}, nil)
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return(nil, nil)
@@ -427,25 +436,6 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 	units not connected to the space: mysql/1, mysql/2`)
 }
 
-func expectMachine(ctrl *gomock.Controller, name machine.Name, cidrs ...string) *spaces.MockMachine {
-	addrs := make([]spaces.Address, len(cidrs))
-	for i, cidr := range cidrs {
-		address := spaces.NewMockAddress(ctrl)
-		address.EXPECT().SubnetCIDR().Return(cidr)
-		address.EXPECT().ConfigMethod().Return(network.ConfigDHCP)
-		addrs[i] = address
-	}
-
-	// Add a loopback into the mix to test that we don't ask for its subnets.
-	loopback := spaces.NewMockAddress(ctrl)
-	loopback.EXPECT().ConfigMethod().Return(network.ConfigLoopback)
-
-	machine := spaces.NewMockMachine(ctrl)
-	machine.EXPECT().Id().Return(name.String()).AnyTimes()
-	machine.EXPECT().AllAddresses().Return(append(addrs, loopback), nil)
-	return machine
-}
-
 func moveSubnetsArg(subnetID string, spaceName network.SpaceName, force bool) params.MoveSubnetsParams {
 	return params.MoveSubnetsParams{
 		Args: []params.MoveSubnetsParam{{
@@ -454,4 +444,21 @@ func moveSubnetsArg(subnetID string, spaceName network.SpaceName, force bool) pa
 			Force:      force,
 		}},
 	}
+}
+
+func (s *moveSubnetsAPISuite) expectMachineWithCIDRs(c *tc.C, name machine.Name, cidrs ...string) {
+	addrs := make([]network.SpaceAddress, len(cidrs))
+	for i, cidr := range cidrs {
+		address := network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				CIDR:       cidr,
+				ConfigType: network.ConfigDHCP,
+			},
+		}
+		addrs[i] = address
+	}
+
+	mUUID := machinetesting.GenUUID(c)
+	s.MachineService.EXPECT().GetMachineUUID(gomock.Any(), name).Return(mUUID, nil)
+	s.NetworkService.EXPECT().GetMachineAddresses(gomock.Any(), mUUID).Return(addrs, nil)
 }

@@ -26,12 +26,6 @@ type Address interface {
 	Value() string
 }
 
-// Machine defines the methods supported by a machine used in the space context.
-type Machine interface {
-	Id() string
-	AllAddresses() ([]Address, error)
-}
-
 // Constraints defines the methods supported by constraints used in the space context.
 type Constraints interface {
 	ID() string
@@ -41,9 +35,6 @@ type Constraints interface {
 
 // Backing describes the state methods used in this package.
 type Backing interface {
-	// AllMachines loads all machines.
-	AllMachines() ([]Machine, error)
-
 	// AllConstraints returns all constraints in the model.
 	AllConstraints() ([]Constraints, error)
 

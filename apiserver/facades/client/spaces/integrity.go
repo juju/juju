@@ -11,10 +11,13 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // unitNetwork represents a group of units and the subnets
@@ -72,6 +75,8 @@ type affectedNetworks struct {
 	force              bool
 	logger             corelogger.Logger
 	applicationService ApplicationService
+	machineService     MachineService
+	networkService     NetworkService
 }
 
 // newAffectedNetworks returns a new affectedNetworks reference for
@@ -79,7 +84,14 @@ type affectedNetworks struct {
 // The input space topology is manipulated to represent the topology that
 // would result from the move.
 func newAffectedNetworks(
-	applicationService ApplicationService, movingSubnets network.IDSet, spaceName network.SpaceName, currentTopology network.SpaceInfos, force bool, logger corelogger.Logger,
+	applicationService ApplicationService,
+	machineService MachineService,
+	networkService NetworkService,
+	movingSubnets network.IDSet,
+	spaceName network.SpaceName,
+	currentTopology network.SpaceInfos,
+	force bool,
+	logger corelogger.Logger,
 ) (*affectedNetworks, error) {
 	// Get the topology as would result from moving all of these subnets.
 	newTopology, err := currentTopology.MoveSubnets(movingSubnets, spaceName)
@@ -96,6 +108,8 @@ func newAffectedNetworks(
 		force:              force,
 		logger:             logger,
 		applicationService: applicationService,
+		machineService:     machineService,
+		networkService:     networkService,
 	}, nil
 }
 
@@ -103,9 +117,13 @@ func newAffectedNetworks(
 // looking at the subnets they are connected to.
 // Any machines connected to a moving subnet have their unit networks
 // included for for later verification.
-func (n *affectedNetworks) processMachines(ctx context.Context, machines []Machine) error {
-	for _, machine := range machines {
-		addresses, err := machine.AllAddresses()
+func (n *affectedNetworks) processMachines(ctx context.Context, machineNames []coremachine.Name) error {
+	for _, machineName := range machineNames {
+		machineUUID, err := n.machineService.GetMachineUUID(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return internalerrors.Errorf("machine %q not found", machineName).Add(coreerrors.NotFound)
+		}
+		addresses, err := n.networkService.GetMachineAddresses(ctx, machineUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -114,7 +132,7 @@ func (n *affectedNetworks) processMachines(ctx context.Context, machines []Machi
 		var machineSubnets network.SubnetInfos
 		for _, address := range addresses {
 			// These are not going to have subnets, so just ignore them.
-			if address.ConfigMethod() == network.ConfigLoopback {
+			if address.ConfigType == network.ConfigLoopback {
 				continue
 			}
 
@@ -129,7 +147,7 @@ func (n *affectedNetworks) processMachines(ctx context.Context, machines []Machi
 			}
 		}
 
-		if err = n.includeMachine(ctx, machine, machineSubnets, includesMover); err != nil {
+		if err = n.includeMachine(ctx, machineName, machineSubnets, includesMover); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -137,13 +155,13 @@ func (n *affectedNetworks) processMachines(ctx context.Context, machines []Machi
 	return nil
 }
 
-func (n *affectedNetworks) addressSubnet(addr Address) (network.SubnetInfo, error) {
+func (n *affectedNetworks) addressSubnet(addr network.SpaceAddress) (network.SubnetInfo, error) {
 	allSubs, err := n.spaces.AllSubnetInfos()
 	if err != nil {
 		return network.SubnetInfo{}, errors.Trace(err)
 	}
 
-	subs, err := allSubs.GetByCIDR(addr.SubnetCIDR())
+	subs, err := allSubs.GetByCIDR(addr.CIDR)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Trace(err)
 	}
@@ -161,7 +179,7 @@ func (n *affectedNetworks) addressSubnet(addr Address) (network.SubnetInfo, erro
 	// zone-specific segments of the overlay (such as 252.32.0.0/12)
 	// as seen in AWS.
 	// Try to locate a subnet based on the address itself.
-	subs, err = allSubs.GetByAddress(addr.Value())
+	subs, err = allSubs.GetByAddress(addr.Value)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Trace(err)
 	}
@@ -169,15 +187,14 @@ func (n *affectedNetworks) addressSubnet(addr Address) (network.SubnetInfo, erro
 	if len(subs) > 0 {
 		return subs[0], nil
 	}
-	return network.SubnetInfo{}, errors.NotFoundf("subnet for machine address %q", addr.Value())
+	return network.SubnetInfo{}, errors.NotFoundf("subnet for machine address %q", addr.Value)
 }
 
 // includeMachine ensures that the units on the machine and their collection
 // of subnet connectedness are included as networks to be validated.
 // The collection they are placed into depends on whether they are connected to
 // a moving subnet, indicated by the netChange argument.
-func (n *affectedNetworks) includeMachine(ctx context.Context, machine Machine, subnets network.SubnetInfos, netChange bool) error {
-	machineName := coremachine.Name(machine.Id())
+func (n *affectedNetworks) includeMachine(ctx context.Context, machineName coremachine.Name, subnets network.SubnetInfos, netChange bool) error {
 	unitNames, err := n.applicationService.GetUnitNamesOnMachine(ctx, machineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
 		return errors.NotFoundf("machine %q", machineName)
