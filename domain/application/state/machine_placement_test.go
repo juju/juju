@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -80,6 +81,40 @@ func (s *machinePlacementSuite) TestIsMachineControllerNotFound(c *tc.C) {
 
 	_, err := st.IsMachineController(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *machinePlacementSuite) TestGetMachinesForApplicationEmptyApp(c *tc.C) {
+	// Arrange
+	appUUID := s.createApplication(c, true)
+
+	// Act
+	machines, err := s.state.GetMachinesForApplication(c.Context(), appUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machines, tc.HasLen, 0)
+}
+
+func (s *machinePlacementSuite) TestGetMachinesForApplication(c *tc.C) {
+	// Arrange
+	appUUID := s.createApplication(c, true)
+	machineName0 := s.createMachine(c)
+	machineName1 := s.createMachine(c)
+
+	// Act
+	machines, err := s.state.GetMachinesForApplication(c.Context(), appUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machines, tc.SameContents, []string{machineName0, machineName1})
+}
+
+func (s *machinePlacementSuite) TestGetMachinesForApplicationNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetMachinesForApplication(c.Context(), "666")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *machinePlacementSuite) createApplication(c *tc.C, controller bool) coreapplication.ID {
