@@ -37,7 +37,7 @@ jobs:
     env:
       CHARM_localhost: apache2
       CHARM_microk8s: snappass-test
-      DOCKER_REGISTRY: 10.152.183.69
+      OCI_REGISTRY: 10.152.183.69
       UPGRADE_FLAGS_localhost: --build-agent
       UPGRADE_FLAGS_microk8s: --agent-stream=develop
       MODEL_TYPE_localhost: iaas
@@ -139,7 +139,7 @@ jobs:
           # Wait for registry
           sg snap_microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
           sg snap_microk8s "microk8s kubectl describe pod -n container-registry"
-          curl https://${DOCKER_REGISTRY}/v2/
+          curl https://${OCI_REGISTRY}/v2/
 
       - name: Mirror docker images required for juju bootstrap
         if: matrix.cloud == 'microk8s'
@@ -152,16 +152,16 @@ jobs:
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM docker.io/jujusolutions/jujud-operator:${SOURCE_JUJU_VERSION}
+            FROM ghcr.io/juju/jujud-operator:${SOURCE_JUJU_VERSION}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
 
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
-          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
+          docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
+          docker push ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           
-          DOCKER_USERNAME=${DOCKER_REGISTRY}/test-repo make seed-repository
+          OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo make seed-repository
 
       - name: Bootstrap Juju - localhost
         if: matrix.cloud == 'localhost'
@@ -190,7 +190,7 @@ jobs:
           sg snap_microk8s <<EOF
             juju bootstrap microk8s c \
               --constraints "arch=$(go env GOARCH)" \
-              --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
+              --config caas-image-repo="${OCI_REGISTRY}/test-repo" \
               --config features="[developer-mode]"
           EOF
           juju version
@@ -226,8 +226,11 @@ jobs:
         if: matrix.cloud == 'microk8s'
         env:
           TARGET_JUJU_VERSION: ${{ needs.setup.outputs.version }}
+          GHCR_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euxo pipefail
+
+          echo "$GHCR_PAT" | docker login ghcr.io -u USERNAME --password-stdin
 
           make operator-image
 
@@ -235,14 +238,14 @@ jobs:
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM docker.io/jujusolutions/jujud-operator:${TARGET_JUJU_VERSION}
-          
+            FROM ghcr.io/juju/jujud-operator:${TARGET_JUJU_VERSION}          
+
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
 
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
-          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
+          docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
+          docker push ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
 
       - name: Preflight
         shell: bash

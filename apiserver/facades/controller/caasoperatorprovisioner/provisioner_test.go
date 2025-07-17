@@ -137,10 +137,10 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
 		Results: []params.OperatorProvisioningInfo{{
 			ImageDetails: params.DockerImageInfo{
-				RegistryPath: "docker.io/jujusolutions/jujud-operator:2.6-beta3.666",
+				RegistryPath: "ghcr.io/juju/jujud-operator:2.6-beta3.666",
 			},
 			BaseImageDetails: params.DockerImageInfo{
-				RegistryPath: "docker.io/jujusolutions/charm-base:ubuntu-20.04",
+				RegistryPath: "ghcr.io/juju/charm-base:ubuntu-20.04",
 			},
 			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},

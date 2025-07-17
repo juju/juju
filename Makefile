@@ -597,7 +597,7 @@ check-deps:
 
 # CAAS related targets
 export OCI_BUILDER         ?= $(shell (which podman 2>&1 > /dev/null && echo podman) || echo docker )
-DOCKER_USERNAME            ?= docker.io/jujusolutions
+OCI_REGISTRY_USERNAME            ?= ghcr.io/juju
 DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
@@ -664,7 +664,7 @@ push-release-operator-image: operator-image
 
 .PHONY: seed-repository
 seed-repository:
-## seed-repository: Copy required juju images from docker.io/jujusolutions
+## seed-repository: Copy required juju images from oci repository
 	JUJU_DB_VERSION=$(JUJU_DB_VERSION) $(SEED_REPOSITORY)
 
 
