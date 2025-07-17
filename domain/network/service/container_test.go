@@ -308,7 +308,7 @@ func (s *containerSuite) TestDevicesForGuestBridgeFoundNoContainerAddresses(c *t
 	}, nil)
 	exp.GetSubnetCIDRForDevice(ctx, s.nodeUUID, bridgeName, spaceUUID).Return(cidr, nil)
 
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses(ctx).Return(false, nil)
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -358,7 +358,7 @@ func (s *containerSuite) TestDevicesForGuestBridgeFoundContainerAddresses(c *tc.
 	}, nil)
 	exp.GetSubnetCIDRForDevice(ctx, s.nodeUUID, bridgeName, spaceUUID).Return(cidr, nil)
 
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses(ctx).Return(true, nil)
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
 	nics, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -405,7 +405,7 @@ func (s *containerSuite) TestDevicesForGuestNoBridgeFoundError(c *tc.C) {
 		},
 	}, nil)
 
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses(ctx).Return(true, nil)
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
 	_, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)

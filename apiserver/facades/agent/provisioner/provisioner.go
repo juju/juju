@@ -1097,19 +1097,23 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 
 	// We do not ask the provider to allocate addresses for manually provisioned
 	// machines as we do not expect such machines to be recognised (LP:1796106).
-	var askProviderForAddress bool
+	var (
+		askProviderForAddress bool
+		networking            environs.Networking
+	)
 	if !hostIsManual {
-		askProviderForAddress = environs.SupportsContainerAddresses(ctx, env)
+		var ok bool
+		networking, ok = env.(environs.Networking)
+		if ok {
+			askProviderForAddress = networking.SupportsContainerAddresses()
+		}
 	}
 
 	allocatedInfo := preparedInfo
 	if askProviderForAddress {
-		guestMachineTag := names.NewMachineTag(guestMachineName.String())
-		// supportContainerAddresses already checks that we can cast to an environ.Networking
-		networking := env.(environs.Networking)
 		var err error
 		allocatedInfo, err = networking.AllocateContainerAddresses(
-			ctx, hostInstanceID, guestMachineTag, preparedInfo)
+			ctx, hostInstanceID, guestMachineName.String(), preparedInfo)
 		if err != nil {
 			return errors.Trace(err)
 		}

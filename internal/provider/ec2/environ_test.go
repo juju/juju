@@ -260,15 +260,6 @@ func (*Suite) TestSupportsSpaceDiscovery(c *tc.C) {
 	c.Assert(supported, tc.IsFalse)
 }
 
-func (*Suite) TestSupportsContainerAddresses(c *tc.C) {
-	callCtx := c.Context()
-	env := new(environ)
-	supported, err := env.SupportsContainerAddresses(callCtx)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(supported, tc.IsFalse)
-	c.Check(environs.SupportsContainerAddresses(callCtx, env), tc.IsFalse)
-}
-
 func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{
 		{network.Id("sub-1"): {"az-1"}},

@@ -55,9 +55,8 @@ var keysForContainerConfig = []string{
 // Provider represents an underlying cloud provider.
 type Provider interface {
 	// SupportsContainerAddresses returns true if the provider is able to
-	// allocate addresses for containers. It may return false or an
-	// [errors.NotSupported] if container addresses are not supported.
-	SupportsContainerAddresses(ctx context.Context) (bool, error)
+	// allocate addresses for containers.
+	SupportsContainerAddresses() bool
 }
 
 // Service is an agent provisioner service that can be used by the provisioner
@@ -162,16 +161,7 @@ func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanag
 
 	}
 
-	supports, err := provider.SupportsContainerAddresses(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		return containermanager.NetworkingMethodLocal, nil
-	} else if err != nil {
-		return "", errors.Errorf(
-			"cannot determine if provider supports container addresses: %w",
-			err)
-
-	}
-	if supports {
+	if provider.SupportsContainerAddresses() {
 		return containermanager.NetworkingMethodProvider, nil
 	}
 	return containermanager.NetworkingMethodLocal, nil

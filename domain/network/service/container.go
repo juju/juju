@@ -326,7 +326,7 @@ func (s *ProviderService) guestDevices(
 	// each device's address will be obtained downstream, and we indicate
 	// that said address is configured statically.
 	configMethod := corenetwork.ConfigDHCP
-	if providerAllocatesAddress, _ := networkingProvider.SupportsContainerAddresses(ctx); providerAllocatesAddress {
+	if networkingProvider.SupportsContainerAddresses() {
 		configMethod = corenetwork.ConfigStatic
 	}
 

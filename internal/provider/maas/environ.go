@@ -319,8 +319,8 @@ func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
 }
 
 // SupportsContainerAddresses is specified on environs.Networking.
-func (env *maasEnviron) SupportsContainerAddresses(ctx context.Context) (bool, error) {
-	return true, nil
+func (env *maasEnviron) SupportsContainerAddresses() bool {
+	return true
 }
 
 type maasAvailabilityZone struct {
@@ -1259,7 +1259,7 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (env *maasEnviron) AllocateContainerAddresses(ctx context.Context, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) AllocateContainerAddresses(ctx context.Context, hostInstanceID instance.Id, containerName string, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	if len(preparedInfo) == 0 {
 		return nil, errors.Errorf("no prepared info to allocate")
 	}
@@ -1277,7 +1277,7 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx context.Context, hostInst
 		return nil, errors.Errorf("failed to identify unique machine with ID %q; got %v", hostInstanceID, machines)
 	}
 	machine := machines[0]
-	deviceName, err := env.namespace.Hostname(containerTag.Id())
+	deviceName, err := env.namespace.Hostname(containerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
