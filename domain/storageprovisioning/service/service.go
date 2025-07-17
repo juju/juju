@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -40,7 +40,7 @@ type State interface {
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 	// machine exists for the provided uuid.
-	CheckMachineIsDead(context.Context, machine.UUID) (bool, error)
+	CheckMachineIsDead(context.Context, coremachine.UUID) (bool, error)
 
 	// GetMachineNetNodeUUID retrieves the net node uuid associated with provided
 	// machine.
@@ -48,7 +48,15 @@ type State interface {
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 	// machine exists for the provided uuid.
-	GetMachineNetNodeUUID(context.Context, machine.UUID) (domainnetwork.NetNodeUUID, error)
+	GetMachineNetNodeUUID(context.Context, coremachine.UUID) (domainnetwork.NetNodeUUID, error)
+
+	// GetUnitNetNodeUUID returns the node uuid associated with the supplied
+	// unit.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+	// unit exists for the supplied unit uuid.
+	GetUnitNetNodeUUID(context.Context, coreunit.UUID) (domainnetwork.NetNodeUUID, error)
 
 	// GetUnitNetNodeUUID returns the node uuid associated with the supplied
 	// unit.
@@ -118,7 +126,7 @@ func NewService(st State, wf WatcherFactory) *Service {
 // - [machineerrors.MachineIsDead] when the machine is dead meaning it is about
 // to go away.
 func (s *Service) WatchMachineCloudInstance(
-	ctx context.Context, machineUUID machine.UUID,
+	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.NotifyWatcher, error) {
 	dead, err := s.st.CheckMachineIsDead(ctx, machineUUID)
 	if err != nil {

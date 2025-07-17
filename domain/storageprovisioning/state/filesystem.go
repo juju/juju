@@ -24,21 +24,21 @@ import (
 )
 
 // GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
-// supplied filesystem id.
+// supplied filesystem uuid.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
-// exists for the provided filesystem id.
+// exists for the provided filesystem uuid.
 func (st *State) GetFilesystem(
 	ctx context.Context,
-	filesystemID string,
+	uuid storageprovisioning.FilesystemUUID,
 ) (storageprovisioning.Filesystem, error) {
 	db, err := st.DB()
 	if err != nil {
 		return storageprovisioning.Filesystem{}, errors.Capture(err)
 	}
 
-	fs := filesystem{FilesystemID: filesystemID}
+	fs := filesystem{FilesystemID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT (
 	sfs.filesystem_id,
@@ -62,7 +62,7 @@ WHERE     sfs.filesystem_id=$filesystem.filesystem_id
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, fs).Get(&fs)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("filesystem %q not found", filesystemID).
+			return errors.Errorf("filesystem %q not found", uuid).
 				Add(storageprovisioningerrors.FilesystemNotFound)
 		}
 		return err
@@ -86,36 +86,24 @@ WHERE     sfs.filesystem_id=$filesystem.filesystem_id
 	}, nil
 }
 
-// GetFilesystemAttachment retrieves the [storageprovisioning.FilesystemAttachment]
-// for the supplied net node uuid and filesystem id.
+// GetFilesystemAttachment retrieves the
+// [storageprovisioning.FilesystemAttachment] for the supplied filesystem
+// attachment uuid.
 //
 // The following errors may be returned:
-// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem attachment
-// exists for the provided filesystem id.
-// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists for
-// the provided filesystem id.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided filesystem attachment uuid.
 func (st *State) GetFilesystemAttachment(
 	ctx context.Context,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	filesystemIDStr string,
+	uuid storageprovisioning.FilesystemAttachmentUUID,
 ) (storageprovisioning.FilesystemAttachment, error) {
 	db, err := st.DB()
 	if err != nil {
 		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
 
-	fs := filesystemID{ID: filesystemIDStr}
-	checkFilesystemExistsStmt, err := st.Prepare(`
-SELECT &filesystemID.*
-FROM   storage_filesystem
-WHERE  filesystem_id = $filesystemID.filesystem_id`, fs)
-	if err != nil {
-		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
-	}
-
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
 	attachment := filesystemAttachment{
-		FilesystemID: filesystemIDStr,
+		FilesystemID: uuid.String(),
 	}
 
 	stmt, err := st.Prepare(`
@@ -123,33 +111,18 @@ SELECT &filesystemAttachment.*
 FROM   storage_filesystem_attachment sfa
 JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
 WHERE  sf.filesystem_id = $filesystemAttachment.filesystem_id
-AND    sfa.net_node_uuid = $netNodeUUIDRef.net_node_uuid
-`, attachment, netNodeInput)
+`,
+		attachment,
+	)
 	if err != nil {
 		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkNetNodeExists(ctx, tx, netNodeUUID)
-		if err != nil {
-			return errors.Capture(err)
-		} else if !exists {
-			return errors.Errorf("net node %q does not exist", netNodeUUID)
-		}
-
-		err = tx.Query(ctx, checkFilesystemExistsStmt, fs).Get(&fs)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("filesystem %q not found", filesystemIDStr).
-				Add(storageprovisioningerrors.FilesystemNotFound)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		err = tx.Query(ctx, stmt, attachment, netNodeInput).Get(&attachment)
+		err = tx.Query(ctx, stmt, attachment).Get(&attachment)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf(
 				"filesystem attachment for filesystem %q on net node %q not found",
-				filesystemIDStr, netNodeUUID,
 			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
 		}
 		return err
