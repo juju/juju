@@ -93,7 +93,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
@@ -117,7 +117,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	})
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 		createNewRevision(c, st, uri3)
@@ -134,7 +134,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	})
 
 	//  We create a new revision 3, then the old revision 2 of each secret should become obsolete.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 		createNewRevision(c, st, uri3)
@@ -171,7 +171,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
@@ -188,7 +188,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	// We watch for the application owned secrets, so the unit owned secret uri2 should not be included.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -201,7 +201,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 
 	// We create a new revision 3, then the old revision 2 of each secret should become obsolete.
 	// We watch for the application owned secrets, so the unit owned secret uri2 should not be included.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -234,7 +234,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
@@ -251,7 +251,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	// We watch for the unit owned secrets, so the application owned secret uri1 should not be included.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -265,7 +265,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	// We create a new revision 3, then the old revision 2 of each secret should become obsolete.
 	// Then delete the uri2 secret, so we should only receive the uri2 event without the previous
 	// obsoleted revision event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		createNewRevision(c, st, uri2)
 		removeSecret(c, ctx, st, uri2)
@@ -300,7 +300,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppOwnedSecretDeletion(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
@@ -315,7 +315,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppOwnedSecretDeletion(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		// Delete the application owned secret.
 		removeSecret(c, ctx, st, uri1)
 		// Delete the unit owned secret.
@@ -352,7 +352,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwnedSecretDeletion(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
@@ -367,7 +367,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwnedSecretDeletion(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		// Delete the application owned secret.
 		removeSecret(c, ctx, st, uri1)
 		// Delete the unit owned secret.
@@ -399,7 +399,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := createUserSecret(ctx, st, 1, uri1, secret.UpsertSecretParams{
 			Data:       data,
 			RevisionID: ptr(uuid.MustNewUUID().String()),
@@ -417,7 +417,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 
 	// We create a new revision 2, then the old revision 1 of uri1 should become obsolete.
 	// There is no event has been fired because the auto prune is not turned on for uri1.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
@@ -425,13 +425,13 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 
 	// We create a new revision 2, then the old revision 1 of uri2 should become obsolete.
 	// An event is fired because the auto prune is turned on for uri2.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri2)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNChanges(2)
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = st.RunAtomic(c.Context(), func(ctx domain.AtomicContext) error {
 			return st.UpdateSecret(ctx, uri1, secret.UpsertSecretParams{
 				AutoPrune: ptr(true),
@@ -451,7 +451,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
@@ -483,7 +483,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
@@ -506,7 +506,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	// A consumed secret change event of uri1 should be fired.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		// create revision 2.
 		createNewRevision(c, st, uri1)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -525,7 +525,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				uri1.String(),
@@ -533,7 +533,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 		)
 	})
 
-	harness1.AddTest(func(c *tc.C) {
+	harness1.AddTest(c, func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
 		saveConsumer(uri1, 2, "mediawiki/0")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -549,7 +549,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	c.Assert(w2, tc.NotNil)
 	defer watchertest.CleanKill(c, w2)
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
-	harness2.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness2.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 	harness2.Run(c, []string(nil))
@@ -583,7 +583,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		// The consumed revision 1 is the initial revision - will be ignored.
 		saveConsumer(uri1, 1, "mediawiki/0")
 		// The consumed revision 1 is the initial revision - will be ignored.
@@ -594,7 +594,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 
 	// We update the remote secret revision to 2.
 	// A remote consumed secret change event of uri1 should be fired.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -613,7 +613,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				uri1.String(),
@@ -621,7 +621,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 		)
 	})
 
-	harness1.AddTest(func(c *tc.C) {
+	harness1.AddTest(c, func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
 		saveConsumer(uri1, 2, "mediawiki/0")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -638,7 +638,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w2)
 
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
-	harness2.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness2.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 	harness2.Run(c, []string(nil))
@@ -670,7 +670,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
@@ -694,7 +694,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 
 	// We create a new revision 2 and update the remote secret revision to 2.
 	// A remote consumed secret change event of uri1 should be fired.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		createNewRevision(c, st, uri1)
 		err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
 		c.Assert(err, tc.ErrorIsNil)
@@ -715,7 +715,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				uri1.String(),
@@ -723,7 +723,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 		)
 	})
 
-	harness1.AddTest(func(c *tc.C) {
+	harness1.AddTest(c, func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
 		saveRemoteConsumer(uri1, 2, "mediawiki/0")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -739,7 +739,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w2)
 
 	harness2 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w2))
-	harness2.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
+	harness2.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
@@ -771,7 +771,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		}
@@ -789,7 +789,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	})
 
 	now := time.Now()
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = st.SecretRotated(ctx, uri1, now.Add(1*time.Hour))
 		c.Assert(err, tc.ErrorIsNil)
 		err = st.SecretRotated(ctx, uri2, now.Add(2*time.Hour))
@@ -830,7 +830,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 
-	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
+	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
 			watchertest.SecretTriggerSliceAssert(
 				corewatcher.SecretTriggerChange{
@@ -880,7 +880,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := createCharmUnitSecret(ctx, st, 1, uri2, "mediawiki/0", secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 			RevisionID: ptr(uuid.MustNewUUID().String()),
@@ -891,7 +891,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	})
 
 	now := time.Now()
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 			ExpireTime: ptr(now.Add(1 * time.Hour)),
@@ -942,7 +942,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	defer watchertest.CleanKill(c, w1)
 
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
-	harness1.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
+	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
 			watchertest.SecretTriggerSliceAssert(
 				corewatcher.SecretTriggerChange{

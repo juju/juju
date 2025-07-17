@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/internal/errors"
@@ -113,12 +114,73 @@ func (st *State) NamespaceForWatchRemovals() string {
 // NamespaceForWatchEntityRemovals returns the table name whose UUIDs we
 // are watching in order to be notified of new removal jobs for specific
 // entities.
-func (st *State) NamespaceForWatchEntityRemovals() (string, []string) {
-	return "removal", []string{
+func (st *State) NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, []string) {
+	return st.initialEntityRemovalQuery(), []string{
 		"relation",
 		"unit",
 		"machine",
 		"model",
 		"application",
+	}
+}
+
+// initialEntityRemovalQuery returns the initial query for watching entity
+// removals.
+func (st *State) initialEntityRemovalQuery() eventsource.NamespaceQuery {
+	return func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		var eUUID entityUUID
+		selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit`, eUUID)
+		if err != nil {
+			return nil, errors.Errorf("preparing select units query: %w", err)
+		}
+		selectApplications, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM application`, eUUID)
+		if err != nil {
+			return nil, errors.Errorf("preparing select applications query: %w", err)
+		}
+		selectRelations, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM relation`, eUUID)
+		if err != nil {
+			return nil, errors.Errorf("preparing select relations query: %w", err)
+		}
+		selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine`, eUUID)
+		if err != nil {
+			return nil, errors.Errorf("preparing select machines query: %w", err)
+		}
+
+		var (
+			units, apps, relations, machines []entityUUID
+			entities                         []string
+		)
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			if err := tx.Query(ctx, selectUnits).GetAll(&units); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("selecting units: %w", err)
+			}
+			if err := tx.Query(ctx, selectApplications).GetAll(&apps); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("selecting applications: %w", err)
+			}
+			if err := tx.Query(ctx, selectRelations).GetAll(&relations); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("selecting relations: %w", err)
+			}
+			if err := tx.Query(ctx, selectMachines).GetAll(&machines); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("selecting machines: %w", err)
+			}
+
+			for _, u := range units {
+				entities = append(entities, "unit:"+u.UUID)
+			}
+			for _, a := range apps {
+				entities = append(entities, "application:"+a.UUID)
+			}
+			for _, r := range relations {
+				entities = append(entities, "relation:"+r.UUID)
+			}
+			for _, m := range machines {
+				entities = append(entities, "machine:"+m.UUID)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Errorf("running initial entity removal query: %w", err)
+		}
+		return entities, nil
 	}
 }

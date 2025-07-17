@@ -59,7 +59,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		cloud.Endpoint = "https://endpoint2"
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			err := st.UpdateCloud(ctx, cloud)

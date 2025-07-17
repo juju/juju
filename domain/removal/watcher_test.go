@@ -49,7 +49,7 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 
 	// Insert 2 new jobs and check that the watcher emits their UUIDs.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			q := `INSERT INTO removal (uuid, removal_type_id, entity_uuid) VALUES (?, ?, ?)`
 
@@ -64,4 +64,33 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert("job-uuid-1", "job-uuid-2"))
 	})
+
+	harness.Run(c, []string(nil))
+}
+
+func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "some-model-uuid")
+
+	log := loggertesting.WrapCheckLog(c)
+
+	svc := service.NewWatchableService(
+		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log),
+		domain.NewWatcherFactory(factory, log),
+		nil,
+		nil,
+		clock.WallClock,
+		log,
+	)
+
+	w, err := svc.WatchEntityRemovals()
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+
+	harness.AddTest(c, func(c *tc.C) {
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string(nil))
 }

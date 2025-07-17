@@ -74,7 +74,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		credInfo := credential.CloudCredentialInfo{
 			AuthType: string(cloud.AccessKeyAuthType),
 			Attributes: map[string]string{

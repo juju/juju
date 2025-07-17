@@ -3,7 +3,11 @@
 
 package watchertest
 
-import "github.com/juju/tc"
+import (
+	"sync/atomic"
+
+	"github.com/juju/tc"
+)
 
 // A TestReporter is something that can be used to report test failures.  It
 // is satisfied by the standard library's *testing.T.
@@ -49,9 +53,10 @@ type Idler interface {
 // This isolation technique allows us to test the watcher in a predictable
 // manner.
 type Harness[T any] struct {
-	watcher WatcherC[T]
-	idler   Idler
-	tests   []harnessTest[T]
+	watcher  WatcherC[T]
+	idler    Idler
+	tests    []harnessTest[T]
+	executed atomic.Bool
 }
 
 // NewHarness creates a new Harness. The idler is used to ensure that the
@@ -70,7 +75,13 @@ func NewHarness[T any](idler Idler, watcher WatcherC[T]) *Harness[T] {
 // This is split into two functions to allow for the checking of the
 // assert change stream idle call in between the setup and the assertion.
 // Run must be called after all the tests have been added.
-func (h *Harness[T]) AddTest(setup func(*tc.C), assert func(WatcherC[T])) {
+func (h *Harness[T]) AddTest(c *tc.C, setup func(*tc.C), assert func(WatcherC[T])) {
+	c.Cleanup(func() {
+		if !h.executed.Load() {
+			c.Fatalf("harness tests were not run, did you forget to call Run?")
+		}
+	})
+
 	h.tests = append(h.tests, harnessTest[T]{
 		setup:  setup,
 		assert: assert,
@@ -79,8 +90,15 @@ func (h *Harness[T]) AddTest(setup func(*tc.C), assert func(WatcherC[T])) {
 
 // Run runs all the tests added to the harness.
 func (h *Harness[T]) Run(c *tc.C, initial ...T) {
+	// Do some house keeping to ensure that the harness is only run once.
+	if h.executed.Load() {
+		c.Fatalf("harness tests were already run, you can only run a harness once")
+	}
+	h.executed.Store(true)
+
+	// Ensure we have some tests to run
 	if len(h.tests) == 0 {
-		c.Fatalf("no tests")
+		c.Fatalf("there are no tests for the harness to run")
 	}
 
 	// Ensure that the initial event is sent by the watcher.

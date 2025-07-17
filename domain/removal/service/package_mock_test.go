@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	life "github.com/juju/juju/domain/life"
 	removal "github.com/juju/juju/domain/removal"
 	gomock "go.uber.org/mock/gomock"
@@ -1202,10 +1203,10 @@ func (c *MockStateModelScheduleRemovalCall) DoAndReturn(f func(context.Context, 
 }
 
 // NamespaceForWatchEntityRemovals mocks base method.
-func (m *MockState) NamespaceForWatchEntityRemovals() (string, []string) {
+func (m *MockState) NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, []string) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NamespaceForWatchEntityRemovals")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(eventsource.NamespaceQuery)
 	ret1, _ := ret[1].([]string)
 	return ret0, ret1
 }
@@ -1223,19 +1224,19 @@ type MockStateNamespaceForWatchEntityRemovalsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateNamespaceForWatchEntityRemovalsCall) Return(arg0 string, arg1 []string) *MockStateNamespaceForWatchEntityRemovalsCall {
+func (c *MockStateNamespaceForWatchEntityRemovalsCall) Return(arg0 eventsource.NamespaceQuery, arg1 []string) *MockStateNamespaceForWatchEntityRemovalsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateNamespaceForWatchEntityRemovalsCall) Do(f func() (string, []string)) *MockStateNamespaceForWatchEntityRemovalsCall {
+func (c *MockStateNamespaceForWatchEntityRemovalsCall) Do(f func() (eventsource.NamespaceQuery, []string)) *MockStateNamespaceForWatchEntityRemovalsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateNamespaceForWatchEntityRemovalsCall) DoAndReturn(f func() (string, []string)) *MockStateNamespaceForWatchEntityRemovalsCall {
+func (c *MockStateNamespaceForWatchEntityRemovalsCall) DoAndReturn(f func() (eventsource.NamespaceQuery, []string)) *MockStateNamespaceForWatchEntityRemovalsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

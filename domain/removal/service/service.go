@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -257,11 +256,11 @@ func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error)
 	}
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
-		eventsource.InitialNamespaceChanges(initialQuery),
+		initialQuery,
 		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {
 			results := make([]string, len(ce))
 			for i, c := range ce {
-				results[i] = fmt.Sprintf("%s:%s", c.Namespace(), c.Changed())
+				results[i] = c.Namespace() + ":" + c.Changed()
 			}
 			return results, nil
 		},

@@ -148,7 +148,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(idler, watchertest.NewWatcherC(c, watcher))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		// Changestream becomes idle and then we receive the bootstrap changes
 		// from the model config.
 		err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(
@@ -162,7 +162,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 		)
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		// Now insert the change and watch it come through.
 		attrs["logging-config"] = "<root>=WARNING"
 		err = svc.SetModelConfig(c.Context(), attrs)

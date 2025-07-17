@@ -132,14 +132,14 @@ func (s *watcherSuite) TestWatchDraining(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.SetDrainingPhase(c.Context(), objectstore.PhaseDraining)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
