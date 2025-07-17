@@ -363,7 +363,7 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		err = st.checkNoDependents(ctx, tx, machineUUID)
+		err = st.checkNoMachineDependents(ctx, tx, machineUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -408,7 +408,7 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		err = st.checkNoDependents(ctx, tx, machineUUID)
+		err = st.checkNoMachineDependents(ctx, tx, machineUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -477,7 +477,7 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("waiting for instance to be removed before deletion").Add(removalerrors.RemovalJobIncomplete)
 		}
 
-		err = st.checkNoDependents(ctx, tx, machineUUIDParam)
+		err = st.checkNoMachineDependents(ctx, tx, machineUUIDParam)
 		if err != nil {
 			return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
 		}
@@ -511,7 +511,7 @@ DELETE FROM net_node WHERE uuid IN
 	return nil
 }
 
-func (st *State) checkNoDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
+func (st *State) checkNoMachineDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
 	countContainersOnMachine, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM machine_parent

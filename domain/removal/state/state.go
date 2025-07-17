@@ -109,3 +109,16 @@ func (st *State) DeleteJob(ctx context.Context, jUUID string) error {
 func (st *State) NamespaceForWatchRemovals() string {
 	return "removal"
 }
+
+// NamespaceForWatchEntityRemovals returns the table name whose UUIDs we
+// are watching in order to be notified of new removal jobs for specific
+// entities.
+func (st *State) NamespaceForWatchEntityRemovals() (string, []string) {
+	return "removal", []string{
+		"relation",
+		"unit",
+		"machine",
+		"model",
+		"application",
+	}
+}

@@ -37,6 +37,7 @@ import (
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -134,9 +135,17 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "prod", "test-model", "ec2")
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test", "iaas", "prod", "test-model", "ec2")
 		`, modelUUID.String(), internaltesting.ControllerTag.Id())
+		if err != nil {
+			return errors.Errorf("creating model: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO model_life (model_uuid, life_id)
+VALUES (?, 0);
+		`, modelUUID.String())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -457,6 +466,19 @@ func (s *baseSuite) advanceInstanceLife(c *tc.C, machineUUID machine.UUID, newLi
 
 func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife int) {
 	row := s.DB().QueryRow("SELECT life_id FROM machine_cloud_instance WHERE machine_uuid = ?", machineUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
+}
+
+func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE model_life SET life_id = ? WHERE model_uuid = ?", newLife, modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM model_life WHERE model_uuid = ?", modelUUID)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)

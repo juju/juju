@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
@@ -23,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -104,6 +107,17 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
 	})
+
+	// Ensure that we have a model life record.
+	var lifeID int
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `SELECT life_id FROM model_life WHERE model_uuid = $1`, id.String()).Scan(&lifeID)
+		if err != nil {
+			return errors.Errorf("getting model life: %w", err)
+		}
+		return nil
+	})
+	c.Assert(lifeID, tc.Equals, 0)
 }
 
 func (s *modelSuite) TestDeleteModel(c *tc.C) {
