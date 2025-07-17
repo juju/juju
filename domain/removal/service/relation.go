@@ -34,6 +34,11 @@ type RelationState interface {
 	// are watching in order to be notified of new removal jobs.
 	NamespaceForWatchRemovals() string
 
+	// NamespaceForWatchEntityRemovals returns the table name whose UUIDs we
+	// are watching in order to be notified of new removal jobs for specific
+	// entities.
+	NamespaceForWatchEntityRemovals() (string, []string)
+
 	// GetRelationLife returns the life of the relation with the input UUID.
 	GetRelationLife(ctx context.Context, rUUID string) (life.Life, error)
 

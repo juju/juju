@@ -5,15 +5,25 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
@@ -32,6 +42,7 @@ type State interface {
 	UnitState
 	ApplicationState
 	MachineState
+	ModelState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
@@ -46,6 +57,13 @@ type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
 	// input table name that match the input mask.
 	NewUUIDsWatcher(tableName string, changeMask changestream.ChangeType) (watcher.StringsWatcher, error)
+	// NewNamespaceMapperWatcher returns a new watcher that receives changes from
+	// the input base watcher's db/queue.
+	NewNamespaceMapperWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
 }
 
 // Service provides the API for working with entity removal.
@@ -91,6 +109,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.MachineJob:
 		err = s.processMachineRemovalJob(ctx, job)
 
+	case removal.ModelJob:
+		err = s.processModelRemovalJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
@@ -100,14 +121,87 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 		s.logger.Debugf(ctx, "removal job for %s %q incomplete: %v", job.RemovalType, job.EntityUUID, err)
 		return nil
 	}
-	if err != nil {
+	if err != nil && !errors.Is(err, removalerrors.RemovalModelRemoved) {
 		return errors.Capture(err)
 	}
 
 	if err := s.st.DeleteJob(ctx, job.UUID.String()); err != nil {
 		return errors.Errorf("completing removal %q: %w", job.UUID.String(), err)
 	}
+
+	// The model was removed successfully, it's now up to listeners to ensure
+	// that everything else is cleaned up. That's outside of the scope of the
+	// removal service (delete DB for example).
+	if errors.Is(err, removalerrors.RemovalModelRemoved) {
+		s.logger.Infof(ctx, "removal job for %s %q completed successfully", job.RemovalType, job.EntityUUID)
+		return err
+	}
+
 	return nil
+}
+
+func (s *Service) removeUnits(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	for _, unitUUID := range uuids {
+		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
+			// There could be a chance that the unit has already been removed by
+			// another process. We can safely ignore this error and continue
+			// with the next unit.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The units are already transitioned to dying and there is
+			// no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of unit %q: %v", unitUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	for _, machineUUID := range uuids {
+		if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); errors.Is(err, machineerrors.MachineNotFound) {
+			// There could be a chance that the machine has already been removed
+			// by another process. We can safely ignore this error and continue
+			// with the next machine.
+			continue
+		} else if err != nil {
+			// If the machine fails to be scheduled for removal, we log out the
+			// error. The machines are already transitioned to dying and there
+			// is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeRelations(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	for _, relationUUID := range uuids {
+		if _, err := s.RemoveRelation(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
+			// There could be a chance that the relation has already been
+			// removed by another process. We can safely ignore this error and
+			// continue with the next relation.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The relations are already transitioned to dying and there
+			// is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of relation %q: %v", relationUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeApplications(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+	for _, applicationUUID := range uuids {
+		if _, err := s.RemoveApplication(ctx, application.ID(applicationUUID), force, wait); errors.Is(err, applicationerrors.ApplicationNotFound) {
+			// There could be a chance that the application has already been
+			// removed by another process. We can safely ignore this error and
+			// continue with the next application.
+			continue
+		} else if err != nil {
+			// If the unit fails to be scheduled for removal, we log out the
+			// error. The applications are already transitioned to dying and
+			// there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of application %q: %v", applicationUUID, err)
+		}
+	}
 }
 
 // WatchableService provides the API for working with entity removal,
@@ -145,6 +239,37 @@ func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
 	w, err := s.watcherFactory.NewUUIDsWatcher(s.st.NamespaceForWatchRemovals(), changestream.Changed)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for removals: %w", err)
+	}
+	return w, nil
+}
+
+// WatchEntityRemovals watches for scheduled removal jobs for specific entities.
+func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error) {
+	initialQuery, filterNames := s.st.NamespaceForWatchEntityRemovals()
+
+	if len(filterNames) == 0 {
+		return nil, errors.Errorf("no filter names provided for entity removals watcher")
+	}
+
+	var filters []eventsource.FilterOption
+	for _, name := range filterNames {
+		filters = append(filters, eventsource.NamespaceFilter(name, changestream.All))
+	}
+
+	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		eventsource.InitialNamespaceChanges(initialQuery),
+		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {
+			results := make([]string, len(ce))
+			for i, c := range ce {
+				results[i] = fmt.Sprintf("%s:%s", c.Namespace(), c.Changed())
+			}
+			return results, nil
+		},
+		filters[0],
+		filters[1:]...,
+	)
+	if err != nil {
+		return nil, errors.Errorf("creating watcher for entity removals: %w", err)
 	}
 	return w, nil
 }
