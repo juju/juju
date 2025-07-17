@@ -35,38 +35,56 @@ type ControllerConfigService interface {
 // network spaces/subnets.
 type NetworkService interface {
 	// AddSpace creates and returns a new space.
-	AddSpace(ctx context.Context, space network.SpaceInfo) (network.SpaceUUID, error)
+	AddSpace(context.Context, network.SpaceInfo) (network.SpaceUUID, error)
+
 	// SpaceByName returns a space from state that matches the input name. If
 	// the space is not found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
+	SpaceByName(context.Context, network.SpaceName) (*network.SpaceInfo, error)
+
 	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	GetAllSpaces(context.Context) (network.SpaceInfos, error)
+
 	// UpdateSpace updates the space name identified by the passed uuid. If
 	// the space is not found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	UpdateSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName) error
+	UpdateSpace(context.Context, network.SpaceUUID, network.SpaceName) error
+
 	// RemoveSpace deletes a space identified by its uuid. If the space is not
 	// found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	RemoveSpace(ctx context.Context, uuid network.SpaceUUID) error
+	RemoveSpace(context.Context, network.SpaceUUID) error
+
 	// ReloadSpaces loads spaces and subnets from the provider into state.
-	ReloadSpaces(ctx context.Context) error
+	ReloadSpaces(context.Context) error
+
 	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	GetAllSubnets(context.Context) (network.SubnetInfos, error)
+
 	// SubnetsByCIDR returns the subnets matching the input CIDRs.
 	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
+
 	// Subnet returns the subnet identified by the input UUID,
 	// or an error if it is not found.
 	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
+
 	// UpdateSubnet updates the spaceUUID of the subnet identified by the input
 	// UUID.
 	UpdateSubnet(ctx context.Context, uuid string, spaceUUID network.SpaceUUID) error
+
 	// SupportsSpaces returns whether the current environment supports spaces.
-	SupportsSpaces(ctx context.Context) (bool, error)
+	SupportsSpaces(context.Context) (bool, error)
+
 	// SupportsSpaceDiscovery returns whether the current environment supports
 	// discovering spaces from the provider.
-	SupportsSpaceDiscovery(ctx context.Context) (bool, error)
+	SupportsSpaceDiscovery(context.Context) (bool, error)
+
+	// GetMachineAddresses retrieves the network space addresses of a machine
+	// identified by its UUID.
+	// It performs validation on the UUID and fetches the corresponding network
+	// node and its associated addresses.
+	// Returns the network space addresses or an error if any issues are encountered.
+	GetMachineAddresses(context.Context, machine.UUID) (network.SpaceAddresses, error)
 }
 
 // ModelConfigService is an interface that provides access to the
@@ -98,21 +116,28 @@ type ApplicationService interface {
 	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
 	// endpoints are indexed by the application name for the application which they
 	// belong to.
-	GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error)
+	GetAllEndpointBindings(context.Context) (map[string]map[string]network.SpaceName, error)
 
 	// GetApplicationsBoundToSpace returns the names of the applications bound to
 	// the given space.
-	GetApplicationsBoundToSpace(ctx context.Context, uuid network.SpaceUUID) ([]string, error)
+	GetApplicationsBoundToSpace(context.Context, network.SpaceUUID) ([]string, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns a MachineNotFound if the machine does not exist.
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
+
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(context.Context) ([]machine.Name, error)
+
 	// CountMachinesInSpace counts the number of machines with address in a given
 	// space. This method counts the distinct occurrences of net nodes of the
 	// addresses, meaning that if a machine has multiple addresses in the same
 	// subnet it will be counted only once.
-	CountMachinesInSpace(ctx context.Context, spaceID network.SpaceUUID) (int64, error)
+	CountMachinesInSpace(context.Context, network.SpaceUUID) (int64, error)
 }
 
 // API provides the spaces API facade for version 6.

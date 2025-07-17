@@ -126,17 +126,22 @@ func (api *API) getAffectedNetworks(ctx context.Context, subnets network.SubnetI
 		movingSubnetIDs.Add(subnet.ID)
 	}
 
-	affected, err := newAffectedNetworks(api.applicationService, movingSubnetIDs, spaceName, allSpaces, force, api.logger)
+	affected, err := newAffectedNetworks(
+		api.applicationService,
+		api.machineService,
+		api.networkService,
+		movingSubnetIDs, spaceName,
+		allSpaces, force, api.logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	machines, err := api.backing.AllMachines()
+	machineNames, err := api.machineService.AllMachineNames(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := affected.processMachines(ctx, machines); err != nil {
+	if err := affected.processMachines(ctx, machineNames); err != nil {
 		return nil, errors.Annotate(err, "processing machine networks")
 	}
 
