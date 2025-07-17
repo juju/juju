@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/machine"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
@@ -35,16 +36,59 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 	if err != nil {
 		return errors.Capture(err)
 	}
-	useData := data
 
-	// Net node uuids were created when machines were imported.
-	for i, device := range data {
-		netNodeUUID, ok := namesToUUIDs[device.MachineID]
-		if !ok {
-			return errors.Errorf("no net node found for machineID %q", device.MachineID)
-		}
-		useData[i].NetNodeUUID = netNodeUUID
+	subnets, err := s.st.GetAllSubnets(ctx)
+	if err != nil {
+		return errors.Errorf("getting all subnets: %w", err)
 	}
+	subnetUUIDByProviderId := transform.SliceToMap(subnets, func(f corenetwork.SubnetInfo) (string, string) {
+		return f.ProviderId.String(), f.ID.String()
+	})
+
+	useData, err := transform.SliceOrErr(data,
+		func(device internal.ImportLinkLayerDevice) (internal.ImportLinkLayerDevice, error) {
+			netNodeUUID, ok := namesToUUIDs[device.MachineID]
+			if !ok {
+				return device, errors.Errorf("no net node found for machineID %q", device.MachineID)
+			}
+			device.NetNodeUUID = netNodeUUID
+
+			if len(device.Addresses) == 0 {
+				return device, nil
+			}
+
+			device.Addresses, err = transform.SliceOrErr(device.Addresses, func(addr internal.ImportIPAddress) (internal.ImportIPAddress, error) {
+				if addr.ProviderSubnetID != nil {
+					subnetUUID, ok := subnetUUIDByProviderId[*addr.ProviderSubnetID]
+					if !ok {
+						return addr, errors.Errorf("no subnet found for provider subnet ID %q", *addr.ProviderSubnetID)
+					}
+					addr.SubnetUUID = subnetUUID
+					return addr, nil
+				}
+				info, err := subnets.GetByCIDR(addr.SubnetCIDR)
+				if err != nil {
+					return addr, errors.Errorf("getting subnet by CIDR %q: %w", addr.SubnetCIDR, err)
+				}
+				if len(info) == 0 {
+					return addr, errors.Errorf("no subnet found for CIDR %q", addr.SubnetCIDR)
+				}
+				if len(info) > 1 {
+					return addr, errors.Errorf("multiple subnets found for CIDR %q", addr.SubnetCIDR)
+				}
+				addr.SubnetUUID = info[0].ID.String()
+				return addr, nil
+			})
+			if err != nil {
+				return device, errors.Errorf("converting addresses: %w", err)
+			}
+
+			return device, nil
+		})
+	if err != nil {
+		return errors.Errorf("converting devices: %w", err)
+	}
+
 	return s.st.ImportLinkLayerDevices(ctx, useData)
 }
 
