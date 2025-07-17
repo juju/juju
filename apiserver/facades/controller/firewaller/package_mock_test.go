@@ -123,45 +123,6 @@ func (c *MockStateKeyRelationCall) DoAndReturn(f func(string) (firewaller.Relati
 	return c
 }
 
-// Machine mocks base method.
-func (m *MockState) Machine(arg0 string) (firewaller.Machine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Machine", arg0)
-	ret0, _ := ret[0].(firewaller.Machine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Machine indicates an expected call of Machine.
-func (mr *MockStateMockRecorder) Machine(arg0 any) *MockStateMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockState)(nil).Machine), arg0)
-	return &MockStateMachineCall{Call: call}
-}
-
-// MockStateMachineCall wrap *gomock.Call
-type MockStateMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateMachineCall) Return(arg0 firewaller.Machine, arg1 error) *MockStateMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateMachineCall) Do(f func(string) (firewaller.Machine, error)) *MockStateMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateMachineCall) DoAndReturn(f func(string) (firewaller.Machine, error)) *MockStateMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchModelMachineStartTimes mocks base method.
 func (m *MockState) WatchModelMachineStartTimes(arg0 time.Duration) state.StringsWatcher {
 	m.ctrl.T.Helper()

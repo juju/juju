@@ -179,7 +179,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	modelMachines, err := ModelMachineInfo(ctx, st, machineService, statusService)
+	modelMachines, err := ModelMachineInfo(ctx, machineService, statusService)
 	if err != nil {
 		return status, errors.Trace(err)
 	}

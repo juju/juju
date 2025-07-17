@@ -30,17 +30,12 @@ type State interface {
 	state.ModelMachinesWatcher
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 	KeyRelation(string) (Relation, error)
-	Machine(string) (Machine, error)
 }
 
 type Relation interface {
 	status.StatusSetter
 	Endpoints() []relation.Endpoint
 	WatchUnits(applicationName string) (relation.RelationUnitsWatcher, error)
-}
-
-type Machine interface {
-	Id() string
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -58,6 +53,9 @@ type NetworkService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(context.Context) ([]machine.Name, error)
+
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 
@@ -71,6 +69,10 @@ type MachineService interface {
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+
+	// GetSupportedContainersTypes returns the supported container types for the
+	// provider.
+	GetSupportedContainersTypes(context.Context, machine.UUID) ([]instance.ContainerType, error)
 
 	// IsMachineManuallyProvisioned returns whether the machine is a manual
 	// machine.
@@ -140,10 +142,6 @@ type MacaroonGetter interface {
 type stateShim struct {
 	*state.State
 	MacaroonGetter
-}
-
-func (st stateShim) Machine(id string) (Machine, error) {
-	return st.State.Machine(id)
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -241,13 +239,6 @@ func validateDynamicMachineStorageParams(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	pools, err := storagePools(sb, params)
-	if err != nil {
-		return err
-	}
-	if err := validateDynamicMachineStoragePools(sb.storageBackend, m, pools); err != nil {
-		return err
-	}
 	// Validate the volume/filesystem attachments for the machine.
 	for volumeTag := range params.volumeAttachments {
 		volume, err := getVolumeByTag(sb.mb, volumeTag)
@@ -272,93 +263,6 @@ func validateDynamicMachineStorageParams(
 				"storage is non-detachable (bound to %s)",
 				names.ReadableString(host),
 			)
-		}
-	}
-	return nil
-}
-
-// storagePools returns the names of storage pools in each of the
-// volume, filesystem and attachments in the machine storage parameters.
-func storagePools(sb *storageConfigBackend, params *storageParams) (set.Strings, error) {
-	pools := make(set.Strings)
-	for _, v := range params.volumes {
-		v, err := sb.volumeParamsWithDefaults(v.Volume)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		pools.Add(v.Pool)
-	}
-	for _, f := range params.filesystems {
-		f, err := sb.filesystemParamsWithDefaults(f.Filesystem)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		pools.Add(f.Pool)
-	}
-	for volumeTag := range params.volumeAttachments {
-		volume, err := sb.Volume(volumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if params, ok := volume.Params(); ok {
-			pools.Add(params.Pool)
-		} else {
-			info, err := volume.Info()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			pools.Add(info.Pool)
-		}
-	}
-	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := sb.Filesystem(filesystemTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if params, ok := filesystem.Params(); ok {
-			pools.Add(params.Pool)
-		} else {
-			info, err := filesystem.Info()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			pools.Add(info.Pool)
-		}
-	}
-	return pools, nil
-}
-
-// validateDynamicMachineStoragePools validates that all of the specified
-// storage pools support dynamic storage provisioning. If any provider doesn't
-// support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicMachineStoragePools(sb *storageBackend, m MachineRef, pools set.Strings) error {
-	if pools.IsEmpty() {
-		return nil
-	}
-	return validateDynamicStoragePools(sb, pools, m.ContainerType())
-}
-
-// validateDynamicStoragePools validates that all of the specified storage
-// providers support dynamic storage provisioning. If any provider doesn't
-// support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicStoragePools(sb *storageBackend, pools set.Strings, containerType instance.ContainerType) error {
-	for pool := range pools {
-		providerType, p, _, err := poolStorageProvider(sb, pool)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if containerType != "" && !provider.AllowedContainerProvider(providerType) {
-			// TODO(axw) later we might allow *any* storage, and
-			// passthrough/bindmount storage. That would imply either
-			// container creation time only, or requiring containers
-			// to be restarted to pick up new configuration.
-			return errors.NotSupportedf("adding storage of type %q to %s container", providerType, containerType)
-		}
-		if !p.Dynamic() {
-			return errors.NewNotSupported(err, fmt.Sprintf(
-				"%q storage provider does not support dynamic storage",
-				providerType,
-			))
 		}
 	}
 	return nil
