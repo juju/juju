@@ -4,8 +4,11 @@
 package modelmigration
 
 import (
+	"maps"
+	"slices"
 	"testing"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/description/v10"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -197,6 +200,194 @@ func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
+	// Arrange
+	// machine 0 eth 0 => 2 addr 10.0.0.1 & fd42:9102:88cb:dce3:216:3eff:fe59:a9dc, origin provider
+	// machine 0 eth 1 => 1 addr 198.0.0.1, origin provider
+	// machine 1 eth 0 => 1 addr 172.0.0.1 origin machine
+	defer s.setupMocks(c).Finish()
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:      "eth0",
+		MachineID: "0",
+	})
+	model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:      "eth1",
+		MachineID: "0",
+	})
+	model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:      "eth0",
+		MachineID: "1",
+	})
+	model.AddIPAddress(description.IPAddressArgs{
+		DeviceName: "eth0",
+		MachineID:  "0",
+
+		ProviderID:       "address-10.0.0.1",
+		SubnetCIDR:       "10.0.0.0/24",
+		ConfigMethod:     string(network.ConfigStatic),
+		Value:            "10.0.0.1",
+		ProviderSubnetID: "subnet-10.0.0.0/24",
+		Origin:           "provider",
+		IsShadow:         false,
+		IsSecondary:      false,
+	})
+	model.AddIPAddress(description.IPAddressArgs{
+		DeviceName: "eth0",
+		MachineID:  "0",
+
+		ProviderID:       "address-fd42:9102:88cb:dce3:216:3eff:fe59:a9dc",
+		SubnetCIDR:       "fd42:9102:88cb:dce3::/64",
+		ConfigMethod:     string(network.ConfigManual),
+		Value:            "fd42:9102:88cb:dce3:216:3eff:fe59:a9dc",
+		ProviderSubnetID: "subnet-fd42:9102:88cb:dce3::/64",
+		Origin:           "provider",
+		IsShadow:         true,
+		IsSecondary:      true,
+	})
+	model.AddIPAddress(description.IPAddressArgs{
+		DeviceName: "eth1",
+		MachineID:  "0",
+
+		ProviderID:       "address-198.0.0.1",
+		SubnetCIDR:       "198.0.0.0/24",
+		ConfigMethod:     string(network.ConfigDHCP),
+		Value:            "198.0.0.1",
+		ProviderSubnetID: "subnet-198.0.0.0/24",
+		Origin:           "provider",
+		IsShadow:         true,
+		IsSecondary:      false,
+	})
+	model.AddIPAddress(description.IPAddressArgs{
+		DeviceName: "eth0",
+		MachineID:  "1",
+
+		SubnetCIDR:   "172.0.0.0/24",
+		ConfigMethod: string(network.ConfigDHCP),
+		Value:        "172.0.0.0",
+		Origin:       "machine",
+		IsShadow:     false,
+		IsSecondary:  true,
+	})
+
+	s.migrationService.EXPECT().ImportLinkLayerDevices(gomock.Any(), lldArgMatcher{c: c,
+		expected: []internal.ImportLinkLayerDevice{{
+			MachineID: "0",
+			Name:      "eth0",
+			Addresses: []internal.ImportIPAddress{{
+				ProviderID:       ptr("address-10.0.0.1"),
+				SubnetCIDR:       "10.0.0.0/24",
+				ConfigType:       network.ConfigStatic,
+				AddressValue:     "10.0.0.1",
+				ProviderSubnetID: ptr("subnet-10.0.0.0/24"),
+				Origin:           "provider",
+				IsShadow:         false,
+				IsSecondary:      false,
+				// Resolved values
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			}, {
+				ProviderID:       ptr("address-fd42:9102:88cb:dce3:216:3eff:fe59:a9dc"),
+				SubnetCIDR:       "fd42:9102:88cb:dce3::/64",
+				ConfigType:       network.ConfigManual,
+				AddressValue:     "fd42:9102:88cb:dce3:216:3eff:fe59:a9dc",
+				ProviderSubnetID: ptr("subnet-fd42:9102:88cb:dce3::/64"),
+				Origin:           "provider",
+				IsShadow:         true,
+				IsSecondary:      true,
+				// Resolved values
+				Type:  network.IPv6Address,
+				Scope: network.ScopeCloudLocal,
+			}},
+		}, {
+			MachineID: "0",
+			Name:      "eth1",
+			Addresses: []internal.ImportIPAddress{{
+				ProviderID:       ptr("address-198.0.0.1"),
+				SubnetCIDR:       "198.0.0.0/24",
+				ConfigType:       network.ConfigDHCP,
+				AddressValue:     "198.0.0.1",
+				ProviderSubnetID: ptr("subnet-198.0.0.0/24"),
+				Origin:           "provider",
+				IsShadow:         true,
+				IsSecondary:      false,
+				// Resolved values
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			}},
+		}, {
+			MachineID: "1",
+			Name:      "eth0",
+			Addresses: []internal.ImportIPAddress{{
+				SubnetCIDR:   "172.0.0.0/24",
+				ConfigType:   network.ConfigDHCP,
+				AddressValue: "172.0.0.0",
+				Origin:       "machine",
+				IsShadow:     false,
+				IsSecondary:  true,
+				// Resolved values
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			}}}}}).Return(nil)
+
+	// Act
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportLinkLayerDevicesWithAddressesErrorNoDevice(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:      "eth0",
+		MachineID: "0",
+	})
+	model.AddIPAddress(description.IPAddressArgs{
+		DeviceName: "eth1",
+		MachineID:  "0",
+
+		Value: "10.0.0.1",
+	})
+
+	// Act
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `address \"10.0.0.1\" for machine \"0\" on device \"eth1\" not found`)
+}
+
+func (s *importSuite) TestImportLinkLayerDevicesWithAddressesErrorInvalidConfigMethod(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:      "eth0",
+		MachineID: "0",
+	})
+	model.AddIPAddress(description.IPAddressArgs{
+		DeviceName: "eth0",
+		MachineID:  "0",
+
+		ConfigMethod: "not-valid",
+		Value:        "10.0.0.1",
+	})
+
+	// Act
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `invalid address config type \"not-valid\" for address \"10.0.0.1\" of device \"eth0\" on machine \"0\"`)
+}
+
 func (s *importSuite) TestImportLinkLayerDevicesOptionalValues(c *tc.C) {
 	// Arrange: ensure input not containing an MTU, ProviderID, nor
 	// MACAddress values to see nil values in the data passed to the
@@ -271,15 +462,44 @@ func (m lldArgMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
+	type key struct {
+		machineID string
+		name      string
+	}
+	noAddresses := func(in internal.ImportLinkLayerDevice) internal.ImportLinkLayerDevice {
+		in.Addresses = nil
+		return in
+	}
+	mapAddresses := func(in internal.ImportLinkLayerDevice) (key, []internal.ImportIPAddress) {
+		return key{machineID: in.MachineID, name: in.Name}, in.Addresses
+	}
+	inputAddresses := transform.SliceToMap(input, mapAddresses)
+	expectedAddresses := transform.SliceToMap(m.expected, mapAddresses)
+
+	m.c.Check(slices.Collect(maps.Keys(inputAddresses)), tc.SameContents, slices.Collect(maps.Keys(expectedAddresses)))
+	for k, in := range inputAddresses {
+		// UUIDs are assigned in the code under test. Ensure they exist, then
+		// remove it to enable SameContents checks over the other fields.
+		in = transform.Slice(in, func(in internal.ImportIPAddress) internal.ImportIPAddress {
+			m.c.Check(in.UUID, tc.Not(tc.Equals), "")
+			in.UUID = ""
+			return in
+		})
+		m.c.Check(in, tc.SameContents, expectedAddresses[k], tc.Commentf("for %+v", k))
+	}
+
 	// UUIDs are assigned in the code under test. Ensure they exist, then
 	// remove it to enable SameContents checks over the other fields.
-	for i, in := range input {
+	input = transform.Slice(input, func(in internal.ImportLinkLayerDevice) internal.ImportLinkLayerDevice {
 		m.c.Check(in.UUID, tc.Not(tc.Equals), "")
-		out := in
-		out.UUID = ""
-		input[i] = out
-	}
-	return m.c.Check(input, tc.SameContents, m.expected)
+		in.UUID = ""
+		return in
+	})
+
+	return m.c.Check(
+		transform.Slice(input, noAddresses),
+		tc.SameContents,
+		transform.Slice(m.expected, noAddresses))
 }
 
 func (lldArgMatcher) String() string {

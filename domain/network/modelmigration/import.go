@@ -85,7 +85,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	if err := i.importSubnets(ctx, model.Subnets(), spaceIDsMap); err != nil {
 		return errors.Capture(err)
 	}
-	if err := i.importLinkLayerDevices(ctx, model.LinkLayerDevices()); err != nil {
+	if err := i.importLinkLayerDevices(ctx, model.LinkLayerDevices(), model.IPAddresses()); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
@@ -171,22 +171,31 @@ func (i *importOperation) importSubnets(
 	return nil
 }
 
-func (i *importOperation) importLinkLayerDevices(ctx context.Context, modelLLD []description.LinkLayerDevice) error {
+func (i *importOperation) importLinkLayerDevices(ctx context.Context, modelLLD []description.LinkLayerDevice,
+	modelAddresses []description.IPAddress) error {
 	if len(modelLLD) == 0 {
 		return nil
 	}
-	data, err := i.transformLinkLayerDevices(modelLLD)
+	lldData, err := i.transformLinkLayerDevices(modelLLD, modelAddresses)
 	if err != nil {
-		return err
+		return errors.Capture(err)
 	}
-	if err := i.migrationService.ImportLinkLayerDevices(ctx, data); err != nil {
+	if err := i.migrationService.ImportLinkLayerDevices(ctx, lldData); err != nil {
 		return errors.Errorf("importing link layer devices: %w", err)
 	}
+
 	return nil
 }
 
-func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkLayerDevice) ([]internal.ImportLinkLayerDevice, error) {
+func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkLayerDevice, addresses []description.IPAddress) ([]internal.ImportLinkLayerDevice, error) {
 	data := make([]internal.ImportLinkLayerDevice, len(modelLLD))
+
+	// Temporary map to index llds by machine and name, to distribute addresses
+	type key struct {
+		machineID string
+		name      string
+	}
+	llds := make(map[key]*internal.ImportLinkLayerDevice, len(modelLLD))
 
 	for i, lld := range modelLLD {
 		lldUUID, err := uuid.NewUUID()
@@ -206,6 +215,44 @@ func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkL
 			IsEnabled:        lld.IsUp(),
 			ParentDeviceName: lld.ParentName(),
 		}
+		llds[key{
+			machineID: lld.MachineID(),
+			name:      lld.Name(),
+		}] = &data[i]
+	}
+
+	for _, address := range addresses {
+		addressUUID, err := uuid.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf("creating UUID for address %q of device %q", address.Value(),
+				address.DeviceName())
+		}
+		device, ok := llds[key{
+			machineID: address.MachineID(),
+			name:      address.DeviceName(),
+		}]
+		if !ok {
+			return nil, errors.Errorf("address %q for machine %q on device %q not found", address.Value(), address.MachineID(),
+				address.DeviceName())
+		}
+		if !corenetwork.IsValidAddressConfigType(address.ConfigMethod()) {
+			return nil, errors.Errorf("invalid address config type %q for address %q of device %q on machine %q",
+				address.ConfigMethod(), address.Value(), address.DeviceName(), address.MachineID())
+		}
+
+		device.Addresses = append(device.Addresses, internal.ImportIPAddress{
+			UUID:             addressUUID.String(),
+			Type:             corenetwork.DeriveAddressType(address.Value()),
+			Scope:            corenetwork.NewMachineAddress(address.Value()).Scope,
+			AddressValue:     address.Value(),
+			SubnetCIDR:       address.SubnetCIDR(),
+			ConfigType:       corenetwork.AddressConfigType(address.ConfigMethod()),
+			IsSecondary:      address.IsSecondary(),
+			IsShadow:         address.IsShadow(),
+			Origin:           corenetwork.Origin(address.Origin()),
+			ProviderID:       nilZeroPtr(address.ProviderID()),
+			ProviderSubnetID: nilZeroPtr(address.ProviderSubnetID()),
+		})
 	}
 
 	return data, nil
