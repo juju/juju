@@ -132,7 +132,6 @@ type ActionReceiver interface {
 
 // GlobalEntity specifies entity.
 type GlobalEntity interface {
-	globalKey() string
 	Tag() names.Tag
 }
 

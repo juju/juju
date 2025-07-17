@@ -8,14 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
-
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coremodel "github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -132,84 +128,5 @@ func (o CharmOrigin) AsCoreCharmOrigin() corecharm.Origin {
 // Charm returns the charm with the given URL. Charms pending to be uploaded
 // are returned for Charmhub charms. Charm placeholders are never returned.
 func (st *State) Charm(curl string) (CharmRefFull, error) {
-	parsedURL, err := charm.ParseURL(curl)
-	if err != nil {
-		return nil, err
-	}
-	return st.findCharm(parsedURL)
-}
-
-type charmImpl struct {
-	charm.Charm
-	url string
-}
-
-func (c *charmImpl) Meta() *charm.Meta {
-	return c.Charm.Meta()
-}
-
-func (c *charmImpl) Manifest() *charm.Manifest {
-	return c.Charm.Manifest()
-}
-
-func (c *charmImpl) Actions() *charm.Actions {
-	return c.Charm.Actions()
-}
-
-func (c *charmImpl) Config() *charm.Config {
-	return c.Charm.Config()
-}
-
-func (c *charmImpl) Revision() int {
-	return c.Charm.Revision()
-}
-
-func (c *charmImpl) URL() string {
-	return c.url
-}
-
-func (c *charmImpl) Version() string {
-	return c.Charm.Version()
-}
-
-func fromInternalCharm(ch charm.Charm, url string) CharmRefFull {
-	return &charmImpl{
-		Charm: ch,
-		url:   url,
-	}
-}
-
-// findCharm returns a charm matching the curl if it exists.  This method should
-// be used with deep understanding of charm deployment, refresh, charm revision
-// updater. Most code should use Charm above.
-// The primary direct use case is AddCharmMetadata. When we asynchronously download
-// a charm, the metadata is inserted into the db so that part of deploying or
-// refreshing a charm can happen before a charm is actually downloaded. Therefore
-// it must be able to find placeholders and update them to allow for a download
-// to happen as part of refresh.
-func (st *State) findCharm(curl *charm.URL) (CharmRefFull, error) {
-	var charmSource applicationcharm.CharmSource
-	// We must map the charm schema to the charm source. If the schema is
-	// not ch nor local, then it will fail retrieving the charm.
-	if curl.Schema == "ch" {
-		charmSource = applicationcharm.CharmHubSource
-	} else if curl.Schema == "local" {
-		charmSource = applicationcharm.LocalSource
-	}
-	charmService, err := st.charmServiceGetter(coremodel.UUID(st.ModelUUID()))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ch, _, _, err := charmService.GetCharm(context.TODO(), applicationcharm.CharmLocator{
-		Name:     curl.Name,
-		Revision: curl.Revision,
-		Source:   charmSource,
-	})
-	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return nil, errors.NotFoundf("charm %q", curl)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot retrieve charm %q", curl.Name)
-	}
-	return fromInternalCharm(ch, curl.String()), nil
+	return nil, nil
 }

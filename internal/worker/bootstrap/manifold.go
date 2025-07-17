@@ -24,9 +24,7 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
-	workerstate "github.com/juju/juju/internal/worker/state"
 )
 
 // FlagService is the interface that is used to set the value of a
@@ -232,32 +230,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var stTracker workerstate.StateTracker
-			if err := getter.Get(config.StateName, &stTracker); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			// Get the state pool after grabbing dependencies so we don't need
-			// to remember to call Done on it if they're not running yet.
-			statePool, _, err := stTracker.Use()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			systemState, err := statePool.SystemState()
-			if err != nil {
-				_ = stTracker.Done()
-				return nil, errors.Trace(err)
-			}
-
 			var domainServicesGetter services.DomainServicesGetter
 			if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
-				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 			controllerModelDomainServices, err := domainServicesGetter.ServicesForModel(ctx, controllerModel.UUID)
 			if err != nil {
-				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 
@@ -265,13 +243,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var storageRegistryGetter corestorage.StorageRegistryGetter
 			if err := getter.Get(config.StorageRegistryName, &storageRegistryGetter); err != nil {
-				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 
 			registry, err := storageRegistryGetter.GetStorageRegistry(ctx, controllerModel.UUID.String())
 			if err != nil {
-				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 
@@ -294,7 +270,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				FlagService:                flagService,
 				NetworkService:             controllerModelDomainServices.Network(),
 				BakeryConfigService:        controllerDomainServices.Macaroon(),
-				SystemState:                systemState,
 				BootstrapUnlocker:          bootstrapUnlocker,
 				AgentBinaryUploader:        config.AgentBinaryUploader,
 				ControllerCharmDeployer:    config.ControllerCharmDeployer,
@@ -308,13 +283,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                      config.Clock,
 			})
 			if err != nil {
-				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
-			return common.NewCleanupWorker(w, func() {
-				// Ensure we clean up the state pool.
-				_ = stTracker.Done()
-			}), nil
+			return w, nil
 		},
 	}
 }

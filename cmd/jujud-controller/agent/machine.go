@@ -881,30 +881,6 @@ var stateWorkerDialOpts mongo.DialOpts
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
 func (a *MachineAgent) ensureMongoServer(ctx context.Context, agentConfig agent.Config) (err error) {
-	a.mongoInitMutex.Lock()
-	defer a.mongoInitMutex.Unlock()
-	if a.mongoInitialized {
-		logger.Debugf(context.TODO(), "mongo is already initialized")
-		return nil
-	}
-	defer func() {
-		if err == nil {
-			a.mongoInitialized = true
-		}
-	}()
-
-	if a.isCaasAgent {
-		return nil
-	}
-	// EnsureMongoServerInstalled installs/upgrades the init config as necessary.
-	ensureServerParams, err := cmdutil.NewEnsureMongoParams(agentConfig)
-	if err != nil {
-		return err
-	}
-	if err := cmdutil.EnsureMongoServerInstalled(ctx, ensureServerParams); err != nil {
-		return err
-	}
-	logger.Debugf(context.TODO(), "mongodb service is installed")
 	return nil
 }
 
@@ -913,16 +889,6 @@ func openStatePool(
 	dialOpts mongo.DialOpts,
 	domainServicesGetter services.DomainServicesGetter,
 ) (_ *state.StatePool, err error) {
-	info, ok := agentConfig.MongoInfo()
-	if !ok {
-		return nil, errors.Errorf("no state info available")
-	}
-	session, err := mongo.DialWithInfo(*info, dialOpts)
-	if err != nil {
-		return nil, errors.Annotatef(err, "open state pool")
-	}
-	defer session.Close()
-
 	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
 		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
 		if err != nil {
@@ -942,7 +908,6 @@ func openStatePool(
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
-		MongoSession:       session,
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
 		CharmServiceGetter: charmServiceGetter,
 	})

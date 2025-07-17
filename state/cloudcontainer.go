@@ -4,9 +4,6 @@
 package state
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/bson"
-
 	"github.com/juju/juju/core/network"
 )
 
@@ -74,20 +71,5 @@ func (c *cloudContainer) Ports() []string {
 
 // Containers returns the containers for the specified provider ids.
 func (m *CAASModel) Containers(providerIds ...string) ([]CloudContainer, error) {
-	coll, closer := m.st.db().GetCollection(cloudContainersC)
-	defer closer()
-
-	var all []cloudContainerDoc
-	err := coll.Find(bson.D{{"provider-id", bson.D{{"$in", providerIds}}}}).All(&all)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var result []CloudContainer
-	for _, doc := range all {
-		unitKey := m.localID(doc.Id)
-		// key is "u#<unitname>#charm"
-		idx := len(unitKey) - len("#charm")
-		result = append(result, &cloudContainer{doc: doc, unitName: unitKey[2:idx]})
-	}
-	return result, nil
+	return nil, nil
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/core/network"
@@ -105,7 +104,7 @@ func newIPAddress(st *State, doc ipAddressDoc) *Address {
 // DocID returns the globally unique ID of the IP address, including the model
 // UUID as prefix.
 func (addr *Address) DocID() string {
-	return addr.st.docID(addr.doc.DocID)
+	return ""
 }
 
 // ProviderID returns the provider-specific IP address ID, if set.
@@ -141,13 +140,9 @@ func (addr *Address) DeviceName() string {
 
 // Device returns the LinkLayerDevice this IP address is assigned to.
 func (addr *Address) Device() (*LinkLayerDevice, error) {
-	devID := linkLayerDeviceDocIDFromName(addr.st, addr.doc.MachineID, addr.doc.DeviceName)
+	devID := ""
 	dev, err := addr.st.LinkLayerDevice(devID)
 	return dev, errors.Trace(err)
-}
-
-func linkLayerDeviceDocIDFromName(st *State, machineID, deviceName string) string {
-	return st.docID(linkLayerDeviceGlobalKey(machineID, deviceName))
 }
 
 // SubnetCIDR returns the CIDR of the subnet this IP address comes from.
@@ -228,56 +223,5 @@ func (addr *Address) String() string {
 // address is not present in the collection and that if set,
 // its provider ID is removed from the global register.
 func (addr *Address) RemoveOps() []txn.Op {
-	ops := []txn.Op{{
-		C:      ipAddressesC,
-		Id:     addr.doc.DocID,
-		Remove: true,
-	}}
-
-	if addr.ProviderID() != "" {
-		ops = append(ops, addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID()))
-	}
-
-	return ops
-}
-
-func findAddressesQuery(machineID, deviceName string) bson.D {
-	var query bson.D
-	if machineID != "" {
-		query = append(query, bson.DocElem{Name: "machine-id", Value: machineID})
-	}
-	if deviceName != "" {
-		query = append(query, bson.DocElem{Name: "device-name", Value: deviceName})
-	}
-	return query
-}
-
-func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, error) {
-	var ops []txn.Op
-	callbackFunc := func(resultDoc *ipAddressDoc) {
-		addr := &Address{st: st, doc: *resultDoc}
-		ops = append(ops, addr.RemoveOps()...)
-	}
-
-	err := st.forEachIPAddressDoc(findQuery, callbackFunc)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return ops, nil
-}
-
-func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
-	addresses, closer := st.db().GetCollection(ipAddressesC)
-	defer closer()
-
-	query := addresses.Find(findQuery)
-	iter := query.Iter()
-
-	var resultDoc ipAddressDoc
-	for iter.Next(&resultDoc) {
-		callbackFunc(&resultDoc)
-	}
-
-	return errors.Trace(iter.Close())
+	return nil
 }
