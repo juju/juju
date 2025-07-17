@@ -65,13 +65,13 @@ func (*imageSuite) TestImageForBase(c *gc.C) {
 		Track: "20.04", Risk: charm.Stable,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.DeepEquals, `docker.io/jujusolutions/charm-base:ubuntu-20.04`)
+	c.Assert(path, gc.DeepEquals, `ghcr.io/juju/charm-base:ubuntu-20.04`)
 
 	path, err = podcfg.ImageForBase("", charm.Base{Name: "ubuntu", Channel: charm.Channel{
 		Track: "20.04", Risk: charm.Edge,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.DeepEquals, `docker.io/jujusolutions/charm-base:ubuntu-20.04-edge`)
+	c.Assert(path, gc.DeepEquals, `ghcr.io/juju/charm-base:ubuntu-20.04-edge`)
 }
 
 func (*imageSuite) TestRecoverRepoFromOperatorPath(c *gc.C) {

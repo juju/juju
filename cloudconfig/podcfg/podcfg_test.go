@@ -69,10 +69,10 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 	podConfig.JujuVersion = version.MustParse("6.6.6.666")
 	path, err := podConfig.GetControllerImagePath()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "docker.io/jujusolutions/jujud-operator:6.6.6.666")
+	c.Assert(path, gc.Equals, "ghcr.io/juju/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "docker.io/jujusolutions/juju-db:9.9")
+	c.Assert(path, gc.Equals, "ghcr.io/juju/juju-db:9.9")
 }
 
 func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {

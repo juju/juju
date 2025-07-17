@@ -239,7 +239,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 			ServiceType:    "loadbalancer",
 		},
 		ImageRepo: params.DockerImageInfo{
-			RegistryPath: fmt.Sprintf("docker.io/jujusolutions/jujud-operator:%s", expectedVersion.String()),
+			RegistryPath: fmt.Sprintf("ghcr.io/juju/jujud-operator:%s", expectedVersion.String()),
 		},
 		Devices: []params.KubernetesDeviceParams{
 			{
