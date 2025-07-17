@@ -15,16 +15,21 @@ import (
 	"github.com/juju/juju/core/logger"
 )
 
-type hashFileSystemAccessor struct {
+// HashFileStore is a file system accessor that reads and deletes files
+// from the file system, namespaced to the model as hashes. The intended use
+// is to drain files from the file backed object store to the s3 object store.
+type HashFileStore struct {
 	fs        fs.FS
 	namespace string
 	path      string
 	logger    logger.Logger
 }
 
-func newHashFileSystemAccessor(namespace, rootDir string, logger logger.Logger) *hashFileSystemAccessor {
+// NewHashFileStore creates a new HashFileStore that
+// reads and deletes files from the file system, namespaced to the model.
+func NewHashFileStore(namespace, rootDir string, logger logger.Logger) *HashFileStore {
 	path := basePath(rootDir, namespace)
-	return &hashFileSystemAccessor{
+	return &HashFileStore{
 		fs:        os.DirFS(path),
 		path:      path,
 		namespace: namespace,
@@ -33,7 +38,7 @@ func newHashFileSystemAccessor(namespace, rootDir string, logger logger.Logger) 
 }
 
 // HashExists checks if the file at hash exists in the file storage.
-func (t *hashFileSystemAccessor) HashExists(ctx context.Context, hash string) error {
+func (t *HashFileStore) HashExists(ctx context.Context, hash string) error {
 	t.logger.Debugf(ctx, "checking object %q in file storage", hash)
 
 	_, err := os.Stat(t.filePath(hash))
@@ -48,7 +53,7 @@ func (t *hashFileSystemAccessor) HashExists(ctx context.Context, hash string) er
 
 // GetByHash returns an io.ReadCloser for data at hash, namespaced to the
 // model.
-func (t *hashFileSystemAccessor) GetByHash(ctx context.Context, hash string) (io.ReadCloser, int64, error) {
+func (t *HashFileStore) GetByHash(ctx context.Context, hash string) (io.ReadCloser, int64, error) {
 	t.logger.Debugf(ctx, "getting object %q from file storage", hash)
 
 	file, err := t.fs.Open(hash)
@@ -69,7 +74,7 @@ func (t *hashFileSystemAccessor) GetByHash(ctx context.Context, hash string) (io
 }
 
 // DeleteByHash deletes a file at hash, namespaced to the model.
-func (t *hashFileSystemAccessor) DeleteByHash(ctx context.Context, hash string) error {
+func (t *HashFileStore) DeleteByHash(ctx context.Context, hash string) error {
 	t.logger.Debugf(ctx, "deleting object %q from file storage", hash)
 
 	filePath := t.filePath(hash)
@@ -84,6 +89,6 @@ func (t *hashFileSystemAccessor) DeleteByHash(ctx context.Context, hash string) 
 	return nil
 }
 
-func (t *hashFileSystemAccessor) filePath(hash string) string {
+func (t *HashFileStore) filePath(hash string) string {
 	return filepath.Join(t.path, hash)
 }
