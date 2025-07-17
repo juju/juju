@@ -4,9 +4,7 @@
 package state
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/internal/mongo"
 )
@@ -18,7 +16,6 @@ import (
 // possible).
 type modelStateCollection struct {
 	mongo.WriteCollection
-	modelUUID string
 }
 
 // Writeable is part of the Collection interface.
@@ -31,7 +28,7 @@ func (c *modelStateCollection) Writeable() mongo.WriteCollection {
 // Count returns the number of documents in the collection that belong
 // to the model that the modelStateCollection is filtering on.
 func (c *modelStateCollection) Count() (int, error) {
-	return c.WriteCollection.Find(bson.D{{"model-uuid", c.modelUUID}}).Count()
+	return 0, nil
 }
 
 // Find performs a query on the collection. The query must be given as
@@ -47,17 +44,14 @@ func (c *modelStateCollection) Count() (int, error) {
 // these cases it is up to the caller to add model UUID
 // prefixes when necessary.
 func (c *modelStateCollection) Find(query interface{}) mongo.Query {
-	return c.WriteCollection.Find(c.mungeQuery(query))
+	return nil
 }
 
 // FindId looks up a single document by _id. If the id is a string the
 // relevant model UUID prefix will be added to it. Otherwise, the
 // query will be handled as per Find().
 func (c *modelStateCollection) FindId(id interface{}) mongo.Query {
-	if sid, ok := id.(string); ok {
-		return c.WriteCollection.FindId(ensureModelUUID(c.modelUUID, sid))
-	}
-	return c.Find(bson.D{{"_id", id}})
+	return nil
 }
 
 // Insert adds one or more documents to a collection. If the document
@@ -66,15 +60,7 @@ func (c *modelStateCollection) FindId(id interface{}) mongo.Query {
 // it is missing. An error will be returned if an model-uuid field is
 // provided but is the wrong value.
 func (c *modelStateCollection) Insert(docs ...interface{}) error {
-	var mungedDocs []interface{}
-	for _, doc := range docs {
-		mungedDoc, err := mungeDocForMultiModel(doc, c.modelUUID, modelUUIDRequired)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		mungedDocs = append(mungedDocs, mungedDoc)
-	}
-	return c.WriteCollection.Insert(mungedDocs...)
+	return nil
 }
 
 // Update finds a single document matching the provided query document and
@@ -90,7 +76,7 @@ func (c *modelStateCollection) Insert(docs ...interface{}) error {
 // these cases it is up to the caller to add model UUID
 // prefixes when necessary.
 func (c *modelStateCollection) Update(query interface{}, update interface{}) error {
-	return c.WriteCollection.Update(c.mungeQuery(query), update)
+	return nil
 }
 
 // UpdateId finds a single document by _id and modifies it according to the
@@ -98,38 +84,24 @@ func (c *modelStateCollection) Update(query interface{}, update interface{}) err
 // UUID will be automatically prefixed on to the id if it's a string and the
 // prefix isn't there already.
 func (c *modelStateCollection) UpdateId(id interface{}, update interface{}) error {
-	if sid, ok := id.(string); ok {
-		return c.WriteCollection.UpdateId(ensureModelUUID(c.modelUUID, sid), update)
-	}
-	return c.WriteCollection.UpdateId(bson.D{{"_id", id}}, update)
+	return nil
 }
 
 // Remove deletes a single document using the query provided. The
 // query will be handled as per Find().
 func (c *modelStateCollection) Remove(query interface{}) error {
-	return c.WriteCollection.Remove(c.mungeQuery(query))
+	return nil
 }
 
 // RemoveId deletes a single document by id. If the id is a string the
 // relevant model UUID prefix will be added on to it. Otherwise, the
 // query will be handled as per Find().
 func (c *modelStateCollection) RemoveId(id interface{}) error {
-	if sid, ok := id.(string); ok {
-		return c.WriteCollection.RemoveId(ensureModelUUID(c.modelUUID, sid))
-	}
-	return c.Remove(bson.D{{"_id", id}})
+	return nil
 }
 
 // RemoveAll deletes all documents that match a query. The query will
 // be handled as per Find().
 func (c *modelStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, error) {
-	return c.WriteCollection.RemoveAll(c.mungeQuery(query))
-}
-
-func (c *modelStateCollection) mungeQuery(inq interface{}) bson.D {
-	outq, err := mungeDocForMultiModel(inq, c.modelUUID, modelUUIDRequired|noModelUUIDInInput)
-	if err != nil {
-		panic(err)
-	}
-	return outq
+	return nil, nil
 }

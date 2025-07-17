@@ -4,7 +4,6 @@
 package watcher
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/worker/v4"
@@ -74,100 +73,6 @@ type Change struct {
 	Revno int64
 }
 
-type watchKey struct {
-	c  string
-	id interface{} // nil when watching collection
-}
-
-func (k watchKey) String() string {
-	coll := fmt.Sprintf("collection %q", k.c)
-	if k.id == nil {
-		return coll
-	}
-	if s, ok := k.id.(string); ok {
-		return fmt.Sprintf("document %q in %s", s, coll)
-	}
-	return fmt.Sprintf("document %v in %s", k.id, coll)
-}
-
-// match returns whether the receiving watch key,
-// which may refer to a particular item or
-// an entire collection, matches k1, which refers
-// to a particular item.
-func (k watchKey) match(k1 watchKey) bool {
-	if k.c != k1.c {
-		return false
-	}
-	if k.id == nil {
-		// k refers to entire collection
-		return true
-	}
-	return k.id == k1.id
-}
-
-type watchInfo struct {
-	ch     chan<- Change
-	revno  int64
-	filter func(interface{}) bool
-	source []byte
-}
-
-type event struct {
-	ch          chan<- Change
-	key         watchKey
-	revno       int64
-	watchSource []byte
-}
-
 // Period is the delay between each sync.
 // It must not be changed when any watchers are active.
 var Period time.Duration = 5 * time.Second
-
-type reqWatch struct {
-	key  watchKey
-	info watchInfo
-	// registeredCh is used to indicate when
-	registeredCh chan error
-}
-
-func (r reqWatch) Completed() chan error {
-	return r.registeredCh
-}
-
-func (r reqWatch) String() string {
-	r.info.source = nil
-	return fmt.Sprintf("%#v", r)
-}
-
-type reqWatchMulti struct {
-	collection  string
-	ids         []interface{}
-	completedCh chan error
-	watchCh     chan<- Change
-	source      []byte
-}
-
-func (r reqWatchMulti) Completed() chan error {
-	return r.completedCh
-}
-
-func (r reqWatchMulti) String() string {
-	r.source = nil
-	return fmt.Sprintf("%#v", r)
-}
-
-type reqUnwatch struct {
-	key watchKey
-	ch  chan<- Change
-}
-
-func (r reqUnwatch) String() string {
-	return fmt.Sprintf("%#v", r)
-}
-
-// waitableRequest represents a request that is made, and you wait for the core loop to acknowledge the request has been
-// received
-type waitableRequest interface {
-	// Completed returns the channel that the core loop will use to signal completion of the request.
-	Completed() chan error
-}

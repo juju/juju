@@ -105,14 +105,15 @@ type PublicKeyImporter interface {
 type ModelServices struct {
 	modelServiceFactoryBase
 
-	modelUUID              model.UUID
-	providerFactory        providertracker.ProviderFactory
-	modelObjectStoreGetter objectstore.ModelObjectStoreGetter
-	storageRegistry        corestorage.ModelStorageRegistryGetter
-	publicKeyImporter      PublicKeyImporter
-	leaseManager           lease.ModelLeaseManagerGetter
-	logDir                 string
-	clock                  clock.Clock
+	modelUUID                   model.UUID
+	providerFactory             providertracker.ProviderFactory
+	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter
+	modelObjectStoreGetter      objectstore.ModelObjectStoreGetter
+	storageRegistry             corestorage.ModelStorageRegistryGetter
+	publicKeyImporter           PublicKeyImporter
+	leaseManager                lease.ModelLeaseManagerGetter
+	logDir                      string
+	clock                       clock.Clock
 }
 
 // NewModelServices returns a new registry which uses the provided modelDB
@@ -122,6 +123,7 @@ func NewModelServices(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
+	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	modelObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	storageRegistry corestorage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
@@ -138,24 +140,32 @@ func NewModelServices(
 			},
 			modelDB: modelDB,
 		},
-		modelUUID:              modelUUID,
-		providerFactory:        providerFactory,
-		modelObjectStoreGetter: modelObjectStoreGetter,
-		storageRegistry:        storageRegistry,
-		publicKeyImporter:      publicKeyImporter,
-		leaseManager:           leaseManager,
-		logDir:                 logDir,
-		clock:                  clock,
+		modelUUID:                   modelUUID,
+		providerFactory:             providerFactory,
+		controllerObjectStoreGetter: controllerObjectStoreGetter,
+		modelObjectStoreGetter:      modelObjectStoreGetter,
+		storageRegistry:             storageRegistry,
+		publicKeyImporter:           publicKeyImporter,
+		leaseManager:                leaseManager,
+		logDir:                      logDir,
+		clock:                       clock,
 	}
 }
 
 // AgentBinaryStore returns the model's [agentbinaryservice.AgentBinaryStore]
 // for the current model.
 func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
+	controllerAgentBinaryStore := agentbinaryservice.NewAgentBinaryStore(
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.logger.Child("modelagentbinary"),
+		s.controllerObjectStoreGetter,
+		nil,
+	)
 	return agentbinaryservice.NewAgentBinaryStore(
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("modelagentbinary"),
 		s.modelObjectStoreGetter,
+		controllerAgentBinaryStore,
 	)
 }
 

@@ -4,7 +4,6 @@
 package mongo
 
 import (
-	"context"
 	stderrors "errors"
 	"net"
 	"strings"
@@ -114,23 +113,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 	}
 
 	dial := func(server *mgo.ServerAddr) (_ net.Conn, err error) {
-		if opts.PostDialServer != nil {
-			before := time.Now()
-			defer func() {
-				taken := time.Now().Sub(before)
-				opts.PostDialServer(server.String(), taken, err)
-			}()
-		}
-
-		addr := server.TCPAddr().String()
-		c, err := net.DialTimeout("tcp", addr, opts.Timeout)
-		if err != nil {
-			logger.Debugf(context.TODO(), "mongodb connection failed, will retry: %v", err)
-			return nil, err
-		}
-
-		logger.Debugf(context.TODO(), "dialed mongodb server at %q", addr)
-		return c, nil
+		panic("nope")
 	}
 
 	return &mgo.DialInfo{
@@ -140,38 +123,6 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		Direct:     opts.Direct,
 		PoolLimit:  opts.PoolLimit,
 	}, nil
-}
-
-// DialWithInfo establishes a new session to the cluster identified by info,
-// with the specified options. If either Tag or Password are specified, then
-// a Login call on the admin database will be made.
-func DialWithInfo(info MongoInfo, opts DialOpts) (*mgo.Session, error) {
-	if opts.Timeout == 0 {
-		return nil, errors.New("a non-zero Timeout must be specified")
-	}
-
-	dialInfo, err := DialInfo(info.Info, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	session, err := mgo.DialWithInfo(dialInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	if opts.SocketTimeout == 0 {
-		opts.SocketTimeout = SocketTimeout
-	}
-	session.SetSocketTimeout(opts.SocketTimeout)
-
-	if opts.PostDial != nil {
-		if err := opts.PostDial(session); err != nil {
-			session.Close()
-			return nil, errors.Annotate(err, "PostDial failed")
-		}
-	}
-	return session, nil
 }
 
 // MaybeUnauthorizedf checks if the cause of the given error is a Mongo

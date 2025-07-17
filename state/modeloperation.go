@@ -4,9 +4,7 @@
 package state
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
-	jujutxn "github.com/juju/txn/v3"
 )
 
 // ModelOperation is a high-level model operation,
@@ -39,10 +37,7 @@ type modelOperationFunc struct {
 
 // Build implements ModelOperation.
 func (mof modelOperationFunc) Build(attempt int) ([]txn.Op, error) {
-	if mof.buildFn == nil {
-		return nil, nil
-	}
-	return mof.buildFn(attempt)
+	return nil, nil
 }
 
 // Done implements ModelOperation.
@@ -59,18 +54,7 @@ func (mof modelOperationFunc) Done(err error) error {
 func ComposeModelOperations(modelOps ...ModelOperation) ModelOperation {
 	return modelOperationFunc{
 		buildFn: func(attempt int) ([]txn.Op, error) {
-			var ops []txn.Op
-			for _, modelOp := range modelOps {
-				if modelOp == nil {
-					continue
-				}
-				childOps, err := modelOp.Build(attempt)
-				if err != nil && err != jujutxn.ErrNoOperations {
-					return nil, errors.Trace(err)
-				}
-				ops = append(ops, childOps...)
-			}
-			return ops, nil
+			return nil, nil
 		},
 		doneFn: func(err error) error {
 			// Unfortunately, we cannot detect the exact
@@ -101,6 +85,5 @@ func ComposeModelOperations(modelOps ...ModelOperation) ModelOperation {
 // NOTE(axw) when all model-specific types and methods are moved
 // to Model, then this should move also.
 func (st *State) ApplyOperation(op ModelOperation) error {
-	err := st.db().Run(op.Build)
-	return op.Done(err)
+	return op.Done(nil)
 }

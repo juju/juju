@@ -84,8 +84,8 @@ type ephemeralProviderGetter struct {
 }
 
 // ControllerUUID returns the controller UUID.
-func (g ephemeralProviderGetter) ControllerUUID() uuid.UUID {
-	return g.controllerUUID
+func (g ephemeralProviderGetter) ControllerUUID(context.Context) (string, error) {
+	return g.controllerUUID.String(), nil
 }
 
 // ModelConfig returns the model config.

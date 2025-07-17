@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 
@@ -288,12 +287,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	session, err := b.initMongo(info.Info, b.mongoDialOpts)
-	if err != nil {
-		return errors.Annotate(err, "failed to initialize mongo")
-	}
-	defer session.Close()
-
 	b.logger.Debugf(ctx, "initializing address %v", info.Addrs)
 
 	ctrl, err := state.Initialize(state.InitializeParams{
@@ -313,7 +306,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		ControllerConfig:          stateParams.ControllerConfig,
 		ControllerInheritedConfig: stateParams.ControllerInheritedConfig,
 		RegionInheritedConfig:     stateParams.RegionInheritedConfig,
-		MongoSession:              session,
 		NewPolicy:                 b.stateNewPolicy,
 	})
 	if err != nil {
@@ -355,14 +347,4 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 		return *stateParams.ControllerCloudCredential, cloudCredentialTag, nil
 	}
 	return cloud.Credential{}, cloudCredentialTag, nil
-}
-
-// initMongo dials the initial MongoDB connection, setting a
-// password for the admin user, and returning the session.
-func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*mgo.Session, error) {
-	session, err := mongo.DialWithInfo(mongo.MongoInfo{Info: info}, dialOpts)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return session, nil
 }

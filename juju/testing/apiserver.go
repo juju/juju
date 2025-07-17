@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"sync"
 	"time"
 
@@ -56,8 +55,6 @@ import (
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
@@ -185,21 +182,6 @@ func (s *ApiServerSuite) SetUpSuite(c *tc.C) {
 	s.ControllerSuite.SetUpSuite(c)
 }
 
-func mongoInfo() mongo.MongoInfo {
-	if mgotesting.MgoServer.Addr() == "" {
-		panic("ApiServer tests must be run with MgoTestPackage/MgoTestMain")
-	}
-	mongoPort := strconv.Itoa(mgotesting.MgoServer.Port())
-	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
-	return mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:      addrs,
-			CACert:     coretesting.CACert,
-			DisableTLS: !mgotesting.MgoServer.SSLEnabled(),
-		},
-	}
-}
-
 func (s *ApiServerSuite) setupHttpServer(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()
 
@@ -228,10 +210,6 @@ func (s *ApiServerSuite) setupHttpServer(c *tc.C) {
 }
 
 func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.Config) {
-	session, err := mongo.DialWithInfo(mongoInfo(), mongotest.DialOpts())
-	c.Assert(err, tc.ErrorIsNil)
-	defer session.Close()
-
 	apiPort := s.httpServer.Listener.Addr().(*net.TCPAddr).Port
 	controllerCfg[controller.APIPort] = apiPort
 
@@ -286,7 +264,6 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 			CloudCredential: DefaultCredentialTag,
 		},
 		CloudName:          DefaultCloud.Name,
-		MongoSession:       session,
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
 		CharmServiceGetter: charmServiceGetter,
 		SSHServerHostKey:   coretesting.SSHServerHostKey,

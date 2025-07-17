@@ -27,7 +27,7 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(
-		s.ControllerModel(c),
+		domainServices.ModelInfo(),
 		domainServices.Cloud(),
 		domainServices.Credential(),
 		domainServices.Config(),

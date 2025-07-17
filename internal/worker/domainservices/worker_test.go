@@ -137,6 +137,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			changestream.WatchableDBGetter,
 			providertracker.ProviderFactory,
 			objectstore.ModelObjectStoreGetter,
+			objectstore.ModelObjectStoreGetter,
 			storage.ModelStorageRegistryGetter,
 			domainservices.PublicKeyImporter,
 			lease.ModelLeaseManagerGetter,

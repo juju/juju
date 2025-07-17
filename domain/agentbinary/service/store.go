@@ -47,11 +47,19 @@ type State interface {
 	RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error
 }
 
+type FallbackStore interface {
+	GetAgentBinaryForSHA256(
+		ctx context.Context,
+		sha256Sum string,
+	) (io.ReadCloser, int64, error)
+}
+
 // AgentBinaryStore provides the API for working with agent binaries.
 type AgentBinaryStore struct {
 	st                State
 	logger            logger.Logger
 	objectStoreGetter objectstore.ModelObjectStoreGetter
+	fallbackStore     FallbackStore
 }
 
 // NewAgentBinaryStore returns a new instance of AgentBinaryStore.
@@ -59,11 +67,13 @@ func NewAgentBinaryStore(
 	st State,
 	logger logger.Logger,
 	objectStoreGetter objectstore.ModelObjectStoreGetter,
+	fallbackStore FallbackStore,
 ) *AgentBinaryStore {
 	return &AgentBinaryStore{
 		st:                st,
 		logger:            logger,
 		objectStoreGetter: objectStoreGetter,
+		fallbackStore:     fallbackStore,
 	}
 }
 
@@ -237,6 +247,9 @@ func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
 	}
 
 	if !exists {
+		if s.fallbackStore != nil {
+			return s.fallbackStore.GetAgentBinaryForSHA256(ctx, sha256Sum)
+		}
 		return nil, 0, errors.Errorf(
 			"no agent binaries exist for sha256 %q", sha256Sum,
 		).Add(agentbinaryerrors.NotFound)

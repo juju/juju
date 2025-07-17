@@ -44,14 +44,12 @@ func makeAPI(ctx context.Context, modelctx facade.ModelContext) (*API, error) {
 		return nil, err
 	}
 
-	st := modelctx.State()
-	model, err := st.Model()
 	domainServices := modelctx.DomainServices()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	newEnviron := func() (environs.Environ, error) {
-		return stateenvirons.GetNewEnvironFunc(environs.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
+		return stateenvirons.GetNewEnvironFunc(environs.New)(domainServices.ModelInfo(), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	}
 	return newAPI(
 		domainServices.CloudImageMetadata(),

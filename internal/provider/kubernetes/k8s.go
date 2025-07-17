@@ -448,7 +448,7 @@ func (k *kubernetesClient) validateControllerWorkloadStorage(ctx context.Context
 	return storageClass, errors.Trace(err)
 }
 
-// Bootstrap deploys controller with mongoDB together into k8s cluster.
+// Bootstrap deploys a controller into k8s cluster.
 func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 
 	if !args.BootstrapBase.Empty() {

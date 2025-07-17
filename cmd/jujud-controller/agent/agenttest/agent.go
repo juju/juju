@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/mongo/mongotest"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/testing"
@@ -55,7 +54,7 @@ func (s *AgentSuite) SetUpTest(c *tc.C) {
 
 	var err error
 	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(
-		s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
+		domainServices.ModelInfo(), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.DataDir = c.MkDir()
@@ -265,18 +264,10 @@ func (s *AgentSuite) AssertCanOpenState(c *tc.C, tag names.Tag, dataDir string) 
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, tc.ErrorIsNil)
 
-	info, ok := config.MongoInfo()
-	c.Assert(ok, tc.IsTrue)
-
-	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
-	c.Assert(err, tc.ErrorIsNil)
-	defer session.Close()
-
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
-		MongoSession:       session,
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil),
 	})
 	c.Assert(err, tc.ErrorIsNil)

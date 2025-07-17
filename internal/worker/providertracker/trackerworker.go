@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/uuid"
 )
 
 const (
@@ -313,8 +312,8 @@ type trackerProviderGetter struct {
 }
 
 // ControllerUUID returns the controller UUID.
-func (g trackerProviderGetter) ControllerUUID() uuid.UUID {
-	return g.model.ControllerUUID
+func (g trackerProviderGetter) ControllerUUID(context.Context) (string, error) {
+	return g.model.ControllerUUID.String(), nil
 }
 
 // ModelConfig returns the model config.

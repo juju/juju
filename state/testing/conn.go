@@ -38,10 +38,6 @@ func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 		args.InitialConfig = testing.ModelConfig(c)
 	}
 
-	session, err := mgotesting.MgoServer.Dial()
-	c.Assert(err, tc.ErrorIsNil)
-	defer session.Close()
-
 	controllerCfg := testing.FakeControllerConfig()
 	for k, v := range args.ControllerConfig {
 		controllerCfg[k] = v
@@ -66,7 +62,6 @@ func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 		},
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		CloudName:                 "dummy",
-		MongoSession:              session,
 		WatcherPollInterval:       10 * time.Millisecond,
 		NewPolicy:                 args.NewPolicy,
 	})

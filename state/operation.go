@@ -6,10 +6,6 @@ package state
 import (
 	"time"
 
-	"github.com/juju/collections/set"
-	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
-	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v6"
 )
 
@@ -91,14 +87,12 @@ type operationDoc struct {
 
 // operation represents a group of associated actions.
 type operation struct {
-	st         *State
-	doc        operationDoc
-	taskStatus []ActionStatus
+	doc operationDoc
 }
 
 // Id returns the local id of the Operation.
 func (op *operation) Id() string {
-	return op.st.localID(op.doc.DocId)
+	return ""
 }
 
 // Tag implements the Entity interface and returns a names.Tag that
@@ -147,147 +141,27 @@ func (op *operation) SpawnedTaskCount() int {
 // If not explicitly set, this is derived from the
 // status of the associated actions/tasks.
 func (op *operation) Status() ActionStatus {
-	if op.doc.Status != ActionPending {
-		return op.doc.Status
-	}
-	statusStats := set.NewStrings()
-	for _, s := range op.taskStatus {
-		statusStats.Add(string(s))
-	}
-	for _, s := range statusOrder {
-		if statusStats.Contains(string(s)) {
-			return s
-		}
-	}
-	return op.doc.Status
+	return ActionCancelled
 }
 
 // Refresh refreshes the contents of the operation.
 func (op *operation) Refresh() error {
-	doc, taskStatus, err := op.st.getOperationDoc(op.Id())
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return err
-		}
-		return errors.Annotatef(err, "cannot refresh operation %v", op.Id())
-	}
-	op.doc = *doc
-	op.taskStatus = taskStatus
 	return nil
-}
-
-var statusOrder = []ActionStatus{
-	ActionError,
-	ActionRunning,
-	ActionPending,
-	ActionFailed,
-	ActionCancelled,
-	ActionCompleted,
-}
-
-var statusCompletedOrder = []ActionStatus{
-	ActionError,
-	ActionFailed,
-	ActionCancelled,
-	ActionCompleted,
-}
-
-// newAction builds an Action for the given State and actionDoc.
-func newOperation(st *State, doc operationDoc, taskStatus []ActionStatus) Operation {
-	return &operation{
-		st:         st,
-		doc:        doc,
-		taskStatus: taskStatus,
-	}
 }
 
 // Operation returns an Operation by Id.
 func (m *Model) Operation(id string) (Operation, error) {
-	doc, taskStatus, err := m.st.getOperationDoc(id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newOperation(m.st, *doc, taskStatus), nil
+	return &operation{}, nil
 }
 
 // OperationWithActions returns an OperationInfo by Id.
 func (m *Model) OperationWithActions(id string) (*OperationInfo, error) {
-	// First gather the matching actions and record the parent operation ids we need.
-	actionsCollection, aCloser := m.st.db().GetCollection(actionsC)
-	defer aCloser()
-
-	var actions []actionDoc
-	err := actionsCollection.Find(bson.D{{"operation", id}}).
-		Sort("_id").All(&actions)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	operationCollection, oCloser := m.st.db().GetCollection(operationsC)
-	defer oCloser()
-
-	var docs []operationDoc
-	err = operationCollection.FindId(id).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(docs) == 0 {
-		return nil, errors.NotFoundf("operation %v", id)
-	}
-
-	var result OperationInfo
-	taskStatus := make([]ActionStatus, len(actions))
-	result.Actions = make([]Action, len(actions))
-	for i, action := range actions {
-		result.Actions[i] = newAction(m.st, action)
-		taskStatus[i] = action.Status
-	}
-	operation := newOperation(m.st, docs[0], taskStatus)
-	result.Operation = operation
-	return &result, nil
-}
-
-func (st *State) getOperationDoc(id string) (*operationDoc, []ActionStatus, error) {
-	operations, closer := st.db().GetCollection(operationsC)
-	defer closer()
-	actions, closer := st.db().GetCollection(actionsC)
-	defer closer()
-
-	doc := operationDoc{}
-	err := operations.FindId(id).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, nil, errors.NotFoundf("operation %q", id)
-	}
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot get operation %q", id)
-	}
-	var actionDocs []actionDoc
-	err = actions.Find(bson.D{{"operation", id}}).All(&actionDocs)
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot get tasks for operation %q", id)
-	}
-	taskStatus := make([]ActionStatus, len(actionDocs))
-	for i, a := range actionDocs {
-		taskStatus[i] = a.Status
-	}
-	return &doc, taskStatus, nil
+	return &OperationInfo{}, nil
 }
 
 // AllOperations returns all Operations.
 func (m *Model) AllOperations() ([]Operation, error) {
-	operations, closer := m.st.db().GetCollection(operationsC)
-	defer closer()
-
 	results := []Operation{}
-	docs := []operationDoc{}
-	err := operations.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get all operations")
-	}
-	for _, doc := range docs {
-		// This is for gathering operations for migration - task status values are not relevant
-		results = append(results, newOperation(m.st, doc, nil))
-	}
 	return results, nil
 }
 
