@@ -590,9 +590,6 @@ func unitAssignedMachineStorageOps(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
-		return nil, errors.Trace(err)
-	}
 	storageOps, _, _, err := sb.hostStorageOps(
 		m.doc.Id, storageParams,
 	)

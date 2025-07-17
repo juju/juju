@@ -5,9 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -46,29 +44,6 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	return machine
 }
 
-// Id returns the machine id.
-func (m *Machine) Id() string {
-	return m.doc.Id
-}
-
-// Base returns the os base running on the machine.
-func (m *Machine) Base() Base {
-	return m.doc.Base
-}
-
-// Tag returns a tag identifying the machine. The String method provides a
-// string representation that is safe to use as a file name. The returned name
-// will be different from other Tag values returned by any other entities
-// from the same state.
-func (m *Machine) Tag() names.Tag {
-	return names.NewMachineTag(m.Id())
-}
-
-// Life returns whether the machine is Alive, Dying or Dead.
-func (m *Machine) Life() Life {
-	return m.doc.Life
-}
-
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies errors.IsNotFound if the tools
 // have not yet been set.
@@ -80,13 +55,7 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 	return &tools, nil
 }
 
-// PublicAddress returns a public address for the machine. If no address is
-// available it returns an error that satisfies network.IsNoAddressError().
-func (m *Machine) PublicAddress() (network.SpaceAddress, error) {
-	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
-	var err error
-	if publicAddress.Value == "" {
-		err = network.NoAddressError("public")
-	}
-	return publicAddress, err
+// Watch returns a watcher for observing changes to a machine.
+func (m *Machine) Watch() NotifyWatcher {
+	return newEntityWatcher(m.st, machinesC, m.doc.DocID)
 }

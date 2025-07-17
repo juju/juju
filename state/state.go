@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +29,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/watcher"
 )
@@ -391,80 +389,6 @@ func (st *State) SetModelAgentVersion(newVersion semversion.Number, stream *stri
 	// Removed as state not longer contains model config. Therefore
 	// the modelGlobalKey will never be found in the settingsC again.
 	return nil
-}
-
-func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, error) {
-	mdocs := machineDocSlice{}
-	err := machinesCollection.Find(nil).All(&mdocs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get all machines")
-	}
-	sort.Sort(mdocs)
-	machines := make([]*Machine, len(mdocs))
-	for i, doc := range mdocs {
-		machines[i] = newMachine(st, &doc)
-	}
-	return machines, nil
-}
-
-// AllMachines returns all machines in the model
-// ordered by id.
-func (st *State) AllMachines() ([]*Machine, error) {
-	machinesCollection, closer := st.db().GetCollection(machinesC)
-	defer closer()
-	return st.allMachines(machinesCollection)
-}
-
-type machineDocSlice []machineDoc
-
-func (ms machineDocSlice) Len() int { return len(ms) }
-
-func (ms machineDocSlice) Swap(i, j int) { ms[i], ms[j] = ms[j], ms[i] }
-
-func (ms machineDocSlice) Less(i, j int) bool {
-	return machineIdLessThan(ms[i].Id, ms[j].Id)
-}
-
-// machineIdLessThan returns true if id1 < id2, false otherwise.
-// Machine ids may include "/" separators if they are for a container so
-// the comparison is done by comparing the id component values from
-// left to right (most significant part to least significant). Ids for
-// host machines are always less than ids for their containers.
-func machineIdLessThan(id1, id2 string) bool {
-	// Most times, we are dealing with host machines and not containers, so we will
-	// try interpreting the ids as ints - this will be faster than dealing with the
-	// container ids below.
-	mint1, err1 := strconv.Atoi(id1)
-	mint2, err2 := strconv.Atoi(id2)
-	if err1 == nil && err2 == nil {
-		return mint1 < mint2
-	}
-	// We have at least one container id so it gets complicated.
-	idParts1 := strings.Split(id1, "/")
-	idParts2 := strings.Split(id2, "/")
-	nrParts1 := len(idParts1)
-	nrParts2 := len(idParts2)
-	minLen := nrParts1
-	if nrParts2 < minLen {
-		minLen = nrParts2
-	}
-	for x := 0; x < minLen; x++ {
-		m1 := idParts1[x]
-		m2 := idParts2[x]
-		if m1 == m2 {
-			continue
-		}
-		// See if the id part is a container type, and if so compare directly.
-		if x%2 == 1 {
-			return m1 < m2
-		}
-		// Compare the integer ids.
-		// There's nothing we can do with errors at this point.
-		mint1, _ := strconv.Atoi(m1)
-		mint2, _ := strconv.Atoi(m2)
-		return mint1 < mint2
-	}
-	return nrParts1 < nrParts2
 }
 
 // Machine returns the machine with the given id.

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/tools"
 )
@@ -27,15 +26,6 @@ func unitAgentGlobalKey(name string) string {
 
 // unitAgentGlobalKeyPrefix is the string we use to denote unit agent kind.
 const unitAgentGlobalKeyPrefix = "u#"
-
-// MachineRef is a reference to a machine, without being a full machine.
-// This exists to allow us to use state functions without requiring a
-// state.Machine, without having to require a real machine.
-type MachineRef interface {
-	Id() string
-	Life() Life
-	ContainerType() instance.ContainerType
-}
 
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in core/multiwatcher.
@@ -227,45 +217,6 @@ func (u *Unit) assignedMachineId() (id string, err error) {
 		return "", unitNotAssignedError(u)
 	}
 	return u.doc.MachineId, nil
-}
-
-// validateDynamicMachineStorageParams validates that the provided machine
-// storage parameters are compatible with the specified machine.
-func validateDynamicMachineStorageParams(
-	m *Machine,
-	params *storageParams,
-) error {
-	sb, err := NewStorageConfigBackend(m.st)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Validate the volume/filesystem attachments for the machine.
-	for volumeTag := range params.volumeAttachments {
-		volume, err := getVolumeByTag(sb.mb, volumeTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !volume.Detachable() && volume.doc.HostId != m.Id() {
-			return errors.Errorf(
-				"storage is non-detachable (bound to machine %s)",
-				volume.doc.HostId,
-			)
-		}
-	}
-	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := getFilesystemByTag(sb.mb, filesystemTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !filesystem.Detachable() && filesystem.doc.HostId != m.Id() {
-			host := storageAttachmentHost(filesystem.doc.HostId)
-			return errors.Errorf(
-				"storage is non-detachable (bound to %s)",
-				names.ReadableString(host),
-			)
-		}
-	}
-	return nil
 }
 
 // storageParamsForStorageInstance returns parameters for creating

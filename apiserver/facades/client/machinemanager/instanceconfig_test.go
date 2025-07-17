@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
+	corebase "github.com/juju/juju/core/base"
 	instance "github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
 
@@ -89,10 +88,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
-	machine0 := NewMockMachine(ctrl)
-	machine0.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
-	machine0.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.machineService.EXPECT().GetMachineBase(gomock.Any(), coremachine.Name("0")).Return(corebase.MustParseBaseFromString("ubuntu@20.04/stable"), nil)
 
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 

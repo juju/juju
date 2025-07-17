@@ -128,11 +128,6 @@ func (addr *Address) MachineID() string {
 	return addr.doc.MachineID
 }
 
-// Machine returns the Machine this IP address belongs to.
-func (addr *Address) Machine() (*Machine, error) {
-	return addr.st.Machine(addr.doc.MachineID)
-}
-
 // DeviceName returns the name of the link-layer device this IP address is
 // assigned to.
 func (addr *Address) DeviceName() string {

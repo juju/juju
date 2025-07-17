@@ -247,12 +247,13 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		AgentPasswordService:    mm.agentPasswordService,
 	}
 
+	machineName := coremachine.Name(args.MachineId)
 	icfg, err := InstanceConfig(
 		ctx,
 		mm.modelUUID,
 		mm.machineService.GetBootstrapEnviron,
 		st,
-		mm.st, services, args.MachineId, args.Nonce, args.DataDir)
+		mm.st, services, machineName, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
@@ -303,7 +304,7 @@ func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.Ret
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	result := params.ErrorResults{}
-	machines, err := mm.st.AllMachines()
+	machineNames, err := mm.machineService.AllMachineNames(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -316,11 +317,10 @@ func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.Ret
 		}
 		wanted.Add(tag.Id())
 	}
-	for _, m := range machines {
-		if !p.All && !wanted.Contains(m.Id()) {
+	for _, machineName := range machineNames {
+		if !p.All && !wanted.Contains(machineName.String()) {
 			continue
 		}
-		machineName := coremachine.Name(m.Id())
 		if err := mm.maybeUpdateInstanceStatus(ctx, p.All, machineName, map[string]interface{}{"transient": true}); err != nil {
 			result.Results = append(result.Results, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 		}

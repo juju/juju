@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
@@ -126,11 +127,6 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	}
 	apiParams[0].Disks = []storage.Directive{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Directive{{Size: 1, Count: 2, Pool: "three"}}
-
-	m1 := NewMockMachine(ctrl)
-	m1.EXPECT().Id().Return("666").AnyTimes()
-	m2 := NewMockMachine(ctrl)
-	m2.EXPECT().Id().Return("667/lxd/1").AnyTimes()
 
 	// Machine 666.
 	s.machineService.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
@@ -734,17 +730,13 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 	return ctrl
 }
 
-func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock.Controller, arch *string) *MockMachine {
-	machine := NewMockMachine(ctrl)
-	machine.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
-	machine.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
+func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(arch *string) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
 	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
+	s.machineService.EXPECT().GetMachineBase(gomock.Any(), coremachine.Name("0")).Return(corebase.MustParseBaseFromString("ubuntu@20.04/stable"), nil)
 	if arch != nil {
 		s.agentPasswordService.EXPECT().SetMachinePassword(gomock.Any(), coremachine.Name("0"), gomock.Any()).Return(nil).AnyTimes()
 	}
-
-	return machine
 }
 
 func (s *ProvisioningMachineManagerSuite) expectProvisioningStorageCloser(ctrl *gomock.Controller) *MockStorageCloser {
@@ -771,8 +763,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
 	arch := "amd64"
-	machine0 := s.expectProvisioningMachine(ctrl, &arch)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.expectProvisioningMachine(&arch)
 
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
 	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
@@ -814,8 +805,9 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *tc.C) 
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
-	machine0 := s.expectProvisioningMachine(ctrl, nil)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
+	s.machineService.EXPECT().GetHardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{}, nil)
+
 	_, err = s.api.ProvisioningScript(c.Context(), params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
@@ -837,8 +829,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
 	arch := "amd64"
-	machine0 := s.expectProvisioningMachine(ctrl, &arch)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.expectProvisioningMachine(&arch)
 
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
 	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
@@ -865,11 +856,6 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *tc.C) {
 
 	now := s.clock.Now()
 
-	machine0 := NewMockMachine(ctrl)
-	machine0.EXPECT().Id().Return("0").MinTimes(1)
-	machine1 := NewMockMachine(ctrl)
-	machine1.EXPECT().Id().Return("1").MinTimes(1)
-
 	s.statusService.EXPECT().GetInstanceStatus(gomock.Any(), coremachine.Name("0")).Return(status.StatusInfo{Status: status.ProvisioningError}, nil)
 	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status: status.ProvisioningError,
@@ -877,7 +863,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *tc.C) {
 		Since:  &now,
 	}).Return(nil)
 
-	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
+	s.machineService.EXPECT().AllMachineNames(gomock.Any()).Return([]coremachine.Name{"0", "1"}, nil)
 
 	results, err := s.api.RetryProvisioning(c.Context(), params.RetryProvisioningArgs{
 		Machines: []string{"machine-0"},
@@ -892,11 +878,7 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 
 	now := s.clock.Now()
 
-	machine0 := NewMockMachine(ctrl)
-	machine0.EXPECT().Id().Return("0").MinTimes(1)
-	machine1 := NewMockMachine(ctrl)
-	machine1.EXPECT().Id().Return("1").MinTimes(1)
-	s.st.EXPECT().AllMachines().Return([]Machine{machine0, machine1}, nil)
+	s.machineService.EXPECT().AllMachineNames(gomock.Any()).Return([]coremachine.Name{"0", "1"}, nil)
 
 	s.statusService.EXPECT().GetInstanceStatus(gomock.Any(), coremachine.Name("0")).Return(status.StatusInfo{Status: status.ProvisioningError}, nil)
 	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
