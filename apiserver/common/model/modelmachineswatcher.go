@@ -5,26 +5,17 @@ package model
 
 import (
 	"context"
-	"time"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-// watchMachinesQuiesceInterval specifies the time window for batching together
-// changes to life and agent start times when watching the machine collection
-// for a particular model. For more information, see the WatchModelMachineStartTimes
-// method in state/watcher.go.
-const watchMachinesQuiesceInterval = 500 * time.Millisecond
 
 // ModelMachinesWatcher implements a common WatchModelMachines
 // method for use by various facades.
 type ModelMachinesWatcher struct {
-	st              state.ModelMachinesWatcher
 	machineService  MachineService
 	watcherRegistry facade.WatcherRegistry
 	authorizer      facade.Authorizer
@@ -33,9 +24,8 @@ type ModelMachinesWatcher struct {
 // NewModelMachinesWatcher returns a new ModelMachinesWatcher. The
 // GetAuthFunc will be used on each invocation of WatchUnits to
 // determine current permissions.
-func NewModelMachinesWatcher(st state.ModelMachinesWatcher, machineService MachineService, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) *ModelMachinesWatcher {
+func NewModelMachinesWatcher(machineService MachineService, watcherRegistry facade.WatcherRegistry, authorizer facade.Authorizer) *ModelMachinesWatcher {
 	return &ModelMachinesWatcher{
-		st:              st,
 		machineService:  machineService,
 		watcherRegistry: watcherRegistry,
 		authorizer:      authorizer,
@@ -55,26 +45,30 @@ func (e *ModelMachinesWatcher) WatchModelMachines(ctx context.Context) (params.S
 	if err != nil {
 		return result, errors.Capture(err)
 	}
-	watcherId, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, e.watcherRegistry, watcher)
-	if err != nil {
-		return params.StringsWatchResult{}, err
-	}
-	result.StringsWatcherId = watcherId
-	result.Changes = changes
-	return result, nil
+	watcherId, changes, err := internal.EnsureRegisterWatcher(ctx, e.watcherRegistry, watcher)
+	return params.StringsWatchResult{
+		Changes:          changes,
+		StringsWatcherId: watcherId,
+		Error:            apiservererrors.ServerError(err),
+	}, nil
 }
 
 // WatchModelMachineStartTimes watches the non-container machines in the model
 // for changes to the Life or AgentStartTime fields and reports them as a batch.
 func (e *ModelMachinesWatcher) WatchModelMachineStartTimes(ctx context.Context) (params.StringsWatchResult, error) {
-	result := params.StringsWatchResult{}
 	if !e.authorizer.AuthController() {
-		return result, apiservererrors.ErrPerm
+		return params.StringsWatchResult{}, apiservererrors.ErrPerm
 	}
-	watch := e.st.WatchModelMachineStartTimes(watchMachinesQuiesceInterval)
+	watch, err := e.machineService.WatchModelMachineLifeAndStartTimes(ctx)
+	if err != nil {
+		return params.StringsWatchResult{}, apiservererrors.ErrPerm
+	}
+
 	// Consume the initial event and forward it to the result.
-	stringsWatcherId, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, e.watcherRegistry, watch)
-	result.Changes = changes
-	result.StringsWatcherId = stringsWatcherId
-	return result, err
+	stringsWatcherId, changes, err := internal.EnsureRegisterWatcher(ctx, e.watcherRegistry, watch)
+	return params.StringsWatchResult{
+		Changes:          changes,
+		StringsWatcherId: stringsWatcherId,
+		Error:            apiservererrors.ServerError(err),
+	}, nil
 }

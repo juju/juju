@@ -1951,6 +1951,45 @@ func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// WatchModelMachineLifeAndStartTimes mocks base method.
+func (m *MockMachineService) WatchModelMachineLifeAndStartTimes(arg0 context.Context) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchModelMachineLifeAndStartTimes", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchModelMachineLifeAndStartTimes indicates an expected call of WatchModelMachineLifeAndStartTimes.
+func (mr *MockMachineServiceMockRecorder) WatchModelMachineLifeAndStartTimes(arg0 any) *MockMachineServiceWatchModelMachineLifeAndStartTimesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachineLifeAndStartTimes", reflect.TypeOf((*MockMachineService)(nil).WatchModelMachineLifeAndStartTimes), arg0)
+	return &MockMachineServiceWatchModelMachineLifeAndStartTimesCall{Call: call}
+}
+
+// MockMachineServiceWatchModelMachineLifeAndStartTimesCall wrap *gomock.Call
+type MockMachineServiceWatchModelMachineLifeAndStartTimesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceWatchModelMachineLifeAndStartTimesCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockMachineServiceWatchModelMachineLifeAndStartTimesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceWatchModelMachineLifeAndStartTimesCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineServiceWatchModelMachineLifeAndStartTimesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceWatchModelMachineLifeAndStartTimesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineServiceWatchModelMachineLifeAndStartTimesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchModelMachines mocks base method.
 func (m *MockMachineService) WatchModelMachines(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()

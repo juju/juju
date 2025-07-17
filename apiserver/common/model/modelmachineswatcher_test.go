@@ -52,7 +52,6 @@ func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *tc.C) {
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	e := model.NewModelMachinesWatcher(
-		nil,
 		s.machineService,
 		s.watcherRegistry,
 		authorizer,
@@ -70,7 +69,6 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *tc.C) {
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	e := model.NewModelMachinesWatcher(
-		nil,
 		s.machineService,
 		s.watcherRegistry,
 		authorizer,

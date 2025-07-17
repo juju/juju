@@ -48,6 +48,7 @@ type Machine interface {
 type NetworkService interface {
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+
 	// Watch returns a watcher that observes changes to subnets and their
 	// association (fan underlays), filtered based on the provided list of subnets
 	// to watch.
@@ -59,25 +60,35 @@ type NetworkService interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
+
 	// GetInstanceIDAndName returns the cloud specific instance ID and display
 	// name for this machine.
 	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+
 	// IsMachineManuallyProvisioned returns whether the machine is a manual
 	// machine.
 	IsMachineManuallyProvisioned(ctx context.Context, machineName machine.Name) (bool, error)
+
 	// GetMachineLife returns the lifecycle of the machine.
 	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
+
 	// WatchModelMachines watches for additions or updates to non-container
 	// machines. It is used by workers that need to factor life value changes,
 	// and so does not factor machine removals, which are considered to be
 	// after their transition to the dead state.
 	// It emits machine names rather than UUIDs.
 	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// WatchModelMachineLifeAndStartTimes returns a string watcher that emits machine names
+	// for changes to machine life or agent start times.
+	WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // ApplicationService provides access to the application service.
@@ -85,6 +96,7 @@ type ApplicationService interface {
 	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
 	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
+
 	// GetApplicationLifeByName looks up the life of the specified application, returning
 	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application is not found.

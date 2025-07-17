@@ -131,7 +131,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 				ControllerTag:   names.NewControllerTag(modelRedirection.ControllerUUID),
 				ControllerAlias: modelRedirection.ControllerAlias,
 			}
-		} else if err != nil && !errors.Is(err, modelerrors.ModelNotRedirected) {
+		} else if !errors.Is(err, modelerrors.ModelNotRedirected) {
 			return status, errors.Trace(err)
 		}
 
