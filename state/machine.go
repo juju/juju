@@ -77,27 +77,18 @@ func (m *Machine) Tag() names.Tag {
 
 // Life returns whether the machine is Alive, Dying or Dead.
 func (m *Machine) Life() Life {
-	return m.doc.Life
+	return Alive
 }
 
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies errors.IsNotFound if the tools
 // have not yet been set.
 func (m *Machine) AgentTools() (*tools.Tools, error) {
-	if m.doc.Tools == nil {
-		return nil, errors.NotFoundf("agent binaries for machine %v", m)
-	}
-	tools := *m.doc.Tools
-	return &tools, nil
+	return nil, errors.NotFoundf("agent binaries for machine %v", m)
 }
 
 // PublicAddress returns a public address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
 func (m *Machine) PublicAddress() (network.SpaceAddress, error) {
-	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
-	var err error
-	if publicAddress.Value == "" {
-		err = network.NoAddressError("public")
-	}
-	return publicAddress, err
+	return network.SpaceAddress{}, nil
 }

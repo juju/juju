@@ -17,17 +17,16 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/state/binarystorage"
 )
 
 type InstanceConfigBackend interface {
 	Machine(string) (Machine, error)
-	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
 // AgentBinaryService is an interface for getting the
@@ -36,6 +35,13 @@ type AgentBinaryService interface {
 	// GetEnvironAgentBinariesFinder returns the function to find agent binaries.
 	// This is used to find the agent binaries.
 	GetEnvironAgentBinariesFinder() agentbinaryservice.EnvironAgentBinariesFinderFunc
+
+	// ListAgentBinaries lists all agent binaries in the controller and model stores.
+	// It merges the two lists of agent binaries, with the model agent binaries
+	// taking precedence over the controller agent binaries.
+	// It returns a slice of agent binary metadata. The order of the metadata is not guaranteed.
+	// An empty slice is returned if no agent binaries are found.
+	ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error)
 }
 
 // AgentPasswordService defines the methods required to set an agent password
@@ -109,7 +115,6 @@ func InstanceConfig(
 	}
 	urlGetter := common.NewToolsURLGetter(modelID.String(), services.ControllerNodeService)
 	toolsFinder := common.NewToolsFinder(
-		st,
 		urlGetter,
 		services.ObjectStore,
 		services.AgentBinaryService,

@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/featureflag"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/pebble"
@@ -57,12 +56,10 @@ import (
 const (
 	proxyResourceName           = "proxy"
 	storageName                 = "storage"
-	mongoScratchStorageName     = "mongo-scratch"
 	apiServerScratchStorageName = "apiserver-scratch"
 )
 
 const (
-	mongoDBContainerName   = "mongodb"
 	apiServerContainerName = "api-server"
 
 	// startupGraceTime is the number of seconds afforded to startup probes to
@@ -80,12 +77,6 @@ const (
 	apiServerLivenessProbePeriod       = 5
 	apiServerLivenessProbeSuccess      = 1
 	apiServerLivenessProbeFailure      = 2
-
-	mongoDBStartupProbeInitialDelay = 1
-	mongoDBStartupProbeTimeout      = 1
-	mongoDBStartupProbePeriod       = 5
-	mongoDBStartupProbeSuccess      = 1
-	mongoDBStartupProbeFailure      = startupGraceTime / mongoDBStartupProbePeriod
 )
 
 type controllerServiceSpec struct {
@@ -156,10 +147,10 @@ type controllerStack struct {
 	// unitAgentConfig is the controller charm agent config.
 	unitAgentConfig agent.ConfigSetterWriter
 
-	storageClass               string
-	storageSize                resource.Quantity
-	portMongoDB, portAPIServer int
-	portSSHServer              int
+	storageClass  string
+	storageSize   resource.Quantity
+	portAPIServer int
+	portSSHServer int
 
 	resourceNameService,
 	resourceNameConfigMap,
@@ -293,7 +284,6 @@ func newControllerStack(
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
-		portMongoDB:   controller.DefaultStatePort,
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
 		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
@@ -909,9 +899,7 @@ func (c *controllerStack) waitForPod(ctx context.Context, podWatcher watcher.Not
 			case PulledImage:
 				evt.Message = "Pulled images"
 			case StartedContainer:
-				if evt.InvolvedObject.FieldPath == fmt.Sprintf("spec.containers{%s}", mongoDBContainerName) {
-					evt.Message = "Started mongodb container"
-				} else if evt.InvolvedObject.FieldPath == fmt.Sprintf("spec.containers{%s}", apiServerContainerName) {
+				if evt.InvolvedObject.FieldPath == fmt.Sprintf("spec.containers{%s}", apiServerContainerName) {
 					evt.Message = "Started controller container"
 				}
 			}
@@ -1048,11 +1036,6 @@ func (c *controllerStack) buildStorageSpecForController(ctx context.Context, sta
 	})
 
 	vols := []core.Volume{{
-		Name: mongoScratchStorageName,
-		VolumeSource: core.VolumeSource{
-			EmptyDir: &core.EmptyDirVolumeSource{},
-		},
-	}, {
 		Name: apiServerScratchStorageName,
 		VolumeSource: core.VolumeSource{
 			EmptyDir: &core.EmptyDirVolumeSource{},
@@ -1104,114 +1087,6 @@ func (c *controllerStack) appSecretName() string {
 
 func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerImage string, jujudEnv map[string]string) ([]core.Container, error) {
 	var containerSpec []core.Container
-	probeCmds := &core.ExecAction{
-		Command: []string{
-			"mongo",
-			fmt.Sprintf("--port=%d", c.portMongoDB),
-			"--eval",
-			"db.adminCommand('ping')",
-		},
-	}
-	args := []string{
-		fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
-		fmt.Sprintf("--port=%d", c.portMongoDB),
-		"--journal",
-		fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
-		"--quiet",
-		"--oplogSize=1024",
-		"--noauth",
-		"--storageEngine=wiredTiger",
-		"--bind_ip_all",
-	}
-
-	// Create the script used to start mongo.
-	const mongoSh = "/tmp/mongo.sh"
-	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "))
-	// Write it to a file so it can be executed.
-	mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
-	makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)
-	mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && exec %[2]s", makeMongoCmd, mongoSh)
-	logger.Debugf(context.TODO(), "mongodb container args:\n%s", mongoArgs)
-
-	dbImage, err := c.pcfg.GetJujuDbOCIImagePath()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	containerSpec = append(containerSpec, core.Container{
-		Name:            mongoDBContainerName,
-		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           dbImage,
-		Command: []string{
-			"/bin/sh",
-		},
-		Args: []string{
-			"-c",
-			mongoArgs,
-		},
-		SecurityContext: &core.SecurityContext{
-			RunAsUser:              pointer.Int64(constants.JujuUserID),
-			RunAsGroup:             pointer.Int64(constants.JujuGroupID),
-			ReadOnlyRootFilesystem: pointer.Bool(true),
-		},
-		Ports: []core.ContainerPort{
-			{
-				Name:          "mongodb",
-				ContainerPort: int32(c.portMongoDB),
-				Protocol:      "TCP",
-			},
-		},
-		ReadinessProbe: &core.Probe{
-			ProbeHandler: core.ProbeHandler{
-				Exec: probeCmds,
-			},
-			FailureThreshold:    3,
-			InitialDelaySeconds: 5,
-			PeriodSeconds:       10,
-			SuccessThreshold:    1,
-			TimeoutSeconds:      1,
-		},
-		LivenessProbe: &core.Probe{
-			ProbeHandler: core.ProbeHandler{
-				Exec: probeCmds,
-			},
-			FailureThreshold:    3,
-			InitialDelaySeconds: 30,
-			PeriodSeconds:       10,
-			SuccessThreshold:    1,
-			TimeoutSeconds:      5,
-		},
-		StartupProbe: &core.Probe{
-			ProbeHandler: core.ProbeHandler{
-				Exec: probeCmds,
-			},
-			FailureThreshold:    mongoDBStartupProbeFailure,
-			InitialDelaySeconds: mongoDBStartupProbeInitialDelay,
-			PeriodSeconds:       mongoDBStartupProbePeriod,
-			SuccessThreshold:    mongoDBStartupProbeSuccess,
-			TimeoutSeconds:      mongoDBStartupProbeTimeout,
-		},
-		VolumeMounts: []core.VolumeMount{
-			{
-				Name:      mongoScratchStorageName,
-				MountPath: "/var/log",
-				SubPath:   "var/log",
-			},
-			{
-				Name:      mongoScratchStorageName,
-				MountPath: "/tmp",
-				SubPath:   "tmp",
-			},
-			{
-				Name:      storageName,
-				MountPath: c.pcfg.DataDir,
-			},
-			{
-				Name:      storageName,
-				MountPath: c.pathJoin(c.pcfg.DataDir, "db"),
-				SubPath:   "db",
-			},
-		},
-	})
 
 	// add container API server.
 	pebbleLayer, err := jujudPebbleLayer(machineCmd, jujudEnv)

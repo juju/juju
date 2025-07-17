@@ -4,26 +4,11 @@
 package state
 
 import (
-	"context"
-	"fmt"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
-	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
-	jujutxn "github.com/juju/txn/v3"
-
-	internallogger "github.com/juju/juju/internal/logger"
 )
-
-const (
-	actionMarker = "_a_"
-)
-
-var actionLogger = internallogger.GetLogger("juju.state.action")
 
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
@@ -53,12 +38,6 @@ const (
 
 	// ActionAborted indicates the Action was aborted.
 	ActionAborted ActionStatus = "aborted"
-)
-
-var activeStatus = set.NewStrings(
-	string(ActionPending),
-	string(ActionRunning),
-	string(ActionAborting),
 )
 
 type actionDoc struct {
@@ -141,24 +120,12 @@ type action struct {
 
 // Refresh the contents of the action.
 func (a *action) Refresh() error {
-	actions, closer := a.st.db().GetCollection(actionsC)
-	defer closer()
-	id := a.Id()
-	doc := actionDoc{}
-	err := actions.FindId(id).One(&doc)
-	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("action %q", id)
-	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot get action %q", id)
-	}
-	a.doc = doc
 	return nil
 }
 
 // Id returns the local id of the Action.
 func (a *action) Id() string {
-	return a.st.localID(a.doc.DocId)
+	return ""
 }
 
 // Receiver returns the Name of the ActionReceiver for which this action
@@ -249,58 +216,6 @@ func (a *action) Begin() (Action, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	parentOperation, err := m.Operation(a.doc.Operation)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	startedTime := a.st.nowToTheSecond()
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// If this is the first action to be marked as running
-		// for the parent operation, the operation itself is
-		// marked as running also.
-		var updateOperationOp *txn.Op
-		var err error
-		if parentOperation != nil {
-			if attempt > 0 {
-				err = parentOperation.Refresh()
-				if err != nil && !errors.Is(err, errors.NotFound) {
-					return nil, errors.Trace(err)
-				}
-			}
-			parentOpDetails, ok := parentOperation.(*operation)
-			if !ok {
-				return nil, errors.Errorf("parentOperation must be of type operation")
-			}
-			if err == nil && parentOpDetails.doc.Status == ActionPending {
-				updateOperationOp = &txn.Op{
-					C:      operationsC,
-					Id:     a.st.docID(parentOperation.Id()),
-					Assert: bson.D{{"status", ActionPending}},
-					Update: bson.D{{"$set", bson.D{
-						{"status", ActionRunning},
-						{"started", startedTime},
-					}}},
-				}
-			}
-		}
-		ops := []txn.Op{
-			{
-				C:      actionsC,
-				Id:     a.doc.DocId,
-				Assert: bson.D{{"status", ActionPending}},
-				Update: bson.D{{"$set", bson.D{
-					{"status", ActionRunning},
-					{"started", startedTime},
-				}}},
-			}}
-		if updateOperationOp != nil {
-			ops = append(ops, *updateOperationOp)
-		}
-		return ops, nil
-	}
-	if err = m.st.db().Run(buildTxn); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return m.Action(a.Id())
 }
 
@@ -316,49 +231,6 @@ func (a *action) Cancel() (Action, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	parentOperation, err := m.Operation(a.doc.Operation)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-
-	cancelTime := a.st.nowToTheSecond()
-	removeAndLog := a.removeAndLogBuildTxn(ActionCancelled, nil, "action cancelled via the API",
-		m, parentOperation, cancelTime)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		err := a.Refresh()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		switch a.Status() {
-		case ActionRunning:
-			ops := []txn.Op{
-				{
-					C:      actionsC,
-					Id:     a.doc.DocId,
-					Assert: bson.D{{"status", ActionRunning}},
-					Update: bson.D{{"$set", bson.D{
-						{"status", ActionAborting},
-					}}},
-				}, {
-					C:  actionNotificationsC,
-					Id: m.st.docID(ensureActionMarker(a.Receiver()) + a.Id()),
-					Update: bson.D{{"$set", bson.D{
-						{"changed", cancelTime},
-					}}},
-				},
-			}
-			return ops, nil
-		case ActionPending:
-			return removeAndLog(attempt)
-		default:
-			// Already done.
-			return nil, nil
-		}
-	}
-	if err = m.st.db().Run(buildTxn); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return m.Action(a.Id())
 }
 
@@ -370,133 +242,7 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	parentOperation, err := m.Operation(a.doc.Operation)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-
-	completedTime := a.st.nowToTheSecond()
-	buildTxn := a.removeAndLogBuildTxn(finalStatus, results, message, m, parentOperation, completedTime)
-	if err = m.st.db().Run(buildTxn); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return m.Action(a.Id())
-}
-
-// removeAndLogBuildTxn is shared by Cancel and removeAndLog to correctly finalise an action and it's parent op.
-func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[string]interface{}, message string,
-	m *Model, parentOperation Operation, completedTime time.Time) jujutxn.TransactionSource {
-	return func(attempt int) ([]txn.Op, error) {
-		// If the action is already finished, return an error.
-		if a.Status() == finalStatus {
-			return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("action %v already has status %q", a.Id(), finalStatus))
-		}
-		if attempt > 0 {
-			err := a.Refresh()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if !activeStatus.Contains(string(a.Status())) {
-				return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("action %v is already finished with status %q", a.Id(), finalStatus))
-			}
-		}
-		assertNotComplete := bson.D{{"status", bson.D{
-			{"$nin", []interface{}{
-				ActionCompleted,
-				ActionCancelled,
-				ActionFailed,
-				ActionAborted,
-				ActionError,
-			}}}}}
-		// If this is the last action to be marked as completed
-		// for the parent operation, the operation itself is also
-		// marked as complete.
-		var updateOperationOp *txn.Op
-		var err error
-		if parentOperation != nil {
-			parentOpDetails, ok := parentOperation.(*operation)
-			if !ok {
-				return nil, errors.Errorf("parentOperation must be of type operation")
-			}
-			if attempt > 0 {
-				err = parentOperation.Refresh()
-				if err != nil && !errors.Is(err, errors.NotFound) {
-					return nil, errors.Trace(err)
-				}
-			}
-			tasks := parentOpDetails.taskStatus
-			statusStats := set.NewStrings(string(finalStatus))
-			var numComplete int
-			for _, status := range tasks {
-				statusStats.Add(string(status))
-				if !activeStatus.Contains(string(status)) {
-					numComplete++
-				}
-			}
-			spawnedTaskCount := parentOpDetails.doc.SpawnedTaskCount
-			if numComplete == spawnedTaskCount-1 {
-				// Set the operation status based on the individual
-				// task status values. eg if any task is failed,
-				// the entire operation is considered failed.
-				finalOperationStatus := finalStatus
-				for _, s := range statusCompletedOrder {
-					if statusStats.Contains(string(s)) {
-						finalOperationStatus = s
-						break
-					}
-				}
-				if finalOperationStatus == ActionCompleted && parentOpDetails.Fail() != "" {
-					// If an action fails enqueuing, there may not be a doc
-					// to reference. It will only be noted in the operation
-					// fail string.
-					finalOperationStatus = ActionError
-				}
-				updateOperationOp = &txn.Op{
-					C:  operationsC,
-					Id: a.st.docID(parentOperation.Id()),
-					Assert: append(assertNotComplete,
-						bson.DocElem{"complete-task-count", bson.D{{"$eq", spawnedTaskCount - 1}}}),
-					Update: bson.D{{"$set", bson.D{
-						{"status", finalOperationStatus},
-						{"completed", completedTime},
-						{"complete-task-count", spawnedTaskCount},
-					}}},
-				}
-			} else {
-				updateOperationOp = &txn.Op{
-					C:  operationsC,
-					Id: a.st.docID(parentOperation.Id()),
-					Assert: append(assertNotComplete,
-						bson.DocElem{"complete-task-count",
-							bson.D{{"$lt", spawnedTaskCount - 1}}}),
-					Update: bson.D{{"$inc", bson.D{
-						{"complete-task-count", 1},
-					}}},
-				}
-			}
-		}
-		ops := []txn.Op{
-			{
-				C:      actionsC,
-				Id:     a.doc.DocId,
-				Assert: assertNotComplete,
-				Update: bson.D{{"$set", bson.D{
-					{"status", finalStatus},
-					{"message", message},
-					{"results", results},
-					{"completed", completedTime},
-				}}},
-			}, {
-				C:      actionNotificationsC,
-				Id:     m.st.docID(ensureActionMarker(a.Receiver()) + a.Id()),
-				Remove: true,
-			}}
-		if updateOperationOp != nil {
-			ops = append(ops, *updateOperationOp)
-		}
-		return ops, nil
-	}
 }
 
 // Messages returns the action's progress messages.
@@ -514,43 +260,7 @@ func (a *action) Messages() []ActionMessage {
 
 // Log adds message to the action's progress message array.
 func (a *action) Log(message string) error {
-	// Just to ensure we do not allow bad actions to fill up disk.
-	// 1000 messages should be enough for anyone.
-	if len(a.doc.Logs) > 1000 {
-		logger.Warningf(context.TODO(), "exceeded 1000 log messages, action may be stuck")
-		return nil
-	}
-	m, err := a.st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			anAction, err := m.Action(a.Id())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			a = anAction.(*action)
-		}
-		if s := a.Status(); s != ActionRunning && s != ActionAborting {
-			return nil, errors.Errorf("cannot log message to task %q with status %v", a.Id(), s)
-		}
-		ops := []txn.Op{
-			{
-				C:  actionsC,
-				Id: a.doc.DocId,
-				Assert: bson.D{{"$or", []bson.D{
-					{{"status", ActionRunning}},
-					{{"status", ActionAborting}},
-				}}},
-				Update: bson.D{{"$push", bson.D{
-					{"messages", ActionMessage{MessageValue: message, TimestampValue: a.st.nowToTheSecond().UTC()}},
-				}}},
-			}}
-		return ops, nil
-	}
-	err = a.st.db().Run(buildTxn)
-	return errors.Trace(err)
+	return nil
 }
 
 // newAction builds an Action for the given State and actionDoc.
@@ -561,42 +271,14 @@ func newAction(st *State, adoc actionDoc) Action {
 	}
 }
 
-var ensureActionMarker = ensureSuffixFn(actionMarker)
-
 // Action returns an Action by Id.
 func (m *Model) Action(id string) (Action, error) {
-	actionLogger.Tracef(context.TODO(), "Action() %q", id)
-	st := m.st
-	actions, closer := st.db().GetCollection(actionsC)
-	defer closer()
-
-	doc := actionDoc{}
-	err := actions.FindId(id).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("action %q", id)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get action %q", id)
-	}
-	actionLogger.Tracef(context.TODO(), "Action() %q found %+v", id, doc)
-	return newAction(st, doc), nil
+	return newAction(m.st, actionDoc{}), nil
 }
 
 // AllActions returns all Actions.
 func (m *Model) AllActions() ([]Action, error) {
-	actionLogger.Tracef(context.TODO(), "AllActions()")
-	actions, closer := m.st.db().GetCollection(actionsC)
-	defer closer()
-
 	results := []Action{}
-	docs := []actionDoc{}
-	err := actions.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get all actions")
-	}
-	for _, doc := range docs {
-		results = append(results, newAction(m.st, doc))
-	}
 	return results, nil
 }
 
@@ -612,14 +294,5 @@ func (st *State) ActionByTag(tag names.ActionTag) (Action, error) {
 // FindActionsByName finds Actions with the given name.
 func (m *Model) FindActionsByName(name string) ([]Action, error) {
 	var results []Action
-	var doc actionDoc
-
-	actions, closer := m.st.db().GetCollection(actionsC)
-	defer closer()
-
-	iter := actions.Find(bson.D{{"name", name}}).Iter()
-	for iter.Next(&doc) {
-		results = append(results, newAction(m.st, doc))
-	}
-	return results, errors.Trace(iter.Close())
+	return results, nil
 }

@@ -33,7 +33,6 @@ func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
 	pool := ctx.StatePool()
 
 	domainServices := ctx.DomainServices()
@@ -42,7 +41,7 @@ func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 
 	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), domainServices.ControllerNode())
 	toolsFinder := common.NewToolsFinder(
-		st, urlGetter,
+		urlGetter,
 		ctx.ControllerObjectStore(),
 		domainServices.AgentBinary(),
 	)

@@ -90,33 +90,11 @@ func (k watchKey) String() string {
 	return fmt.Sprintf("document %v in %s", k.id, coll)
 }
 
-// match returns whether the receiving watch key,
-// which may refer to a particular item or
-// an entire collection, matches k1, which refers
-// to a particular item.
-func (k watchKey) match(k1 watchKey) bool {
-	if k.c != k1.c {
-		return false
-	}
-	if k.id == nil {
-		// k refers to entire collection
-		return true
-	}
-	return k.id == k1.id
-}
-
 type watchInfo struct {
 	ch     chan<- Change
 	revno  int64
 	filter func(interface{}) bool
 	source []byte
-}
-
-type event struct {
-	ch          chan<- Change
-	key         watchKey
-	revno       int64
-	watchSource []byte
 }
 
 // Period is the delay between each sync.

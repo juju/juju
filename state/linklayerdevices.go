@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
-	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/core/network"
@@ -74,12 +72,12 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 // DocID returns the globally unique ID of the link-layer device,
 // including the model UUID as prefix.
 func (dev *LinkLayerDevice) DocID() string {
-	return dev.st.docID(dev.doc.DocID)
+	return ""
 }
 
 // ID returns the unique ID of this device within the model.
 func (dev *LinkLayerDevice) ID() string {
-	return dev.st.localID(dev.doc.DocID)
+	return ""
 }
 
 // Name returns the name of the device, as it appears on the machine.
@@ -159,7 +157,6 @@ func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
 	if dev.ParentID() == "" {
 		return nil, nil
 	}
-
 	dev, err := dev.st.LinkLayerDevice(dev.ParentID())
 	return dev, errors.Trace(err)
 }
@@ -171,31 +168,11 @@ func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
 // addresses and for ensuring that this device has no children.
 // That responsibility lies with the caller.
 func (dev *LinkLayerDevice) RemoveOps() []txn.Op {
-	ops := []txn.Op{{
-		C:      linkLayerDevicesC,
-		Id:     dev.DocID(),
-		Remove: true,
-	}}
-
-	if dev.ProviderID() != "" {
-		ops = append(ops, dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", dev.ProviderID()))
-	}
-
-	return ops
+	return nil
 }
 
 func (st *State) LinkLayerDevice(id string) (*LinkLayerDevice, error) {
-	linkLayerDevices, closer := st.db().GetCollection(linkLayerDevicesC)
-	defer closer()
-
 	var doc linkLayerDeviceDoc
-	err := linkLayerDevices.FindId(id).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("device with ID %q", id)
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "retrieving %q", id)
-	}
-
 	return newLinkLayerDevice(st, doc), nil
 }
 
@@ -214,26 +191,12 @@ func linkLayerDeviceGlobalKey(machineID, deviceName string) string {
 // Addresses returns all IP addresses assigned to the device.
 func (dev *LinkLayerDevice) Addresses() ([]*Address, error) {
 	var allAddresses []*Address
-	callbackFunc := func(resultDoc *ipAddressDoc) {
-		allAddresses = append(allAddresses, newIPAddress(dev.st, *resultDoc))
-	}
-
-	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
-	if err := dev.st.forEachIPAddressDoc(findQuery, callbackFunc); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return allAddresses, nil
 }
 
 // RemoveAddresses removes all IP addresses assigned to the device.
 func (dev *LinkLayerDevice) RemoveAddresses() error {
-	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
-	ops, err := dev.st.removeMatchingIPAddressesDocOps(findQuery)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return dev.st.db().RunTransaction(ops)
+	return nil
 }
 
 // EthernetDeviceForBridge returns an InterfaceInfo representing an ethernet
@@ -246,98 +209,5 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 	allSubnets network.SubnetInfos,
 ) (network.InterfaceInfo, error) {
 	var newDev network.InterfaceInfo
-
-	if !dev.isBridge() {
-		return newDev, errors.Errorf("device must be a Bridge Device, but is type %q", dev.Type())
-	}
-
-	mtu, err := dev.mtuForChild()
-	if err != nil {
-		return network.InterfaceInfo{}, errors.Annotate(err, "determining child MTU")
-	}
-
-	newDev = network.InterfaceInfo{
-		InterfaceName:       name,
-		MACAddress:          network.GenerateVirtualMACAddress(),
-		ConfigType:          network.ConfigDHCP,
-		InterfaceType:       network.EthernetDevice,
-		MTU:                 int(mtu),
-		ParentInterfaceName: dev.Name(),
-		VirtualPortType:     dev.VirtualPortType(),
-	}
-
-	addrs, err := dev.Addresses()
-	if err != nil {
-		return network.InterfaceInfo{}, errors.Trace(err)
-	}
-
-	// Include a single address without an IP, but with a CIDR
-	// to indicate that we know the subnet for this bridge.
-	if len(addrs) > 0 {
-		addr := addrs[0]
-		if askProviderForAddress {
-			subnets, err := allSubnets.GetByCIDR(addr.SubnetCIDR())
-			if err != nil {
-				return newDev, errors.Annotatef(err,
-					"retrieving subnet %q used by address %q of host machine device %q",
-					addr.SubnetCIDR(), addr.Value(), dev.Name(),
-				)
-			}
-			// Only one network should be returned for the given
-			// address, so we can safely get its first element.
-			sub := subnets[0]
-			newDev.ConfigType = network.ConfigStatic
-			newDev.ProviderSubnetId = sub.ProviderId
-			newDev.VLANTag = sub.VLANTag
-			newDev.IsDefaultGateway = addr.IsDefaultGateway()
-			newDev.Addresses = network.ProviderAddresses{
-				network.NewMachineAddress("", network.WithCIDR(sub.CIDR)).AsProviderAddress()}
-		} else {
-			newDev.Addresses = network.ProviderAddresses{
-				network.NewMachineAddress("", network.WithCIDR(addr.SubnetCIDR())).AsProviderAddress()}
-		}
-	}
-
 	return newDev, nil
-}
-
-// mtuForChild returns a suitable MTU to use for a child of this device.
-// At the time of writing, Fan devices are configured with a static MTU.
-// See /usr/sbin/fanctl. It is either 1480 or (usually) 1450, which appears
-// to be a lazy 50 less than the common 1500. Using this value can cause
-// issues if the underlay has a MTU lower than 1450. If this is a Fan device,
-// locate the accompanying VXLAN device instead, and use that MTU.
-// This should have the correct value relative to the underlay.
-func (dev *LinkLayerDevice) mtuForChild() (uint, error) {
-	if !strings.HasPrefix(dev.doc.Name, "fan-") {
-		return dev.MTU(), nil
-	}
-
-	linkLayerDevs, closer := dev.st.db().GetCollection(linkLayerDevicesC)
-	defer closer()
-
-	var resultDoc struct {
-		MTU uint `bson:"mtu"`
-	}
-	err := linkLayerDevs.Find(bson.D{
-		{"machine-id", dev.doc.MachineID},
-		{"parent-name", dev.doc.Name},
-		{"type", network.VXLANDevice},
-	}).Select(bson.D{{"mtu", 1}}).One(&resultDoc)
-
-	return resultDoc.MTU, errors.Trace(err)
-}
-
-func (dev *LinkLayerDevice) isBridge() bool {
-	if dev.Type() == network.BridgeDevice {
-		return true
-	}
-
-	// OVS bridges expose their internal port as a plain NIC with the
-	// same name as the bridge.
-	if dev.VirtualPortType() == network.OvsPort {
-		return true
-	}
-
-	return false
 }

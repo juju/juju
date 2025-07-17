@@ -9,15 +9,12 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 )
 
 type Backend interface {
 	Machine(string) (Machine, error)
 	AllMachines() ([]Machine, error)
-	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
 type BackendState interface {
