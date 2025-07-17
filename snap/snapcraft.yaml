@@ -401,6 +401,7 @@ parts:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
       github.com/juju/juju/version.build: ""
+      github.com/juju/juju/version.Grade: ""
     go-static: true
     go-strip: true
     go-buildtags: ["libsqlite3", "dqlite"]
@@ -440,6 +441,7 @@ parts:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
       github.com/juju/juju/version.build: ""
+      github.com/juju/juju/version.Grade: ""
     go-static: true
     go-strip: true
     override-build: |

@@ -231,7 +231,7 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *upgradeControllerCommand) uploadTools(
-	modelUpgrader ModelUpgraderAPI, buildAgent bool, agentVersion version.Number, dryRun bool,
+	modelUpgrader ModelUpgraderAPI, buildAgent, officialOnly bool, agentVersion version.Number, dryRun bool,
 ) (targetVersion version.Number, err error) {
 	builtTools, err := sync.BuildAgentTarball(
 		buildAgent, "upgrade",
@@ -248,6 +248,10 @@ func (c *upgradeControllerCommand) uploadTools(
 		return targetVersion, errors.Trace(err)
 	}
 	defer os.RemoveAll(builtTools.Dir)
+
+	if !builtTools.Official && officialOnly {
+		return targetVersion, errors.NotSupportedf("non official build")
+	}
 
 	if dryRun {
 		logger.Debugf("dryrun, skipping upload agent binary")
@@ -283,13 +287,13 @@ func (c *upgradeControllerCommand) upgradeWithTargetVersion(
 		logger.Debugf("upgraded to the provided target version %q", targetVersion)
 		return chosenVersion, nil
 	}
-	if !errors.Is(err, errors.NotFound) {
+	if !errors.Is(err, errors.NotFound) && !errors.Is(err, errUpToDate) {
 		return chosenVersion, err
 	}
 
 	// If target version is the current local binary version, then try to upload.
 	canImplicitUpload := CheckCanImplicitUpload(
-		modelType, isOfficialClient(), jujuversion.Current, agentVersion,
+		modelType, isOfficialClient(), jujuversion.Current, jujuversion.Grade, agentVersion,
 	)
 	if !canImplicitUpload {
 		// expecting to upload a local binary but we are not allowed to upload, so pretend there
@@ -307,7 +311,7 @@ func (c *upgradeControllerCommand) upgradeWithTargetVersion(
 	}
 
 	// found a best target version but a local binary is required to be uploaded.
-	if chosenVersion, err = c.uploadTools(modelUpgrader, false, agentVersion, dryRun); err != nil {
+	if chosenVersion, err = c.uploadTools(modelUpgrader, false, true, agentVersion, dryRun); err != nil {
 		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
 	}
 	fmt.Fprintf(ctx.Stdout,
@@ -383,7 +387,7 @@ func (c *upgradeControllerCommand) upgradeController(
 		return errors.New("incomplete model configuration")
 	}
 
-	if c.Version == agentVersion {
+	if c.Version == agentVersion && jujuversion.Grade != jujuversion.GradeDevel {
 		return errUpToDate
 	}
 
@@ -402,7 +406,7 @@ func (c *upgradeControllerCommand) upgradeController(
 		return err
 	}
 	if c.BuildAgent {
-		if targetVersion, err = c.uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+		if targetVersion, err = c.uploadTools(modelUpgrader, c.BuildAgent, false, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := " (built from source)"
@@ -494,7 +498,7 @@ var CheckCanImplicitUpload = checkCanImplicitUpload
 
 func checkCanImplicitUpload(
 	modelType model.ModelType, isOfficialClient bool,
-	clientVersion, agentVersion version.Number,
+	clientVersion version.Number, clientGrade string, agentVersion version.Number,
 ) bool {
 	if modelType != model.IAAS {
 		logger.Tracef("the model is not IAAS model")
@@ -507,7 +511,7 @@ func checkCanImplicitUpload(
 		return false
 	}
 	newerClient := clientVersion.Compare(agentVersion.ToPatch()) >= 0
-	if !newerClient {
+	if !newerClient && clientGrade != jujuversion.GradeDevel {
 		logger.Tracef(
 			"the client version(%s) is not newer than agent version(%s)",
 			clientVersion, agentVersion.ToPatch(),
@@ -515,7 +519,8 @@ func checkCanImplicitUpload(
 		return false
 	}
 
-	if agentVersion.Build > 0 || clientVersion.Build > 0 {
+	logger.Tracef("the client version(%s) the agent version(%s)", clientVersion, agentVersion)
+	if agentVersion.Build > 0 || clientVersion.Build > 0 || clientGrade == jujuversion.GradeDevel {
 		return true
 	}
 	return false

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type buildSuite struct {
@@ -330,7 +331,7 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) 
 	c.Assert(official, jc.IsTrue)
 }
 
-func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
+func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficialDevel(c *gc.C) {
 	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
@@ -339,12 +340,13 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 	jujudVersion := func(dir string) (version.Binary, bool, error) {
 		return version.Binary{}, true, nil
 	}
+	b.PatchValue(&jujuversion.Grade, "devel")
 
 	_, forceVersion, official, _, err := tools.BundleToolsForTest(false, bundleFile,
 		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
 		jujudVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
+	c.Check(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
 	c.Assert(official, jc.IsTrue)
 
 	bundleFile, err = os.Open(bundleFile.Name())
@@ -372,6 +374,24 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 			break
 		}
 	}
+}
+
+func (b *buildSuite) TestBundleToolsForOfficialNonDevel(c *gc.C) {
+	b.patchExecCommand(c, "", "")
+	dir := b.setUpFakeBinaries(c, "")
+	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	jujudVersion := func(dir string) (version.Binary, bool, error) {
+		return version.Binary{}, true, nil
+	}
+
+	_, forceVersion, official, _, err := tools.BundleToolsForTest(false, bundleFile,
+		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+		jujudVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(forceVersion, gc.Equals, version.Zero)
+	c.Assert(official, jc.IsTrue)
 }
 
 func (b *buildSuite) patchExecCommand(c *gc.C, release, arch string) {

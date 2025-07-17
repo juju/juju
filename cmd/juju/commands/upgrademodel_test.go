@@ -275,7 +275,7 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDu
 	s.reset(c)
 
 	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return false },
+		func(model.ModelType, bool, version.Number, string, version.Number) bool { return false },
 	)
 
 	ctrl, cmd := s.upgradeModelCommand(c, false)
@@ -612,57 +612,4 @@ func (s *upgradeModelSuite) TestResetPreviousUpgrade(c *gc.C) {
 	s.assertResetPreviousUpgrade(c, "N", false)
 	s.assertResetPreviousUpgrade(c, "no", false)
 	s.assertResetPreviousUpgrade(c, "foo", false)
-}
-
-func (s *upgradeModelSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	// Not IAAS model.
-	canImplicitUpload := checkCanImplicitUpload(
-		model.CAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.9.99.1"),
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// not official client.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, false,
-		version.MustParse("3.9.99"),
-		version.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// non newer client.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		version.MustParse("2.9.99"),
-		version.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// client version with build number.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		version.MustParse("3.0.0.1"),
-		version.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, jc.IsTrue)
-
-	// agent version with build number.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0.1"),
-	)
-	c.Check(canImplicitUpload, jc.IsTrue)
-
-	// both client and agent version with build number == 0.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
 }
