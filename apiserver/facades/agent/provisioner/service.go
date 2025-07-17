@@ -105,10 +105,6 @@ type MachineService interface {
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)
 
-	// IsMachineManuallyProvisioned returns whether the machine is a manual
-	// machine.
-	IsMachineManuallyProvisioned(ctx context.Context, machineName coremachine.Name) (bool, error)
-
 	// GetSupportedContainersTypes returns the supported container types for the
 	// provider.
 	GetSupportedContainersTypes(ctx context.Context, mUUID coremachine.UUID) ([]instance.ContainerType, error)
@@ -164,6 +160,18 @@ type StoragePoolGetter interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
+	// AllocateContainerAddresses allocates a static address for each of the
+	// container NICs in preparedInfo, hosted by the hostInstanceID, if the
+	// provider supports it. Returns the network config including all allocated
+	// addresses on success.
+	// Returns [networkerrors.ContainerAddressesNotSupported] if the provider
+	// does not support container addressing.
+	AllocateContainerAddresses(ctx context.Context,
+		hostInstanceID instance.Id,
+		containerName string,
+		preparedInfo network.InterfaceInfos,
+	) (network.InterfaceInfos, error)
+
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 
