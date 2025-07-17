@@ -16,14 +16,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// MetadataService is the interface that is used to get metadata from the
-// object store. This is used to list all files in the object store that
-// need to be drained from the file backed object store to the s3 object store.
-type MetadataService interface {
-	// ListMetadata returns the metadata for all files in the object store.
-	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
-}
-
 type drainWorker struct {
 	tomb tomb.Tomb
 
@@ -31,7 +23,7 @@ type drainWorker struct {
 	fileSystem     HashFileSystemAccessor
 	client         objectstore.Client
 
-	metadataService MetadataService
+	metadataService objectstore.ObjectStoreMetadata
 
 	rootBucket string
 	namespace  string
@@ -42,7 +34,7 @@ type drainWorker struct {
 func newDrainWorker(
 	fileSystem HashFileSystemAccessor,
 	client objectstore.Client,
-	metadataService MetadataService,
+	metadataService objectstore.ObjectStoreMetadata,
 	rootBucket, namespace string,
 	selectFileHash SelectFileHashFunc,
 	logger logger.Logger,
