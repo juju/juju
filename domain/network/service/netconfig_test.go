@@ -52,16 +52,242 @@ func (s *netConfigSuite) TestImportLinkLayerDevices(c *tc.C) {
 	args := []internal.ImportLinkLayerDevice{
 		{MachineID: "88"},
 	}
-	expectedArgs := args
+	expectedArgs := make([]internal.ImportLinkLayerDevice, len(args))
+	copy(expectedArgs, args)
 	expectedArgs[0].NetNodeUUID = netNodeUUID
 	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), args).Return(nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), expectedArgs).Return(nil)
 
 	// Act
 	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *netConfigSuite) TestImportLinkLayerDevicTestImportLinkLayerDevicesSubnetError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	nameMap := map[string]string{}
+	args := []internal.ImportLinkLayerDevice{{}}
+
+	expectedError := errors.New("subnet error")
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, expectedError)
+
+	// Act
+	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
+
+	// Assert: error about getting all subnets
+	c.Assert(err, tc.ErrorMatches, `getting all subnets: subnet error`)
+}
+
+func (s *netConfigSuite) TestImportLinkLayerDevicTestImportLinkLayerDevicesSubnetWithProvider(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	netNodeUUID := uuid.MustNewUUID().String()
+	nameMap := map[string]string{
+		"88": netNodeUUID,
+	}
+
+	providerSubnetID := "provider-subnet-1"
+	subnetUUID := uuid.MustNewUUID().String()
+	subnets := corenetwork.SubnetInfos{{
+		ID:         corenetwork.Id(subnetUUID),
+		ProviderId: corenetwork.Id(providerSubnetID),
+	}}
+
+	args := []internal.ImportLinkLayerDevice{
+		{
+			MachineID: "88",
+			Name:      "eth0",
+			Addresses: []internal.ImportIPAddress{
+				{
+					ProviderSubnetID: &providerSubnetID,
+				},
+			},
+		},
+	}
+
+	expectedArgs := make([]internal.ImportLinkLayerDevice, len(args))
+	copy(expectedArgs, args)
+	expectedArgs[0].NetNodeUUID = netNodeUUID
+	expectedArgs[0].Addresses[0].SubnetUUID = subnetUUID
+
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), expectedArgs).Return(nil)
+
+	// Act
+	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *netConfigSuite) TestImportLinkLayerDevicTestImportLinkLayerDevicesSubnetWithProviderError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	netNodeUUID := uuid.MustNewUUID().String()
+	nameMap := map[string]string{
+		"88": netNodeUUID,
+	}
+
+	// Create a subnet with a different provider ID than the one in the address
+	providerSubnetID := "provider-subnet-1"
+	unknownProviderSubnetID := "unknown-provider-subnet"
+	subnetUUID := uuid.MustNewUUID().String()
+	subnets := corenetwork.SubnetInfos{{
+		ID:         corenetwork.Id(subnetUUID),
+		ProviderId: corenetwork.Id(providerSubnetID),
+	}}
+
+	args := []internal.ImportLinkLayerDevice{
+		{
+			MachineID: "88",
+			Name:      "eth0",
+			Addresses: []internal.ImportIPAddress{
+				{
+					ProviderSubnetID: &unknownProviderSubnetID, // Provider subnet ID that doesn't match any subnet
+				},
+			},
+		},
+	}
+
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+
+	// Act
+	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
+
+	// Assert: error about no subnet found for provider subnet ID
+	c.Assert(err, tc.ErrorMatches, `converting devices:.*converting addresses: .*no subnet found for provider subnet ID "unknown-provider-subnet"`)
+}
+
+func (s *netConfigSuite) TestImportLinkLayerDevicTestImportLinkLayerDevicesSubnetWithoutProvider(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	netNodeUUID := uuid.MustNewUUID().String()
+	nameMap := map[string]string{
+		"88": netNodeUUID,
+	}
+	subnetUUID := uuid.MustNewUUID().String()
+	subnets := corenetwork.SubnetInfos{{
+		ID:   corenetwork.Id(subnetUUID),
+		CIDR: "192.168.1.0/24",
+	}}
+
+	args := []internal.ImportLinkLayerDevice{
+		{
+			MachineID: "88",
+			Name:      "eth0",
+			Addresses: []internal.ImportIPAddress{
+				{
+					SubnetCIDR: "192.168.1.0/31",
+				},
+			},
+		},
+	}
+
+	expectedArgs := make([]internal.ImportLinkLayerDevice, len(args))
+	copy(expectedArgs, args)
+	expectedArgs[0].NetNodeUUID = netNodeUUID
+	expectedArgs[0].Addresses[0].SubnetUUID = subnetUUID
+
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), expectedArgs).Return(nil)
+
+	// Act
+	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *netConfigSuite) TestImportLinkLayerDevicTestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	netNodeUUID := uuid.MustNewUUID().String()
+	nameMap := map[string]string{
+		"88": netNodeUUID,
+	}
+
+	// Create a subnet with a different CIDR than the one in the address
+	subnetUUID := uuid.MustNewUUID().String()
+	subnetInfo := corenetwork.SubnetInfo{
+		ID:   corenetwork.Id(subnetUUID),
+		CIDR: "10.0.0.0/24", // Different CIDR than the one in the address
+	}
+	subnets := corenetwork.SubnetInfos{subnetInfo}
+
+	args := []internal.ImportLinkLayerDevice{
+		{
+			MachineID: "88",
+			Name:      "eth0",
+			Addresses: []internal.ImportIPAddress{
+				{
+					SubnetCIDR: "192.168.1.0/24", // No matching subnet for this CIDR
+				},
+			},
+		},
+	}
+
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+
+	// Act
+	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
+
+	// Assert: error about no subnet found for CIDR
+	c.Assert(err, tc.ErrorMatches,
+		`converting devices:.*converting addresses:.*no subnet found for CIDR "192.168.1.0/24"`)
+}
+
+func (s *netConfigSuite) TestImportLinkLayerDevicTestImportLinkLayerDevicesSubnetWithoutProviderTooMuchSubnet(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	netNodeUUID := uuid.MustNewUUID().String()
+	nameMap := map[string]string{
+		"88": netNodeUUID,
+	}
+
+	// Create multiple subnets with the same CIDR
+	subnetUUID1 := uuid.MustNewUUID().String()
+	subnetUUID2 := uuid.MustNewUUID().String()
+	subnetInfo1 := corenetwork.SubnetInfo{
+		ID:   corenetwork.Id(subnetUUID1),
+		CIDR: "192.168.1.0/24",
+	}
+	subnetInfo2 := corenetwork.SubnetInfo{
+		ID:   corenetwork.Id(subnetUUID2),
+		CIDR: "192.168.1.0/24", // Same CIDR as subnetInfo1
+	}
+	subnets := corenetwork.SubnetInfos{subnetInfo1, subnetInfo2}
+
+	args := []internal.ImportLinkLayerDevice{
+		{
+			MachineID: "88",
+			Name:      "eth0",
+			Addresses: []internal.ImportIPAddress{
+				{
+					AddressValue: "192.168.1.10",
+					SubnetCIDR:   "192.168.1.0/24", // Matches multiple subnets
+				},
+			},
+		},
+	}
+
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+
+	// Act
+	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
+
+	// Assert: error about multiple subnets found for CIDR
+	c.Assert(err, tc.ErrorMatches,
+		`converting devices:.*converting addresses:.*multiple subnets found for CIDR "192.168.1.0/24"`)
 }
 
 func (s *netConfigSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
