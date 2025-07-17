@@ -1135,7 +1135,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "custom_unit_lifecycle")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "custom_unit_name_lifecycle")
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
@@ -1241,7 +1241,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineBadName(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "custom_unit_lifecycle")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "custom_unit_name_lifecycle")
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchUnitAddRemoveOnMachine(c.Context(), "bad-name")

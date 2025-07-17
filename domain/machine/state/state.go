@@ -1490,13 +1490,13 @@ func (*State) NamespaceForWatchMachineReboot() string {
 // NamespaceForMachineLife returns the namespace string used for
 // tracking machine lifecycle changes in the model.
 func (*State) NamespaceForMachineLife() string {
-	return "custom_machine_lifecycle"
+	return "custom_machine_name_lifecycle"
 }
 
 // InitialWatchModelMachinesStatement returns the table and the initial watch
 // statement for watching life changes of non-container machines.
 func (*State) InitialWatchModelMachinesStatement() (string, string) {
-	return "custom_machine_lifecycle", "SELECT name FROM machine WHERE name NOT LIKE '%/%'"
+	return "custom_machine_name_lifecycle", "SELECT name FROM machine WHERE name NOT LIKE '%/%'"
 }
 
 // InitialWatchModelMachineLifeAndStartTimesStatement returns the namespace and the initial watch
@@ -1508,7 +1508,7 @@ func (*State) InitialWatchModelMachineLifeAndStartTimesStatement() (string, stri
 // InitialMachineContainerLifeStatement returns the table and the initial watch
 // statement for watching life changes of container machines.
 func (*State) InitialMachineContainerLifeStatement() (string, string, func(string) string) {
-	return "custom_machine_lifecycle", "SELECT name FROM machine WHERE name LIKE ?", func(prefix string) string {
+	return "custom_machine_name_lifecycle", "SELECT name FROM machine WHERE name LIKE ?", func(prefix string) string {
 		return prefix + "%"
 	}
 }

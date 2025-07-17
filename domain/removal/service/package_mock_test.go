@@ -1203,11 +1203,11 @@ func (c *MockStateModelScheduleRemovalCall) DoAndReturn(f func(context.Context, 
 }
 
 // NamespaceForWatchEntityRemovals mocks base method.
-func (m *MockState) NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, []string) {
+func (m *MockState) NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, map[string]string) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NamespaceForWatchEntityRemovals")
 	ret0, _ := ret[0].(eventsource.NamespaceQuery)
-	ret1, _ := ret[1].([]string)
+	ret1, _ := ret[1].(map[string]string)
 	return ret0, ret1
 }
 
@@ -1224,19 +1224,19 @@ type MockStateNamespaceForWatchEntityRemovalsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateNamespaceForWatchEntityRemovalsCall) Return(arg0 eventsource.NamespaceQuery, arg1 []string) *MockStateNamespaceForWatchEntityRemovalsCall {
+func (c *MockStateNamespaceForWatchEntityRemovalsCall) Return(arg0 eventsource.NamespaceQuery, arg1 map[string]string) *MockStateNamespaceForWatchEntityRemovalsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateNamespaceForWatchEntityRemovalsCall) Do(f func() (eventsource.NamespaceQuery, []string)) *MockStateNamespaceForWatchEntityRemovalsCall {
+func (c *MockStateNamespaceForWatchEntityRemovalsCall) Do(f func() (eventsource.NamespaceQuery, map[string]string)) *MockStateNamespaceForWatchEntityRemovalsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateNamespaceForWatchEntityRemovalsCall) DoAndReturn(f func() (eventsource.NamespaceQuery, []string)) *MockStateNamespaceForWatchEntityRemovalsCall {
+func (c *MockStateNamespaceForWatchEntityRemovalsCall) DoAndReturn(f func() (eventsource.NamespaceQuery, map[string]string)) *MockStateNamespaceForWatchEntityRemovalsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

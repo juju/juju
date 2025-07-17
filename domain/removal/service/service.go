@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
@@ -251,16 +253,38 @@ func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error)
 	}
 
 	var filters []eventsource.FilterOption
-	for _, name := range filterNames {
+	for name := range filterNames {
 		filters = append(filters, eventsource.NamespaceFilter(name, changestream.All))
 	}
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
 		initialQuery,
 		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {
-			results := make([]string, len(ce))
-			for i, c := range ce {
-				results[i] = c.Namespace() + ":" + c.Changed()
+			var results []string
+			for _, c := range ce {
+				name, ok := filterNames[c.Namespace()]
+				if !ok {
+					return nil, errors.Errorf("unknown namespace %q in entity removals watcher", c.Namespace())
+				}
+
+				entityLife, err := s.getEntityLife(ctx, name, c.Changed())
+				if errors.IsOneOf(err,
+					relationerrors.RelationNotFound,
+					applicationerrors.UnitNotFound,
+					applicationerrors.ApplicationNotFound,
+					machineerrors.MachineNotFound,
+					modelerrors.NotFound,
+				) {
+					continue
+				} else if err != nil {
+					return nil, errors.Errorf("getting life for %s %q: %w", name, c.Changed(), err)
+				}
+				if entityLife == life.Alive {
+					// If the entity is still alive, we don't emit it.
+					continue
+				}
+
+				results = append(results, name+":"+c.Changed())
 			}
 			return results, nil
 		},
@@ -271,4 +295,21 @@ func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error)
 		return nil, errors.Errorf("creating watcher for entity removals: %w", err)
 	}
 	return w, nil
+}
+
+func (s *WatchableService) getEntityLife(ctx context.Context, entityType, entityUUID string) (life.Life, error) {
+	switch entityType {
+	case "relation":
+		return s.st.GetRelationLife(ctx, entityUUID)
+	case "unit":
+		return s.st.GetUnitLife(ctx, entityUUID)
+	case "machine":
+		return s.st.GetMachineLife(ctx, entityUUID)
+	case "model":
+		return s.st.GetModelLife(ctx, entityUUID)
+	case "application":
+		return s.st.GetApplicationLife(ctx, entityUUID)
+	default:
+		return -1, errors.Errorf("unknown entity type %q", entityType)
+	}
 }

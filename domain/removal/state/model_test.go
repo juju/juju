@@ -28,7 +28,6 @@ func TestModelSuite(t *testing.T) {
 }
 
 func (s *modelSuite) TestModelExists(c *tc.C) {
-
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	exists, err := st.ModelExists(c.Context(), s.getModelUUID(c))

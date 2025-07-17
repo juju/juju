@@ -114,13 +114,13 @@ func (st *State) NamespaceForWatchRemovals() string {
 // NamespaceForWatchEntityRemovals returns the table name whose UUIDs we
 // are watching in order to be notified of new removal jobs for specific
 // entities.
-func (st *State) NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, []string) {
-	return st.initialEntityRemovalQuery(), []string{
-		"relation",
-		"unit",
-		"machine",
-		"model",
-		"application",
+func (st *State) NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, map[string]string) {
+	return st.initialEntityRemovalQuery(), map[string]string{
+		"custom_application_uuid_lifecycle":      "application",
+		"custom_machine_uuid_lifecycle":          "machine",
+		"custom_model_life_model_uuid_lifecycle": "model",
+		"custom_relation_uuid_lifecycle":         "relation",
+		"custom_unit_uuid_lifecycle":             "unit",
 	}
 }
 
@@ -129,19 +129,19 @@ func (st *State) NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, 
 func (st *State) initialEntityRemovalQuery() eventsource.NamespaceQuery {
 	return func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		var eUUID entityUUID
-		selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit`, eUUID)
+		selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id > 0`, eUUID)
 		if err != nil {
 			return nil, errors.Errorf("preparing select units query: %w", err)
 		}
-		selectApplications, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM application`, eUUID)
+		selectApplications, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM application WHERE life_id > 0`, eUUID)
 		if err != nil {
 			return nil, errors.Errorf("preparing select applications query: %w", err)
 		}
-		selectRelations, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM relation`, eUUID)
+		selectRelations, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM relation WHERE life_id > 0`, eUUID)
 		if err != nil {
 			return nil, errors.Errorf("preparing select relations query: %w", err)
 		}
-		selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine`, eUUID)
+		selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine WHERE life_id > 0`, eUUID)
 		if err != nil {
 			return nil, errors.Errorf("preparing select machines query: %w", err)
 		}

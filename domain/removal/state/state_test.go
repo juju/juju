@@ -493,14 +493,6 @@ func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Lif
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife int) {
-	row := s.DB().QueryRow("SELECT life_id FROM model_life WHERE model_uuid = ?", modelUUID)
-	var lifeID int
-	err := row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
-}
-
 type stubCharm struct {
 	name        string
 	subordinate bool
