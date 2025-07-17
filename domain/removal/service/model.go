@@ -24,7 +24,7 @@ type ModelState interface {
 
 	// EnsureModelNotAliveCascade ensures that there is no model identified
 	// by the input model UUID, that is still alive.
-	EnsureModelNotAliveCascade(ctx context.Context, unitUUID string, force bool) (removal.ModelArtifacts, error)
+	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) (removal.ModelArtifacts, error)
 
 	// ModelScheduleRemoval schedules a removal job for the model with the
 	// input UUID, qualified with the input force boolean.

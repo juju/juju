@@ -410,6 +410,14 @@ WHERE u.uuid = ?
 	return machineUUIDs[0]
 }
 
+func (s *baseSuite) getMachineUUIDFromApp(c *tc.C, appUUID coreapplication.ID) machine.UUID {
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	return s.getUnitMachineUUID(c, unitUUID)
+}
+
 func (s *baseSuite) checkNoCharmsExist(c *tc.C) {
 	// Ensure that there are no charms in the database.
 	row := s.DB().QueryRow("SELECT COUNT(*) FROM charm")
@@ -431,6 +439,14 @@ func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
 func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.ID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE application SET life_id = ? WHERE uuid = ?", newLife, appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkApplicationLife(c *tc.C, appUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM application WHERE uuid = ?", appUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
 }
 
 func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Life) {

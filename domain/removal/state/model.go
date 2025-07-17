@@ -10,10 +10,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -53,7 +55,7 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 
 // EnsureModelNotAliveCascade ensures that there is no model identified
 // by the input model UUID, that is still alive.
-func (st *State) EnsureModelNotAliveCascade(ctx context.Context, unitUUID string, force bool) (removal.ModelArtifacts, error) {
+func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) (removal.ModelArtifacts, error) {
 	db, err := st.DB()
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Capture(err)
@@ -84,21 +86,25 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, unitUUID string
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select machines query: %w", err)
 	}
 
-	updateUnits, err := st.Prepare(`UPDATE unit SET life_id = 1 WHERE uuid IN $uuids[:] AND life_id = 0`, uuids{})
+	updateUnits, err := st.Prepare(`UPDATE unit SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update units query: %w", err)
 	}
-	updateApplications, err := st.Prepare(`UPDATE application SET life_id = 1 WHERE uuid IN $uuids[:] AND life_id = 0`, uuids{})
+	updateApplications, err := st.Prepare(`UPDATE application SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update applications query: %w", err)
 	}
-	updateRelations, err := st.Prepare(`UPDATE relation SET life_id = 1 WHERE uuid IN $uuids[:] AND life_id = 0`, uuids{})
+	updateRelations, err := st.Prepare(`UPDATE relation SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update relations query: %w", err)
 	}
-	updateMachines, err := st.Prepare(`UPDATE machine SET life_id = 1 WHERE uuid IN $uuids[:] AND life_id = 0`, uuids{})
+	updateMachines, err := st.Prepare(`UPDATE machine SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update machines query: %w", err)
+	}
+	updateMachineInstances, err := st.Prepare(`UPDATE machine_cloud_instance SET life_id = 1 WHERE machine_uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update machine instances query: %w", err)
 	}
 
 	var (
@@ -122,34 +128,37 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, unitUUID string
 		// Update the life of each entity to dying.
 
 		if len(units) > 0 {
-			uuids := transform.Slice(units, func(e entityUUID) string { return e.UUID })
-			if err := tx.Query(ctx, updateUnits, uuids).Run(); err != nil {
+			u := transform.Slice(units, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateUnits, uuids(u)).Run(); err != nil {
 				return errors.Errorf("updating units: %w", err)
 			}
 		}
 		if len(apps) > 0 {
-			uuids := transform.Slice(apps, func(e entityUUID) string { return e.UUID })
-			if err := tx.Query(ctx, updateApplications, uuids).Run(); err != nil {
+			u := transform.Slice(apps, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateApplications, uuids(u)).Run(); err != nil {
 				return errors.Errorf("updating applications: %w", err)
 			}
 		}
 		if len(relations) > 0 {
-			uuids := transform.Slice(relations, func(e entityUUID) string { return e.UUID })
-			if err := tx.Query(ctx, updateRelations, uuids).Run(); err != nil {
+			u := transform.Slice(relations, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateRelations, uuids(u)).Run(); err != nil {
 				return errors.Errorf("updating relations: %w", err)
 			}
 		}
 		if len(machines) > 0 {
-			uuids := transform.Slice(machines, func(e entityUUID) string { return e.UUID })
-			if err := tx.Query(ctx, updateMachines, uuids).Run(); err != nil {
+			u := transform.Slice(machines, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateMachines, uuids(u)).Run(); err != nil {
 				return errors.Errorf("updating machines: %w", err)
+			}
+			if err := tx.Query(ctx, updateMachineInstances, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating machine instances: %w", err)
 			}
 		}
 
 		return nil
 	})
 	if err != nil {
-		return removal.ModelArtifacts{}, errors.Errorf("ensuring model %q is not alive: %w", unitUUID, err)
+		return removal.ModelArtifacts{}, errors.Errorf("ensuring model %q is not alive: %w", modelUUID, err)
 	}
 
 	artifacts.UnitUUIDs = make([]string, len(units))
@@ -244,6 +253,15 @@ WHERE uuid = $entityUUID.uuid;
 		return errors.Capture(err)
 	}
 
+	// Once we get to this point, the model is hosed. We don't expect the
+	// model to be in use. The model migration will reinforce the schema once
+	// the migration is tried again. Failure to do that will result in the
+	// model being deleted unexpected scenarios.
+	modelTriggerStmt, err := st.Prepare(`DROP TRIGGER IF EXISTS trg_model_immutable_delete;`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		mLife, err := st.getModelLife(ctx, tx, modelUUIDParam.UUID)
 		if err != nil {
@@ -264,6 +282,10 @@ WHERE uuid = $entityUUID.uuid;
 		// Remove all basic model data associated with the model.
 		if err := st.removeBasicModelData(ctx, tx, modelUUIDParam.UUID); err != nil {
 			return errors.Errorf("removing basic model data: %w", err)
+		}
+
+		if err := tx.Query(ctx, modelTriggerStmt).Run(); err != nil && !internaldatabase.IsExtendedErrorCode(err) {
+			return errors.Errorf("deleting model trigger %w", err)
 		}
 
 		if err := tx.Query(ctx, deleteModelStmt, modelUUIDParam).Run(); err != nil {
