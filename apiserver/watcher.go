@@ -10,7 +10,6 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -231,80 +230,6 @@ func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (faca
 // or the Watch call that created the srvOfferStatusWatcher.
 func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWatchResult, error) {
 	return params.OfferStatusWatchResult{}, nil
-}
-
-// srvMachineStorageIdsWatcher defines the API wrapping a StringsWatcher
-// watching machine/storage attachments. This watcher notifies about storage
-// entities (volumes/filesystems) being attached to and detached from machines.
-//
-// TODO(axw) state needs a new watcher, this is a bt of a hack. State watchers
-// could do with some deduplication of logic, and I don't want to add to that
-// spaghetti right now.
-type srvMachineStorageIdsWatcher struct {
-	watcherCommon
-	watcher corewatcher.StringsWatcher
-	parser  func([]string) ([]params.MachineStorageId, error)
-}
-
-func newVolumeAttachmentsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return newMachineStorageIdsWatcher(
-		context,
-		storagecommon.ParseVolumeAttachmentIds,
-	)
-}
-
-func newVolumeAttachmentPlansWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return newMachineStorageIdsWatcher(
-		context,
-		storagecommon.ParseVolumeAttachmentIds,
-	)
-}
-
-func newFilesystemAttachmentsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
-	return newMachineStorageIdsWatcher(
-		context,
-		storagecommon.ParseFilesystemAttachmentIds,
-	)
-}
-
-func newMachineStorageIdsWatcher(
-	context facade.ModelContext,
-	parser func([]string) ([]params.MachineStorageId, error),
-) (facade.Facade, error) {
-	auth := context.Auth()
-	if !isAgent(auth) {
-		return nil, apiservererrors.ErrPerm
-	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	watcher, ok := w.(corewatcher.StringsWatcher)
-	if !ok {
-		return nil, apiservererrors.ErrUnknownWatcher
-	}
-	return &srvMachineStorageIdsWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
-		parser:        parser,
-	}, nil
-}
-
-// Next returns when a change has occurred to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvMachineStorageIdsWatcher.
-func (w *srvMachineStorageIdsWatcher) Next(ctx context.Context) (params.MachineStorageIdsWatchResult, error) {
-	stringChanges, err := internal.FirstResult[[]string](ctx, w.watcher)
-	if err != nil {
-		return params.MachineStorageIdsWatchResult{}, errors.Trace(err)
-	}
-	changes, err := w.parser(stringChanges)
-	if err != nil {
-		return params.MachineStorageIdsWatchResult{}, err
-	}
-	return params.MachineStorageIdsWatchResult{
-		Changes: changes,
-	}, nil
 }
 
 // EntitiesWatcher defines an interface based on the StringsWatcher

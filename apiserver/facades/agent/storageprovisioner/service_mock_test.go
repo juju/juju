@@ -18,6 +18,7 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
+	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -364,6 +365,123 @@ func (m *MockStorageProvisioningService) EXPECT() *MockStorageProvisioningServic
 	return m.recorder
 }
 
+// GetFilesystemAttachmentIDs mocks base method.
+func (m *MockStorageProvisioningService) GetFilesystemAttachmentIDs(arg0 context.Context, arg1 []string) (map[string]storageprovisioning.FilesystemAttachmentID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemAttachmentIDs", arg0, arg1)
+	ret0, _ := ret[0].(map[string]storageprovisioning.FilesystemAttachmentID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemAttachmentIDs indicates an expected call of GetFilesystemAttachmentIDs.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetFilesystemAttachmentIDs(arg0, arg1 any) *MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemAttachmentIDs", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetFilesystemAttachmentIDs), arg0, arg1)
+	return &MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall) Return(arg0 map[string]storageprovisioning.FilesystemAttachmentID, arg1 error) *MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall) Do(f func(context.Context, []string) (map[string]storageprovisioning.FilesystemAttachmentID, error)) *MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall) DoAndReturn(f func(context.Context, []string) (map[string]storageprovisioning.FilesystemAttachmentID, error)) *MockStorageProvisioningServiceGetFilesystemAttachmentIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeAttachmentIDs mocks base method.
+func (m *MockStorageProvisioningService) GetVolumeAttachmentIDs(arg0 context.Context, arg1 []string) (map[string]storageprovisioning.VolumeAttachmentID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeAttachmentIDs", arg0, arg1)
+	ret0, _ := ret[0].(map[string]storageprovisioning.VolumeAttachmentID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeAttachmentIDs indicates an expected call of GetVolumeAttachmentIDs.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetVolumeAttachmentIDs(arg0, arg1 any) *MockStorageProvisioningServiceGetVolumeAttachmentIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeAttachmentIDs", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetVolumeAttachmentIDs), arg0, arg1)
+	return &MockStorageProvisioningServiceGetVolumeAttachmentIDsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetVolumeAttachmentIDsCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetVolumeAttachmentIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetVolumeAttachmentIDsCall) Return(arg0 map[string]storageprovisioning.VolumeAttachmentID, arg1 error) *MockStorageProvisioningServiceGetVolumeAttachmentIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetVolumeAttachmentIDsCall) Do(f func(context.Context, []string) (map[string]storageprovisioning.VolumeAttachmentID, error)) *MockStorageProvisioningServiceGetVolumeAttachmentIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetVolumeAttachmentIDsCall) DoAndReturn(f func(context.Context, []string) (map[string]storageprovisioning.VolumeAttachmentID, error)) *MockStorageProvisioningServiceGetVolumeAttachmentIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchMachineProvisionedFilesystemAttachments mocks base method.
+func (m *MockStorageProvisioningService) WatchMachineProvisionedFilesystemAttachments(arg0 context.Context, arg1 machine.UUID) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchMachineProvisionedFilesystemAttachments", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchMachineProvisionedFilesystemAttachments indicates an expected call of WatchMachineProvisionedFilesystemAttachments.
+func (mr *MockStorageProvisioningServiceMockRecorder) WatchMachineProvisionedFilesystemAttachments(arg0, arg1 any) *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineProvisionedFilesystemAttachments", reflect.TypeOf((*MockStorageProvisioningService)(nil).WatchMachineProvisionedFilesystemAttachments), arg0, arg1)
+	return &MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall wrap *gomock.Call
+type MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall) Do(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall) DoAndReturn(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemAttachmentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchMachineProvisionedFilesystems mocks base method.
 func (m *MockStorageProvisioningService) WatchMachineProvisionedFilesystems(arg0 context.Context, arg1 machine.UUID) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
@@ -399,6 +517,45 @@ func (c *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemsCall) D
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemsCall) DoAndReturn(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchMachineProvisionedFilesystemsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchMachineProvisionedVolumeAttachments mocks base method.
+func (m *MockStorageProvisioningService) WatchMachineProvisionedVolumeAttachments(arg0 context.Context, arg1 machine.UUID) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchMachineProvisionedVolumeAttachments", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchMachineProvisionedVolumeAttachments indicates an expected call of WatchMachineProvisionedVolumeAttachments.
+func (mr *MockStorageProvisioningServiceMockRecorder) WatchMachineProvisionedVolumeAttachments(arg0, arg1 any) *MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineProvisionedVolumeAttachments", reflect.TypeOf((*MockStorageProvisioningService)(nil).WatchMachineProvisionedVolumeAttachments), arg0, arg1)
+	return &MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall wrap *gomock.Call
+type MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall) Do(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall) DoAndReturn(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchMachineProvisionedVolumeAttachmentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -442,6 +599,45 @@ func (c *MockStorageProvisioningServiceWatchMachineProvisionedVolumesCall) DoAnd
 	return c
 }
 
+// WatchModelProvisionedFilesystemAttachments mocks base method.
+func (m *MockStorageProvisioningService) WatchModelProvisionedFilesystemAttachments(arg0 context.Context) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchModelProvisionedFilesystemAttachments", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchModelProvisionedFilesystemAttachments indicates an expected call of WatchModelProvisionedFilesystemAttachments.
+func (mr *MockStorageProvisioningServiceMockRecorder) WatchModelProvisionedFilesystemAttachments(arg0 any) *MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelProvisionedFilesystemAttachments", reflect.TypeOf((*MockStorageProvisioningService)(nil).WatchModelProvisionedFilesystemAttachments), arg0)
+	return &MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall wrap *gomock.Call
+type MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchModelProvisionedFilesystemAttachmentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchModelProvisionedFilesystems mocks base method.
 func (m *MockStorageProvisioningService) WatchModelProvisionedFilesystems(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
@@ -481,6 +677,45 @@ func (c *MockStorageProvisioningServiceWatchModelProvisionedFilesystemsCall) DoA
 	return c
 }
 
+// WatchModelProvisionedVolumeAttachments mocks base method.
+func (m *MockStorageProvisioningService) WatchModelProvisionedVolumeAttachments(arg0 context.Context) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchModelProvisionedVolumeAttachments", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchModelProvisionedVolumeAttachments indicates an expected call of WatchModelProvisionedVolumeAttachments.
+func (mr *MockStorageProvisioningServiceMockRecorder) WatchModelProvisionedVolumeAttachments(arg0 any) *MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelProvisionedVolumeAttachments", reflect.TypeOf((*MockStorageProvisioningService)(nil).WatchModelProvisionedVolumeAttachments), arg0)
+	return &MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall wrap *gomock.Call
+type MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchModelProvisionedVolumeAttachmentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchModelProvisionedVolumes mocks base method.
 func (m *MockStorageProvisioningService) WatchModelProvisionedVolumes(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
@@ -516,6 +751,45 @@ func (c *MockStorageProvisioningServiceWatchModelProvisionedVolumesCall) Do(f fu
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStorageProvisioningServiceWatchModelProvisionedVolumesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchModelProvisionedVolumesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchVolumeAttachmentPlans mocks base method.
+func (m *MockStorageProvisioningService) WatchVolumeAttachmentPlans(arg0 context.Context, arg1 machine.UUID) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchVolumeAttachmentPlans", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchVolumeAttachmentPlans indicates an expected call of WatchVolumeAttachmentPlans.
+func (mr *MockStorageProvisioningServiceMockRecorder) WatchVolumeAttachmentPlans(arg0, arg1 any) *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchVolumeAttachmentPlans", reflect.TypeOf((*MockStorageProvisioningService)(nil).WatchVolumeAttachmentPlans), arg0, arg1)
+	return &MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall{Call: call}
+}
+
+// MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall wrap *gomock.Call
+type MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall) Do(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall) DoAndReturn(f func(context.Context, machine.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchVolumeAttachmentPlansCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
