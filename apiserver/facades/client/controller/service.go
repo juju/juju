@@ -152,28 +152,35 @@ type StatusService interface {
 type MachineService interface {
 	// AllMachineNames returns the names of all machines in the model.
 	AllMachineNames(ctx context.Context) ([]machine.Name, error)
+
 	// GetMachineLife returns the GetMachineLife status of the specified machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	GetMachineLife(ctx context.Context, machineName machine.Name) (life.Value, error)
+
 	// GetMachineBase returns the base for the given machine.
-	//
-	// The following errors may be returned:
-	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	GetMachineBase(ctx context.Context, mName machine.Name) (base.Base, error)
+
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
 	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
 	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+
 	// WatchModelMachines watches for additions or updates to non-container
 	// machines. It is used by workers that need to factor life value changes,
 	// and so does not factor machine removals, which are considered to be
 	// after their transition to the dead state.
 	// It emits machine names rather than UUIDs.
 	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
+
+	// WatchModelMachineLifeAndStartTimes returns a string watcher that emits machine names
+	// for changes to machine life or agent start times.
+	WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // ProxyService provides access to the proxy service.
