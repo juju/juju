@@ -432,6 +432,10 @@ type ApplicationState interface {
 
 	// IsControllerApplication returns true when the application is the controller.
 	IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error)
+
+	// GetMachinesForApplication returns the names of the machines which have a unit.
+	// of the specified application deployed to it.
+	GetMachinesForApplication(ctx context.Context, appUUID string) ([]string, error)
 }
 
 // validateApplicationStorageDirectiveParams checks a set of storage
@@ -1884,6 +1888,27 @@ func (s *Service) IsControllerApplication(ctx context.Context, appID coreapplica
 	}
 
 	return s.st.IsControllerApplication(ctx, appID)
+}
+
+// GetMachinesForApplication returns the names of the machines which have a unit.
+// of the specified application deployed to it.
+func (s *Service) GetMachinesForApplication(ctx context.Context, appName string) ([]coremachine.Name, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Errorf("getting application ID for application %q: %w", appName, err)
+	}
+
+	machineNames, err := s.st.GetMachinesForApplication(ctx, appUUID.String())
+	if err != nil {
+		return nil, errors.Errorf("getting machine names for application %q: %w", appName, err)
+	}
+
+	return transform.Slice(machineNames, func(v string) coremachine.Name {
+		return coremachine.Name(v)
+	}), nil
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {

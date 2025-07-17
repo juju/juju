@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/caas"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
@@ -247,10 +246,10 @@ type ProvisionerAPIV11 struct {
 }
 
 // getInstanceID returns the instance ID for the given machine.
-func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineID string) (instance.Id, error) {
-	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineName coremachine.Name) (instance.Id, error) {
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		return "", apiservererrors.ServerError(err)
+		return "", apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
 	}
 	if err != nil {
 		return "", err
@@ -504,16 +503,17 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 	if err != nil {
 		return results, err
 	}
-	// TODO (wallyworld) - add state.State API for more efficient machines query
-	machines, err := api.st.AllMachines()
+	// TODO(jack-w-shaw): Push this into the service layer.
+	machineNames, err := api.machineService.AllMachineNames(ctx)
 	if err != nil {
-		return results, err
+		return results, errors.Annotate(err, "getting all machine names")
 	}
-	for _, machine := range machines {
-		if !canAccessFunc(machine.Tag()) {
+	for _, machineName := range machineNames {
+		machineTag := names.NewMachineTag(machineName.String())
+		if !canAccessFunc(machineTag) {
 			continue
 		}
-		_, err = api.getInstanceID(ctx, machine.Tag().Id())
+		_, err = api.getInstanceID(ctx, machineName)
 		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return results, err
 		}
@@ -522,7 +522,6 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 			// status to Started yet.
 			continue
 		}
-		machineName := coremachine.Name(machine.Tag().Id())
 		statusInfo, err := api.statusService.GetInstanceStatus(ctx, machineName)
 		if err != nil {
 			continue
@@ -539,8 +538,12 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 		if transient, ok := result.Data["transient"].(bool); !ok || !transient {
 			continue
 		}
-		result.Id = machine.Id()
-		result.Life = life.Value(machine.Life().String())
+		machineLife, err := api.machineService.GetMachineLife(ctx, machineName)
+		if err != nil {
+			return results, err
+		}
+		result.Id = machineName.String()
+		result.Life = machineLife
 		results.Results = append(results.Results, result)
 	}
 	return results, nil
@@ -655,12 +658,14 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineNa
 		}
 
 		appName := unitName.Application()
-		machineIDs, err := state.ApplicationMachines(api.st, appName)
-		if err != nil {
-			return nil, err
+		machineNames, err := api.applicationService.GetMachinesForApplication(ctx, appName)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return nil, errors.NotFoundf("application %q", appName)
+		} else if err != nil {
+			return nil, errors.Trace(err)
 		}
-		for _, machineID := range machineIDs {
-			instanceId, err := api.getInstanceID(ctx, machineID)
+		for _, machineName := range machineNames {
+			instanceId, err := api.getInstanceID(ctx, machineName)
 			if errors.Is(err, machineerrors.NotProvisioned) {
 				continue
 			}
@@ -703,7 +708,7 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 		}
 
 		machineName := coremachine.Name(tag.Id())
-		result.Results[i].Result, err = api.commonApplicationMachineId(ctx, api.st, machineName)
+		result.Results[i].Result, err = api.commonApplicationMachineId(ctx, machineName)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -711,7 +716,7 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 
 // commonApplicationMachineId returns a slice of machine.Ids with
 // applications in common with the specified machine.
-func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, st *state.State, mName coremachine.Name) ([]string, error) {
+func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, mName coremachine.Name) ([]string, error) {
 	applications, err := api.machineService.GetMachinePrincipalApplications(ctx, mName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.NotFoundf("machine %q", mName)
@@ -721,11 +726,13 @@ func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, st *s
 
 	union := set.NewStrings()
 	for _, app := range applications {
-		machines, err := state.ApplicationMachines(st, app)
+		machines, err := api.applicationService.GetMachinesForApplication(ctx, app)
 		if err != nil {
 			return nil, err
 		}
-		union = union.Union(set.NewStrings(machines...))
+		for _, machine := range machines {
+			union.Add(machine.String())
+		}
 	}
 	union.Remove(mName.String())
 	return union.SortedValues(), nil
@@ -912,22 +919,23 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 	if err != nil {
 		return errors.Trace(err)
 	}
+	hostMachineName := coremachine.Name(hostTag.Id())
 
 	env, err := environs.GetEnviron(ctx, api.configGetter, environs.NoopCredentialInvalidator(), environs.New)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	hostInstanceID, err := api.getInstanceID(ctx, hostTag.Id())
+	hostInstanceID, err := api.getInstanceID(ctx, hostMachineName)
 	if errors.Is(err, machineerrors.NotProvisioned) {
 		return errors.NotProvisionedf("cannot prepare container %s config: host machine %q",
-			handler.ConfigType(), hostTag.Id())
+			handler.ConfigType(), hostMachineName)
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	hostIsManual, err := api.machineService.IsMachineManuallyProvisioned(ctx, coremachine.Name(hostTag.Id()))
+	hostIsManual, err := api.machineService.IsMachineManuallyProvisioned(ctx, hostMachineName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -954,7 +962,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			handler.SetError(i, err)
 			continue
 		}
-		guestInstanceID, err := api.getInstanceID(ctx, guestTag.Id())
+		guestInstanceID, err := api.getInstanceID(ctx, guestMachineName)
 		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return errors.Trace(err)
 		}
@@ -962,7 +970,6 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		if err != nil {
 			return errors.Trace(err)
 		}
-		hostMachineName := coremachine.Name(hostTag.Id())
 		hostUUID, err := api.machineService.GetMachineUUID(ctx, hostMachineName)
 		if err != nil {
 			return errors.Trace(err)

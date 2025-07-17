@@ -641,12 +641,6 @@ func (a *Application) SetCharm(
 	return a.refresh()
 }
 
-// unitAppName returns the name of the Application, given a Unit's name.
-func unitAppName(unitName string) string {
-	unitParts := strings.Split(unitName, "/")
-	return unitParts[0]
-}
-
 // refresh refreshes the contents of the Application from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.

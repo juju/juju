@@ -19,6 +19,7 @@ import (
 	container "github.com/juju/juju/core/container"
 	containermanager "github.com/juju/juju/core/containermanager"
 	instance "github.com/juju/juju/core/instance"
+	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	status "github.com/juju/juju/core/status"
@@ -373,6 +374,45 @@ func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) DoAndReturn
 	return c
 }
 
+// GetMachinesForApplication mocks base method.
+func (m *MockApplicationService) GetMachinesForApplication(arg0 context.Context, arg1 string) ([]machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinesForApplication", arg0, arg1)
+	ret0, _ := ret[0].([]machine.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinesForApplication indicates an expected call of GetMachinesForApplication.
+func (mr *MockApplicationServiceMockRecorder) GetMachinesForApplication(arg0, arg1 any) *MockApplicationServiceGetMachinesForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesForApplication", reflect.TypeOf((*MockApplicationService)(nil).GetMachinesForApplication), arg0, arg1)
+	return &MockApplicationServiceGetMachinesForApplicationCall{Call: call}
+}
+
+// MockApplicationServiceGetMachinesForApplicationCall wrap *gomock.Call
+type MockApplicationServiceGetMachinesForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetMachinesForApplicationCall) Return(arg0 []machine.Name, arg1 error) *MockApplicationServiceGetMachinesForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetMachinesForApplicationCall) Do(f func(context.Context, string) ([]machine.Name, error)) *MockApplicationServiceGetMachinesForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetMachinesForApplicationCall) DoAndReturn(f func(context.Context, string) ([]machine.Name, error)) *MockApplicationServiceGetMachinesForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitNamesOnMachine mocks base method.
 func (m *MockApplicationService) GetUnitNamesOnMachine(arg0 context.Context, arg1 machine.Name) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
@@ -537,6 +577,45 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
+// AllMachineNames mocks base method.
+func (m *MockMachineService) AllMachineNames(arg0 context.Context) ([]machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachineNames", arg0)
+	ret0, _ := ret[0].([]machine.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachineNames indicates an expected call of AllMachineNames.
+func (mr *MockMachineServiceMockRecorder) AllMachineNames(arg0 any) *MockMachineServiceAllMachineNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachineNames", reflect.TypeOf((*MockMachineService)(nil).AllMachineNames), arg0)
+	return &MockMachineServiceAllMachineNamesCall{Call: call}
+}
+
+// MockMachineServiceAllMachineNamesCall wrap *gomock.Call
+type MockMachineServiceAllMachineNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceAllMachineNamesCall) Return(arg0 []machine.Name, arg1 error) *MockMachineServiceAllMachineNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceAllMachineNamesCall) Do(f func(context.Context) ([]machine.Name, error)) *MockMachineServiceAllMachineNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceAllMachineNamesCall) DoAndReturn(f func(context.Context) ([]machine.Name, error)) *MockMachineServiceAllMachineNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetHardwareCharacteristics mocks base method.
 func (m *MockMachineService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
@@ -689,6 +768,45 @@ func (c *MockMachineServiceGetMachineConstraintsCall) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceGetMachineConstraintsCall) DoAndReturn(f func(context.Context, machine.Name) (constraints.Value, error)) *MockMachineServiceGetMachineConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineLife mocks base method.
+func (m *MockMachineService) GetMachineLife(arg0 context.Context, arg1 machine.Name) (life.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineLife indicates an expected call of GetMachineLife.
+func (mr *MockMachineServiceMockRecorder) GetMachineLife(arg0, arg1 any) *MockMachineServiceGetMachineLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineLife", reflect.TypeOf((*MockMachineService)(nil).GetMachineLife), arg0, arg1)
+	return &MockMachineServiceGetMachineLifeCall{Call: call}
+}
+
+// MockMachineServiceGetMachineLifeCall wrap *gomock.Call
+type MockMachineServiceGetMachineLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceGetMachineLifeCall) Return(arg0 life.Value, arg1 error) *MockMachineServiceGetMachineLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceGetMachineLifeCall) Do(f func(context.Context, machine.Name) (life.Value, error)) *MockMachineServiceGetMachineLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceGetMachineLifeCall) DoAndReturn(f func(context.Context, machine.Name) (life.Value, error)) *MockMachineServiceGetMachineLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

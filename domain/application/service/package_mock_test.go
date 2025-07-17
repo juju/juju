@@ -3021,6 +3021,45 @@ func (c *MockStateGetMachineNetNodeUUIDFromNameCall) DoAndReturn(f func(context.
 	return c
 }
 
+// GetMachinesForApplication mocks base method.
+func (m *MockState) GetMachinesForApplication(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinesForApplication", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinesForApplication indicates an expected call of GetMachinesForApplication.
+func (mr *MockStateMockRecorder) GetMachinesForApplication(arg0, arg1 any) *MockStateGetMachinesForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesForApplication", reflect.TypeOf((*MockState)(nil).GetMachinesForApplication), arg0, arg1)
+	return &MockStateGetMachinesForApplicationCall{Call: call}
+}
+
+// MockStateGetMachinesForApplicationCall wrap *gomock.Call
+type MockStateGetMachinesForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinesForApplicationCall) Return(arg0 []string, arg1 error) *MockStateGetMachinesForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinesForApplicationCall) Do(f func(context.Context, string) ([]string, error)) *MockStateGetMachinesForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinesForApplicationCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetMachinesForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelConstraints mocks base method.
 func (m *MockState) GetModelConstraints(arg0 context.Context) (constraints0.Constraints, error) {
 	m.ctrl.T.Helper()

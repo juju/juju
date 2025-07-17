@@ -52,11 +52,6 @@ func (m *Machine) Id() string {
 	return m.doc.Id
 }
 
-// Principals returns the principals for the machine.
-func (m *Machine) Principals() []string {
-	return m.doc.Principals
-}
-
 // Base returns the os base running on the machine.
 func (m *Machine) Base() Base {
 	return m.doc.Base

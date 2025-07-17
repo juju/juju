@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -84,6 +85,13 @@ type MachineService interface {
 
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
+
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	GetMachineLife(context.Context, coremachine.Name) (life.Value, error)
+
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(context.Context) ([]coremachine.Name, error)
 
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
 	// lxd_profile table for the given machine. This method will overwrite the
@@ -214,6 +222,10 @@ type ApplicationService interface {
 	// the space ID it is bound to (or empty if unspecified). When no bindings are
 	// stored for the application, defaults are returned.
 	GetApplicationEndpointBindings(ctx context.Context, appName string) (map[string]network.SpaceUUID, error)
+
+	// GetMachinesForApplication returns the names of the machines which have a unit.
+	// of the specified application deployed to it.
+	GetMachinesForApplication(ctx context.Context, appName string) ([]coremachine.Name, error)
 }
 
 // RemovalService provides access to the removal service.
