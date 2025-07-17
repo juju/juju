@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -27,7 +28,6 @@ type ModelManagerBackend interface {
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
 	ModelTag() names.ModelTag
-	AllMachines() (machines []Machine, err error)
 	AllFilesystems() ([]state.Filesystem, error)
 	AllVolumes() ([]state.Volume, error)
 
@@ -36,12 +36,6 @@ type ModelManagerBackend interface {
 
 type ControllerNode interface {
 	Id() string
-}
-
-type Machine interface {
-	Id() string
-	ContainerType() instance.ContainerType
-	Life() state.Life
 }
 
 // Model defines methods provided by a state.Model instance.
@@ -54,34 +48,44 @@ type Model interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(context.Context) ([]machine.Name, error)
+
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	GetMachineLife(context.Context, machine.Name) (life.Value, error)
+
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
 
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
-	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	GetInstanceIDAndName(context.Context, machine.UUID) (instance.Id, string, error)
 
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
+
+	// GetSupportedContainersTypes returns the supported container types for the
+	// provider.
+	GetSupportedContainersTypes(context.Context, machine.UUID) ([]instance.ContainerType, error)
 
 	// WatchModelMachines watches for additions or updates to non-container
 	// machines. It is used by workers that need to factor life value changes,
 	// and so does not factor machine removals, which are considered to be
 	// after their transition to the dead state.
 	// It emits machine names rather than UUIDs.
-	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
+	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
 
 	// WatchModelMachineLifeAndStartTimes returns a string watcher that emits machine names
 	// for changes to machine life or agent start times.
-	WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error)
+	WatchModelMachineLifeAndStartTimes(context.Context) (watcher.StringsWatcher, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.
 type StatusService interface {
 	// GetApplicationAndUnitModelStatuses returns the application name and unit
 	// count for each model for the model status request.
-	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
+	GetApplicationAndUnitModelStatuses(context.Context) (map[string]int, error)
 
 	// GetModelStatusInfo returns only basic model information used for
 	// displaying model status.
@@ -184,22 +188,6 @@ var _ Model = (*modelShim)(nil)
 
 type modelShim struct {
 	*state.Model
-}
-
-type machineShim struct {
-	*state.Machine
-}
-
-func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
-	allStateMachines, err := st.State.AllMachines()
-	if err != nil {
-		return nil, err
-	}
-	all := make([]Machine, len(allStateMachines))
-	for i, m := range allStateMachines {
-		all[i] = machineShim{m}
-	}
-	return all, nil
 }
 
 func (st modelManagerStateShim) AllFilesystems() ([]state.Filesystem, error) {

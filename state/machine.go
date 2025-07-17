@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/tools"
 )
@@ -55,11 +54,6 @@ func (m *Machine) Id() string {
 // Base returns the os base running on the machine.
 func (m *Machine) Base() Base {
 	return m.doc.Base
-}
-
-// ContainerType returns the type of container hosting this machine.
-func (m *Machine) ContainerType() instance.ContainerType {
-	return instance.ContainerType(m.doc.ContainerType)
 }
 
 // Tag returns a tag identifying the machine. The String method provides a

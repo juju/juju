@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -277,27 +278,37 @@ type NetworkService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(context.Context) ([]machine.Name, error)
+
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	GetMachineLife(context.Context, machine.Name) (life.Value, error)
+
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
 
 	// GetInstanceIDAndName returns the cloud specific instance ID and display
 	// name for this machine.
-	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	GetInstanceIDAndName(context.Context, machine.UUID) (instance.Id, string, error)
 
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
+
+	// GetSupportedContainersTypes returns the supported container types for the
+	// provider.
+	GetSupportedContainersTypes(context.Context, machine.UUID) ([]instance.ContainerType, error)
 
 	// WatchModelMachines watches for additions or updates to non-container
 	// machines. It is used by workers that need to factor life value changes,
 	// and so does not factor machine removals, which are considered to be
 	// after their transition to the dead state.
 	// It emits machine names rather than UUIDs.
-	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
+	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
 
 	// WatchModelMachineLifeAndStartTimes returns a string watcher that emits machine names
 	// for changes to machine life or agent start times.
-	WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error)
+	WatchModelMachineLifeAndStartTimes(context.Context) (watcher.StringsWatcher, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.

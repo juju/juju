@@ -897,21 +897,12 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			return modelInfo, nil
 		}
 
-		st, release, err := m.state.GetBackend(tag.Id())
-		if errors.Is(err, errors.NotFound) {
-			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
-		} else if err != nil {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
-		defer release()
-
 		modelUUID := coremodel.UUID(tag.Id())
 		modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		// TODO: remove mongo state from the commonmodel.ModelMachineInfo.
-		if modelInfo.Machines, err = commonmodel.ModelMachineInfo(ctx, st, modelDomainServices.Machine(), modelDomainServices.Status()); err != nil {
+		if modelInfo.Machines, err = commonmodel.ModelMachineInfo(ctx, modelDomainServices.Machine(), modelDomainServices.Status()); err != nil {
 			return params.ModelInfo{}, err
 		}
 

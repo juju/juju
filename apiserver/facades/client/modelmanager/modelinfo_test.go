@@ -49,7 +49,6 @@ type mockState struct {
 	cloudUsers      map[string]permission.Access
 	model           *mockModel
 	controllerModel *mockModel
-	machines        []commonmodel.Machine
 	controllerNodes []commonmodel.ControllerNode
 }
 
@@ -125,11 +124,6 @@ func (st *mockState) Model() (commonmodel.Model, error) {
 func (st *mockState) ModelTag() names.ModelTag {
 	st.MethodCall(st, "ModelTag")
 	return st.model.ModelTag()
-}
-
-func (st *mockState) AllMachines() ([]commonmodel.Machine, error) {
-	st.MethodCall(st, "AllMachines")
-	return st.machines, st.NextErr()
 }
 
 func (st *mockState) Close() error {

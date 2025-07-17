@@ -169,6 +169,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 		Type: coremodel.IAAS,
 	}, nil)
 
+	s.machineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{}, nil)
 	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
 
 	modelStatusAPI := model.NewModelStatusAPI(
