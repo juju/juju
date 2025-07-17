@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/containermanager"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
@@ -411,6 +412,46 @@ func (s *containerSuite) TestDevicesForGuestNoBridgeFoundError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
 }
 
+func (s *containerSuite) TestAllocateContainerAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupService(c)
+
+	// Arrange
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+	hostInstance := instance.Id("juju-42fbd8-8")
+	containerName := "8/lxd/7"
+	input := corenetwork.InterfaceInfos{}
+	expected := corenetwork.InterfaceInfos{
+		{DeviceIndex: 7},
+	}
+	s.providerWithNetworking.EXPECT().AllocateContainerAddresses(
+		gomock.Any(), hostInstance, containerName, input).Return(expected, nil)
+
+	// Act
+	obtainedInfo, err := s.svc.AllocateContainerAddresses(c.Context(), hostInstance, containerName, input)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtainedInfo, tc.DeepEquals, expected)
+}
+
+func (s *containerSuite) TestAllocateContainerAddressesNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupService(c)
+
+	// Arrange
+	hostInstance := instance.Id("juju-42fbd8-8")
+	containerName := "8/lxd/7"
+	input := corenetwork.InterfaceInfos{}
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	// Act
+	_, err := s.svc.AllocateContainerAddresses(c.Context(), hostInstance, containerName, input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, errors.ContainerAddressesNotSupported)
+}
+
 func (s *containerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -436,6 +477,16 @@ func (s *containerSuite) setupServiceAndMachines(c *tc.C) {
 
 	s.nodeUUID = "net-node-uuid"
 
+	s.svc = NewProviderService(
+		s.st,
+		func(ctx context.Context) (ProviderWithNetworking, error) { return s.providerWithNetworking, nil },
+		nil, // No provider with zones needed for this suite.
+		loggertesting.WrapCheckLog(c),
+	)
+	c.Cleanup(func() { s.svc = nil })
+}
+
+func (s *containerSuite) setupService(c *tc.C) {
 	s.svc = NewProviderService(
 		s.st,
 		func(ctx context.Context) (ProviderWithNetworking, error) { return s.providerWithNetworking, nil },
