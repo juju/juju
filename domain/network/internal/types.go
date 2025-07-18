@@ -22,6 +22,26 @@ type ImportLinkLayerDevice struct {
 	ProviderID       *string
 	Type             corenetwork.LinkLayerDeviceType
 	VirtualPortType  corenetwork.VirtualPortType
+	Addresses        []ImportIPAddress
+}
+
+// ImportIPAddress represents an IP address with its configuration
+// details for import operations.
+type ImportIPAddress struct {
+	UUID  string                  // generated during import
+	Type  corenetwork.AddressType // deduced from AddressValue during import
+	Scope corenetwork.Scope       // deduced from AddressValue during import
+
+	AddressValue     string
+	SubnetCIDR       string
+	ConfigType       corenetwork.AddressConfigType
+	IsSecondary      bool
+	IsShadow         bool
+	Origin           corenetwork.Origin
+	ProviderID       *string
+	ProviderSubnetID *string
+
+	SubnetUUID string // deduced from provider subnet id or from subnetCIDR
 }
 
 // SpaceName represents a space's name and its unique identifier.

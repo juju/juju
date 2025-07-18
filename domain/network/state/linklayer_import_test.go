@@ -72,6 +72,28 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 			ParentDeviceName: "parent",
 			ProviderID:       ptr("one"),
 			MACAddress:       ptr("00:16:3e:ad:4e:01"),
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         uuid.MustNewUUID().String(),
+					Type:         corenetwork.IPv4Address,
+					Scope:        corenetwork.ScopePublic,
+					ConfigType:   corenetwork.ConfigDHCP,
+					Origin:       corenetwork.OriginProvider,
+					ProviderID:   ptr("ip-one"),
+					AddressValue: "192.168.1.10/24",
+					SubnetUUID:   s.addSubnet(c, "192.168.1.0/24", corenetwork.AlphaSpaceId.String()),
+				},
+				{
+					UUID:         uuid.MustNewUUID().String(),
+					Type:         corenetwork.IPv4Address,
+					ConfigType:   corenetwork.ConfigStatic,
+					Origin:       corenetwork.OriginProvider,
+					Scope:        corenetwork.ScopeCloudLocal,
+					ProviderID:   ptr("ip-two"),
+					AddressValue: "10.0.0.10/24",
+					SubnetUUID:   s.addSubnet(c, "10.0.0.0/24", corenetwork.AlphaSpaceId.String()),
+				},
+			},
 		}, {
 			UUID:            uuid.MustNewUUID().String(),
 			NetNodeUUID:     netNodeUUID,
@@ -79,6 +101,17 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 			Type:            corenetwork.EthernetDevice,
 			VirtualPortType: corenetwork.NonVirtualPort,
 			MachineID:       machineName,
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         uuid.MustNewUUID().String(),
+					Type:         corenetwork.IPv4Address,
+					ConfigType:   corenetwork.ConfigStatic,
+					Origin:       corenetwork.OriginMachine,
+					Scope:        corenetwork.ScopePublic,
+					AddressValue: "192.168.2.11/24",
+					SubnetUUID:   s.addSubnet(c, "192.168.2.0/24", corenetwork.AlphaSpaceId.String()),
+				},
+			},
 		}, {
 			// This LLD should not be matched as the parent LLD of test.
 			UUID:            uuid.MustNewUUID().String(),
@@ -90,9 +123,21 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 			MachineID:       machineName2,
 			ProviderID:      ptr("two"),
 			MACAddress:      ptr("00:16:3e:ad:4e:88"),
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         uuid.MustNewUUID().String(),
+					Type:         corenetwork.IPv6Address,
+					ConfigType:   corenetwork.ConfigStatic,
+					Origin:       corenetwork.OriginProvider,
+					Scope:        corenetwork.ScopePublic,
+					ProviderID:   ptr("ip-three"),
+					AddressValue: "fd42:9102:88cb:dce3:216:3eff:fe59:a9dc/64",
+					SubnetUUID:   s.addSubnet(c, "fd42:9102:88cb:dce3::/64", corenetwork.AlphaSpaceId.String()),
+				},
+			},
 		},
 	}
-	expectedLLDRows := transformImportArgToResult(importData)
+	expectedLLDRows, expectedIpRows := transformImportArgToResult(importData)
 
 	// Act
 	err := s.state.ImportLinkLayerDevices(ctx, importData)
@@ -102,8 +147,12 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 	s.checkRowCount(c, "link_layer_device", 3)
 	s.checkRowCount(c, "link_layer_device_parent", 1)
 	s.checkRowCount(c, "provider_link_layer_device", 2)
+	s.checkRowCount(c, "ip_address", 4)
+	s.checkRowCount(c, "provider_ip_address", 3)
+
 	obtainedLLDRows := s.readLinkLayerDevices(c)
 	c.Check(obtainedLLDRows, tc.SameContents, expectedLLDRows)
+
 	obtainedParentRow := s.readLinkLayerDeviceParent(c)
 	c.Check(obtainedParentRow, tc.SameContents, []linkLayerDeviceParent{
 		{
@@ -111,6 +160,7 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 			ParentUUID: importData[1].UUID,
 		},
 	})
+
 	obtainedProviderRows := s.readProviderLinkLayerDevice(c)
 	c.Check(obtainedProviderRows, tc.SameContents, []providerLinkLayerDevice{
 		{
@@ -121,9 +171,28 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 			ProviderID: *importData[2].ProviderID,
 		},
 	})
+
+	obtainedIpAddressRows := s.readIpAddresses(c)
+	c.Check(obtainedIpAddressRows, tc.SameContents, expectedIpRows)
+
+	obtainedProviderAddressesRows := s.readProviderIpAddresses(c)
+	c.Check(obtainedProviderAddressesRows, tc.SameContents, []providerIpAddressDML{
+		{
+			AddressUUID: importData[0].Addresses[0].UUID,
+			ProviderID:  *importData[0].Addresses[0].ProviderID,
+		},
+		{
+			AddressUUID: importData[0].Addresses[1].UUID,
+			ProviderID:  *importData[0].Addresses[1].ProviderID,
+		},
+		{
+			AddressUUID: importData[2].Addresses[0].UUID,
+			ProviderID:  *importData[2].Addresses[0].ProviderID,
+		},
+	})
 }
 
-func (s *linkLayerImportSuite) TestDeleteImportedRelations(c *tc.C) {
+func (s *linkLayerImportSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
 	// Arrange:
 	ctx := c.Context()
 
@@ -145,6 +214,17 @@ func (s *linkLayerImportSuite) TestDeleteImportedRelations(c *tc.C) {
 			ParentDeviceName: "parent",
 			ProviderID:       ptr("one"),
 			MACAddress:       ptr("00:16:3e:ad:4e:01"),
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         uuid.MustNewUUID().String(),
+					Type:         corenetwork.IPv4Address,
+					Scope:        corenetwork.ScopePublic,
+					ConfigType:   corenetwork.ConfigDHCP,
+					Origin:       corenetwork.OriginProvider,
+					ProviderID:   ptr("ip-one"),
+					AddressValue: "192.168.1.10/24",
+				},
+			},
 		},
 		{
 			UUID:            uuid.MustNewUUID().String(),
@@ -156,6 +236,16 @@ func (s *linkLayerImportSuite) TestDeleteImportedRelations(c *tc.C) {
 			MachineID:       machineName,
 			ProviderID:      ptr("two"),
 			MACAddress:      ptr("00:16:3e:ad:4e:88"),
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         uuid.MustNewUUID().String(),
+					Type:         corenetwork.IPv6Address,
+					Scope:        corenetwork.ScopePublic,
+					ConfigType:   corenetwork.ConfigDHCP,
+					Origin:       corenetwork.OriginMachine,
+					AddressValue: "fd42:9102:88cb:dce3:216:3eff:fe59:a9dc/64",
+				},
+			},
 		},
 	}
 	err := s.state.ImportLinkLayerDevices(ctx, importData)
@@ -248,11 +338,85 @@ FROM provider_link_layer_device
 	return rows
 }
 
+func (s *linkLayerImportSuite) readIpAddresses(c *tc.C) []readIpAddresses {
+	var (
+		rows []readIpAddresses
+		err  error
+	)
+	err = s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		stmt, err := s.state.Prepare(`
+SELECT (
+		ip.uuid,
+		ip.net_node_uuid,
+		ip.device_uuid,
+		ip.address_value,
+		ip.subnet_uuid,
+		ip.is_secondary,
+		ip.is_shadow
+     ) AS (&readIpAddresses.*),
+		ipt.name AS &readIpAddresses.type,
+		ipct.name AS &readIpAddresses.config_type,
+		ipo.name AS &readIpAddresses.origin,
+		ips.name AS &readIpAddresses.scope
+FROM ip_address AS ip
+JOIN ip_address_type AS ipt ON ip.type_id = ipt.id
+JOIN ip_address_config_type AS ipct ON ip.config_type_id = ipct.id
+JOIN ip_address_origin AS ipo ON ip.origin_id = ipo.id
+JOIN ip_address_scope AS ips ON ip.scope_id = ips.id
+`, readIpAddresses{})
+		if err != nil {
+			return err
+		}
+		return tx.Query(ctx, stmt).GetAll(&rows)
+	})
+	if !c.Check(err, tc.ErrorIsNil) {
+		return nil
+	}
+	return rows
+}
+
+func (s *linkLayerImportSuite) readProviderIpAddresses(c *tc.C) []providerIpAddressDML {
+	var (
+		rows []providerIpAddressDML
+		err  error
+	)
+	err = s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		stmt, err := s.state.Prepare(`
+SELECT * AS &providerIpAddressDML.*
+FROM provider_ip_address
+`, providerIpAddressDML{})
+		if err != nil {
+			return err
+		}
+		return tx.Query(ctx, stmt).GetAll(&rows)
+	})
+	if !c.Check(err, tc.ErrorIsNil) {
+		return nil
+	}
+	return rows
+}
+
 func transformImportArgToResult(
 	importData []internal.ImportLinkLayerDevice,
-) []readLinkLayerDevice {
-	return transform.Slice[internal.ImportLinkLayerDevice, readLinkLayerDevice](importData,
+) ([]readLinkLayerDevice, []readIpAddresses) {
+	var ipAddresses []readIpAddresses
+	lld := transform.Slice[internal.ImportLinkLayerDevice, readLinkLayerDevice](importData,
 		func(in internal.ImportLinkLayerDevice) readLinkLayerDevice {
+			for _, address := range in.Addresses {
+				ipAddresses = append(ipAddresses, readIpAddresses{
+					UUID:         address.UUID,
+					NodeUUID:     in.NetNodeUUID,
+					DeviceUUID:   in.UUID,
+					AddressValue: address.AddressValue,
+					SubnetUUID:   nilZeroPtr(address.SubnetUUID),
+					Type:         string(address.Type),
+					ConfigType:   string(address.ConfigType),
+					Origin:       string(address.Origin),
+					Scope:        string(address.Scope),
+					IsSecondary:  address.IsSecondary,
+					IsShadow:     address.IsShadow,
+				})
+			}
 			return readLinkLayerDevice{
 				UUID:        in.UUID,
 				NetNodeUUID: in.NetNodeUUID,
@@ -273,5 +437,19 @@ func transformImportArgToResult(
 				VLAN:           0,
 			}
 		})
+	return lld, ipAddresses
+}
 
+type readIpAddresses struct {
+	UUID         string  `db:"uuid"`
+	NodeUUID     string  `db:"net_node_uuid"`
+	DeviceUUID   string  `db:"device_uuid"`
+	AddressValue string  `db:"address_value"`
+	SubnetUUID   *string `db:"subnet_uuid"`
+	Type         string  `db:"type"`
+	ConfigType   string  `db:"config_type"`
+	Origin       string  `db:"origin"`
+	Scope        string  `db:"scope"`
+	IsSecondary  bool    `db:"is_secondary"`
+	IsShadow     bool    `db:"is_shadow"`
 }

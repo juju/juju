@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/internal"
 )
 
@@ -24,6 +25,9 @@ type MigrationState interface {
 	// ImportLinkLayerDevices adds link layer devices into the model as part
 	// of the migration import process.
 	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error
+
+	// GetAllSubnets returns all known subnets in the model.
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 }
 
 // MigrationService provides the API for model migration actions within
