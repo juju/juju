@@ -263,9 +263,19 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 		DeviceName: "eth0",
 		MachineID:  "1",
 
-		SubnetCIDR:   "172.0.0.0/24",
 		ConfigMethod: string(network.ConfigDHCP),
-		Value:        "172.0.0.0",
+		Value:        "172.0.0.1",
+		Origin:       "machine",
+		IsShadow:     false,
+		IsSecondary:  true,
+	})
+
+	model.AddIPAddress(description.IPAddressArgs{
+		DeviceName: "eth0",
+		MachineID:  "1",
+
+		ConfigMethod: string(network.ConfigDHCP),
+		Value:        "fd42:9102:88cb:dce3:216:3eff:dead:a9dc",
 		Origin:       "machine",
 		IsShadow:     false,
 		IsSecondary:  true,
@@ -279,7 +289,7 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 				ProviderID:       ptr("address-10.0.0.1"),
 				SubnetCIDR:       "10.0.0.0/24",
 				ConfigType:       network.ConfigStatic,
-				AddressValue:     "10.0.0.1",
+				AddressValue:     "10.0.0.1/24",
 				ProviderSubnetID: ptr("subnet-10.0.0.0/24"),
 				Origin:           "provider",
 				IsShadow:         false,
@@ -291,7 +301,7 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 				ProviderID:       ptr("address-fd42:9102:88cb:dce3:216:3eff:fe59:a9dc"),
 				SubnetCIDR:       "fd42:9102:88cb:dce3::/64",
 				ConfigType:       network.ConfigManual,
-				AddressValue:     "fd42:9102:88cb:dce3:216:3eff:fe59:a9dc",
+				AddressValue:     "fd42:9102:88cb:dce3:216:3eff:fe59:a9dc/64",
 				ProviderSubnetID: ptr("subnet-fd42:9102:88cb:dce3::/64"),
 				Origin:           "provider",
 				IsShadow:         true,
@@ -307,7 +317,7 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 				ProviderID:       ptr("address-198.0.0.1"),
 				SubnetCIDR:       "198.0.0.0/24",
 				ConfigType:       network.ConfigDHCP,
-				AddressValue:     "198.0.0.1",
+				AddressValue:     "198.0.0.1/24",
 				ProviderSubnetID: ptr("subnet-198.0.0.0/24"),
 				Origin:           "provider",
 				IsShadow:         true,
@@ -320,15 +330,23 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 			MachineID: "1",
 			Name:      "eth0",
 			Addresses: []internal.ImportIPAddress{{
-				SubnetCIDR:   "172.0.0.0/24",
 				ConfigType:   network.ConfigDHCP,
-				AddressValue: "172.0.0.0",
+				AddressValue: "172.0.0.1/32",
 				Origin:       "machine",
 				IsShadow:     false,
 				IsSecondary:  true,
 				// Resolved values
 				Type:  network.IPv4Address,
 				Scope: network.ScopePublic,
+			}, {
+				ConfigType:   network.ConfigDHCP,
+				AddressValue: "fd42:9102:88cb:dce3:216:3eff:dead:a9dc/128",
+				Origin:       "machine",
+				IsShadow:     false,
+				IsSecondary:  true,
+				// Resolved values
+				Type:  network.IPv6Address,
+				Scope: network.ScopeCloudLocal,
 			}}}}}).Return(nil)
 
 	// Act
