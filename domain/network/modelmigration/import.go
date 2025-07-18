@@ -5,6 +5,8 @@ package modelmigration
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/juju/description/v10"
 
@@ -240,11 +242,13 @@ func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkL
 				address.ConfigMethod(), address.Value(), address.DeviceName(), address.MachineID())
 		}
 
+		addrType := corenetwork.DeriveAddressType(address.Value())
+
 		device.Addresses = append(device.Addresses, internal.ImportIPAddress{
 			UUID:             addressUUID.String(),
-			Type:             corenetwork.DeriveAddressType(address.Value()),
+			Type:             addrType,
 			Scope:            corenetwork.NewMachineAddress(address.Value()).Scope,
-			AddressValue:     address.Value(),
+			AddressValue:     i.ensureAddressWithCIDR(address, addrType),
 			SubnetCIDR:       address.SubnetCIDR(),
 			ConfigType:       corenetwork.AddressConfigType(address.ConfigMethod()),
 			IsSecondary:      address.IsSecondary(),
@@ -256,6 +260,25 @@ func (i *importOperation) transformLinkLayerDevices(modelLLD []description.LinkL
 	}
 
 	return data, nil
+}
+
+// ensureAddressWithCIDR ensures that the provided IP address includes
+// its CIDR notation and returns it as a string.
+func (i *importOperation) ensureAddressWithCIDR(address description.IPAddress, addrType corenetwork.AddressType) string {
+	if strings.Contains(address.Value(), "/") {
+		return address.Value()
+	}
+	subnet := strings.Split(address.SubnetCIDR(), "/")
+	if len(subnet) == 2 {
+		return fmt.Sprintf("%s/%s", address.Value(), subnet[1])
+	}
+	switch addrType {
+	case corenetwork.IPv4Address:
+		return fmt.Sprintf("%s/32", address.Value())
+	case corenetwork.IPv6Address:
+		return fmt.Sprintf("%s/128", address.Value())
+	}
+	return address.Value()
 }
 
 // ptr returns a reference to a copied value of type T.
