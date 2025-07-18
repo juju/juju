@@ -37,13 +37,10 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 		return errors.Capture(err)
 	}
 
-	subnets, err := s.st.GetAllSubnets(ctx)
+	transformAddress, err := s.newAddressTransformer(ctx)
 	if err != nil {
-		return errors.Errorf("getting all subnets: %w", err)
+		return errors.Capture(err)
 	}
-	subnetUUIDByProviderId := transform.SliceToMap(subnets, func(f corenetwork.SubnetInfo) (string, string) {
-		return f.ProviderId.String(), f.ID.String()
-	})
 
 	useData, err := transform.SliceOrErr(data,
 		func(device internal.ImportLinkLayerDevice) (internal.ImportLinkLayerDevice, error) {
@@ -57,28 +54,7 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 				return device, nil
 			}
 
-			device.Addresses, err = transform.SliceOrErr(device.Addresses, func(addr internal.ImportIPAddress) (internal.ImportIPAddress, error) {
-				if addr.ProviderSubnetID != nil {
-					subnetUUID, ok := subnetUUIDByProviderId[*addr.ProviderSubnetID]
-					if !ok {
-						return addr, errors.Errorf("no subnet found for provider subnet ID %q", *addr.ProviderSubnetID)
-					}
-					addr.SubnetUUID = subnetUUID
-					return addr, nil
-				}
-				info, err := subnets.GetByCIDR(addr.SubnetCIDR)
-				if err != nil {
-					return addr, errors.Errorf("getting subnet by CIDR %q: %w", addr.SubnetCIDR, err)
-				}
-				if len(info) == 0 {
-					return addr, errors.Errorf("no subnet found for CIDR %q", addr.SubnetCIDR)
-				}
-				if len(info) > 1 {
-					return addr, errors.Errorf("multiple subnets found for CIDR %q", addr.SubnetCIDR)
-				}
-				addr.SubnetUUID = info[0].ID.String()
-				return addr, nil
-			})
+			device.Addresses, err = transform.SliceOrErr(device.Addresses, transformAddress)
 			if err != nil {
 				return device, errors.Errorf("converting addresses: %w", err)
 			}
@@ -90,6 +66,43 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 	}
 
 	return s.st.ImportLinkLayerDevices(ctx, useData)
+}
+
+// newAddressTransformer creates a function to transform an ImportIPAddress
+// by resolving associated subnet details.
+func (s *MigrationService) newAddressTransformer(
+	ctx context.Context,
+) (func(addr internal.ImportIPAddress) (internal.ImportIPAddress, error), error) {
+	subnets, err := s.st.GetAllSubnets(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting all subnets: %w", err)
+	}
+	subnetUUIDByProviderId := transform.SliceToMap(subnets, func(f corenetwork.SubnetInfo) (string, string) {
+		return f.ProviderId.String(), f.ID.String()
+	})
+
+	return func(addr internal.ImportIPAddress) (internal.ImportIPAddress, error) {
+		if addr.ProviderSubnetID != nil {
+			subnetUUID, ok := subnetUUIDByProviderId[*addr.ProviderSubnetID]
+			if !ok {
+				return addr, errors.Errorf("no subnet found for provider subnet ID %q", *addr.ProviderSubnetID)
+			}
+			addr.SubnetUUID = subnetUUID
+			return addr, nil
+		}
+		info, err := subnets.GetByCIDR(addr.SubnetCIDR)
+		if err != nil {
+			return addr, errors.Errorf("getting subnet by CIDR %q: %w", addr.SubnetCIDR, err)
+		}
+		if len(info) == 0 {
+			return addr, errors.Errorf("no subnet found for CIDR %q", addr.SubnetCIDR)
+		}
+		if len(info) > 1 {
+			return addr, errors.Errorf("multiple subnets found for CIDR %q", addr.SubnetCIDR)
+		}
+		addr.SubnetUUID = info[0].ID.String()
+		return addr, nil
+	}, nil
 }
 
 // SetProviderNetConfig merges the existing link layer devices with the
