@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -30,6 +31,11 @@ func TestExportSuite(t *testing.T) {
 func (s *exportSuite) TestExportEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.exportService.EXPECT().ExportMachineStatuses(gomock.Any()).Return(
+		map[coremachine.Name]corestatus.StatusInfo{},
+		map[coremachine.Name]corestatus.StatusInfo{},
+		nil,
+	)
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
 		map[string]corestatus.StatusInfo{}, nil,
 	)
@@ -55,9 +61,94 @@ func (s *exportSuite) TestExportEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *exportSuite) TestExportMachineStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.exportService.EXPECT().ExportMachineStatuses(gomock.Any()).Return(
+		map[coremachine.Name]corestatus.StatusInfo{
+			"0": {
+				Message: "it's started",
+				Status:  corestatus.Started,
+				Data:    map[string]interface{}{"foo": "bar"},
+			},
+			"1": {
+				Message: "it's pending",
+				Status:  corestatus.Pending,
+				Data:    map[string]interface{}{"foo": "baz"},
+			},
+		},
+		map[coremachine.Name]corestatus.StatusInfo{
+			"0": {
+				Message: "it's running",
+				Status:  corestatus.Running,
+				Data:    map[string]interface{}{"foo": "bar"},
+			},
+			"1": {
+				Message: "it's pending",
+				Status:  corestatus.Pending,
+				Data:    map[string]interface{}{"foo": "baz"},
+			},
+		},
+		nil,
+	)
+	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
+		map[string]corestatus.StatusInfo{}, nil,
+	)
+	s.exportService.EXPECT().ExportUnitStatuses(gomock.Any()).Return(
+		map[coreunit.Name]corestatus.StatusInfo{},
+		map[coreunit.Name]corestatus.StatusInfo{},
+		nil,
+	)
+	s.exportService.EXPECT().ExportRelationStatuses(gomock.Any()).Return(
+		map[int]corestatus.StatusInfo{}, nil,
+	)
+
+	model := description.NewModel(description.ModelArgs{})
+	machine0 := model.AddMachine(description.MachineArgs{
+		Id: "0",
+	})
+	machine1 := model.AddMachine(description.MachineArgs{
+		Id: "1",
+	})
+	machine0.SetInstance(description.CloudInstanceArgs{})
+	instance0 := machine0.Instance()
+
+	machine1.SetInstance(description.CloudInstanceArgs{})
+	instance1 := machine1.Instance()
+
+	exportOp := exportOperation{
+		serviceGetter: func(u coremodel.UUID) ExportService {
+			return s.exportService
+		},
+		clock: clock.WallClock,
+	}
+
+	err := exportOp.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(machine0.Status().Value(), tc.Equals, corestatus.Started.String())
+	c.Check(machine0.Status().Data(), tc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Check(machine0.Status().Message(), tc.Equals, "it's started")
+	c.Check(instance0.Status().Value(), tc.Equals, corestatus.Running.String())
+	c.Check(instance0.Status().Data(), tc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Check(instance0.Status().Message(), tc.Equals, "it's running")
+
+	c.Check(machine1.Status().Value(), tc.Equals, corestatus.Pending.String())
+	c.Check(machine1.Status().Data(), tc.DeepEquals, map[string]interface{}{"foo": "baz"})
+	c.Check(machine1.Status().Message(), tc.Equals, "it's pending")
+	c.Check(instance1.Status().Value(), tc.Equals, corestatus.Pending.String())
+	c.Check(instance1.Status().Data(), tc.DeepEquals, map[string]interface{}{"foo": "baz"})
+	c.Check(instance1.Status().Message(), tc.Equals, "it's pending")
+}
+
 func (s *exportSuite) TestExportApplicationStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.exportService.EXPECT().ExportMachineStatuses(gomock.Any()).Return(
+		map[coremachine.Name]corestatus.StatusInfo{},
+		map[coremachine.Name]corestatus.StatusInfo{},
+		nil,
+	)
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
 		map[string]corestatus.StatusInfo{
 			"prometheus": {
@@ -100,6 +191,11 @@ func (s *exportSuite) TestExportApplicationStatuses(c *tc.C) {
 func (s *exportSuite) TestExportApplicationStatusesMissing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.exportService.EXPECT().ExportMachineStatuses(gomock.Any()).Return(
+		map[coremachine.Name]corestatus.StatusInfo{},
+		map[coremachine.Name]corestatus.StatusInfo{},
+		nil,
+	)
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
 		map[string]corestatus.StatusInfo{}, nil,
 	)
@@ -135,6 +231,11 @@ func (s *exportSuite) TestExportApplicationStatusesMissing(c *tc.C) {
 func (s *exportSuite) TestExportUnitStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.exportService.EXPECT().ExportMachineStatuses(gomock.Any()).Return(
+		map[coremachine.Name]corestatus.StatusInfo{},
+		map[coremachine.Name]corestatus.StatusInfo{},
+		nil,
+	)
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
 		map[string]corestatus.StatusInfo{}, nil,
 	)
@@ -213,6 +314,11 @@ func (s *exportSuite) TestExportUnitStatuses(c *tc.C) {
 func (s *exportSuite) TestExportRelationStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.exportService.EXPECT().ExportMachineStatuses(gomock.Any()).Return(
+		map[coremachine.Name]corestatus.StatusInfo{},
+		map[coremachine.Name]corestatus.StatusInfo{},
+		nil,
+	)
 	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
 		map[string]corestatus.StatusInfo{}, nil,
 	)
