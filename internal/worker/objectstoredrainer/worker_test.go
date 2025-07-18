@@ -5,15 +5,20 @@ package objectstoredrainer
 
 import (
 	"context"
+	"errors"
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
+	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
+	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -22,6 +27,8 @@ import (
 
 type workerSuite struct {
 	baseSuite
+
+	workerErr chan error
 }
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -37,8 +44,8 @@ func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
 	done := make(chan struct{})
-	s.service.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
-	s.service.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
 	s.guard.EXPECT().Unlock(gomock.Any()).DoAndReturn(func(context.Context) error {
 		defer close(done)
 		return nil
@@ -69,12 +76,17 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
 	done := make(chan struct{})
-	s.service.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
-	s.service.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
-	s.guard.EXPECT().Lockdown(gomock.Any()).DoAndReturn(func(context.Context) error {
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
 		defer close(done)
 		return nil
 	})
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
+
+	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{"model-uuid1"}, nil)
+	s.objectStoreServicesGetter.EXPECT().ServicesForModel(model.UUID("model-uuid1")).Return(s.objectStoreService)
+	s.objectStoreService.EXPECT().ObjectStore().Return(s.objectStoreMetadata)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -94,12 +106,104 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
-	w, err := NewWorker(c.Context(), Config{
-		ObjectStoreService: s.service,
-		Guard:              s.guard,
-		Logger:             loggertesting.WrapCheckLog(c),
+func (s *workerSuite) TestObjectStoreDrainingNamespaceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+
+	done := make(chan struct{})
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseError).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
+		defer close(done)
+		return nil
 	})
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
+
+	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{"model-uuid1"}, errors.New("boom"))
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timeout waiting for worker to start")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timeout waiting for worker to start")
+	}
+
+	workertest.DirtyKill(c, w)
+}
+
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
+	s.workerErr = make(chan error, 1)
+
+	w, err := NewWorker(s.getConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 	return w
+}
+
+func (s *workerSuite) getConfig(c *tc.C) Config {
+	return Config{
+		Guard:                     s.guard,
+		GuardService:              s.guardService,
+		ControllerService:         s.controllerService,
+		ObjectStoreServicesGetter: s.objectStoreServicesGetter,
+		S3Client:                  s.s3Client,
+		NewHashFileSystemAccessor: func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
+			return s.hashFileSystemAccessor
+		},
+		NewDrainerWorker: func(completed chan<- string, fileSystem HashFileSystemAccessor, client objectstore.Client, metadataService objectstore.ObjectStoreMetadata, rootBucket, namespace string, selectFileHash SelectFileHashFunc, logger logger.Logger) worker.Worker {
+			return newTestWorker(completed)
+		},
+		SelectFileHash: func(m objectstore.Metadata) string {
+			return m.SHA384
+		},
+		RootDir:        c.MkDir(),
+		RootBucketName: "test-bucket",
+		Logger:         loggertesting.WrapCheckLog(c),
+		Clock:          clock.WallClock,
+	}
+}
+
+func newTestWorker(ns chan<- string) worker.Worker {
+	w := &errorWorker{}
+	w.tomb.Go(func() error {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-time.After(100 * time.Millisecond):
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case ns <- "model-uuid1":
+				return nil
+			}
+		}
+	})
+	return w
+}
+
+type errorWorker struct {
+	tomb tomb.Tomb
+}
+
+// Kill is part of the worker.Worker interface.
+func (w *errorWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *errorWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *errorWorker) Completed() bool {
+	return true
 }

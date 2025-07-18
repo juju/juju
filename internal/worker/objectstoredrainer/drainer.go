@@ -14,10 +14,24 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/worker/v4"
 )
+
+// NewDrainerWorkerFunc is a function that creates a new drain worker.
+type NewDrainerWorkerFunc func(
+	completed chan<- string,
+	fileSystem HashFileSystemAccessor,
+	client objectstore.Client,
+	metadataService objectstore.ObjectStoreMetadata,
+	rootBucket, namespace string,
+	selectFileHash SelectFileHashFunc,
+	logger logger.Logger,
+) worker.Worker
 
 type drainWorker struct {
 	tomb tomb.Tomb
+
+	completed chan<- string
 
 	selectFileHash SelectFileHashFunc
 	fileSystem     HashFileSystemAccessor
@@ -32,14 +46,16 @@ type drainWorker struct {
 }
 
 func newDrainWorker(
+	completed chan<- string,
 	fileSystem HashFileSystemAccessor,
 	client objectstore.Client,
 	metadataService objectstore.ObjectStoreMetadata,
 	rootBucket, namespace string,
 	selectFileHash SelectFileHashFunc,
 	logger logger.Logger,
-) *drainWorker {
+) worker.Worker {
 	w := &drainWorker{
+		completed:       completed,
 		fileSystem:      fileSystem,
 		client:          client,
 		metadataService: metadataService,
@@ -95,6 +111,14 @@ func (w *drainWorker) loop() error {
 
 			return errors.Errorf("draining file %q to s3 object store: %w", m.Path, err)
 		}
+	}
+
+	// We can't use the tomb dying to signal completion here, because we
+	// allow the worker to be restart.
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.completed <- w.namespace:
 	}
 
 	return nil

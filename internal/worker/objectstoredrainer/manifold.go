@@ -70,6 +70,7 @@ type ManifoldConfig struct {
 	GetControllerConfigService GetControllerConfigServiceFunc
 	NewWorker                  func(Config) (worker.Worker, error)
 	NewHashFileSystemAccessor  NewHashFileSystemAccessorFunc
+	NewDrainerWorker           NewDrainerWorkerFunc
 	SelectFileHash             SelectFileHashFunc
 
 	Logger logger.Logger
@@ -90,6 +91,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.S3ClientName == "" {
 		return errors.NotValidf("empty S3ClientName")
 	}
+	if config.GetControllerService == nil {
+		return errors.NotValidf("nil GetControllerService")
+	}
 	if config.GeObjectStoreServices == nil {
 		return errors.NotValidf("nil GeObjectStoreServices")
 	}
@@ -104,6 +108,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewHashFileSystemAccessor == nil {
 		return errors.NotValidf("nil NewHashFileSystemAccessor")
+	}
+	if config.NewDrainerWorker == nil {
+		return errors.NotValidf("nil NewDrainerWorker")
 	}
 	if config.SelectFileHash == nil {
 		return errors.NotValidf("nil SelectFileHash")
@@ -175,6 +182,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ControllerService:         controllerService,
 		ObjectStoreServicesGetter: objectStoreServicesGetter,
 		NewHashFileSystemAccessor: config.NewHashFileSystemAccessor,
+		NewDrainerWorker:          config.NewDrainerWorker,
 		SelectFileHash:            config.SelectFileHash,
 		S3Client:                  s3Client,
 		RootDir:                   dataDir,

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -78,6 +77,7 @@ type Config struct {
 	ControllerService         ControllerService
 	ObjectStoreServicesGetter ObjectStoreServicesGetter
 	NewHashFileSystemAccessor NewHashFileSystemAccessorFunc
+	NewDrainerWorker          NewDrainerWorkerFunc
 	S3Client                  objectstore.Client
 	SelectFileHash            SelectFileHashFunc
 	RootDir                   string
@@ -98,8 +98,14 @@ func (config Config) Validate() error {
 	if config.ControllerService == nil {
 		return errors.Errorf("nil ControllerService").Add(coreerrors.NotValid)
 	}
+	if config.ObjectStoreServicesGetter == nil {
+		return errors.Errorf("nil ObjectStoreServicesGetter").Add(coreerrors.NotValid)
+	}
 	if config.NewHashFileSystemAccessor == nil {
 		return errors.Errorf("nil NewHashFileSystemAccessor").Add(coreerrors.NotValid)
+	}
+	if config.NewDrainerWorker == nil {
+		return errors.Errorf("nil NewDrainerWorker").Add(coreerrors.NotValid)
 	}
 	if config.S3Client == nil {
 		return errors.Errorf("nil S3Client").Add(coreerrors.NotValid)
@@ -153,6 +159,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		controllerService:         config.ControllerService,
 		objectStoreServicesGetter: config.ObjectStoreServicesGetter,
 
+		newDrainWorker: config.NewDrainerWorker,
 		newFileSystem:  config.NewHashFileSystemAccessor,
 		client:         config.S3Client,
 		rootDir:        config.RootDir,
@@ -192,6 +199,7 @@ type Worker struct {
 	objectStoreServicesGetter ObjectStoreServicesGetter
 
 	newFileSystem  NewHashFileSystemAccessorFunc
+	newDrainWorker NewDrainerWorkerFunc
 	client         objectstore.Client
 	rootDir        string
 	rootBucketName string
@@ -235,6 +243,7 @@ func (w *Worker) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
 		case <-watcher.Changes():
 			phase, err := w.guardService.GetDrainingPhase(ctx)
 			if err != nil {
@@ -268,35 +277,30 @@ func (w *Worker) loop() error {
 				return errors.Errorf("getting model namespaces: %w", err)
 			}
 
-			if err := w.drainModels(ctx, namespaces); err != nil {
+			signal, err := w.drainModels(ctx, namespaces)
+			if err != nil {
 				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
 				return errors.Errorf("draining models: %w", err)
 			}
 
-			w.logger.Infof(ctx, "object store draining complete, setting phase to completed")
-
-			if err := w.guardService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
-				return errors.Errorf("failed to set draining phase: %v", err)
+			if err := w.waitForDraining(ctx, signal, namespaces); err != nil {
+				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
+				return errors.Errorf("waiting for draining: %w", err)
 			}
 		}
 	}
 }
 
-func (w *Worker) drainModels(ctx context.Context, namespaces []string) error {
-
+func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan string, error) {
+	signal := make(chan string, len(namespaces))
 	for _, namespace := range namespaces {
-		// The controller model will drain the controller namespace, so we skip
-		// it.
-		if namespace == database.ControllerNS {
-			continue
-		}
-
 		w.logger.Infof(ctx, "draining model %q", namespace)
 
 		err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 			metadataService := w.objectStoreServicesGetter.ServicesForModel(model.UUID(namespace))
 			fileSystem := w.newFileSystem(namespace, w.rootDir, w.logger)
-			return newDrainWorker(
+			return w.newDrainWorker(
+				signal,
 				fileSystem,
 				w.client,
 				metadataService.ObjectStore(),
@@ -309,8 +313,36 @@ func (w *Worker) drainModels(ctx context.Context, namespaces []string) error {
 		if errors.Is(err, coreerrors.AlreadyExists) {
 			continue
 		} else if err != nil {
-			return errors.Errorf("starting worker for model %q: %w", namespace, err)
+			return nil, errors.Errorf("starting worker for model %q: %w", namespace, err)
 		}
 	}
-	return nil
+	return signal, nil
+}
+
+func (w *Worker) waitForDraining(ctx context.Context, signal <-chan string, namespaces []string) error {
+	remaining := map[string]struct{}{}
+	for _, namespace := range namespaces {
+		remaining[namespace] = struct{}{}
+	}
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case namespace := <-signal:
+			w.logger.Infof(ctx, "drain worker for model %q completed", namespace)
+
+			delete(remaining, namespace)
+
+			if len(remaining) == 0 {
+				w.logger.Infof(ctx, "all drain workers completed")
+				if err := w.guardService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
+					return errors.Errorf("failed to set draining phase to complete: %v", err)
+				}
+				return nil
+			}
+
+			w.logger.Infof(ctx, "waiting for %d more drain workers to complete", len(remaining))
+		}
+	}
 }
