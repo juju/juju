@@ -148,7 +148,7 @@ func (api *APIBase) getCharmName(ctx context.Context, locator applicationcharm.C
 	return name, nil
 }
 
-func (api *APIBase) getCharm(ctx context.Context, locator applicationcharm.CharmLocator) (Charm, error) {
+func (api *APIBase) getCharm(ctx context.Context, locator applicationcharm.CharmLocator) (*domainCharm, error) {
 	charm, resLocator, _, err := api.applicationService.GetCharm(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm %q", locator.Name)
@@ -172,17 +172,6 @@ func (api *APIBase) getCharm(ctx context.Context, locator applicationcharm.Charm
 		locator:   resLocator,
 		available: available,
 	}, nil
-}
-
-func (api *APIBase) getCharmMetadata(ctx context.Context, locator applicationcharm.CharmLocator) (*charm.Meta, error) {
-	metadata, err := api.applicationService.GetCharmMetadata(ctx, locator)
-	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return nil, errors.NotFoundf("charm")
-	} else if err != nil {
-		return nil, errors.Annotate(err, "getting charm metadata for application")
-	}
-
-	return &metadata, nil
 }
 
 func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName string) (map[string]interface{}, error) {

@@ -25,7 +25,7 @@ func (s *permBaseSuite) TestAPIConstruction(c *tc.C) {
 
 	s.authorizer.EXPECT().AuthClient().Return(false)
 
-	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
+	_, err := NewAPIBase(Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -34,7 +34,7 @@ func (s *permBaseSuite) TestAPIServiceConstruction(c *tc.C) {
 
 	s.expectAuthClient()
 
-	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
+	_, err := NewAPIBase(Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
@@ -80,12 +80,11 @@ func (s *permBaseSuite) TestSetCharmBlocked(c *tc.C) {
 
 	s.expectAuthClient()
 	s.expectHasWritePermission()
-	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
 	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{})
-	c.Assert(err, tc.ErrorMatches, "blocked")
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *tc.C) {
@@ -104,7 +103,7 @@ func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *tc.C) {
 
 	// The validation error is returned if the charm origin is empty.
 
-	c.Assert(err, tc.ErrorIs, errors.BadRequest)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
@@ -112,9 +111,6 @@ func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
 
 	s.expectAuthClient()
 	s.expectHasWritePermission()
-	s.expectAllowBlockChange()
-
-	s.backend.EXPECT().Application("foo").Return(nil, errors.NotFound)
 
 	s.newAPI(c)
 
@@ -128,7 +124,7 @@ func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
 		},
 	})
 
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *permBaseSuite) TestGetCharmURLOriginPermission(c *tc.C) {

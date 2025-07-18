@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // DeployFromRepositoryValidator defines an deploy config validator.
@@ -56,18 +55,11 @@ type DeployFromRepository interface {
 	DeployFromRepository(context.Context, params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error)
 }
 
-// DeployFromRepositoryState defines a common set of functions for retrieving state
-// objects.
-type DeployFromRepositoryState interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-}
-
 // DeployFromRepositoryAPI provides the deploy from repository
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
 	modelType          model.ModelType
-	state              DeployFromRepositoryState
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
 	applicationService ApplicationService
@@ -78,14 +70,13 @@ type DeployFromRepositoryAPI struct {
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(
 	modelType model.ModelType,
-	state DeployFromRepositoryState, applicationService ApplicationService,
+	applicationService ApplicationService,
 	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
 		modelType:          modelType,
-		state:              state,
 		store:              store,
 		validator:          validator,
 		applicationService: applicationService,
@@ -116,30 +107,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	}
 	if dt.dryRun {
 		return info, nil, nil
-	}
-	// Queue async charm download.
-	// AddCharmMetadata returns no error if the charm
-	// has already been queue'd or downloaded.
-	stOrigin, err := StateCharmOrigin(dt.origin)
-	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
-	}
-
-	_, err = api.state.AddApplication(state.AddApplicationArgs{
-		ApplicationConfig: dt.applicationConfig,
-		AttachStorage:     dt.attachStorage,
-		Charm:             dt.charm,
-		CharmURL:          dt.charmURL.String(),
-		CharmConfig:       dt.charmSettings,
-		CharmOrigin:       stOrigin,
-		Constraints:       dt.constraints,
-		Name:              dt.applicationName,
-		NumUnits:          dt.numUnits,
-		Placement:         dt.placement,
-		Storage:           stateStorageDirectives(dt.storage),
-	}, api.store)
-	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
 	unitArgs := make([]applicationservice.AddIAASUnitArg, dt.numUnits)
@@ -182,6 +149,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Constraints: dt.constraints,
 	}
 
+	var err error
 	if api.modelType == model.IAAS {
 		_, err = api.applicationService.CreateIAASApplication(ctx, dt.applicationName, dt.charm, dt.origin,
 			applicationArg, unitArgs...)
@@ -295,7 +263,6 @@ type validatorConfig struct {
 	applicationService ApplicationService
 	machineService     MachineService
 	registry           storage.ProviderRegistry
-	state              DeployFromRepositoryState
 	storageService     StorageService
 	logger             corelogger.Logger
 }
@@ -307,7 +274,6 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		modelConfigService: cfg.modelConfigService,
 		applicationService: cfg.applicationService,
 		machineService:     cfg.machineService,
-		state:              cfg.state,
 		newCharmHubRepository: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return repository.NewCharmHubRepository(cfg)
 		},
@@ -346,7 +312,6 @@ type deployFromRepositoryValidator struct {
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
 	machineService     MachineService
-	state              DeployFromRepositoryState
 
 	// For testing using mocks.
 	newCharmHubRepository func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error)
