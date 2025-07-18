@@ -78,6 +78,12 @@ type ObjectStoreGetter interface {
 	GetObjectStore(context.Context, string) (ObjectStore, error)
 }
 
+// ObjectStoreFlusher is the interface that is used to flush the object store.
+type ObjectStoreFlusher interface {
+	// FlushWorkers flushes the object store workers.
+	FlushWorkers(context.Context) error
+}
+
 // ModelObjectStoreGetter is the interface that is used to get a model's
 // object store.
 type ModelObjectStoreGetter interface {

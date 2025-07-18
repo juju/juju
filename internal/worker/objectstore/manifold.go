@@ -238,6 +238,11 @@ func output(in worker.Worker, out any) error {
 	case *coreobjectstore.ObjectStoreGetter:
 		var target coreobjectstore.ObjectStoreGetter = w
 		*out = target
+
+	case *coreobjectstore.ObjectStoreFlusher:
+		var target coreobjectstore.ObjectStoreFlusher = w
+		*out = target
+
 	default:
 		return errors.Errorf("expected output of ObjectStoreGetter, got %T", out)
 	}
