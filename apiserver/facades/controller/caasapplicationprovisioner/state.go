@@ -20,19 +20,12 @@ import (
 type CAASApplicationProvisionerState interface {
 	ApplyOperation(state.ModelOperation) error
 	Model() (Model, error)
-	Application(string) (Application, error)
 	Resources(objectstore.ObjectStore) Resources
 	IsController() bool
 }
 
 type Model interface {
 	Containers(providerIds ...string) ([]state.CloudContainer, error)
-}
-
-// TODO(storage): This interface must be removed once storage is fully migrated
-// to dqlite.
-type Application interface {
-	StorageConstraints() (map[string]state.StorageConstraints, error)
 }
 
 type Resources interface {
@@ -49,10 +42,6 @@ func (s stateShim) Model() (Model, error) {
 		return nil, err
 	}
 	return model.CAASModel()
-}
-
-func (s stateShim) Application(name string) (Application, error) {
-	return s.State.Application(name)
 }
 
 func (s stateShim) Resources(_ objectstore.ObjectStore) Resources {
