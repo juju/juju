@@ -9,12 +9,14 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/storageprovisioning"
 )
 
 // filesystemSuite provides a test suite for asserting the [Service] interface
@@ -206,4 +208,30 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystemAttachmentsNotFou
 	_, err := NewService(s.state, s.watcherFactory).
 		WatchMachineProvisionedFilesystemAttachments(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetFilesystemsTemplateForApplication tests the caller gets filesystem
+// templates back.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	expectedResult := []storageprovisioning.FilesystemTemplate{{
+		StorageName:  "a",
+		Count:        1,
+		SizeMiB:      1234,
+		ProviderType: "foo",
+		ReadOnly:     true,
+		Location:     "bar",
+		Attributes: map[string]string{
+			"laz": "baz",
+		},
+	}}
+	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appID).
+		Return(expectedResult, nil)
+
+	svc := NewService(s.state, s.watcherFactory)
+	result, err := svc.GetFilesystemsTemplateForApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expectedResult)
 }

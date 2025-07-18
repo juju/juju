@@ -6,6 +6,7 @@ package state
 import (
 	"database/sql"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/domain/life"
 )
 
@@ -159,4 +160,28 @@ func (l volumeLives) Iter(yield func(string, life.Life) bool) {
 			return
 		}
 	}
+}
+
+// applicationUUID provides a way to query by app uuid.
+type applicationUUID struct {
+	UUID coreapplication.ID `db:"uuid"`
+}
+
+// filesystemTemplate represents the combination of storage directives, charm
+// storage and provider type.
+type filesystemTemplate struct {
+	StorageName  string `db:"storage_name"`
+	SizeMiB      int64  `db:"size_mib"`
+	Count        int    `db:"count"`
+	ProviderType string `db:"storage_type"`
+	ReadOnly     bool   `db:"read_only"`
+	Location     string `db:"location"`
+}
+
+// storageNameAttributes represents each key/value attribute for a given storage
+// derived from the provider/pool used to provisioner the storage.
+type storageNameAttributes struct {
+	StorageName string `db:"storage_name"`
+	Key         string `db:"key"`
+	Value       string `db:"value"`
 }
