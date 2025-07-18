@@ -1085,10 +1085,10 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 
 	allocatedInfo, err := networkService.AllocateContainerAddresses(
 		ctx, hostInstanceID, guestMachineName.String(), preparedInfo)
-	if err != nil && !errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
-		return errors.Trace(err)
-	} else if errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
+	if errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
 		h.logger.Debugf(ctx, "using dhcp allocated addresses")
+	} else if err != nil {
+		return errors.Trace(err)
 	} else {
 		h.logger.Debugf(ctx, "got allocated info from provider: %+v", allocatedInfo)
 	}
