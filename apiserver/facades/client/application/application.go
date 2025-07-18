@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -78,7 +77,6 @@ type APIv19 struct {
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
 type APIBase struct {
-	backend       Backend
 	storageAccess StorageInterface
 	store         objectstore.ObjectStore
 
@@ -140,10 +138,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Trace(err)
 	}
 
-	state := &stateShim{
-		State: ctx.State(),
-	}
-
 	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -164,14 +158,12 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		machineService:     domainServices.Machine(),
 		applicationService: applicationService,
 		registry:           registry,
-		state:              state,
 		storageService:     storageService,
 		logger:             repoLogger,
 	}
 
 	repoDeploy := NewDeployFromRepositoryAPI(
 		modelInfo.Type,
-		state,
 		applicationService,
 		ctx.ObjectStore(),
 		makeDeployFromRepositoryValidator(stdCtx, validatorCfg),
@@ -180,7 +172,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	)
 
 	return NewAPIBase(
-		state,
 		Services{
 			NetworkService:     domainServices.Network(),
 			ModelConfigService: domainServices.Config(),
@@ -212,18 +203,16 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 // DeployApplicationFunc is a function that deploys an application.
 type DeployApplicationFunc = func(
 	context.Context,
-	ApplicationDeployer,
 	model.ModelType,
 	ApplicationService,
 	objectstore.ObjectStore,
 	DeployApplicationParams,
 	corelogger.Logger,
 	clock.Clock,
-) (Application, error)
+) error
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
-	backend Backend,
 	services Services,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
@@ -248,7 +237,6 @@ func NewAPIBase(
 	}
 
 	return &APIBase{
-		backend:               backend,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		repoDeploy:            repoDeploy,
@@ -575,7 +563,7 @@ func (api *APIBase) deployApplication(
 	}
 
 	// TODO: replace model with model info/config services
-	_, err = api.deployApplicationFunc(ctx, api.backend, api.modelType, api.applicationService, api.store, DeployApplicationParams{
+	err = api.deployApplicationFunc(ctx, api.modelType, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             ch,
 		CharmOrigin:       origin,
@@ -819,22 +807,6 @@ func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]stri
 	return changes, nil
 }
 
-type setCharmParams struct {
-	AppName               string
-	Application           Application
-	CharmOrigin           *params.CharmOrigin
-	ConfigSettingsStrings map[string]string
-	ConfigSettingsYAML    string
-	ResourceIDs           map[string]string
-	StorageDirectives     map[string]params.StorageDirectives
-	EndpointBindings      map[string]network.SpaceName
-	Force                 forceParams
-}
-
-type forceParams struct {
-	ForceBase, ForceUnits, Force bool
-}
-
 // SetCharm sets the charm for a given for the application.
 // The v1 args use "storage-constraints" as the storage directive attr tag.
 func (api *APIv19) SetCharm(ctx context.Context, argsV1 params.ApplicationSetCharmV1) error {
@@ -849,218 +821,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return err
 	}
 
-	// when forced units in error, don't block
-	if !args.ForceUnits {
-		if err := api.check.ChangeAllowed(ctx); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if err := apiservercharms.ValidateCharmOrigin(args.CharmOrigin); err != nil {
-		return err
-	}
-
-	endpointBindings := transform.Map(args.EndpointBindings, func(k string, v string) (string, network.SpaceName) {
-		return k, network.SpaceName(v)
-	})
-
-	oneApplication, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return api.setCharmWithAgentValidation(
-		ctx,
-		setCharmParams{
-			AppName:               args.ApplicationName,
-			Application:           oneApplication,
-			CharmOrigin:           args.CharmOrigin,
-			ConfigSettingsStrings: args.ConfigSettings,
-			ConfigSettingsYAML:    args.ConfigSettingsYAML,
-			ResourceIDs:           args.ResourceIDs,
-			StorageDirectives:     args.StorageDirectives,
-			EndpointBindings:      endpointBindings,
-			Force: forceParams{
-				ForceBase:  args.ForceBase,
-				ForceUnits: args.ForceUnits,
-				Force:      args.Force,
-			},
-		},
-		args.CharmURL,
-	)
-}
-
-var (
-	storageUpgradeMessage = `
-Juju on containers does not support updating storage on a statefulset.
-The new charm's metadata contains updated storage declarations.
-You'll need to deploy a new charm rather than upgrading if you need this change.
-`[1:]
-
-	devicesUpgradeMessage = `
-Juju on containers does not support updating node selectors (configured from charm devices).
-The new charm's metadata contains updated device declarations.
-You'll need to deploy a new charm rather than upgrading if you need this change.
-`[1:]
-)
-
-// setCharmWithAgentValidation checks the agent versions of the application
-// and unit before continuing on. These checks are important to prevent old
-// code running at the same time as the new code. If you encounter the error,
-// the correct and only work around is to upgrade the units to match the
-// controller.
-func (api *APIBase) setCharmWithAgentValidation(
-	ctx context.Context,
-	params setCharmParams,
-	url string,
-) error {
-	newOrigin, err := convertCharmOrigin(params.CharmOrigin)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	newLocator, err := apiservercharms.CharmLocatorFromURL(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	newCharm, err := api.getCharm(ctx, newLocator)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if api.modelType == model.CAAS {
-		locator, err := api.getCharmLocatorByApplicationName(ctx, params.AppName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		currentMetadata, err := api.getCharmMetadata(ctx, locator)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// We need to disallow updates that k8s does not yet support,
-		// eg changing the filesystem or device directives.
-		// TODO(wallyworld) - support resizing of existing storage.
-		var unsupportedReason string
-		if !reflect.DeepEqual(currentMetadata.Storage, newCharm.Meta().Storage) {
-			unsupportedReason = storageUpgradeMessage
-		} else if !reflect.DeepEqual(currentMetadata.Devices, newCharm.Meta().Devices) {
-			unsupportedReason = devicesUpgradeMessage
-		}
-		if unsupportedReason != "" {
-			return errors.NotSupportedf(unsupportedReason)
-		}
-		origin, err := StateCharmOrigin(newOrigin)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return api.applicationSetCharm(ctx, params, newCharm, origin)
-	}
-
-	origin, err := StateCharmOrigin(newOrigin)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return api.applicationSetCharm(ctx, params, newCharm, origin)
-}
-
-// applicationSetCharm sets the charm and updated config
-// for the given application.
-func (api *APIBase) applicationSetCharm(
-	ctx context.Context,
-	params setCharmParams,
-	newCharm state.CharmRefFull,
-	newOrigin *state.CharmOrigin,
-) error {
-	appConfig, appSchema, charmSettings, appDefaults, err := parseCharmSettings(newCharm.Config(), params.AppName, params.ConfigSettingsStrings, params.ConfigSettingsYAML, environsconfig.NoDefaults)
-	if err != nil {
-		return errors.Annotate(err, "parsing config settings")
-	}
-	if err := appConfig.Validate(); err != nil {
-		return errors.Annotate(err, "validating config settings")
-	}
-	var stateStorageConstraints map[string]state.StorageConstraints
-	if len(params.StorageDirectives) > 0 {
-		stateStorageConstraints = make(map[string]state.StorageConstraints)
-		for name, cons := range params.StorageDirectives {
-			stateCons := state.StorageConstraints{Pool: cons.Pool}
-			if cons.Size != nil {
-				stateCons.Size = *cons.Size
-			}
-			if cons.Count != nil {
-				stateCons.Count = *cons.Count
-			}
-			stateStorageConstraints[name] = stateCons
-		}
-	}
-
-	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(ctx, api.applicationService, newCharm.Meta().Assumes); err != nil {
-		if !errors.Is(err, errors.NotSupported) || !params.Force.Force {
-			return errors.Trace(err)
-		}
-
-		api.logger.Warningf(ctx, "proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
-	}
-
-	force := params.Force
-	cfg := state.SetCharmConfig{
-		Charm:              newCharm,
-		CharmOrigin:        newOrigin,
-		ForceBase:          force.ForceBase,
-		ForceUnits:         force.ForceUnits,
-		Force:              force.Force,
-		PendingResourceIDs: params.ResourceIDs,
-		StorageConstraints: stateStorageConstraints,
-	}
-	if len(charmSettings) > 0 {
-		cfg.ConfigSettings = charmSettings
-	}
-
-	// Disallow downgrading from a v2 charm to a v1 charm.
-	oldCharmLocator, err := api.getCharmLocatorByApplicationName(ctx, params.AppName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	oldCharm, err := api.getCharm(ctx, oldCharmLocator)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if charm.MetaFormat(oldCharm) >= charm.FormatV2 && charm.MetaFormat(newCharm) == charm.FormatV1 {
-		return errors.New("cannot downgrade from v2 charm format to v1")
-	}
-
-	if err := params.Application.SetCharm(cfg, api.store); err != nil {
-		return errors.Annotate(err, "updating charm config")
-	}
-
-	var storageDirectives map[string]storage.Directive
-	if len(params.StorageDirectives) > 0 {
-		storageDirectives = make(map[string]storage.Directive)
-		for name, cons := range params.StorageDirectives {
-			sc := storage.Directive{Pool: cons.Pool}
-			if cons.Size != nil {
-				sc.Size = *cons.Size
-			}
-			if cons.Count != nil {
-				sc.Count = *cons.Count
-			}
-			storageDirectives[name] = sc
-		}
-	}
-
-	if err := api.applicationService.SetApplicationCharm(ctx, params.AppName, application.UpdateCharmParams{
-		Charm:               newCharm,
-		Storage:             storageDirectives,
-		CharmUpgradeOnError: params.Force.ForceUnits,
-		EndpointBindings:    params.EndpointBindings,
-	}); err != nil {
-		return errors.Annotatef(err, "updating charm for application %q", params.AppName)
-	}
-	if attr := appConfig.Attributes(); len(attr) > 0 {
-		return params.Application.UpdateApplicationConfig(attr, nil, appSchema, appDefaults)
-	}
-	return nil
+	return errors.NotImplemented
 }
 
 // charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
@@ -1746,15 +1507,7 @@ func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstrain
 		return errors.Trace(err)
 	}
 
-	// TODO(nvinuesa): Remove the double-write to mongodb once machines
-	// are fully migrated to dqlite domain. We need the application
-	// constraints to be available for machines, which still read from
-	// mongodb.
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return err
-	}
-	return app.SetConstraints(args.Constraints)
+	return nil
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
@@ -1984,38 +1737,6 @@ func (api *APIBase) unsetApplicationConfig(ctx context.Context, arg params.Appli
 		return errors.Trace(err)
 	}
 
-	app, err := api.backend.Application(arg.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	configSchema, defaults, err := ConfigSchema()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	appConfigFields := config.KnownConfigKeys(configSchema)
-
-	var appConfigKeys []string
-	charmSettings := make(charm.Settings)
-	for _, name := range arg.Options {
-		if appConfigFields.Contains(name) {
-			appConfigKeys = append(appConfigKeys, name)
-		} else {
-			charmSettings[name] = nil
-		}
-	}
-
-	if len(appConfigKeys) > 0 {
-		if err := app.UpdateApplicationConfig(nil, appConfigKeys, configSchema, defaults); err != nil {
-			return errors.Annotate(err, "updating application config values")
-		}
-	}
-
-	if len(charmSettings) > 0 {
-		if err := app.UpdateCharmConfig(charmSettings); err != nil {
-			return errors.Annotate(err, "updating application charm settings")
-		}
-	}
 	return nil
 }
 

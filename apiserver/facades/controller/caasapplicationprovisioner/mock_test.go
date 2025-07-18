@@ -65,14 +65,6 @@ func (st *mockState) APIHostPortsForAgents(controllerConfig controller.Config) (
 	}, nil
 }
 
-func (st *mockState) Application(appName string) (caasapplicationprovisioner.Application, error) {
-	st.MethodCall(st, "Application", appName)
-	if appName != "gitlab" {
-		return nil, errors.NotFoundf("app %v", appName)
-	}
-	return st.app, nil
-}
-
 func (st *mockState) Model() (caasapplicationprovisioner.Model, error) {
 	st.MethodCall(st, "Model")
 	if err := st.NextErr(); err != nil {

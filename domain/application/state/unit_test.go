@@ -1526,7 +1526,8 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	s.assertUnitPrincipal(c, pUnitName, sUnitName)
 	s.assertUnitMachinesMatch(c, pUnitName, sUnitName)
 
-	c.Assert(machineNames, tc.HasLen, 0)
+	c.Assert(machineNames, tc.HasLen, 1)
+	c.Check(machineNames[0], tc.Equals, coremachine.Name("0"))
 }
 
 // TestAddIAASSubordinateUnitSecondSubordinate tests that a second subordinate unit
@@ -1570,7 +1571,8 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitSecondSubordinate(
 	s.assertUnitPrincipal(c, pUnitName2, sUnitName2)
 	s.assertUnitMachinesMatch(c, pUnitName2, sUnitName2)
 
-	c.Assert(machineNames, tc.HasLen, 0)
+	c.Assert(machineNames, tc.HasLen, 1)
+	c.Check(machineNames[0], tc.Equals, coremachine.Name("1"))
 }
 
 func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitTwiceToSameUnit(c *tc.C) {

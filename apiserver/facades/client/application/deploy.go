@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/internal/charm/assumes"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/state"
 )
 
 // ModelService provides access to the model state.
@@ -48,7 +47,7 @@ type ModelService interface {
 // charm.
 type DeployApplicationParams struct {
 	ApplicationName   string
-	Charm             Charm
+	Charm             *domainCharm
 	CharmOrigin       corecharm.Origin
 	ApplicationConfig *config.Config
 	CharmConfig       charm.Settings
@@ -69,40 +68,36 @@ type DeployApplicationParams struct {
 	Force bool
 }
 
-type ApplicationDeployer interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-}
-
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
-	ctx context.Context, st ApplicationDeployer,
+	ctx context.Context,
 	modelType coremodel.ModelType,
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
 	logger corelogger.Logger,
 	clock clock.Clock,
-) (Application, error) {
+) error {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if args.Charm.Meta().Name == bootstrap.ControllerCharmName {
-		return nil, errors.NotSupportedf("manual deploy of the controller charm")
+		return errors.NotSupportedf("manual deploy of the controller charm")
 	}
 	if args.Charm.Meta().Subordinate {
 		if args.NumUnits != 0 {
-			return nil, fmt.Errorf("subordinate application must be deployed without units")
+			return fmt.Errorf("subordinate application must be deployed without units")
 		}
 		if !constraints.IsEmpty(&args.Constraints) {
-			return nil, fmt.Errorf("subordinate application must be deployed without constraints")
+			return fmt.Errorf("subordinate application must be deployed without constraints")
 		}
 	}
 
 	// Enforce "assumes" requirements.
 	if err := assertCharmAssumptions(ctx, applicationService, args.Charm.Meta().Assumes); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !args.Force {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 
 		logger.Warningf(ctx, "proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
@@ -110,117 +105,87 @@ func DeployApplication(
 
 	if modelType == coremodel.CAAS {
 		if charm.MetaFormat(args.Charm) == charm.FormatV1 {
-			return nil, errors.NotSupportedf("deploying format v1 charm %q", args.ApplicationName)
+			return errors.NotSupportedf("deploying format v1 charm %q", args.ApplicationName)
 		}
 	}
 
-	// TODO(fwereade): transactional State.AddApplication including settings, constraints
-	// (minimumUnitCount, initialMachineIds?).
-
-	origin, err := StateCharmOrigin(args.CharmOrigin)
+	chURL, err := charm.ParseURL(args.Charm.URL())
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	asa := state.AddApplicationArgs{
-		Name:              args.ApplicationName,
-		Charm:             args.Charm,
-		CharmURL:          args.Charm.URL(),
-		CharmOrigin:       origin,
-		Storage:           stateStorageDirectives(args.Storage),
-		AttachStorage:     args.AttachStorage,
-		ApplicationConfig: args.ApplicationConfig,
-		CharmConfig:       charmConfig,
-		NumUnits:          args.NumUnits,
-		Placement:         args.Placement,
-		Resources:         args.Resources,
+		return errors.Trace(err)
 	}
 
-	if !args.Charm.Meta().Subordinate {
-		asa.Constraints = args.Constraints
-	}
-
-	app, err := st.AddApplication(asa, store)
-
-	// Dual write storage directives to dqlite.
-	if err == nil {
-		chURL, err := charm.ParseURL(args.Charm.URL())
+	var downloadInfo *applicationcharm.DownloadInfo
+	if args.CharmOrigin.Source == corecharm.CharmHub {
+		locator, err := charms.CharmLocatorFromURL(args.Charm.URL())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
-
-		var downloadInfo *applicationcharm.DownloadInfo
-		if args.CharmOrigin.Source == corecharm.CharmHub {
-			locator, err := charms.CharmLocatorFromURL(args.Charm.URL())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, locator)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		pendingResources, err := transformToPendingResources(args.Resources)
+		downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, locator)
 		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		attrs := args.ApplicationConfig.Attributes()
-		trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
-
-		applicationArg := applicationservice.AddApplicationArgs{
-			ReferenceName:    chURL.Name,
-			DownloadInfo:     downloadInfo,
-			PendingResources: pendingResources,
-			EndpointBindings: args.EndpointBindings,
-			Devices:          args.Devices,
-			ApplicationStatus: &status.StatusInfo{
-				Status: status.Unset,
-				Since:  ptr(clock.Now()),
-			},
-			ApplicationConfig: config.ConfigAttributes(charmConfig),
-			ApplicationSettings: application.ApplicationSettings{
-				Trust: trust,
-			},
-			Constraints: args.Constraints,
-		}
-		if modelType == coremodel.CAAS {
-			unitArgs, err := makeCAASUnitArgs(args)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			_, err = applicationService.CreateCAASApplication(
-				ctx,
-				args.ApplicationName,
-				args.Charm,
-				args.CharmOrigin,
-				applicationArg,
-				unitArgs...,
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		} else {
-			unitArgs, err := makeIAASUnitArgs(args)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			_, err = applicationService.CreateIAASApplication(
-				ctx,
-				args.ApplicationName,
-				args.Charm,
-				args.CharmOrigin,
-				applicationArg,
-				unitArgs...,
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 	}
-	return app, errors.Trace(err)
+
+	pendingResources, err := transformToPendingResources(args.Resources)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	attrs := args.ApplicationConfig.Attributes()
+	trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
+
+	applicationArg := applicationservice.AddApplicationArgs{
+		ReferenceName:    chURL.Name,
+		DownloadInfo:     downloadInfo,
+		PendingResources: pendingResources,
+		EndpointBindings: args.EndpointBindings,
+		Devices:          args.Devices,
+		ApplicationStatus: &status.StatusInfo{
+			Status: status.Unset,
+			Since:  ptr(clock.Now()),
+		},
+		ApplicationConfig: config.ConfigAttributes(charmConfig),
+		ApplicationSettings: application.ApplicationSettings{
+			Trust: trust,
+		},
+		Constraints: args.Constraints,
+	}
+	if modelType == coremodel.CAAS {
+		unitArgs, err := makeCAASUnitArgs(args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = applicationService.CreateCAASApplication(
+			ctx,
+			args.ApplicationName,
+			args.Charm,
+			args.CharmOrigin,
+			applicationArg,
+			unitArgs...,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		unitArgs, err := makeIAASUnitArgs(args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err = applicationService.CreateIAASApplication(
+			ctx,
+			args.ApplicationName,
+			args.Charm,
+			args.CharmOrigin,
+			applicationArg,
+			unitArgs...,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return errors.Trace(err)
 }
 
 func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAASUnitArg, error) {
@@ -315,44 +280,6 @@ func (api *APIBase) addUnits(
 	}
 
 	return units, nil
-}
-
-func stateStorageDirectives(cons map[string]storage.Directive) map[string]state.StorageConstraints {
-	result := make(map[string]state.StorageConstraints)
-	for name, cons := range cons {
-		result[name] = state.StorageConstraints{
-			Pool:  cons.Pool,
-			Size:  cons.Size,
-			Count: cons.Count,
-		}
-	}
-	return result
-}
-
-// StateCharmOrigin returns a state layer CharmOrigin given a core Origin.
-func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
-	var ch *state.Channel
-	if c := origin.Channel; c != nil {
-		normalizedC := c.Normalize()
-		ch = &state.Channel{
-			Track:  normalizedC.Track,
-			Risk:   string(normalizedC.Risk),
-			Branch: normalizedC.Branch,
-		}
-	}
-	return &state.CharmOrigin{
-		Type:     origin.Type,
-		Source:   string(origin.Source),
-		ID:       origin.ID,
-		Hash:     origin.Hash,
-		Revision: origin.Revision,
-		Channel:  ch,
-		Platform: &state.Platform{
-			Architecture: origin.Platform.Architecture,
-			OS:           origin.Platform.OS,
-			Channel:      origin.Platform.Channel,
-		},
-	}, nil
 }
 
 func assertCharmAssumptions(

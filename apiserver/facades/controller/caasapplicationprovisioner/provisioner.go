@@ -367,13 +367,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	// TODO: Either this needs to be implemented in the application domain or the worker
 	// needs to be refactored to fetch each value individually.
 	appName := appTag.Id()
-	// TODO(storage): We must keep this legacy Application here because of
-	// `StorageConstraints()`. Once that's migrated to dqlite this should be
-	// removed in favor of a domain service method.
-	app, err := a.state.Application(appName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	locator, err := a.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
@@ -409,7 +402,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 
-	filesystemParams, err := a.applicationFilesystemParams(ctx, app, appName, locator, cfg, modelConfig, modelInfo.UUID)
+	filesystemParams, err := a.applicationFilesystemParams(ctx, appName, locator, cfg, modelConfig, modelInfo.UUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -608,17 +601,15 @@ func poolStorageProvider(ctx context.Context, storagePoolGetter StoragePoolGette
 
 func (a *API) applicationFilesystemParams(
 	ctx context.Context,
-	app Application,
 	appName string,
 	locator applicationcharm.CharmLocator,
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
 	modelUUID model.UUID,
 ) ([]params.KubernetesFilesystemParams, error) {
-	storageConstraints, err := app.StorageConstraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	// TODO(storage): The storage constraints must be correctly retrieved from
+	// the (storage) domain service and stop using state types.
+	storageConstraints := make(map[string]state.StorageConstraints)
 
 	charmStorage, err := a.applicationService.GetCharmMetadataStorage(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
