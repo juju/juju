@@ -341,6 +341,7 @@ func (t *s3ObjectStore) RemoveAll(ctx context.Context) error {
 func (t *s3ObjectStore) Report() map[string]any {
 	report := make(map[string]any)
 
+	report["type"] = "s3-object-store"
 	report["namespace"] = t.namespace
 	report["path"] = t.path
 	report["rootBucket"] = t.rootBucket

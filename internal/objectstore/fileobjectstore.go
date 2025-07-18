@@ -371,6 +371,7 @@ func (t *fileObjectStore) RemoveAll(ctx context.Context) error {
 func (t *fileObjectStore) Report() map[string]any {
 	report := make(map[string]any)
 
+	report["type"] = "file-object-store"
 	report["namespace"] = t.namespace
 	report["path"] = t.path
 	report["remote"] = t.remoteRunner.Report()

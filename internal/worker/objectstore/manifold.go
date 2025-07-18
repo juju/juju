@@ -208,10 +208,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                     config.Clock,
 				Logger:                    config.Logger,
 				NewObjectStoreWorker:      config.NewObjectStoreWorker,
-				ObjectStoreType:           controllerConfig.ObjectStoreType(),
 				S3Client:                  s3Client,
 				APIRemoteCaller:           apiRemoteCaller,
 				ControllerMetadataService: metadataService,
+				ControllerConfigService:   controllerConfigService,
 				ModelServiceGetter: modelServiceGetter{
 					servicesGetter: objectStoreServicesGetter,
 				},
