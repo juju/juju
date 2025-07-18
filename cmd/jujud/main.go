@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/debug/coveruploader"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -202,8 +203,12 @@ type versionDetail struct {
 	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
 	// Compiler reported by runtime.Compiler
 	Compiler string `json:"compiler" yaml:"compiler"`
-	// OfficialBuild is a monotonic integer set by Jenkins.
-	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
+	// OfficialBuildNumber is a monotonic integer set by Jenkins.
+	OfficialBuildNumber int `json:"official-build-number,omitempty" yaml:"official-build-number,omitempty"`
+	// Official is true if this is an official build.
+	Official bool `json:"official" yaml:"official"`
+	// Grade reflects the snap grade value.
+	Grade string `json:"grade,omitempty" yaml:"grade,omitempty"`
 	// GoBuildTags is the build tags used to build the binary.
 	GoBuildTags string `json:"go-build-tags,omitempty" yaml:"go-build-tags,omitempty"`
 }
@@ -234,11 +239,14 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		Release: coreos.HostOSTypeName(),
 	}
 	detail := versionDetail{
-		Version:      current.String(),
-		GitCommit:    jujuversion.GitCommit,
-		GitTreeState: jujuversion.GitTreeState,
-		Compiler:     jujuversion.Compiler,
-		GoBuildTags:  jujuversion.GoBuildTags,
+		Version:             current.String(),
+		GitCommit:           jujuversion.GitCommit,
+		GitTreeState:        jujuversion.GitTreeState,
+		Compiler:            jujuversion.Compiler,
+		GoBuildTags:         jujuversion.GoBuildTags,
+		OfficialBuildNumber: jujuversion.OfficialBuild,
+		Official:            isOfficial(),
+		Grade:               jujuversion.Grade,
 	}
 
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
@@ -285,6 +293,17 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
+}
+
+func isOfficial() bool {
+	// If there's an error getting jujud version, play it safe.
+	// We pretend it's not official.
+	jujudPath, err := tools.ExistingJujuLocation()
+	if err != nil {
+		return false
+	}
+	_, err = tools.GetVersionFromFile(jujudPath)
+	return err == nil
 }
 
 // MainWrapper exists to preserve test functionality.
