@@ -118,7 +118,7 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		SelectFileHash: func(m objectstore.Metadata) string {
 			return m.SHA384
 		},
-		NewDrainerWorker: newDrainWorker,
+		NewDrainerWorker: NewDrainWorker,
 		NewWorker: func(config Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
 		},

@@ -724,11 +724,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// against any objectstore operations while the draining is in progress.
 		objectStoreFortressName: fortress.Manifold(),
 		objectStoreDrainerName: objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
-			ObjectStoreServicesName: objectStoreServicesName,
-			FortressName:            objectStoreFortressName,
-			GeObjectStoreServicesFn: objectstoredrainer.GeObjectStoreServices,
-			NewWorker:               objectstoredrainer.NewWorker,
-			Logger:                  internallogger.GetLogger("juju.worker.objectstoredrainer"),
+			AgentName:                  agentName,
+			S3ClientName:               objectStoreS3CallerName,
+			ObjectStoreServicesName:    objectStoreServicesName,
+			FortressName:               objectStoreFortressName,
+			GetControllerService:       objectstoredrainer.GetControllerService,
+			GeObjectStoreServices:      objectstoredrainer.GeObjectStoreServicesGetter,
+			GetGuardService:            objectstoredrainer.GetGuardService,
+			GetControllerConfigService: objectstoredrainer.GetControllerConfigService,
+			NewHashFileSystemAccessor:  objectstoredrainer.NewHashFileStoreAccessor,
+			NewDrainerWorker:           objectstoredrainer.NewDrainWorker,
+			SelectFileHash:             internalobjectstore.SelectFileHash,
+			NewWorker:                  objectstoredrainer.NewWorker,
+			Logger:                     internallogger.GetLogger("juju.worker.objectstoredrainer"),
+			Clock:                      config.Clock,
 		}),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
