@@ -4,9 +4,9 @@
 package objectstoredrainer
 
 import (
-	"context"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -14,11 +14,15 @@ import (
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
+	gomock "go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
+	internaltesting "github.com/juju/juju/internal/testing"
 )
 
 type manifoldSuite struct {
@@ -38,6 +42,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig(c)
+	cfg.AgentName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
 	cfg.FortressName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -46,7 +54,35 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.GeObjectStoreServicesFn = nil
+	cfg.S3ClientName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.GetControllerService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.GeObjectStoreServices = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.GetGuardService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.GetControllerConfigService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.NewHashFileSystemAccessor = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.SelectFileHash = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.NewDrainerWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -60,27 +96,48 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
+		AgentName:               "agent",
 		FortressName:            "fortress",
 		ObjectStoreServicesName: "object-store-services",
-		GeObjectStoreServicesFn: func(getter dependency.Getter, name string) (ObjectStoreService, error) {
-			return s.service, nil
+		S3ClientName:            "s3-client",
+		GetControllerService: func(g dependency.Getter, s string) (ControllerService, error) {
+			return nil, nil
 		},
-		NewWorker: func(ctx context.Context, c Config) (worker.Worker, error) {
+		GeObjectStoreServices: func(g dependency.Getter, s string) (ObjectStoreServicesGetter, error) {
+			return nil, nil
+		},
+		GetGuardService: func(g dependency.Getter, s string) (GuardService, error) {
+			return nil, nil
+		},
+		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
+			return s.controllerConfigService, nil
+		},
+		NewHashFileSystemAccessor: func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
+			return nil
+		},
+		SelectFileHash: func(m objectstore.Metadata) string {
+			return m.SHA384
+		},
+		NewDrainerWorker: newDrainWorker,
+		NewWorker: func(config Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
+		Clock:  clock.WallClock,
 	}
 }
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
+		"agent":                 s.agent,
 		"fortress":              s.guard,
+		"s3-client":             s.s3Client,
 		"object-store-services": &stubObjectStoreServicesGetter{},
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"fortress", "object-store-services"}
+var expectedInputs = []string{"agent", "fortress", "s3-client", "object-store-services"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig(c)).Inputs, tc.SameContents, expectedInputs)
@@ -88,6 +145,10 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
+	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(internaltesting.FakeControllerConfig(), nil)
 
 	w, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
