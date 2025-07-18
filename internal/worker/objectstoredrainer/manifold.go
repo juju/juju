@@ -33,9 +33,13 @@ type ObjectStoreServicesGetter interface {
 	ServicesForModel(modelUUID model.UUID) ObjectStoreService
 }
 
-// GetObjectStoreServiceServicesFunc is a function that retrieves the
+// GetControllerServiceFunc is a function that retrieves the
+// controller object store services from the dependency getter.
+type GetControllerServiceFunc func(dependency.Getter, string) (ControllerService, error)
+
+// GetObjectStoreServicesFunc is a function that retrieves the
 // object store services from the dependency getter.
-type GetObjectStoreServiceServicesFunc func(dependency.Getter, string) (ObjectStoreServicesGetter, error)
+type GetObjectStoreServicesFunc func(dependency.Getter, string) (ObjectStoreServicesGetter, error)
 
 // GetGuardServiceFunc is a function that retrieves the
 // controller object store services from the dependency getter.
@@ -60,10 +64,13 @@ type ManifoldConfig struct {
 	FortressName            string
 	S3ClientName            string
 
-	GeObjectStoreServices      GetObjectStoreServiceServicesFunc
+	GetControllerService       GetControllerServiceFunc
+	GeObjectStoreServices      GetObjectStoreServicesFunc
 	GetGuardService            GetGuardServiceFunc
 	GetControllerConfigService GetControllerConfigServiceFunc
 	NewWorker                  func(Config) (worker.Worker, error)
+	NewHashFileSystemAccessor  NewHashFileSystemAccessorFunc
+	SelectFileHash             SelectFileHashFunc
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -86,11 +93,20 @@ func (config ManifoldConfig) Validate() error {
 	if config.GeObjectStoreServices == nil {
 		return errors.NotValidf("nil GeObjectStoreServices")
 	}
+	if config.GetControllerConfigService == nil {
+		return errors.NotValidf("nil GetControllerConfigService")
+	}
 	if config.GetGuardService == nil {
 		return errors.NotValidf("nil GetGuardService")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.NewHashFileSystemAccessor == nil {
+		return errors.NotValidf("nil NewHashFileSystemAccessor")
+	}
+	if config.SelectFileHash == nil {
+		return errors.NotValidf("nil SelectFileHash")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -109,7 +125,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	var a agent.Agent
 	if err := getter.Get(config.AgentName, &a); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	controllerConfigService, err := config.GetControllerConfigService(getter, config.ObjectStoreServicesName)
@@ -118,6 +134,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	guardService, err := config.GetGuardService(getter, config.ObjectStoreServicesName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerService, err := config.GetControllerService(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -151,7 +172,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	worker, err := config.NewWorker(Config{
 		Guard:                     fortress,
 		GuardService:              guardService,
+		ControllerService:         controllerService,
 		ObjectStoreServicesGetter: objectStoreServicesGetter,
+		NewHashFileSystemAccessor: config.NewHashFileSystemAccessor,
+		SelectFileHash:            config.SelectFileHash,
 		S3Client:                  s3Client,
 		RootDir:                   dataDir,
 		RootBucketName:            rootBucketName,
@@ -177,9 +201,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// GetObjectStoreServices retrieves the ObjectStoreService using the given
+// GetControllerService retrieves the ControllerService using the given
 // service.
-func GeObjectStoreServices(getter dependency.Getter, name string) (ObjectStoreServicesGetter, error) {
+func GetControllerService(getter dependency.Getter, name string) (ControllerService, error) {
+	var services services.ControllerObjectStoreServices
+	if err := getter.Get(name, &services); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return services.Controller(), nil
+}
+
+// GeObjectStoreServicesGetter retrieves the ObjectStoreService using the given
+// service.
+func GeObjectStoreServicesGetter(getter dependency.Getter, name string) (ObjectStoreServicesGetter, error) {
 	var services services.ObjectStoreServicesGetter
 	if err := getter.Get(name, &services); err != nil {
 		return nil, errors.Trace(err)
@@ -190,7 +225,7 @@ func GeObjectStoreServices(getter dependency.Getter, name string) (ObjectStoreSe
 	}, nil
 }
 
-func GetControllerObjectStoreServices(getter dependency.Getter, name string) (GuardService, error) {
+func GetGuardService(getter dependency.Getter, name string) (GuardService, error) {
 	var services services.ControllerObjectStoreServices
 	if err := getter.Get(name, &services); err != nil {
 		return nil, errors.Trace(err)
