@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
@@ -101,6 +102,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 		AgentVersion:       jujuversion.Current,
 		LatestAgentVersion: jujuversion.Current,
 		ControllerUUID:     s.controllerUUID,
+		Life:               corelife.Alive,
 		Name:               "my-awesome-model",
 		Qualifier:          "prod",
 		Type:               coremodel.IAAS,
@@ -303,6 +305,7 @@ func (s *modelSuite) TestGetModelMetrics(c *tc.C) {
 			UUID:               id,
 			AgentVersion:       jujuversion.Current,
 			LatestAgentVersion: jujuversion.Current,
+			Life:               corelife.Alive,
 			ControllerUUID:     s.controllerUUID,
 			Name:               "my-awesome-model",
 			Qualifier:          "prod",
