@@ -95,6 +95,17 @@ func (w *drainWorker) Report() map[string]any {
 func (w *drainWorker) loop() error {
 	ctx := w.tomb.Context(context.Background())
 
+	// Ensure that we have the base directory.
+	if err := w.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		err := s.CreateBucket(ctx, w.rootBucket)
+		if err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
 	// Drain any files from the file object store to the s3 object store.
 	// This will locate any files from the metadata service that are not
 	// present in the s3 object store and copy them over.
