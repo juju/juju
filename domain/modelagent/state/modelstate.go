@@ -219,6 +219,80 @@ WHERE mb.base NOT IN ($machineBaseValues[:])
 	return machineCount.Count, nil
 }
 
+// GetMachineAgentBinaryMetadata reports the agent binary metadata that is
+// currently running a given machine.
+//
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] when the machine being asked for does not
+// exist.
+// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
+// for one or more machines in the model.
+func (st *State) GetMachineAgentBinaryMetadata(ctx context.Context, mName string) (coreagentbinary.Metadata, error) {
+	db, err := st.DB()
+	if err != nil {
+		return coreagentbinary.Metadata{}, errors.Capture(err)
+	}
+
+	ident := machineName{Name: mName}
+	stmt, err := st.Prepare(`
+SELECT    mav.version AS &agentBinaryMetadata.version,
+          mav.architecture_name AS &agentBinaryMetadata.architecture_name,
+          osm.size AS &agentBinaryMetadata.size,
+          osm.sha_256 AS &agentBinaryMetadata.sha_256,
+          osm.sha_384 AS &agentBinaryMetadata.sha_384
+FROM      v_machine_agent_version AS mav
+LEFT JOIN v_agent_binary_store AS abs ON (
+          mav.version = abs.version
+AND       mav.architecture_id = abs.architecture_id)
+LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
+WHERE     mav.name = $machineName.name
+`, agentBinaryMetadata{}, ident)
+	if err != nil {
+		return coreagentbinary.Metadata{}, errors.Capture(err)
+	}
+
+	var agentBinaryMetadata agentBinaryMetadata
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).Get(&agentBinaryMetadata)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q not found", mName).Add(machineerrors.MachineNotFound)
+		} else if err != nil {
+			return errors.Errorf("getting machine %q agent binary metadata: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return coreagentbinary.Metadata{}, errors.Capture(err)
+	}
+
+	if !agentBinaryMetadata.SHA256.Valid ||
+		!agentBinaryMetadata.SHA384.Valid ||
+		!agentBinaryMetadata.Size.Valid {
+		return coreagentbinary.Metadata{}, errors.Errorf(
+			"machine %q has missing agent binaries in the model",
+			mName,
+		).Add(modelagenterrors.MissingAgentBinaries)
+	}
+
+	number, err := semversion.Parse(agentBinaryMetadata.Version)
+	if err != nil {
+		return coreagentbinary.Metadata{}, errors.Errorf(
+			"parsing machine %q agent binary version %q number: %w",
+			mName, agentBinaryMetadata.Version, err,
+		)
+	}
+
+	return coreagentbinary.Metadata{
+		SHA256: agentBinaryMetadata.SHA256.String,
+		SHA384: agentBinaryMetadata.SHA384.String,
+		Size:   agentBinaryMetadata.Size.Int64,
+		Version: coreagentbinary.Version{
+			Number: number,
+			Arch:   agentBinaryMetadata.Architecture,
+		},
+	}, nil
+}
+
 // GetMachinesAgentBinaryMetadata reports the agent binary metadata that each
 // machine in the model is currently running. This is a bulk call to support
 // operations such as model export where it is expected that the state of a

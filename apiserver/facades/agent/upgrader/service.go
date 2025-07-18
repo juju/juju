@@ -24,6 +24,10 @@ type ModelAgentService interface {
 	// not exist.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
+	// GetMachineAgentBinaryMetadata reports the agent binary metadata that is
+	// currently running a given machine.
+	GetMachineAgentBinaryMetadata(context.Context, machine.Name) (coreagentbinary.Metadata, error)
+
 	// SetMachineReportedAgentVersion sets the reported agent version for the
 	// supplied machine name. Reported agent version is the version that the
 	// agent binary on this machine has reported it is running.

@@ -14,18 +14,18 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // UnitUpgraderAPI provides access to the UnitUpgrader API facade.
 type UnitUpgraderAPI struct {
-	st                 *state.State
 	authorizer         facade.Authorizer
 	modelAgentService  ModelAgentService
 	applicationService ApplicationService
@@ -34,14 +34,12 @@ type UnitUpgraderAPI struct {
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
 func NewUnitUpgraderAPI(
-	st *state.State,
 	authorizer facade.Authorizer,
 	modelAgentService ModelAgentService,
 	applicationService ApplicationService,
 	watcherRegistry facade.WatcherRegistry,
 ) *UnitUpgraderAPI {
 	return &UnitUpgraderAPI{
-		st:                 st,
 		authorizer:         authorizer,
 		modelAgentService:  modelAgentService,
 		applicationService: applicationService,
@@ -213,52 +211,67 @@ func (u *UnitUpgraderAPI) Tools(ctx context.Context, args params.Entities) (para
 	return result, nil
 }
 
-func (u *UnitUpgraderAPI) getAssignedMachine(ctx context.Context, tag names.Tag) (*state.Machine, error) {
+func (u *UnitUpgraderAPI) getAssignedMachine(ctx context.Context, tag names.Tag) (machine.Name, error) {
 	// Check that we really have a unit tag.
 	switch tag := tag.(type) {
 	case names.UnitTag:
 		unitName, err := coreunit.NewName(tag.Id())
 		if err != nil {
-			return nil, apiservererrors.ErrPerm
+			return "", apiservererrors.ErrPerm
 		}
-		id, err := u.applicationService.GetUnitMachineName(ctx, unitName)
+		machineName, err := u.applicationService.GetUnitMachineName(ctx, unitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return nil, apiservererrors.ServerError(coreerrors.NotFound)
+			return "", apiservererrors.ServerError(coreerrors.NotFound)
 		} else if err != nil {
-			return nil, err
+			return "", err
 		}
-		return u.st.Machine(id.String())
+		return machineName, nil
 	default:
-		return nil, apiservererrors.ErrPerm
+		return "", apiservererrors.ErrPerm
 	}
 }
 
 func (u *UnitUpgraderAPI) getMachineTools(ctx context.Context, tag names.Tag) params.ToolsResult {
 	var result params.ToolsResult
-	machine, err := u.getAssignedMachine(ctx, tag)
+	machineName, err := u.getAssignedMachine(ctx, tag)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
-	machineTools, err := machine.AgentTools()
-	if err != nil {
+
+	machineTools, err := u.modelAgentService.GetMachineAgentBinaryMetadata(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		result.Error = apiservererrors.ServerError(coreerrors.NotFound)
+		return result
+	} else if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 	// We are okay returning the tools for just the one API server
 	// address since the unit agent won't try to download tools that
 	// are already present on the machine.
-	result.ToolsList = tools.List{machineTools}
+	vers, err := semversion.ParseBinary(machineTools.Version.String())
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+	result.ToolsList = tools.List{{
+		Version: vers,
+		SHA256:  machineTools.SHA256,
+		Size:    machineTools.Size,
+	}}
 	return result
 }
 
 func (u *UnitUpgraderAPI) getMachineToolsVersion(ctx context.Context, tag names.Tag) (*semversion.Number, error) {
-	machine, err := u.getAssignedMachine(ctx, tag)
+	machineName, err := u.getAssignedMachine(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
-	machineTools, err := machine.AgentTools()
-	if err != nil {
+	machineTools, err := u.modelAgentService.GetMachineAgentBinaryMetadata(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil, coreerrors.NotFound
+	} else if err != nil {
 		return nil, err
 	}
 	return &machineTools.Version.Number, nil
