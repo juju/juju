@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -57,10 +56,6 @@ type InitializeParams struct {
 	// defaults this if 0.
 	WatcherPollInterval time.Duration
 
-	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
-	// and should disapear as soon as we migrate units and applications.
-	CharmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
-
 	// SSHServerHostKey holds the embedded SSH server host key.
 	SSHServerHostKey string
 }
@@ -91,7 +86,6 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		MaxTxnAttempts:      args.MaxTxnAttempts,
 		WatcherPollInterval: args.WatcherPollInterval,
 		NewPolicy:           args.NewPolicy,
-		CharmServiceGetter:  args.CharmServiceGetter,
 	})
 	return ctlr, nil
 }
