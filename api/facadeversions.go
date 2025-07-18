@@ -68,7 +68,7 @@ var facadeVersions = facades.FacadeVersions{
 	"MigrationMaster":              {4, 5},
 	"MigrationMinion":              {1},
 	"MigrationStatusWatcher":       {1},
-	"MigrationTarget":              {4, 5, 6},
+	"MigrationTarget":              {4, 5, 6, 7},
 	"ModelConfig":                  {3, 4},
 	"ModelManager":                 {9, 10, 11},
 	"ModelSummaryWatcher":          {1},

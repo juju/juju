@@ -271,6 +271,7 @@ func (c *Client) ConfigSet(ctx context.Context, values map[string]interface{}) e
 // a single model.
 type MigrationSpec struct {
 	ModelUUID             string
+	SkipUserChecks        bool
 	TargetControllerUUID  string
 	TargetControllerAlias string
 	TargetAddrs           []string
@@ -329,6 +330,7 @@ func (c *Client) InitiateMigration(ctx context.Context, spec MigrationSpec) (str
 				AuthTag:         names.NewUserTag(spec.TargetUser).String(),
 				Password:        spec.TargetPassword,
 				Macaroons:       macsJSON,
+				SkipUserChecks:  spec.SkipUserChecks,
 				Token:           spec.TargetToken,
 			},
 		}},

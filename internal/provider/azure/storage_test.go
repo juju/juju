@@ -11,7 +11,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -412,7 +412,7 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *tc.C) {
 	c.Assert(results[0], tc.ErrorIsNil)
 }
 
-func (s *storageSuite) TestAttachVolumes(c *tc.C) {
+func (s *storageSuite) TestAttachVolumesSCSI(c *tc.C) {
 	// machine-1 has a single data disk with LUN 0.
 	machine1DataDisks := []*armcompute.DataDisk{{
 		Lun:  to.Ptr(int32(0)),
@@ -431,7 +431,7 @@ func (s *storageSuite) TestAttachVolumes(c *tc.C) {
 	// volume-1 is attached to machine-1
 	// volume-3 is attached to machine-42, but machine-42 is missing
 	// volume-42 is attached to machine-2, but machine-2 has no free LUNs
-	makeParams := func(volume, machine string, size uint64) storage.VolumeAttachmentParams {
+	makeParams := func(volume, machine string) storage.VolumeAttachmentParams {
 		return storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   "azure",
@@ -443,11 +443,11 @@ func (s *storageSuite) TestAttachVolumes(c *tc.C) {
 		}
 	}
 	params := []storage.VolumeAttachmentParams{
-		makeParams("0", "0", 1),
-		makeParams("1", "1", 1025),
-		makeParams("2", "0", 1024),
-		makeParams("3", "42", 40),
-		makeParams("42", "2", 50),
+		makeParams("0", "0"),
+		makeParams("1", "1"),
+		makeParams("2", "0"),
+		makeParams("4", "42"),
+		makeParams("42", "2"),
 	}
 
 	virtualMachines := []*armcompute.VirtualMachine{{
@@ -480,18 +480,29 @@ func (s *storageSuite) TestAttachVolumes(c *tc.C) {
 	s.sender = azuretesting.Senders{
 		virtualMachinesSender,
 		updateVirtualMachine0Sender,
-		updateVirtualMachine0Sender,
 	}
 
 	results, err := volumeSource.AttachVolumes(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, len(params))
 
-	c.Check(results[0].Error, tc.ErrorIsNil)
-	c.Check(results[1].Error, tc.ErrorIsNil)
-	c.Check(results[2].Error, tc.ErrorIsNil)
-	c.Check(results[3].Error, tc.ErrorMatches, "instance machine-42 not found")
-	c.Check(results[4].Error, tc.ErrorMatches, "choosing LUN: all LUNs are in use")
+	c.Assert(results[0].Error, tc.ErrorIsNil)
+	c.Assert(results[0].VolumeAttachment, tc.NotNil)
+	c.Assert(results[0].VolumeAttachment.VolumeAttachmentInfo, tc.DeepEquals, storage.VolumeAttachmentInfo{
+		DeviceLink: "/dev/disk/azure/scsi1/lun0",
+	})
+	c.Assert(results[1].Error, tc.ErrorIsNil)
+	c.Assert(results[1].VolumeAttachment, tc.NotNil)
+	c.Assert(results[1].VolumeAttachment.VolumeAttachmentInfo, tc.DeepEquals, storage.VolumeAttachmentInfo{
+		DeviceLink: "/dev/disk/azure/scsi1/lun0",
+	})
+	c.Assert(results[2].Error, tc.ErrorIsNil)
+	c.Assert(results[2].VolumeAttachment, tc.NotNil)
+	c.Assert(results[2].VolumeAttachment.VolumeAttachmentInfo, tc.DeepEquals, storage.VolumeAttachmentInfo{
+		DeviceLink: "/dev/disk/azure/scsi1/lun1",
+	})
+	c.Assert(results[3].Error, tc.ErrorMatches, "instance machine-42 not found")
+	c.Assert(results[4].Error, tc.ErrorMatches, "choosing LUN: all LUNs are in use")
 
 	// Validate HTTP request bodies.
 	c.Assert(s.requests, tc.HasLen, 2)
@@ -523,6 +534,99 @@ func (s *storageSuite) TestAttachVolumes(c *tc.C) {
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks: machine0DataDisks,
+			},
+		},
+	})
+}
+
+func (s *storageSuite) TestAttachVolumesNVME(c *tc.C) {
+	// machine-1 has an existing data disk with LUN 0.
+	machine1InitialDataDisks := []*armcompute.DataDisk{{
+		Lun:  to.Ptr(int32(0)),
+		Name: to.Ptr("volume-0"),
+	}}
+
+	// volume-1 is attached to machine-1 with existing volume-0
+	makeParams := func(volume, machine string) storage.VolumeAttachmentParams {
+		return storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider:   "azure",
+				Machine:    names.NewMachineTag(machine),
+				InstanceId: instance.Id("machine-" + machine),
+			},
+			Volume:   names.NewVolumeTag(volume),
+			VolumeId: "volume-" + volume,
+		}
+	}
+
+	params := []storage.VolumeAttachmentParams{
+		makeParams("1", "1"),
+	}
+
+	virtualMachines := []*armcompute.VirtualMachine{{
+		Name: to.Ptr("machine-1"),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks:          machine1InitialDataDisks,
+				DiskControllerType: to.Ptr(armcompute.DiskControllerTypesNVMe),
+			},
+		},
+	}}
+
+	// There should be a one API calls to list VMs, and one update per modified instance.
+	getvirtualMachinesSender := azuretesting.NewSenderWithValue(armcompute.VirtualMachineListResult{
+		Value: virtualMachines,
+	})
+	getvirtualMachinesSender.PathPattern = `.*/Microsoft\.Compute/virtualMachines`
+	updateVirtualMachine1Sender := azuretesting.NewSenderWithValue(&armcompute.VirtualMachine{})
+	updateVirtualMachine1Sender.PathPattern = `.*/Microsoft\.Compute/virtualMachines/machine-1`
+
+	volumeSource := s.volumeSource(c)
+	s.requests = nil
+	s.sender = azuretesting.Senders{
+		getvirtualMachinesSender,
+		updateVirtualMachine1Sender,
+	}
+
+	results, err := volumeSource.AttachVolumes(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, len(params))
+
+	c.Assert(len(results), tc.Equals, 1)
+	c.Assert(results[0].Error, tc.ErrorIsNil)
+	c.Assert(results[0].VolumeAttachment, tc.NotNil)
+	c.Assert(results[0].VolumeAttachment.VolumeAttachmentInfo, tc.DeepEquals, storage.VolumeAttachmentInfo{
+		DeviceName: "nvme0n3",
+	})
+
+	// Validate HTTP request bodies.
+	c.Assert(s.requests, tc.HasLen, 2)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET") // list virtual machines
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT") // update machine-1
+
+	makeManagedDisk := func(volumeName string) *armcompute.ManagedDiskParameters {
+		return &armcompute.ManagedDiskParameters{
+			ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/%s", fakeManagedSubscriptionId, volumeName)),
+		}
+	}
+
+	machine1DataDisks := []*armcompute.DataDisk{{
+		Lun:  to.Ptr(int32(0)),
+		Name: to.Ptr("volume-0"),
+	}, {
+		Lun:          to.Ptr(int32(1)),
+		Name:         to.Ptr("volume-1"),
+		ManagedDisk:  makeManagedDisk("volume-1"),
+		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
+		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesAttach),
+	}}
+
+	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
+		Name: to.Ptr("machine-1"),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks:          machine1DataDisks,
+				DiskControllerType: to.Ptr(armcompute.DiskControllerTypesNVMe),
 			},
 		},
 	})

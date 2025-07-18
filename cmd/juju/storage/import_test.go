@@ -12,10 +12,13 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type ImportFilesystemSuite struct {
@@ -81,6 +84,34 @@ func (s *ImportFilesystemSuite) TestImportError(c *tc.C) {
 
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `importing "bar" from storage pool "foo" as storage "baz"`+"\n")
+}
+
+func (s *ImportFilesystemSuite) TestImportSuccessCAAS(c *tc.C) {
+	store := jujuclienttesting.MinimalStore()
+	store.Models["arthur"] = &jujuclient.ControllerModels{
+		CurrentModel: "king/sword",
+		Models: map[string]jujuclient.ModelDetails{"king/sword": {
+			ModelType: model.CAAS,
+		}},
+	}
+	s.store = store
+
+	ctx, err := s.run(c, "foo", "bar", "baz")
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
+importing "bar" from storage pool "foo" as storage "baz"
+imported storage baz/0
+`[1:])
+
+	s.importer.CheckCalls(c, []testhelpers.StubCall{
+		{"ImportStorage", []interface{}{
+			jujustorage.StorageKindFilesystem,
+			"foo", "bar", "baz",
+		}},
+		{"Close", nil},
+	})
 }
 
 func (s *ImportFilesystemSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {

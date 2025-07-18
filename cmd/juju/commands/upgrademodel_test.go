@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/errors"
@@ -281,7 +282,9 @@ func (s *upgradeModelSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDu
 	s.reset(c)
 
 	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, semversion.Number, semversion.Number) bool { return false },
+		func(context.Context, model.ModelType, bool, semversion.Number, string, semversion.Number) bool {
+			return false
+		},
 	)
 
 	ctrl, cmd := s.upgradeModelCommand(c, false)
@@ -539,57 +542,4 @@ best version:
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 started upgrade to 3.9.99
 `[1:])
-}
-
-func (s *upgradeModelSuite) TestCheckCanImplicitUploadIAASModel(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	// Not IAAS model.
-	canImplicitUpload := checkCanImplicitUpload(
-		model.CAAS, true,
-		semversion.MustParse("3.0.0"),
-		semversion.MustParse("3.9.99.1"),
-	)
-	c.Check(canImplicitUpload, tc.IsFalse)
-
-	// not official client.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, false,
-		semversion.MustParse("3.9.99"),
-		semversion.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, tc.IsFalse)
-
-	// non newer client.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		semversion.MustParse("2.9.99"),
-		semversion.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, tc.IsFalse)
-
-	// client version with build number.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		semversion.MustParse("3.0.0.1"),
-		semversion.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, tc.IsTrue)
-
-	// agent version with build number.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		semversion.MustParse("3.0.0"),
-		semversion.MustParse("3.0.0.1"),
-	)
-	c.Check(canImplicitUpload, tc.IsTrue)
-
-	// both client and agent version with build number == 0.
-	canImplicitUpload = checkCanImplicitUpload(
-		model.IAAS, true,
-		semversion.MustParse("3.0.0"),
-		semversion.MustParse("3.0.0"),
-	)
-	c.Check(canImplicitUpload, tc.IsFalse)
 }
