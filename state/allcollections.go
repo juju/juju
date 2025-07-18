@@ -182,11 +182,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid"},
 			}},
 		},
-		machinesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "machineid"},
-			}},
-		},
 		sshHostKeysC: {},
 
 		// This collection contains information from removed machines
@@ -349,7 +344,6 @@ const (
 	globalClockC           = "globalclock"
 	globalRefcountsC       = "globalRefcounts"
 	globalSettingsC        = "globalSettings"
-	machinesC              = "machines"
 	machineRemovalsC       = "machineremovals"
 	modelsC                = "models"
 	modelEntityRefsC       = "modelEntityRefs"

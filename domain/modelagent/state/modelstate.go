@@ -69,6 +69,43 @@ SELECT &machineUUID.* FROM machine WHERE uuid = $machineUUID.uuid
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 // - [machineerrors.MachineIsDead] if the machine is dead.
+func (st *State) checkMachineNotDeadByName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	name string,
+) error {
+	ident := machineName{Name: name}
+	stmt, err := st.Prepare(`
+SELECT &machineLife.life_id FROM machine WHERE name = $machineName.name
+`, machineLife{}, ident)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var machineLife machineLife
+	err = tx.Query(ctx, stmt, ident).Get(&machineLife)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("machine %q does not exist", name).Add(machineerrors.MachineNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"checking if machine %q exists: %w",
+			name, err,
+		)
+	}
+
+	if machineLife.LifeID == domainlife.Dead {
+		return errors.Errorf("machine %q is dead", name).Add(machineerrors.MachineIsDead)
+	}
+
+	return nil
+}
+
+// checkMachineNotDead checks if the machine with the given uuid exists and that
+// its current life status is not one of dead. This is meant as a helper func
+// to assert that a machine can be operated on inside of a transaction.
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [machineerrors.MachineIsDead] if the machine is dead.
 func (st *State) checkMachineNotDead(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -225,6 +262,8 @@ WHERE mb.base NOT IN ($machineBaseValues[:])
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] when the machine being asked for does not
 // exist.
+// - [modelagenterrors.AgentVersionNotSet] when one or more machines in
+// the model do not have their agent version set.
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
 // for one or more machines in the model.
 func (st *State) GetMachineAgentBinaryMetadata(ctx context.Context, mName string) (coreagentbinary.Metadata, error) {
@@ -253,9 +292,14 @@ WHERE     mav.name = $machineName.name
 
 	var agentBinaryMetadata agentBinaryMetadata
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, ident).Get(&agentBinaryMetadata)
+		err := st.checkMachineNotDeadByName(ctx, tx, mName)
+		if err != nil {
+			return errors.Errorf("checking machine %q exists: %w", mName, err)
+		}
+
+		err = tx.Query(ctx, stmt, ident).Get(&agentBinaryMetadata)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q not found", mName).Add(machineerrors.MachineNotFound)
+			return errors.Errorf("machine %q not found", mName).Add(modelagenterrors.AgentVersionNotSet)
 		} else if err != nil {
 			return errors.Errorf("getting machine %q agent binary metadata: %w", mName, err)
 		}

@@ -756,14 +756,6 @@ func removeVolumeAttachmentOps(host names.Tag, v *volume, asserts bson.D) []txn.
 		Assert: asserts,
 		Remove: true,
 	}, decrefVolumeOp}
-	if host.Kind() == names.MachineTagKind {
-		ops = append(ops, txn.Op{
-			C:      machinesC,
-			Id:     host.Id(),
-			Assert: txn.DocExists,
-			Update: bson.D{{"$pull", bson.D{{"volumes", v.doc.Name}}}},
-		})
-	}
 	return ops
 }
 

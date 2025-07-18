@@ -27,7 +27,6 @@ import (
 // State provides the subset of global state required by the
 // remote firewaller facade.
 type State interface {
-	state.ModelMachinesWatcher
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 	KeyRelation(string) (Relation, error)
 }

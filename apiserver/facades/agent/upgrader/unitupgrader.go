@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corebase "github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
@@ -250,15 +251,14 @@ func (u *UnitUpgraderAPI) getMachineTools(ctx context.Context, tag names.Tag) pa
 	// We are okay returning the tools for just the one API server
 	// address since the unit agent won't try to download tools that
 	// are already present on the machine.
-	vers, err := semversion.ParseBinary(machineTools.Version.String())
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result
-	}
 	result.ToolsList = tools.List{{
-		Version: vers,
-		SHA256:  machineTools.SHA256,
-		Size:    machineTools.Size,
+		Version: semversion.Binary{
+			Number:  machineTools.Version.Number,
+			Release: corebase.UbuntuOS,
+			Arch:    machineTools.Version.Arch,
+		},
+		SHA256: machineTools.SHA256,
+		Size:   machineTools.Size,
 	}}
 	return result
 }
