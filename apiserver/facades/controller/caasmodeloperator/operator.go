@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -116,16 +117,24 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConf, vers)
-	if err != nil {
-		return result, errors.Trace(err)
+	imageRef, exists := modelConfig.ContainerImageReference()
+
+	if !exists {
+		controllerImageRef, err := podcfg.GetJujuOCIImagePath(controllerConf, vers)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		imageRef = controllerImageRef
+		if err := model.UpdateModelConfig(map[string]interface{}{config.ContainerImageReference: imageRef}, nil); err != nil {
+			return result, errors.Trace(err)
+		}
 	}
 
 	imageRepoDetails, err := docker.NewImageRepoDetails(controllerConf.CAASImageRepo())
 	if err != nil {
 		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	imageInfo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, imageRef)
 	logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{
