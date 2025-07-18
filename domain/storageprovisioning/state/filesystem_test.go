@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/application"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -135,6 +136,44 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentFilesystemAttachmentNotFoun
 	_, err := st.GetFilesystemAttachment(
 		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID), fsID)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+// TestGetFilesystemTemplatesForApplication checks that both a storage backed by
+// a pool and a storage backed by a provider both return the relevant information.
+func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
+	uuid := s.newApplication(c, "foo")
+
+	spUUID := s.newStoragePool(c, "water", "magic", map[string]string{
+		"a": "b",
+		"c": "d",
+	})
+	s.newCharmStorage(c, uuid, "x", "filesystem", true, "/a/x")
+	s.newCharmStorage(c, uuid, "y", "filesystem", true, "/a/y")
+	s.newApplicationStorageDirective(c, uuid, uuid, "x", spUUID, "", 123, 2)
+	s.newApplicationStorageDirective(c, uuid, uuid, "y", "", "rootfs", 456, 1)
+
+	st := NewState(s.TxnRunnerFactory())
+	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.ID(uuid))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []storageprovisioning.FilesystemTemplate{{
+		StorageName:  "x",
+		Count:        2,
+		SizeMiB:      123,
+		ProviderType: "magic",
+		ReadOnly:     true,
+		Location:     "/a/x",
+		Attributes: map[string]string{
+			"a": "b",
+			"c": "d",
+		},
+	}, {
+		StorageName:  "y",
+		Count:        1,
+		SizeMiB:      456,
+		ProviderType: "rootfs",
+		ReadOnly:     true,
+		Location:     "/a/y",
+	}})
 }
 
 // TestGetFilesystemAttachmentIDsOnlyUnits tests that when requesting ids for a

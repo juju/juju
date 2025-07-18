@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
@@ -176,6 +177,33 @@ func (st *State) checkNetNodeExists(
 
 	checkStmt, err := st.Prepare(
 		"SELECT &netNodeUUID.* FROM net_node WHERE uuid = $netNodeUUID.uuid",
+		input,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, input).Get(&input)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
+// checkApplicationExists checks if the provided application uuid exists in the
+// database during a txn. False is returned when the application does not exist.
+func (st *State) checkApplicationExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID coreapplication.ID,
+) (bool, error) {
+	input := entityUUID{UUID: appID.String()}
+
+	checkStmt, err := st.Prepare(
+		"SELECT &entityUUID.* FROM application WHERE uuid = $entityUUID.uuid",
 		input,
 	)
 	if err != nil {

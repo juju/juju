@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
 	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
@@ -276,6 +277,45 @@ func (c *MockStateGetFilesystemLifeForNetNodeCall) Do(f func(context.Context, ne
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetFilesystemLifeForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetFilesystemLifeForNetNodeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetFilesystemTemplatesForApplication mocks base method.
+func (m *MockState) GetFilesystemTemplatesForApplication(arg0 context.Context, arg1 application.ID) ([]storageprovisioning.FilesystemTemplate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemTemplatesForApplication", arg0, arg1)
+	ret0, _ := ret[0].([]storageprovisioning.FilesystemTemplate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemTemplatesForApplication indicates an expected call of GetFilesystemTemplatesForApplication.
+func (mr *MockStateMockRecorder) GetFilesystemTemplatesForApplication(arg0, arg1 any) *MockStateGetFilesystemTemplatesForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemTemplatesForApplication", reflect.TypeOf((*MockState)(nil).GetFilesystemTemplatesForApplication), arg0, arg1)
+	return &MockStateGetFilesystemTemplatesForApplicationCall{Call: call}
+}
+
+// MockStateGetFilesystemTemplatesForApplicationCall wrap *gomock.Call
+type MockStateGetFilesystemTemplatesForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetFilesystemTemplatesForApplicationCall) Return(arg0 []storageprovisioning.FilesystemTemplate, arg1 error) *MockStateGetFilesystemTemplatesForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetFilesystemTemplatesForApplicationCall) Do(f func(context.Context, application.ID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetFilesystemTemplatesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
