@@ -68,7 +68,7 @@ jobs:
       - name: Update microk8s operator image
         if: matrix.cloud == 'microk8s'
         run: |
-          # TODO: use temporary Docker account (set DOCKER_USERNAME env var)
+          # TODO: use temporary Docker account (set OCI_REGISTRY_USERNAME env var)
           sg snap_microk8s 'make microk8s-operator-update'
 
       - name: Smoke test (LXD)
