@@ -88,6 +88,7 @@ type azureEnviron struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
 	common.CredentialInvalidator
+	environs.NoLXDProfiler
 
 	// provider is the azureEnvironProvider used to open this environment.
 	provider *azureEnvironProvider

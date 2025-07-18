@@ -10,7 +10,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
@@ -34,43 +33,17 @@ import (
 	"github.com/juju/juju/domain/modelagent"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkstate "github.com/juju/juju/domain/network/state"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
-	schematesting.ModelSuite
-
-	state *State
+	baseSuite
 }
 
 func TestStateSuite(t *stdtesting.T) {
 	tc.Run(t, &stateSuite{})
-}
-
-// runQuery executes the provided SQL query string using the current state's database connection.
-//
-// It is a convenient function to setup test with a specific database state
-func (s *stateSuite) runQuery(c *tc.C, query string) error {
-	db, err := s.state.DB()
-	if err != nil {
-		return err
-	}
-	stmt, err := sqlair.Prepare(query)
-	if err != nil {
-		return err
-	}
-	return db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt).Run()
-	})
-}
-
-func (s *stateSuite) SetUpTest(c *tc.C) {
-	s.ModelSuite.SetUpTest(c)
-
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 // TestDeleteMachine asserts the happy path of DeleteMachine at the state layer.

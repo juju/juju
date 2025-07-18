@@ -6,6 +6,8 @@ package environs
 import (
 	"context"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
@@ -177,6 +179,9 @@ type InstanceBroker interface {
 // LXDProfiler defines an interface for dealing with lxd profiles used to
 // deploy juju machines and containers.
 type LXDProfiler interface {
+	// SupportsLXDProfiles indicates whether this environ supports
+	// interacting with LXD Profiles.
+	SupportsLXDProfiles() bool
 	// AssignLXDProfiles assigns the given profile names to the lxd instance
 	// provided.  The slice of ProfilePosts provides details for adding to
 	// and removing profiles from the lxd server.
@@ -187,4 +192,25 @@ type LXDProfiler interface {
 
 	// LXDProfileNames returns all the profiles associated to a container name
 	LXDProfileNames(containerName string) ([]string, error)
+}
+
+// NoLXDProfiler implements methods from LXDProfiler that represent
+// an environ without the ability interact with LXD Profiles.
+// As with NoSpaceDiscoveryEnviron it can be embedded safely.
+type NoLXDProfiler struct{}
+
+func (*NoLXDProfiler) SupportsLXDProfiles() bool {
+	return false
+}
+
+func (*NoLXDProfiler) AssignLXDProfiles(string, []string, []lxdprofile.ProfilePost) ([]string, error) {
+	return nil, errors.NotSupportedf("AssignLXDProfiles")
+}
+
+func (*NoLXDProfiler) MaybeWriteLXDProfile(string, lxdprofile.Profile) error {
+	return errors.NotSupportedf("AssignLXDProfiles")
+}
+
+func (*NoLXDProfiler) LXDProfileNames(string) ([]string, error) {
+	return nil, errors.NotSupportedf("AssignLXDProfiles")
 }

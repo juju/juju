@@ -6,7 +6,6 @@ package provisioner
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -84,9 +83,6 @@ type ProvisionerAPI struct {
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
 	controllerUUID string
-
-	// Used for MaybeWriteLXDProfile()
-	mu sync.Mutex
 }
 
 // MakeProvisionerAPI creates a new server-side ProvisionerAPI facade.

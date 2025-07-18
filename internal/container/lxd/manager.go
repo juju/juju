@@ -363,6 +363,12 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 	return nics, nil, errors.Trace(err)
 }
 
+// SupportsLXDProfiles indicates whether this provider can interact
+// with LXD Profiles.
+func (*containerManager) SupportsLXDProfiles() bool {
+	return true
+}
+
 // MaybeWriteLXDProfile implements container.LXDProfileManager.
 // TODO: HML 2-apr-2019
 // When provisioner_task processProfileChanges() is removed,

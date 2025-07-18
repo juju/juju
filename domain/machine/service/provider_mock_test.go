@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	constraints "github.com/juju/juju/core/constraints"
+	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	instances "github.com/juju/juju/environs/instances"
@@ -42,6 +43,45 @@ func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
+}
+
+// AssignLXDProfiles mocks base method.
+func (m *MockProvider) AssignLXDProfiles(instID string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssignLXDProfiles", instID, profilesNames, profilePosts)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AssignLXDProfiles indicates an expected call of AssignLXDProfiles.
+func (mr *MockProviderMockRecorder) AssignLXDProfiles(instID, profilesNames, profilePosts any) *MockProviderAssignLXDProfilesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignLXDProfiles", reflect.TypeOf((*MockProvider)(nil).AssignLXDProfiles), instID, profilesNames, profilePosts)
+	return &MockProviderAssignLXDProfilesCall{Call: call}
+}
+
+// MockProviderAssignLXDProfilesCall wrap *gomock.Call
+type MockProviderAssignLXDProfilesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderAssignLXDProfilesCall) Return(arg0 []string, arg1 error) *MockProviderAssignLXDProfilesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderAssignLXDProfilesCall) Do(f func(string, []string, []lxdprofile.ProfilePost) ([]string, error)) *MockProviderAssignLXDProfilesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderAssignLXDProfilesCall) DoAndReturn(f func(string, []string, []lxdprofile.ProfilePost) ([]string, error)) *MockProviderAssignLXDProfilesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // Bootstrap mocks base method.
@@ -275,6 +315,83 @@ func (c *MockProviderInstanceTypesCall) DoAndReturn(f func(context.Context, cons
 	return c
 }
 
+// LXDProfileNames mocks base method.
+func (m *MockProvider) LXDProfileNames(containerName string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LXDProfileNames", containerName)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LXDProfileNames indicates an expected call of LXDProfileNames.
+func (mr *MockProviderMockRecorder) LXDProfileNames(containerName any) *MockProviderLXDProfileNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileNames", reflect.TypeOf((*MockProvider)(nil).LXDProfileNames), containerName)
+	return &MockProviderLXDProfileNamesCall{Call: call}
+}
+
+// MockProviderLXDProfileNamesCall wrap *gomock.Call
+type MockProviderLXDProfileNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderLXDProfileNamesCall) Return(arg0 []string, arg1 error) *MockProviderLXDProfileNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderLXDProfileNamesCall) Do(f func(string) ([]string, error)) *MockProviderLXDProfileNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderLXDProfileNamesCall) DoAndReturn(f func(string) ([]string, error)) *MockProviderLXDProfileNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MaybeWriteLXDProfile mocks base method.
+func (m *MockProvider) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MaybeWriteLXDProfile", pName, put)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MaybeWriteLXDProfile indicates an expected call of MaybeWriteLXDProfile.
+func (mr *MockProviderMockRecorder) MaybeWriteLXDProfile(pName, put any) *MockProviderMaybeWriteLXDProfileCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaybeWriteLXDProfile", reflect.TypeOf((*MockProvider)(nil).MaybeWriteLXDProfile), pName, put)
+	return &MockProviderMaybeWriteLXDProfileCall{Call: call}
+}
+
+// MockProviderMaybeWriteLXDProfileCall wrap *gomock.Call
+type MockProviderMaybeWriteLXDProfileCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderMaybeWriteLXDProfileCall) Return(arg0 error) *MockProviderMaybeWriteLXDProfileCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderMaybeWriteLXDProfileCall) Do(f func(string, lxdprofile.Profile) error) *MockProviderMaybeWriteLXDProfileCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderMaybeWriteLXDProfileCall) DoAndReturn(f func(string, lxdprofile.Profile) error) *MockProviderMaybeWriteLXDProfileCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // PrecheckInstance mocks base method.
 func (m *MockProvider) PrecheckInstance(arg0 context.Context, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()
@@ -463,6 +580,44 @@ func (c *MockProviderStorageProviderTypesCall) Do(f func() ([]storage.ProviderTy
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockProviderStorageProviderTypesCall) DoAndReturn(f func() ([]storage.ProviderType, error)) *MockProviderStorageProviderTypesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SupportsLXDProfiles mocks base method.
+func (m *MockProvider) SupportsLXDProfiles() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SupportsLXDProfiles")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// SupportsLXDProfiles indicates an expected call of SupportsLXDProfiles.
+func (mr *MockProviderMockRecorder) SupportsLXDProfiles() *MockProviderSupportsLXDProfilesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsLXDProfiles", reflect.TypeOf((*MockProvider)(nil).SupportsLXDProfiles))
+	return &MockProviderSupportsLXDProfilesCall{Call: call}
+}
+
+// MockProviderSupportsLXDProfilesCall wrap *gomock.Call
+type MockProviderSupportsLXDProfilesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderSupportsLXDProfilesCall) Return(arg0 bool) *MockProviderSupportsLXDProfilesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderSupportsLXDProfilesCall) Do(f func() bool) *MockProviderSupportsLXDProfilesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderSupportsLXDProfilesCall) DoAndReturn(f func() bool) *MockProviderSupportsLXDProfilesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

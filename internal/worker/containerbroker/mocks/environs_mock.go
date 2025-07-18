@@ -159,6 +159,44 @@ func (c *MockLXDProfilerMaybeWriteLXDProfileCall) DoAndReturn(f func(string, lxd
 	return c
 }
 
+// SupportsLXDProfiles mocks base method.
+func (m *MockLXDProfiler) SupportsLXDProfiles() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SupportsLXDProfiles")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// SupportsLXDProfiles indicates an expected call of SupportsLXDProfiles.
+func (mr *MockLXDProfilerMockRecorder) SupportsLXDProfiles() *MockLXDProfilerSupportsLXDProfilesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsLXDProfiles", reflect.TypeOf((*MockLXDProfiler)(nil).SupportsLXDProfiles))
+	return &MockLXDProfilerSupportsLXDProfilesCall{Call: call}
+}
+
+// MockLXDProfilerSupportsLXDProfilesCall wrap *gomock.Call
+type MockLXDProfilerSupportsLXDProfilesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLXDProfilerSupportsLXDProfilesCall) Return(arg0 bool) *MockLXDProfilerSupportsLXDProfilesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLXDProfilerSupportsLXDProfilesCall) Do(f func() bool) *MockLXDProfilerSupportsLXDProfilesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLXDProfilerSupportsLXDProfilesCall) DoAndReturn(f func() bool) *MockLXDProfilerSupportsLXDProfilesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockInstanceBroker is a mock of InstanceBroker interface.
 type MockInstanceBroker struct {
 	ctrl     *gomock.Controller

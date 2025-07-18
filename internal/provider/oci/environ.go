@@ -41,6 +41,7 @@ type Environ struct {
 	common.CredentialInvalidator
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
+	environs.NoLXDProfiler
 
 	Compute    ComputeClient
 	Networking NetworkingClient

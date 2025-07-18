@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
+	"github.com/juju/juju/domain/machine/internal"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -214,6 +215,10 @@ type State interface {
 	// SetSSHHostKeys sets the SSH host keys for the given machine.
 	// This will overwrite the existing SSH host keys for the machine.
 	SetSSHHostKeys(ctx context.Context, mUUID string, sshHostKeys []string) error
+
+	// GetLXDProfilesForMachine returns a slice of structs containing data to
+	// put LXD Profiles in LXC.
+	GetLXDProfilesForMachine(ctx context.Context, mName string) ([]internal.CreateLXDProfileDetails, error)
 }
 
 // StatusHistory records status information into a generalized way.

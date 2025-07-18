@@ -132,6 +132,11 @@ type MachineService interface {
 
 	// GetMachineBase returns the base for the given machine.
 	GetMachineBase(ctx context.Context, mName coremachine.Name) (base.Base, error)
+
+	// UpdateLXDProfiles writes LXD Profiles to LXC for applications on the
+	// given machine if the providers supports it. A slice of profile names
+	// is returned.
+	UpdateLXDProfiles(ctx context.Context, modelName, machineID string) ([]string, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status

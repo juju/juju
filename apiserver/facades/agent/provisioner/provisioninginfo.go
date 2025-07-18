@@ -18,7 +18,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -35,7 +34,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -178,11 +176,11 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		}
 	}
 
-	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, machineName, env, modelConfig, modelInfo.UUID); err != nil {
+	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, machineName, modelConfig, modelInfo.UUID); err != nil {
 		return result, errors.Capture(err)
 	}
 
-	if result.CharmLXDProfiles, err = api.machineLXDProfileNames(ctx, unitNames, env, modelInfo.Name); err != nil {
+	if result.CharmLXDProfiles, err = api.machineService.UpdateLXDProfiles(ctx, modelInfo.Name, machineName.String()); err != nil {
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
 	}
 
@@ -222,7 +220,6 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 func (api *ProvisionerAPI) machineVolumeParams(
 	ctx context.Context,
 	machineName coremachine.Name,
-	env environs.Environ,
 	modelConfig *config.Config,
 	modelUUID model.UUID,
 ) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
@@ -264,14 +261,8 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		if err != nil {
 			return nil, nil, errors.Errorf("getting volume %q parameters: %w", volumeTag.Id(), err)
 		}
-		if _, err := env.StorageProvider(storage.ProviderType(volumeParams.Provider)); errors.Is(err, jujuerrors.NotFound) {
-			// This storage type is not managed by the environ
-			// provider, so ignore it. It'll be managed by one
-			// of the storage provisioners.
-			continue
-		} else if err != nil {
-			return nil, nil, errors.Errorf("getting storage provider: %w", err)
-		}
+		// TODO(storage): Handle the case:
+		// environ.StorageProvider(storage.ProviderType(volumeParams.Provider))
 
 		var volumeProvisioned bool
 		volumeInfo, err := volume.Info()
@@ -477,54 +468,6 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(
 		subnetsToZones[string(providerID)] = zones
 	}
 	return subnetsToZones, nil
-}
-
-// machineLXDProfileNames give the environ info to write lxd profiles needed for
-// the given machine and returns the names of profiles. Unlike
-// containerLXDProfilesInfo which returns the info necessary to write lxd profiles
-// via the lxd broker.
-func (api *ProvisionerAPI) machineLXDProfileNames(
-	ctx context.Context,
-	unitNames []coreunit.Name,
-	env environs.Environ,
-	modelName string,
-) ([]string, error) {
-	profileEnv, ok := env.(environs.LXDProfiler)
-	if !ok {
-		api.logger.Tracef(ctx, "LXDProfiler not implemented by environ")
-		return nil, nil
-	}
-
-	var pNames []string
-	for _, unitName := range unitNames {
-		appName := unitName.Application()
-		locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-
-		profile, revision, err := api.applicationService.GetCharmLXDProfile(ctx, locator)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		if profile.Empty() {
-			continue
-		}
-		pName := lxdprofile.Name(modelName, appName, revision)
-		// Lock here, we get a new env for every call to ProvisioningInfo().
-		api.mu.Lock()
-		if err := profileEnv.MaybeWriteLXDProfile(pName, lxdprofile.Profile{
-			Description: profile.Description,
-			Config:      profile.Config,
-			Devices:     profile.Devices,
-		}); err != nil {
-			api.mu.Unlock()
-			return nil, errors.Capture(err)
-		}
-		api.mu.Unlock()
-		pNames = append(pNames, pName)
-	}
-	return pNames, nil
 }
 
 func (api *ProvisionerAPI) machineEndpointBindings(ctx context.Context, unitNames []coreunit.Name) (map[string]map[string]network.SpaceUUID, error) {
