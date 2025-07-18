@@ -893,19 +893,6 @@ func (st *State) Unit(name string) (*Unit, error) {
 	return newUnit(st, model.Type(), &doc), nil
 }
 
-func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
-	key := st.networkEntityGlobalKey(globalKey, providerId)
-	return txn.Op{
-		C:      providerIDsC,
-		Id:     key,
-		Remove: true,
-	}
-}
-
-func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
-	return st.docID(globalKey + ":" + string(providerId))
-}
-
 // TagFromDocID tries attempts to extract an entity-identifying tag from a
 // Mongo document ID.
 // For example "c9741ea1-0c2a-444d-82f5-787583a48557:a#mediawiki" would yield

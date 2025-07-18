@@ -30,10 +30,6 @@ type machineDoc struct {
 	Volumes []string `bson:"volumes,omitempty"`
 	// Filesystems contains the names of filesystems attached to the machine.
 	Filesystems []string `bson:"filesystems,omitempty"`
-
-	// PreferredPublicAddress is the preferred address to be used for
-	// the machine when a public address is requested.
-	PreferredPublicAddress address `bson:",omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
