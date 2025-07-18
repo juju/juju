@@ -13,15 +13,11 @@ import (
 	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/credential"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/environs/config"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -67,57 +63,23 @@ type NetworkService interface {
 	// Subnet returns the subnet identified by the input UUID,
 	// or an error if it is not found.
 	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
-
-	// UpdateSubnet updates the spaceUUID of the subnet identified by the input
-	// UUID.
-	UpdateSubnet(ctx context.Context, uuid string, spaceUUID network.SpaceUUID) error
-
+	// MoveSubnetsToSpace moves a list of subnets identified by their UUIDs to a
+	// specified network space.
+	// It validates input, computes a new topology, checks its integrity, and
+	// applies changes if valid.
+	// Returns the list of moved subnets or an error if any step fails.
+	MoveSubnetsToSpace(ctx context.Context,
+		subnets []domainnetwork.SubnetUUID, space network.SpaceName, force bool) ([]domainnetwork.MovedSubnets, error)
 	// SupportsSpaces returns whether the current environment supports spaces.
 	SupportsSpaces(context.Context) (bool, error)
 
 	// SupportsSpaceDiscovery returns whether the current environment supports
 	// discovering spaces from the provider.
 	SupportsSpaceDiscovery(context.Context) (bool, error)
-
-	// GetMachineAddresses retrieves the network space addresses of a machine
-	// identified by its UUID.
-	// It performs validation on the UUID and fetches the corresponding network
-	// node and its associated addresses.
-	// Returns the network space addresses or an error if any issues are encountered.
-	GetMachineAddresses(context.Context, machine.UUID) (network.SpaceAddresses, error)
-}
-
-// ModelConfigService is an interface that provides access to the
-// model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-}
-
-// CredentialService provides access to credentials.
-type CredentialService interface {
-	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(context.Context, credential.Key) (cloud.Credential, error)
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
 // ApplicationService provides access to applications.
 type ApplicationService interface {
-	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
-	// The following errors may be returned:
-	// - [applicationerrors.MachineNotFound] if the machine does not exist
-	GetUnitNamesOnMachine(context.Context, machine.Name) ([]unit.Name, error)
-
-	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
-	// endpoints are indexed by the application name for the application which they
-	// belong to.
-	GetAllEndpointBindings(context.Context) (map[string]map[string]network.SpaceName, error)
-
 	// GetApplicationsBoundToSpace returns the names of the applications bound to
 	// the given space.
 	GetApplicationsBoundToSpace(context.Context, network.SpaceUUID) ([]string, error)
@@ -126,13 +88,6 @@ type ApplicationService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	// It returns a MachineNotFound if the machine does not exist.
-	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
-
-	// AllMachineNames returns the names of all machines in the model.
-	AllMachineNames(context.Context) ([]machine.Name, error)
-
 	// CountMachinesInSpace counts the number of machines with address in a given
 	// space. This method counts the distinct occurrences of net nodes of the
 	// addresses, meaning that if a machine has multiple addresses in the same

@@ -15,10 +15,10 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Constraints,Address,NetworkService,ControllerConfigService,ApplicationService,MachineService
+//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Constraints,NetworkService,ControllerConfigService,ApplicationService,MachineService
 
-// APISuite is used to test API calls using mocked model operations.
-type APISuite struct {
+// APIBaseSuite is used to test API calls using mocked model operations.
+type APIBaseSuite struct {
 	resource   *facademocks.MockResources
 	authorizer *facademocks.MockAuthorizer
 
@@ -37,14 +37,14 @@ type APISuite struct {
 }
 
 func TestAPISuite(t *testing.T) {
-	tc.Run(t, &APISuite{})
+	tc.Run(t, &APIBaseSuite{})
 }
 
-func (s *APISuite) TearDownTest(_ *tc.C) {
+func (s *APIBaseSuite) TearDownTest(_ *tc.C) {
 	s.API = nil
 }
 
-func (s *APISuite) SetupMocks(c *tc.C, supportSpaces bool, providerSpaces bool) *gomock.Controller {
+func (s *APIBaseSuite) SetupMocks(c *tc.C, supportSpaces bool, providerSpaces bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.resource = facademocks.NewMockResources(ctrl)
