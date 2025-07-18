@@ -147,18 +147,17 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // SupportsContainerAddresses mocks base method.
-func (m *MockProvider) SupportsContainerAddresses(arg0 context.Context) (bool, error) {
+func (m *MockProvider) SupportsContainerAddresses() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportsContainerAddresses", arg0)
+	ret := m.ctrl.Call(m, "SupportsContainerAddresses")
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // SupportsContainerAddresses indicates an expected call of SupportsContainerAddresses.
-func (mr *MockProviderMockRecorder) SupportsContainerAddresses(arg0 any) *MockProviderSupportsContainerAddressesCall {
+func (mr *MockProviderMockRecorder) SupportsContainerAddresses() *MockProviderSupportsContainerAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsContainerAddresses", reflect.TypeOf((*MockProvider)(nil).SupportsContainerAddresses), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsContainerAddresses", reflect.TypeOf((*MockProvider)(nil).SupportsContainerAddresses))
 	return &MockProviderSupportsContainerAddressesCall{Call: call}
 }
 
@@ -168,19 +167,19 @@ type MockProviderSupportsContainerAddressesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockProviderSupportsContainerAddressesCall) Return(arg0 bool, arg1 error) *MockProviderSupportsContainerAddressesCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockProviderSupportsContainerAddressesCall) Return(arg0 bool) *MockProviderSupportsContainerAddressesCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderSupportsContainerAddressesCall) Do(f func(context.Context) (bool, error)) *MockProviderSupportsContainerAddressesCall {
+func (c *MockProviderSupportsContainerAddressesCall) Do(f func() bool) *MockProviderSupportsContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderSupportsContainerAddressesCall) DoAndReturn(f func(context.Context) (bool, error)) *MockProviderSupportsContainerAddressesCall {
+func (c *MockProviderSupportsContainerAddressesCall) DoAndReturn(f func() bool) *MockProviderSupportsContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

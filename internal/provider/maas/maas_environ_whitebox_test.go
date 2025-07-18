@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	goyaml "gopkg.in/yaml.v2"
@@ -1088,7 +1087,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNic(c *tc.C) 
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	result, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
@@ -1224,7 +1223,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNicWithNoVLAN
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	result, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
@@ -1356,7 +1355,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(c
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	result, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
@@ -1453,7 +1452,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied(
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	_, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.NotNil)
 	c.Assert(err, tc.ErrorMatches, ".*ServerError: 500 \\(I have failed you\\).*")
@@ -1645,7 +1644,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesDualNic(c *tc.C) {
 		}},
 		Origin: network.OriginProvider,
 	}}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	result, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expected)
@@ -1657,7 +1656,7 @@ func (suite *maasEnvironSuite) assertAllocateContainerAddressesFails(c *tc.C, co
 	}
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	_, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, errorMatches)
 }
@@ -1721,7 +1720,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesMachinesError(c *tc
 		InterfaceName: "eth0",
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 	}}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	_, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
@@ -1758,7 +1757,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesCreateDeviceError(c
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		MACAddress:    "DEADBEEF",
 	}}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	_, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": bad device call`)
 	machine.CheckCall(c, 0, "Devices", gomaasapi.DevicesArgs{
@@ -1838,7 +1837,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *tc
 		{InterfaceName: "eth0", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", MACAddress: "DEADBEEE"},
 	}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	allocated, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allocated, tc.DeepEquals, network.InterfaceInfos{{
@@ -1908,7 +1907,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesCreateInterfaceErro
 			MACAddress:    "DEADBEEE",
 		},
 	}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	_, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": creating device interface: boom`)
 	args := getArgs(c, device.Calls(), 0, 0)
@@ -1966,7 +1965,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c *
 			MACAddress:    "DEADBEEE",
 		},
 	}
-	ignored := names.NewMachineTag("1/lxd/0")
+	ignored := "1/lxd/0"
 	_, err := env.AllocateContainerAddresses(c.Context(), "1", ignored, prepared)
 	c.Assert(err, tc.ErrorMatches, "failed to create MAAS device.*boom")
 	args := getArgs(c, interface_.Calls(), 0, 0)
@@ -2081,8 +2080,8 @@ func (suite *maasEnvironSuite) TestAllocateContainerReuseExistingDevice(c *tc.C)
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("10.20.19.0/24")).AsProviderAddress()},
 		InterfaceName: "eth0",
 	}}
-	containerTag := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(c.Context(), "1", containerTag, prepared)
+	containerName := "1/lxd/0"
+	result, err := env.AllocateContainerAddresses(c.Context(), "1", containerName, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,
@@ -2283,8 +2282,8 @@ func (suite *maasEnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *tc
 		Addresses:     network.ProviderAddresses{network.NewMachineAddress("", network.WithCIDR("192.168.1.0/24")).AsProviderAddress()},
 		InterfaceName: "eth1",
 	}}
-	containerTag := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), containerTag, prepared)
+	containerName := "1/lxd/0"
+	result, err := env.AllocateContainerAddresses(c.Context(), instance.Id("1"), containerName, prepared)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,

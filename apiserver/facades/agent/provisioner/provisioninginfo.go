@@ -186,7 +186,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
 	}
 
-	if result.ImageMetadata, err = api.availableImageMetadata(ctx, machineName, env, modelConfig.ImageStream()); err != nil {
+	if result.ImageMetadata, err = api.availableImageMetadata(ctx, machineName, modelInfo, env, modelConfig.ImageStream()); err != nil {
 		return result, errors.Errorf("cannot get available image metadata: %w", err)
 	}
 
@@ -584,10 +584,11 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 func (api *ProvisionerAPI) availableImageMetadata(
 	ctx context.Context,
 	machineName coremachine.Name,
+	modelInfo model.ModelInfo,
 	env environs.Environ,
 	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
-	imageConstraint, err := api.constructImageConstraint(ctx, machineName, env, imageStream)
+	imageConstraint, err := api.constructImageConstraint(ctx, machineName, modelInfo, imageStream)
 	if err != nil {
 		return nil, errors.Errorf("could not construct image constraint: %w", err)
 	}
@@ -607,7 +608,7 @@ func (api *ProvisionerAPI) availableImageMetadata(
 func (api *ProvisionerAPI) constructImageConstraint(
 	ctx context.Context,
 	machineName coremachine.Name,
-	env environs.Environ,
+	modelInfo model.ModelInfo,
 	imageStream string,
 ) (*imagemetadata.ImageConstraint, error) {
 	machineBase, err := api.machineService.GetMachineBase(ctx, machineName)
@@ -638,16 +639,12 @@ func (api *ProvisionerAPI) constructImageConstraint(
 		lookup.Arches = []string{*cons.Arch}
 	}
 
-	if hasRegion, ok := env.(simplestreams.HasRegion); ok {
-		// We can determine current region; we want only
-		// metadata specific to this region.
-		spec, err := hasRegion.Region()
-		if err != nil {
-			// can't really find images if we cannot determine cloud region
-			// TODO (anastasiamac 2015-12-03) or can we?
-			return nil, errors.Errorf("getting provider region information (cloud spec): %w", err)
+	if modelInfo.CloudRegion != "" {
+		lookup.CloudSpec = simplestreams.CloudSpec{
+			// Only the region name is required to create an image
+			// constraint.
+			Region: modelInfo.CloudRegion,
 		}
-		lookup.CloudSpec = spec
 	}
 
 	return imagemetadata.NewImageConstraint(lookup)

@@ -32,6 +32,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -880,16 +881,14 @@ type perContainerHandler interface {
 	// ProcessOneContainer is called once we've assured ourselves that all of
 	// the access permissions are correct and the container is ready to be
 	// processed.
-	// env is the Environment you are working, idx is the index for this
-	// container (used for deciding where to store results), host is the
-	// machine that is hosting the container.
+	// idx is the index for this, hostInstanceID is the machine that is hosting
+	// the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
 		ctx context.Context,
-		env environs.Environ,
 		idx int,
-		hostIsManual bool,
+		networkService NetworkService,
 		guestMachineName coremachine.Name,
 		preparedInfo network.InterfaceInfos,
 		hostInstanceID, guestInstanceID instance.Id,
@@ -919,23 +918,13 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	hostMachineName := coremachine.Name(hostTag.Id())
-
-	env, err := environs.GetEnviron(ctx, api.configGetter, environs.NoopCredentialInvalidator(), environs.New)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	hostInstanceID, err := api.getInstanceID(ctx, hostMachineName)
 	if errors.Is(err, machineerrors.NotProvisioned) {
 		return errors.NotProvisionedf("cannot prepare container %s config: host machine %q",
 			handler.ConfigType(), hostMachineName)
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	hostIsManual, err := api.machineService.IsMachineManuallyProvisioned(ctx, hostMachineName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -981,8 +970,8 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		mappedPreparedInfo := toInterfaceInfos(preparedInfo)
 		if err := handler.ProcessOneContainer(
 			ctx,
-			env, i,
-			hostIsManual,
+			i,
+			api.networkService,
 			coremachine.Name(guestTag.Id()),
 			mappedPreparedInfo,
 			hostInstanceID,
@@ -1079,9 +1068,8 @@ func (h *prepareOrGetHandler) ConfigType() string {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *prepareOrGetHandler) ProcessOneContainer(
 	ctx context.Context,
-	env environs.Environ,
 	idx int,
-	hostIsManual bool,
+	networkService NetworkService,
 	guestMachineName coremachine.Name,
 	preparedInfo network.InterfaceInfos,
 	hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
@@ -1095,27 +1083,14 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 		}
 	}
 
-	// We do not ask the provider to allocate addresses for manually provisioned
-	// machines as we do not expect such machines to be recognised (LP:1796106).
-	var askProviderForAddress bool
-	if !hostIsManual {
-		askProviderForAddress = environs.SupportsContainerAddresses(ctx, env)
-	}
-
-	allocatedInfo := preparedInfo
-	if askProviderForAddress {
-		guestMachineTag := names.NewMachineTag(guestMachineName.String())
-		// supportContainerAddresses already checks that we can cast to an environ.Networking
-		networking := env.(environs.Networking)
-		var err error
-		allocatedInfo, err = networking.AllocateContainerAddresses(
-			ctx, hostInstanceID, guestMachineTag, preparedInfo)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		h.logger.Debugf(ctx, "got allocated info from provider: %+v", allocatedInfo)
-	} else {
+	allocatedInfo, err := networkService.AllocateContainerAddresses(
+		ctx, hostInstanceID, guestMachineName.String(), preparedInfo)
+	if errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
 		h.logger.Debugf(ctx, "using dhcp allocated addresses")
+	} else if err != nil {
+		return errors.Trace(err)
+	} else {
+		h.logger.Debugf(ctx, "got allocated info from provider: %+v", allocatedInfo)
 	}
 
 	allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
@@ -1234,10 +1209,10 @@ type containerProfileHandler struct {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
-	_ environs.Environ, idx int,
-	_ bool,
+	idx int,
+	networkService NetworkService,
 	guestMachineName coremachine.Name,
-	preparedInfo network.InterfaceInfos,
+	_ network.InterfaceInfos,
 	_, _ instance.Id, _ network.SubnetInfos,
 ) error {
 	unitNames, err := h.applicationService.GetUnitNamesOnMachine(ctx, guestMachineName)

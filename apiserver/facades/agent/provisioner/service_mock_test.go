@@ -1006,45 +1006,6 @@ func (c *MockMachineServiceIsMachineControllerCall) DoAndReturn(f func(context.C
 	return c
 }
 
-// IsMachineManuallyProvisioned mocks base method.
-func (m *MockMachineService) IsMachineManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsMachineManuallyProvisioned", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsMachineManuallyProvisioned indicates an expected call of IsMachineManuallyProvisioned.
-func (mr *MockMachineServiceMockRecorder) IsMachineManuallyProvisioned(arg0, arg1 any) *MockMachineServiceIsMachineManuallyProvisionedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineManuallyProvisioned", reflect.TypeOf((*MockMachineService)(nil).IsMachineManuallyProvisioned), arg0, arg1)
-	return &MockMachineServiceIsMachineManuallyProvisionedCall{Call: call}
-}
-
-// MockMachineServiceIsMachineManuallyProvisionedCall wrap *gomock.Call
-type MockMachineServiceIsMachineManuallyProvisionedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceIsMachineManuallyProvisionedCall) Return(arg0 bool, arg1 error) *MockMachineServiceIsMachineManuallyProvisionedCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceIsMachineManuallyProvisionedCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceIsMachineManuallyProvisionedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceIsMachineManuallyProvisionedCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceIsMachineManuallyProvisionedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetAppliedLXDProfileNames mocks base method.
 func (m *MockMachineService) SetAppliedLXDProfileNames(arg0 context.Context, arg1 machine.UUID, arg2 []string) error {
 	m.ctrl.T.Helper()
@@ -1435,6 +1396,45 @@ func NewMockNetworkService(ctrl *gomock.Controller) *MockNetworkService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
+}
+
+// AllocateContainerAddresses mocks base method.
+func (m *MockNetworkService) AllocateContainerAddresses(arg0 context.Context, arg1 instance.Id, arg2 string, arg3 network.InterfaceInfos) (network.InterfaceInfos, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(network.InterfaceInfos)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllocateContainerAddresses indicates an expected call of AllocateContainerAddresses.
+func (mr *MockNetworkServiceMockRecorder) AllocateContainerAddresses(arg0, arg1, arg2, arg3 any) *MockNetworkServiceAllocateContainerAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocateContainerAddresses", reflect.TypeOf((*MockNetworkService)(nil).AllocateContainerAddresses), arg0, arg1, arg2, arg3)
+	return &MockNetworkServiceAllocateContainerAddressesCall{Call: call}
+}
+
+// MockNetworkServiceAllocateContainerAddressesCall wrap *gomock.Call
+type MockNetworkServiceAllocateContainerAddressesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkServiceAllocateContainerAddressesCall) Return(arg0 network.InterfaceInfos, arg1 error) *MockNetworkServiceAllocateContainerAddressesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkServiceAllocateContainerAddressesCall) Do(f func(context.Context, instance.Id, string, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockNetworkServiceAllocateContainerAddressesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkServiceAllocateContainerAddressesCall) DoAndReturn(f func(context.Context, instance.Id, string, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockNetworkServiceAllocateContainerAddressesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // DevicesForGuest mocks base method.

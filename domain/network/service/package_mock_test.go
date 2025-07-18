@@ -20,7 +20,6 @@ import (
 	network0 "github.com/juju/juju/domain/network"
 	internal "github.com/juju/juju/domain/network/internal"
 	environs "github.com/juju/juju/environs"
-	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -1430,7 +1429,7 @@ func (m *MockProviderWithNetworking) EXPECT() *MockProviderWithNetworkingMockRec
 }
 
 // AllocateContainerAddresses mocks base method.
-func (m *MockProviderWithNetworking) AllocateContainerAddresses(arg0 context.Context, arg1 instance.Id, arg2 names.MachineTag, arg3 network.InterfaceInfos) (network.InterfaceInfos, error) {
+func (m *MockProviderWithNetworking) AllocateContainerAddresses(arg0 context.Context, arg1 instance.Id, arg2 string, arg3 network.InterfaceInfos) (network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(network.InterfaceInfos)
@@ -1457,13 +1456,13 @@ func (c *MockProviderWithNetworkingAllocateContainerAddressesCall) Return(arg0 n
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderWithNetworkingAllocateContainerAddressesCall) Do(f func(context.Context, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockProviderWithNetworkingAllocateContainerAddressesCall {
+func (c *MockProviderWithNetworkingAllocateContainerAddressesCall) Do(f func(context.Context, instance.Id, string, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockProviderWithNetworkingAllocateContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderWithNetworkingAllocateContainerAddressesCall) DoAndReturn(f func(context.Context, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockProviderWithNetworkingAllocateContainerAddressesCall {
+func (c *MockProviderWithNetworkingAllocateContainerAddressesCall) DoAndReturn(f func(context.Context, instance.Id, string, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockProviderWithNetworkingAllocateContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1663,18 +1662,17 @@ func (c *MockProviderWithNetworkingSubnetsCall) DoAndReturn(f func(context.Conte
 }
 
 // SupportsContainerAddresses mocks base method.
-func (m *MockProviderWithNetworking) SupportsContainerAddresses(arg0 context.Context) (bool, error) {
+func (m *MockProviderWithNetworking) SupportsContainerAddresses() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportsContainerAddresses", arg0)
+	ret := m.ctrl.Call(m, "SupportsContainerAddresses")
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // SupportsContainerAddresses indicates an expected call of SupportsContainerAddresses.
-func (mr *MockProviderWithNetworkingMockRecorder) SupportsContainerAddresses(arg0 any) *MockProviderWithNetworkingSupportsContainerAddressesCall {
+func (mr *MockProviderWithNetworkingMockRecorder) SupportsContainerAddresses() *MockProviderWithNetworkingSupportsContainerAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsContainerAddresses", reflect.TypeOf((*MockProviderWithNetworking)(nil).SupportsContainerAddresses), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsContainerAddresses", reflect.TypeOf((*MockProviderWithNetworking)(nil).SupportsContainerAddresses))
 	return &MockProviderWithNetworkingSupportsContainerAddressesCall{Call: call}
 }
 
@@ -1684,19 +1682,19 @@ type MockProviderWithNetworkingSupportsContainerAddressesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockProviderWithNetworkingSupportsContainerAddressesCall) Return(arg0 bool, arg1 error) *MockProviderWithNetworkingSupportsContainerAddressesCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockProviderWithNetworkingSupportsContainerAddressesCall) Return(arg0 bool) *MockProviderWithNetworkingSupportsContainerAddressesCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderWithNetworkingSupportsContainerAddressesCall) Do(f func(context.Context) (bool, error)) *MockProviderWithNetworkingSupportsContainerAddressesCall {
+func (c *MockProviderWithNetworkingSupportsContainerAddressesCall) Do(f func() bool) *MockProviderWithNetworkingSupportsContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderWithNetworkingSupportsContainerAddressesCall) DoAndReturn(f func(context.Context) (bool, error)) *MockProviderWithNetworkingSupportsContainerAddressesCall {
+func (c *MockProviderWithNetworkingSupportsContainerAddressesCall) DoAndReturn(f func() bool) *MockProviderWithNetworkingSupportsContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -128,7 +128,7 @@ func (c *MockBrokerAdoptResourcesCall) DoAndReturn(f func(context.Context, strin
 }
 
 // AllocateContainerAddresses mocks base method.
-func (m *MockBroker) AllocateContainerAddresses(arg0 context.Context, arg1 instance.Id, arg2 names.MachineTag, arg3 network.InterfaceInfos) (network.InterfaceInfos, error) {
+func (m *MockBroker) AllocateContainerAddresses(arg0 context.Context, arg1 instance.Id, arg2 string, arg3 network.InterfaceInfos) (network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(network.InterfaceInfos)
@@ -155,13 +155,13 @@ func (c *MockBrokerAllocateContainerAddressesCall) Return(arg0 network.Interface
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBrokerAllocateContainerAddressesCall) Do(f func(context.Context, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockBrokerAllocateContainerAddressesCall {
+func (c *MockBrokerAllocateContainerAddressesCall) Do(f func(context.Context, instance.Id, string, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockBrokerAllocateContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerAllocateContainerAddressesCall) DoAndReturn(f func(context.Context, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockBrokerAllocateContainerAddressesCall {
+func (c *MockBrokerAllocateContainerAddressesCall) DoAndReturn(f func(context.Context, instance.Id, string, network.InterfaceInfos) (network.InterfaceInfos, error)) *MockBrokerAllocateContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1168,18 +1168,17 @@ func (c *MockBrokerSubnetsCall) DoAndReturn(f func(context.Context, []network.Id
 }
 
 // SupportsContainerAddresses mocks base method.
-func (m *MockBroker) SupportsContainerAddresses(arg0 context.Context) (bool, error) {
+func (m *MockBroker) SupportsContainerAddresses() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportsContainerAddresses", arg0)
+	ret := m.ctrl.Call(m, "SupportsContainerAddresses")
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // SupportsContainerAddresses indicates an expected call of SupportsContainerAddresses.
-func (mr *MockBrokerMockRecorder) SupportsContainerAddresses(arg0 any) *MockBrokerSupportsContainerAddressesCall {
+func (mr *MockBrokerMockRecorder) SupportsContainerAddresses() *MockBrokerSupportsContainerAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsContainerAddresses", reflect.TypeOf((*MockBroker)(nil).SupportsContainerAddresses), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsContainerAddresses", reflect.TypeOf((*MockBroker)(nil).SupportsContainerAddresses))
 	return &MockBrokerSupportsContainerAddressesCall{Call: call}
 }
 
@@ -1189,19 +1188,19 @@ type MockBrokerSupportsContainerAddressesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockBrokerSupportsContainerAddressesCall) Return(arg0 bool, arg1 error) *MockBrokerSupportsContainerAddressesCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockBrokerSupportsContainerAddressesCall) Return(arg0 bool) *MockBrokerSupportsContainerAddressesCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBrokerSupportsContainerAddressesCall) Do(f func(context.Context) (bool, error)) *MockBrokerSupportsContainerAddressesCall {
+func (c *MockBrokerSupportsContainerAddressesCall) Do(f func() bool) *MockBrokerSupportsContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerSupportsContainerAddressesCall) DoAndReturn(f func(context.Context) (bool, error)) *MockBrokerSupportsContainerAddressesCall {
+func (c *MockBrokerSupportsContainerAddressesCall) DoAndReturn(f func() bool) *MockBrokerSupportsContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
