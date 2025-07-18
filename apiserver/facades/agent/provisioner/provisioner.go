@@ -19,7 +19,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/caas"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -132,26 +130,31 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	domainServices := ctx.DomainServices()
 
-	agentService := domainServices.Agent()
 	agentBinaryService := domainServices.AgentBinary()
-	applicationService := domainServices.Application()
-	removalService := domainServices.Removal()
-	machineService := domainServices.Machine()
-	statusService := domainServices.Status()
-	modelInfoService := domainServices.ModelInfo()
-	cloudService := domainServices.Cloud()
-	credentialService := domainServices.Credential()
-	modelConfigService := domainServices.Config()
-	controllerNodeService := domainServices.ControllerNode()
 	agentPasswordService := domainServices.AgentPassword()
-	controllerConfigService := domainServices.ControllerConfig()
-	networkService := domainServices.Network()
-	storageService := domainServices.Storage()
-	keyUpdaterService := domainServices.KeyUpdater()
-	cloudImageMetadataService := domainServices.CloudImageMetadata()
 	agentProvisionerService := domainServices.AgentProvisioner()
+	agentService := domainServices.Agent()
+	applicationService := domainServices.Application()
+	cloudImageMetadataService := domainServices.CloudImageMetadata()
+	cloudService := domainServices.Cloud()
+	controllerNodeService := domainServices.ControllerNode()
+	controllerConfigService := domainServices.ControllerConfig()
+	credentialService := domainServices.Credential()
 	externalControllerService := domainServices.ExternalController()
+	keyUpdaterService := domainServices.KeyUpdater()
+	machineService := domainServices.Machine()
+	modelConfigService := domainServices.Config()
+	modelInfoService := domainServices.ModelInfo()
 	modelService := domainServices.Model()
+	networkService := domainServices.Network()
+	removalService := domainServices.Removal()
+	statusService := domainServices.Status()
+	storageService := domainServices.Storage()
+
+	storageRegisty, err := storageService.GetStorageRegistry(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:              model,
@@ -165,17 +168,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return nil, errors.Trace(err)
 	}
 	isCaasModel := modelInfo.Type == coremodel.CAAS
-
-	var env storage.ProviderRegistry
-	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, cloudService, credentialService, modelConfigService)
-	} else {
-		env, err = environs.GetEnviron(stdCtx, configGetter, environs.NoopCredentialInvalidator(), environs.New)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	storageProviderRegistry := provider.NewStorageProviderRegistry(env)
 
 	controllerNodeServices := domainServices.ControllerNode()
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), controllerNodeServices)
@@ -212,7 +204,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		resources:                 resources,
 		authorizer:                authorizer,
 		configGetter:              configGetter,
-		storageProviderRegistry:   storageProviderRegistry,
+		storageProviderRegistry:   storageRegisty,
 		storagePoolGetter:         storageService,
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
