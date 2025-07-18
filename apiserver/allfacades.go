@@ -77,7 +77,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
-	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
 	"github.com/juju/juju/core/facades"
@@ -221,7 +220,6 @@ func AllFacades() *facade.Registry {
 	storage.Register(registry)
 	storageprovisioner.Register(registry)
 	subnets.Register(registry)
-	undertaker.Register(registry)
 	uniter.Register(registry)
 	upgrader.Register(registry)
 	usermanager.Register(registry)
