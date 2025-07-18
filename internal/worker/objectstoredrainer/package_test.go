@@ -15,7 +15,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination service_mock_test.go github.com/juju/juju/internal/worker/objectstoredrainer ObjectStoreService,ObjectStoreServicesGetter,GuardService,ControllerService,ControllerConfigService,HashFileSystemAccessor
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination fortress_mock_test.go github.com/juju/juju/internal/worker/fortress Guard
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore Client,ObjectStoreMetadata
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore Client,Session,ObjectStoreMetadata
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
@@ -32,6 +32,7 @@ type baseSuite struct {
 	controllerService         *MockControllerService
 	controllerConfigService   *MockControllerConfigService
 	s3Client                  *MockClient
+	s3Session                 *MockSession
 	hashFileSystemAccessor    *MockHashFileSystemAccessor
 }
 
@@ -48,6 +49,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerService = NewMockControllerService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.s3Client = NewMockClient(ctrl)
+	s.s3Session = NewMockSession(ctrl)
 	s.hashFileSystemAccessor = NewMockHashFileSystemAccessor(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
@@ -63,6 +65,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerService = nil
 		s.controllerConfigService = nil
 		s.s3Client = nil
+		s.s3Session = nil
 		s.hashFileSystemAccessor = nil
 	})
 
