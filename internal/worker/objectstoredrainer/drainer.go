@@ -164,17 +164,18 @@ func (w *drainWorker) drainFile(ctx context.Context, path, hash string, metadata
 		}
 		return nil
 	})
-	if errors.Is(err, coreerrors.AlreadyExists) {
-		// File already contains the hash, so we can skip it.
-		return w.removeDrainedFile(ctx, hash)
-	} else if err != nil {
+	if err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
 		return errors.Capture(err)
 	}
 
 	// We can remove the file from the file backed object store, because it
 	// has been successfully drained to the s3 object store.
 	if err := w.removeDrainedFile(ctx, hash); err != nil {
-		return errors.Capture(err)
+		// If we're unable to remove the file from the file backed object
+		// store, then we should log a warning, but continue processing.
+		// This is not a terminal case, we can continue processing.
+		w.logger.Warningf(ctx, "unable to remove file %q from file object store: %v", hash, err)
+		return nil
 	}
 
 	return nil
@@ -220,11 +221,7 @@ func (w *drainWorker) objectAlreadyExists(ctx context.Context, hash string) erro
 
 func (w *drainWorker) removeDrainedFile(ctx context.Context, hash string) error {
 	if err := w.fileSystem.DeleteByHash(ctx, hash); err != nil {
-		// If we're unable to remove the file from the file backed object
-		// store, then we should log a warning, but continue processing.
-		// This is not a terminal case, we can continue processing.
-		w.logger.Warningf(ctx, "unable to remove file %q from file object store: %v", hash, err)
-		return nil
+		return errors.Errorf("removing file %q from file object store: %w", hash, err)
 	}
 	return nil
 }
