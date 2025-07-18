@@ -45,7 +45,9 @@ type drainWorker struct {
 	logger logger.Logger
 }
 
-func newDrainWorker(
+// NewDrainWorker creates a new drain worker that will drain files from the
+// file backed object store to the s3 object store.
+func NewDrainWorker(
 	completed chan<- string,
 	fileSystem HashFileSystemAccessor,
 	client objectstore.Client,

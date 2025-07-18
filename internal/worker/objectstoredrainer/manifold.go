@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/fortress"
 )
@@ -220,6 +221,16 @@ func GetControllerService(getter dependency.Getter, name string) (ControllerServ
 	return services.Controller(), nil
 }
 
+// GetControllerConfigService retrieves the ControllerConfigService using the
+// given service.
+func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
+	var services services.ControllerObjectStoreServices
+	if err := getter.Get(name, &services); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return services.ControllerConfig(), nil
+}
+
 // GeObjectStoreServicesGetter retrieves the ObjectStoreService using the given
 // service.
 func GeObjectStoreServicesGetter(getter dependency.Getter, name string) (ObjectStoreServicesGetter, error) {
@@ -233,6 +244,7 @@ func GeObjectStoreServicesGetter(getter dependency.Getter, name string) (ObjectS
 	}, nil
 }
 
+// GetGuardService retrieves the GuardService using the given service.
 func GetGuardService(getter dependency.Getter, name string) (GuardService, error) {
 	var services services.ControllerObjectStoreServices
 	if err := getter.Get(name, &services); err != nil {
@@ -240,6 +252,12 @@ func GetGuardService(getter dependency.Getter, name string) (GuardService, error
 	}
 
 	return services.AgentObjectStore(), nil
+}
+
+// NewHashFileStoreAccessor creates a new HashFileSystemAccessor
+// for the given namespace and root directory.
+func NewHashFileStoreAccessor(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
+	return objectstore.NewHashFileStore(namespace, rootDir, logger)
 }
 
 func bucketName(config controller.Config) (string, error) {
