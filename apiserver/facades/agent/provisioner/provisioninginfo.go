@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -261,8 +262,16 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		if err != nil {
 			return nil, nil, errors.Errorf("getting volume %q parameters: %w", volumeTag.Id(), err)
 		}
-		// TODO(storage): Handle the case:
-		// environ.StorageProvider(storage.ProviderType(volumeParams.Provider))
+
+		_, err = api.storageProviderRegistry.StorageProvider(storage.ProviderType(volumeParams.Provider))
+		if errors.Is(err, jujuerrors.NotFound) {
+			// This storage type is not managed by the environ
+			// provider, so ignore it. It'll be managed by one
+			// of the storage provisioners.
+			continue
+		} else if err != nil {
+			return nil, nil, errors.Errorf("checking storage provider: %w", err)
+		}
 
 		var volumeProvisioned bool
 		volumeInfo, err := volume.Info()
