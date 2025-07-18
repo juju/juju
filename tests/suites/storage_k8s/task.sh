@@ -16,6 +16,9 @@ test_storage_k8s() {
 
 		export JUJU_DEV_FEATURE_FLAGS=k8s-attach-storage
 		test_import_filesystem
+		test_deploy_attach_storage
+		test_add_unit_attach_storage
+		test_add_unit_duplicate_pvc_exists
 		;;
 	*)
 		echo "==> TEST SKIPPED: storage k8s tests, not a k8s provider"
