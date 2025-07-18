@@ -323,7 +323,8 @@ func (s *placementSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resultNetNode, tc.Equals, netNode)
-	c.Assert(machineNames, tc.HasLen, 0)
+	c.Assert(machineNames, tc.HasLen, 1)
+	c.Check(machineNames[0], tc.Equals, machine.Name("0"))
 }
 
 func (s *placementSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C) {

@@ -58,7 +58,10 @@ func PlaceMachine(
 		// Look up the existing machine by name (example: 0 or 0/lxd/0) and then
 		// return the associated net node UUID.
 		netNodeUUID, err := getMachineNetNodeUUIDFromName(ctx, tx, preparer, coremachine.Name(args.Directive.Directive))
-		return netNodeUUID, nil, errors.Capture(err)
+		// At this point we know that the machine exists, so we can return its
+		// name taken from the directive.
+		machineNames := []coremachine.Name{coremachine.Name(args.Directive.Directive)}
+		return netNodeUUID, machineNames, errors.Capture(err)
 
 	case deployment.PlacementTypeContainer:
 		// The placement is container scoped (example: lxd or lxd:0). If there
