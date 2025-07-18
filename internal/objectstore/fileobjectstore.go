@@ -358,6 +358,7 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 func (t *fileObjectStore) Report() map[string]any {
 	report := make(map[string]any)
 
+	report["type"] = "file-object-store"
 	report["namespace"] = t.namespace
 	report["path"] = t.path
 	report["remote"] = t.remoteRunner.Report()

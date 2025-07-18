@@ -48,8 +48,8 @@ type WorkerConfig struct {
 	S3Client                   objectstore.Client
 	APIRemoteCaller            apiremotecaller.APIRemoteCallers
 	NewObjectStoreWorker       internalobjectstore.ObjectStoreWorkerFunc
-	ObjectStoreType            objectstore.BackendType
 	ControllerMetadataService  MetadataService
+	ControllerConfigService    ControllerConfigService
 	ModelMetadataServiceGetter MetadataServiceGetter
 	ModelClaimGetter           ModelClaimGetter
 	AllowDraining              bool
@@ -83,6 +83,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ControllerMetadataService == nil {
 		return errors.NotValidf("nil ControllerMetadataService")
+	}
+	if c.ControllerConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigService")
 	}
 	if c.ModelMetadataServiceGetter == nil {
 		return errors.NotValidf("nil ModelMetadataServiceGetter")
@@ -306,6 +309,11 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 			return nil, errors.Trace(err)
 		}
 
+		controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		// Grab the claimer for the model.
 		claimer, err := w.cfg.ModelClaimGetter.ForModelUUID(model.UUID(namespace))
 		if err != nil {
@@ -321,7 +329,7 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(
 			ctx,
-			internalobjectstore.BackendTypeOrDefault(w.cfg.ObjectStoreType),
+			internalobjectstore.BackendTypeOrDefault(controllerConfig.ObjectStoreType()),
 			namespace,
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
 			internalobjectstore.WithRootBucket(w.cfg.RootBucket),
