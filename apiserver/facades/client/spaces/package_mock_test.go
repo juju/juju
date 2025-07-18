@@ -14,9 +14,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
-	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
-	unit "github.com/juju/juju/core/unit"
 	network0 "github.com/juju/juju/domain/network"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -379,45 +377,6 @@ func (c *MockNetworkServiceGetAllSubnetsCall) Do(f func(context.Context) (networ
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkServiceGetAllSubnetsCall) DoAndReturn(f func(context.Context) (network.SubnetInfos, error)) *MockNetworkServiceGetAllSubnetsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetMachineAddresses mocks base method.
-func (m *MockNetworkService) GetMachineAddresses(arg0 context.Context, arg1 machine.UUID) (network.SpaceAddresses, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineAddresses", arg0, arg1)
-	ret0, _ := ret[0].(network.SpaceAddresses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMachineAddresses indicates an expected call of GetMachineAddresses.
-func (mr *MockNetworkServiceMockRecorder) GetMachineAddresses(arg0, arg1 any) *MockNetworkServiceGetMachineAddressesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineAddresses", reflect.TypeOf((*MockNetworkService)(nil).GetMachineAddresses), arg0, arg1)
-	return &MockNetworkServiceGetMachineAddressesCall{Call: call}
-}
-
-// MockNetworkServiceGetMachineAddressesCall wrap *gomock.Call
-type MockNetworkServiceGetMachineAddressesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockNetworkServiceGetMachineAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockNetworkServiceGetMachineAddressesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceGetMachineAddressesCall) Do(f func(context.Context, machine.UUID) (network.SpaceAddresses, error)) *MockNetworkServiceGetMachineAddressesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceGetMachineAddressesCall) DoAndReturn(f func(context.Context, machine.UUID) (network.SpaceAddresses, error)) *MockNetworkServiceGetMachineAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -860,45 +819,6 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// GetAllEndpointBindings mocks base method.
-func (m *MockApplicationService) GetAllEndpointBindings(arg0 context.Context) (map[string]map[string]network.SpaceName, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllEndpointBindings", arg0)
-	ret0, _ := ret[0].(map[string]map[string]network.SpaceName)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllEndpointBindings indicates an expected call of GetAllEndpointBindings.
-func (mr *MockApplicationServiceMockRecorder) GetAllEndpointBindings(arg0 any) *MockApplicationServiceGetAllEndpointBindingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllEndpointBindings", reflect.TypeOf((*MockApplicationService)(nil).GetAllEndpointBindings), arg0)
-	return &MockApplicationServiceGetAllEndpointBindingsCall{Call: call}
-}
-
-// MockApplicationServiceGetAllEndpointBindingsCall wrap *gomock.Call
-type MockApplicationServiceGetAllEndpointBindingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetAllEndpointBindingsCall) Return(arg0 map[string]map[string]network.SpaceName, arg1 error) *MockApplicationServiceGetAllEndpointBindingsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetAllEndpointBindingsCall) Do(f func(context.Context) (map[string]map[string]network.SpaceName, error)) *MockApplicationServiceGetAllEndpointBindingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetAllEndpointBindingsCall) DoAndReturn(f func(context.Context) (map[string]map[string]network.SpaceName, error)) *MockApplicationServiceGetAllEndpointBindingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetApplicationsBoundToSpace mocks base method.
 func (m *MockApplicationService) GetApplicationsBoundToSpace(arg0 context.Context, arg1 network.SpaceUUID) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -938,45 +858,6 @@ func (c *MockApplicationServiceGetApplicationsBoundToSpaceCall) DoAndReturn(f fu
 	return c
 }
 
-// GetUnitNamesOnMachine mocks base method.
-func (m *MockApplicationService) GetUnitNamesOnMachine(arg0 context.Context, arg1 machine.Name) ([]unit.Name, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitNamesOnMachine", arg0, arg1)
-	ret0, _ := ret[0].([]unit.Name)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitNamesOnMachine indicates an expected call of GetUnitNamesOnMachine.
-func (mr *MockApplicationServiceMockRecorder) GetUnitNamesOnMachine(arg0, arg1 any) *MockApplicationServiceGetUnitNamesOnMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesOnMachine", reflect.TypeOf((*MockApplicationService)(nil).GetUnitNamesOnMachine), arg0, arg1)
-	return &MockApplicationServiceGetUnitNamesOnMachineCall{Call: call}
-}
-
-// MockApplicationServiceGetUnitNamesOnMachineCall wrap *gomock.Call
-type MockApplicationServiceGetUnitNamesOnMachineCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetUnitNamesOnMachineCall) Return(arg0 []unit.Name, arg1 error) *MockApplicationServiceGetUnitNamesOnMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetUnitNamesOnMachineCall) Do(f func(context.Context, machine.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesOnMachineCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetUnitNamesOnMachineCall) DoAndReturn(f func(context.Context, machine.Name) ([]unit.Name, error)) *MockApplicationServiceGetUnitNamesOnMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockMachineService is a mock of MachineService interface.
 type MockMachineService struct {
 	ctrl     *gomock.Controller
@@ -998,45 +879,6 @@ func NewMockMachineService(ctrl *gomock.Controller) *MockMachineService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
-}
-
-// AllMachineNames mocks base method.
-func (m *MockMachineService) AllMachineNames(arg0 context.Context) ([]machine.Name, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllMachineNames", arg0)
-	ret0, _ := ret[0].([]machine.Name)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllMachineNames indicates an expected call of AllMachineNames.
-func (mr *MockMachineServiceMockRecorder) AllMachineNames(arg0 any) *MockMachineServiceAllMachineNamesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachineNames", reflect.TypeOf((*MockMachineService)(nil).AllMachineNames), arg0)
-	return &MockMachineServiceAllMachineNamesCall{Call: call}
-}
-
-// MockMachineServiceAllMachineNamesCall wrap *gomock.Call
-type MockMachineServiceAllMachineNamesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceAllMachineNamesCall) Return(arg0 []machine.Name, arg1 error) *MockMachineServiceAllMachineNamesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceAllMachineNamesCall) Do(f func(context.Context) ([]machine.Name, error)) *MockMachineServiceAllMachineNamesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceAllMachineNamesCall) DoAndReturn(f func(context.Context) ([]machine.Name, error)) *MockMachineServiceAllMachineNamesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // CountMachinesInSpace mocks base method.
@@ -1074,45 +916,6 @@ func (c *MockMachineServiceCountMachinesInSpaceCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceCountMachinesInSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID) (int64, error)) *MockMachineServiceCountMachinesInSpaceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetMachineUUID mocks base method.
-func (m *MockMachineService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
-	ret0, _ := ret[0].(machine.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMachineUUID indicates an expected call of GetMachineUUID.
-func (mr *MockMachineServiceMockRecorder) GetMachineUUID(arg0, arg1 any) *MockMachineServiceGetMachineUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUID", reflect.TypeOf((*MockMachineService)(nil).GetMachineUUID), arg0, arg1)
-	return &MockMachineServiceGetMachineUUIDCall{Call: call}
-}
-
-// MockMachineServiceGetMachineUUIDCall wrap *gomock.Call
-type MockMachineServiceGetMachineUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceGetMachineUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockMachineServiceGetMachineUUIDCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockMachineServiceGetMachineUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
