@@ -823,13 +823,27 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 
 	spaces := set.NewStrings()
 	callback := func(doc *ipAddressDoc) {
-		// Don't bother with these. They are not in a space.
-		if doc.ConfigMethod == corenetwork.ConfigLoopback || doc.SubnetCIDR == "" {
+		logger.Debugf("Machine %s: processing address %s (config method: %s, subnet CIDR: %s)",
+			m.Id(), doc.Value, doc.ConfigMethod, doc.SubnetCIDR)
+
+		// Skip addresses without a subnet CIDR as they can't be associated with a space
+		if doc.SubnetCIDR == "" {
 			return
 		}
 
+		// Skip true loopback addresses (127.0.0.0/8, ::1/128)
+		ip := net.ParseIP(doc.Value)
+		if ip != nil && ip.IsLoopback() {
+			return
+		}
+
+		// Process all other addresses with valid subnet CIDRs
+		// This allows custom addresses on loopback interfaces to be associated with spaces
+		// while still ignoring actual loopback addresses
 		for _, sub := range subnets {
 			if sub.CIDR() == doc.SubnetCIDR {
+				logger.Tracef("Machine %s: address %s matched subnet %s in space %s",
+					m.Id(), doc.Value, sub.CIDR(), sub.spaceID)
 				spaces.Add(sub.spaceID)
 				break
 			}
@@ -839,5 +853,6 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 		return nil, errors.Trace(err)
 	}
 
+	logger.Debugf("Machine %s: found spaces: %v", m.Id(), spaces.SortedValues())
 	return spaces, nil
 }

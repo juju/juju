@@ -33,11 +33,19 @@ const (
 	TreeStateArchive = "archive"
 )
 
+const (
+	// GradeDevel reflects the snap "devel" grade value.
+	GradeDevel = "devel"
+)
+
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = semversion.MustParse("1.19.9")
 
 // build is injected by Jenkins, it must be an integer or empty.
 var build string
+
+// Grade reflects the snap grade value.
+var Grade string
 
 // OfficialBuild is a monotonic number injected by Jenkins.
 var OfficialBuild = mustParseBuildInt(build)

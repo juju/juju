@@ -244,7 +244,7 @@ started upgrade to 3.9.99
 }
 
 func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficial(c *gc.C) {
-	s.reset(c)
+	s.resetOfficial(c, true)
 
 	s.PatchValue(&jujuversion.Current, func() version.Number {
 		v := jujuversion.Current
@@ -253,7 +253,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOffi
 	}())
 
 	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return true },
+		func(model.ModelType, bool, version.Number, string, version.Number) bool { return true },
 	)
 
 	ctrl, cmd := s.upgradeControllerCommand(c, false)
@@ -298,6 +298,91 @@ started upgrade to %s
 `, builtVersion.Number, builtVersion.Number)[1:])
 }
 
+func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalNonOfficial(c *gc.C) {
+	s.reset(c)
+
+	s.PatchValue(&jujuversion.Current, func() version.Number {
+		v := jujuversion.Current
+		v.Build = 0
+		return v
+	}())
+
+	s.PatchValue(&CheckCanImplicitUpload,
+		func(model.ModelType, bool, version.Number, string, version.Number) bool { return true },
+	)
+
+	ctrl, cmd := s.upgradeControllerCommand(c, false)
+	defer ctrl.Finish()
+
+	agentVersion := coretesting.FakeVersionNumber
+	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"agent-version": agentVersion.String(),
+	})
+
+	c.Assert(agentVersion.Build, gc.Equals, 0)
+	builtVersion := coretesting.CurrentVersion()
+	targetVersion := builtVersion.Number
+	builtVersion.Build++
+	gomock.InOrder(
+		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelUpgrader.EXPECT().UpgradeModel(
+			coretesting.ModelTag.Id(), targetVersion,
+			"", false, false,
+		).Return(
+			version.Zero,
+			errors.NotFoundf("available agent tool, upload required"),
+		),
+	)
+
+	_, err := cmdtesting.RunCommand(c, cmd,
+		"--agent-version", targetVersion.String(),
+	)
+	c.Assert(err, gc.ErrorMatches, "non official build not supported")
+}
+
+func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficialNoImplicitUpgrade(c *gc.C) {
+	s.resetOfficial(c, true)
+
+	s.PatchValue(&jujuversion.Current, func() version.Number {
+		v := jujuversion.Current
+		v.Build = 0
+		return v
+	}())
+
+	s.PatchValue(&CheckCanImplicitUpload,
+		func(model.ModelType, bool, version.Number, string, version.Number) bool { return false },
+	)
+
+	ctrl, cmd := s.upgradeControllerCommand(c, false)
+	defer ctrl.Finish()
+
+	agentVersion := coretesting.FakeVersionNumber
+	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"agent-version": agentVersion.String(),
+	})
+
+	c.Assert(agentVersion.Build, gc.Equals, 0)
+	builtVersion := coretesting.CurrentVersion()
+	targetVersion := builtVersion.Number
+	builtVersion.Build++
+	gomock.InOrder(
+		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
+		s.modelUpgrader.EXPECT().UpgradeModel(
+			coretesting.ModelTag.Id(), targetVersion,
+			"", false, false,
+		).Return(
+			version.Zero,
+			errors.NotFoundf("available agent tool, upload required"),
+		),
+	)
+
+	ctx, err := cmdtesting.RunCommand(c, cmd,
+		"--agent-version", targetVersion.String(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
+}
+
 func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *gc.C) {
 	s.reset(c)
 
@@ -333,7 +418,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionFailedExpectUpl
 	s.reset(c)
 
 	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return true },
+		func(model.ModelType, bool, version.Number, string, version.Number) bool { return true },
 	)
 
 	ctrl, cmd := s.upgradeControllerCommand(c, false)
@@ -374,7 +459,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionExpectUploadFai
 	s.reset(c)
 
 	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return false },
+		func(model.ModelType, bool, version.Number, string, version.Number) bool { return false },
 	)
 
 	ctrl, cmd := s.upgradeControllerCommand(c, false)
@@ -473,7 +558,21 @@ cannot upgrade to "3.9.99" due to issues with these models:
 }
 
 func (s *upgradeControllerSuite) reset(c *gc.C) {
-	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c))
+	s.resetOfficial(c, false)
+}
+
+func (s *upgradeControllerSuite) resetOfficial(c *gc.C, official bool) {
+	s.PatchValue(&sync.BuildAgentTarball, func(
+		build bool, stream string,
+		getForceVersion func(version.Number) version.Number,
+	) (*sync.BuiltAgent, error) {
+		result, err := toolstesting.GetMockBuildTools(c)(build, stream, getForceVersion)
+		if err != nil {
+			return nil, err
+		}
+		result.Official = official
+		return result, nil
+	})
 }
 
 func (s *upgradeControllerSuite) TestUpgradeModelWithBuildAgent(c *gc.C) {
@@ -683,6 +782,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 	canImplicitUpload := checkCanImplicitUpload(
 		model.CAAS, true,
 		version.MustParse("3.0.0"),
+		"",
 		version.MustParse("3.9.99.1"),
 	)
 	c.Check(canImplicitUpload, jc.IsFalse)
@@ -691,6 +791,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, false,
 		version.MustParse("3.9.99"),
+		"",
 		version.MustParse("3.0.0"),
 	)
 	c.Check(canImplicitUpload, jc.IsFalse)
@@ -699,6 +800,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, true,
 		version.MustParse("2.9.99"),
+		"",
 		version.MustParse("3.0.0"),
 	)
 	c.Check(canImplicitUpload, jc.IsFalse)
@@ -707,6 +809,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, true,
 		version.MustParse("3.0.0.1"),
+		"",
 		version.MustParse("3.0.0"),
 	)
 	c.Check(canImplicitUpload, jc.IsTrue)
@@ -715,6 +818,7 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, true,
 		version.MustParse("3.0.0"),
+		"",
 		version.MustParse("3.0.0.1"),
 	)
 	c.Check(canImplicitUpload, jc.IsTrue)
@@ -722,8 +826,30 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 	// both client and agent version with build number == 0.
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, true,
-		version.MustParse("3.0.0"),
+		version.MustParse("3.1.0"),
+		"",
 		version.MustParse("3.0.0"),
 	)
 	c.Check(canImplicitUpload, jc.IsFalse)
+
+	// both client and agent version with build number == 0
+	// but grade is devel.
+	canImplicitUpload = checkCanImplicitUpload(
+		model.IAAS, true,
+		version.MustParse("3.1.0"),
+		"devel",
+		version.MustParse("3.0.0"),
+	)
+	c.Check(canImplicitUpload, jc.IsTrue)
+
+	// both client and agent version are the same
+	// but grade is devel.
+	canImplicitUpload = checkCanImplicitUpload(
+		model.IAAS, true,
+		version.MustParse("3.0.0.1"),
+		"devel",
+		version.MustParse("3.0.0.1"),
+	)
+	c.Check(canImplicitUpload, jc.IsTrue)
+
 }

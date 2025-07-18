@@ -42,6 +42,7 @@ func (s *VersionSuite) TestVersionDetail(c *gc.C) {
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
 	s.PatchValue(&jujuversion.GoBuildTags, "a,b,c,d")
+	s.PatchValue(&jujuversion.Grade, "devel")
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all")
 	c.Assert(err, jc.ErrorIsNil)
@@ -50,6 +51,8 @@ version: 2.99.0-%s-%s
 git-commit: 0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
 git-tree-state: clean
 compiler: gc
+official: false
+grade: devel
 go-build-tags: a,b,c,d
 `[1:]
 	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
@@ -64,11 +67,12 @@ func (s *VersionSuite) TestVersionDetailJSON(c *gc.C) {
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
 	s.PatchValue(&jujuversion.GoBuildTags, "a,b,c,d")
+	s.PatchValue(&jujuversion.Grade, "devel")
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	outputTemplate := `
-{"version":"2.99.0-%s-%s","git-commit":"0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f","git-tree-state":"clean","compiler":"gc","go-build-tags":"a,b,c,d"}
+{"version":"2.99.0-%s-%s","git-commit":"0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f","git-tree-state":"clean","compiler":"gc","official":false,"grade":"devel","go-build-tags":"a,b,c,d"}
 `[1:]
 	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
 
@@ -82,6 +86,7 @@ func (s *VersionSuite) TestVersionDetailYAML(c *gc.C) {
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
 	s.PatchValue(&jujuversion.GoBuildTags, "a,b,c,d")
+	s.PatchValue(&jujuversion.Grade, "devel")
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command, "--all", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -90,6 +95,8 @@ version: 2.99.0-%s-%s
 git-commit: 0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
 git-tree-state: clean
 compiler: gc
+official: false
+grade: devel
 go-build-tags: a,b,c,d
 `[1:]
 	output := fmt.Sprintf(outputTemplate, coreos.HostOSTypeName(), arch.HostArch())
