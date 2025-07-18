@@ -386,13 +386,6 @@ func increfEntityStorageOp(mb modelBackend, owner names.Tag, storageName string,
 	return incRefOp, errors.Trace(err)
 }
 
-// machineAssignable is used by createStorageOps to determine what machine
-// storage needs to be created. This is implemented by Unit.
-type machineAssignable interface {
-	machine() (*Machine, error)
-	noAssignedMachineOp() txn.Op
-}
-
 // createStorageOps returns txn.Ops for creating storage instances
 // and attachments for the newly created unit or application. A map
 // of storage names to number of storage instances created will
@@ -411,10 +404,6 @@ type machineAssignable interface {
 // instances to be created, keyed on the storage name. These constraints
 // will be correlated with the charm storage metadata for validation
 // and supplementing.
-//
-// maybeMachineAssignable may be nil, or an machineAssignable which
-// describes the entity's machine assignment. If the entity is assigned
-// to a machine, then machine storage will be created.
 func createStorageOps(
 	st *State,
 	sb *storageConfigBackend,
@@ -422,7 +411,6 @@ func createStorageOps(
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
 	osname string,
-	maybeMachineAssignable machineAssignable,
 ) (ops []txn.Op, storageTags map[string][]names.StorageTag, numStorageAttachments int, err error) {
 
 	fail := func(err error) ([]txn.Op, map[string][]names.StorageTag, int, error) {
@@ -511,20 +499,6 @@ func createStorageOps(
 				numStorageAttachments++
 				storageInstance := &storageInstance{sb.storageBackend, *doc}
 
-				if maybeMachineAssignable != nil {
-					var err error
-					hostStorageOps, err = unitAssignedMachineStorageOps(
-						sb, charmMeta, osname,
-						storageInstance,
-						maybeMachineAssignable,
-					)
-					if err != nil {
-						return fail(errors.Annotatef(
-							err, "creating machine storage for storage %s", id,
-						))
-					}
-				}
-
 				// For CAAS models, we create the storage with the unit
 				// as there's no machine for the unit to be assigned to.
 				if sb.modelType == ModelTypeCAAS {
@@ -558,45 +532,6 @@ func createStorageOps(
 	// is when units are added to said application.
 
 	return ops, storageTags, numStorageAttachments, nil
-}
-
-// unitAssignedMachineStorageOps returns ops for creating volumes, filesystems
-// and their attachments to the machine that the specified unit is assigned to,
-// corresponding to the specified storage instance.
-//
-// If the unit is not assigned to a machine, then ops will be returned to assert
-// this, and no error will be returned.
-func unitAssignedMachineStorageOps(
-	sb *storageConfigBackend,
-	charmMeta *charm.Meta,
-	osname string,
-	storage *storageInstance,
-	machineAssignable machineAssignable,
-) (ops []txn.Op, err error) {
-	m, err := machineAssignable.machine()
-	if err != nil {
-		if errors.Is(err, errors.NotAssigned) {
-			// The unit is not assigned to a machine; return
-			// txn.Op that ensures that this remains the case
-			// until the transaction is committed.
-			return []txn.Op{machineAssignable.noAssignedMachineOp()}, nil
-		}
-		return nil, errors.Trace(err)
-	}
-
-	storageParams, err := storageParamsForStorageInstance(
-		sb.storageBackend, charmMeta, osname, storage,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	storageOps, _, _, err := sb.hostStorageOps(
-		m.doc.Id, storageParams,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return storageOps, nil
 }
 
 // createStorageAttachmentOps returns a txn.Op for creating a storage attachment.
@@ -696,7 +631,7 @@ func (sb *storageConfigBackend) AttachStorage(storage names.StorageTag, unit nam
 		if err != nil {
 			return nil, errors.Annotate(err, "getting charm")
 		}
-		ops, err := sb.attachStorageOps(u.st, si, u.unitTag(), u.base().OS, ch.Meta(), u)
+		ops, err := sb.attachStorageOps(u.st, si, u.unitTag(), u.base().OS, ch.Meta())
 		if errors.Is(err, errors.AlreadyExists) {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -745,7 +680,6 @@ func (sb *storageConfigBackend) attachStorageOps(
 	unitTag names.UnitTag,
 	osName string,
 	charmMeta *charm.Meta,
-	maybeMachineAssignable machineAssignable,
 ) ([]txn.Op, error) {
 	if si.Life() != Alive {
 		return nil, errors.New("storage not alive")
@@ -809,17 +743,6 @@ func (sb *storageConfigBackend) attachStorageOps(
 		Update: siUpdate,
 	},
 		createStorageAttachmentOp(si.StorageTag(), unitTag),
-	}
-
-	if maybeMachineAssignable != nil {
-		machineStorageOps, err := unitAssignedMachineStorageOps(
-			sb, charmMeta, osName, si,
-			maybeMachineAssignable,
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, machineStorageOps...)
 	}
 
 	// Attach volumes and filesystems for reattached storage on CAAS.
@@ -1413,7 +1336,6 @@ func (sb *storageConfigBackend) addUnitStorageOps(
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
 		u.base().OS,
-		u,
 	)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

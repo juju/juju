@@ -1073,6 +1073,64 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c
 	c.Check(len(data), tc.Equals, 0)
 }
 
+func (s *modelStateSuite) TestGetMachineAgentBinaryMetadataMachineNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetMachineAgentBinaryMetadata(c.Context(), "0")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *modelStateSuite) TestGetMachineAgentBinaryMetadata(c *tc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	versionARM64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.ARM64,
+	}
+
+	metaAMD64 := s.registerAgentBinary(c, versionAMD64)
+	metaARM64 := s.registerAgentBinary(c, versionARM64)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	amdMachineUUID, amdMachineName := s.addMachine(c)
+	err := st.SetMachineRunningAgentBinaryVersion(
+		c.Context(), amdMachineUUID.String(), versionAMD64,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	armMachineUUID, armMachineName := s.addMachine(c)
+	err = st.SetMachineRunningAgentBinaryVersion(
+		c.Context(), armMachineUUID.String(), versionARM64,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	amdMeta, err := st.GetMachineAgentBinaryMetadata(c.Context(), amdMachineName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(amdMeta, tc.DeepEquals, metaAMD64)
+
+	armMeta, err := st.GetMachineAgentBinaryMetadata(c.Context(), armMachineName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(armMeta, tc.DeepEquals, metaARM64)
+}
+
+func (s *modelStateSuite) TestGetMachineAgentBinaryMetadataMachineNotSet(c *tc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	s.registerAgentBinary(c, versionAMD64)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, machineName := s.addMachine(c)
+
+	_, err := st.GetMachineAgentBinaryMetadata(c.Context(), machineName.String())
+	c.Assert(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
+}
+
 // TestGetUnitAgentBinaryMetadata tests the happy path of
 // [State.GetUnitsAgentBinaryMetadata]. We assert that with multiple units on
 // different agent binaries the each unit is correctly associated.

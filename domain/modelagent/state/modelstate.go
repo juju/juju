@@ -69,6 +69,43 @@ SELECT &machineUUID.* FROM machine WHERE uuid = $machineUUID.uuid
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 // - [machineerrors.MachineIsDead] if the machine is dead.
+func (st *State) checkMachineNotDeadByName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	name string,
+) error {
+	ident := machineName{Name: name}
+	stmt, err := st.Prepare(`
+SELECT &machineLife.life_id FROM machine WHERE name = $machineName.name
+`, machineLife{}, ident)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var machineLife machineLife
+	err = tx.Query(ctx, stmt, ident).Get(&machineLife)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("machine %q does not exist", name).Add(machineerrors.MachineNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"checking if machine %q exists: %w",
+			name, err,
+		)
+	}
+
+	if machineLife.LifeID == domainlife.Dead {
+		return errors.Errorf("machine %q is dead", name).Add(machineerrors.MachineIsDead)
+	}
+
+	return nil
+}
+
+// checkMachineNotDead checks if the machine with the given uuid exists and that
+// its current life status is not one of dead. This is meant as a helper func
+// to assert that a machine can be operated on inside of a transaction.
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [machineerrors.MachineIsDead] if the machine is dead.
 func (st *State) checkMachineNotDead(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -217,6 +254,87 @@ WHERE mb.base NOT IN ($machineBaseValues[:])
 	}
 
 	return machineCount.Count, nil
+}
+
+// GetMachineAgentBinaryMetadata reports the agent binary metadata that is
+// currently running a given machine.
+//
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] when the machine being asked for does not
+// exist.
+// - [modelagenterrors.AgentVersionNotSet] when one or more machines in
+// the model do not have their agent version set.
+// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
+// for one or more machines in the model.
+func (st *State) GetMachineAgentBinaryMetadata(ctx context.Context, mName string) (coreagentbinary.Metadata, error) {
+	db, err := st.DB()
+	if err != nil {
+		return coreagentbinary.Metadata{}, errors.Capture(err)
+	}
+
+	ident := machineName{Name: mName}
+	stmt, err := st.Prepare(`
+SELECT    mav.version AS &agentBinaryMetadata.version,
+          mav.architecture_name AS &agentBinaryMetadata.architecture_name,
+          osm.size AS &agentBinaryMetadata.size,
+          osm.sha_256 AS &agentBinaryMetadata.sha_256,
+          osm.sha_384 AS &agentBinaryMetadata.sha_384
+FROM      v_machine_agent_version AS mav
+LEFT JOIN v_agent_binary_store AS abs ON (
+          mav.version = abs.version
+AND       mav.architecture_id = abs.architecture_id)
+LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
+WHERE     mav.name = $machineName.name
+`, agentBinaryMetadata{}, ident)
+	if err != nil {
+		return coreagentbinary.Metadata{}, errors.Capture(err)
+	}
+
+	var agentBinaryMetadata agentBinaryMetadata
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkMachineNotDeadByName(ctx, tx, mName)
+		if err != nil {
+			return errors.Errorf("checking machine %q exists: %w", mName, err)
+		}
+
+		err = tx.Query(ctx, stmt, ident).Get(&agentBinaryMetadata)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q not found", mName).Add(modelagenterrors.AgentVersionNotSet)
+		} else if err != nil {
+			return errors.Errorf("getting machine %q agent binary metadata: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return coreagentbinary.Metadata{}, errors.Capture(err)
+	}
+
+	if !agentBinaryMetadata.SHA256.Valid ||
+		!agentBinaryMetadata.SHA384.Valid ||
+		!agentBinaryMetadata.Size.Valid {
+		return coreagentbinary.Metadata{}, errors.Errorf(
+			"machine %q has missing agent binaries in the model",
+			mName,
+		).Add(modelagenterrors.MissingAgentBinaries)
+	}
+
+	number, err := semversion.Parse(agentBinaryMetadata.Version)
+	if err != nil {
+		return coreagentbinary.Metadata{}, errors.Errorf(
+			"parsing machine %q agent binary version %q number: %w",
+			mName, agentBinaryMetadata.Version, err,
+		)
+	}
+
+	return coreagentbinary.Metadata{
+		SHA256: agentBinaryMetadata.SHA256.String,
+		SHA384: agentBinaryMetadata.SHA384.String,
+		Size:   agentBinaryMetadata.Size.Int64,
+		Version: coreagentbinary.Version{
+			Number: number,
+			Arch:   agentBinaryMetadata.Architecture,
+		},
+	}, nil
 }
 
 // GetMachinesAgentBinaryMetadata reports the agent binary metadata that each

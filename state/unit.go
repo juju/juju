@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -94,34 +93,6 @@ func (u *Unit) life() Life {
 	return u.doc.Life
 }
 
-// machine returns the unit's machine.
-//
-// machine is part of the machineAssignable interface.
-func (u *Unit) machine() (*Machine, error) {
-	id, err := u.assignedMachineId()
-	if err != nil {
-		return nil, errors.Annotatef(err, "unit %v cannot get assigned machine", u)
-	}
-	m, err := u.st.Machine(id)
-	if err != nil {
-		return nil, errors.Annotatef(err, "unit %v misses machine id %v", u, id)
-	}
-	return m, nil
-}
-
-// noAssignedMachineOp is part of the machineAssignable interface.
-func (u *Unit) noAssignedMachineOp() txn.Op {
-	id := u.doc.DocID
-	if u.doc.Principal != "" {
-		id = u.doc.Principal
-	}
-	return txn.Op{
-		C:      unitsC,
-		Id:     id,
-		Assert: bson.D{{"machineid", ""}},
-	}
-}
-
 // refresh refreshes the contents of the Unit from the underlying
 // state. It an error that satisfies errors.IsNotFound if the unit has
 // been removed.
@@ -204,19 +175,6 @@ func (u *Unit) Tag() names.Tag {
 // unit Name is invalid, in which case it will panic
 func (u *Unit) unitTag() names.UnitTag {
 	return names.NewUnitTag(u.name())
-}
-
-func unitNotAssignedError(u *Unit) error {
-	msg := fmt.Sprintf("unit %q is not assigned to a machine", u)
-	return errors.NewNotAssigned(nil, msg)
-}
-
-// assignedMachineId returns the id of the assigned machine.
-func (u *Unit) assignedMachineId() (id string, err error) {
-	if u.doc.MachineId == "" {
-		return "", unitNotAssignedError(u)
-	}
-	return u.doc.MachineId, nil
 }
 
 // storageParamsForStorageInstance returns parameters for creating

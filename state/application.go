@@ -872,14 +872,6 @@ func (a *Application) addUnitStorageOps(
 	// if the principal is assigned to a machine. Otherwise, we
 	// will add the subordinate's storage along with the principal's
 	// when the principal is assigned to a machine.
-	var machineAssignable machineAssignable
-	if a.doc.Subordinate {
-		pu, err := a.st.Unit(args.principalName)
-		if err != nil {
-			return nil, -1, errors.Trace(err)
-		}
-		machineAssignable = pu
-	}
 	platform := a.charmOrigin().Platform
 	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
 		a.st,
@@ -888,7 +880,6 @@ func (a *Application) addUnitStorageOps(
 		args.charmMeta,
 		args.storageCons,
 		platform.OS,
-		machineAssignable,
 	)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
@@ -907,7 +898,6 @@ func (a *Application) addUnitStorageOps(
 			unitTag,
 			platform.OS,
 			args.charmMeta,
-			machineAssignable,
 		)
 		if err != nil {
 			return nil, -1, errors.Trace(err)

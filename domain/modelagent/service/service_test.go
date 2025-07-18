@@ -645,6 +645,45 @@ func (s *serviceSuite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c
 	c.Check(err, tc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
+func (s *serviceSuite) TestGetMachineAgentBinaryMetadata(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := coremachine.Name("0")
+
+	s.state.EXPECT().GetMachineAgentBinaryMetadata(gomock.Any(), machineName.String()).Return(
+		coreagentbinary.Metadata{
+			SHA256:  "h@sh256",
+			SHA384:  "h@sh384",
+			Size:    1234,
+			Version: coreagentbinary.Version{Number: semversion.MustParse("4.1.1"), Arch: corearch.ARM64},
+		}, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	ver, err := svc.GetMachineAgentBinaryMetadata(c.Context(), machineName)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver, tc.DeepEquals, coreagentbinary.Metadata{
+		SHA256:  "h@sh256",
+		SHA384:  "h@sh384",
+		Size:    1234,
+		Version: coreagentbinary.Version{Number: semversion.MustParse("4.1.1"), Arch: corearch.ARM64},
+	})
+}
+
+func (s *serviceSuite) TestGetMachineAgentBinaryMetadataMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := coremachine.Name("0")
+
+	s.state.EXPECT().GetMachineAgentBinaryMetadata(gomock.Any(), machineName.String()).Return(
+		coreagentbinary.Metadata{}, machineerrors.MachineNotFound,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.state)
+	_, err := svc.GetMachineAgentBinaryMetadata(c.Context(), machineName)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 // TestGetUnitReportedAgentVersionAgentVersionNotSet asserts error pass
 // through on state of modelagenterrors.AgentVersionNotSet to satisfy
 // contract.

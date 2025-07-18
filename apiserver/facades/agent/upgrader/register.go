@@ -61,7 +61,6 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 
 	if tag.Kind() == names.UnitTagKind && modelType != coremodel.CAAS {
 		return NewUnitUpgraderAPI(
-			st,
 			auth,
 			domainServices.Agent(),
 			domainServices.Application(),

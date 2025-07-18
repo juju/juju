@@ -54,7 +54,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		return nil, errors.Trace(err)
 	}
 
-	backend, storageBackend, err := NewStateBackends(st)
+	storageBackend, err := NewStorageBackend(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -62,7 +62,6 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		stdCtx,
 		ctx.WatcherRegistry(),
 		ctx.Clock(),
-		backend,
 		storageBackend,
 		domainServices.BlockDevice(),
 		domainServices.Config(),

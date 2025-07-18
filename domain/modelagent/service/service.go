@@ -45,6 +45,16 @@ type State interface {
 	// returned with no error.
 	GetMachineCountNotUsingBase(context.Context, []corebase.Base) (int, error)
 
+	// GetMachineAgentBinaryMetadata reports the agent binary metadata that is
+	// currently running a given machine.
+	//
+	// The following errors can be expected:
+	// - [machineerrors.MachineNotFound] when the machine being asked for does
+	// not exist.
+	// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't
+	// exist for one or more machines in the model.
+	GetMachineAgentBinaryMetadata(ctx context.Context, machineName string) (agentbinary.Metadata, error)
+
 	// GetMachinesAgentBinaryMetadata reports the agent binary metadata that each
 	// machine in the model is currently running. This is a bulk call to support
 	// operations such as model export where it is expected that the state of a
@@ -290,6 +300,25 @@ func (s *Service) GetMachineReportedAgentVersion(
 	}
 
 	return ver, nil
+}
+
+// GetMachineAgentBinaryMetadata reports the agent binary metadata that is
+// currently running a given machine.
+//
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] when the machine being asked for does
+// not exist.
+// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't
+// exist for one or more machines in the model.
+func (s *Service) GetMachineAgentBinaryMetadata(ctx context.Context, machineName machine.Name) (agentbinary.Metadata, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return agentbinary.Metadata{}, errors.Errorf("getting machine agent binary metadata for machine: %w", err)
+	}
+
+	return s.st.GetMachineAgentBinaryMetadata(ctx, machineName.String())
 }
 
 // GetMachinesAgentBinaryMetadata returns the agent binary metadata that is

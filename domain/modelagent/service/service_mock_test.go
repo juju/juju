@@ -107,6 +107,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// GetMachineAgentBinaryMetadata mocks base method.
+func (m *MockState) GetMachineAgentBinaryMetadata(arg0 context.Context, arg1 string) (agentbinary.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineAgentBinaryMetadata", arg0, arg1)
+	ret0, _ := ret[0].(agentbinary.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineAgentBinaryMetadata indicates an expected call of GetMachineAgentBinaryMetadata.
+func (mr *MockStateMockRecorder) GetMachineAgentBinaryMetadata(arg0, arg1 any) *MockStateGetMachineAgentBinaryMetadataCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineAgentBinaryMetadata", reflect.TypeOf((*MockState)(nil).GetMachineAgentBinaryMetadata), arg0, arg1)
+	return &MockStateGetMachineAgentBinaryMetadataCall{Call: call}
+}
+
+// MockStateGetMachineAgentBinaryMetadataCall wrap *gomock.Call
+type MockStateGetMachineAgentBinaryMetadataCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineAgentBinaryMetadataCall) Return(arg0 agentbinary.Metadata, arg1 error) *MockStateGetMachineAgentBinaryMetadataCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineAgentBinaryMetadataCall) Do(f func(context.Context, string) (agentbinary.Metadata, error)) *MockStateGetMachineAgentBinaryMetadataCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineAgentBinaryMetadataCall) DoAndReturn(f func(context.Context, string) (agentbinary.Metadata, error)) *MockStateGetMachineAgentBinaryMetadataCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineCountNotUsingBase mocks base method.
 func (m *MockState) GetMachineCountNotUsingBase(arg0 context.Context, arg1 []base.Base) (int, error) {
 	m.ctrl.T.Helper()

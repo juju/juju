@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
@@ -39,7 +38,6 @@ type StorageProvisionerAPIv4 struct {
 
 	watcherRegistry facade.WatcherRegistry
 
-	st                         Backend
 	sb                         StorageBackend
 	blockDeviceService         BlockDeviceService
 	resources                  facade.Resources
@@ -68,7 +66,6 @@ func NewStorageProvisionerAPIv4(
 	ctx context.Context,
 	watcherRegistry facade.WatcherRegistry,
 	clock clock.Clock,
-	st Backend,
 	sb StorageBackend,
 	blockDeviceService BlockDeviceService,
 	modelConfigService ModelConfigService,
@@ -237,7 +234,6 @@ func NewStorageProvisionerAPIv4(
 
 		watcherRegistry: watcherRegistry,
 
-		st:                         st,
 		sb:                         sb,
 		resources:                  resources,
 		authorizer:                 authorizer,
@@ -312,39 +308,17 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 
 // WatchMachines watches for changes to the specified machines.
 func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
-	canAccess, err := s.getMachineAuthFunc(ctx)
-	if err != nil {
-		return params.NotifyWatchResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
-	}
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	one := func(arg params.Entity) (string, error) {
-		machineTag, err := names.ParseMachineTag(arg.Tag)
+	for i := range args.Entities {
+		w := corewatcher.TODO[struct{}]()
+		id, _, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
 		if err != nil {
-			return "", err
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		if !canAccess(machineTag) {
-			return "", apiservererrors.ErrPerm
-		}
-		w, err := s.st.WatchMachine(machineTag)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		if _, ok := <-w.Changes(); ok {
-			return s.resources.Register(w), nil
-		}
-		return "", watcher.EnsureErr(w)
-	}
-	for i, arg := range args.Entities {
-		var result params.NotifyWatchResult
-		id, err := one(arg)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-		} else {
-			result.NotifyWatcherId = id
-		}
-		results.Results[i] = result
+		results.Results[i].NotifyWatcherId = id
 	}
 	return results, nil
 }

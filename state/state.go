@@ -391,35 +391,6 @@ func (st *State) SetModelAgentVersion(newVersion semversion.Number, stream *stri
 	return nil
 }
 
-// Machine returns the machine with the given id.
-func (st *State) Machine(id string) (*Machine, error) {
-	mdoc, err := st.getMachineDoc(id)
-	if err != nil {
-		return nil, err
-	}
-	return newMachine(st, mdoc), nil
-}
-
-func (st *State) getMachineDoc(id string) (*machineDoc, error) {
-	machinesCollection, closer := st.db().GetCollection(machinesC)
-	defer closer()
-
-	var err error
-	mdoc := &machineDoc{}
-	err = machinesCollection.FindId(id).One(mdoc)
-
-	switch err {
-	case nil:
-		return mdoc, nil
-	case mgo.ErrNotFound:
-		// Work out what's still calling machine.
-		// debug.PrintStack()
-		return nil, errors.NotFoundf("machine %s", id)
-	default:
-		return nil, errors.Annotatef(err, "cannot get machine %s", id)
-	}
-}
-
 var (
 	errLocalApplicationExists = errors.Errorf("application already exists")
 )

@@ -32,7 +32,6 @@ type caasProvisionerSuite struct {
 	filesystemAttachment *MockFilesystemAttachment
 	volumeAttachment     *MockVolumeAttachment
 	lifer                *MockLifer
-	backend              *MockBackend
 	resources            *MockResources
 	watcherRegistry      *facademocks.MockWatcherRegistry
 }
@@ -186,7 +185,6 @@ func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.filesystemAttachment = NewMockFilesystemAttachment(ctrl)
 	s.volumeAttachment = NewMockVolumeAttachment(ctrl)
 	s.lifer = NewMockLifer(ctrl)
-	s.backend = NewMockBackend(ctrl)
 	s.resources = NewMockResources(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
@@ -200,9 +198,7 @@ func (s *caasProvisionerSuite) setupMocks(c *tc.C) *gomock.Controller {
 				return true
 			}, nil
 		}, loggertesting.WrapCheckLog(c)),
-		sb:        s.storageBackend,
-		st:        s.backend,
-		resources: s.resources,
+		sb: s.storageBackend,
 		getAttachmentAuthFunc: func(context.Context) (func(names.Tag, names.Tag) bool, error) {
 			return func(names.Tag, names.Tag) bool { return true }, nil
 		},

@@ -12,11 +12,9 @@ package firewaller_test
 import (
 	context "context"
 	reflect "reflect"
-	time "time"
 
 	firewaller "github.com/juju/juju/apiserver/facades/controller/firewaller"
 	params "github.com/juju/juju/rpc/params"
-	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	macaroon "gopkg.in/macaroon.v2"
@@ -119,82 +117,6 @@ func (c *MockStateKeyRelationCall) Do(f func(string) (firewaller.Relation, error
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateKeyRelationCall) DoAndReturn(f func(string) (firewaller.Relation, error)) *MockStateKeyRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchModelMachineStartTimes mocks base method.
-func (m *MockState) WatchModelMachineStartTimes(arg0 time.Duration) state.StringsWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchModelMachineStartTimes", arg0)
-	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
-}
-
-// WatchModelMachineStartTimes indicates an expected call of WatchModelMachineStartTimes.
-func (mr *MockStateMockRecorder) WatchModelMachineStartTimes(arg0 any) *MockStateWatchModelMachineStartTimesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachineStartTimes", reflect.TypeOf((*MockState)(nil).WatchModelMachineStartTimes), arg0)
-	return &MockStateWatchModelMachineStartTimesCall{Call: call}
-}
-
-// MockStateWatchModelMachineStartTimesCall wrap *gomock.Call
-type MockStateWatchModelMachineStartTimesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateWatchModelMachineStartTimesCall) Return(arg0 state.StringsWatcher) *MockStateWatchModelMachineStartTimesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateWatchModelMachineStartTimesCall) Do(f func(time.Duration) state.StringsWatcher) *MockStateWatchModelMachineStartTimesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateWatchModelMachineStartTimesCall) DoAndReturn(f func(time.Duration) state.StringsWatcher) *MockStateWatchModelMachineStartTimesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchModelMachines mocks base method.
-func (m *MockState) WatchModelMachines() state.StringsWatcher {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchModelMachines")
-	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
-}
-
-// WatchModelMachines indicates an expected call of WatchModelMachines.
-func (mr *MockStateMockRecorder) WatchModelMachines() *MockStateWatchModelMachinesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachines", reflect.TypeOf((*MockState)(nil).WatchModelMachines))
-	return &MockStateWatchModelMachinesCall{Call: call}
-}
-
-// MockStateWatchModelMachinesCall wrap *gomock.Call
-type MockStateWatchModelMachinesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateWatchModelMachinesCall) Return(arg0 state.StringsWatcher) *MockStateWatchModelMachinesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateWatchModelMachinesCall) Do(f func() state.StringsWatcher) *MockStateWatchModelMachinesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateWatchModelMachinesCall) DoAndReturn(f func() state.StringsWatcher) *MockStateWatchModelMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

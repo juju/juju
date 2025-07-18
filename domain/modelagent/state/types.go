@@ -75,6 +75,14 @@ type rowCount struct {
 	Count int `db:"count"`
 }
 
+type agentBinaryMetadata struct {
+	Version      string         `db:"version"`
+	Architecture string         `db:"architecture_name"`
+	Size         sql.NullInt64  `db:"size"`
+	SHA256       sql.NullString `db:"sha_256"`
+	SHA384       sql.NullString `db:"sha_384"`
+}
+
 // machineAgentBinaryMetadata represents information about a machine and the
 // agent binaries that it is running.
 type machineAgentBinaryMetadata struct {
