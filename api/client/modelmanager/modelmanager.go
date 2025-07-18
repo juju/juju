@@ -43,10 +43,11 @@ type Client struct {
 // connection.
 func NewClient(st base.APICallCloser, options ...Option) *Client {
 	frontend, backend := base.NewClientFacade(st, "ModelManager", options...)
+	legacy := frontend.BestAPIVersion() < 11
 	return &Client{
 		ClientFacade:   frontend,
 		facade:         backend,
-		ModelStatusAPI: common.NewModelStatusAPI(backend),
+		ModelStatusAPI: common.NewModelStatusAPI(backend, legacy),
 	}
 }
 
@@ -81,6 +82,9 @@ func (c *Client) CreateModel(
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
 		CloudCredentialTag: cloudCredentialTag,
+	}
+	if c.BestAPIVersion() < 11 {
+		return c.createModelCompat(ctx, createArgs)
 	}
 	var modelInfo params.ModelInfo
 	err := c.facade.FacadeCall(ctx, "CreateModel", createArgs, &modelInfo)
@@ -168,10 +172,13 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
 func (c *Client) ListModels(ctx context.Context, user string) ([]base.UserModel, error) {
-	var models params.UserModelList
 	if !names.IsValidUser(user) {
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
+	if c.BestAPIVersion() < 11 {
+		return c.listModelsCompat(ctx, user)
+	}
+	var models params.UserModelList
 	entity := params.Entity{names.NewUserTag(user).String()}
 	err := c.facade.FacadeCall(ctx, "ListModels", entity, &models)
 	if err != nil {
@@ -190,18 +197,26 @@ func (c *Client) ListModels(ctx context.Context, user string) ([]base.UserModel,
 	return result, nil
 }
 
+// ListModelSummaries returns summary information about models visible to the user.
 func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) ([]base.UserModelSummary, error) {
-	var out params.ModelSummaryResults
 	if !names.IsValidUser(user) {
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
+	if c.BestAPIVersion() < 11 {
+		return c.listModelSummariesCompat(ctx, user, all)
+	}
+	var out params.ModelSummaryResults
 	in := params.ModelSummariesRequest{UserTag: names.NewUserTag(user).String(), All: all}
 	err := c.facade.FacadeCall(ctx, "ListModelSummaries", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	summaries := make([]base.UserModelSummary, len(out.Results))
-	for i, r := range out.Results {
+	return c.composeModelSummaries(out.Results)
+}
+
+func (c *Client) composeModelSummaries(results []params.ModelSummaryResult) ([]base.UserModelSummary, error) {
+	summaries := make([]base.UserModelSummary, len(results))
+	for i, r := range results {
 		if r.Error != nil {
 			// cope with typed error
 			summaries[i] = base.UserModelSummary{Error: errors.Trace(r.Error)}
@@ -236,14 +251,14 @@ func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) 
 			summaries[i].Status.Data[k] = v
 		}
 		if cloud, err := names.ParseCloudTag(summary.CloudTag); err != nil {
-			summaries[i].Error = errors.Annotatef(err, "while parsing model cloud tag")
+			summaries[i].Error = errors.Annotatef(err, "parsing model cloud tag")
 			continue
 		} else {
 			summaries[i].Cloud = cloud.Id()
 		}
 		if summary.CloudCredentialTag != "" {
 			if credTag, err := names.ParseCloudCredentialTag(summary.CloudCredentialTag); err != nil {
-				summaries[i].Error = errors.Annotatef(err, "while parsing model cloud credential tag")
+				summaries[i].Error = errors.Annotatef(err, "parsing model cloud credential tag")
 				continue
 			} else {
 				summaries[i].CloudCredential = credTag.Id()
@@ -261,6 +276,9 @@ func (c *Client) ListModelSummaries(ctx context.Context, user string, all bool) 
 }
 
 func (c *Client) ModelInfo(ctx context.Context, tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+	if c.BestAPIVersion() < 11 {
+		return c.modelInfoCompat(ctx, tags)
+	}
 	entities := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
 	}

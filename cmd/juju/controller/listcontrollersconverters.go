@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/cmd/juju/common"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -97,10 +96,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			if userName != "" {
 				// There's a user logged in, so display the
 				// model name relative to that user.
-				if unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName); err == nil {
-					user := names.NewUserTag(userName)
-					modelName = common.OwnerQualifiedModelName(unqualifiedModelName, qualifier, user)
-				}
+				modelName = common.UserModelName(modelName, userName)
 			}
 		}
 		models, err := c.store.AllModels(controllerName)
