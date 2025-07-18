@@ -6,20 +6,10 @@ package storageprovisioner
 import (
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/state"
 )
-
-// This file contains untested shims to let us wrap state in a sensible
-// interface and avoid writing tests that depend on mongodb. If you were
-// to change any part of it so that it were no longer *obviously* and
-// *trivially* correct, you would be Doing It Wrong.
-
-type Backend interface {
-	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
-}
 
 type StorageBackend interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
@@ -57,30 +47,11 @@ type StorageBackend interface {
 	SetVolumeAttachmentPlanBlockInfo(machineTag names.Tag, volumeTag names.VolumeTag, info state.BlockDeviceInfo) error
 }
 
-// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
-// removed once all relevant methods are moved from state to model.
-type stateShim struct {
-	*state.State
-	*state.Model
-}
-
-// NewStateBackends creates a Backend from the given *state.State.
-func NewStateBackends(st *state.State) (Backend, StorageBackend, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, nil, err
-	}
+// NewStorageBackend creates a Backend from the given *state.State.
+func NewStorageBackend(st *state.State) (StorageBackend, error) {
 	sb, err := state.NewStorageBackend(st)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return stateShim{State: st, Model: m}, sb, nil
-}
-
-func (s stateShim) WatchMachine(tag names.MachineTag) (state.NotifyWatcher, error) {
-	m, err := s.Machine(tag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return m.Watch(), nil
+	return sb, nil
 }

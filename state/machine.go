@@ -50,8 +50,3 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 	tools := *m.doc.Tools
 	return &tools, nil
 }
-
-// Watch returns a watcher for observing changes to a machine.
-func (m *Machine) Watch() NotifyWatcher {
-	return newEntityWatcher(m.st, machinesC, m.doc.DocID)
-}

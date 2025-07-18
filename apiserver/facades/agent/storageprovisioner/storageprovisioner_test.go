@@ -66,7 +66,6 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		c.Context(),
 		s.watcherRegistry,
 		testclock.NewClock(time.Now()),
-		nil, // backend
 		nil, // storageBackend
 		nil, // blockDeviceService
 		nil, // configService
