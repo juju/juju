@@ -194,10 +194,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                      config.Clock,
 				Logger:                     config.Logger,
 				NewObjectStoreWorker:       config.NewObjectStoreWorker,
-				ObjectStoreType:            controllerConfig.ObjectStoreType(),
 				S3Client:                   s3Client,
 				APIRemoteCaller:            apiRemoteCaller,
 				ControllerMetadataService:  metadataService,
+				ControllerConfigService:    controllerConfigService,
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{servicesGetter: objectStoreServicesGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
 				AllowDraining:              AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
@@ -217,6 +217,11 @@ func output(in worker.Worker, out any) error {
 	case *coreobjectstore.ObjectStoreGetter:
 		var target coreobjectstore.ObjectStoreGetter = w
 		*out = target
+
+	case *coreobjectstore.ObjectStoreFlusher:
+		var target coreobjectstore.ObjectStoreFlusher = w
+		*out = target
+
 	default:
 		return errors.Errorf("expected output of ObjectStoreGetter, got %T", out)
 	}

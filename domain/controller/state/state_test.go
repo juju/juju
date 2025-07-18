@@ -66,3 +66,24 @@ func (s *stateSuite) TestGetControllerAgentInfoNotFound(c *tc.C) {
 	_, err = st.GetControllerAgentInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, controllererrors.NotFound)
 }
+
+func (s *stateSuite) TestGetModelNamespacesNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	allNamespaces, err := st.GetModelNamespaces(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(allNamespaces, tc.DeepEquals, []string{})
+}
+
+func (s *stateSuite) TestGetModelNamespaces(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO namespace_list (namespace) VALUES ('namespace1'), ('namespace2')")
+		return err
+	})
+
+	allNamespaces, err := st.GetModelNamespaces(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(allNamespaces, tc.DeepEquals, []string{"namespace1", "namespace2"})
+}

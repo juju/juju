@@ -40,12 +40,15 @@ ON object_store_drain_phase_type (type);
 INSERT INTO object_store_drain_phase_type VALUES
 (0, 'unknown'),
 (1, 'draining'),
-(2, 'completed'),
-(4, 'error');
+(2, 'error'),
+(3, 'completed');
 
 CREATE TABLE object_store_drain_info (
     uuid TEXT NOT NULL PRIMARY KEY,
-    phase_type_id INT NOT NULL
+    phase_type_id INT NOT NULL,
+    CONSTRAINT fk_object_store_drain_info_object_store_drain_phase_type
+    FOREIGN KEY (phase_type_id)
+    REFERENCES object_store_drain_phase_type (id)
 );
 
 -- A unique constraint over a constant index ensures only 1 entry matching the 
