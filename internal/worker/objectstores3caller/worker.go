@@ -131,6 +131,11 @@ func (w *s3Worker) Session(ctx context.Context, fn func(context.Context, objects
 		Func: func() error {
 			w.mutex.Lock()
 			defer w.mutex.Unlock()
+
+			if w.session == nil {
+				return errors.NotSupportedf("no session available")
+			}
+
 			return fn(ctx, w.session)
 		},
 		IsFatalError: func(err error) bool {
@@ -204,6 +209,12 @@ func (w *s3Worker) makeNewClient(ctx context.Context) (objectstore.Session, erro
 	controllerConfig, err := w.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if controllerConfig.ObjectStoreType() != objectstore.S3Backend {
+		// If the object store type is file, then we don't need to create
+		// a new S3 client, just return a noop worker.
+		return nil, nil
 	}
 
 	client, err := w.config.NewClient(

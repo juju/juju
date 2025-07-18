@@ -174,7 +174,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	var objectStoreFlusher coreobjectstore.ObjectStoreFlusher
-	if err := getter.Get(config.ObjectStoreServicesName, &objectStoreFlusher); err != nil {
+	if err := getter.Get(config.ObjectStoreName, &objectStoreFlusher); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -251,6 +251,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.FortressName,
+			config.ObjectStoreName,
 			config.ObjectStoreServicesName,
 			config.S3ClientName,
 		},
