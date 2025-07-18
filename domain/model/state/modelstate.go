@@ -678,25 +678,47 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
+	var l dbModelLife
+	lStmt, err := s.Prepare(`SELECT &dbModelLife.life_id FROM model_life`, l)
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, roStmt).Get(&m)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return modelerrors.NotFound
-			}
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelerrors.NotFound
+		} else if err != nil {
 			return errors.Capture(err)
 		}
 
 		err = tx.Query(ctx, avStmt).Get(&v)
 		if errors.Is(err, sql.ErrNoRows) {
 			return modelagenterrors.AgentVersionNotFound
+		} else if err != nil {
+			return errors.Errorf("getting model agent version: %w", err)
 		}
-		return errors.Capture(err)
+
+		err = tx.Query(ctx, lStmt).Get(&l)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("model life does not exist").Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf("getting model life: %w", err)
+		}
+
+		return nil
 	})
 
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Errorf(
 			"getting model read only information: %w", err,
+		)
+	}
+
+	life, err := l.Life.Value()
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Errorf(
+			"parsing model life %q: %w", l.Life, err,
 		)
 	}
 
@@ -711,6 +733,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		CredentialName:    m.CredentialName,
 		IsControllerModel: m.IsControllerModel,
 		AgentVersion:      semversion.MustParse(v.TargetVersion),
+		Life:              life,
 	}
 
 	if owner := m.CredentialOwner; owner != "" {

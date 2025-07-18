@@ -468,6 +468,7 @@ WHERE uuid = $dbModel.uuid
 		CloudType:      model.CloudType,
 		CloudRegion:    model.CloudRegion.String,
 		CredentialName: model.CredentialName.String,
+		Life:           corelife.Value(model.Life),
 	}
 
 	if owner := model.CredentialOwnerName; owner != "" {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
@@ -106,6 +107,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 		CloudRegion:     "myregion",
 		CredentialOwner: usertesting.GenNewName(c, "myowner"),
 		CredentialName:  "mycredential",
+		Life:            corelife.Alive,
 	})
 
 	// Ensure that we have a model life record.
@@ -302,6 +304,7 @@ func (s *modelSuite) TestGetModelMetrics(c *tc.C) {
 			CloudRegion:     "myregion",
 			CredentialOwner: usertesting.GenNewName(c, "myowner"),
 			CredentialName:  "mycredential",
+			Life:            corelife.Alive,
 		},
 		ApplicationCount: 1,
 		MachineCount:     0,
