@@ -20,6 +20,8 @@ const (
 	ApplicationJob
 	// MachineJob indicates a job to remove a machine.
 	MachineJob
+	// ModelJob indicates a job to remove a model.
+	ModelJob
 )
 
 func (t JobType) String() string {
@@ -32,6 +34,8 @@ func (t JobType) String() string {
 		return "application"
 	case MachineJob:
 		return "machine"
+	case ModelJob:
+		return "model"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}
@@ -47,8 +51,33 @@ type Job struct {
 	EntityUUID string
 	// Force indicates whether this removal was qualified with the --force flag.
 	Force bool
-	// ScheduledFor indicates the earliest date that this job should be executed.
+	// ScheduledFor indicates the earliest date that this job should be
+	// executed.
 	ScheduledFor time.Time
 	// Arg is free form job configuration.
 	Arg map[string]any
+}
+
+// ModelArtifacts holds the artifacts associated with a model that is being
+// removed.
+type ModelArtifacts struct {
+	// MachineUUIDs is a list of machine UUIDs that are associated with the
+	// model.
+	MachineUUIDs []string
+	// ApplicationUUIDs is a list of application UUIDs that are associated with
+	// the model.
+	ApplicationUUIDs []string
+	// UnitUUIDs is a list of unit UUIDs that are associated with the model.
+	UnitUUIDs []string
+	// RelationUUIDs is a list of relation UUIDs that are associated with the
+	// model.
+	RelationUUIDs []string
+}
+
+// Empty returns true if there are no artifacts associated with the model.
+func (a ModelArtifacts) Empty() bool {
+	return len(a.MachineUUIDs) == 0 &&
+		len(a.ApplicationUUIDs) == 0 &&
+		len(a.UnitUUIDs) == 0 &&
+		len(a.RelationUUIDs) == 0
 }

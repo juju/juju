@@ -44,7 +44,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Ensure that we get the controller node created event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddDqliteNode(ctx, "0", uint64(1), "10.0.0.1")
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -52,7 +52,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	})
 
 	// Ensure that we get the update controller node event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddDqliteNode(ctx, "0", uint64(1), "10.0.0.2")
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -60,7 +60,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	})
 
 	// Ensure that we get a new controller node.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddDqliteNode(ctx, "0", uint64(2), "10.0.0.3")
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -91,7 +91,7 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 		},
 	}
 	// Ensure that we get the controller api address created event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		args := controllernode.SetAPIAddressArgs{
 			APIAddresses: map[string]network.SpaceHostPorts{
 				"0": addrs,
@@ -103,7 +103,7 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	})
 
 	// Ensure that we get the controller api address added event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.AddDqliteNode(ctx, "1", uint64(1), "10.0.0.1")
 		c.Assert(err, jc.ErrorIsNil)
 		args := controllernode.SetAPIAddressArgs{
@@ -117,7 +117,7 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	})
 
 	// Ensure that we get the controller api address updated event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		addrs[0].Value = "10.43.25.2"
 		args := controllernode.SetAPIAddressArgs{
 			APIAddresses: map[string]network.SpaceHostPorts{
@@ -130,7 +130,7 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	})
 
 	// Ensure that we get the removed controller api address event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		args := controllernode.SetAPIAddressArgs{
 			APIAddresses: map[string]network.SpaceHostPorts{
 				"0": {},
@@ -142,7 +142,7 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 	})
 
 	// Nothing happens so no change.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})

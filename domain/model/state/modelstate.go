@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -72,6 +73,11 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 		return errors.Capture(err)
 	}
 
+	modelLife, err := s.Prepare(`DELETE FROM model_life WHERE model_uuid = $dbUUID.uuid;`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Once we get to this point, the model is hosed. We don't expect the
 	// model to be in use. The model migration will reinforce the schema once
 	// the migration is tried again. Failure to do that will result in the
@@ -82,10 +88,12 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, modelLife, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting model life %q: %w", uuid, err)
+		}
+
 		err := tx.Query(ctx, modelTriggerStmt).Run()
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New("model does not exist").Add(modelerrors.NotFound)
-		} else if err != nil && !internaldatabase.IsExtendedErrorCode(err) {
+		if err != nil && !internaldatabase.IsExtendedErrorCode(err) {
 			return errors.Errorf("deleting model trigger %w", err)
 		}
 
@@ -1023,12 +1031,26 @@ func InsertModelInfo(
 		return errors.Capture(err)
 	}
 
+	ml := dbModelLife{
+		UUID: args.UUID,
+		Life: life.Alive,
+	}
+
+	mlStmt, err := preparer.Prepare(`INSERT INTO model_life (model_uuid, life_id) VALUES ($dbModelLife.uuid, $dbModelLife.life_id)`, ml)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	if err := tx.Query(ctx, roStmt, m).Run(); err != nil {
 		return errors.Errorf("creating model read-only record for %q: %w", args.UUID, err)
 	}
 
 	if err := tx.Query(ctx, vStmt, v).Run(); err != nil {
 		return errors.Errorf("creating agent_version record for %q: %w", args.UUID, err)
+	}
+
+	if err := tx.Query(ctx, mlStmt, ml).Run(); err != nil {
+		return errors.Errorf("creating model_life record for %q: %w", args.UUID, err)
 	}
 
 	return nil

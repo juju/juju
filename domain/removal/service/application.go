@@ -8,12 +8,9 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
@@ -137,38 +134,6 @@ func (s *Service) applicationScheduleRemoval(
 
 	s.logger.Infof(ctx, "scheduled removal job %q for application %q", jobUUID, appUUID)
 	return jobUUID, nil
-}
-
-func (s *Service) removeUnits(ctx context.Context, uuids []string, force bool, wait time.Duration) {
-	for _, unitUUID := range uuids {
-		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
-			// There could be a chance that the unit has already been removed
-			// by another process. We can safely ignore this error and
-			// continue with the next unit.
-			continue
-		} else if err != nil {
-			// If the unit fails to be scheduled for removal, we log out the
-			// error. The application and the units are already transitioned to
-			// dying and there is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "scheduling removal of unit %q: %v", unitUUID, err)
-		}
-	}
-}
-
-func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool, wait time.Duration) {
-	for _, machineUUID := range uuids {
-		if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); errors.Is(err, machineerrors.MachineNotFound) {
-			// There could be a chance that the machine has already been removed
-			// by another process. We can safely ignore this error and
-			// continue with the next machine.
-			continue
-		} else if err != nil {
-			// If the machine fails to be scheduled for removal, we log out the
-			// error. The application and the units are already transitioned to
-			// dying and there is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
-		}
-	}
 }
 
 // processApplicationRemovalJob deletes an application if it is dying.

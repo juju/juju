@@ -59,12 +59,12 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Assert that nothing changes if nothing happens (pre-test).
-	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that a notification is emitted if a unit is resolved
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.ResolveUnit(c.Context(), "foo/0", resolve.ResolveModeRetryHooks)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -72,7 +72,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	})
 
 	// Assert that a notification is emitted if a unit resolve mode is changed
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.ResolveUnit(c.Context(), "foo/0", resolve.ResolveModeNoHooks)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -80,7 +80,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	})
 
 	// Assert that a notification is emitted if a unit resolve mode is cleared
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.ClearResolved(c.Context(), "foo/0")
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -88,12 +88,12 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 	})
 
 	// Assert that nothing changes if nothing happens (post-test).
-	harness.AddTest(func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 
 	// Assert no notification is emitted if another unit is resolved
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := svc.ResolveUnit(c.Context(), "foo/1", resolve.ResolveModeRetryHooks)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {

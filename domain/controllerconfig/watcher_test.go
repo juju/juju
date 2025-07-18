@@ -40,7 +40,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		cfgMap := map[string]any{
 			controller.AuditingEnabled:        true,
 			controller.AuditLogCaptureArgs:    false,
@@ -62,7 +62,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 		)
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		cfgMap := map[string]any{
 			controller.AuditLogMaxBackups: 11,
 		}
@@ -78,7 +78,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 		)
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		cfgMap := map[string]any{
 			controller.AuditLogMaxBackups: 11,
 		}

@@ -14,6 +14,11 @@ const (
 	// a removal job using logic for an incompatible type.
 	RemovalJobTypeNotValid = errors.ConstError("removal job type not valid")
 
+	// RemovalModelRemoved indicates that a model removal job was
+	// attempted, but the model was already removed. This should cause the
+	// removal worker to remove itself.
+	RemovalModelRemoved = errors.ConstError("model removed")
+
 	// EntityStillAlive indicates that an entity for which
 	// we are processing a removal job is still alive.
 	EntityStillAlive = errors.ConstError("entity still alive")

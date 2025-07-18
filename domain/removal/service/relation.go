@@ -9,6 +9,7 @@ import (
 
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -33,6 +34,11 @@ type RelationState interface {
 	// NamespaceForWatchRemovals returns the table name whose UUIDs we
 	// are watching in order to be notified of new removal jobs.
 	NamespaceForWatchRemovals() string
+
+	// NamespaceForWatchEntityRemovals returns the table name whose UUIDs we
+	// are watching in order to be notified of new removal jobs for specific
+	// entities.
+	NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, map[string]string)
 
 	// GetRelationLife returns the life of the relation with the input UUID.
 	GetRelationLife(ctx context.Context, rUUID string) (life.Life, error)

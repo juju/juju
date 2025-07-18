@@ -73,3 +73,17 @@ SELECT
 FROM constraint_zone AS cz
 JOIN "constraint" AS c ON cz.constraint_uuid = c.uuid
 JOIN model_constraint AS mc ON c.uuid = mc.constraint_uuid;
+
+-- This table is best effort to track the life of a model. The real location
+-- of the model life is in the controller database. This is just a facsimile
+-- of the model life.
+CREATE TABLE model_life (
+    model_uuid TEXT NOT NULL PRIMARY KEY,
+    life_id TEXT NOT NULL,
+    CONSTRAINT fk_model_constraint_model
+    FOREIGN KEY (model_uuid)
+    REFERENCES model (uuid),
+    CONSTRAINT fk_model_life
+    FOREIGN KEY (life_id)
+    REFERENCES life (id)
+);

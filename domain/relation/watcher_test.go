@@ -87,7 +87,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Act 0: change the relation life.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
@@ -103,7 +103,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	})
 
 	// Act 1: change the relation status other than suspended.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID,
@@ -120,7 +120,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	})
 
 	// Act 2: change the relation status to suspended.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID,
@@ -139,7 +139,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	})
 
 	// Act 3: add a relation unrelated to the current unit.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_ = s.setupSecondRelationNotFound(c)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -147,7 +147,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 
 	// Act 4: change the relation status to joined and life to dead, to get
 	// changes on both tables watched.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
@@ -192,7 +192,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Act 0: change the relation life.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
@@ -208,7 +208,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	})
 
 	// Act 1: change the relation status other than suspended.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID,
@@ -225,7 +225,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	})
 
 	// Act 2: change the relation status to suspended.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx,
 				"UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID,
@@ -244,7 +244,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 
 	var relationTwoUUID relation.UUID
 	// Act 3: add a relation unrelated to the current unit.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		relationTwoUUID = s.setupSecondRelationNotFound(c)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -253,7 +253,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	// Act 4: change the relation status to joined and life to dead, to get
 	// changes on both tables watched. Change the second relations status also,
 	// only the first relation should trigger an event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
@@ -351,7 +351,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Act: insert relation_unit for watched/0 (enter scope) => no event
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
 			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.watched0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -359,7 +359,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 	})
 
 	// Act: delete relation_unit for watched/0 (leave scope) => no event
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "DELETE FROM relation_unit WHERE unit_uuid = ?", config.watched0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -367,7 +367,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 
 	// Act: insert relation_unit for other/0 (enter scope) => event with other/0
 	// unit_uuid
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
 			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -378,7 +378,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 
 	// Act: delete relation_unit for other/0 (leave scope) => event with other/0
 	// unit_uuid
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "DELETE FROM relation_unit WHERE unit_uuid = ?", config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -388,7 +388,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 
 	// Act: insert relation_unit for watched/1 (enter scope) => event with
 	// watched/1 unit_uuid
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
 			relationtesting.GenRelationUnitUUID(c), config.watchedRelationUUID, config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -399,7 +399,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 
 	// Act: delete relation_unit for watched/1 (leave scope) => event with
 	// watched/1 unit_uuid
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "DELETE FROM relation_unit WHERE unit_uuid = ?", config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -431,7 +431,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsSettings(c *tc.C) {
 
 	// Arrange: Add relation unit, before updating hash settings => will
 	// generate event for units except the watched one.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.arrange(c, `
 INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
 VALUES (?,?,?),
@@ -448,7 +448,7 @@ VALUES (?,?,?),
 	})
 
 	// Act: update setting_hash in watched/0 unit setting => no event
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
 			watchedRelUnit0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -457,7 +457,7 @@ VALUES (?,?,?),
 
 	// Act: update setting_hash in other/0 unit setting => event with other/0
 	// unit_uuid
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
 			otherRelUnit0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -468,7 +468,7 @@ VALUES (?,?,?),
 
 	// Act: update setting_hash in watched/1 unit setting => event with
 	// watched/1 unit_uuid
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
 			watchedRelUnit1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -478,7 +478,7 @@ VALUES (?,?,?),
 	})
 
 	// Act: update settings hash for "other" application => event with other app UUID.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
 			config.otherRelationUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -488,7 +488,7 @@ VALUES (?,?,?),
 	})
 
 	// Act: update settings hash for watched application => no event.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
 			config.watchedRelationUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -519,7 +519,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsPeerAppSettings(c *tc.C) {
 
 	// Arrange: Add relation unit, before updating hash settings => will generate
 	// event for units except the watched one.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.arrange(c, `
 INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
 VALUES (?,?,?),
@@ -535,7 +535,7 @@ VALUES (?,?,?),
 
 	// Act: update settings hash for watched application =>
 	// event with watched app UUID.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
 			config.watchedRelationUUID)
 	}, func(w watchertest.WatcherC[[]string]) {

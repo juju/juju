@@ -11,10 +11,8 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -808,12 +806,4 @@ func (s *machineSuite) TestDeleteMachineWithUnits(c *tc.C) {
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
-}
-
-func (s *machineSuite) getMachineUUIDFromApp(c *tc.C, appUUID application.ID) machine.UUID {
-	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
-	c.Assert(len(unitUUIDs), tc.Equals, 1)
-	unitUUID := unitUUIDs[0]
-
-	return s.getUnitMachineUUID(c, unitUUID)
 }

@@ -37,6 +37,7 @@ import (
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -134,9 +135,17 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "prod", "test-model", "ec2")
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test", "iaas", "prod", "test-model", "ec2")
 		`, modelUUID.String(), internaltesting.ControllerTag.Id())
+		if err != nil {
+			return errors.Errorf("creating model: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO model_life (model_uuid, life_id)
+VALUES (?, 0);
+		`, modelUUID.String())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -401,6 +410,14 @@ WHERE u.uuid = ?
 	return machineUUIDs[0]
 }
 
+func (s *baseSuite) getMachineUUIDFromApp(c *tc.C, appUUID coreapplication.ID) machine.UUID {
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	return s.getUnitMachineUUID(c, unitUUID)
+}
+
 func (s *baseSuite) checkNoCharmsExist(c *tc.C) {
 	// Ensure that there are no charms in the database.
 	row := s.DB().QueryRow("SELECT COUNT(*) FROM charm")
@@ -422,6 +439,14 @@ func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
 func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.ID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE application SET life_id = ? WHERE uuid = ?", newLife, appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkApplicationLife(c *tc.C, appUUID string, expectedLife int) {
+	row := s.DB().QueryRow("SELECT life_id FROM application WHERE uuid = ?", appUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, expectedLife)
 }
 
 func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Life) {
@@ -461,6 +486,11 @@ func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife 
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, expectedLife)
+}
+
+func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE model_life SET life_id = ? WHERE model_uuid = ?", newLife, modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type stubCharm struct {
