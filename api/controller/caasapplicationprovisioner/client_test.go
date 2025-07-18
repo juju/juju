@@ -6,7 +6,6 @@ package caasapplicationprovisioner_test
 import (
 	"testing"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -147,95 +146,6 @@ func (s *provisionerSuite) TestProvisioningInfoArity(c *tc.C) {
 	})
 	_, err := client.ProvisioningInfo(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorMatches, "expected one result, got 2")
-}
-
-func (s *provisionerSuite) TestUpdateUnits(c *tc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		called = true
-		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
-		c.Check(id, tc.Equals, "")
-		c.Assert(request, tc.Equals, "UpdateApplicationsUnits")
-		c.Assert(a, tc.DeepEquals, params.UpdateApplicationUnitArgs{
-			Args: []params.UpdateApplicationUnits{
-				{
-					ApplicationTag: "application-app",
-					Units: []params.ApplicationUnitParams{
-						{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
-							Status: "active", Info: "message"},
-					},
-				},
-			},
-		})
-		c.Assert(result, tc.FitsTypeOf, &params.UpdateApplicationUnitResults{})
-		*(result.(*params.UpdateApplicationUnitResults)) = params.UpdateApplicationUnitResults{
-			Results: []params.UpdateApplicationUnitResult{{
-				Info: &params.UpdateApplicationUnitsInfo{
-					Units: []params.ApplicationUnitInfo{
-						{ProviderId: "uuid", UnitTag: "unit-gitlab-0"},
-					},
-				},
-			}},
-		}
-		return nil
-	})
-	info, err := client.UpdateUnits(c.Context(), params.UpdateApplicationUnits{
-		ApplicationTag: names.NewApplicationTag("app").String(),
-		Units: []params.ApplicationUnitParams{
-			{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
-				Status: "active", Info: "message"},
-		},
-	})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(called, tc.IsTrue)
-	c.Check(info, tc.DeepEquals, &params.UpdateApplicationUnitsInfo{
-		Units: []params.ApplicationUnitInfo{
-			{ProviderId: "uuid", UnitTag: "unit-gitlab-0"},
-		},
-	})
-}
-
-func (s *provisionerSuite) TestUpdateUnitsCount(c *tc.C) {
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
-		c.Assert(result, tc.FitsTypeOf, &params.UpdateApplicationUnitResults{})
-		*(result.(*params.UpdateApplicationUnitResults)) = params.UpdateApplicationUnitResults{
-			Results: []params.UpdateApplicationUnitResult{
-				{Error: &params.Error{Message: "FAIL"}},
-				{Error: &params.Error{Message: "FAIL"}},
-			},
-		}
-		return nil
-	})
-	info, err := client.UpdateUnits(c.Context(), params.UpdateApplicationUnits{
-		ApplicationTag: names.NewApplicationTag("app").String(),
-		Units: []params.ApplicationUnitParams{
-			{ProviderId: "uuid", Address: "address"},
-		},
-	})
-	c.Check(err, tc.ErrorMatches, `expected 1 result\(s\), got 2`)
-	c.Assert(info, tc.IsNil)
-}
-
-func (s *provisionerSuite) TestClearApplicationResources(c *tc.C) {
-	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		called = true
-		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
-		c.Check(id, tc.Equals, "")
-		c.Assert(request, tc.Equals, "ClearApplicationsResources")
-		c.Assert(a, tc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{Tag: "application-foo"}},
-		})
-		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{}},
-		}
-		return nil
-	})
-	err := client.ClearApplicationResources(c.Context(), "foo")
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(called, tc.IsTrue)
 }
 
 func (s *provisionerSuite) TestRemoveUnit(c *tc.C) {

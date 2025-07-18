@@ -46,6 +46,45 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// GetAllUnitCloudContainerIDsForApplication mocks base method.
+func (m *MockApplicationService) GetAllUnitCloudContainerIDsForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllUnitCloudContainerIDsForApplication", arg0, arg1)
+	ret0, _ := ret[0].(map[unit.Name]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllUnitCloudContainerIDsForApplication indicates an expected call of GetAllUnitCloudContainerIDsForApplication.
+func (mr *MockApplicationServiceMockRecorder) GetAllUnitCloudContainerIDsForApplication(arg0, arg1 any) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUnitCloudContainerIDsForApplication", reflect.TypeOf((*MockApplicationService)(nil).GetAllUnitCloudContainerIDsForApplication), arg0, arg1)
+	return &MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall{Call: call}
+}
+
+// MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall wrap *gomock.Call
+type MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall) Return(arg0 map[unit.Name]string, arg1 error) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall) Do(f func(context.Context, application.ID) (map[unit.Name]string, error)) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[unit.Name]string, error)) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitLifeForApplication mocks base method.
 func (m *MockApplicationService) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]life.Value, error) {
 	m.ctrl.T.Helper()
@@ -392,6 +431,44 @@ func (c *MockApplicationServiceSetApplicationScalingStateCall) Do(f func(context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceSetApplicationScalingStateCall) DoAndReturn(f func(context.Context, string, int, bool) error) *MockApplicationServiceSetApplicationScalingStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateCAASUnit mocks base method.
+func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 service.UpdateCAASUnitParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCAASUnit", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCAASUnit indicates an expected call of UpdateCAASUnit.
+func (mr *MockApplicationServiceMockRecorder) UpdateCAASUnit(arg0, arg1, arg2 any) *MockApplicationServiceUpdateCAASUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCAASUnit", reflect.TypeOf((*MockApplicationService)(nil).UpdateCAASUnit), arg0, arg1, arg2)
+	return &MockApplicationServiceUpdateCAASUnitCall{Call: call}
+}
+
+// MockApplicationServiceUpdateCAASUnitCall wrap *gomock.Call
+type MockApplicationServiceUpdateCAASUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceUpdateCAASUnitCall) Return(arg0 error) *MockApplicationServiceUpdateCAASUnitCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceUpdateCAASUnitCall) Do(f func(context.Context, unit.Name, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.Name, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

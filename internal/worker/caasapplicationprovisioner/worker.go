@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	internalworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/rpc/params"
 )
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
@@ -43,8 +42,6 @@ type CAASProvisionerFacade interface {
 	CharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
 	ApplicationCharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
 	ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error)
-	UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
-	ClearApplicationResources(ctx context.Context, appName string) error
 	RemoveUnit(ctx context.Context, unitName string) error
 	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
 	DestroyUnits(ctx context.Context, unitNames []string) error
@@ -93,6 +90,13 @@ type ApplicationService interface {
 
 	// IsControllerApplication returns true when the application is the controller.
 	IsControllerApplication(ctx context.Context, id application.ID) (bool, error)
+
+	// UpdateCAASUnit updates the specified CAAS unit
+	UpdateCAASUnit(context.Context, unit.Name, applicationservice.UpdateCAASUnitParams) error
+
+	// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
+	// and their cloud container provider IDs for the given application.
+	GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id application.ID) (map[unit.Name]string, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
