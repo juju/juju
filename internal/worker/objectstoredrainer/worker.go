@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/agent"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -72,10 +73,14 @@ type ControllerService interface {
 
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
+	Agent                     agent.Agent
 	Guard                     fortress.Guard
 	GuardService              GuardService
 	ControllerService         ControllerService
+	ControllerConfigService   ControllerConfigService
 	ObjectStoreServicesGetter ObjectStoreServicesGetter
+	ObjectStoreFlusher        objectstore.ObjectStoreFlusher
+	ObjectStoreType           objectstore.BackendType
 	NewHashFileSystemAccessor NewHashFileSystemAccessorFunc
 	NewDrainerWorker          NewDrainerWorkerFunc
 	S3Client                  objectstore.Client
@@ -89,6 +94,9 @@ type Config struct {
 // Validate returns an error if the config cannot be expected to
 // drive a functional Worker.
 func (config Config) Validate() error {
+	if config.Agent == nil {
+		return errors.Errorf("nil Agent").Add(coreerrors.NotValid)
+	}
 	if config.Guard == nil {
 		return errors.Errorf("nil Guard").Add(coreerrors.NotValid)
 	}
@@ -98,8 +106,14 @@ func (config Config) Validate() error {
 	if config.ControllerService == nil {
 		return errors.Errorf("nil ControllerService").Add(coreerrors.NotValid)
 	}
+	if config.ControllerConfigService == nil {
+		return errors.Errorf("nil ControllerConfigService").Add(coreerrors.NotValid)
+	}
 	if config.ObjectStoreServicesGetter == nil {
 		return errors.Errorf("nil ObjectStoreServicesGetter").Add(coreerrors.NotValid)
+	}
+	if config.ObjectStoreFlusher == nil {
+		return errors.Errorf("nil ObjectStoreFlusher").Add(coreerrors.NotValid)
 	}
 	if config.NewHashFileSystemAccessor == nil {
 		return errors.Errorf("nil NewHashFileSystemAccessor").Add(coreerrors.NotValid)
@@ -153,11 +167,16 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &Worker{
 		runner: runner,
 
+		agent: config.Agent,
+
 		guard:        config.Guard,
 		guardService: config.GuardService,
 
 		controllerService:         config.ControllerService,
+		controllerConfigService:   config.ControllerConfigService,
 		objectStoreServicesGetter: config.ObjectStoreServicesGetter,
+		objectStoreFlusher:        config.ObjectStoreFlusher,
+		objectStoreType:           config.ObjectStoreType,
 
 		newDrainWorker: config.NewDrainerWorker,
 		newFileSystem:  config.NewHashFileSystemAccessor,
@@ -192,11 +211,16 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	runner   *worker.Runner
 
+	agent agent.Agent
+
 	guard        fortress.Guard
 	guardService GuardService
 
 	controllerService         ControllerService
+	controllerConfigService   ControllerConfigService
 	objectStoreServicesGetter ObjectStoreServicesGetter
+	objectStoreFlusher        objectstore.ObjectStoreFlusher
+	objectStoreType           objectstore.BackendType
 
 	newFileSystem  NewHashFileSystemAccessorFunc
 	newDrainWorker NewDrainerWorkerFunc
@@ -231,11 +255,20 @@ func (w *Worker) Report() map[string]any {
 func (w *Worker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	watcher, err := w.guardService.WatchDraining(ctx)
+	cfgWatcher, err := w.controllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := w.catacomb.Add(watcher); err != nil {
+
+	if err := w.catacomb.Add(cfgWatcher); err != nil {
+		return errors.Capture(err)
+	}
+
+	drainingWatcher, err := w.guardService.WatchDraining(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := w.catacomb.Add(drainingWatcher); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -244,7 +277,12 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case <-watcher.Changes():
+		case <-cfgWatcher.Changes():
+			if err := w.handleConfigChange(ctx); err != nil {
+				return errors.Capture(err)
+			}
+
+		case <-drainingWatcher.Changes():
 			phase, err := w.guardService.GetDrainingPhase(ctx)
 			if err != nil {
 				return errors.Capture(err)
@@ -252,12 +290,15 @@ func (w *Worker) loop() error {
 
 			// We're not draining, so we can unlock the guard and wait
 			// for the next change.
-			if !phase.IsDraining() {
+			if phase.IsNotStarted() || phase == objectstore.PhaseCompleted {
 				w.logger.Infof(ctx, "object store is not draining, unlocking guard")
 
 				if err := w.guard.Unlock(ctx); err != nil {
 					return errors.Errorf("failed to update guard: %v", err)
 				}
+				continue
+			} else if phase == objectstore.PhaseError {
+				w.logger.Errorf(ctx, "object store is in an error state, manual intervention required")
 				continue
 			}
 
@@ -287,10 +328,47 @@ func (w *Worker) loop() error {
 				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
 				return errors.Errorf("waiting for draining: %w", err)
 			}
+
+			if err := w.completeDraining(ctx); err != nil {
+				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
+				return errors.Errorf("completing draining: %w", err)
+			}
 		}
 	}
 }
 
+// HandleConfigChange starts the whole draining process if the object store
+// type has changed.
+func (w *Worker) handleConfigChange(ctx context.Context) error {
+	config, err := w.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	phase, err := w.guardService.GetDrainingPhase(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	objectStoreType := config.ObjectStoreType()
+	objectStoreTypeChanged := objectStoreType != w.objectStoreType
+
+	if !objectStoreTypeChanged || phase.IsDraining() {
+		return nil
+	}
+
+	w.logger.Debugf(ctx, "object store type changed: %q => %q", w.objectStoreType, objectStoreType)
+
+	// Force the draining process to move into the draining phase.
+	if err := w.guardService.SetDrainingPhase(ctx, objectstore.PhaseDraining); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// drainModels starts a worker for each model in the state and waits for them
+// to complete. It signals the completion of each worker through a channel.
 func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan string, error) {
 	signal := make(chan string, len(namespaces))
 	for _, namespace := range namespaces {
@@ -319,6 +397,8 @@ func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan s
 	return signal, nil
 }
 
+// waits for all the draining workers to complete. It will block until
+// all the workers have completed or the context is cancelled.
 func (w *Worker) waitForDraining(ctx context.Context, signal <-chan string, namespaces []string) error {
 	remaining := map[string]struct{}{}
 	for _, namespace := range namespaces {
@@ -335,14 +415,43 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan string, name
 			delete(remaining, namespace)
 
 			if len(remaining) == 0 {
-				w.logger.Infof(ctx, "all drain workers completed")
-				if err := w.guardService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
-					return errors.Errorf("failed to set draining phase to complete: %v", err)
-				}
 				return nil
 			}
 
 			w.logger.Infof(ctx, "waiting for %d more drain workers to complete", len(remaining))
 		}
 	}
+}
+
+// completeDraining updates the agent configuration to indicate that the
+// object store type has changed and then flushes the object store workers.
+// It sets the draining phase to completed, which will cause the main loop
+// to unlock the guard and allow the object store to be used again.
+func (w *Worker) completeDraining(ctx context.Context) error {
+	// If we're in a completed state (PhaseCompleted), we can safely update the
+	// agent configuration and then force the object store to pick up the
+	// new configuration.
+	w.logger.Infof(ctx, "object store is in a completed state, updating agent configuration")
+	if err := w.agent.ChangeConfig(func(setter agent.ConfigSetter) error {
+		w.logger.Debugf(ctx, "setting object store type: %q => %q", w.objectStoreType, w.objectStoreType)
+		setter.SetObjectStoreType(w.objectStoreType)
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
+
+	// Flush the object store workers to ensure that they are all stopped and
+	// removed. This is necessary to ensure that the object store is in a clean
+	// state before we start using it again.
+	if err := w.objectStoreFlusher.FlushWorkers(ctx); err != nil {
+		return errors.Capture(err)
+	}
+
+	// Set the draining phase to completed.
+	if err := w.guardService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
+		return errors.Capture(err)
+	}
+	w.logger.Infof(ctx, "object store draining completed successfully")
+
+	return nil
 }

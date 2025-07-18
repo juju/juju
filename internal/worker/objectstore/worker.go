@@ -109,6 +109,7 @@ type objectStoreWorker struct {
 	runner *worker.Runner
 
 	objectStoreRequests chan objectStoreRequest
+	flushWorkers        chan struct{}
 }
 
 // NewWorker creates a new object store worker.
@@ -140,6 +141,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 		cfg:                 cfg,
 		runner:              runner,
 		objectStoreRequests: make(chan objectStoreRequest),
+		flushWorkers:        make(chan struct{}),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -178,6 +180,11 @@ func (w *objectStoreWorker) loop() (err error) {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
 			}
+
+		case <-w.flushWorkers:
+			if err := w.stopAndRemoveAllWorkers(ctx); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
@@ -190,6 +197,28 @@ func (w *objectStoreWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *objectStoreWorker) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// FlushWorkers flushes the object store workers.
+func (w *objectStoreWorker) FlushWorkers(ctx context.Context) error {
+	// We have to synchronise the flush workers to ensure that we don't
+	// have multiple flushes happening at the same time and that we aren't
+	// creating new workers whilst flushing.
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case w.flushWorkers <- struct{}{}:
+	}
+	return nil
+}
+
+func (w *objectStoreWorker) stopAndRemoveAllWorkers(ctx context.Context) error {
+	for _, namespace := range w.runner.WorkerNames() {
+		if err := w.runner.StopAndRemoveWorker(namespace, ctx.Done()); err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // GetObjectStore returns a objectStore for the given namespace.

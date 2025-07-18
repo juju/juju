@@ -1232,11 +1232,15 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
+		"http-client",
 		"is-controller-flag",
 		"object-store-fortress",
+		"object-store-s3-caller",
 		"object-store-services",
 		"query-logger",
 		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"object-store": {
@@ -2172,11 +2176,15 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
+		"http-client",
 		"is-controller-flag",
 		"object-store-fortress",
+		"object-store-s3-caller",
 		"object-store-services",
 		"query-logger",
 		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"object-store": {

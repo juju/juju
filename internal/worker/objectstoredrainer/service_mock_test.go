@@ -406,6 +406,45 @@ func (c *MockControllerConfigServiceControllerConfigCall) DoAndReturn(f func(con
 	return c
 }
 
+// WatchControllerConfig mocks base method.
+func (m *MockControllerConfigService) WatchControllerConfig(arg0 context.Context) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchControllerConfig", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchControllerConfig indicates an expected call of WatchControllerConfig.
+func (mr *MockControllerConfigServiceMockRecorder) WatchControllerConfig(arg0 any) *MockControllerConfigServiceWatchControllerConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchControllerConfig", reflect.TypeOf((*MockControllerConfigService)(nil).WatchControllerConfig), arg0)
+	return &MockControllerConfigServiceWatchControllerConfigCall{Call: call}
+}
+
+// MockControllerConfigServiceWatchControllerConfigCall wrap *gomock.Call
+type MockControllerConfigServiceWatchControllerConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerConfigServiceWatchControllerConfigCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockControllerConfigServiceWatchControllerConfigCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerConfigServiceWatchControllerConfigCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockControllerConfigServiceWatchControllerConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerConfigServiceWatchControllerConfigCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockControllerConfigServiceWatchControllerConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockHashFileSystemAccessor is a mock of HashFileSystemAccessor interface.
 type MockHashFileSystemAccessor struct {
 	ctrl     *gomock.Controller

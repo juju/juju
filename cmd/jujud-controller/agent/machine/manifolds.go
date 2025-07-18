@@ -726,6 +726,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		objectStoreDrainerName: objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
 			AgentName:                  agentName,
 			S3ClientName:               objectStoreS3CallerName,
+			ObjectStoreName:            objectStoreName,
 			ObjectStoreServicesName:    objectStoreServicesName,
 			FortressName:               objectStoreFortressName,
 			GetControllerService:       objectstoredrainer.GetControllerService,
