@@ -22,10 +22,14 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
-	"github.com/juju/juju/rpc/params"
 )
+
+// UpdateStatusState is used by UpdateState to not refresh known state.
+type UpdateStatusState map[coreunit.Name]applicationservice.UpdateCAASUnitParams
 
 // ApplicationOps defines all the operations the application worker can perform.
 // This is exported for testing only.
@@ -39,8 +43,8 @@ type ApplicationOps interface {
 		applicationService ApplicationService, statusService StatusService,
 		logger logger.Logger) error
 
-	AppDead(ctx context.Context, appName string, app caas.Application,
-		broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
+	AppDead(ctx context.Context, appName string, appID coreapplication.ID, app caas.Application,
+		broker CAASBroker, applicationService ApplicationService, statusService StatusService,
 		clk clock.Clock, logger logger.Logger) error
 
 	CheckCharmFormat(ctx context.Context, appName string,
@@ -49,11 +53,13 @@ type ApplicationOps interface {
 	EnsureTrust(ctx context.Context, appName string, app caas.Application,
 		applicationService ApplicationService, logger logger.Logger) error
 
-	UpdateState(ctx context.Context, appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
-		broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService, logger logger.Logger) (map[string]status.StatusInfo, error)
+	UpdateState(ctx context.Context, appName string, appID coreapplication.ID, app caas.Application,
+		lastReportedStatus UpdateStatusState,
+		broker CAASBroker, applicationService ApplicationService, statusService StatusService,
+		clk clock.Clock, logger logger.Logger) (UpdateStatusState, error)
 
 	RefreshApplicationStatus(ctx context.Context, appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-		facade CAASProvisionerFacade, statusService StatusService, clk clock.Clock, logger logger.Logger) error
+		statusService StatusService, clk clock.Clock, logger logger.Logger) error
 
 	WaitForTerminated(appName string, app caas.Application,
 		clk clock.Clock) error
@@ -94,11 +100,11 @@ func (applicationOps) AppDying(
 }
 
 func (applicationOps) AppDead(ctx context.Context,
-	appName string, app caas.Application,
-	broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
+	appName string, appID coreapplication.ID, app caas.Application, broker CAASBroker,
+	applicationService ApplicationService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return appDead(ctx, appName, app, broker, facade, applicationService, clk, logger)
+	return appDead(ctx, appName, appID, app, broker, applicationService, statusService, clk, logger)
 }
 
 func (applicationOps) CheckCharmFormat(
@@ -118,20 +124,20 @@ func (applicationOps) EnsureTrust(
 
 func (applicationOps) UpdateState(
 	ctx context.Context,
-	appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
-	broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
-	logger logger.Logger,
-) (map[string]status.StatusInfo, error) {
-	return updateState(ctx, appName, app, lastReportedStatus, broker, facade, applicationService, logger)
+	appName string, appID coreapplication.ID, app caas.Application, lastReportedStatus UpdateStatusState,
+	broker CAASBroker, applicationService ApplicationService, statusService StatusService,
+	clk clock.Clock, logger logger.Logger,
+) (UpdateStatusState, error) {
+	return updateState(ctx, appName, appID, app, lastReportedStatus, broker, applicationService, statusService, clk, logger)
 }
 
 func (applicationOps) RefreshApplicationStatus(
 	ctx context.Context,
 	appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-	facade CAASProvisionerFacade, statusService StatusService,
+	statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return refreshApplicationStatus(ctx, appName, appID, app, appLife, facade, statusService, clk, logger)
+	return refreshApplicationStatus(ctx, appName, appID, app, appLife, statusService, clk, logger)
 }
 
 func (applicationOps) WaitForTerminated(
@@ -248,7 +254,7 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 		ControllerCertBundle: provisionInfo.CACert,
 		ResourceTags:         provisionInfo.Tags,
 		Constraints:          provisionInfo.Constraints,
-		Filesystems:          provisionInfo.Filesystems,
+		//Filesystems:          provisionInfo.Filesystems,
 		Devices:              provisionInfo.Devices,
 		CharmBaseImagePath:   charmBaseImage,
 		Containers:           containers,
@@ -310,8 +316,8 @@ func appDying(
 // is removed from the k8s cluster and unblocks the cleanup of the application in state.
 func appDead(
 	ctx context.Context,
-	appName string, app caas.Application,
-	broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
+	appName string, appID coreapplication.ID, app caas.Application, broker CAASBroker,
+	applicationService ApplicationService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "application %q dead", appName)
@@ -323,15 +329,15 @@ func appDead(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = updateState(ctx, appName, app, nil, broker, facade, applicationService, logger)
+	_, err = updateState(ctx, appName, appID, app, nil, broker, applicationService, statusService, clk, logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// TODO(k8s): re-implement this to prevent a dead app from going away through
+	// creating a new domain concept that holds the application until this worker
+	// has destroyed all the k8s resources.
+	//
 	// Clear "has-resources" flag so state knows it can now remove the application.
-	err = facade.ClearApplicationResources(ctx, appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -385,12 +391,11 @@ func ensureTrust(
 // status, IP addresses and volume info.
 func updateState(
 	ctx context.Context,
-	appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
-	broker CAASBroker, facade CAASProvisionerFacade, applicationService ApplicationService,
-	logger logger.Logger,
-) (map[string]status.StatusInfo, error) {
-	appTag := names.NewApplicationTag(appName).String()
-	appStatus := params.EntityStatus{}
+	appName string, appID coreapplication.ID, app caas.Application,
+	lastReportedStatus UpdateStatusState,
+	broker CAASBroker, applicationService ApplicationService, statusService StatusService,
+	clk clock.Clock, logger logger.Logger,
+) (UpdateStatusState, error) {
 	svc, err := app.Service()
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
@@ -401,11 +406,25 @@ func updateState(
 		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.Trace(err)
 		}
-		appStatus = params.EntityStatus{
-			Status: svc.Status.Status,
-			Info:   svc.Status.Message,
-			Data:   svc.Status.Data,
+		now := clk.Now()
+		err = statusService.SetApplicationStatus(ctx, appName, status.StatusInfo{
+			Status:  svc.Status.Status,
+			Message: svc.Status.Message,
+			Data:    svc.Status.Data,
+			Since:   &now,
+		})
+		if err != nil && !errors.Is(err, statuserrors.ApplicationNotFound) {
+			return nil, errors.Trace(err)
 		}
+	}
+
+	unitToPod, err := applicationService.GetAllUnitCloudContainerIDsForApplication(ctx, appID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	podToUnit := make(map[string]coreunit.Name, len(unitToPod))
+	for k, v := range unitToPod {
+		podToUnit[v] = k
 	}
 
 	units, err := app.Units()
@@ -413,89 +432,50 @@ func updateState(
 		return nil, errors.Trace(err)
 	}
 
-	reportedStatus := make(map[string]status.StatusInfo)
-	args := params.UpdateApplicationUnits{
-		ApplicationTag: appTag,
-		Status:         appStatus,
-	}
+	reportedStatus := make(UpdateStatusState, len(units))
 	for _, u := range units {
-		// For pods managed by the substrate, any marked as dying
-		// are treated as non-existing.
-		if u.Dying {
+		unitName, ok := podToUnit[u.Id]
+		if !ok {
+			// This pod exists outside of Juju's knowledge. Ignore it for now.
 			continue
 		}
-		unitStatus := u.Status
-		lastStatus, ok := lastReportedStatus[u.Id]
-		reportedStatus[u.Id] = unitStatus
-		// TODO: Determine a better way to propagate status
-		// without constantly overriding the juju state value.
+
+		args := applicationservice.UpdateCAASUnitParams{
+			ProviderID: &u.Id,
+			Address:    &u.Address,
+			Ports:      &u.Ports,
+		}
+		args.AgentStatus, args.CloudContainerStatus = updateStatus(u.Status)
+
+		lastStatus, ok := lastReportedStatus[unitName]
+		reportedStatus[unitName] = args
 		if ok {
-			// If we've seen the same status value previously,
-			// report as unknown as this value is ignored.
-			if reflect.DeepEqual(lastStatus, unitStatus) {
-				unitStatus = status.StatusInfo{
-					Status: status.Unknown,
-				}
+			if reflect.DeepEqual(lastStatus, args) {
+				// We've already reported this.
+				continue
 			}
 		}
-		unitParams := params.ApplicationUnitParams{
-			ProviderId: u.Id,
-			Address:    u.Address,
-			Ports:      u.Ports,
-			Stateful:   u.Stateful,
-			Status:     unitStatus.Status.String(),
-			Info:       unitStatus.Message,
-			Data:       unitStatus.Data,
-		}
-		// Fill in any filesystem info for volumes attached to the unit.
-		// A unit will not become active until all required volumes are
-		// provisioned, so it makes sense to send this information along
-		// with the units to which they are attached.
-		for _, info := range u.FilesystemInfo {
-			unitParams.FilesystemInfo = append(unitParams.FilesystemInfo, params.KubernetesFilesystemInfo{
-				StorageName:  info.StorageName,
-				FilesystemId: info.FilesystemId,
-				Size:         info.Size,
-				MountPoint:   info.MountPoint,
-				ReadOnly:     info.ReadOnly,
-				Status:       info.Status.Status.String(),
-				Info:         info.Status.Message,
-				Data:         info.Status.Data,
-				Volume: params.KubernetesVolumeInfo{
-					VolumeId:   info.Volume.VolumeId,
-					Size:       info.Volume.Size,
-					Persistent: info.Volume.Persistent,
-					Status:     info.Volume.Status.Status.String(),
-					Info:       info.Volume.Status.Message,
-					Data:       info.Volume.Status.Data,
-				},
-			})
-		}
-		args.Units = append(args.Units, unitParams)
-	}
 
-	appUnitInfo, err := facade.UpdateUnits(ctx, args)
-	if err != nil {
-		// We can ignore not found errors as the worker will get stopped anyway.
-		// We can also ignore Forbidden errors raised from SetScale because disordered events could happen often.
-		if !errors.Is(err, errors.Forbidden) && !errors.Is(err, errors.NotFound) {
+		err = applicationService.UpdateCAASUnit(ctx, unitName, args)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Warningf(ctx, "update units %v", err)
 	}
 
-	if appUnitInfo != nil {
-		for _, unitInfo := range appUnitInfo.Units {
-			unit, err := names.ParseUnitTag(unitInfo.UnitTag)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			err = broker.AnnotateUnit(ctx, appName, unitInfo.ProviderId, unit)
-			if errors.Is(err, errors.NotFound) {
-				continue
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
+	for unitName, podName := range unitToPod {
+		lastReported := lastReportedStatus[unitName]
+		if lastReported.ProviderID != nil &&
+			*lastReported.ProviderID == podName {
+			// The pod has already been annotated.
+			continue
+		}
+
+		unitTag := names.NewUnitTag(unitName.String())
+		err := broker.AnnotateUnit(ctx, appName, podName, unitTag)
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	return reportedStatus, nil
@@ -504,7 +484,7 @@ func updateState(
 func refreshApplicationStatus(
 	ctx context.Context,
 	appName string, appID coreapplication.ID, app caas.Application, appLife life.Value,
-	facade CAASProvisionerFacade, statusService StatusService,
+	statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	if appLife != life.Alive {
@@ -774,4 +754,59 @@ func updateProvisioningState(
 		return errors.Annotatef(err, "setting provisiong state for application %q", appName)
 	}
 	return nil
+}
+
+// updateStatus constructs the agent and cloud container status values.
+func updateStatus(podStatus status.StatusInfo) (
+	agentStatus *status.StatusInfo,
+	cloudContainerStatus *status.StatusInfo,
+) {
+	switch podStatus.Status {
+	case status.Unknown:
+		// The container runtime can spam us with unimportant
+		// status updates, so ignore any irrelevant ones.
+		return nil, nil
+	case status.Allocating:
+		// The container runtime has decided to restart the pod.
+		agentStatus = &status.StatusInfo{
+			Status:  status.Allocating,
+			Message: podStatus.Message,
+		}
+		cloudContainerStatus = &status.StatusInfo{
+			Status:  status.Waiting,
+			Message: podStatus.Message,
+			Data:    podStatus.Data,
+		}
+	case status.Running:
+		// A pod has finished starting so the workload is now active.
+		agentStatus = &status.StatusInfo{
+			Status: status.Idle,
+		}
+		cloudContainerStatus = &status.StatusInfo{
+			Status:  status.Running,
+			Message: podStatus.Message,
+			Data:    podStatus.Data,
+		}
+	case status.Error:
+		agentStatus = &status.StatusInfo{
+			Status:  status.Error,
+			Message: podStatus.Message,
+			Data:    podStatus.Data,
+		}
+		cloudContainerStatus = &status.StatusInfo{
+			Status:  status.Error,
+			Message: podStatus.Message,
+			Data:    podStatus.Data,
+		}
+	case status.Blocked:
+		agentStatus = &status.StatusInfo{
+			Status: status.Idle,
+		}
+		cloudContainerStatus = &status.StatusInfo{
+			Status:  status.Blocked,
+			Message: podStatus.Message,
+			Data:    podStatus.Data,
+		}
+	}
+	return agentStatus, cloudContainerStatus
 }

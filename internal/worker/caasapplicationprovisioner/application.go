@@ -18,7 +18,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/password"
@@ -160,7 +159,7 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
-			err = a.ops.AppDead(ctx, name, app, a.broker, a.facade, a.applicationService, a.clock, a.logger)
+			err = a.ops.AppDead(ctx, name, a.appID, app, a.broker, a.applicationService, a.statusService, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
@@ -189,7 +188,7 @@ func (a *appWorker) loop() error {
 	var appChanges watcher.NotifyChannel
 	var appProvisionChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
-	var lastReportedStatus map[string]status.StatusInfo
+	var lastReportedStatus UpdateStatusState
 
 	appScaleWatcher, err := a.applicationService.WatchApplicationScale(ctx, name)
 	if err != nil {
@@ -318,7 +317,7 @@ func (a *appWorker) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				err = a.ops.AppDead(ctx, name, app, a.broker, a.facade, a.applicationService, a.clock, a.logger)
+				err = a.ops.AppDead(ctx, name, a.appID, app, a.broker, a.applicationService, a.statusService, a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -417,7 +416,8 @@ func (a *appWorker) loop() error {
 				reconcileDeadChan = nil
 				break
 			}
-			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appID, app, a.facade, a.applicationService, a.statusService, a.logger)
+			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appID, app,
+				a.facade, a.applicationService, a.statusService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
@@ -455,16 +455,18 @@ func (a *appWorker) loop() error {
 		case <-appChanges:
 			// Respond to changes in provider application.
 			lastReportedStatus, err = a.ops.UpdateState(
-				ctx, name, app, lastReportedStatus,
-				a.broker, a.facade, a.applicationService, a.logger)
+				ctx, name, a.appID, app, lastReportedStatus,
+				a.broker, a.applicationService,
+				a.statusService, a.clock, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
 			// Respond to changes in replicas of the application.
 			lastReportedStatus, err = a.ops.UpdateState(
-				ctx, name, app, lastReportedStatus,
-				a.broker, a.facade, a.applicationService, a.logger)
+				ctx, name, a.appID, app, lastReportedStatus,
+				a.broker, a.applicationService,
+				a.statusService, a.clock, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -497,7 +499,9 @@ func (a *appWorker) loop() error {
 			return nil
 		}
 		if shouldRefresh {
-			if err = a.ops.RefreshApplicationStatus(ctx, name, a.appID, app, appLife, a.facade, a.statusService, a.clock, a.logger); err != nil {
+			err := a.ops.RefreshApplicationStatus(ctx, name, a.appID, app, appLife,
+				a.statusService, a.clock, a.logger)
+			if err != nil {
 				return errors.Annotatef(err, "refreshing application status for %q", name)
 			}
 		}

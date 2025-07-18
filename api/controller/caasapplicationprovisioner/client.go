@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -101,7 +100,6 @@ type ProvisioningInfo struct {
 	CACert               string
 	Tags                 map[string]string
 	Constraints          constraints.Value
-	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Base                 corebase.Base
 	ImageDetails         resource.DockerImageDetails
@@ -146,13 +144,6 @@ func (c *Client) ProvisioningInfo(ctx context.Context, applicationName string) (
 		Trust:                r.Trust,
 		Scale:                r.Scale,
 	}
-	for _, fs := range r.Filesystems {
-		f, err := filesystemFromParams(fs)
-		if err != nil {
-			return info, errors.Trace(err)
-		}
-		info.Filesystems = append(info.Filesystems, *f)
-	}
 
 	for _, device := range r.Devices {
 		info.Devices = append(info.Devices, devices.KubernetesDeviceParams{
@@ -171,35 +162,6 @@ func (c *Client) ProvisioningInfo(ctx context.Context, applicationName string) (
 	}
 
 	return info, nil
-}
-
-func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.KubernetesFilesystemParams, error) {
-	var attachment *storage.KubernetesFilesystemAttachmentParams
-	if in.Attachment != nil {
-		var err error
-		attachment, err = filesystemAttachmentFromParams(*in.Attachment)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return &storage.KubernetesFilesystemParams{
-		StorageName:  in.StorageName,
-		Provider:     storage.ProviderType(in.Provider),
-		Size:         in.Size,
-		Attributes:   in.Attributes,
-		ResourceTags: in.Tags,
-		Attachment:   attachment,
-	}, nil
-}
-
-func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentParams) (*storage.KubernetesFilesystemAttachmentParams, error) {
-	return &storage.KubernetesFilesystemAttachmentParams{
-		AttachmentParams: storage.AttachmentParams{
-			Provider: storage.ProviderType(in.Provider),
-			ReadOnly: in.ReadOnly,
-		},
-		Path: in.MountPoint,
-	}, nil
 }
 
 // ApplicationOCIResources returns all the OCI image resources for an application.
@@ -235,42 +197,6 @@ func (c *Client) ApplicationOCIResources(ctx context.Context, appName string) (m
 		}
 	}
 	return images, nil
-}
-
-// UpdateUnits updates the state model to reflect the state of the units
-// as reported by the cloud.
-func (c *Client) UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
-	var result params.UpdateApplicationUnitResults
-	args := params.UpdateApplicationUnitArgs{Args: []params.UpdateApplicationUnits{arg}}
-	err := c.facade.FacadeCall(ctx, "UpdateApplicationsUnits", args, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != len(args.Args) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Args), len(result.Results))
-	}
-	firstResult := result.Results[0]
-	if firstResult.Error == nil {
-		return firstResult.Info, nil
-	}
-	return firstResult.Info, params.TranslateWellKnownError(firstResult.Error)
-}
-
-// ClearApplicationResources clears the flag which indicates an
-// application still has resources in the cluster.
-func (c *Client) ClearApplicationResources(ctx context.Context, appName string) error {
-	var result params.ErrorResults
-	args := params.Entities{Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}}}
-	if err := c.facade.FacadeCall(ctx, "ClearApplicationsResources", args, &result); err != nil {
-		return errors.Trace(err)
-	}
-	if len(result.Results) != len(args.Entities) {
-		return errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(result.Results))
-	}
-	if result.Results[0].Error == nil {
-		return nil
-	}
-	return params.TranslateWellKnownError(result.Results[0].Error)
 }
 
 // RemoveUnit removes the specified unit from the current model.

@@ -1385,6 +1385,34 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	c.Assert(netNodeUUID, tc.SameContents, []string{"machine-net-node-uuid"})
 }
 
+func (s *unitStateSuite) GetAllUnitCloudContainerIDsForApplication(c *tc.C) {
+	appID := s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "a",
+		},
+	}, application.InsertUnitArg{
+		UnitName: "foo/1",
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "b",
+		},
+	})
+
+	_ = s.createCAASApplication(c, "bar", life.Alive, application.InsertUnitArg{
+		UnitName: "bar/0",
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "c",
+		},
+	})
+
+	result, err := s.state.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, map[coreunit.Name]string{
+		"foo/0": "a",
+		"foo/1": "b",
+	})
+}
+
 type applicationSpace struct {
 	SpaceName    string `db:"space"`
 	SpaceExclude bool   `db:"exclude"`

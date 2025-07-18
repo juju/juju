@@ -161,6 +161,13 @@ type UnitState interface {
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
+
+	// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
+	// and their cloud container provider IDs for the given application.
+	//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+	//     is returned.
+	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]string, error)
 }
 
 func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, platform deployment.Platform, constraints constraints.Constraints) ([]application.AddIAASUnitArg, error) {
@@ -579,4 +586,24 @@ func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreap
 		}
 	}
 	return namesAndCoreLives, nil
+}
+
+// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
+// and their cloud container provider IDs for the given application.
+//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+//     is returned.
+func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	idMap, err := s.st.GetAllUnitCloudContainerIDsForApplication(ctx, appID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return idMap, nil
 }

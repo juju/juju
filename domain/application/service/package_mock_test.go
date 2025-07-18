@@ -1098,6 +1098,45 @@ func (c *MockStateGetAllEndpointBindingsCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetAllUnitCloudContainerIDsForApplication mocks base method.
+func (m *MockState) GetAllUnitCloudContainerIDsForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllUnitCloudContainerIDsForApplication", arg0, arg1)
+	ret0, _ := ret[0].(map[unit.Name]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllUnitCloudContainerIDsForApplication indicates an expected call of GetAllUnitCloudContainerIDsForApplication.
+func (mr *MockStateMockRecorder) GetAllUnitCloudContainerIDsForApplication(arg0, arg1 any) *MockStateGetAllUnitCloudContainerIDsForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUnitCloudContainerIDsForApplication", reflect.TypeOf((*MockState)(nil).GetAllUnitCloudContainerIDsForApplication), arg0, arg1)
+	return &MockStateGetAllUnitCloudContainerIDsForApplicationCall{Call: call}
+}
+
+// MockStateGetAllUnitCloudContainerIDsForApplicationCall wrap *gomock.Call
+type MockStateGetAllUnitCloudContainerIDsForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllUnitCloudContainerIDsForApplicationCall) Return(arg0 map[unit.Name]string, arg1 error) *MockStateGetAllUnitCloudContainerIDsForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllUnitCloudContainerIDsForApplicationCall) Do(f func(context.Context, application.ID) (map[unit.Name]string, error)) *MockStateGetAllUnitCloudContainerIDsForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllUnitCloudContainerIDsForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[unit.Name]string, error)) *MockStateGetAllUnitCloudContainerIDsForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitLifeForApplication mocks base method.
 func (m *MockState) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]life.Life, error) {
 	m.ctrl.T.Helper()

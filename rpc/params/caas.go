@@ -42,21 +42,20 @@ type CAASUnitTerminationResult struct {
 
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
-	Version              semversion.Number            `json:"version"`
-	APIAddresses         []string                     `json:"api-addresses"`
-	CACert               string                       `json:"ca-cert"`
-	Constraints          constraints.Value            `json:"constraints"`
-	Tags                 map[string]string            `json:"tags,omitempty"`
-	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`
-	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
-	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
-	Base                 Base                         `json:"base,omitempty"`
-	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
-	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
-	CharmURL             string                       `json:"charm-url,omitempty"`
-	Trust                bool                         `json:"trust,omitempty"`
-	Scale                int                          `json:"scale,omitempty"`
-	Error                *Error                       `json:"error,omitempty"`
+	Version              semversion.Number        `json:"version"`
+	APIAddresses         []string                 `json:"api-addresses"`
+	CACert               string                   `json:"ca-cert"`
+	Constraints          constraints.Value        `json:"constraints"`
+	Tags                 map[string]string        `json:"tags,omitempty"`
+	Volumes              []KubernetesVolumeParams `json:"volumes,omitempty"`
+	Devices              []KubernetesDeviceParams `json:"devices,omitempty"`
+	Base                 Base                     `json:"base,omitempty"`
+	ImageRepo            DockerImageInfo          `json:"image-repo,omitempty"`
+	CharmModifiedVersion int                      `json:"charm-modified-version,omitempty"`
+	CharmURL             string                   `json:"charm-url,omitempty"`
+	Trust                bool                     `json:"trust,omitempty"`
+	Scale                int                      `json:"scale,omitempty"`
+	Error                *Error                   `json:"error,omitempty"`
 }
 
 // DockerImageInfo holds the details for a Docker resource type.
