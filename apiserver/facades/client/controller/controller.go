@@ -580,6 +580,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		User:            authTag.Id(),
 		Password:        specTarget.Password,
 		Macaroons:       macs,
+		SkipUserChecks:  specTarget.SkipUserChecks,
 		Token:           specTarget.Token,
 	}
 
@@ -775,12 +776,14 @@ func (c *ControllerAPI) runMigrationPrechecks(
 	}
 	defer targetConn.Close()
 
-	dstUserList, err := getTargetControllerUsers(ctx, targetConn)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
-		return errors.Trace(err)
+	if !targetInfo.SkipUserChecks {
+		dstUserList, err := getTargetControllerUsers(ctx, targetConn)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	client := migrationtarget.NewClient(targetConn)

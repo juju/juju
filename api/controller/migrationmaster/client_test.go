@@ -91,13 +91,14 @@ func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 			Spec: params.MigrationSpec{
 				ModelTag: names.NewModelTag(modelUUID).String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: controllerTag.String(),
-					Addrs:         []string{"2.2.2.2:2"},
-					CACert:        "cert",
-					AuthTag:       names.NewUserTag("admin").String(),
-					Password:      "secret",
-					Macaroons:     string(macsJSON),
-					Token:         "token",
+					ControllerTag:  controllerTag.String(),
+					Addrs:          []string{"2.2.2.2:2"},
+					CACert:         "cert",
+					AuthTag:        names.NewUserTag("admin").String(),
+					Password:       "secret",
+					Macaroons:      string(macsJSON),
+					Token:          "token",
+					SkipUserChecks: true,
 				},
 			},
 			MigrationId:      "id",
@@ -126,6 +127,7 @@ func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 			User:           "admin",
 			Password:       "secret",
 			Token:          "token",
+			SkipUserChecks: true,
 		},
 	})
 }

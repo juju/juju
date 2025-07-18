@@ -170,6 +170,11 @@ type APIV4 struct {
 
 // APIV5 implements the APIV5.
 type APIV5 struct {
+	*APIV6
+}
+
+// APIV6 implements the APIV6.
+type APIV6 struct {
 	*API
 }
 

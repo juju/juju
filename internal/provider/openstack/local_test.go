@@ -863,7 +863,7 @@ func (s *localServerSuite) TestStartInstanceDeletesSecurityGroupsOnFailure(c *tc
 
 func assertSecurityGroups(c *tc.C, env environs.Environ, expected []string) {
 	neutronClient := openstack.GetNeutronClient(env)
-	groups, err := neutronClient.ListSecurityGroupsV2()
+	groups, err := neutronClient.ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{})
 	c.Assert(err, tc.ErrorIsNil)
 	for _, name := range expected {
 		found := false

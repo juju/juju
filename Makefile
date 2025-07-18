@@ -190,6 +190,7 @@ define link_flags_version
 -X $(PROJECT)/core/version.GitCommit=$(GIT_COMMIT) \
 -X $(PROJECT)/core/version.GitTreeState=$(GIT_TREE_STATE) \
 -X $(PROJECT)/core/version.build=$(JUJU_BUILD_NUMBER) \
+-X $(PROJECT)/core/version.Grade=$(JUJU_GRADE) \
 -X $(PROJECT)/core/version.GoBuildTags=$(FINAL_BUILD_TAGS) \
 -X $(PROJECT)/internal/debug/coveruploader.putURL=$(COVERAGE_COLLECT_URL)
 endef
@@ -665,7 +666,7 @@ check-deps:
 
 # CAAS related targets
 export OCI_BUILDER         ?= $(shell (which podman 2>&1 > /dev/null && echo podman) || echo docker )
-DOCKER_USERNAME            ?= docker.io/jujusolutions
+OCI_REGISTRY_USERNAME            ?= ghcr.io/juju
 DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
@@ -732,7 +733,7 @@ push-release-operator-image: operator-image
 
 .PHONY: seed-repository
 seed-repository:
-## seed-repository: Copy required juju images from docker.io/jujusolutions
+## seed-repository: Copy required juju images from oci repository
 	JUJU_DB_VERSION=$(JUJU_DB_VERSION) $(SEED_REPOSITORY)
 
 

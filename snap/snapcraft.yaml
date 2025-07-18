@@ -270,7 +270,7 @@ parts:
       export CGO_CFLAGS="$(pkg-config --cflags ${PACKAGES})"
       export CGO_LDFLAGS="$(pkg-config --libs ${PACKAGES}) -Wl,-z,stack-size=1048576"
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-      export GO_LDFLAGS='-s -w -extldflags "-static" -linkmode "external" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.build='
+      export GO_LDFLAGS='-s -w -extldflags "-static" -linkmode "external" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.Grade= -X github.com/juju/juju/version.build='
       go mod download
       go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud-controller
       mv ${SNAPCRAFT_PART_INSTALL}/bin/jujud-controller ${SNAPCRAFT_PART_INSTALL}/bin/jujud
@@ -288,7 +288,7 @@ parts:
       # TODO: use make plugin.
       export GOBIN="${CRAFT_PART_INSTALL}/bin"
       export CGO_ENABLED=0
-      export GO_LDFLAGS='-s -w -extldflags "-static" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.build='
+      export GO_LDFLAGS='-s -w -extldflags "-static" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.Grade= -X github.com/juju/juju/version.build='
       go mod download
       go install -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/juju github.com/juju/juju/cmd/jujuc github.com/juju/juju/cmd/plugins/juju-metadata
 

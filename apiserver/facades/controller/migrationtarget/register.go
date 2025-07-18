@@ -24,7 +24,7 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 			return api, nil
 		}, reflect.TypeOf((*APIV4)(nil)))
 		// Bumped to version 5 for the addition of the token field in
-		// the MigrationTargetInfo struct.
+		// the Migration.TargetInfo struct.
 		registry.MustRegisterForMultiModel("MigrationTarget", 5, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 			api, err := makeFacadeV5(stdCtx, ctx, requiredMigrationFacadeVersions)
 			if err != nil {
@@ -32,11 +32,20 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 			}
 			return api, nil
 		}, reflect.TypeOf((*APIV5)(nil)))
-		// v6 handles requests with a model qualifier instead of a model owner.
+		// Bumped to version 6 for the addition of the skipUserChecks field in
+		// the Migration.TargetInfo struct.
 		registry.MustRegisterForMultiModel("MigrationTarget", 6, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-			api, err := makeFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
+			api, err := makeFacadeV6(stdCtx, ctx, requiredMigrationFacadeVersions)
 			if err != nil {
 				return nil, errors.Errorf("making migration target version 6: %w", err)
+			}
+			return api, nil
+		}, reflect.TypeOf((*APIV6)(nil)))
+		// v7 handles requests with a model qualifier instead of a model owner.
+		registry.MustRegisterForMultiModel("MigrationTarget", 7, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+			api, err := makeFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
+			if err != nil {
+				return nil, errors.Errorf("making migration target version 7: %w", err)
 			}
 			return api, nil
 		}, reflect.TypeOf((*API)(nil)))
@@ -60,11 +69,23 @@ func makeFacadeV5(
 	ctx facade.MultiModelContext,
 	facadeVersions facades.FacadeVersions,
 ) (*APIV5, error) {
+	api, err := makeFacadeV6(stdCtx, ctx, facadeVersions)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return &APIV5{APIV6: api}, err
+}
+
+func makeFacadeV6(
+	stdCtx context.Context,
+	ctx facade.MultiModelContext,
+	facadeVersions facades.FacadeVersions,
+) (*APIV6, error) {
 	api, err := makeFacade(stdCtx, ctx, facadeVersions)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return &APIV5{API: api}, err
+	return &APIV6{API: api}, err
 }
 
 // makeFacade is responsible for constructing a new migration target facade and

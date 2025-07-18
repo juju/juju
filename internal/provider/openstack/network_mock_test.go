@@ -613,6 +613,45 @@ func (c *MockNetworkingNeutronAllocateFloatingIPV2Call) DoAndReturn(f func(strin
 	return c
 }
 
+// CreatePolicyTargetV2 mocks base method.
+func (m *MockNetworkingNeutron) CreatePolicyTargetV2(arg0 neutron.PolicyTargetV2) (*neutron.PolicyTargetV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePolicyTargetV2", arg0)
+	ret0, _ := ret[0].(*neutron.PolicyTargetV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreatePolicyTargetV2 indicates an expected call of CreatePolicyTargetV2.
+func (mr *MockNetworkingNeutronMockRecorder) CreatePolicyTargetV2(arg0 any) *MockNetworkingNeutronCreatePolicyTargetV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePolicyTargetV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).CreatePolicyTargetV2), arg0)
+	return &MockNetworkingNeutronCreatePolicyTargetV2Call{Call: call}
+}
+
+// MockNetworkingNeutronCreatePolicyTargetV2Call wrap *gomock.Call
+type MockNetworkingNeutronCreatePolicyTargetV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronCreatePolicyTargetV2Call) Return(arg0 *neutron.PolicyTargetV2, arg1 error) *MockNetworkingNeutronCreatePolicyTargetV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronCreatePolicyTargetV2Call) Do(f func(neutron.PolicyTargetV2) (*neutron.PolicyTargetV2, error)) *MockNetworkingNeutronCreatePolicyTargetV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronCreatePolicyTargetV2Call) DoAndReturn(f func(neutron.PolicyTargetV2) (*neutron.PolicyTargetV2, error)) *MockNetworkingNeutronCreatePolicyTargetV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreatePortV2 mocks base method.
 func (m *MockNetworkingNeutron) CreatePortV2(arg0 neutron.PortV2) (*neutron.PortV2, error) {
 	m.ctrl.T.Helper()
@@ -648,6 +687,160 @@ func (c *MockNetworkingNeutronCreatePortV2Call) Do(f func(neutron.PortV2) (*neut
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkingNeutronCreatePortV2Call) DoAndReturn(f func(neutron.PortV2) (*neutron.PortV2, error)) *MockNetworkingNeutronCreatePortV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CreateSecurityGroupRuleV2 mocks base method.
+func (m *MockNetworkingNeutron) CreateSecurityGroupRuleV2(arg0 neutron.RuleInfoV2) (*neutron.SecurityGroupRuleV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSecurityGroupRuleV2", arg0)
+	ret0, _ := ret[0].(*neutron.SecurityGroupRuleV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSecurityGroupRuleV2 indicates an expected call of CreateSecurityGroupRuleV2.
+func (mr *MockNetworkingNeutronMockRecorder) CreateSecurityGroupRuleV2(arg0 any) *MockNetworkingNeutronCreateSecurityGroupRuleV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecurityGroupRuleV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).CreateSecurityGroupRuleV2), arg0)
+	return &MockNetworkingNeutronCreateSecurityGroupRuleV2Call{Call: call}
+}
+
+// MockNetworkingNeutronCreateSecurityGroupRuleV2Call wrap *gomock.Call
+type MockNetworkingNeutronCreateSecurityGroupRuleV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronCreateSecurityGroupRuleV2Call) Return(arg0 *neutron.SecurityGroupRuleV2, arg1 error) *MockNetworkingNeutronCreateSecurityGroupRuleV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronCreateSecurityGroupRuleV2Call) Do(f func(neutron.RuleInfoV2) (*neutron.SecurityGroupRuleV2, error)) *MockNetworkingNeutronCreateSecurityGroupRuleV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronCreateSecurityGroupRuleV2Call) DoAndReturn(f func(neutron.RuleInfoV2) (*neutron.SecurityGroupRuleV2, error)) *MockNetworkingNeutronCreateSecurityGroupRuleV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CreateSecurityGroupV2 mocks base method.
+func (m *MockNetworkingNeutron) CreateSecurityGroupV2(arg0, arg1 string, arg2 []string) (*neutron.SecurityGroupV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSecurityGroupV2", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*neutron.SecurityGroupV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSecurityGroupV2 indicates an expected call of CreateSecurityGroupV2.
+func (mr *MockNetworkingNeutronMockRecorder) CreateSecurityGroupV2(arg0, arg1, arg2 any) *MockNetworkingNeutronCreateSecurityGroupV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecurityGroupV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).CreateSecurityGroupV2), arg0, arg1, arg2)
+	return &MockNetworkingNeutronCreateSecurityGroupV2Call{Call: call}
+}
+
+// MockNetworkingNeutronCreateSecurityGroupV2Call wrap *gomock.Call
+type MockNetworkingNeutronCreateSecurityGroupV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronCreateSecurityGroupV2Call) Return(arg0 *neutron.SecurityGroupV2, arg1 error) *MockNetworkingNeutronCreateSecurityGroupV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronCreateSecurityGroupV2Call) Do(f func(string, string, []string) (*neutron.SecurityGroupV2, error)) *MockNetworkingNeutronCreateSecurityGroupV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronCreateSecurityGroupV2Call) DoAndReturn(f func(string, string, []string) (*neutron.SecurityGroupV2, error)) *MockNetworkingNeutronCreateSecurityGroupV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteFloatingIPV2 mocks base method.
+func (m *MockNetworkingNeutron) DeleteFloatingIPV2(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFloatingIPV2", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFloatingIPV2 indicates an expected call of DeleteFloatingIPV2.
+func (mr *MockNetworkingNeutronMockRecorder) DeleteFloatingIPV2(arg0 any) *MockNetworkingNeutronDeleteFloatingIPV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFloatingIPV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeleteFloatingIPV2), arg0)
+	return &MockNetworkingNeutronDeleteFloatingIPV2Call{Call: call}
+}
+
+// MockNetworkingNeutronDeleteFloatingIPV2Call wrap *gomock.Call
+type MockNetworkingNeutronDeleteFloatingIPV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronDeleteFloatingIPV2Call) Return(arg0 error) *MockNetworkingNeutronDeleteFloatingIPV2Call {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronDeleteFloatingIPV2Call) Do(f func(string) error) *MockNetworkingNeutronDeleteFloatingIPV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronDeleteFloatingIPV2Call) DoAndReturn(f func(string) error) *MockNetworkingNeutronDeleteFloatingIPV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeletePolicyTargetV2 mocks base method.
+func (m *MockNetworkingNeutron) DeletePolicyTargetV2(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeletePolicyTargetV2", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeletePolicyTargetV2 indicates an expected call of DeletePolicyTargetV2.
+func (mr *MockNetworkingNeutronMockRecorder) DeletePolicyTargetV2(arg0 any) *MockNetworkingNeutronDeletePolicyTargetV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePolicyTargetV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeletePolicyTargetV2), arg0)
+	return &MockNetworkingNeutronDeletePolicyTargetV2Call{Call: call}
+}
+
+// MockNetworkingNeutronDeletePolicyTargetV2Call wrap *gomock.Call
+type MockNetworkingNeutronDeletePolicyTargetV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronDeletePolicyTargetV2Call) Return(arg0 error) *MockNetworkingNeutronDeletePolicyTargetV2Call {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronDeletePolicyTargetV2Call) Do(f func(string) error) *MockNetworkingNeutronDeletePolicyTargetV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronDeletePolicyTargetV2Call) DoAndReturn(f func(string) error) *MockNetworkingNeutronDeletePolicyTargetV2Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -690,6 +883,121 @@ func (c *MockNetworkingNeutronDeletePortV2Call) DoAndReturn(f func(string) error
 	return c
 }
 
+// DeleteSecurityGroupRuleV2 mocks base method.
+func (m *MockNetworkingNeutron) DeleteSecurityGroupRuleV2(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSecurityGroupRuleV2", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSecurityGroupRuleV2 indicates an expected call of DeleteSecurityGroupRuleV2.
+func (mr *MockNetworkingNeutronMockRecorder) DeleteSecurityGroupRuleV2(arg0 any) *MockNetworkingNeutronDeleteSecurityGroupRuleV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecurityGroupRuleV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeleteSecurityGroupRuleV2), arg0)
+	return &MockNetworkingNeutronDeleteSecurityGroupRuleV2Call{Call: call}
+}
+
+// MockNetworkingNeutronDeleteSecurityGroupRuleV2Call wrap *gomock.Call
+type MockNetworkingNeutronDeleteSecurityGroupRuleV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronDeleteSecurityGroupRuleV2Call) Return(arg0 error) *MockNetworkingNeutronDeleteSecurityGroupRuleV2Call {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronDeleteSecurityGroupRuleV2Call) Do(f func(string) error) *MockNetworkingNeutronDeleteSecurityGroupRuleV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronDeleteSecurityGroupRuleV2Call) DoAndReturn(f func(string) error) *MockNetworkingNeutronDeleteSecurityGroupRuleV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteSecurityGroupV2 mocks base method.
+func (m *MockNetworkingNeutron) DeleteSecurityGroupV2(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSecurityGroupV2", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSecurityGroupV2 indicates an expected call of DeleteSecurityGroupV2.
+func (mr *MockNetworkingNeutronMockRecorder) DeleteSecurityGroupV2(arg0 any) *MockNetworkingNeutronDeleteSecurityGroupV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecurityGroupV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).DeleteSecurityGroupV2), arg0)
+	return &MockNetworkingNeutronDeleteSecurityGroupV2Call{Call: call}
+}
+
+// MockNetworkingNeutronDeleteSecurityGroupV2Call wrap *gomock.Call
+type MockNetworkingNeutronDeleteSecurityGroupV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronDeleteSecurityGroupV2Call) Return(arg0 error) *MockNetworkingNeutronDeleteSecurityGroupV2Call {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronDeleteSecurityGroupV2Call) Do(f func(string) error) *MockNetworkingNeutronDeleteSecurityGroupV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronDeleteSecurityGroupV2Call) DoAndReturn(f func(string) error) *MockNetworkingNeutronDeleteSecurityGroupV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetFloatingIPV2 mocks base method.
+func (m *MockNetworkingNeutron) GetFloatingIPV2(arg0 string) (*neutron.FloatingIPV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFloatingIPV2", arg0)
+	ret0, _ := ret[0].(*neutron.FloatingIPV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFloatingIPV2 indicates an expected call of GetFloatingIPV2.
+func (mr *MockNetworkingNeutronMockRecorder) GetFloatingIPV2(arg0 any) *MockNetworkingNeutronGetFloatingIPV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFloatingIPV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).GetFloatingIPV2), arg0)
+	return &MockNetworkingNeutronGetFloatingIPV2Call{Call: call}
+}
+
+// MockNetworkingNeutronGetFloatingIPV2Call wrap *gomock.Call
+type MockNetworkingNeutronGetFloatingIPV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronGetFloatingIPV2Call) Return(arg0 *neutron.FloatingIPV2, arg1 error) *MockNetworkingNeutronGetFloatingIPV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronGetFloatingIPV2Call) Do(f func(string) (*neutron.FloatingIPV2, error)) *MockNetworkingNeutronGetFloatingIPV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronGetFloatingIPV2Call) DoAndReturn(f func(string) (*neutron.FloatingIPV2, error)) *MockNetworkingNeutronGetFloatingIPV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetNetworkV2 mocks base method.
 func (m *MockNetworkingNeutron) GetNetworkV2(arg0 string) (*neutron.NetworkV2, error) {
 	m.ctrl.T.Helper()
@@ -725,6 +1033,84 @@ func (c *MockNetworkingNeutronGetNetworkV2Call) Do(f func(string) (*neutron.Netw
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkingNeutronGetNetworkV2Call) DoAndReturn(f func(string) (*neutron.NetworkV2, error)) *MockNetworkingNeutronGetNetworkV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetPolicyTargetV2 mocks base method.
+func (m *MockNetworkingNeutron) GetPolicyTargetV2(arg0 string) (*neutron.PolicyTargetV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPolicyTargetV2", arg0)
+	ret0, _ := ret[0].(*neutron.PolicyTargetV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPolicyTargetV2 indicates an expected call of GetPolicyTargetV2.
+func (mr *MockNetworkingNeutronMockRecorder) GetPolicyTargetV2(arg0 any) *MockNetworkingNeutronGetPolicyTargetV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPolicyTargetV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).GetPolicyTargetV2), arg0)
+	return &MockNetworkingNeutronGetPolicyTargetV2Call{Call: call}
+}
+
+// MockNetworkingNeutronGetPolicyTargetV2Call wrap *gomock.Call
+type MockNetworkingNeutronGetPolicyTargetV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronGetPolicyTargetV2Call) Return(arg0 *neutron.PolicyTargetV2, arg1 error) *MockNetworkingNeutronGetPolicyTargetV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronGetPolicyTargetV2Call) Do(f func(string) (*neutron.PolicyTargetV2, error)) *MockNetworkingNeutronGetPolicyTargetV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronGetPolicyTargetV2Call) DoAndReturn(f func(string) (*neutron.PolicyTargetV2, error)) *MockNetworkingNeutronGetPolicyTargetV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetSubnetV2 mocks base method.
+func (m *MockNetworkingNeutron) GetSubnetV2(arg0 string) (*neutron.SubnetV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSubnetV2", arg0)
+	ret0, _ := ret[0].(*neutron.SubnetV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSubnetV2 indicates an expected call of GetSubnetV2.
+func (mr *MockNetworkingNeutronMockRecorder) GetSubnetV2(arg0 any) *MockNetworkingNeutronGetSubnetV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).GetSubnetV2), arg0)
+	return &MockNetworkingNeutronGetSubnetV2Call{Call: call}
+}
+
+// MockNetworkingNeutronGetSubnetV2Call wrap *gomock.Call
+type MockNetworkingNeutronGetSubnetV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronGetSubnetV2Call) Return(arg0 *neutron.SubnetV2, arg1 error) *MockNetworkingNeutronGetSubnetV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronGetSubnetV2Call) Do(f func(string) (*neutron.SubnetV2, error)) *MockNetworkingNeutronGetSubnetV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronGetSubnetV2Call) DoAndReturn(f func(string) (*neutron.SubnetV2, error)) *MockNetworkingNeutronGetSubnetV2Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -815,6 +1201,49 @@ func (c *MockNetworkingNeutronListNetworksV2Call) DoAndReturn(f func(...*neutron
 	return c
 }
 
+// ListPolicyTargetsV2 mocks base method.
+func (m *MockNetworkingNeutron) ListPolicyTargetsV2(arg0 ...*neutron.Filter) ([]neutron.PolicyTargetV2, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListPolicyTargetsV2", varargs...)
+	ret0, _ := ret[0].([]neutron.PolicyTargetV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListPolicyTargetsV2 indicates an expected call of ListPolicyTargetsV2.
+func (mr *MockNetworkingNeutronMockRecorder) ListPolicyTargetsV2(arg0 ...any) *MockNetworkingNeutronListPolicyTargetsV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPolicyTargetsV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).ListPolicyTargetsV2), arg0...)
+	return &MockNetworkingNeutronListPolicyTargetsV2Call{Call: call}
+}
+
+// MockNetworkingNeutronListPolicyTargetsV2Call wrap *gomock.Call
+type MockNetworkingNeutronListPolicyTargetsV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronListPolicyTargetsV2Call) Return(arg0 []neutron.PolicyTargetV2, arg1 error) *MockNetworkingNeutronListPolicyTargetsV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronListPolicyTargetsV2Call) Do(f func(...*neutron.Filter) ([]neutron.PolicyTargetV2, error)) *MockNetworkingNeutronListPolicyTargetsV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronListPolicyTargetsV2Call) DoAndReturn(f func(...*neutron.Filter) ([]neutron.PolicyTargetV2, error)) *MockNetworkingNeutronListPolicyTargetsV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListPortsV2 mocks base method.
 func (m *MockNetworkingNeutron) ListPortsV2(arg0 ...*neutron.Filter) ([]neutron.PortV2, error) {
 	m.ctrl.T.Helper()
@@ -858,6 +1287,45 @@ func (c *MockNetworkingNeutronListPortsV2Call) DoAndReturn(f func(...*neutron.Fi
 	return c
 }
 
+// ListSecurityGroupsV2 mocks base method.
+func (m *MockNetworkingNeutron) ListSecurityGroupsV2(arg0 neutron.ListSecurityGroupsV2Query) ([]neutron.SecurityGroupV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecurityGroupsV2", arg0)
+	ret0, _ := ret[0].([]neutron.SecurityGroupV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSecurityGroupsV2 indicates an expected call of ListSecurityGroupsV2.
+func (mr *MockNetworkingNeutronMockRecorder) ListSecurityGroupsV2(arg0 any) *MockNetworkingNeutronListSecurityGroupsV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecurityGroupsV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).ListSecurityGroupsV2), arg0)
+	return &MockNetworkingNeutronListSecurityGroupsV2Call{Call: call}
+}
+
+// MockNetworkingNeutronListSecurityGroupsV2Call wrap *gomock.Call
+type MockNetworkingNeutronListSecurityGroupsV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronListSecurityGroupsV2Call) Return(arg0 []neutron.SecurityGroupV2, arg1 error) *MockNetworkingNeutronListSecurityGroupsV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronListSecurityGroupsV2Call) Do(f func(neutron.ListSecurityGroupsV2Query) ([]neutron.SecurityGroupV2, error)) *MockNetworkingNeutronListSecurityGroupsV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronListSecurityGroupsV2Call) DoAndReturn(f func(neutron.ListSecurityGroupsV2Query) ([]neutron.SecurityGroupV2, error)) *MockNetworkingNeutronListSecurityGroupsV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListSubnetsV2 mocks base method.
 func (m *MockNetworkingNeutron) ListSubnetsV2() ([]neutron.SubnetV2, error) {
 	m.ctrl.T.Helper()
@@ -893,6 +1361,161 @@ func (c *MockNetworkingNeutronListSubnetsV2Call) Do(f func() ([]neutron.SubnetV2
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkingNeutronListSubnetsV2Call) DoAndReturn(f func() ([]neutron.SubnetV2, error)) *MockNetworkingNeutronListSubnetsV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PortByIdV2 mocks base method.
+func (m *MockNetworkingNeutron) PortByIdV2(arg0 string) (neutron.PortV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PortByIdV2", arg0)
+	ret0, _ := ret[0].(neutron.PortV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PortByIdV2 indicates an expected call of PortByIdV2.
+func (mr *MockNetworkingNeutronMockRecorder) PortByIdV2(arg0 any) *MockNetworkingNeutronPortByIdV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortByIdV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).PortByIdV2), arg0)
+	return &MockNetworkingNeutronPortByIdV2Call{Call: call}
+}
+
+// MockNetworkingNeutronPortByIdV2Call wrap *gomock.Call
+type MockNetworkingNeutronPortByIdV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronPortByIdV2Call) Return(arg0 neutron.PortV2, arg1 error) *MockNetworkingNeutronPortByIdV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronPortByIdV2Call) Do(f func(string) (neutron.PortV2, error)) *MockNetworkingNeutronPortByIdV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronPortByIdV2Call) DoAndReturn(f func(string) (neutron.PortV2, error)) *MockNetworkingNeutronPortByIdV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ReplaceAllTags mocks base method.
+func (m *MockNetworkingNeutron) ReplaceAllTags(arg0, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplaceAllTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplaceAllTags indicates an expected call of ReplaceAllTags.
+func (mr *MockNetworkingNeutronMockRecorder) ReplaceAllTags(arg0, arg1, arg2 any) *MockNetworkingNeutronReplaceAllTagsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceAllTags", reflect.TypeOf((*MockNetworkingNeutron)(nil).ReplaceAllTags), arg0, arg1, arg2)
+	return &MockNetworkingNeutronReplaceAllTagsCall{Call: call}
+}
+
+// MockNetworkingNeutronReplaceAllTagsCall wrap *gomock.Call
+type MockNetworkingNeutronReplaceAllTagsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronReplaceAllTagsCall) Return(arg0 error) *MockNetworkingNeutronReplaceAllTagsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronReplaceAllTagsCall) Do(f func(string, string, []string) error) *MockNetworkingNeutronReplaceAllTagsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronReplaceAllTagsCall) DoAndReturn(f func(string, string, []string) error) *MockNetworkingNeutronReplaceAllTagsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SecurityGroupByNameV2 mocks base method.
+func (m *MockNetworkingNeutron) SecurityGroupByNameV2(arg0 string) ([]neutron.SecurityGroupV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecurityGroupByNameV2", arg0)
+	ret0, _ := ret[0].([]neutron.SecurityGroupV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SecurityGroupByNameV2 indicates an expected call of SecurityGroupByNameV2.
+func (mr *MockNetworkingNeutronMockRecorder) SecurityGroupByNameV2(arg0 any) *MockNetworkingNeutronSecurityGroupByNameV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecurityGroupByNameV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).SecurityGroupByNameV2), arg0)
+	return &MockNetworkingNeutronSecurityGroupByNameV2Call{Call: call}
+}
+
+// MockNetworkingNeutronSecurityGroupByNameV2Call wrap *gomock.Call
+type MockNetworkingNeutronSecurityGroupByNameV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronSecurityGroupByNameV2Call) Return(arg0 []neutron.SecurityGroupV2, arg1 error) *MockNetworkingNeutronSecurityGroupByNameV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronSecurityGroupByNameV2Call) Do(f func(string) ([]neutron.SecurityGroupV2, error)) *MockNetworkingNeutronSecurityGroupByNameV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronSecurityGroupByNameV2Call) DoAndReturn(f func(string) ([]neutron.SecurityGroupV2, error)) *MockNetworkingNeutronSecurityGroupByNameV2Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateSecurityGroupV2 mocks base method.
+func (m *MockNetworkingNeutron) UpdateSecurityGroupV2(arg0, arg1, arg2 string, arg3 []string) (*neutron.SecurityGroupV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecurityGroupV2", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*neutron.SecurityGroupV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecurityGroupV2 indicates an expected call of UpdateSecurityGroupV2.
+func (mr *MockNetworkingNeutronMockRecorder) UpdateSecurityGroupV2(arg0, arg1, arg2, arg3 any) *MockNetworkingNeutronUpdateSecurityGroupV2Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecurityGroupV2", reflect.TypeOf((*MockNetworkingNeutron)(nil).UpdateSecurityGroupV2), arg0, arg1, arg2, arg3)
+	return &MockNetworkingNeutronUpdateSecurityGroupV2Call{Call: call}
+}
+
+// MockNetworkingNeutronUpdateSecurityGroupV2Call wrap *gomock.Call
+type MockNetworkingNeutronUpdateSecurityGroupV2Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNetworkingNeutronUpdateSecurityGroupV2Call) Return(arg0 *neutron.SecurityGroupV2, arg1 error) *MockNetworkingNeutronUpdateSecurityGroupV2Call {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNetworkingNeutronUpdateSecurityGroupV2Call) Do(f func(string, string, string, []string) (*neutron.SecurityGroupV2, error)) *MockNetworkingNeutronUpdateSecurityGroupV2Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNetworkingNeutronUpdateSecurityGroupV2Call) DoAndReturn(f func(string, string, string, []string) (*neutron.SecurityGroupV2, error)) *MockNetworkingNeutronUpdateSecurityGroupV2Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

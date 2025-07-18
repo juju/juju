@@ -595,7 +595,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		{
 			Name:            "charm",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "docker.io/jujusolutions/charm-base:ubuntu-24.04",
+			Image:           "ghcr.io/juju/charm-base:ubuntu-24.04",
 			WorkingDir:      "/var/lib/juju",
 			Command:         []string{"/charm/bin/pebble"},
 			Args:            []string{"run", "--http", ":38812", "--verbose"},
@@ -675,7 +675,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "docker.io/jujusolutions/juju-db:4.4",
+			Image:           "ghcr.io/juju/juju-db:4.4",
 			Command: []string{
 				"/bin/sh",
 			},
@@ -755,7 +755,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "docker.io/jujusolutions/jujud-operator:" + expectedVersion.String(),
+			Image:           "ghcr.io/juju/jujud-operator:" + expectedVersion.String(),
 			Env: []core.EnvVar{{
 				Name:  osenv.JujuFeatureFlagEnvKey,
 				Value: "developer-mode",
@@ -915,7 +915,7 @@ exec /opt/pebble run --http :38811 --verbose
 	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
 		Name:            "charm-init",
 		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "docker.io/jujusolutions/jujud-operator:" + expectedVersion.String(),
+		Image:           "ghcr.io/juju/jujud-operator:" + expectedVersion.String(),
 		WorkingDir:      "/var/lib/juju",
 		Command:         []string{"/opt/containeragent"},
 		Args: []string{

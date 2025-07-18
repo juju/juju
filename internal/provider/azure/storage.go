@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
@@ -198,6 +198,7 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.Context, p stora
 		return nil, errors.Trace(err)
 	}
 	var result armcompute.DisksClientCreateOrUpdateResponse
+	// makes a call to the azure API to create disk
 	poller, err := disks.BeginCreateOrUpdate(ctx, v.env.resourceGroup, diskName, diskModel, nil)
 	if err == nil {
 		result, err = poller.PollUntilDone(ctx, nil)
@@ -397,13 +398,29 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.Context, attachParams []st
 		if results[i].Error != nil || err == nil {
 			continue
 		}
-		results[i].Error = err
+		results[i].Error = errorutils.SimpleError(err)
 		results[i].VolumeAttachment = nil
 	}
 	return results, nil
 }
 
-const azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
+const (
+	azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
+	nvmeDiskDeviceName  = "nvme0n%d" // +2 to actual lun
+	nvmeDiskLunOffset   = 2
+)
+
+func (v *azureVolumeSource) volumeAttachmentInfo(controllerType armcompute.DiskControllerTypes, lun int32) storage.VolumeAttachmentInfo {
+	if controllerType == armcompute.DiskControllerTypesNVMe {
+		return storage.VolumeAttachmentInfo{
+			DeviceName: fmt.Sprintf(nvmeDiskDeviceName, lun+nvmeDiskLunOffset),
+		}
+	}
+
+	return storage.VolumeAttachmentInfo{
+		DeviceLink: fmt.Sprintf(azureDiskDeviceLink, lun),
+	}
+}
 
 func (v *azureVolumeSource) attachVolume(
 	vm *armcompute.VirtualMachine,
@@ -411,8 +428,14 @@ func (v *azureVolumeSource) attachVolume(
 ) (_ *storage.VolumeAttachment, updated bool, _ error) {
 
 	var dataDisks []*armcompute.DataDisk
-	if vm.Properties != nil && vm.Properties.StorageProfile.DataDisks != nil {
-		dataDisks = vm.Properties.StorageProfile.DataDisks
+	var diskControllerType armcompute.DiskControllerTypes
+	if vm.Properties != nil && vm.Properties.StorageProfile != nil {
+		if vm.Properties.StorageProfile.DataDisks != nil {
+			dataDisks = vm.Properties.StorageProfile.DataDisks
+		}
+		if vm.Properties.StorageProfile.DiskControllerType != nil {
+			diskControllerType = *vm.Properties.StorageProfile.DiskControllerType
+		}
 	}
 
 	diskName := p.VolumeId
@@ -420,18 +443,18 @@ func (v *azureVolumeSource) attachVolume(
 		if toValue(disk.Name) != diskName {
 			continue
 		}
+
 		// Disk is already attached.
 		volumeAttachment := &storage.VolumeAttachment{
-			Volume:  p.Volume,
-			Machine: p.Machine,
-			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
-				DeviceLink: fmt.Sprintf(azureDiskDeviceLink, toValue(disk.Lun)),
-			},
+			Volume:               p.Volume,
+			Machine:              p.Machine,
+			VolumeAttachmentInfo: v.volumeAttachmentInfo(diskControllerType, toValue(disk.Lun)),
 		}
+
 		return volumeAttachment, false, nil
 	}
 
-	volumeAttachment, err := v.addDataDisk(vm, diskName, p.Volume, p.Machine, armcompute.DiskCreateOptionTypesAttach, nil)
+	volumeAttachment, err := v.addDataDisk(vm, diskName, p.Volume, p.Machine, armcompute.DiskCreateOptionTypesAttach, nil, diskControllerType)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -445,6 +468,7 @@ func (v *azureVolumeSource) addDataDisk(
 	machineTag names.Tag,
 	createOption armcompute.DiskCreateOptionTypes,
 	diskSizeGB *int32,
+	diskControllerType armcompute.DiskControllerTypes,
 ) (*storage.VolumeAttachment, error) {
 
 	lun, err := nextAvailableLUN(vm)
@@ -466,7 +490,7 @@ func (v *azureVolumeSource) addDataDisk(
 
 	if vm.Properties != nil {
 		var dataDisks []*armcompute.DataDisk
-		if vm.Properties.StorageProfile.DataDisks != nil {
+		if vm.Properties.StorageProfile != nil && vm.Properties.StorageProfile.DataDisks != nil {
 			dataDisks = vm.Properties.StorageProfile.DataDisks
 		}
 		dataDisks = append(dataDisks, dataDisk)
@@ -474,11 +498,9 @@ func (v *azureVolumeSource) addDataDisk(
 	}
 
 	return &storage.VolumeAttachment{
-		Volume:  volumeTag,
-		Machine: machineTag,
-		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
-			DeviceLink: fmt.Sprintf(azureDiskDeviceLink, lun),
-		},
+		Volume:               volumeTag,
+		Machine:              machineTag,
+		VolumeAttachmentInfo: v.volumeAttachmentInfo(diskControllerType, lun),
 	}, nil
 }
 
@@ -649,6 +671,7 @@ func (v *azureVolumeSource) updateVirtualMachines(
 		// successfully updated, don't update again
 		delete(virtualMachines, instanceId)
 	}
+
 	return results, nil
 }
 

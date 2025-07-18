@@ -11,9 +11,11 @@ JUJUD_BIN_DIR=${JUJUD_BIN_DIR:-${BUILD_DIR}/bin}
 JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-}
 JUJU_DB_VERSION=${JUJU_DB_VERSION:-}
 
-# Docker variables
+# OCI variables
 OCI_BUILDER=${OCI_BUILDER:-docker}
-DOCKER_USERNAME=${DOCKER_USERNAME:-docker.io/jujusolutions}
+OCI_REGISTRY_USERNAME=${OCI_REGISTRY_USERNAME:-ghcr.io/juju}
+
+# Docker variables
 DOCKER_BUILDX_CONTEXT=${DOCKER_BUILDX_CONTEXT:-juju-make}
 DOCKER_STAGING_DIR="${BUILD_DIR}/docker-staging"
 DOCKER_BIN=${DOCKER_BIN:-$(which ${OCI_BUILDER} || true)}
@@ -62,7 +64,7 @@ juju_version() {
 
 operator_image_release_path() {
     juju_version=$(juju_version)
-    echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version $juju_version)"
+    echo "${OCI_REGISTRY_USERNAME}/jujud-operator:$(_image_version $juju_version)"
 }
 
 operator_image_path() {
@@ -70,7 +72,7 @@ operator_image_path() {
     if [[ -z "${JUJU_BUILD_NUMBER}" ]] || [[ ${JUJU_BUILD_NUMBER} -eq 0 ]]; then
         operator_image_release_path
     else
-        echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version "$juju_version").${JUJU_BUILD_NUMBER}"
+        echo "${OCI_REGISTRY_USERNAME}/jujud-operator:$(_image_version "$juju_version").${JUJU_BUILD_NUMBER}"
     fi
 }
 
@@ -154,15 +156,15 @@ build_push_operator_image() {
 
 seed_repository() {
   set -x
-  "$DOCKER_BIN" pull "docker.io/jujusolutions/juju-db:${JUJU_DB_VERSION}"
-	"$DOCKER_BIN" tag "docker.io/jujusolutions/juju-db:${JUJU_DB_VERSION}" "${DOCKER_USERNAME}/juju-db:${JUJU_DB_VERSION}"
-	"$DOCKER_BIN" push "${DOCKER_USERNAME}/juju-db:${JUJU_DB_VERSION}"
+  "$DOCKER_BIN" pull "ghcr.io/juju/juju-db:${JUJU_DB_VERSION}"
+	"$DOCKER_BIN" tag "ghcr.io/juju/juju-db:${JUJU_DB_VERSION}" "${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
+	"$DOCKER_BIN" push "${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
 
   # copy all the lts that are available
   for (( i = 18; ; i += 2 )); do
-    if "$DOCKER_BIN" pull "docker.io/jujusolutions/charm-base:ubuntu-$i.04" ; then
-      "$DOCKER_BIN" tag "docker.io/jujusolutions/charm-base:ubuntu-$i.04" "${DOCKER_USERNAME}/charm-base:ubuntu-$i.04"
-      "$DOCKER_BIN" push "${DOCKER_USERNAME}/charm-base:ubuntu-$i.04"
+    if "$DOCKER_BIN" pull "ghcr.io/juju/charm-base:ubuntu-$i.04" ; then
+      "$DOCKER_BIN" tag "ghcr.io/juju/charm-base:ubuntu-$i.04" "${OCI_REGISTRY_USERNAME}/charm-base:ubuntu-$i.04"
+      "$DOCKER_BIN" push "${OCI_REGISTRY_USERNAME}/charm-base:ubuntu-$i.04"
     else
       break
     fi

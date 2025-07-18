@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
@@ -333,7 +334,7 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *tc.C) 
 	c.Assert(official, tc.IsTrue)
 }
 
-func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *tc.C) {
+func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficialDevel(c *tc.C) {
 	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
@@ -342,6 +343,7 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *tc.C) {
 	jujudVersion := func(dir string) (semversion.Binary, bool, error) {
 		return semversion.Binary{}, true, nil
 	}
+	b.PatchValue(&jujuversion.Grade, "devel")
 
 	_, forceVersion, official, _, err := tools.BundleToolsForTest(
 		c.Context(),
@@ -349,7 +351,7 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *tc.C) {
 		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 		jujudVersion)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(forceVersion, tc.Equals, semversion.MustParse("1.2.3.1"))
+	c.Check(forceVersion, tc.Equals, semversion.MustParse("1.2.3.1"))
 	c.Assert(official, tc.IsTrue)
 
 	bundleFile, err = os.Open(bundleFile.Name())
@@ -377,6 +379,26 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *tc.C) {
 			break
 		}
 	}
+}
+
+func (b *buildSuite) TestBundleToolsForOfficialNonDevel(c *tc.C) {
+	b.patchExecCommand(c, "", "")
+	dir := b.setUpFakeBinaries(c, "")
+	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	jujudVersion := func(dir string) (semversion.Binary, bool, error) {
+		return semversion.Binary{}, true, nil
+	}
+
+	_, forceVersion, official, _, err := tools.BundleToolsForTest(
+		c.Context(),
+		false, bundleFile,
+		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
+		jujudVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(forceVersion, tc.Equals, semversion.Zero)
+	c.Assert(official, tc.IsTrue)
 }
 
 func (b *buildSuite) patchExecCommand(c *tc.C, release, arch string) {

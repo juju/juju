@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
@@ -661,6 +662,43 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *tc.C) {
 	})
 	filesystemSource.CheckNoCalls(c)
 	s.stub.CheckCallNames(c)
+}
+
+func (s *storageSuite) TestImportFilesystemK8sProvider(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).Return("", blockcommanderrors.NotFound)
+
+	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "kubernetes").Return(domainstorage.StoragePool{
+		Name:     "kubernetes",
+		Provider: "kubernetes",
+	}, nil)
+
+	volumeSource := volumeImporter{&dummy.VolumeSource{}}
+	dummyStorageProvider := &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		IsDynamic:    true,
+		VolumeSourceFunc: func(*storage.Config) (storage.VolumeSource, error) {
+			return volumeSource, nil
+		},
+		SupportsFunc: func(kind storage.StorageKind) bool {
+			return false
+		},
+	}
+	s.registry.Providers[k8sconstants.StorageProviderType] = dummyStorageProvider
+
+	results, err := s.api.Import(c.Context(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        k8sconstants.CAASProviderType,
+		ProviderId:  "foo",
+		StorageName: "pgdata",
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.DeepEquals, []params.ImportStorageResult{{
+		Result: &params.ImportStorageDetails{
+			StorageTag: "storage-data-0",
+		},
+	}})
 }
 
 func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {

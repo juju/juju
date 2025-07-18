@@ -194,7 +194,7 @@ func existingJujuLocation() (string, error) {
 // tests.)
 var VersionFileFallbackDir = "/usr/lib/juju"
 
-func copyExistingJujus(ctx context.Context, dir string, skipCopyVersionFile bool) error {
+func copyExistingJujus(ctx context.Context, dir string) error {
 	// Assume that the user is running juju.
 	jujuDir, err := ExistingJujuLocation()
 	if err != nil {
@@ -227,9 +227,6 @@ func copyExistingJujus(ctx context.Context, dir string, skipCopyVersionFile bool
 		if err != nil {
 			return errors.Trace(err)
 		}
-	}
-	if skipCopyVersionFile {
-		return nil
 	}
 	// If there's a version file beside the jujud binary or in the
 	// fallback location, include that.
@@ -310,7 +307,7 @@ func buildJujus(ctx context.Context, dir string) error {
 
 func packageLocalTools(ctx context.Context, toolsDir string, buildAgent bool) error {
 	if !buildAgent {
-		if err := copyExistingJujus(ctx, toolsDir, true); err != nil {
+		if err := copyExistingJujus(ctx, toolsDir); err != nil {
 			return errors.New("no prepackaged agent available and no jujud binary can be found")
 		}
 		return nil
@@ -369,17 +366,23 @@ func bundleTools(
 	}
 
 	// We need to get the version again because the juju binaries at dir might be built from source code.
+	var forceVersion semversion.Number
 	tvers, official, err := jujudVersion(dir)
 	if err != nil {
 		return semversion.Binary{}, semversion.Number{}, false, "", errors.Trace(err)
 	}
-	if official {
+	if official && jujuversion.Grade != jujuversion.GradeDevel {
 		logger.Debugf(ctx, "using official version %s", tvers)
-	}
-	forceVersion := getForceVersion(tvers.Number)
-	logger.Debugf(ctx, "forcing version to %s", forceVersion)
-	if err := os.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
-		return semversion.Binary{}, semversion.Number{}, false, "", err
+	} else {
+		officialMsg := ""
+		if official {
+			officialMsg = "official (devel) "
+		}
+		forceVersion = getForceVersion(tvers.Number)
+		logger.Debugf(ctx, "forcing %sversion to %s", officialMsg, forceVersion)
+		if err := os.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
+			return semversion.Binary{}, semversion.Number{}, false, "", err
+		}
 	}
 
 	sha256hash, err = archiveAndSHA256(w, dir)
@@ -420,7 +423,7 @@ func getVersionFromJujud(dir string) (semversion.Binary, error) {
 // JujudVersion returns the Jujud version at the specified location,
 // and whether it is an official binary.
 func JujudVersion(dir string) (semversion.Binary, bool, error) {
-	tvers, err := getVersionFromFile(dir)
+	tvers, err := GetVersionFromFile(dir)
 	official := err == nil
 	if err != nil && !errors.Is(err, errors.NotFound) && !isNoMatchingToolsChecksum(err) {
 		return semversion.Binary{}, false, errors.Trace(err)
@@ -452,7 +455,10 @@ func isNoMatchingToolsChecksum(err error) bool {
 	return ok
 }
 
-func getVersionFromFile(dir string) (semversion.Binary, error) {
+// GetVersionFromFile reads the version metadata file in the
+// specified directory and returns any version matching the
+// current binary.
+func GetVersionFromFile(dir string) (semversion.Binary, error) {
 	versionPath := filepath.Join(dir, names.JujudVersions)
 	sigFile, err := os.Open(versionPath)
 	if os.IsNotExist(err) {
