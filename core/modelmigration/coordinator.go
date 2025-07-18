@@ -57,9 +57,6 @@ type Operation interface {
 	// Rollback is called if the operation fails. It should attempt to undo
 	// any changes made by the operation. This is best effort, and may not
 	// always be possible.
-	// Rollback should only be called on controller DB operations. The
-	// model DB operations are not rolled back, but instead we remove the
-	// db, clearing the model.
 	Rollback(context.Context, description.Model) error
 }
 
