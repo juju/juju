@@ -25,6 +25,8 @@ func (st *State) DeleteImportedLinkLayerDevices(ctx context.Context) error {
 	}
 
 	tables := []string{
+		"provider_ip_address",
+		"ip_address",
 		"provider_link_layer_device",
 		"link_layer_device_parent",
 		"link_layer_device",

@@ -192,7 +192,7 @@ func (s *linkLayerImportSuite) TestImportLinkLayerDevices(c *tc.C) {
 	})
 }
 
-func (s *linkLayerImportSuite) TestDeleteImportedRelations(c *tc.C) {
+func (s *linkLayerImportSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
 	// Arrange:
 	ctx := c.Context()
 
@@ -214,6 +214,17 @@ func (s *linkLayerImportSuite) TestDeleteImportedRelations(c *tc.C) {
 			ParentDeviceName: "parent",
 			ProviderID:       ptr("one"),
 			MACAddress:       ptr("00:16:3e:ad:4e:01"),
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         uuid.MustNewUUID().String(),
+					Type:         corenetwork.IPv4Address,
+					Scope:        corenetwork.ScopePublic,
+					ConfigType:   corenetwork.ConfigDHCP,
+					Origin:       corenetwork.OriginProvider,
+					ProviderID:   ptr("ip-one"),
+					AddressValue: "192.168.1.10/24",
+				},
+			},
 		},
 		{
 			UUID:            uuid.MustNewUUID().String(),
@@ -225,6 +236,16 @@ func (s *linkLayerImportSuite) TestDeleteImportedRelations(c *tc.C) {
 			MachineID:       machineName,
 			ProviderID:      ptr("two"),
 			MACAddress:      ptr("00:16:3e:ad:4e:88"),
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         uuid.MustNewUUID().String(),
+					Type:         corenetwork.IPv6Address,
+					Scope:        corenetwork.ScopePublic,
+					ConfigType:   corenetwork.ConfigDHCP,
+					Origin:       corenetwork.OriginMachine,
+					AddressValue: "fd42:9102:88cb:dce3:216:3eff:fe59:a9dc/64",
+				},
+			},
 		},
 	}
 	err := s.state.ImportLinkLayerDevices(ctx, importData)
