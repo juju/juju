@@ -56,9 +56,9 @@ func ClaimAggregateOr(claims ...Claim) Claim {
 }
 
 // claimHasAJujuLabel is a throw everything against the wall and see what sticks
-// assertion. It itterates all labels of the object trying to find a key that
+// assertion. It iterates all labels of the object trying to find a key that
 // has the lowercase word "juju". We use this because our labeling at one stage
-// is a bit hit and miss and no consitancy to fall back on.
+// is a bit hit and miss and no consistency to fall back on.
 // TODO: Remove in Juju 3.0
 func claimHasJujuLabel(obj interface{}) (bool, error) {
 	if obj == nil {
@@ -77,7 +77,7 @@ func claimHasJujuLabel(obj interface{}) (bool, error) {
 	return false, nil
 }
 
-// claimIsManagedByJuju is a check to assert that the Kubernetes object provied
+// claimIsManagedByJuju is a check to assert that the Kubernetes object provided
 // is managed by Juju by having the label key and value of
 // app.kubernetes.io/managed-by: juju.
 func claimIsManagedByJuju(obj interface{}) (bool, error) {

@@ -2617,6 +2617,18 @@ func (k *kubernetesClient) operatorName(appName string) string {
 	return appName + "-operator"
 }
 
+func isOperatorName(name string) bool {
+	return strings.HasPrefix(name, "juju-operator-") ||
+		strings.HasSuffix(name, "-operator")
+}
+
+func appNameFromOperator(operatorName string) string {
+	if strings.HasPrefix(operatorName, "juju-operator-") {
+		return strings.TrimPrefix(operatorName, "juju-operator-")
+	}
+	return strings.TrimSuffix(operatorName, "-operator")
+}
+
 func (k *kubernetesClient) deploymentName(appName string, legacySupport bool) string {
 	if !legacySupport {
 		// No need to check old operator statefulset for brand new features like raw k8s spec.
