@@ -1272,19 +1272,6 @@ type insertStorageAttachment struct {
 	UnitUUID            string `db:"unit_uuid"`
 }
 
-// insertStorageInstance represents the set of values required for inserting a
-// new storage instance into the model.
-type insertStorageInstance struct {
-	CharmUUID       string           `db:"charm_uuid"`
-	LifeID          int              `db:"life_id"`
-	RequestSizeMiB  uint64           `db:"requested_size_mib"`
-	StorageID       string           `db:"storage_id"`
-	StorageName     string           `db:"storage_name"`
-	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
-	StorageType     sql.Null[string] `db:"storage_type"`
-	UUID            string           `db:"uuid"`
-}
-
 // insertStorageUnitOwner represents the set of values required for creating a
 // new storage_unit_owner record.
 type insertStorageUnitOwner struct {
