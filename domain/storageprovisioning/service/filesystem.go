@@ -6,11 +6,15 @@ package service
 import (
 	"context"
 
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/machine"
+	corechangestream "github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
+	coremachine "github.com/juju/juju/core/machine"
+	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/life"
+	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
@@ -37,16 +41,57 @@ type FilesystemState interface {
 	// filled out in the [storageprovisioning.FilesystemAttachmentID] struct.
 	GetFilesystemAttachmentIDs(ctx context.Context, uuids []string) (map[string]storageprovisioning.FilesystemAttachmentID, error)
 
+	// GetFilesystemAttachmentLife returns the current life value for a
+	// filesystem attachment uuid.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound]
+	// when no filesystem attachment exists for the provided uuid.
+	GetFilesystemAttachmentLife(
+		context.Context,
+		storageprovisioning.FilesystemAttachmentUUID,
+	) (domainlife.Life, error)
+
 	// GetFilesystemAttachmentLifeForNetNode returns a mapping of filesystem
 	// attachment uuids to the current life value for each machine provisioned
 	// filesystem attachment that is to be provisioned by the machine owning the
 	// supplied net node.
-	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
+	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+
+	// GetFilesystemAttachmentUUIDForIDUnit returns the filesystem attachment uuid
+	// for the supplied filesystem id which is attached to the given net node
+	// uuid.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound]
+	// when no filesystem attachment exists for the supplied values.
+	GetFilesystemAttachmentUUIDForIDNetNode(
+		context.Context,
+		string,
+		domainnetwork.NetNodeUUID,
+	) (storageprovisioning.FilesystemAttachmentUUID, error)
+
+	// GetFilesystemLife returns the current life value for a filesystem uuid.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+	// when no filesystem exists for the provided filesystem uuid.
+	GetFilesystemLife(
+		context.Context, storageprovisioning.FilesystemUUID,
+	) (domainlife.Life, error)
 
 	// GetFilesystemLifeForNetNode returns a mapping of filesystem ids to current
 	// life value for each machine provisioned filesystem that is to be
 	// provisioned by the machine owning the supplied net node.
-	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
+	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+
+	// GetFilesystemUUIDForID returns the uuid for a filesystem with the supplied
+	// id.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+	// when no filesystem exists for the provided filesystem uuid.
+	GetFilesystemUUIDForID(context.Context, string) (storageprovisioning.FilesystemUUID, error)
 
 	// InitialWatchStatementMachineProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
@@ -55,7 +100,7 @@ type FilesystemState interface {
 	//
 	// Only filesystems that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
 
 	// InitialWatchStatementModelProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
@@ -70,7 +115,7 @@ type FilesystemState interface {
 	//
 	// Only filesystem attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
 
 	// InitialWatchStatementModelProvisionedFilesystemAttachments returns both
 	// the namespace for watching filesystem attachment life changes where the
@@ -101,6 +146,149 @@ func (s *Service) GetFilesystemAttachmentIDs(
 	return s.st.GetFilesystemAttachmentIDs(ctx, uuids)
 }
 
+// GetFilesystemAttachmentLife returns the current life value for a filesystem
+// attachment uuid.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the filesystem attachment uuid is not valid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound]
+// when no filesystem attachment exists for the provided uuid.
+func (s *Service) GetFilesystemAttachmentLife(
+	ctx context.Context,
+	uuid storageprovisioning.FilesystemAttachmentUUID,
+) (corelife.Value, error) {
+	if err := uuid.Validate(); err != nil {
+		return "", errors.Errorf(
+			"validating filesystem attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	life, err := s.st.GetFilesystemAttachmentLife(ctx, uuid)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return life.Value()
+}
+
+// GetFilesystemAttachmentUUIDForIDMachine returns the filesystem attachment
+// uuid for the supplied filesystem id which is attached to the machine.
+//
+// The following errors may be returned:
+// - [corestorage.InvalidStorageID] when the provided id is not valid.
+// - [coreerrors.NotValid] when the provided unit uuid is not valid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound]
+// when no filesystem attachment exists for the supplied values.
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no machine
+// exists for the provided machine uuid.
+func (s *Service) GetFilesystemAttachmentUUIDForIDMachine(
+	ctx context.Context,
+	id corestorage.ID,
+	machineUUID coremachine.UUID,
+) (storageprovisioning.FilesystemAttachmentUUID, error) {
+	if err := id.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+	if err := machineUUID.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	uuid, err := s.st.GetFilesystemAttachmentUUIDForIDNetNode(
+		ctx, id.String(), netNodeUUID,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return uuid, nil
+}
+
+// GetFilesystemAttachmentUUIDForIDUnit returns the filesystem attachment uuid
+// for the supplied filesystem id which is attached to the unit.
+//
+// The following errors may be returned:
+// - [corestorage.InvalidStorageID] when the provided id is not valid.
+// - [coreerrors.NotValid] when the provided unit uuid is not valid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound]
+// when no filesystem attachment exists for the supplied values.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no unit
+// exists for the provided unit uuid.
+func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
+	ctx context.Context,
+	id corestorage.ID,
+	unitUUID coreunit.UUID,
+) (storageprovisioning.FilesystemAttachmentUUID, error) {
+	if err := id.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+	if err := unitUUID.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	uuid, err := s.st.GetFilesystemAttachmentUUIDForIDNetNode(
+		ctx, id.String(), netNodeUUID,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return uuid, nil
+}
+
+// GetFilesystemLife returns the current life value for a filesystem uuid.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the filesystem uuid is not valid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+// when no filesystem exists for the provided filesystem uuid.
+func (s *Service) GetFilesystemLife(
+	ctx context.Context,
+	uuid storageprovisioning.FilesystemUUID,
+) (corelife.Value, error) {
+	if err := uuid.Validate(); err != nil {
+		return "", errors.Errorf(
+			"validating filesystem uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	life, err := s.st.GetFilesystemLife(ctx, uuid)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return life.Value()
+}
+
+// GetFilesystemUUIDForID returns the uuid for a filesystem with the supplied
+// id.
+//
+// The following errors may be returned:
+// - [corestorage.InvalidStorageID] when the provided id is not valid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+// when no filesystem exists for the provided filesystem uuid.
+func (s *Service) GetFilesystemUUIDForID(
+	ctx context.Context, id corestorage.ID,
+) (storageprovisioning.FilesystemUUID, error) {
+	if err := id.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	uuid, err := s.st.GetFilesystemUUIDForID(ctx, id.String())
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return uuid, nil
+}
+
 // WatchModelProvisionedFilesystems returns a watcher that emits filesystem IDs,
 // whenever a model provisioned filsystem's life changes.
 func (s *Service) WatchModelProvisionedFilesystems(
@@ -109,7 +297,7 @@ func (s *Service) WatchModelProvisionedFilesystems(
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystems()
 	return s.watcherFactory.NewNamespaceWatcher(
 		initialQuery,
-		eventsource.NamespaceFilter(ns, changestream.All))
+		eventsource.NamespaceFilter(ns, corechangestream.All))
 }
 
 // WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,
@@ -121,7 +309,7 @@ func (s *Service) WatchModelProvisionedFilesystems(
 // - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 // machine exists for the provided machine uuid.
 func (s *Service) WatchMachineProvisionedFilesystems(
-	ctx context.Context, machineUUID machine.UUID,
+	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
 	if err := machineUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -131,14 +319,14 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
 		return s.st.GetFilesystemLifeForNetNode(ctx, netNodeUUID)
 	}
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID)
 	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
-		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+		ns, corechangestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
@@ -158,7 +346,7 @@ func (s *Service) WatchModelProvisionedFilesystemAttachments(
 ) (watcher.StringsWatcher, error) {
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystemAttachments()
 	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
-		eventsource.NamespaceFilter(ns, changestream.All))
+		eventsource.NamespaceFilter(ns, corechangestream.All))
 }
 
 // WatchMachineProvisionedFilesystemAttachments returns a watcher that emits
@@ -171,7 +359,7 @@ func (s *Service) WatchModelProvisionedFilesystemAttachments(
 // - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 // machine exists for the provided machine UUUID.
 func (s *Service) WatchMachineProvisionedFilesystemAttachments(
-	ctx context.Context, machineUUID machine.UUID,
+	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
 	if err := machineUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -181,14 +369,14 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
 		return s.st.GetFilesystemAttachmentLifeForNetNode(ctx, netNodeUUID)
 	}
 
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID)
 	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
-		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+		ns, corechangestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
