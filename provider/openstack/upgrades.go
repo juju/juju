@@ -5,16 +5,14 @@ package openstack
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/retry"
+	"github.com/juju/version/v2"
+	"strings"
 )
 
 // PreparePrechecker is part of the environs.JujuUpgradePrechecker
@@ -112,6 +110,7 @@ func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) erro
 	jujuGroupNamePrefix := fmt.Sprintf("juju-%s-%s", t.env.controllerUUID, t.env.modelUUID)
 	for _, securityGroup := range securityGroups {
 		if !strings.HasPrefix(securityGroup.Name, jujuGroupNamePrefix) {
+			logger.Debugf("skipping for security group: %s because it belongs to a different model, current model: %s", securityGroup.Name, t.env.modelUUID)
 			continue
 		}
 
@@ -128,11 +127,17 @@ func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) erro
 
 		if err != nil {
 			if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
-				return retry.LastError(err)
+				lastErr := retry.LastError(err)
+				logger.Errorf("failed to tag security groups for controller: %s and model: %s with retry error: %s", t.env.controllerUUID, t.env.modelUUID, lastErr)
+				return lastErr
 			}
+
+			logger.Errorf("failed to tag security groups for controller: %s and model: %s with error: %s", t.env.controllerUUID, t.env.modelUUID, err)
 			return errors.Trace(err)
 		}
 	}
+
+	logger.Infof("successfully executed upgrade step to tag existing security groups for controller: %s and model: %s", t.env.controllerUUID, t.env.modelUUID)
 
 	return nil
 }
