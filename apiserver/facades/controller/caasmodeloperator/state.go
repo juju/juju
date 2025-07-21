@@ -31,6 +31,7 @@ type CAASControllerState interface {
 type Model interface {
 	ModelConfig() (*config.Config, error)
 	WatchForModelConfigChanges() state.NotifyWatcher
+	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 }
 
 type stateShim struct {

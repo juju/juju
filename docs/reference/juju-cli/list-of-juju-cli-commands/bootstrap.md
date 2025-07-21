@@ -426,6 +426,9 @@ Model configuration keys (affecting the controller model):
       type: string
       description: The URL at which the metadata used to locate container OS image ids
         is located
+    container-image-reference:
+      type: string
+      description: The container image repository. (default "")
     container-image-stream:
       type: string
       description: The simplestreams stream used to identify which image ids to search
