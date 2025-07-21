@@ -19,11 +19,6 @@ import (
 // for over 30s in the field.
 const SocketTimeout = time.Minute
 
-// defaultDialTimeout should be representative of the upper bound of
-// time taken to dial a mongo server from within the same
-// cloud/private network.
-const defaultDialTimeout = 30 * time.Second
-
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a controller.
 type DialOpts struct {

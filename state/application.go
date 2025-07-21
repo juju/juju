@@ -9,7 +9,6 @@ import (
 
 // Application represents the state of an application.
 type Application struct {
-	st  *State
 	doc applicationDoc
 }
 

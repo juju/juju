@@ -50,7 +50,6 @@ import (
 
 var (
 	sshGenerateKey     = ssh.GenerateKey
-	minSocketTimeout   = 1 * time.Minute
 	checkJWKSReachable = agentbootstrap.CheckJWKSReachable
 )
 

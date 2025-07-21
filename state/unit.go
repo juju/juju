@@ -7,27 +7,8 @@ import (
 	"github.com/juju/names/v6"
 )
 
-// unitDoc represents the internal state of a unit in MongoDB.
-// Note the correspondence with UnitInfo in core/multiwatcher.
-type unitDoc struct {
-	DocID                  string `bson:"_id"`
-	Name                   string `bson:"name"`
-	ModelUUID              string `bson:"model-uuid"`
-	Base                   Base   `bson:"base"`
-	Application            string
-	CharmURL               *string
-	Principal              string
-	Subordinates           []string
-	StorageAttachmentCount int `bson:"storageattachmentcount"`
-	MachineId              string
-	Life                   Life
-	PasswordHash           string
-}
-
 // Unit represents the state of an application unit.
 type Unit struct {
-	st  *State
-	doc unitDoc
 }
 
 // Tag returns a name identifying the unit.

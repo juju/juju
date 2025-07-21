@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +57,6 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/service"
@@ -694,25 +692,6 @@ func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.API
 	return errors.Trace(err)
 }
 
-func mongoDialOptions(
-	baseOpts mongo.DialOpts,
-	agentConfig agent.Config,
-) (mongo.DialOpts, error) {
-	dialOpts := baseOpts
-	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
-		limit, err := strconv.Atoi(limitStr)
-		if err != nil {
-			return mongo.DialOpts{}, errors.Errorf("invalid mongo socket pool limit %q", limitStr)
-		}
-		logger.Infof(context.TODO(), "using mongo socker pool limit = %d", limit)
-		dialOpts.PoolLimit = limit
-	}
-	if dialOpts.PostDialServer != nil {
-		return mongo.DialOpts{}, errors.New("did not expect PostDialServer to be set")
-	}
-	return dialOpts, nil
-}
-
 func (a *MachineAgent) initState(
 	ctx context.Context, agentConfig agent.Config,
 	domainServicesGetter services.DomainServicesGetter,
@@ -834,12 +813,6 @@ func (m *modelWorker) Wait() error {
 	// logger.
 	_ = m.metrics.Unregister()
 	return err
-}
-
-// ensureMongoServer ensures that mongo is installed and running,
-// and ready for opening a state connection.
-func (a *MachineAgent) ensureMongoServer(ctx context.Context, agentConfig agent.Config) (err error) {
-	return nil
 }
 
 func openStatePool(
