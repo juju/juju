@@ -6,6 +6,7 @@ package openstack
 import (
 	"fmt"
 	"github.com/go-goose/goose/v5/neutron"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 	"strings"
+	"time"
 )
 
 // PreparePrechecker is part of the environs.JujuUpgradePrechecker
@@ -70,9 +72,19 @@ type tagExistingSecurityGroupsStep struct {
 	env *Environ
 }
 
+var tagSecGroupRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDuration: 30 * time.Second,
+	Delay:       time.Second,
+	BackoffFunc: retry.ExpBackoff(time.Second, 10*time.Second, 1.5, true),
+}
+
 func (t tagExistingSecurityGroupsStep) buildReplaceTagsWithRetry(ctx context.ProviderCallContext, neutronClient NetworkingNeutron, groupId string, tags []string) retry.CallArgs {
-	retryStrategy := shortRetryStrategy
+	retryStrategy := tagSecGroupRetryStrategy
 	retryStrategy.IsFatalError = func(err error) bool {
+		if strings.Contains(err.Error(), "TLS handshake timeout") {
+			return false
+		}
 		return !errors.IsNotFound(err)
 	}
 	retryStrategy.Func = func() error {
