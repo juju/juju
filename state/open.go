@@ -8,10 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 )
 
@@ -26,18 +24,9 @@ type OpenParams struct {
 	// ControllerModelTag is the tag of the controller model.
 	ControllerModelTag names.ModelTag
 
-	// MongoSession is the mgo.Session to use for storing and
-	// accessing state data. The caller remains responsible
-	// for closing this session; Open will copy it.
-	MongoSession *mgo.Session
-
 	// NewPolicy, if non-nil, returns a policy which will be used to
 	// validate and modify behaviour of certain operations in state.
 	NewPolicy NewPolicyFunc
-
-	// InitDatabaseFunc, if non-nil, is a function that will be called
-	// just after the state database is opened.
-	InitDatabaseFunc InitDatabaseFunc
 
 	// MaxTxnAttempts is defaulted by OpenStatePool if otherwise not set.
 	MaxTxnAttempts int
@@ -73,9 +62,6 @@ func OpenController(args OpenParams) (*Controller, error) {
 func open(
 	controllerTag names.ControllerTag,
 	controllerModelTag names.ModelTag,
-	session *mgo.Session,
-	initDatabase InitDatabaseFunc,
-	controllerConfig *controller.Config,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error),
@@ -84,7 +70,6 @@ func open(
 	st, err := newState(controllerTag,
 		controllerModelTag,
 		controllerModelTag,
-		session,
 		newPolicy,
 		clock,
 		charmServiceGetter,
@@ -104,20 +89,16 @@ func open(
 func newState(
 	controllerTag names.ControllerTag,
 	modelTag, controllerModelTag names.ModelTag,
-	session *mgo.Session,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error),
 	maxTxnAttempts int,
 ) (_ *State, err error) {
-	db := &database{}
 	// Create State.
 	st := &State{
 		stateClock:         clock,
 		modelTag:           modelTag,
 		controllerModelTag: controllerModelTag,
-		session:            session,
-		database:           db,
 		newPolicy:          newPolicy,
 		charmServiceGetter: charmServiceGetter,
 		maxTxnAttempts:     maxTxnAttempts,

@@ -14,7 +14,6 @@ import (
 	"math/rand"
 	"sync"
 
-	mgotesting "github.com/juju/mgo/v3/testing"
 	cryptossh "golang.org/x/crypto/ssh"
 )
 
@@ -37,9 +36,6 @@ var (
 
 	// ServerTLSCert is the parsed server certificate.
 	ServerTLSCert = mustParseServerCert(ServerCert, ServerKey)
-
-	// Certs holds the certificates and keys required to make a secure
-	Certs = serverCerts()
 
 	// Other valid test certs different from the default.
 
@@ -100,15 +96,6 @@ func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.Privat
 		panic(fmt.Errorf("private key with unexpected type %T", tlsCert.PrivateKey))
 	}
 	return cert, key
-}
-
-func serverCerts() *mgotesting.Certs {
-	serverCert, serverKey := mustParseCertAndKey(ServerCert, ServerKey)
-	return &mgotesting.Certs{
-		CACert:     CACertX509,
-		ServerCert: serverCert,
-		ServerKey:  serverKey,
-	}
 }
 
 func mustGenerateSSHServerHostKey() string {

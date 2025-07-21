@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -74,7 +73,6 @@ func CheckJWKSReachable(url string) error {
 type AgentBootstrap struct {
 	adminUser       names.UserTag
 	agentConfig     agent.ConfigSetter
-	mongoDialOpts   mongo.DialOpts
 	stateNewPolicy  state.NewPolicyFunc
 	bootstrapDqlite DqliteInitializerFunc
 
@@ -93,7 +91,6 @@ type AgentBootstrapArgs struct {
 	AgentConfig               agent.ConfigSetter
 	BootstrapEnviron          environs.BootstrapEnviron
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
-	MongoDialOpts             mongo.DialOpts
 	StateInitializationParams instancecfg.StateInitializationParams
 	StorageProviderRegistry   storage.ProviderRegistry
 	BootstrapDqlite           DqliteInitializerFunc
@@ -143,7 +140,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		agentConfig:               args.AgentConfig,
 		bootstrapDqlite:           args.BootstrapDqlite,
 		logger:                    args.Logger,
-		mongoDialOpts:             args.MongoDialOpts,
 		stateInitializationParams: args.StateInitializationParams,
 		storageProviderRegistry:   args.StorageProviderRegistry,
 	}, nil

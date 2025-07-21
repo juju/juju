@@ -8,28 +8,9 @@ import (
 	"gopkg.in/tomb.v2"
 )
 
-// Stopper is implemented by all watchers.
-type Stopper interface {
-	Stop() error
-}
-
 // Errer is implemented by all watchers.
 type Errer interface {
 	Err() error
-}
-
-// Stop stops the watcher. If an error is returned by the
-// watcher, t is killed with the error.
-func Stop(w Stopper, t *tomb.Tomb) {
-	if err := w.Stop(); err != nil {
-		if err != tomb.ErrStillAlive && err != tomb.ErrDying {
-			// tomb.Kill() checks for the two errors above
-			// by value, so we shouldn't wrap them, but we
-			// wrap any other error.
-			err = errors.Trace(err)
-		}
-		t.Kill(err)
-	}
 }
 
 // EnsureErr returns the error with which w died. Calling it will also

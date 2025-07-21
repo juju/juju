@@ -53,27 +53,10 @@ func (ctlr *Controller) GetState(modelTag names.ModelTag) (*PooledState, error) 
 type ControllerInfo struct {
 	// CloudName is the name of the cloud to which this controller is deployed.
 	CloudName string
-
-	// ModelTag identifies the initial model. Only the initial
-	// model is able to have machines that manage state. The initial
-	// model is the model that is created when bootstrapping.
-	ModelTag names.ModelTag
-
-	// ControllerIds holds the ids of all the controller nodes.
-	// It's main purpose is to allow assertions tha the set of
-	// controllers hasn't changed when adding/removing controller nodes.
-	ControllerIds []string
 }
 
 // ControllerInfo returns information about
 // the currently configured controller machines.
 func (st *State) ControllerInfo() (*ControllerInfo, error) {
 	return &ControllerInfo{}, nil
-}
-
-// SSHServerHostKey returns the host key for the SSH server. This key was set
-// during the controller bootstrap process via bootstrap-state and is currently
-// a FIXED value.
-func (st *State) SSHServerHostKey() (string, error) {
-	return "", nil
 }

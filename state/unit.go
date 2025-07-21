@@ -5,8 +5,6 @@ package state
 
 import (
 	"github.com/juju/names/v6"
-
-	"github.com/juju/juju/internal/charm"
 )
 
 // unitDoc represents the internal state of a unit in MongoDB.
@@ -38,6 +36,3 @@ type Unit struct {
 func (u *Unit) Tag() names.Tag {
 	return names.NewUnitTag("no/0")
 }
-
-// ActionSpecsByName is a map of action names to their respective ActionSpec.
-type ActionSpecsByName map[string]charm.ActionSpec

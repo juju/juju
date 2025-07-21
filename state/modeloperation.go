@@ -3,9 +3,8 @@
 
 package state
 
-import (
-	"github.com/juju/mgo/v3/txn"
-)
+type Op struct {
+}
 
 // ModelOperation is a high-level model operation,
 // encapsulating the logic required to apply a change
@@ -19,7 +18,7 @@ type ModelOperation interface {
 	// Build is treated as a jujutxn.TransactionSource, so the errors
 	// in the jujutxn package may be returned by Build to influence
 	// transaction execution.
-	Build(attempt int) ([]txn.Op, error)
+	Build(attempt int) ([]Op, error)
 
 	// Done is called after the operation is run, whether it succeeds or
 	// not. The result of running the operation is passed in, and the Done
@@ -31,12 +30,12 @@ type ModelOperation interface {
 // modelOperationFunc is an adaptor for composing a txn builder and done
 // function/closure into a type that implements ModelOperation.
 type modelOperationFunc struct {
-	buildFn func(attempt int) ([]txn.Op, error)
+	buildFn func(attempt int) ([]Op, error)
 	doneFn  func(err error) error
 }
 
 // Build implements ModelOperation.
-func (mof modelOperationFunc) Build(attempt int) ([]txn.Op, error) {
+func (mof modelOperationFunc) Build(attempt int) ([]Op, error) {
 	return nil, nil
 }
 
@@ -53,7 +52,7 @@ func (mof modelOperationFunc) Done(err error) error {
 // provided ModelOperations are nil, they will be automatically ignored.
 func ComposeModelOperations(modelOps ...ModelOperation) ModelOperation {
 	return modelOperationFunc{
-		buildFn: func(attempt int) ([]txn.Op, error) {
+		buildFn: func(attempt int) ([]Op, error) {
 			return nil, nil
 		},
 		doneFn: func(err error) error {

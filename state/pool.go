@@ -74,9 +74,6 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	st, _ := open(
 		args.ControllerTag,
 		args.ControllerModelTag,
-		nil,
-		args.InitDatabaseFunc,
-		nil,
 		args.NewPolicy,
 		args.Clock,
 		args.CharmServiceGetter,

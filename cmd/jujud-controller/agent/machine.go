@@ -18,7 +18,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/lumberjack/v2"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
@@ -110,27 +109,6 @@ var (
 	caasMachineManifolds = machine.CAASManifolds
 	iaasMachineManifolds = machine.IAASManifolds
 )
-
-// ProductionMongoWriteConcern is provided to override in tests, default is true
-var ProductionMongoWriteConcern = true
-
-func init() {
-	stateWorkerDialOpts = mongo.DefaultDialOpts()
-	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
-		safe := mgo.Safe{}
-		if ProductionMongoWriteConcern {
-			safe.J = true
-			_, err := mongo.CurrentReplicasetConfig(session)
-			if err == nil {
-				// set mongo to write-majority (writes only returned after
-				// replicated to a majority of replica-set members).
-				safe.WMode = "majority"
-			}
-		}
-		session.SetSafe(&safe)
-		return nil
-	}
-}
 
 type machineAgentFactoryFnType func(names.Tag, bool) (*MachineAgent, error)
 
@@ -739,21 +717,8 @@ func (a *MachineAgent) initState(
 	ctx context.Context, agentConfig agent.Config,
 	domainServicesGetter services.DomainServicesGetter,
 ) (*state.StatePool, error) {
-	// Start MongoDB server and dial.
-	if err := a.ensureMongoServer(ctx, agentConfig); err != nil {
-		return nil, err
-	}
-
-	dialOpts, err := mongoDialOptions(
-		stateWorkerDialOpts,
-		agentConfig,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	pool, err := openStatePool(
 		agentConfig,
-		dialOpts,
 		domainServicesGetter,
 	)
 	if err != nil {
@@ -871,13 +836,6 @@ func (m *modelWorker) Wait() error {
 	return err
 }
 
-// stateWorkerDialOpts is a mongo.DialOpts suitable
-// for use by StateWorker to dial mongo.
-//
-// This must be overridden in tests, as it assumes
-// journaling is enabled.
-var stateWorkerDialOpts mongo.DialOpts
-
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
 func (a *MachineAgent) ensureMongoServer(ctx context.Context, agentConfig agent.Config) (err error) {
@@ -886,7 +844,6 @@ func (a *MachineAgent) ensureMongoServer(ctx context.Context, agentConfig agent.
 
 func openStatePool(
 	agentConfig agent.Config,
-	dialOpts mongo.DialOpts,
 	domainServicesGetter services.DomainServicesGetter,
 ) (_ *state.StatePool, err error) {
 	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {

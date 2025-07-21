@@ -7,14 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
@@ -67,16 +65,4 @@ func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return ctlr
-}
-
-// NewMongoInfo returns information suitable for
-// connecting to the testing controller's mongo database.
-func NewMongoInfo() *mongo.MongoInfo {
-	return &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:      []string{mgotesting.MgoServer.Addr()},
-			CACert:     testing.CACert,
-			DisableTLS: !mgotesting.MgoServer.SSLEnabled(),
-		},
-	}
 }

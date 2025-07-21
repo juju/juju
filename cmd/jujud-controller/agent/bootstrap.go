@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
@@ -44,19 +42,16 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/database"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/mongo"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
-	webscale "github.com/juju/juju/state/mongo"
 )
 
 var (
-	initiateMongoServer = webscale.InitiateMongoServer
-	sshGenerateKey      = ssh.GenerateKey
-	minSocketTimeout    = 1 * time.Minute
-	checkJWKSReachable  = agentbootstrap.CheckJWKSReachable
+	sshGenerateKey     = ssh.GenerateKey
+	minSocketTimeout   = 1 * time.Minute
+	checkJWKSReachable = agentbootstrap.CheckJWKSReachable
 )
 
 type BootstrapAgentFunc func(agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error)
@@ -310,10 +305,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.startMongo(ctx, isCAAS, addrs, agentConfig); err != nil {
-		return errors.Annotate(err, "failed to start mongo")
-	}
-
 	controllerModelCfg, err := env.Config().Apply(controllerModelConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "failed to update model config")
@@ -322,19 +313,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 	// Initialise state, and store any agent config (e.g. password) changes.
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
-		dialOpts := mongo.DefaultDialOpts()
-
-		// Set a longer socket timeout than usual, as the machine
-		// will be starting up and disk I/O slower than usual. This
-		// has been known to cause timeouts in queries.
-		dialOpts.SocketTimeout = c.Timeout
-		if dialOpts.SocketTimeout < minSocketTimeout {
-			dialOpts.SocketTimeout = minSocketTimeout
-		}
-
-		// We shouldn't attempt to dial peers until we have some.
-		dialOpts.Direct = true
-
 		adminTag := names.NewLocalUserTag(coreuser.AdminUserName.Name())
 		bootstrap, err := c.BootstrapAgent(agentbootstrap.AgentBootstrapArgs{
 			AgentConfig:               agentConfig,
@@ -343,7 +321,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			StateInitializationParams: args,
 			BootstrapMachineAddresses: addrs,
 			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
-			MongoDialOpts:             dialOpts,
 			BootstrapDqlite:           c.DqliteInitializer,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
 		})
@@ -418,62 +395,5 @@ func ensureKeys(
 
 	args.ControllerConfig[controller.SystemSSHKeys] = publicKey
 
-	return nil
-}
-
-func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs network.ProviderAddresses, agentConfig agent.Config) error {
-	logger.Debugf(context.TODO(), "starting mongo")
-
-	info, ok := agentConfig.MongoInfo()
-	if !ok {
-		return fmt.Errorf("no state info available")
-	}
-	// When bootstrapping, we need to allow enough time for mongo
-	// to start as there's no retry loop in place.
-	// 5 minutes should suffice.
-	mongoDialOpts := mongo.DialOpts{Timeout: 5 * time.Minute}
-	dialInfo, err := mongo.DialInfo(info.Info, mongoDialOpts)
-	if err != nil {
-		return err
-	}
-
-	if _, ok := agentConfig.ControllerAgentInfo(); !ok {
-		return fmt.Errorf("agent config has no state serving info")
-	}
-	// Use localhost to dial the mongo server, because it's running in
-	// auth mode and will refuse to perform any operations unless
-	// we dial that address.
-	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
-	// and when/if this changes localhost should resolve to IPv6 loopback
-	// in any case (lp:1644009). Review.
-	dialInfo.Addrs = []string{
-		net.JoinHostPort("localhost", fmt.Sprint(37017)),
-	}
-
-	if !isCAAS {
-		logger.Debugf(context.TODO(), "calling EnsureMongoServerInstalled")
-		ensureServerParams, err := cmdutil.NewEnsureMongoParams(agentConfig)
-		if err != nil {
-			return err
-		}
-		if err := cmdutil.EnsureMongoServerInstalled(ctx, ensureServerParams); err != nil {
-			return err
-		}
-	}
-
-	localAddr, _ := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
-	peerAddr := localAddr.Value
-	if peerAddr == "" {
-		return fmt.Errorf("no appropriate peer address found in %q", addrs)
-	}
-	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(37017))
-
-	if err := initiateMongoServer(webscale.InitiateMongoParams{
-		DialInfo:       dialInfo,
-		MemberHostPort: peerHostPort,
-	}); err != nil {
-		return err
-	}
-	logger.Infof(context.TODO(), "started mongo")
 	return nil
 }

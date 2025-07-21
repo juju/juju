@@ -4,26 +4,15 @@
 package apiserver
 
 import (
-	"os"
-	"testing"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
-	coretesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination registration_environs_mock_test.go github.com/juju/juju/environs ConnectorInfo
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination registration_proxy_mock_test.go github.com/juju/juju/internal/proxy Proxier
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination provider_factory_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination tools_mock_test.go github.com/juju/juju/apiserver AgentBinaryStore,BlockChecker,ControllerConfigService
-
-func TestMain(m *testing.M) {
-	os.Exit(func() int {
-		defer coretesting.MgoTestMain()()
-		return m.Run()
-	}())
-}
 
 type StubDBGetter struct{}
 

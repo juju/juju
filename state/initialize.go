@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/cloud"
@@ -50,11 +49,6 @@ type InitializeParams struct {
 	// to apply.
 	NewPolicy NewPolicyFunc
 
-	// MongoSession is the mgo.Session to use for storing and
-	// accessing state data. The caller remains responsible
-	// for closing this session; Initialize will copy it.
-	MongoSession *mgo.Session
-
 	// MaxTxnAttempts is the number of attempts when running transactions
 	// against mongo. OpenStatePool defaults this if 0.
 	MaxTxnAttempts int
@@ -78,7 +72,7 @@ func (p InitializeParams) Validate() error {
 
 // InitDatabaseFunc defines a function used to
 // create the collections and indices in a Juju database.
-type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
+type InitDatabaseFunc func(string, *controller.Config) error
 
 // Initialize sets up the database with all the collections and indices it needs.
 // It also creates the initial model for the controller.
@@ -94,17 +88,10 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		Clock:               args.Clock,
 		ControllerTag:       controllerTag,
 		ControllerModelTag:  modelTag,
-		MongoSession:        args.MongoSession,
 		MaxTxnAttempts:      args.MaxTxnAttempts,
 		WatcherPollInterval: args.WatcherPollInterval,
 		NewPolicy:           args.NewPolicy,
-		InitDatabaseFunc:    InitDatabase,
 		CharmServiceGetter:  args.CharmServiceGetter,
 	})
 	return ctlr, nil
-}
-
-// InitDatabase creates all the collections and indices in a Juju database.
-func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.Config) error {
-	return nil
 }

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -91,17 +90,6 @@ func (st *State) AllModelUUIDs() ([]string, error) {
 	return nil, nil
 }
 
-// AllModelUUIDsIncludingDead returns the UUIDs for all models in the controller.
-// Results are sorted by (name, owner).
-func (st *State) AllModelUUIDsIncludingDead() ([]string, error) {
-	return nil, nil
-}
-
-// ModelExists returns true if a model with the supplied UUID exists.
-func (st *State) ModelExists(uuid string) (bool, error) {
-	return true, nil
-}
-
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
 	UUID coremodel.UUID
@@ -125,9 +113,6 @@ type ModelArgs struct {
 
 	// Owner is the user that owns the model.
 	Owner names.UserTag
-
-	// PasswordHash is used by the caas model operator.
-	PasswordHash string
 }
 
 // Validate validates the ModelArgs.
@@ -213,15 +198,6 @@ func (m *Model) CloudRegion() string {
 	return m.doc.CloudRegion
 }
 
-// CloudCredentialTag returns the tag of the cloud credential used for managing the
-// model's cloud resources, and a boolean indicating whether a credential is set.
-func (m *Model) CloudCredentialTag() (names.CloudCredentialTag, bool) {
-	if names.IsValidCloudCredential(m.doc.CloudCredential) {
-		return names.NewCloudCredentialTag(m.doc.CloudCredential), true
-	}
-	return names.CloudCredentialTag{}, false
-}
-
 // Life returns whether the model is Alive, Dying or Dead.
 func (m *Model) Life() Life {
 	return Alive
@@ -302,8 +278,4 @@ func (m *Model) Destroy(args DestroyModelParams) (err error) {
 // factoring Model concerns out from state.
 func (model *Model) State() *State {
 	return model.st
-}
-
-func HostedModelCountOp(amount int) txn.Op {
-	return txn.Op{}
 }

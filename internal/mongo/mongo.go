@@ -5,18 +5,6 @@ package mongo
 
 import (
 	"context"
-
-	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
-	"github.com/juju/replicaset/v3"
-)
-
-// StorageEngine represents the storage used by mongo.
-type StorageEngine string
-
-const (
-	// WiredTiger is a storage type introduced in 3
-	WiredTiger StorageEngine = "wiredTiger"
 )
 
 // JujuDbSnapMongodPath is the path that the juju-db snap
@@ -68,31 +56,4 @@ type EnsureServerParams struct {
 // configured, and ready to run.
 func EnsureServerInstalled(ctx context.Context, args EnsureServerParams) error {
 	return nil
-}
-
-const (
-	// ErrMongoServiceNotInstalled is returned when the mongo service is not
-	// installed.
-	ErrMongoServiceNotInstalled = errors.ConstError("mongo service not installed")
-	// ErrMongoServiceNotRunning is returned when the mongo service is not
-	// running.
-	ErrMongoServiceNotRunning = errors.ConstError("mongo service not running")
-)
-
-// MongoSnapService represents a mongo snap.
-type MongoSnapService interface {
-	Exists() (bool, error)
-	Installed() (bool, error)
-	Running() (bool, error)
-	ConfigOverride() error
-	Name() string
-	IsLocal() bool
-	Start() error
-	Restart() error
-	Install() error
-}
-
-// CurrentReplicasetConfig is overridden in tests.
-var CurrentReplicasetConfig = func(session *mgo.Session) (*replicaset.Config, error) {
-	return replicaset.CurrentConfig(session)
 }

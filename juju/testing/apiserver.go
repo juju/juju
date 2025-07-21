@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -97,10 +96,6 @@ var (
 type ApiServerSuite struct {
 	servicefactorytesting.DomainServicesSuite
 
-	// MgoSuite is needed until we finally can
-	// represent the model fully in dqlite.
-	mgotesting.MgoSuite
-
 	apiInfo    api.Info
 	controller *state.Controller
 
@@ -177,7 +172,6 @@ func leaseManager(c *tc.C, controllerUUID string, db database.DBGetter, clock cl
 }
 
 func (s *ApiServerSuite) SetUpSuite(c *tc.C) {
-	s.MgoSuite.SetUpSuite(c)
 	s.DomainServicesSuite.SetUpSuite(c)
 	s.ControllerSuite.SetUpSuite(c)
 }
@@ -384,7 +378,6 @@ func (s agentPasswordServiceGetter) GetAgentPasswordServiceForModel(ctx context.
 }
 
 func (s *ApiServerSuite) SetUpTest(c *tc.C) {
-	s.MgoSuite.SetUpTest(c)
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())
@@ -435,7 +428,6 @@ func (s *ApiServerSuite) TearDownTest(c *tc.C) {
 	s.objectStoresMutex.Unlock()
 
 	s.DomainServicesSuite.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 }
 
 // InsertDummyCloudType is a db bootstrap option which inserts the dummy cloud type.
@@ -569,15 +561,9 @@ func (s *ApiServerSuite) Model(c *tc.C, uuid string) (*state.Model, func() bool)
 }
 
 func (s *ApiServerSuite) tearDownConn(c *tc.C) {
-	testServer := mgotesting.MgoServer.Addr()
-	serverDead := testServer == "" || s.Server == nil
-
 	// Close any api connections we know about first.
 	for _, st := range s.apiConns {
-		err := st.Close()
-		if !serverDead {
-			c.Check(err, tc.ErrorIsNil)
-		}
+		st.Close()
 	}
 	s.apiConns = nil
 	if s.controller != nil {

@@ -3,13 +3,6 @@
 
 package common_test
 
-import (
-	"os"
-	stdtesting "testing"
-
-	"github.com/juju/juju/internal/testing"
-)
-
 // TODO: Move all generated mocks out of the mocks directory and directly into
 // the common or common_test package.
 
@@ -22,10 +15,3 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/status_mock.go github.com/juju/juju/core/status StatusGetter,StatusSetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/objectstore_mock.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade WatcherRegistry
-
-func TestMain(m *stdtesting.M) {
-	os.Exit(func() int {
-		defer testing.MgoTestMain()()
-		return m.Run()
-	}())
-}

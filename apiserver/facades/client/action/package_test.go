@@ -4,9 +4,6 @@
 package action
 
 import (
-	"os"
-	"testing"
-
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,19 +12,11 @@ import (
 	"github.com/juju/juju/core/leadership"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action ApplicationService,ModelInfoService
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
-
-func TestMain(m *testing.M) {
-	os.Exit(func() int {
-		defer coretesting.MgoTestMain()()
-		return m.Run()
-	}())
-}
 
 type MockBaseSuite struct {
 	Authorizer          *facademocks.MockAuthorizer
