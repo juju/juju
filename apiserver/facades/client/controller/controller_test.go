@@ -667,16 +667,12 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 
 func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
 
-	m, err := st.Model()
-	c.Assert(err, tc.ErrorIsNil)
-
+	modelUUID := modeltesting.GenModelUUID(c)
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
 			{
-				ModelTag: m.ModelTag().String(),
+				ModelTag: names.NewModelTag(modelUUID.String()).String(),
 				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
@@ -687,11 +683,11 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 			},
 		},
 	}
-	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
+	s.mockModelService.EXPECT().Model(gomock.Any(), modelUUID).Return(
 		model.Model{
-			UUID:      model.UUID(m.UUID()),
-			Name:      m.Name(),
-			Qualifier: model.QualifierFromUserTag(m.Owner()),
+			UUID:      modelUUID,
+			Name:      "foo",
+			Qualifier: "admin",
 		}, nil,
 	)
 	out, err := s.controller.InitiateMigration(c.Context(), args)

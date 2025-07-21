@@ -90,7 +90,7 @@ func effectiveSize(v interface{}) (int, error) {
 	switch rawValue := v.(type) {
 	case string:
 		return len(rawValue), nil
-	default: // marshal non-string values to bson and return the serialized length
+	default: // marshal non-string values to json and return the serialized length
 		d, err := json.Marshal(rawValue)
 		if err != nil {
 			return -1, errors.Errorf("marshaling value to JSON: %w", err)

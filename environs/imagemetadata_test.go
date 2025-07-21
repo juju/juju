@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )

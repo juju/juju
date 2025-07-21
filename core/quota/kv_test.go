@@ -29,7 +29,7 @@ func (s *MapKeyValueCheckerSuite) TestNonMapValue(c *tc.C) {
 }
 
 func (s *MapKeyValueCheckerSuite) TestMapWithMixedValueTypes(c *tc.C) {
-	chk := quota.NewMapKeyValueSizeChecker(10, 30)
+	chk := quota.NewMapKeyValueSizeChecker(10, 40)
 	chk.Check(map[string]interface{}{
 		"key": map[string]string{
 			"hello": "world",

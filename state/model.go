@@ -80,6 +80,9 @@ type modelDoc struct {
 func (st *State) Model() (*Model, error) {
 	model := &Model{
 		st: st,
+		doc: modelDoc{
+			UUID: st.ModelUUID(),
+		},
 	}
 	return model, nil
 }
@@ -218,6 +221,9 @@ func (m *Model) DestroyTimeout() *time.Duration {
 // Owner returns tag representing the owner of the model.
 // The owner is the user that created the model.
 func (m *Model) Owner() names.UserTag {
+	if m.doc.Owner == "" {
+		m.doc.Owner = "admin"
+	}
 	return names.NewUserTag(m.doc.Owner)
 }
 
