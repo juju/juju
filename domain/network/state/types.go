@@ -325,8 +325,7 @@ type dnsAddressRow struct {
 // It is expected that the map will be populated as part of the reconciliation
 // process before calling this method.
 func netInterfaceToDML(
-	dev network.NetInterface, nodeUUID string, nameToUUID map[string]string,
-	netConfigTypes nameToIDTable,
+	dev network.NetInterface, nodeUUID string, nameToUUID map[string]string, lookups netConfigLookups,
 ) (linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, error) {
 	var devDML linkLayerDeviceDML
 
@@ -335,12 +334,12 @@ func netInterfaceToDML(
 		return devDML, nil, nil, errors.Errorf("no UUID associated with device %q", dev.Name)
 	}
 
-	devTypeID, ok := netConfigTypes.DeviceMap[dev.Type]
+	devTypeID, ok := lookups.deviceType[dev.Type]
 	if !ok {
 		return devDML, nil, nil, errors.Errorf("unsupported device type: %q", dev.Type)
 	}
 
-	portTypeID, ok := netConfigTypes.PortMap[dev.VirtualPortType]
+	portTypeID, ok := lookups.virtualPortType[dev.VirtualPortType]
 	if !ok {
 		return devDML, nil, nil, errors.Errorf("unsupported virtual port type: %q", dev.VirtualPortType)
 	}
@@ -408,7 +407,7 @@ func netAddrToDML(
 	addr network.NetAddr,
 	nodeUUID, devUUID string,
 	ipToUUID map[string]string,
-	addrTypes nameToIDTable,
+	lookups netConfigLookups,
 ) (ipAddressDML, error) {
 	var dml ipAddressDML
 
@@ -417,22 +416,22 @@ func netAddrToDML(
 		return dml, errors.Errorf("no UUID associated with IP %q on device %q", addr.AddressValue, addr.InterfaceName)
 	}
 
-	addrTypeID, ok := addrTypes.AddrMap[addr.AddressType]
+	addrTypeID, ok := lookups.addrType[addr.AddressType]
 	if !ok {
 		return dml, errors.Errorf("unsupported address type: %q", addr.AddressType)
 	}
 
-	addrConfTypeID, ok := addrTypes.AddrConfigMap[addr.ConfigType]
+	addrConfTypeID, ok := lookups.addrConfigType[addr.ConfigType]
 	if !ok {
 		return dml, errors.Errorf("unsupported address config type: %q", addr.ConfigType)
 	}
 
-	originID, ok := addrTypes.OriginMap[addr.Origin]
+	originID, ok := lookups.origin[addr.Origin]
 	if !ok {
 		return dml, errors.Errorf("unsupported address origin: %q", addr.Origin)
 	}
 
-	scopeID, ok := addrTypes.ScopeMap[addr.Scope]
+	scopeID, ok := lookups.scope[addr.Scope]
 	if !ok {
 		return dml, errors.Errorf("unsupported address scope: %q", addr.Scope)
 	}

@@ -56,15 +56,15 @@ func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.Im
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		deviceTypeMap, err := typeNameToIDMap[network.LinkLayerDeviceType](ctx, st, tx, "link_layer_device_type")
+		deviceTypeLookup, err := getLookupNameToID[network.LinkLayerDeviceType](ctx, st, tx, "link_layer_device_type")
 		if err != nil {
 			return errors.Capture(err)
 		}
-		portTypeMap, err := typeNameToIDMap[network.VirtualPortType](ctx, st, tx, "virtual_port_type")
+		portTypeLookup, err := getLookupNameToID[network.VirtualPortType](ctx, st, tx, "virtual_port_type")
 		if err != nil {
 			return errors.Capture(err)
 		}
-		llds, parents, providers, err := transformImportData(input, deviceTypeMap, portTypeMap)
+		llds, parents, providers, err := transformImportData(input, deviceTypeLookup, portTypeLookup)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -146,8 +146,8 @@ INSERT INTO link_layer_device_parent (*) VALUES ($linkLayerDeviceParent.*)
 // at this time.
 func transformImportData(
 	in []internal.ImportLinkLayerDevice,
-	deviceTypeMap map[network.LinkLayerDeviceType]int,
-	portTypeMap map[network.VirtualPortType]int,
+	deviceTypeLookup map[network.LinkLayerDeviceType]int,
+	portTypeLookup map[network.VirtualPortType]int,
 ) ([]linkLayerDevice, []linkLayerDeviceParent, []providerLinkLayerDevice, error) {
 	llds := make([]linkLayerDevice, len(in))
 	parents := make([]linkLayerDeviceParent, 0)
@@ -158,12 +158,12 @@ func transformImportData(
 
 	// Fill in the linkLayerDevice and providerLinkLayerDevice structures.
 	for i, l := range in {
-		devTypeID, ok := deviceTypeMap[l.Type]
+		devTypeID, ok := deviceTypeLookup[l.Type]
 		if !ok {
 			return nil, nil, nil, errors.Errorf("unknown device type %q", l.Type)
 		}
 
-		portTypeID, ok := portTypeMap[l.VirtualPortType]
+		portTypeID, ok := portTypeLookup[l.VirtualPortType]
 		if !ok {
 			return nil, nil, nil, errors.Errorf("unknown port type %q", l.VirtualPortType)
 		}

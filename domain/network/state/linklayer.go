@@ -48,7 +48,7 @@ func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) 
 
 // SetMachineNetConfig updates the network configuration for the machine with
 // the input net node UUID.
-//   - New devices and their addresses are insert with origin = "machine".
+//   - New devices and their addresses are inserted with origin = "machine".
 //   - Existing devices and addresses are updated (unchanged rows will not cause
 //     triggers to fire).
 //   - Existing addresses not in the input will be deleted
@@ -73,12 +73,13 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Determine the type name to ID conversions as defined
 		// in the database.
-		namesToIDs, err := st.getNameToIDTable(ctx, tx)
+		namesToIDs, err := st.getNetConfigLookups(ctx, tx)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		newNics, dnsDoms, dnsAddrs, parents, nicNameToUUID, err := st.reconcileNetConfigDevices(ctx, tx, nodeUUID, nics, namesToIDs)
+		newNics, dnsDoms, dnsAddrs, parents, nicNameToUUID, err :=
+			st.reconcileNetConfigDevices(ctx, tx, nodeUUID, nics, namesToIDs)
 		if err != nil {
 			return errors.Errorf("reconciling incoming network devices: %w", err)
 		}
@@ -110,7 +111,8 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		}
 		st.logger.Debugf(ctx, "matching with subnet groups: %#v", subs)
 
-		addrsToInsert, newSubs, err := st.reconcileNetConfigAddresses(ctx, tx, nodeUUID, nics, nicNameToUUID, subs, namesToIDs)
+		addrsToInsert, newSubs, err :=
+			st.reconcileNetConfigAddresses(ctx, tx, nodeUUID, nics, nicNameToUUID, subs, namesToIDs)
 		if err != nil {
 			return errors.Errorf("reconciling incoming ip addresses: %w", err)
 		}
@@ -330,8 +332,7 @@ LEFT JOIN space as s ON sub.space_uuid = s.uuid
 }
 
 func (st *State) reconcileNetConfigDevices(
-	ctx context.Context, tx *sqlair.TX, nodeUUID string, nics []network.NetInterface,
-	namesToIDs nameToIDTable,
+	ctx context.Context, tx *sqlair.TX, nodeUUID string, nics []network.NetInterface, lookups netConfigLookups,
 ) ([]linkLayerDeviceDML, []dnsSearchDomainRow, []dnsAddressRow, []linkLayerDeviceParent, map[string]string, error) {
 	// Determine all the known UUIDs for incoming devices,
 	// and generate new UUIDs for the others.
@@ -361,7 +362,7 @@ func (st *State) reconcileNetConfigDevices(
 	)
 
 	for i, n := range nics {
-		nicDML, dnsSearchDML, dnsAddrDML, err := netInterfaceToDML(n, nodeUUID, nameToUUID, namesToIDs)
+		nicDML, dnsSearchDML, dnsAddrDML, err := netInterfaceToDML(n, nodeUUID, nameToUUID, lookups)
 		if err != nil {
 			return nil, nil, nil, nil, nil, errors.Capture(err)
 		}
@@ -582,7 +583,7 @@ func (st *State) reconcileNetConfigAddresses(
 	nics []network.NetInterface,
 	nicNameToUUID map[string]string,
 	subs subnetGroups,
-	namesToIDs nameToIDTable,
+	lookups netConfigLookups,
 ) ([]ipAddressDML, []subnet, error) {
 	var (
 		addrsDML []ipAddressDML
@@ -617,12 +618,12 @@ func (st *State) reconcileNetConfigAddresses(
 			existingAddr := existingAddrs[a.AddressValue]
 
 			// We do not process addresses that are managed by the provider.
-			if existingAddr.OriginID != namesToIDs.OriginMap[corenetwork.OriginMachine] {
+			if existingAddr.OriginID != lookups.origin[corenetwork.OriginMachine] {
 				st.logger.Infof(ctx, "address %q for device %q is managed by the provider", a.AddressValue, n.Name)
 				continue
 			}
 
-			addrDML, err := netAddrToDML(a, nodeUUID, devUUID, addrToUUID, namesToIDs)
+			addrDML, err := netAddrToDML(a, nodeUUID, devUUID, addrToUUID, lookups)
 			if err != nil {
 				return nil, nil, errors.Capture(err)
 			}
