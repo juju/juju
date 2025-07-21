@@ -81,11 +81,6 @@ func (s *MachineSuite) SetUpTest(c *tc.C) {
 
 	// Restart failed workers much faster for the tests.
 	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
-
-	// Ensure the dummy provider is initialised - no need to actually bootstrap.
-	ctx := envtesting.BootstrapContext(c.Context(), c)
-	err = s.Environ.PrepareForBootstrap(ctx, "controller")
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MachineSuite) TestParseNonsense(c *tc.C) {

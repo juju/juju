@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/controllernode"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -40,20 +39,12 @@ import (
 type AgentSuite struct {
 	testing.ApiServerSuite
 
-	Environ environs.Environ
 	DataDir string
 	LogDir  string
 }
 
 func (s *AgentSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
-
-	domainServices := s.ControllerDomainServices(c)
-
-	var err error
-	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(
-		domainServices.ModelInfo(), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-	c.Assert(err, tc.ErrorIsNil)
 
 	s.DataDir = c.MkDir()
 	s.LogDir = c.MkDir()
