@@ -51,7 +51,6 @@ var (
 type manualEnviron struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
-	environs.NoLXDProfiler
 
 	host string
 	user string

@@ -190,19 +190,17 @@ func (s *ProviderService) GetInstanceTypesFetcher(ctx context.Context) (environs
 
 // UpdateLXDProfiles writes LXD Profiles to LXC for applications on the
 // given machine if the providers supports it. A slice of profile names
+// is returned. If the provider does not support LXDProfiles, no error
 // is returned.
 func (s *ProviderService) UpdateLXDProfiles(ctx context.Context, modelName, machineID string) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	provider, err := s.providerGetter(ctx)
-	if err != nil {
-		return nil, errors.Errorf("getting provider: %w", err)
-	}
-
-	if !provider.SupportsLXDProfiles() {
-		s.logger.Tracef(ctx, "LXDProfiler not implemented by environ")
+	if errors.Is(err, coreerrors.NotSupported) {
 		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf("getting provider: %w", err)
 	}
 
 	profileArgs, err := s.Service.st.GetLXDProfilesForMachine(ctx, machineID)

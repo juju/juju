@@ -36,8 +36,6 @@ type ClusterMetadataStorageChecker interface {
 }
 
 type kubernetesEnvironProvider struct {
-	environs.NoLXDProfiler
-
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, error)

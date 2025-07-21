@@ -23,7 +23,6 @@ import (
 
 type environ struct {
 	common.CredentialInvalidator
-	environs.NoLXDProfiler
 
 	name     string
 	cloud    environscloudspec.CloudSpec

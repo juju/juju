@@ -135,6 +135,7 @@ type MachineService interface {
 
 	// UpdateLXDProfiles writes LXD Profiles to LXC for applications on the
 	// given machine if the providers supports it. A slice of profile names
+	// is returned. If the provider does not support LXDProfiles, no error
 	// is returned.
 	UpdateLXDProfiles(ctx context.Context, modelName, machineID string) ([]string, error)
 }

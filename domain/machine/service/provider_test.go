@@ -317,7 +317,45 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 	c.Check(*merged.Mem, tc.Equals, uint64(42))
 }
 
-func (s *providerServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
+func (s *providerServiceSuite) expectCreateMachineStatusHistory(c *tc.C, machineName machine.Name) {
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID(machineName.String()), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
+			c.Check(si.Status, tc.Equals, status.Pending)
+			return nil
+		})
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID(machineName.String()), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
+			c.Check(si.Status, tc.Equals, status.Pending)
+			return nil
+		})
+}
+
+type lxdProviderServiceSuite struct {
+	testhelpers.IsolationSuite
+
+	state    *MockState
+	provider *MockProvider
+}
+
+func TestLXDProviderServiceSuite(t *testing.T) {
+	tc.Run(t, &lxdProviderServiceSuite{})
+}
+
+func (s *lxdProviderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.provider = NewMockProvider(ctrl)
+	s.state = NewMockState(ctrl)
+
+	c.Cleanup(func() {
+		s.provider = nil
+		s.state = nil
+	})
+
+	return ctrl
+}
+
+func (s *lxdProviderServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -337,7 +375,6 @@ func (s *providerServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
 	pName0 := "juju-test-ubuntu-4"
 	pName1 := "juju-test-test-8"
 	s.state.EXPECT().GetLXDProfilesForMachine(gomock.Any(), machineID).Return(result, nil)
-	s.provider.EXPECT().SupportsLXDProfiles().Return(true)
 	s.provider.EXPECT().MaybeWriteLXDProfile(pName0, lxdprofile.Profile{
 		Config:      map[string]string{"foo": "bar"},
 		Description: "description",
@@ -348,37 +385,49 @@ func (s *providerServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
 		Description: "another",
 	}).Return(nil)
 
+	providerGetter := func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}
+	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+
 	// Act
-	obtainedProfileNames, err := s.service.UpdateLXDProfiles(c.Context(), "test", machineID)
+	obtainedProfileNames, err := service.UpdateLXDProfiles(c.Context(), "test", machineID)
 
 	// Assert:
 	c.Assert(err, tc.IsNil)
 	c.Assert(obtainedProfileNames, tc.SameContents, []string{pName0, pName1})
 }
 
-func (s *providerServiceSuite) TestUpdateLXDProfilesNoSupport(c *tc.C) {
+func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesNoSupport(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	// Arrange: the provider does not support LXDProfiles
-	s.provider.EXPECT().SupportsLXDProfiles().Return(false)
+	providerGetter := func(ctx context.Context) (Provider, error) {
+		return nil, coreerrors.NotSupported
+	}
+	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
 
 	// Act
-	_, err := s.service.UpdateLXDProfiles(c.Context(), "blue", "7")
+	_, err := service.UpdateLXDProfiles(c.Context(), "blue", "7")
 
 	// Assert: no work is done and the method doesn't fail
 	c.Assert(err, tc.IsNil)
 }
 
-func (s *providerServiceSuite) expectCreateMachineStatusHistory(c *tc.C, machineName machine.Name) {
-	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineNamespace.WithID(machineName.String()), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
-			c.Check(si.Status, tc.Equals, status.Pending)
-			return nil
-		})
-	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.MachineInstanceNamespace.WithID(machineName.String()), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, n statushistory.Namespace, si status.StatusInfo) error {
-			c.Check(si.Status, tc.Equals, status.Pending)
-			return nil
-		})
+func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesFail(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	providerGetter := func(ctx context.Context) (Provider, error) {
+		return nil, errors.Errorf("boom")
+	}
+	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+
+	// Act
+	_, err := service.UpdateLXDProfiles(c.Context(), "blue", "7")
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "getting provider: boom")
 }
