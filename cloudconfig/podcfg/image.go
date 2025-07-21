@@ -86,7 +86,6 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, modelCfg *config.Confi
 	}
 
 	// Next check the deprecated "caas-operator-image-path" config
-	caasImageRepo := controllerCfg.CAASImageRepo()
 	imagePath, err := RebuildOldOperatorImagePath(
 		controllerCfg.CAASOperatorImagePath(), ver,
 	)
@@ -95,6 +94,7 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, modelCfg *config.Confi
 	}
 
 	// Default to use controller config CAAS image repo.
+	caasImageRepo := controllerCfg.CAASImageRepo()
 	details, err := docker.NewImageRepoDetails(caasImageRepo)
 	if err != nil {
 		return "", errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)

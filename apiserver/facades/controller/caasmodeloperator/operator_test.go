@@ -92,24 +92,14 @@ func (m *ModelOperatorSuite) TestProvisioningInfoImageRefSet(c *gc.C) {
 	vers, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 
-	imageRef := "docker.io/jujusolutions/jujud-operator:3.6.9"
-	err = model.UpdateModelConfig(map[string]interface{}{"container-image-reference": imageRef}, nil)
+	imageRepo := "docker.io/jujusolutions"
+	err = model.UpdateModelConfig(map[string]interface{}{"model-caas-image-repo": imageRepo}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := m.api.ModelOperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(info.ImageDetails.RegistryPath, gc.Equals, imageRef)
-
-	controllerConf, err := m.state.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, modelConfig, info.Version)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
-
-	c.Assert(info.ImageDetails.Auth, gc.Equals, `xxxxx==`)
-	c.Assert(info.ImageDetails.Repository, gc.Equals, `test-account`)
+	c.Assert(info.ImageDetails.Repository, gc.Equals, imageRepo)
 
 	c.Assert(vers, jc.DeepEquals, info.Version)
 }

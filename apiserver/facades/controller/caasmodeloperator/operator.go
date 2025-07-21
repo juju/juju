@@ -115,25 +115,39 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 	if err != nil {
 		return result, errors.Annotate(err, "getting api addresses")
 	}
+	logger.Infof("alvin original modelConfig: %q", modelConfig)
 
 	imageRepo, exists := modelConfig.CAASImageRepo()
 	if !exists {
 		imageRepo = controllerConf.CAASImageRepo()
-		if err := model.UpdateModelConfig(map[string]interface{}{config.ModelCAASImageRepo: controllerConf.CAASImageRepo()}, nil); err != nil {
+		logger.Infof("alvin CAASImageRepo: %q", imageRepo)
+
+		if imageRepo == "" {
+			imageRepo = podcfg.JujudOCINamespace
+		}
+
+		if err := model.UpdateModelConfig(map[string]interface{}{config.ModelCAASImageRepo: imageRepo}, nil); err != nil {
 			return result, errors.Trace(err)
 		}
 	}
+	logger.Infof("alvin imageRepo: %q", imageRepo)
+	logger.Infof("alvin later modelConfig: %q", modelConfig)
 
 	imageRef, err := podcfg.GetJujuOCIImagePath(controllerConf, modelConfig, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	logger.Infof("alvin imageRef: %q", imageRef)
 
 	imageRepoDetails, err := docker.NewImageRepoDetails(imageRepo)
 	if err != nil {
 		return result, errors.Annotatef(err, "parsing %s", imageRepo)
 	}
+	logger.Infof("alvin imageRepoDetails: %q", imageRepoDetails)
+
 	imageInfo := params.NewDockerImageInfo(imageRepoDetails, imageRef)
+	logger.Infof("alvin imageInfo: %q", imageInfo)
+
 	logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{
