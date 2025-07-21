@@ -170,13 +170,13 @@ and waiting for the desired event to fire. If the next prompt looks as below
 
     root@database-0:/var/lib/juju#
 
-this means that we are still waiting for an event to occur.
+meaning that we are still waiting for an event to occur.
 
 As soon as that happens, the prompt will look similar to the below
 
     root@database-0:/var/lib/juju/agents/unit-database-0/charm#
 
-and this means we're inside the charm hook execution context.
+meaning we're inside the charm hook execution context.
 
 At this point,  typing `printenv` will print out the environment variables.
 
@@ -318,7 +318,7 @@ For every relation in which a unit participates, hooks for the appropriate charm
 The `relation-created` hook always runs once when the relation is first created, before any related units are processed.
 
 The `relation-joined` hook always runs once when a related unit is first seen.
-Any a related applications is scaled up, each unit will receive `<endpoint>-relation-joined`, once for each related unit being added.
+As related applications are scaled up, each unit will receive `<endpoint>-relation-joined`, once for each related unit being added.
 
 The `relation-changed` hook for a given unit always runs once immediately following the relation-joined hook for that unit, and subsequently whenever the related unit changes its settings (by calling relation-set and exiting without error).
 
@@ -340,7 +340,7 @@ This hook also sets an additional environment variable:
 The `relation-broken` hook is not specific to any unit, and always runs once when the local unit is ready to depart the relation itself.
 Before this hook is run, a relation-departed hook will be executed for every unit known to be related; it will never run while the relation
 appears to have members, but it may be the first and only hook to run for a given relation.
-The `stop` hook will not run while relations remain to be broken.
+The `stop` hook will not run until all relations have run the `relation-broken` hook.
 
 ```{note}
 So what's the difference between relation-departed and relation-broken?
