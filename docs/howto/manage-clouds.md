@@ -10,20 +10,20 @@ This document shows how to manage your existing cloud(s) with Juju.
 > See also: {ref}`list-of-supported-clouds` > `<cloud name>`
 
 ```{important}
-This step is typically required only for non-local private clouds.
+This step is typically required only for non-localhost private clouds.
 ```
 
 The procedure for how to add a cloud definition to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or rather a Kubernetes cloud.
 
 ```{important}
-In either case, the cloud definition is saved to directory defined in the `JUJU_DATA` environment variable (default path: `~/.local/share/juju/`), in a file called `clouds.yaml`.
+In either case, the cloud definition is saved to the directory defined in the `JUJU_DATA` environment variable (default path: `~/.local/share/juju/`), in a file called `clouds.yaml`.
 ```
 
 (add-a-machine-cloud)=
 ### Add a machine cloud
 
 ```{tip}
-**If your cloud is a public cloud or a local LXD cloud:** <br>
+**If your cloud is a public cloud or a localhost LXD cloud:** <br>
 Juju likely already knows about it, so you can skip this step. Run `juju clouds` to confirm.
 ```
 
