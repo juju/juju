@@ -106,7 +106,6 @@ func (a *API) WatchApplications() (params.StringsWatchResult, error) {
 
 // OperatorProvisioningInfo returns the info needed to provision an operator.
 func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorProvisioningInfoResults, error) {
-	logger.Infof("alvin OperatorProvisingInfo called")
 	var result params.OperatorProvisioningInfoResults
 	cfg, err := a.ctrlState.ControllerConfig()
 	if err != nil {
@@ -138,7 +137,6 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 	imageRepo, exists := modelConfig.CAASImageRepo()
 	if !exists {
 		imageRepo = controller.CAASImageRepo
-		logger.Infof("alvin CAASImageRepo: %q", imageRepo)
 
 		if imageRepo == "" {
 			imageRepo = podcfg.JujudOCINamespace
@@ -149,8 +147,6 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 	if err != nil {
 		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	logger.Infof("alvin2 OperatorProvisioningInfo model: %#v", model)
-	logger.Infof("alvin2 OperatorProvisioningInfo modelConfig: %#v", modelConfig)
 	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, modelConfig, vers)
 	if err != nil {
 		return result, errors.Trace(err)

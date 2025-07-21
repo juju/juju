@@ -274,7 +274,6 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 }
 
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
-	logger.Infof("alvin2 provisioningInfo api called, should be for app")
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -333,13 +332,9 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		)
 	}
 
-	logger.Infof("alvin2 application model: %#v", model)
-	logger.Infof("alvin2 application modelConfig: %#v", modelConfig)
-
 	imageRepo, exists := modelConfig.CAASImageRepo()
 	if !exists {
 		imageRepo = cfg.CAASImageRepo()
-		logger.Infof("alvin2 CAASImageRepo: %q", imageRepo)
 
 		if imageRepo == "" {
 			imageRepo = podcfg.JujudOCINamespace
@@ -371,7 +366,6 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}
 	base := app.Base()
 	imageRepoDetails, err := docker.NewImageRepoDetails(imageRepo)
-	logger.Infof("alvin2 application imageRepoDetails: %#v", imageRepoDetails)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}

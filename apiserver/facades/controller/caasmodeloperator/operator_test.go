@@ -53,7 +53,7 @@ func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 	m.api = api
 }
 
-func (m *ModelOperatorSuite) TestProvisioningInfoImageRefUnset(c *gc.C) {
+func (m *ModelOperatorSuite) TestProvisioningInfoImageRepoUnset(c *gc.C) {
 	model, err := m.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -80,7 +80,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfoImageRefUnset(c *gc.C) {
 	c.Assert(vers, jc.DeepEquals, info.Version)
 }
 
-func (m *ModelOperatorSuite) TestProvisioningInfoImageRefSet(c *gc.C) {
+func (m *ModelOperatorSuite) TestProvisioningInfoImageRepoSet(c *gc.C) {
 	model, err := m.state.Model()
 
 	c.Assert(err, jc.ErrorIsNil)
