@@ -92,7 +92,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfoImageRefSet(c *gc.C) {
 	vers, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 
-	imageRepo := "docker.io/jujusolutions"
+	imageRepo := "ghcr.io/juju"
 	err = model.UpdateModelConfig(map[string]interface{}{"model-caas-image-repo": imageRepo}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 

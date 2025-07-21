@@ -40,7 +40,7 @@ func (s *registrySuite) TestSelectsAWSPrivate(c *gc.C) {
 
 func (s *registrySuite) TestSelectsDockerHub(c *gc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
-		Repository: "docker.io/jujusolutions",
+		Repository: "ghcr.io/juju",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(reg, gc.NotNil)

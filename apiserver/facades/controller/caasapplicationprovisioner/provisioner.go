@@ -274,6 +274,7 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 }
 
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
+	logger.Infof("alvin2 provisioningInfo api called, should be for app")
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -331,6 +332,20 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
+
+	logger.Infof("alvin2 application model: %#v", model)
+	logger.Infof("alvin2 application modelConfig: %#v", modelConfig)
+
+	imageRepo, exists := modelConfig.CAASImageRepo()
+	if !exists {
+		imageRepo = cfg.CAASImageRepo()
+		logger.Infof("alvin2 CAASImageRepo: %q", imageRepo)
+
+		if imageRepo == "" {
+			imageRepo = podcfg.JujudOCINamespace
+		}
+	}
+
 	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, modelConfig, vers)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
@@ -355,7 +370,8 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Annotatef(err, "getting application config")
 	}
 	base := app.Base()
-	imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+	imageRepoDetails, err := docker.NewImageRepoDetails(imageRepo)
+	logger.Infof("alvin2 application imageRepoDetails: %#v", imageRepoDetails)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}

@@ -86,6 +86,7 @@ func (a *API) WatchModelOperatorProvisioningInfo() (params.NotifyWatchResult, er
 // ModelOperatorProvisioningInfo returns the information needed for provisioning
 // a new model operator into a caas cluster.
 func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) {
+	logger.Infof("alvin2 ModelOperatorProvisioningInfo called")
 	var result params.ModelOperatorInfo
 	controllerConf, err := a.ctrlState.ControllerConfig()
 	if err != nil {

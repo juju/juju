@@ -66,6 +66,7 @@ func IsCharmBaseImage(imagePath string) bool {
 
 // GetJujuOCIImagePath returns the jujud oci image path.
 func GetJujuOCIImagePath(controllerCfg controller.Config, modelCfg *config.Config, ver version.Number) (string, error) {
+	logger.Infof("alvin2 GetJujuOCIImagePath called")
 
 	// First check the model config.
 	if modelCfg != nil {

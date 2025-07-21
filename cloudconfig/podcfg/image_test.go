@@ -52,9 +52,9 @@ func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
 
 func (*imageSuite) TestRebuildOldOperatorImagePath(c *gc.C) {
 	ver := version.MustParse("2.6-beta3")
-	path, err := podcfg.RebuildOldOperatorImagePath("docker.io/jujusolutions/jujud-operator:666", ver)
+	path, err := podcfg.RebuildOldOperatorImagePath("ghcr.io/juju/jujud-operator:666", ver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, jc.DeepEquals, "docker.io/jujusolutions/jujud-operator:2.6-beta3")
+	c.Assert(path, jc.DeepEquals, "ghcr.io/juju/jujud-operator:2.6-beta3")
 }
 
 func (*imageSuite) TestImageForBase(c *gc.C) {
@@ -91,10 +91,10 @@ func (*imageSuite) TestRecoverRepoFromOperatorPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo, gc.Equals, "testing-repo:8080")
 
-	repo, err = podcfg.RecoverRepoFromOperatorPath("docker.io/jujusolutions/jujud-operator:2.6-beta3")
+	repo, err = podcfg.RecoverRepoFromOperatorPath("ghcr.io/juju/jujud-operator:2.6-beta3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo, gc.Equals, "docker.io/jujusolutions")
+	c.Assert(repo, gc.Equals, "ghcr.io/juju")
 
-	_, err = podcfg.RecoverRepoFromOperatorPath("docker.io/jujusolutions/nope:2.6-beta3")
-	c.Assert(err, gc.ErrorMatches, `image path "docker.io/jujusolutions/nope:2.6-beta3" does not match the form somerepo/jujud-operator:\.\*`)
+	_, err = podcfg.RecoverRepoFromOperatorPath("ghcr.io/juju/nope:2.6-beta3")
+	c.Assert(err, gc.ErrorMatches, `image path "ghcr.io/juju/nope:2.6-beta3" does not match the form somerepo/jujud-operator:\.\*`)
 }

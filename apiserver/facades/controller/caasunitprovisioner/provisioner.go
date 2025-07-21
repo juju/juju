@@ -347,6 +347,7 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 }
 
 func (f *Facade) provisioningInfo(model Model, tagString string) (*params.KubernetesProvisioningInfo, error) {
+	logger.Infof("alvin2 provisioningInfo facade called")
 	appTag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -389,17 +390,31 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
+	logger.Infof("alvin2 facade model: %#v", model)
+	logger.Infof("alvin2 facade modelConfig: %#v", modelConfig)
+
+	imageRepo, exists := modelConfig.CAASImageRepo()
+	if !exists {
+		imageRepo = controllerCfg.CAASImageRepo()
+		logger.Infof("alvin CAASImageRepo: %q", imageRepo)
+
+		if imageRepo == "" {
+			imageRepo = podcfg.JujudOCINamespace
+		}
+	}
+
 	registryPath, err := podcfg.GetJujuOCIImagePath(controllerCfg, modelConfig, vers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	imageRepoDetails, err := docker.NewImageRepoDetails(controllerCfg.CAASImageRepo())
+	imageRepoDetails, err := docker.NewImageRepoDetails(imageRepo)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	imageRepo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
-	logger.Tracef("imageRepo %v", imageRepo)
+
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
+	logger.Tracef("imageRepo %v", imageInfo)
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -436,7 +451,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		Constraints:          mergedCons,
 		Tags:                 resourceTags,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
-		ImageRepo:            imageRepo,
+		ImageRepo:            imageInfo,
 	}
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {
