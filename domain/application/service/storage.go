@@ -43,7 +43,7 @@ type StorageProviderState interface {
 type StorageState interface {
 	// GetStorageUUIDByID returns the UUID for the specified storage, returning an error
 	// satisfying [github.com/juju/juju/domain/storage/errors.StorageNotFound] if the storage doesn't exist.
-	GetStorageUUIDByID(ctx context.Context, storageID corestorage.ID) (corestorage.UUID, error)
+	GetStorageUUIDByID(ctx context.Context, storageID corestorage.ID) (domainstorage.StorageInstanceUUID, error)
 
 	// AttachStorage attaches the specified storage to the specified unit.
 	// The following error types can be expected:
@@ -57,7 +57,7 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-	AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error
+	AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 
 	// AddStorageForUnit adds storage instances to given unit as specified.
 	// Missing storage constraints are populated based on model defaults.
@@ -81,12 +81,12 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 	// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-	DetachStorageForUnit(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error
+	DetachStorageForUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 
 	// DetachStorage detaches the specified storage from whatever node it is attached to.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-	DetachStorage(ctx context.Context, storageUUID corestorage.UUID) error
+	DetachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID) error
 
 	// GetDefaultStorageProvisioners returns the default storage provisioners
 	// that have been set for the model.

@@ -74,7 +74,7 @@ type ApplicationState interface {
 	// application already exists. If returns as error satisfying
 	// [applicationerrors.CharmNotFound] if the charm for the application is not
 	// found.
-	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
+	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddCAASUnitArg) (coreapplication.ID, error)
 
 	// UpsertCloudService updates the cloud service for the specified application.
 	// The following errors may be returned:

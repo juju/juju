@@ -157,7 +157,10 @@ func (s *ProviderService) CreateCAASApplication(
 	}
 
 	// Precheck any instances that are being created.
-	if err := s.precheckInstances(ctx, appArg.Platform, unitArgs); err != nil {
+	preCheckArgs := transform.Slice(unitArgs, func(arg application.AddCAASUnitArg) application.AddUnitArg {
+		return arg.AddUnitArg
+	})
+	if err := s.precheckInstances(ctx, appArg.Platform, preCheckArgs); err != nil {
 		return "", errors.Errorf("prechecking instances: %w", err)
 	}
 
@@ -327,7 +330,10 @@ func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, unit
 	if err != nil {
 		return nil, errors.Errorf("getting application platform: %w", err)
 	}
-	if err := s.precheckInstances(ctx, origin.Platform, args); err != nil {
+	preCheckArgs := transform.Slice(args, func(arg application.AddCAASUnitArg) application.AddUnitArg {
+		return arg.AddUnitArg
+	})
+	if err := s.precheckInstances(ctx, origin.Platform, preCheckArgs); err != nil {
 		return nil, errors.Errorf("pre-checking instances: %w", err)
 	}
 
@@ -512,7 +518,7 @@ func (s *ProviderService) makeCAASApplicationArg(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddUnitArg,
-) (string, application.AddCAASApplicationArg, []application.AddUnitArg, error) {
+) (string, application.AddCAASApplicationArg, []application.AddCAASUnitArg, error) {
 	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)

@@ -17,6 +17,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 type entityUUID struct {
@@ -892,19 +893,19 @@ type spaceUUID struct {
 }
 
 type storageInstance struct {
-	StorageUUID      corestorage.UUID `db:"uuid"`
-	StorageID        corestorage.ID   `db:"storage_id"`
-	CharmUUID        corecharm.ID     `db:"charm_uuid"`
-	StorageName      corestorage.Name `db:"storage_name"`
-	LifeID           life.Life        `db:"life_id"`
-	StoragePoolUUID  *string          `db:"storage_pool_uuid"`
-	StorageType      *string          `db:"storage_type"`
-	RequestedSizeMIB uint64           `db:"requested_size_mib"`
+	StorageUUID      domainstorage.StorageInstanceUUID `db:"uuid"`
+	StorageID        corestorage.ID                    `db:"storage_id"`
+	CharmUUID        corecharm.ID                      `db:"charm_uuid"`
+	StorageName      corestorage.Name                  `db:"storage_name"`
+	LifeID           life.Life                         `db:"life_id"`
+	StoragePoolUUID  *string                           `db:"storage_pool_uuid"`
+	StorageType      *string                           `db:"storage_type"`
+	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
 }
 
 type storageUnit struct {
-	StorageUUID corestorage.UUID `db:"storage_instance_uuid"`
-	UnitUUID    coreunit.UUID    `db:"unit_uuid"`
+	StorageUUID domainstorage.StorageInstanceUUID `db:"storage_instance_uuid"`
+	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
 }
 
 type unitCharmStorage struct {
@@ -913,16 +914,16 @@ type unitCharmStorage struct {
 }
 
 type storageCount struct {
-	StorageUUID corestorage.UUID `db:"uuid"`
-	StorageName corestorage.Name `db:"storage_name"`
-	UnitUUID    coreunit.UUID    `db:"unit_uuid"`
-	Count       uint64           `db:"count"`
+	StorageUUID domainstorage.StorageInstanceUUID `db:"uuid"`
+	StorageName corestorage.Name                  `db:"storage_name"`
+	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
+	Count       uint64                            `db:"count"`
 }
 
 type storageAttachment struct {
-	StorageUUID corestorage.UUID `db:"storage_instance_uuid"`
-	UnitUUID    coreunit.UUID    `db:"unit_uuid"`
-	LifeID      life.Life        `db:"life_id"`
+	StorageUUID domainstorage.StorageInstanceUUID `db:"storage_instance_uuid"`
+	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
+	LifeID      life.Life                         `db:"life_id"`
 }
 
 type filesystemUUID struct {
@@ -1262,14 +1263,6 @@ type insertApplicationStorageDirective struct {
 	StorageName         string           `db:"storage_name"`
 	StoragePoolUUID     sql.Null[string] `db:"storage_pool_uuid"`
 	StorageProviderType sql.Null[string] `db:"storage_type"`
-}
-
-// insertStorageAttachment represents the set of values required for
-// inserting a new storage unit attachment record.
-type insertStorageAttachment struct {
-	StorageInstanceUUID string `db:"storage_instance_uuid"`
-	LifeID              int    `db:"life_id"`
-	UnitUUID            string `db:"unit_uuid"`
 }
 
 // insertStorageUnitOwner represents the set of values required for creating a

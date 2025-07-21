@@ -157,7 +157,7 @@ func (st *State) insertUnitStorageAttachments(
 	insertStorageAttachmentStmt, err := st.Prepare(`
 INSERT INTO storage_attachment (*) VALUES ($insertStorageInstanceAttachment.*)
 `,
-		insertStorageAttachment{})
+		insertStorageInstanceAttachment{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -911,7 +911,7 @@ WHERE  application_uuid = $applicationID.uuid
 
 // GetStorageUUIDByID returns the UUID for the specified storage, returning an error
 // satisfying [storageerrors.StorageNotFound] if the storage doesn't exist.
-func (st *State) GetStorageUUIDByID(ctx context.Context, storageID corestorage.ID) (corestorage.UUID, error) {
+func (st *State) GetStorageUUIDByID(ctx context.Context, storageID corestorage.ID) (domainstorage.StorageInstanceUUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -953,7 +953,7 @@ WHERE  storage_id = $storageInstance.storage_id
 // - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [applicationerrors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [applicationerrors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (st *State) AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {
+func (st *State) AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -1028,17 +1028,17 @@ func (st *State) AddStorageForUnit(ctx context.Context, storageName corestorage.
 	return nil, errors.New("not implemented")
 }
 
-func (st *State) DetachStorageForUnit(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {
+func (st *State) DetachStorageForUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error {
 	//TODO implement me
 	return errors.New("not implemented")
 }
 
-func (st *State) DetachStorage(ctx context.Context, storageUUID corestorage.UUID) error {
+func (st *State) DetachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID) error {
 	//TODO implement me
 	return errors.New("not implemented")
 }
 
-func (st *State) getStorageDetails(ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID) (storageInstance, error) {
+func (st *State) getStorageDetails(ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID) (storageInstance, error) {
 	inst := storageInstance{StorageUUID: storageUUID}
 	query := `
 SELECT &storageInstance.*
@@ -1204,7 +1204,7 @@ type filesystemAttachmentParams struct {
 
 // getStorageFilesystem gets the filesystem a storage instance is associated with
 // and the net node (if any) it is attached to.
-func (st *State) getStorageFilesystem(ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID) (filesystemUUID, error) {
+func (st *State) getStorageFilesystem(ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID) (filesystemUUID, error) {
 	inst := storageInstance{StorageUUID: storageUUID}
 	result := filesystemUUID{}
 	query, err := st.Prepare(`
@@ -1230,7 +1230,7 @@ WHERE     sif.storage_instance_uuid = $storageInstance.uuid
 
 // getStorageVolume gets the volume a storage instance is associated with
 // and the net node (if any) it is attached to.
-func (st *State) getStorageVolume(ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID) (volumeUUID, error) {
+func (st *State) getStorageVolume(ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID) (volumeUUID, error) {
 	inst := storageInstance{StorageUUID: storageUUID}
 	result := volumeUUID{}
 	query, err := st.Prepare(`
@@ -1259,7 +1259,7 @@ WHERE     siv.storage_instance_uuid = $storageInstance.uuid
 func (st *State) attachmentParamsForStorageInstance(
 	ctx context.Context,
 	tx *sqlair.TX,
-	storageUUID corestorage.UUID,
+	storageUUID domainstorage.StorageInstanceUUID,
 	storageID corestorage.ID,
 	storageName corestorage.Name,
 	charmStorage charmStorage,
@@ -1337,7 +1337,7 @@ func (st *State) attachmentParamsForStorageInstance(
 }
 
 func (st *State) attachStorageToUnit(
-	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, unitUUID coreunit.UUID,
+	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 ) error {
 	sa := storageAttachment{StorageUUID: storageUUID, UnitUUID: unitUUID, LifeID: life.Alive}
 	attachmentQuery, err := st.Prepare(`

@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -223,8 +222,128 @@ func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
 	return args
 }
 
-func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertIAASUnitArg) coreapplication.ID {
+func (s *baseSuite) createNamedIAASUnit(c *tc.C) (coreunit.Name, coreunit.UUID) {
+	n, u := s.createNNamedIAASUnit(c, 1)
+	return n[0], u[0]
+}
+
+func (s *baseSuite) createNNamedIAASUnit(c *tc.C, n int) ([]coreunit.Name, []coreunit.UUID) {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, unitUUIDS := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, n)
+	names := make([]coreunit.Name, 0, n)
+	for _, unitUUID := range unitUUIDS {
+		n, err := state.GetUnitNameForUUID(c.Context(), unitUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		names = append(names, n)
+	}
+	return names, unitUUIDS
+}
+
+func (s *baseSuite) createNamedCAASUnit(c *tc.C) (coreunit.Name, coreunit.UUID) {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	_, unitUUIDS := s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	name, err := state.GetUnitNameForUUID(c.Context(), unitUUIDS[0])
+	c.Assert(err, tc.ErrorIsNil)
+	return name, unitUUIDS[0]
+}
+
+func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.AddIAASUnitArg) coreapplication.ID {
 	return s.createIAASApplicationWithEndpointBindings(c, name, l, nil, units...)
+}
+
+func (s *baseSuite) createIAASApplicationWithNUnits(
+	c *tc.C,
+	name string,
+	l life.Life,
+	unitCount int,
+) (coreapplication.ID, []coreunit.UUID) {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	platform := deployment.Platform{
+		Channel:      "22.04/stable",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "stable",
+		Branch: "branch",
+	}
+
+	ctx := c.Context()
+	units := make([]application.AddIAASUnitArg, unitCount)
+
+	appUUID, _, err := state.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: name,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+					},
+					ExtraBindings: map[string]charm.ExtraBinding{
+						"extra": {
+							Name: "extra",
+						},
+					},
+				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
+			Devices: map[string]devices.Constraints{
+				"dev0": {
+					Type:       devices.DeviceType("type0"),
+					Count:      42,
+					Attributes: map[string]string{"k0": "v0", "k1": "v1"},
+				},
+				"dev1": {
+					Type:       devices.DeviceType("type1"),
+					Count:      3,
+					Attributes: map[string]string{"k2": "v2"},
+				},
+				"dev2": {
+					Type:  devices.DeviceType("type2"),
+					Count: 1974,
+				},
+			},
+		},
+	}, units)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE application_uuid = ?", l, appUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitUUIDS, err := state.getApplicationUnits(ctx, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return appUUID, unitUUIDS
 }
 
 func (s *baseSuite) createIAASApplicationWithEndpointBindings(
@@ -232,7 +351,7 @@ func (s *baseSuite) createIAASApplicationWithEndpointBindings(
 	name string,
 	l life.Life,
 	bindings map[string]network.SpaceName,
-	units ...application.InsertIAASUnitArg,
+	units ...application.AddIAASUnitArg,
 ) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	platform := deployment.Platform{
@@ -302,18 +421,9 @@ func (s *baseSuite) createIAASApplicationWithEndpointBindings(
 			},
 			EndpointBindings: bindings,
 		},
-	}, nil)
+	}, units)
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := state.DB()
-	c.Assert(err, tc.ErrorIsNil)
-	for _, u := range units {
-		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			_, err := state.insertIAASUnit(ctx, tx, appID, u)
-			return err
-		})
-		c.Assert(err, tc.ErrorIsNil)
-	}
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		if err != nil {
@@ -351,7 +461,19 @@ func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
+func (s *baseSuite) createCAASApplicationWithNUnits(
+	c *tc.C, name string, l life.Life, unitCount int,
+) (coreapplication.ID, []coreunit.UUID) {
+	appUUID := s.createCAASApplication(
+		c, name, l, make([]application.AddCAASUnitArg, unitCount)...,
+	)
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	uuids, err := state.getApplicationUnits(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return appUUID, uuids
+}
+
+func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, units ...application.AddCAASUnitArg) coreapplication.ID {
 	s.createSubnetForCAASModel(c)
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -422,17 +544,9 @@ func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, uni
 			},
 		},
 		Scale: len(units),
-	}, nil)
+	}, units)
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := state.DB()
-	c.Assert(err, tc.ErrorIsNil)
-	for _, u := range units {
-		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return state.insertCAASUnit(ctx, tx, appID, u)
-		})
-		c.Assert(err, tc.ErrorIsNil)
-	}
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		if err != nil {
@@ -631,4 +745,14 @@ WHERE u2.name = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(foundPrincipalName, tc.Equals, principalName)
+}
+
+func (s *baseSuite) setUnitLife(c *tc.C, uuid coreunit.UUID, life life.Life) {
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		"UPDATE unit SET life_id = ? WHERE uuid = ?",
+		int(life),
+		uuid.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
 }

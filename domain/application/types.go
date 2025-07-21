@@ -215,8 +215,15 @@ type ContainerAddress struct {
 	ConfigType  ipaddress.ConfigType
 }
 
+// AddCAASUnitArg contains parameters for adding a CAAS unit to state.
+type AddCAASUnitArg struct {
+	AddUnitArg
+	CloudContainer *CloudContainer
+}
+
 // AddUnitArg contains parameters for adding a unit to state.
 type AddUnitArg struct {
+	CreateUnitStorageArg
 	UnitStatusArg
 	Constraints constraints.Constraints
 	Placement   deployment.Placement
@@ -232,25 +239,6 @@ type AddIAASUnitArg struct {
 // UnitStorageDirectiveArg describes the arguments required for making storage
 // directives on a unit.
 type UnitStorageDirectiveArg = StorageDirectiveArg
-
-// InsertUnitArg is used to insert a fully populated unit.
-// Used by import and when registering a CAAS unit.
-type InsertUnitArg struct {
-	UnitName          coreunit.Name
-	CloudContainer    *CloudContainer
-	Password          *PasswordInfo
-	Constraints       constraints.Constraints
-	Placement         deployment.Placement
-	StorageDirectives []UnitStorageDirectiveArg
-	UnitStatusArg
-}
-
-// InsertIAASUnitArg contains parameters for inserting an IAAS unit.
-type InsertIAASUnitArg struct {
-	InsertUnitArg
-	Platform deployment.Platform
-	Nonce    *string
-}
 
 // RegisterCAASUnitParams contains parameters for introducing
 // a k8s unit representing a new pod to the model.
@@ -269,6 +257,13 @@ type RegisterCAASUnitArg struct {
 	Ports        *[]string
 	OrderedScale bool
 	OrderedId    int
+
+	// CreateUnitStorageArg contains parameters for creating storage and also
+	// attaching existing storage to the unit. Described as well is the set of
+	// storage directives the unit should use if it is being created for the
+	// first time.
+	CreateUnitStorageArg
+
 	// TODO(storage) - this needs to be wired through to the register CAAS unit workflow.
 	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached
 	// by the infrastructure, used to map existing attachments.
@@ -282,6 +277,7 @@ type UnitStatusArg struct {
 }
 
 type SubordinateUnitArg struct {
+	CreateUnitStorageArg
 	UnitStatusArg
 	SubordinateAppID  application.ID
 	PrincipalUnitName coreunit.Name

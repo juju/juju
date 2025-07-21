@@ -115,7 +115,7 @@ func (st *State) CreateCAASApplication(
 	ctx context.Context,
 	name string,
 	args application.AddCAASApplicationArg,
-	units []application.AddUnitArg,
+	units []application.AddCAASUnitArg,
 ) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -345,34 +345,11 @@ func (st *State) insertIAASApplicationUnits(
 	args application.AddIAASApplicationArg,
 	units []application.AddIAASUnitArg,
 ) ([]coremachine.Name, error) {
-	insertUnits := make([]application.InsertIAASUnitArg, len(units))
-	for i, unit := range units {
-		unitName, err := st.newUnitName(ctx, tx, appUUID)
-		if err != nil {
-			return nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
-		}
-
-		insertUnits[i] = application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName:             unitName,
-				Constraints:          unit.Constraints,
-				Placement:            unit.Placement,
-				CreateUnitStorageArg: unit.CreateUnitStorageArg,
-				UnitStatusArg: application.UnitStatusArg{
-					AgentStatus:    unit.UnitStatusArg.AgentStatus,
-					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
-				},
-			},
-			Platform: args.Platform,
-			Nonce:    unit.Nonce,
-		}
-	}
-
 	var machineNames []coremachine.Name
-	for _, arg := range insertUnits {
-		mNames, err := st.insertIAASUnit(ctx, tx, appUUID, arg)
+	for i, unit := range units {
+		_, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, unit)
 		if err != nil {
-			return nil, errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
+			return nil, errors.Errorf("inserting IAAS unit %d: %w", i, err)
 		}
 		machineNames = append(machineNames, mNames...)
 	}
@@ -384,30 +361,13 @@ func (st *State) insertCAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
 	args application.AddCAASApplicationArg,
-	units []application.AddUnitArg,
+	units []application.AddCAASUnitArg,
 ) error {
-	insertUnits := make([]application.InsertUnitArg, len(units))
 	for i, unit := range units {
-		unitName, err := st.newUnitName(ctx, tx, appUUID)
-		if err != nil {
-			return errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
-		}
-
-		insertUnits[i] = application.InsertUnitArg{
-			UnitName:             unitName,
-			Constraints:          unit.Constraints,
-			Placement:            unit.Placement,
-			CreateUnitStorageArg: unit.CreateUnitStorageArg,
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus:    unit.UnitStatusArg.AgentStatus,
-				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
-			},
-		}
-	}
-
-	for _, arg := range insertUnits {
-		if err := st.insertCAASUnit(ctx, tx, appUUID, arg); err != nil {
-			return errors.Errorf("inserting CAAS unit %q: %w", arg.UnitName, err)
+		if _, err := st.insertCAASUnit(ctx, tx, appUUID, unit); err != nil {
+			return errors.Errorf(
+				"inserting CAAS unit %d for application: %w", i, err,
+			)
 		}
 	}
 

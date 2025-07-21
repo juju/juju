@@ -130,7 +130,7 @@ type ApplicationService interface {
 
 	// CreateCAASApplication creates the specified CAAS application and
 	// subsequent units if supplied.
-	CreateCAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	CreateCAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddCAASUnitArg) (coreapplication.ID, error)
 
 	// AddIAASUnits adds IAAS units to the application.
 	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddIAASUnitArg) ([]unit.Name, []machine.Name, error)

@@ -58,20 +58,22 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	now := ptr(s.clock.Now())
-	us := []application.AddUnitArg{{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
+	us := []application.AddCAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: corestatus.MessageInstallingAgent,
+					Since:   now,
+				},
 			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: corestatus.MessageInstallingAgent,
-				Since:   now,
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
 			},
-		},
-		Constraints: constraints.Constraints{
-			Arch: ptr(arch.AMD64),
 		},
 	}}
 	ch := applicationcharm.Charm{
@@ -148,8 +150,8 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 		},
 	}).Return(nil)
 
-	var receivedArgs []application.AddUnitArg
-	s.state.EXPECT().CreateCAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddCAASApplicationArg, args []application.AddUnitArg) (coreapplication.ID, error) {
+	var receivedArgs []application.AddCAASUnitArg
+	s.state.EXPECT().CreateCAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddCAASApplicationArg, args []application.AddCAASUnitArg) (coreapplication.ID, error) {
 		c.Assert(a, tc.DeepEquals, app)
 		receivedArgs = args
 		return id, nil
@@ -1821,20 +1823,22 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
 	now := ptr(s.clock.Now())
-	u := []application.AddUnitArg{{
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
+	u := []application.AddCAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: corestatus.MessageInstallingAgent,
+					Since:   now,
+				},
 			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: corestatus.MessageInstallingAgent,
-				Since:   now,
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
 			},
-		},
-		Constraints: constraints.Constraints{
-			Arch: ptr(arch.AMD64),
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
@@ -1853,8 +1857,8 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	}).Return(nil)
 	s.expectEmptyUnitConstraints(c, appUUID)
 
-	var received []application.AddUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
+	var received []application.AddCAASUnitArg
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -1874,38 +1878,40 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
-	u := []application.AddUnitArg{{
-		Constraints: constraints.Constraints{
-			Arch:           ptr("amd64"),
-			Container:      ptr(instance.LXD),
-			CpuCores:       ptr(uint64(4)),
-			Mem:            ptr(uint64(1024)),
-			RootDisk:       ptr(uint64(1024)),
-			RootDiskSource: ptr("root-disk-source"),
-			Tags:           ptr([]string{"tag1", "tag2"}),
-			InstanceRole:   ptr("instance-role"),
-			InstanceType:   ptr("instance-type"),
-			Spaces: ptr([]constraints.SpaceConstraint{
-				{SpaceName: "space1", Exclude: false},
-			}),
-			VirtType:         ptr("virt-type"),
-			Zones:            ptr([]string{"zone1", "zone2"}),
-			AllocatePublicIP: ptr(true),
-		},
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
+	u := []application.AddCAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			Constraints: constraints.Constraints{
+				Arch:           ptr("amd64"),
+				Container:      ptr(instance.LXD),
+				CpuCores:       ptr(uint64(4)),
+				Mem:            ptr(uint64(1024)),
+				RootDisk:       ptr(uint64(1024)),
+				RootDiskSource: ptr("root-disk-source"),
+				Tags:           ptr([]string{"tag1", "tag2"}),
+				InstanceRole:   ptr("instance-role"),
+				InstanceType:   ptr("instance-type"),
+				Spaces: ptr([]constraints.SpaceConstraint{
+					{SpaceName: "space1", Exclude: false},
+				}),
+				VirtType:         ptr("virt-type"),
+				Zones:            ptr([]string{"zone1", "zone2"}),
+				AllocatePublicIP: ptr(true),
 			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: corestatus.MessageInstallingAgent,
-				Since:   now,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: corestatus.MessageInstallingAgent,
+					Since:   now,
+				},
 			},
-		},
-		Placement: deployment.Placement{
-			Type:      deployment.PlacementTypeMachine,
-			Directive: "0/lxd/0",
+			Placement: deployment.Placement{
+				Type:      deployment.PlacementTypeMachine,
+				Directive: "0/lxd/0",
+			},
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
@@ -1924,8 +1930,8 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	}).Return(nil)
 	s.expectAppConstraints(c, unitUUID, appUUID)
 
-	var received []application.AddUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
+	var received []application.AddCAASUnitArg
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -1948,33 +1954,35 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
-	u := []application.AddUnitArg{{
-		Constraints: constraints.Constraints{
-			Arch:           ptr("amd64"),
-			Container:      ptr(instance.LXD),
-			CpuCores:       ptr(uint64(4)),
-			Mem:            ptr(uint64(1024)),
-			RootDisk:       ptr(uint64(1024)),
-			RootDiskSource: ptr("root-disk-source"),
-			Tags:           ptr([]string{"tag1", "tag2"}),
-			InstanceRole:   ptr("instance-role"),
-			InstanceType:   ptr("instance-type"),
-			Spaces: ptr([]constraints.SpaceConstraint{
-				{SpaceName: "space1", Exclude: false},
-			}),
-			VirtType:         ptr("virt-type"),
-			Zones:            ptr([]string{"zone1", "zone2"}),
-			AllocatePublicIP: ptr(true),
-		},
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
+	u := []application.AddCAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			Constraints: constraints.Constraints{
+				Arch:           ptr("amd64"),
+				Container:      ptr(instance.LXD),
+				CpuCores:       ptr(uint64(4)),
+				Mem:            ptr(uint64(1024)),
+				RootDisk:       ptr(uint64(1024)),
+				RootDiskSource: ptr("root-disk-source"),
+				Tags:           ptr([]string{"tag1", "tag2"}),
+				InstanceRole:   ptr("instance-role"),
+				InstanceType:   ptr("instance-type"),
+				Spaces: ptr([]constraints.SpaceConstraint{
+					{SpaceName: "space1", Exclude: false},
+				}),
+				VirtType:         ptr("virt-type"),
+				Zones:            ptr([]string{"zone1", "zone2"}),
+				AllocatePublicIP: ptr(true),
 			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: corestatus.MessageInstallingAgent,
-				Since:   now,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: corestatus.MessageInstallingAgent,
+					Since:   now,
+				},
 			},
 		},
 	}}
@@ -1994,8 +2002,8 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	}).Return(nil)
 	s.expectModelConstraints(c, unitUUID, appUUID)
 
-	var received []application.AddUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
+	var received []application.AddCAASUnitArg
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -2015,21 +2023,23 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
-	u := []application.AddUnitArg{{
-		Constraints: constraints.Constraints{
-			Arch:     ptr(arch.AMD64),
-			CpuCores: ptr(uint64(4)),
-			CpuPower: ptr(uint64(75)),
-		},
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-				Status: status.UnitAgentStatusAllocating,
-				Since:  now,
+	u := []application.AddCAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			Constraints: constraints.Constraints{
+				Arch:     ptr(arch.AMD64),
+				CpuCores: ptr(uint64(4)),
+				CpuPower: ptr(uint64(75)),
 			},
-			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusWaiting,
-				Message: corestatus.MessageInstallingAgent,
-				Since:   now,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: corestatus.MessageInstallingAgent,
+					Since:   now,
+				},
 			},
 		},
 	}}
@@ -2049,8 +2059,8 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	}).Return(nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
-	var received []application.AddUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddUnitArg) ([]coreunit.Name, error) {
+	var received []application.AddCAASUnitArg
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
