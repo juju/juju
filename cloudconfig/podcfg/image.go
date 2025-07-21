@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/environs/config"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
-	return GetJujuOCIImagePath(cfg.Controller, cfg.JujuVersion)
+	return GetJujuOCIImagePath(cfg.Controller, nil, cfg.JujuVersion)
 }
 
 func (cfg *ControllerPodConfig) dbVersion() (version.Number, error) {
@@ -64,15 +65,37 @@ func IsCharmBaseImage(imagePath string) bool {
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.
-func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
-	// First check the deprecated "caas-operator-image-path" config.
+func GetJujuOCIImagePath(controllerCfg controller.Config, modelCfg *config.Config, ver version.Number) (string, error) {
+
+	// First check the model config.
+	if modelCfg != nil {
+		caasImageRepo, exists := modelCfg.CAASImageRepo()
+
+		// Model config's CAASImageRepo should have been populated if modelCfg is not nil.
+		if exists {
+			details, err := docker.NewImageRepoDetails(caasImageRepo)
+			if err != nil {
+				return "", errors.Annotatef(err, "parsing %s", caasImageRepo)
+			}
+			tag := ""
+			if ver != version.Zero {
+				tag = ver.String()
+			}
+			return imageRepoToPath(details.Repository, tag)
+		}
+	}
+
+	// Next check the deprecated "caas-operator-image-path" config
+	caasImageRepo := controllerCfg.CAASImageRepo()
 	imagePath, err := RebuildOldOperatorImagePath(
 		controllerCfg.CAASOperatorImagePath(), ver,
 	)
 	if imagePath != "" || err != nil {
 		return imagePath, err
 	}
-	details, err := docker.NewImageRepoDetails(controllerCfg.CAASImageRepo())
+
+	// Default to use controller config CAAS image repo.
+	details, err := docker.NewImageRepoDetails(caasImageRepo)
 	if err != nil {
 		return "", errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
@@ -99,7 +122,7 @@ func RebuildOldOperatorImagePath(imagePath string, ver version.Number) (string, 
 func tagImagePath(fullPath, tag string) (string, error) {
 	ref, err := reference.Parse(fullPath)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err, "parsing image path %q", fullPath)
 	}
 	imageNamed, ok := ref.(reference.Named)
 	// Safety check only - should never happen.

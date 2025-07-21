@@ -138,7 +138,7 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 	if err != nil {
 		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
+	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, modelConfig, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

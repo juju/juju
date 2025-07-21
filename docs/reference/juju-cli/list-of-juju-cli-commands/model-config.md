@@ -137,9 +137,6 @@ The following keys are available:
       type: string
       description: The URL at which the metadata used to locate container OS image ids
         is located
-    container-image-reference:
-      type: string
-      description: The container image repository. (default "")
     container-image-stream:
       type: string
       description: The simplestreams stream used to identify which image ids to search
@@ -277,6 +274,9 @@ The following keys are available:
         - If 'requires-prompts' is present, clients will ask for confirmation before removing
         potentially valuable resources.
         (default "")
+    model-caas-image-repo:
+      type: string
+      description: The container image repository. (default "")
     net-bond-reconfigure-delay:
       type: int
       description: The amount of time in seconds to sleep between ifdown and ifup when

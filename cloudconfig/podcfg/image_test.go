@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
 
@@ -21,25 +22,32 @@ type imageSuite struct {
 var _ = gc.Suite(&imageSuite{})
 
 func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
-	cfg := testing.FakeControllerConfig()
+	controllerCfg := testing.FakeControllerConfig()
 
-	cfg[controller.CAASImageRepo] = "testing-repo"
+	controllerCfg[controller.CAASImageRepo] = "testing-repo"
 	ver := version.MustParse("2.6-beta3.666")
-	path, err := podcfg.GetJujuOCIImagePath(cfg, ver)
+	path, err := podcfg.GetJujuOCIImagePath(controllerCfg, nil, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-repo/jujud-operator:2.6-beta3.666")
 
-	cfg[controller.CAASImageRepo] = "testing-repo:8080"
+	controllerCfg[controller.CAASImageRepo] = "testing-repo:8080"
 	ver = version.MustParse("2.6-beta3.666")
-	path, err = podcfg.GetJujuOCIImagePath(cfg, ver)
+	path, err = podcfg.GetJujuOCIImagePath(controllerCfg, nil, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-repo:8080/jujud-operator:2.6-beta3.666")
 
-	cfg[controller.CAASOperatorImagePath] = "testing-old-repo/jujud-old-operator:1.6"
+	controllerCfg[controller.CAASOperatorImagePath] = "testing-old-repo/jujud-old-operator:1.6"
 	ver = version.MustParse("2.6-beta3")
-	path, err = podcfg.GetJujuOCIImagePath(cfg, ver)
+	path, err = podcfg.GetJujuOCIImagePath(controllerCfg, nil, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-old-repo/jujud-old-operator:2.6-beta3")
+
+	modelCfg := testing.CustomModelConfig(c, map[string]interface{}{config.ModelCAASImageRepo: "testing-old-model-repo"})
+	controllerCfg[controller.CAASOperatorImagePath] = "testing-old-controller-repo/jujud-old-operator:1.6"
+	ver = version.MustParse("2.7-beta3")
+	path, err = podcfg.GetJujuOCIImagePath(controllerCfg, modelCfg, ver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, jc.DeepEquals, "testing-old-model-repo/jujud-old-operator:2.7-beta3")
 }
 
 func (*imageSuite) TestRebuildOldOperatorImagePath(c *gc.C) {

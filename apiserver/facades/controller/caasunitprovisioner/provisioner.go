@@ -389,7 +389,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerCfg, vers)
+	registryPath, err := podcfg.GetJujuOCIImagePath(controllerCfg, modelConfig, vers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

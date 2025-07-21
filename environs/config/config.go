@@ -330,8 +330,8 @@ const (
 	// SecretBackendKey is used to specify the secret backend.
 	SecretBackendKey = "secret-backend"
 
-	// ContainerImageReference is used to specify the container image repository.
-	ContainerImageReference = "container-image-reference"
+	// ModelCAASImageRepo is used to specify the model's container image repository.
+	ModelCAASImageRepo = "model-caas-image-repo"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -599,7 +599,7 @@ var defaultConfigValues = map[string]interface{}{
 	ContainerImageStreamKey:                   "released",
 	ContainerImageMetadataURLKey:              "",
 	ContainerImageMetadataDefaultsDisabledKey: false,
-	ContainerImageReference:                   "",
+	ModelCAASImageRepo:                        "",
 
 	// Log forward settings.
 	LogForwardEnabled: false,
@@ -1850,10 +1850,10 @@ func (c *Config) Telemetry() bool {
 	return !value
 }
 
-// ContainerImageReference returns the configured full image reference string for the container
+// CAASImageRepo returns the configured full image reference string for the container
 // and a boolean indicating whether the value was explicitly set in the config.
-func (c *Config) ContainerImageReference() (string, bool) {
-	if imageRepo, ok := c.defined[ContainerImageReference]; ok && imageRepo != "" {
+func (c *Config) CAASImageRepo() (string, bool) {
+	if imageRepo, ok := c.defined[ModelCAASImageRepo]; ok && imageRepo != "" {
 		return imageRepo.(string), true
 	}
 	return "", false
@@ -2001,7 +2001,7 @@ var alwaysOptional = schema.Defaults{
 	ContainerImageStreamKey:                   schema.Omit,
 	ContainerImageMetadataURLKey:              schema.Omit,
 	ContainerImageMetadataDefaultsDisabledKey: schema.Omit,
-	ContainerImageReference:                   schema.Omit,
+	ModelCAASImageRepo:                        schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -2603,7 +2603,7 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	ContainerImageReference: {
+	ModelCAASImageRepo: {
 		Description: `The container image repository. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
