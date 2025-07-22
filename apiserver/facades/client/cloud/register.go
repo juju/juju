@@ -7,9 +7,10 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -22,20 +23,25 @@ func Register(registry facade.FacadeRegistry) {
 // newFacadeV7 is used for API registration.
 func newFacadeV7(stdCtx context.Context, context facade.ModelContext) (*CloudAPI, error) {
 	domainServices := context.DomainServices()
-	systemState, err := context.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	credentialService := domainServices.Credential()
-	controllerInfo, err := systemState.ControllerInfo()
+	modelService := domainServices.Model()
+
+	// Get the controller model UUID
+	controllerUUID, err := modelService.GetControllerModelUUID(stdCtx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Errorf("failed to get controller model UUID: %v", err)
+	}
+
+	// Get the controller cloud name
+	controllerCloud, _, err := modelService.DefaultModelCloudInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Errorf("failed to get controller cloud name: %v", err)
 	}
 
 	return NewCloudAPI(
 		stdCtx,
-		systemState.ControllerTag(),
-		controllerInfo.CloudName,
+		names.NewControllerTag(controllerUUID.String()),
+		controllerCloud,
 		domainServices.Cloud(),
 		domainServices.Access(),
 		credentialService,
