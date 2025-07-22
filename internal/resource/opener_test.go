@@ -45,7 +45,6 @@ type OpenerSuite struct {
 	resourceSize         int64
 	resourceReader       io.ReadCloser
 	resourceRevision     int
-	charmLocator         applicationcharm.CharmLocator
 	charmOrigin          domainapplication.CharmOrigin
 	resourceClient       *MockResourceClient
 	resourceClientGetter *MockResourceClientGetter
@@ -202,6 +201,11 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *tc.C) {
 		nil,
 	)
 
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(
+		gomock.Any(),
+		s.appName,
+	).Return(s.charmOrigin, nil)
+
 	opened, err := s.newApplicationResourceOpener(c).OpenResource(
 		c.Context(),
 		"wal-e",
@@ -240,13 +244,9 @@ func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	c.Assert(err, tc.ErrorIsNil)
 	s.resourceReader = io.NopCloser(strings.NewReader(s.resourceContent))
 
-	s.charmLocator = applicationcharm.CharmLocator{
-		Name:   "postgresql",
-		Source: applicationcharm.CharmHubSource,
-	}
 	rev := 0
 	s.charmOrigin = domainapplication.CharmOrigin{
-		Source:   "charm-hub",
+		Source:   applicationcharm.CharmHubSource,
 		Revision: rev,
 		Channel:  &deployment.Channel{Risk: "stable"},
 		Platform: deployment.Platform{
@@ -383,8 +383,8 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *tc.C) {
 		charmhub.ResourceData{},
 		errors.New("boom"),
 	).Times(retryCount)
-	s.limiter.EXPECT().Acquire(gomock.Any(), "uuid:postgresql").Return(nil)
-	s.limiter.EXPECT().Release("uuid:postgresql")
+	s.limiter.EXPECT().Acquire(gomock.Any(), s.appID.String()).Return(nil)
+	s.limiter.EXPECT().Release(s.appID.String())
 
 	s.expectNewUnitResourceOpener(c)
 	opened, err := s.newUnitResourceOpener(
@@ -398,12 +398,6 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *tc.C) {
 
 func (s *OpenerSuite) TestSetResourceUsedUnit(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
-	s.resourceService.EXPECT().GetApplicationResourceID(
-		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
-		},
-	).Return(s.resourceUUID, nil)
 	s.resourceService.EXPECT().SetUnitResource(
 		gomock.Any(),
 		s.resourceUUID,
@@ -412,20 +406,13 @@ func (s *OpenerSuite) TestSetResourceUsedUnit(c *tc.C) {
 	s.expectNewUnitResourceOpener(c)
 	err := s.newUnitResourceOpener(c, 0).SetResourceUsed(
 		c.Context(),
-		"wal-e",
+		s.resourceUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *OpenerSuite) TestSetResourceUsedUnitError(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
-	s.resourceService.EXPECT().GetApplicationResourceID(
-		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
-		},
-	).Return(s.resourceUUID, nil)
-
 	expectedErr := errors.New("boom")
 	s.resourceService.EXPECT().SetUnitResource(
 		gomock.Any(),
@@ -436,7 +423,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *tc.C) {
 	s.expectNewUnitResourceOpener(c)
 	err := s.newUnitResourceOpener(c, 0).SetResourceUsed(
 		c.Context(),
-		"wal-e",
+		s.resourceUUID,
 	)
 	c.Assert(err, tc.ErrorIs, expectedErr)
 }
@@ -451,11 +438,6 @@ func (s *OpenerSuite) expectNewUnitResourceOpener(c *tc.C) {
 		gomock.Any(),
 		s.unitName,
 	).Return(s.unitUUID, nil)
-
-	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(
-		gomock.Any(),
-		s.appName,
-	).Return(s.charmLocator, nil)
 
 	s.applicationService.EXPECT().GetApplicationCharmOrigin(
 		gomock.Any(),
@@ -478,10 +460,9 @@ func (s *OpenerSuite) newUnitResourceOpener(
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	opener, err := newResourceOpenerForUnit(
+	opener, err := NewResourceOpenerForUnit(
 		c.Context(),
 		ResourceOpenerArgs{
-			ModelUUID:            "uuid",
 			ResourceService:      s.resourceService,
 			ApplicationService:   s.applicationService,
 			CharmhubClientGetter: s.resourceClientGetter,
@@ -497,22 +478,7 @@ func (s *OpenerSuite) newUnitResourceOpener(
 
 func (s *OpenerSuite) newApplicationResourceOpener(c *tc.C) coreresource.Opener {
 	// Service calls in NewResourceOpenerForApplication.
-	s.applicationService.EXPECT().GetApplicationIDByName(
-		gomock.Any(),
-		s.appName,
-	).Return(s.appID, nil)
-
-	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(
-		gomock.Any(),
-		s.appName,
-	).Return(s.charmLocator, nil)
-
-	s.applicationService.EXPECT().GetApplicationCharmOrigin(
-		gomock.Any(),
-		s.appName,
-	).Return(s.charmOrigin, nil)
-
-	opener, err := newResourceOpenerForApplication(
+	opener, err := NewResourceOpenerForApplication(
 		c.Context(),
 		ResourceOpenerArgs{
 			ResourceService:      s.resourceService,
@@ -520,6 +486,7 @@ func (s *OpenerSuite) newApplicationResourceOpener(c *tc.C) coreresource.Opener 
 			CharmhubClientGetter: s.resourceClientGetter,
 		},
 		s.appName,
+		s.appID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return opener
