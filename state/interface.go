@@ -10,8 +10,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/internal/tools"
 )
 
 // Entity represents any entity that can be returned
@@ -29,13 +27,6 @@ type EntityWithApplication interface {
 // Lifer represents an entity with a life.
 type Lifer interface {
 	Life() Life
-}
-
-// AgentTooler is implemented by entities
-// that have associated agent tools.
-type AgentTooler interface {
-	AgentTools() (*tools.Tools, error)
-	SetAgentVersion(semversion.Binary) error
 }
 
 // EnsureDeader with an EnsureDead method.

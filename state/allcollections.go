@@ -70,13 +70,6 @@ func allCollections() CollectionSchema {
 		// upgrades and schema migrations.
 		upgradeInfoC: {global: true},
 
-		// This collection holds a convenient representation of the content of
-		// the simplestreams data source pointing to binaries required by juju.
-		//
-		// Tools metadata is per-model, to allow multiple revisions of tools to
-		// be uploaded to different models without affecting other models.
-		toolsmetadataC: {},
-
 		// This collection holds model information; in particular its
 		// Life and its UUID.
 		modelsC: {
@@ -359,7 +352,6 @@ const (
 	storageAttachmentsC    = "storageattachments"
 	storageConstraintsC    = "storageconstraints"
 	storageInstancesC      = "storageinstances"
-	toolsmetadataC         = "toolsmetadata"
 	txnsC                  = "txns"
 	unitsC                 = "units"
 	unitStatesC            = "unitstates"

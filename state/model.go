@@ -436,18 +436,7 @@ func (m *Model) localID(id string) string {
 // UpdateLatestToolsVersion looks up for the latest available version of
 // juju tools and updates modelDoc with it.
 func (m *Model) UpdateLatestToolsVersion(v string) error {
-	// TODO(perrito666): I need to assert here that there isn't a newer
-	// version in place.
-	ops := []txn.Op{{
-		C:      modelsC,
-		Id:     m.doc.UUID,
-		Update: bson.D{{"$set", bson.D{{"available-tools", v}}}},
-	}}
-	err := m.st.db().RunTransaction(ops)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return m.Refresh()
+	return nil
 }
 
 // LatestToolsVersion returns the newest version found in the last
@@ -455,17 +444,7 @@ func (m *Model) UpdateLatestToolsVersion(v string) error {
 // Bear in mind that the check was performed filtering only
 // new patches for the current major.minor. (major.minor.patch)
 func (m *Model) LatestToolsVersion() semversion.Number {
-	ver := m.doc.LatestAvailableTools
-	if ver == "" {
-		return semversion.Zero
-	}
-	v, err := semversion.Parse(ver)
-	if err != nil {
-		// This is being stored from a valid version,
-		// but we don't fail should it become corrupt.
-		return semversion.Zero
-	}
-	return v
+	return semversion.Zero
 }
 
 // globalKey returns the global database key for the model.

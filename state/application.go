@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
-	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -49,12 +48,11 @@ type applicationDoc struct {
 	CharmOrigin CharmOrigin `bson:"charm-origin"`
 	// CharmModifiedVersion changes will trigger the upgrade-charm hook
 	// for units independent of charm url changes.
-	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
-	ForceCharm           bool         `bson:"forcecharm"`
-	Life                 Life         `bson:"life"`
-	UnitCount            int          `bson:"unitcount"`
-	Tools                *tools.Tools `bson:",omitempty"`
-	TxnRevno             int64        `bson:"txn-revno"`
+	CharmModifiedVersion int   `bson:"charmmodifiedversion"`
+	ForceCharm           bool  `bson:"forcecharm"`
+	Life                 Life  `bson:"life"`
+	UnitCount            int   `bson:"unitcount"`
+	TxnRevno             int64 `bson:"txn-revno"`
 
 	// CAAS related attributes.
 	PasswordHash string `bson:"passwordhash"`

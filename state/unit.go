@@ -15,7 +15,6 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/tools"
 )
 
 // unitAgentGlobalKey returns the global database key for the named unit.
@@ -39,7 +38,6 @@ type unitDoc struct {
 	Subordinates           []string
 	StorageAttachmentCount int `bson:"storageattachmentcount"`
 	MachineId              string
-	Tools                  *tools.Tools `bson:",omitempty"`
 	Life                   Life
 	PasswordHash           string
 }
