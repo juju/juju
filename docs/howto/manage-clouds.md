@@ -10,35 +10,33 @@ This document shows how to manage your existing cloud(s) with Juju.
 > See also: {ref}`list-of-supported-clouds` > `<cloud name>`
 
 ```{important}
-This step is typically required only for non-local private clouds.
+This step is typically required only for non-localhost private clouds.
 ```
 
-The procedure for how to add a cloud definition to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or rather a Kubernetes cloud. 
+The procedure for how to add a cloud definition to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or rather a Kubernetes cloud.
 
 ```{important}
-In either case, the cloud definition is saved to directory defined in the `JUJU_DATA` environment variable (default path: `~/.local/share/juju/`), in a file called `clouds.yaml`.
+In either case, the cloud definition is saved to the directory defined in the `JUJU_DATA` environment variable (default path: `~/.local/share/juju/`), in a file called `clouds.yaml`.
 ```
 
 (add-a-machine-cloud)=
 ### Add a machine cloud
 
 ```{tip}
-
-**If your cloud is a public cloud or a local LXD cloud:** <br> 
+**If your cloud is a public cloud or a localhost LXD cloud:** <br>
 Juju likely already knows about it, so you can skip this step. Run `juju clouds` to confirm.
-
 ```
 
 To add a machine cloud to Juju, run the `add-cloud` command:
 
 ```text
 juju add-cloud
-``` 
+```
 
 This will start an interactive session where you'll be asked to choose a cloud type (from a given list), the name that you want to use for your cloud, the API endpoint, the authentication type, etc. Juju will use this to create a cloud definition.
 
 <!--
-, which it will save to the directory defined in the `JUJU_DATA` environment variable (default path: `~/.local/share/juju/`), in a file called `clouds.yaml` 
+, which it will save to the directory defined in the `JUJU_DATA` environment variable (default path: `~/.local/share/juju/`), in a file called `clouds.yaml`
 -->
 
 The command also has a manual mode where you can specify the desired cloud name and cloud definition file in-line; whether you want this definition to be known just to the Juju client or also to an existing controller (the latter creates what is known as a multi-cloud controller); etc.
@@ -51,27 +49,24 @@ The command also has a manual mode where you can specify the desired cloud name 
 
 ```{tip}
 
-**If your cloud is a local MicroK8s cloud:** <br> 
+**If you're using a localhost MicroK8s cloud installed from a strictly confined snap:** <br>
 Juju likely already knows about it, so you can skip this step. Run `juju clouds` to confirm.
 
 ```
 
 To add a Kubernetes cloud to Juju:
 
-1. Prepare your kubeconfig file. 
+1. Prepare your kubeconfig file.
 
 2. Run the `add-k8s` command followed by the desired cloud name:
 
-```{note}
- 
-You must replace the client from the strictly confined snap (`juju`) with its 'raw' version from the snap directory (`/snap/juju/current/bin/juju`). So, instead of the command below, run `/snap/juju/current/bin/juju add-k8s <cloud name`. 
+```{important}
+**If you have a Juju 3.0+ CLI client installed from snap and you're using a public Kubernetes cloud (AKS, EKS, GKE):** <br>
+Run this command with the 'raw' (not strictly confined) snap: `/snap/juju/current/bin/juju add-k8s <cloud name>`.
 
-
-This is required because, starting with Juju 3.0, the `juju` CLI client is a strictly confined snap, whereas the public cloud CLIs are not (see [discussion](https://bugs.launchpad.net/juju/+bug/2007575)), and it is only necessary for this step – for any other step you can go back to using the client from the strictly confined snap (so, you can keep typing just `juju`).
-
+This is required because, starting with Juju 3.0, the `juju` CLI client snap is a strictly confined snap, whereas the public cloud CLIs are not (see [discussion](https://bugs.launchpad.net/juju/+bug/2007575)), and it is only necessary for this step -- for any other step you can go back to using the client from the strictly confined snap (so, you can keep typing just `juju`).
 
 ```
-
 
 ```text
 juju add-k8s <cloud name>
@@ -105,7 +100,7 @@ aws-china    2        cn-north-1     ec2      0            public    Amazon Chin
 aws-gov      2        us-gov-west-1  ec2      0            public    Amazon (USA Government)
 azure        43       centralus      azure    0            public    Microsoft Azure
 azure-china  4        chinaeast      azure    0            public    Microsoft Azure China
-equinix      25       px             equinix  0            public    
+equinix      25       px             equinix  0            public
 google       25       us-east1       gce      0            public    Google Cloud Platform
 localhost    1        localhost      lxd      1            built-in  LXD Container Hypervisor
 microk8s     1        localhost      k8s      1            built-in  A Kubernetes Cluster
@@ -139,7 +134,7 @@ The command also has flags that allow you to specify whether you want this infor
 
 ### View all the known regions
 
- 
+
 To see which regions Juju is aware of for any given cloud, use the `regions` command. For example, for the 'aws' cloud, run:
 
 ```text

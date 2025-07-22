@@ -79,10 +79,10 @@ juju bootstrap <cloud> <controller> --debug --verbose --keep-broken
 
 - **Kubernetes:**
 
-Bootstrap on Kubernetes includes creating a Kubernetes pod called `controller-0` containing a container called `api-server`. Matching this, the output of the bootstrap command includes `Creating k8s resources for controller <namespace`, where `<namespace` is something like `controller-foobar`. To troubleshoot, inspect this `api-server` container with `kubectl`:
+Bootstrap on Kubernetes includes creating a Kubernetes pod called `controller-0` containing a container called `api-server`. Matching this, the output of the `juju bootstrap` command includes `Creating k8s resources for controller <namespace>`, where `<namespace>` is something like `controller-foobar`. To troubleshoot, inspect this `api-server` container with `kubectl`:
 
 ```text
-kubectl exec controller-0 -itc api-server -n {ref}`namespace] -- bash
+kubectl exec controller-0 -itc api-server -n <namespace> -- bash
 ```
 
 ````
@@ -136,7 +136,7 @@ juju switch localhost-controller-prod
 ```
 
 ```{caution}
-The `switch` command can also be used to switch to a different model. To remove any ambiguity, in some cases it may be safer to specify the model name explicitly on the template `<controller-name>:<model-name`
+The `switch` command can also be used to switch to a different model. To remove any ambiguity, in some cases it may be safer to specify the model name explicitly on the template `<controller-name>:<model-name>`
 ```
 
 > See more: {ref}`command-juju-switch`
@@ -220,7 +220,7 @@ The procedure for how to share a controller with other users depends on whether 
 
 > See more: {ref}`register-a-controller`
 
-**Share a public controller.**
+**Share a public controller.** [TBA]
 
 
 ## Manage a controller's connection to the client

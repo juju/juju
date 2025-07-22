@@ -4,7 +4,7 @@
 In Juju, a **hook** is a notification from  the controller agent through the unit agent to the charm that the internal representation of Juju has changed in a way that requires a reaction from the charm so that the unit's state and the controller's state can be reconciled.
 
 
-For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events = 'events', specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.HookEvent).
+For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events, specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.HookEvent).
 
 Whenever a hook event is received, the associated event handler should ensure the current charm configuration is properly reflected in the underlying application configuration.
 Invocations of associated handlers should be idempotent and should not make changes to the environment, or restart services, unless there is a material change to the charm's configuration, such as a change in the port exposed by the charm, addition or removal of a relation which may require a database migration or a "scale out" event for high availability, or similar.
@@ -52,7 +52,7 @@ The graphs are screenshots of mermaid sources currently available [here](https:/
 
 #### Workload and substrate-specific events
 
-Note the `[workload events] (k8s only)` node in the operation phase. That represents all events meant to communicate information about the workload container on kubernetes charms. At the time of writing the only such events are:
+Note the `[workload events] (Kubernetes only)` node in the operation phase. That represents all events meant to communicate information about the workload container on kubernetes charms. At the time of writing the only such events are:
 
 * [`*-pebble-ready` <event-container-pebble-ready>`
 * {ref}``*-pebble-custom-notice` <event-container-pebble-custom-notice>`
@@ -144,13 +144,13 @@ All hooks share a lot of common behaviour in terms of the environment in which t
 are notified that a hook event has occurred, how errors are reported, and how a user might respond to
 a unit being in an error state due to a failed hook execution etc.
 
-Some hooks also can be grouped according to the Juju subsystem they represent. The hook kinds are:
+Some hooks can also be grouped according to the Juju subsystem they represent. The hook kinds are:
 
 * relation: used to inform a charm about changes to related applications and units
 * secret: used to inform a charm about changes to secrets it either owns or has consumed
 * storage: used to inform a charm about changes to storage attached to its unit
 * upgrade series: used to coordinate upgrade of host OS (3.6 or earlier only)
-* workload: used to inform the charm about events related to a pebble managed workload (currently k8s only)
+* workload: used to inform the charm about events related to a Pebble managed workload (currently Kubernetes only)
 
 The documentation in this section will, where relevant, describe behaviour specific to particular hook kinds.
 
@@ -179,6 +179,8 @@ As soon as that happens, the prompt will look similar to the below
 and this means we're inside the charm execution context.
 
 At this point,  typing `printenv` will print out the environment variables.
+
+> See more: {ref}`debug-a-charm`
 ```
 
 The following environment variables are set for every hook:
@@ -230,7 +232,7 @@ When a charm is first deployed, the following hooks are executed in order before
 
 ```{note}
 Only machine charms have the behaviour where the `storage-attached` hook must run before the `install` hook.
-See {ref}``storage hooks` <storage-hooks>` for more details.
+See {ref}`storage hooks <storage-hooks>` for more details.
 ```
 
 (operation-phase)=
@@ -248,7 +250,7 @@ When a charm is upgraded, the `upgrade-charm` hook is followed by a `config-chan
 The `upgrade-charm` hook always runs once immediately after the charm directory
 contents have been changed by an unforced charm upgrade operation, and *may* do
 so after a forced upgrade; but will *not* be run after a forced upgrade from an
-existing error state. (Consequently, neither will the config-changed hook that
+existing error state. (Consequently, neither will the `config-changed` hook that
 would ordinarily follow the upgrade-charm.)
 
 (teardown-phase)=
@@ -256,9 +258,9 @@ would ordinarily follow the upgrade-charm.)
 
 When a unit is to be removed, the following hooks are executed:
 
-* stop
-* storage-detaching | relation-broken (in any order)
-* remove
+* `stop`
+* `storage-detaching` | `relation-broken` (in any order)
+* `remove`
 
 The `remove` event is the last event a unit will ever see before being removed.
 
@@ -278,8 +280,8 @@ aborted and restarted.
 
 The most sophisticated charms will consider the nature of their operations with
 care, and will be prepared to internally retry any operations they suspect of
-having failed transiently, to ensure that they only request user intervention in
-the most trying circumstances; and will also be careful to log any relevant
+having failed transiently (to ensure that they only request user intervention in
+the most trying circumstances) as well as careful to log any relevant
 information or advice before signalling the error.
 
 ## Hooks in detail
@@ -306,9 +308,9 @@ Relation hooks operate in an environment with additional environment variables a
 * `JUJU_RELATION_ID` holds the ID of the relation. It is more useful, because it serves as unique identifier for a particular relation, and thereby allows the charm to handle distinct relations over a single endpoint. In hooks for the `foo` charm relation, JUJU_RELATION_ID always has the form "foo:<id>", where id uniquely but opaquely identifies the runtime relation currently in play.
 * `JUJU_REMOTE_APP` holds the name of the related application.
 
-Furthermore, all relation hooks except relation-created and relation-broken are notifications about some specific unit of a related application, and operate in an environment with the following additional environment variables available:
+Furthermore, all relation hooks except `relation-created` and `relation-broken` are notifications about some specific unit of a related application, and operate in an environment with the following additional environment variables available:
 
-* JUJU_REMOTE_UNIT holds the name of the current related unit.
+* `JUJU_REMOTE_UNIT` holds the name of the current related unit.
 
 For every relation in which a unit participates, hooks for the appropriate charm relation are run according to the following rules.
 
@@ -331,7 +333,7 @@ This hook also sets an additional environment variable:
 
 * JUJU_DEPARTING_UNIT holds the name of the related unit departing the relation.
 
-The `relation-broken` hook is not specific to any unit, and always runs once when the local unit is ready to depart the relation itself. Before this hook is run, a relation-departed hook will be executed for every unit known to be related; it will never run while the relation appears to have members, but it may be the first and only hook to run for a given relation. The stop hook will not run while relations remain to be broken.
+The `relation-broken` hook is not specific to any unit, and always runs once when the local unit is ready to depart the relation itself. Before this hook is run, a relation-departed hook will be executed for every unit known to be related; it will never run while the relation appears to have members, but it may be the first and only hook to run for a given relation. The `stop` hook will not run while relations remain to be broken.
 
 (secret-hooks)=
 ### Secret hooks
@@ -358,7 +360,7 @@ The `secret-changed` hook is triggered when there is a new revision available fo
 
 The hook names that these kinds represent will be prefixed by the storage name; for example, `database-storage-attached`.
 
-For every storage defined by a charm, storage hook events are named after the charm relation:
+For every storage defined by a charm, storage hook events are named after the charm endpoint:
 
 * `<name>-storage-attached`
 * `<name>-storage-detaching`
@@ -377,7 +379,7 @@ For machine charms, all `storage-attached` hooks will be run before the `install
 This means that if any errors are encountered whilst performing the storage provisioning and attach operations, the charm will
 not receive the `install` event until such errors have been resolved.
 
-For Kubernetes charms, any `storage-attached` hooks are run sometime after the `start` hook has completed.
+For Kubernetes charms, any `storage-attached` hooks are run some time after the `start` hook has completed.
 ```
 
 The `storage-detaching` hook is triggered after the `stop` hook has completed and all such hooks will be run before triggering the `remove` hook.
@@ -503,10 +505,10 @@ A Pebble notice of type "custom" occurring.
 
 All {ref}`the generic environment variables <hook-execution>` and:
 
-* $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
-* $JUJU_NOTICE_ID holds the Pebble notice ID.
-* $JUJU_NOTICE_TYPE holds the Pebble notice type.
-* $JUJU_NOTICE_KEY holds the Pebble notice key.
+* `JUJU_WORKLOAD_NAME` holds the name of the container to which the hook pertains.
+* `JUJU_NOTICE_ID` holds the Pebble notice ID.
+* `JUJU_NOTICE_TYPE` holds the Pebble notice type.
+* `JUJU_NOTICE_KEY` holds the Pebble notice key.
 
 *Who gets it*?
 
@@ -578,9 +580,9 @@ This hook is fired only once per unit per relation and is the exact inverse of `
 The hook indicates that the relation under consideration is no longer valid, and that the charm’s software must be configured as though the relation had never existed. It will only be called after every hook bound to `<endpoint>-relation-departed` has been run. If a hook bound to this event is being executed, it is guaranteed that no remote units are currently known locally.
 
 
-> It is important to note that **the `-broken` hook might run even if no other units have ever joined the relation**. This is not a bug: even if no remote units have ever joined, the fact of the unit’s participation can be detected in other hooks via the `relation-ids` tool, and the `-broken` hook needs to execute to allow the charm to clean up any optimistically-generated configuration.
+> It is important to note that the `relation-broken` hook might run even if no other units have ever joined the relation. This is not a bug: even if no remote units have ever joined, the fact of the unit’s participation can be detected in other hooks via the `relation-ids` tool, and the `-broken` hook needs to execute to allow the charm to clean up any optimistically-generated configuration.
 
-> Also, it’s important to internalise the fact that there may be multiple relations in play with the same name, and that they’re independent: one `-broken` hook does not mean that *every* such relation is broken.
+> Also, it’s important to internalise the fact that there may be multiple relations in play with the same name, and that they’re independent: one `relation-broken` hook does not mean that *every* such relation is broken.
 
 > For a peer relation, `<peer endpoint name>-relation-broken` will never fire, not even during the teardown phase.
 
@@ -740,12 +742,12 @@ The `relation-departed` event is seen both by the leaving unit(s) and the remain
 
 A unit's relation settings persist beyond its own departure from the relation; the final unit to depart a relation marked for termination is responsible for destroying the relation and all associated data.
 
-`relation-changed` ISN'T fired for removed relations.
-If you want to know when to remove a unit from your data, that would be relation-departed.
+`relation-changed` is *not* fired for removed relations.
+If you want to know when to remove a unit from your data, that would be `relation-departed`.
 
 > During a `relation-departed` hook, relation settings can still be read (with relation-get) and a relation can even still be set (with relation-set), by  explicitly providing the relation ID. All units will still be able to see all other units, and any unit can call relation-set to update their own published set of data on the relation. However, data updated by the departing unit will not be published to the remaining units. This is true even if there are no units on the other side of the relation to be notified of the change.
 
-If any affected unit publishes new data on the relation during the relation-departed hooks, the new data will NOT be see by the departing unit (it will NOT receive a relation-changed; only the remaining units will).
+If any affected unit publishes new data on the relation during the `relation-departed` hooks, the new data will *not* be seen by the departing unit (it will *not* receive a `relation-changed` hook; only the remaining units will).
 
 
 ```{note}
@@ -773,7 +775,7 @@ TBA
 
 *What triggers it?*
 
-<endpoint name>-relation-joined; emitted when a new unit joins in an existing relation.
+`<endpoint name>-relation-joined`; emitted when a new unit joins in an existing relation.
 
 The "relation-joined" hook always runs once when a related unit is first seen.
 
@@ -923,7 +925,7 @@ The `leader-elected` event is emitted for a unit that is elected as leader. Toge
 
 However, you can cause leadership change by destroying the leader unit or killing the jujud-machine service in operator charms.
 
-- non-k8s models: `juju remove-unit <leader_unit>`
+- non-Kubernetes models: `juju remove-unit <leader_unit>`
 - operator charms: `juju ssh -m <id> -- systemctl stop jujud-machine-<id>`
 - sidecar charms: ssh into the charm container, source the `/etc/profile.d/juju-introspection.sh` script, and then get access to a few cli tools, including `juju_stop_unit`.
 
@@ -1061,7 +1063,7 @@ On Kubernetes charms, the `remove` event will occur on pod churn, when the unit 
 
 |   Scenario   | Example Command                          | Resulting Events                     |
 | :-------: | -------------------------- | ------------------------------------ |
-|  Remove unit   | `juju remove-unit foo/0` (on machine) or <br> `juju remove-unit --num-units 1 foo` (on k8s)  | `stop -> [relation/storage teardown] -> remove` |
+|  Remove unit   | `juju remove-unit foo/0` (on machine) or <br> `juju remove-unit --num-units 1 foo` (on Kubernetes)  | `stop -> [relation/storage teardown] -> remove` |
 
 Of course, removing an application altogether will result in these events firing on all units.
 
@@ -1118,7 +1120,7 @@ Once all consumers have stopped tracking a specific outdated revision, the owner
 
 (hook-secret-expired)=
 ### `secret-expired`
-> Currently supported only for charm secrets.
+> Currently supported only for {ref}`charm secrets <charm-secret>`.
 >
 > Added in Juju 3.0.2
 
@@ -1329,7 +1331,7 @@ In integration tests, unless specifically testing the update-status hook, you ma
 
 ```
 
-*Which hooks can be guaranteed to have fired before it, if any?*?
+*Which hooks can be guaranteed to have fired before it, if any?*
 
 As it is triggered periodically, the `update-status`  can happen in-between any other charm events.
 

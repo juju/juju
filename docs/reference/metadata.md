@@ -3,8 +3,8 @@
 > See also: {ref}`manage-metadata`
 
 When Juju bootstraps, it needs two critical pieces of information:
-1. The uuid of the image to use when starting new compute instances
-2. The URL from which to download the correct version of an agent binary tarball
+1. The UUID of the image to use when starting new compute instances.
+2. The URL from which to download the correct version of an agent binary tarball.
 
 The necessary information is stored in a json metadata format called simplestreams.
 The simplestreams format is used to describe related items in a structural fashion.

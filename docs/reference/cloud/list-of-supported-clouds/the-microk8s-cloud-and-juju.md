@@ -1,7 +1,7 @@
 (cloud-kubernetes-microk8s)=
 # The MicroK8s cloud and Juju
 
-This document describes details specific to using your a MicroK8s cloud with Juju. 
+This document describes details specific to using your a MicroK8s cloud with Juju.
 
 > See more: [Getting started on Microk8s](https://microk8s.io/docs/getting-started)
 
@@ -16,7 +16,8 @@ As the differences related to (1) are already documented generically in the rest
 
 ### MicroK8s snap
 
-Juju 3.x requires MicroK8s to operate in strict mode.
+For a localhost MicroK8s cloud, if you would like to be able to skip `juju add-k8s`, install MicroK8s from the strictly confined snap.
+
 > See more: [MicroK8s | Strict MicroK8s](https://microk8s.io/docs/install-strict)
 
 ### Services that must enabled
