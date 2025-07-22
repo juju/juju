@@ -36,5 +36,5 @@ type Opener interface {
 	OpenResource(ctx context.Context, name string) (Opened, error)
 
 	// SetResource records that the resource is currently in use.
-	SetResourceUsed(ctx context.Context, resName string) error
+	SetResourceUsed(ctx context.Context, resourceUUID UUID) error
 }

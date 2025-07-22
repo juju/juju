@@ -94,7 +94,7 @@ func (h *UnitResourcesHandler) serveGet(resp http.ResponseWriter, req *http.Requ
 	}
 
 	// Mark the downloaded resource as in use on the unit.
-	err = opener.SetResourceUsed(req.Context(), name)
+	err = opener.SetResourceUsed(req.Context(), opened.UUID)
 	if err != nil {
 		h.logger.Warningf(req.Context(), "setting resource %s as in use: %w", name, err)
 	}
