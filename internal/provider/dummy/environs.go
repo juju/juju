@@ -97,7 +97,6 @@ type environState struct {
 // state.
 type environ struct {
 	environs.NoContainerAddressesEnviron
-	environs.NoLXDProfiler
 
 	storage.ProviderRegistry
 	name         string
