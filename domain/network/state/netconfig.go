@@ -341,12 +341,6 @@ func (st *State) reconcileNetConfigAddresses(
 		for _, a := range n.Addrs {
 			existingAddr := existingAddrs[a.AddressValue]
 
-			// We do not process addresses that are managed by the provider.
-			if existingAddr.OriginID != lookups.origin[corenetwork.OriginMachine] {
-				st.logger.Infof(ctx, "address %q for device %q is managed by the provider", a.AddressValue, n.Name)
-				continue
-			}
-
 			addrDML, err := netAddrToDML(a, nodeUUID, devUUID, addrToUUID, lookups)
 			if err != nil {
 				return nil, nil, errors.Capture(err)
@@ -460,19 +454,17 @@ func (st *State) upsertIPAddresses(ctx context.Context, tx *sqlair.TX, addrs []i
 
 	st.logger.Debugf(ctx, "updating IP addresses %#v", addrs)
 
-	// We should already have filtered out addresses that are managed by the
-	// provider, but we play it safe here with the clause.
 	dml := `
 INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)
 ON CONFLICT (uuid) DO UPDATE SET
-	address_value = EXCLUDED.address_value,
-	config_type_id = EXCLUDED.config_type_id,
-	type_id = EXCLUDED.type_id,
-	subnet_uuid = EXCLUDED.subnet_uuid,
-	scope_id = EXCLUDED.scope_id,
-	is_secondary = EXCLUDED.is_secondary,
-	is_shadow = EXCLUDED.is_shadow
-WHERE origin_id = 0`
+    device_uuid = EXCLUDED.device_uuid,
+    address_value = EXCLUDED.address_value,
+    config_type_id = EXCLUDED.config_type_id,
+    type_id = EXCLUDED.type_id,
+    subnet_uuid = EXCLUDED.subnet_uuid,
+    scope_id = EXCLUDED.scope_id,
+    is_secondary = EXCLUDED.is_secondary,
+    is_shadow = EXCLUDED.is_shadow`
 
 	stmt, err := st.Prepare(dml, addrs[0])
 	if err != nil {

@@ -255,7 +255,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigUpdateConfigType(c *tc.C) {
 		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Act: Set a device and address then set again with a
+	// Act: set a device and address then set again with a
 	// different address config type.
 	netConfig := []network.NetInterface{{
 		Name:            devName,
@@ -287,10 +287,10 @@ func (s *linkLayerSuite) TestSetMachineNetConfigUpdateConfigType(c *tc.C) {
 	checkScalarResult(c, db, "SELECT config_type_id FROM ip_address", "4")
 }
 
-func (s *linkLayerSuite) TestSetMachineNetConfigUpdateProviderAddressUnchanged(c *tc.C) {
+func (s *linkLayerSuite) TestSetMachineNetConfigUpdateProviderAddressMovesDevices(c *tc.C) {
 	db := s.DB()
 
-	// Arrange
+	// Arrange: set a device with an address, then give it a provider origin.
 	nodeUUID := "net-node-uuid"
 	devName := "eth0"
 	subnetUUID := "subnet-uuid"
@@ -304,25 +304,25 @@ func (s *linkLayerSuite) TestSetMachineNetConfigUpdateProviderAddressUnchanged(c
 		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Act: Set a device and address, give it a provider origin,
-	// then attempt to update the address with a different config type.
-	netConfig := []network.NetInterface{{
-		Name:            devName,
-		Type:            corenetwork.EthernetDevice,
-		VirtualPortType: corenetwork.NonVirtualPort,
-		IsAutoStart:     true,
-		IsEnabled:       true,
-		Addrs: []network.NetAddr{{
-			InterfaceName: devName,
-			AddressValue:  "192.168.0.50/24",
-			AddressType:   corenetwork.IPv4Address,
-			ConfigType:    corenetwork.ConfigDHCP,
-			Origin:        corenetwork.OriginMachine,
-			Scope:         corenetwork.ScopeCloudLocal,
-		}},
-		DNSSearchDomains: []string{"search.maas.net"},
-		DNSAddresses:     []string{"8.8.8.8"},
-	}}
+	netConfig := []network.NetInterface{
+		{
+			Name:            devName,
+			Type:            corenetwork.EthernetDevice,
+			VirtualPortType: corenetwork.NonVirtualPort,
+			IsAutoStart:     true,
+			IsEnabled:       true,
+			Addrs: []network.NetAddr{{
+				InterfaceName: devName,
+				AddressValue:  "192.168.0.50/24",
+				AddressType:   corenetwork.IPv4Address,
+				ConfigType:    corenetwork.ConfigDHCP,
+				Origin:        corenetwork.OriginMachine,
+				Scope:         corenetwork.ScopeCloudLocal,
+			}},
+			DNSSearchDomains: []string{"search.maas.net"},
+			DNSAddresses:     []string{"8.8.8.8"},
+		},
+	}
 
 	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
 	c.Assert(err, tc.ErrorIsNil)
@@ -330,13 +330,51 @@ func (s *linkLayerSuite) TestSetMachineNetConfigUpdateProviderAddressUnchanged(c
 	_, err = db.ExecContext(ctx, "UPDATE ip_address SET origin_id = 1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	netConfig[0].Addrs[0].ConfigType = corenetwork.ConfigStatic
+	// Act: set the config again, but now with a
+	// bridge that the address has moved to.
+	brName := "br-eth0"
+
+	netConfig = []network.NetInterface{
+		{
+			Name:            brName,
+			Type:            corenetwork.BridgeDevice,
+			VirtualPortType: corenetwork.NonVirtualPort,
+			IsAutoStart:     true,
+			IsEnabled:       true,
+			Addrs: []network.NetAddr{{
+				InterfaceName: brName,
+				AddressValue:  "192.168.0.50/24",
+				AddressType:   corenetwork.IPv4Address,
+				ConfigType:    corenetwork.ConfigDHCP,
+				Origin:        corenetwork.OriginMachine,
+				Scope:         corenetwork.ScopeCloudLocal,
+			}},
+			DNSSearchDomains: []string{"search.maas.net"},
+			DNSAddresses:     []string{"8.8.8.8"},
+		},
+		{
+			Name:             devName,
+			Type:             corenetwork.EthernetDevice,
+			VirtualPortType:  corenetwork.NonVirtualPort,
+			IsAutoStart:      true,
+			IsEnabled:        true,
+			DNSSearchDomains: []string{"search.maas.net"},
+			DNSAddresses:     []string{"8.8.8.8"},
+		},
+	}
+
 	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
 
-	// Assert: address with provider origin is unchanged.
+	// Assert: the address should be against the new bridge device.
 	c.Assert(err, tc.ErrorIsNil)
 
-	checkScalarResult(c, db, "SELECT config_type_id FROM ip_address", "1")
+	q := `
+SELECT d.name
+FROM   link_layer_device d
+       JOIN ip_address a ON d.uuid = a.device_uuid
+WHERE  a.address_value = '192.168.0.50/24'`
+
+	checkScalarResult(c, db, q, brName)
 }
 
 func (s *linkLayerSuite) TestSetMachineNetConfigLinkedSubnetWithDifferentCIDRNotUpdated(c *tc.C) {
@@ -356,7 +394,7 @@ func (s *linkLayerSuite) TestSetMachineNetConfigLinkedSubnetWithDifferentCIDRNot
 		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Act: Set a device and address, change its linked subnet's CIDR,
+	// Act: set a device and address, change its linked subnet's CIDR,
 	// then attempt to update the address.
 	netConfig := []network.NetInterface{{
 		Name:            devName,
