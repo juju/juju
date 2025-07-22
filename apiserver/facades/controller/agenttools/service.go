@@ -7,8 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
+
+// MachineService provides access to an environ for finding agent binaries.
+type MachineService interface {
+	// GetBootstrapEnviron returns the bootstrap environ.
+	GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error)
+}
 
 // ModelConfigService provides access to the model configuration.
 type ModelConfigService interface {

@@ -50,11 +50,6 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		return result, errors.Capture(err)
 	}
 
-	env, err := environs.GetEnviron(ctx, api.configGetter, environs.NoopCredentialInvalidator(), environs.New)
-	if err != nil {
-		return result, errors.Errorf("retrieving environ: %w", err)
-	}
-
 	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return result, errors.Errorf("getting all space infos: %w", err)
@@ -67,7 +62,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 			continue
 		}
 		machineName := coremachine.Name(tag.Id())
-		result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, env, allSpaces)
+		result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, allSpaces)
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -77,7 +72,6 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 func (api *ProvisionerAPI) getProvisioningInfo(
 	ctx context.Context,
 	machineName coremachine.Name,
-	env environs.Environ,
 	allSpaces network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
 	// Cache information about the model for the duration of this facade call
@@ -106,7 +100,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	}
 
 	var result params.ProvisioningInfo
-	if result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, env, spaceBindings, modelConfig, modelInfo); err != nil {
+	if result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, spaceBindings, modelConfig, modelInfo); err != nil {
 		return nil, errors.Capture(err)
 	}
 
@@ -126,7 +120,6 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	ctx context.Context,
 	machineName coremachine.Name,
 	unitNames []coreunit.Name,
-	env environs.Environ,
 	endpointBindings map[string]string,
 	modelConfig *config.Config,
 	modelInfo model.ModelInfo,
@@ -185,7 +178,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
 	}
 
-	if result.ImageMetadata, err = api.availableImageMetadata(ctx, machineName, modelInfo, env, modelConfig.ImageStream()); err != nil {
+	if result.ImageMetadata, err = api.availableImageMetadata(ctx, machineName, modelInfo, modelConfig.ImageStream()); err != nil {
 		return result, errors.Errorf("cannot get available image metadata: %w", err)
 	}
 
@@ -537,7 +530,6 @@ func (api *ProvisionerAPI) availableImageMetadata(
 	ctx context.Context,
 	machineName coremachine.Name,
 	modelInfo model.ModelInfo,
-	env environs.Environ,
 	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
 	imageConstraint, err := api.constructImageConstraint(ctx, machineName, modelInfo, imageStream)
@@ -545,7 +537,7 @@ func (api *ProvisionerAPI) availableImageMetadata(
 		return nil, errors.Errorf("could not construct image constraint: %w", err)
 	}
 
-	data, err := api.findImageMetadata(ctx, imageConstraint, env, imageStream)
+	data, err := api.findImageMetadata(ctx, imageConstraint, imageStream)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -608,7 +600,6 @@ func (api *ProvisionerAPI) constructImageConstraint(
 func (api *ProvisionerAPI) findImageMetadata(
 	ctx context.Context,
 	imageConstraint *imagemetadata.ImageConstraint,
-	env environs.Environ,
 	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
 	// Look for image metadata in the service (cached or custom metadata).
@@ -628,7 +619,7 @@ func (api *ProvisionerAPI) findImageMetadata(
 	// Currently, an image metadata worker picks up this metadata periodically (daily),
 	// and stores it. So potentially, this data could be different
 	// to what is cached.
-	dsMetadata, err := api.imageMetadataFromDataSources(ctx, env, imageConstraint, imageStream)
+	dsMetadata, err := api.imageMetadataFromDataSources(ctx, imageConstraint, imageStream)
 	if err != nil {
 		if !errors.Is(err, jujuerrors.NotFound) {
 			return nil, errors.Capture(err)
@@ -680,10 +671,13 @@ func (api *ProvisionerAPI) imageMetadataFromService(ctx context.Context, constra
 // imageMetadataFromDataSources finds image metadata that match specified criteria in existing data sources.
 func (api *ProvisionerAPI) imageMetadataFromDataSources(
 	ctx context.Context,
-	env environs.Environ,
 	constraint *imagemetadata.ImageConstraint,
 	defaultImageStream string,
 ) ([]params.CloudImageMetadata, error) {
+	env, err := api.machineService.GetBootstrapEnviron(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	sources, err := environs.ImageMetadataSources(env, fetcher)
 	if err != nil {
