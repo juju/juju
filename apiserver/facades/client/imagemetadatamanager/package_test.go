@@ -7,10 +7,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/environs/simplestreams"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -44,39 +41,7 @@ func (s *baseImageMetadataSuite) setupAPI(c *tc.C) *gomock.Controller {
 		s.metadataService,
 		s.modelConfigService,
 		s.modelInfoService,
-		func() (environs.Environ, error) {
-			return &mockEnviron{}, nil
-		},
 	)
 
 	return ctrl
-}
-
-// mockEnviron is an environment without networking support.
-type mockEnviron struct {
-	environs.Environ
-}
-
-func (e mockEnviron) Config() *config.Config {
-	cfg, err := config.New(config.NoDefaults, mockConfig())
-	if err != nil {
-		panic("invalid configuration for testing")
-	}
-	return cfg
-}
-
-// Region is specified in the HasRegion interface.
-func (e mockEnviron) Region() (simplestreams.CloudSpec, error) {
-	return simplestreams.CloudSpec{
-		Region:   "dummy_region",
-		Endpoint: "https://anywhere",
-	}, nil
-}
-
-// mockConfig returns a configuration for the usage of the
-// mock provider below.
-func mockConfig() coretesting.Attrs {
-	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type": "mock",
-	})
 }
