@@ -176,18 +176,6 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (constraints
 	return validator, nil
 }
 
-// GetBootstrapEnviron returns the bootstrap environ.
-func (s *ProviderService) GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	provider, err := s.providerGetter(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return provider, nil
-}
-
 // GetInstanceTypesFetcher returns the instance types fetcher.
 func (s *ProviderService) GetInstanceTypesFetcher(ctx context.Context) (environs.InstanceTypesFetcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

@@ -238,7 +238,6 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *tc.C) {
 	factory := NewModelDomainServices(
 		"model",
 		s.dbGetter,
-		s.controllerObjectStoreGetter,
 		s.modelObjectStoreGetter,
 		s.modelStorageRegistryGetter,
 		s.publicKeyImporter,
@@ -329,7 +328,6 @@ func noopModelDomainServices(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
-	objectstore.ModelObjectStoreGetter,
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,

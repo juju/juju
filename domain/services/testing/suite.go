@@ -298,9 +298,6 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
 				return objectStore, nil
 			}),
-			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
-				return objectStore, nil
-			}),
 			modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
 				return storageRegistry, nil
 			}),

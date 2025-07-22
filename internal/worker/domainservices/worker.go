@@ -227,9 +227,6 @@ func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID c
 		ModelDomainServices: s.newModelDomainServices(
 			modelUUID, s.dbGetter,
 			s.providerFactory,
-			controllerObjectStoreGetter{
-				objectStoreGetter: s.objectStoreGetter,
-			},
 			modelObjectStoreGetter{
 				modelUUID:         modelUUID,
 				objectStoreGetter: s.objectStoreGetter,
