@@ -84,6 +84,84 @@ func (c *MockStateCheckMachineIsDeadCall) DoAndReturn(f func(context.Context, ma
 	return c
 }
 
+// GetFilesystem mocks base method.
+func (m *MockState) GetFilesystem(ctx context.Context, filesystemID string) (storageprovisioning.Filesystem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystem", ctx, filesystemID)
+	ret0, _ := ret[0].(storageprovisioning.Filesystem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystem indicates an expected call of GetFilesystem.
+func (mr *MockStateMockRecorder) GetFilesystem(ctx, filesystemID any) *MockStateGetFilesystemCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystem", reflect.TypeOf((*MockState)(nil).GetFilesystem), ctx, filesystemID)
+	return &MockStateGetFilesystemCall{Call: call}
+}
+
+// MockStateGetFilesystemCall wrap *gomock.Call
+type MockStateGetFilesystemCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetFilesystemCall) Return(arg0 storageprovisioning.Filesystem, arg1 error) *MockStateGetFilesystemCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetFilesystemCall) Do(f func(context.Context, string) (storageprovisioning.Filesystem, error)) *MockStateGetFilesystemCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetFilesystemCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.Filesystem, error)) *MockStateGetFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetFilesystemAttachment mocks base method.
+func (m *MockState) GetFilesystemAttachment(ctx context.Context, netNodeUUID network.NetNodeUUID, filesystemID string) (storageprovisioning.FilesystemAttachment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemAttachment", ctx, netNodeUUID, filesystemID)
+	ret0, _ := ret[0].(storageprovisioning.FilesystemAttachment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemAttachment indicates an expected call of GetFilesystemAttachment.
+func (mr *MockStateMockRecorder) GetFilesystemAttachment(ctx, netNodeUUID, filesystemID any) *MockStateGetFilesystemAttachmentCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemAttachment", reflect.TypeOf((*MockState)(nil).GetFilesystemAttachment), ctx, netNodeUUID, filesystemID)
+	return &MockStateGetFilesystemAttachmentCall{Call: call}
+}
+
+// MockStateGetFilesystemAttachmentCall wrap *gomock.Call
+type MockStateGetFilesystemAttachmentCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetFilesystemAttachmentCall) Return(arg0 storageprovisioning.FilesystemAttachment, arg1 error) *MockStateGetFilesystemAttachmentCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetFilesystemAttachmentCall) Do(f func(context.Context, network.NetNodeUUID, string) (storageprovisioning.FilesystemAttachment, error)) *MockStateGetFilesystemAttachmentCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetFilesystemAttachmentCall) DoAndReturn(f func(context.Context, network.NetNodeUUID, string) (storageprovisioning.FilesystemAttachment, error)) *MockStateGetFilesystemAttachmentCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemAttachmentIDs mocks base method.
 func (m *MockState) GetFilesystemAttachmentIDs(ctx context.Context, uuids []string) (map[string]storageprovisioning.FilesystemAttachmentID, error) {
 	m.ctrl.T.Helper()
