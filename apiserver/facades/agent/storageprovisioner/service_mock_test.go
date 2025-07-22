@@ -365,6 +365,84 @@ func (m *MockStorageProvisioningService) EXPECT() *MockStorageProvisioningServic
 	return m.recorder
 }
 
+// GetFilesystem mocks base method.
+func (m *MockStorageProvisioningService) GetFilesystem(arg0 context.Context, arg1 string) (storageprovisioning.Filesystem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystem", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.Filesystem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystem indicates an expected call of GetFilesystem.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetFilesystem(arg0, arg1 any) *MockStorageProvisioningServiceGetFilesystemCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystem", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetFilesystem), arg0, arg1)
+	return &MockStorageProvisioningServiceGetFilesystemCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetFilesystemCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetFilesystemCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetFilesystemCall) Return(arg0 storageprovisioning.Filesystem, arg1 error) *MockStorageProvisioningServiceGetFilesystemCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetFilesystemCall) Do(f func(context.Context, string) (storageprovisioning.Filesystem, error)) *MockStorageProvisioningServiceGetFilesystemCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetFilesystemCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.Filesystem, error)) *MockStorageProvisioningServiceGetFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetFilesystemAttachment mocks base method.
+func (m *MockStorageProvisioningService) GetFilesystemAttachment(arg0 context.Context, arg1 machine.UUID, arg2 string) (storageprovisioning.FilesystemAttachment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemAttachment", arg0, arg1, arg2)
+	ret0, _ := ret[0].(storageprovisioning.FilesystemAttachment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemAttachment indicates an expected call of GetFilesystemAttachment.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetFilesystemAttachment(arg0, arg1, arg2 any) *MockStorageProvisioningServiceGetFilesystemAttachmentCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemAttachment", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetFilesystemAttachment), arg0, arg1, arg2)
+	return &MockStorageProvisioningServiceGetFilesystemAttachmentCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetFilesystemAttachmentCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetFilesystemAttachmentCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentCall) Return(arg0 storageprovisioning.FilesystemAttachment, arg1 error) *MockStorageProvisioningServiceGetFilesystemAttachmentCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentCall) Do(f func(context.Context, machine.UUID, string) (storageprovisioning.FilesystemAttachment, error)) *MockStorageProvisioningServiceGetFilesystemAttachmentCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentCall) DoAndReturn(f func(context.Context, machine.UUID, string) (storageprovisioning.FilesystemAttachment, error)) *MockStorageProvisioningServiceGetFilesystemAttachmentCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemAttachmentIDs mocks base method.
 func (m *MockStorageProvisioningService) GetFilesystemAttachmentIDs(arg0 context.Context, arg1 []string) (map[string]storageprovisioning.FilesystemAttachmentID, error) {
 	m.ctrl.T.Helper()
