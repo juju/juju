@@ -97,7 +97,7 @@ func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (semversio
 
 // Base implementation of envVersionUpdater
 func envVersionUpdate(env *state.Model, ver semversion.Number) error {
-	return env.UpdateLatestToolsVersion(ver.String())
+	return nil
 }
 
 func (api *AgentToolsAPI) updateToolsAvailability(ctx context.Context) error {

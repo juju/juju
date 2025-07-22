@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/semversion"
 	internalpassword "github.com/juju/juju/internal/password"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -431,20 +430,6 @@ func (m *Model) localID(id string) string {
 		return id
 	}
 	return localID
-}
-
-// UpdateLatestToolsVersion looks up for the latest available version of
-// juju tools and updates modelDoc with it.
-func (m *Model) UpdateLatestToolsVersion(v string) error {
-	return nil
-}
-
-// LatestToolsVersion returns the newest version found in the last
-// check in the streams.
-// Bear in mind that the check was performed filtering only
-// new patches for the current major.minor. (major.minor.patch)
-func (m *Model) LatestToolsVersion() semversion.Number {
-	return semversion.Zero
 }
 
 // globalKey returns the global database key for the model.

@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"io"
 	"os"
 
 	"github.com/juju/clock"
@@ -26,34 +25,7 @@ import (
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charmhub"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
-	"github.com/juju/juju/state/binarystorage"
 )
-
-// SystemState is the interface that is used to get the legacy state (mongo).
-//
-// Note: It is expected over time for each one of these methods to be replaced
-// with a domain service.
-//
-// Deprecated: Use domain services when available.
-type SystemState interface {
-	// ToolsStorage returns a new binarystorage.StorageCloser that stores tools
-	// metadata in the "juju" database "toolsmetadata" collection.
-	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-}
-
-// BinaryAgentStorageService is the interface that is used to get the storage
-// for the agent binary.
-type BinaryAgentStorageService interface {
-	AgentBinaryStorage(objectstore.ObjectStore) (BinaryAgentStorage, error)
-}
-
-// BinaryAgentStorage is the interface that is used to store the agent binary.
-type BinaryAgentStorage interface {
-	// Add adds the agent binary to the storage.
-	Add(context.Context, io.Reader, binarystorage.Metadata) error
-	// Close closes the storage.
-	Close() error
-}
 
 // ServiceManager provides the API to manipulate services.
 type ServiceManager interface {
@@ -68,7 +40,6 @@ type ServiceManagerGetterFunc func(context.Context) (ServiceManager, error)
 type AgentBinaryBootstrapFunc func(
 	context.Context,
 	string,
-	BinaryAgentStorageService,
 	AgentBinaryStore,
 	objectstore.ObjectStore,
 	logger.Logger,
@@ -77,7 +48,6 @@ type AgentBinaryBootstrapFunc func(
 // ControllerCharmDeployerConfig holds the configuration for the
 // ControllerCharmDeployer.
 type ControllerCharmDeployerConfig struct {
-	StateBackend                SystemState
 	AgentPasswordService        AgentPasswordService
 	ApplicationService          ApplicationService
 	Model                       coremodel.Model
@@ -112,7 +82,7 @@ func IAASControllerUnitPassword(context.Context) (string, error) {
 
 // CAASAgentBinaryUploader is the function that is used to populate the tools
 // for CAAS.
-func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
+func CAASAgentBinaryUploader(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 	// CAAS doesn't need to populate the tools.
 	return func() {}, nil
 }
@@ -122,18 +92,11 @@ func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService,
 func IAASAgentBinaryUploader(
 	ctx context.Context,
 	dataDir string,
-	storageService BinaryAgentStorageService,
 	agentBinaryStore AgentBinaryStore,
 	objectStore objectstore.ObjectStore,
 	logger logger.Logger,
 ) (func(), error) {
-	storage, err := storageService.AgentBinaryStorage(objectStore)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer storage.Close()
-
-	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, agentBinaryStore, logger)
+	return bootstrap.PopulateAgentBinary(ctx, dataDir, agentBinaryStore, logger)
 }
 
 // CAASControllerCharmUploader is the function that is used to upload the

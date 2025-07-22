@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -75,9 +74,6 @@ type WorkerConfig struct {
 	ServiceManagerGetter       ServiceManagerGetterFunc
 	Logger                     logger.Logger
 	Clock                      clock.Clock
-
-	// Deprecated: This is only here, until we can remove the state layer.
-	SystemState SystemState
 }
 
 // Validate ensures that the config values are valid.
@@ -153,9 +149,6 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
-	}
-	if c.SystemState == nil {
-		return errors.NotValidf("nil SystemState")
 	}
 	if c.BootstrapAddressFinder == nil {
 		return errors.NotValidf("nil BootstrapAddressFinder")
@@ -500,11 +493,9 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 	// Agent binary seeder will populate the tools for the agent.
 	// TODO (tlm) agentStore is a temprorary hook back into Mongo that will be
 	// removed soon.
-	agentStorage := agentStorageShim{State: w.cfg.SystemState}
 	cleanup, err := w.cfg.AgentBinaryUploader(
 		ctx,
 		dataDir,
-		agentStorage,
 		w.cfg.ControllerAgentBinaryStore,
 		objectStore,
 		w.cfg.Logger.Child("agentbinary"),
@@ -537,7 +528,6 @@ func (w *bootstrapWorker) seedControllerCharm(
 
 	// Controller charm seeder will populate the charm for the controller.
 	deployer, err := w.cfg.ControllerCharmDeployer(ctx, ControllerCharmDeployerConfig{
-		StateBackend:                w.cfg.SystemState,
 		AgentPasswordService:        w.cfg.AgentPasswordService,
 		ApplicationService:          w.cfg.ApplicationService,
 		Model:                       w.cfg.ControllerModel,
@@ -599,15 +589,4 @@ func initialStoragePools(registry storage.ProviderRegistry, poolParams map[strin
 		result = append(result, pool)
 	}
 	return result, nil
-}
-
-type agentStorageShim struct {
-	State SystemState
-}
-
-// AgentBinaryStorage returns the interface for the BinaryAgentStorage.
-// This is currently a shim wrapper around the tools storage. That will be
-// renamed once we re-implement the tools storage in dqlite.
-func (s agentStorageShim) AgentBinaryStorage(objectStore objectstore.ObjectStore) (BinaryAgentStorage, error) {
-	return s.State.ToolsStorage(objectStore)
 }

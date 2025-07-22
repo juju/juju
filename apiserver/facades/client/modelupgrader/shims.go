@@ -5,9 +5,7 @@ package modelupgrader
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
-	"github.com/juju/replicaset/v3"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/state"
@@ -73,7 +71,6 @@ func (s statePoolShim) MongoVersion() (string, error) {
 
 type stateShim struct {
 	*state.PooledState
-	mgosession *mgo.Session
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -90,11 +87,4 @@ func (s stateShim) AllModelUUIDs() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	return allModelUUIDs, nil
-}
-
-func (s stateShim) MongoCurrentStatus() (*replicaset.Status, error) {
-	if s.mgosession == nil {
-		s.mgosession = s.PooledState.MongoSession()
-	}
-	return replicaset.CurrentStatus(s.mgosession)
 }

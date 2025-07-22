@@ -43,7 +43,6 @@ type mockState struct {
 
 	environs.EnvironConfigGetter
 	common.APIHostPortsForAgentsGetter
-	common.ToolsStorageGetter
 
 	controllerUUID  string
 	cloudUsers      map[string]permission.Access

@@ -113,7 +113,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		StorageRegistryName: "storage-registry",
 		Logger:              s.logger,
 		Clock:               clock.WallClock,
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
+		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
 		ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
