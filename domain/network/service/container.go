@@ -149,6 +149,7 @@ func (s *Service) spacesAndDevicesForMachine(
 		return "", nil, nil, errors.Errorf("retrieving NICs for machine %q: %w", hostUUID, err)
 	}
 
+	s.logger.Debugf(ctx, "devices by space for machine %q: %#v", guestUUID, nics)
 	return nodeUUID, spaceUUIDs, nics, nil
 }
 
