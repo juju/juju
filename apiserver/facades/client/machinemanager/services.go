@@ -97,9 +97,6 @@ type MachineService interface {
 	// AllMachineNames returns the names of all machines in the model.
 	AllMachineNames(context.Context) ([]coremachine.Name, error)
 
-	// GetBootstrapEnviron returns the bootstrap environ.
-	GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error)
-
 	// GetInstanceTypesFetcher returns the instance types fetcher.
 	GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error)
 

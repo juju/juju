@@ -4,34 +4,10 @@
 package machinemanager
 
 import (
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 )
-
-type Backend interface {
-	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-}
-
-type ControllerBackend interface {
-	ControllerTag() names.ControllerTag
-}
-
-type Pool interface {
-	SystemState() (ControllerBackend, error)
-}
-
-type poolShim struct {
-	pool *state.StatePool
-}
-
-func (p *poolShim) SystemState() (ControllerBackend, error) {
-	return p.pool.SystemState()
-}
 
 type StorageInterface interface {
 	storagecommon.StorageAccess

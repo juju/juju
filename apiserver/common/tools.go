@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/binarystorage"
 )
 
 // ModelAgentService provides access to the Juju agent version for the model.
@@ -62,37 +62,28 @@ type ToolsURLGetter interface {
 	ToolsURLs(context.Context, semversion.Binary) ([]string, error)
 }
 
-// ToolsStorageGetter is an interface providing the ToolsStorage method.
-type ToolsStorageGetter interface {
-	// ToolsStorage returns a binarystorage.StorageCloser.
-	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-}
-
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
-	modelAgentService  ModelAgentService
-	toolsStorageGetter ToolsStorageGetter
-	toolsFinder        ToolsFinder
-	urlGetter          ToolsURLGetter
-	getCanRead         GetAuthFunc
+	modelAgentService ModelAgentService
+	toolsFinder       ToolsFinder
+	urlGetter         ToolsURLGetter
+	getCanRead        GetAuthFunc
 }
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
 func NewToolsGetter(
 	modelAgentService ModelAgentService,
-	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	toolsFinder ToolsFinder,
 	getCanRead GetAuthFunc,
 ) *ToolsGetter {
 	return &ToolsGetter{
-		modelAgentService:  modelAgentService,
-		toolsStorageGetter: toolsStorageGetter,
-		urlGetter:          urlGetter,
-		toolsFinder:        toolsFinder,
-		getCanRead:         getCanRead,
+		modelAgentService: modelAgentService,
+		urlGetter:         urlGetter,
+		toolsFinder:       toolsFinder,
+		getCanRead:        getCanRead,
 	}
 }
 
@@ -217,9 +208,7 @@ type ToolsFinder interface {
 }
 
 type toolsFinder struct {
-	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
-	store              objectstore.ObjectStore
 	agentBinaryService AgentBinaryService
 }
 
@@ -229,20 +218,24 @@ type AgentBinaryService interface {
 	// GetEnvironAgentBinariesFinder returns the function to find agent binaries.
 	// This is used to find the agent binaries.
 	GetEnvironAgentBinariesFinder() agentbinaryservice.EnvironAgentBinariesFinderFunc
+
+	// ListAgentBinaries lists all agent binaries in the controller and model stores.
+	// It merges the two lists of agent binaries, with the model agent binaries
+	// taking precedence over the controller agent binaries.
+	// It returns a slice of agent binary metadata. The order of the metadata is not guaranteed.
+	// An empty slice is returned if no agent binaries are found.
+	ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error)
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
 func NewToolsFinder(
-	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	store objectstore.ObjectStore,
 	agentBinaryService AgentBinaryService,
 ) *toolsFinder {
 	return &toolsFinder{
-		toolsStorageGetter: toolsStorageGetter,
 		urlGetter:          urlGetter,
-		store:              store,
 		agentBinaryService: agentBinaryService,
 	}
 }
@@ -280,7 +273,7 @@ func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (co
 func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsParams) (result coretools.List, _ error) {
 	exactMatch := args.Number != semversion.Zero && args.OSType != "" && args.Arch != ""
 
-	storageList, err := f.matchingStorageAgent(args)
+	storageList, err := f.matchingStorageAgent(ctx, args)
 	if err != nil && err != coretools.ErrNoMatches {
 		return nil, err
 	}
@@ -325,28 +318,27 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 
 // matchingStorageAgent returns a coretools.List, with an entry for each
 // metadata entry in the agent storage that matches the given parameters.
-func (f *toolsFinder) matchingStorageAgent(args FindAgentsParams) (coretools.List, error) {
-	storage, err := f.toolsStorageGetter.ToolsStorage(f.store)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = storage.Close() }()
-
-	allMetadata, err := storage.AllMetadata()
+func (f *toolsFinder) matchingStorageAgent(ctx context.Context, args FindAgentsParams) (coretools.List, error) {
+	allMetadata, err := f.agentBinaryService.ListAgentBinaries(ctx)
 	if err != nil {
 		return nil, err
 	}
 	list := make(coretools.List, len(allMetadata))
 	for i, m := range allMetadata {
-		vers, err := semversion.ParseBinary(m.Version)
+		ver, err := semversion.Parse(m.Version)
 		if err != nil {
 			return nil, errors.Errorf(
 				"unexpected bad version %q of agent binary in storage: %w",
 				m.Version, err,
 			)
 		}
+		binVer := semversion.Binary{
+			Number:  ver,
+			Arch:    m.Arch,
+			Release: "ubuntu",
+		}
 		list[i] = &coretools.Tools{
-			Version: vers,
+			Version: binVer,
 			Size:    m.Size,
 			SHA256:  m.SHA256,
 		}

@@ -38,8 +38,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	st := ctx.State()
 	domainServices := ctx.DomainServices()
 
-	pool := &poolShim{ctx.StatePool()}
-
 	logger := ctx.Logger().Child("machinemanager")
 
 	modelType, err := ctx.DomainServices().ModelInfo().GetModelType(stdCtx)
@@ -72,11 +70,10 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	}
 
 	return NewMachineManagerAPI(
+		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
-		st,
 		ctx.ControllerObjectStore(),
 		storageAccess,
-		pool,
 		ModelAuthorizer{
 			ModelTag:   names.NewModelTag(ctx.ModelUUID().String()),
 			Authorizer: ctx.Auth(),

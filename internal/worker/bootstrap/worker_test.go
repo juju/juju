@@ -126,7 +126,7 @@ func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 		internalStates: s.states,
 		cfg: WorkerConfig{
 			ObjectStoreGetter: s.objectStoreGetter,
-			AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
+			AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 				called = true
 				return func() {}, nil
 			},
@@ -197,10 +197,8 @@ func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	w := &bootstrapWorker{
 		internalStates: s.states,
-		cfg: WorkerConfig{
-			SystemState: s.state,
-		},
-		logger: s.logger,
+		cfg:            WorkerConfig{},
+		logger:         s.logger,
 	}
 
 	apiHostPorts := []network.SpaceHostPorts{
@@ -214,10 +212,8 @@ func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	w := &bootstrapWorker{
 		internalStates: s.states,
-		cfg: WorkerConfig{
-			SystemState: s.state,
-		},
-		logger: s.logger,
+		cfg:            WorkerConfig{},
+		logger:         s.logger,
 	}
 
 	apiHostPorts := []network.SpaceHostPorts{
@@ -250,10 +246,8 @@ func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	w := &bootstrapWorker{
 		internalStates: s.states,
-		cfg: WorkerConfig{
-			SystemState: s.state,
-		},
-		logger: s.logger,
+		cfg:            WorkerConfig{},
+		logger:         s.logger,
 	}
 
 	spaceHostPorts := []network.SpaceHostPort{
@@ -320,7 +314,6 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 			ObjectStoreGetter: s.objectStoreGetter,
 			ProviderRegistry:  provider.CommonStorageProviders(),
 			StorageService:    s.storageService,
-			SystemState:       s.state,
 			Logger:            s.logger,
 		},
 	}
@@ -349,7 +342,6 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		BootstrapUnlocker:          s.bootstrapUnlocker,
 		CharmhubHTTPClient:         s.httpClient,
 		ControllerAgentBinaryStore: s.controllerAgentBinaryStore,
-		SystemState:                s.state,
 		UserService:                s.userService,
 		AgentPasswordService:       s.agentPasswordService,
 		ApplicationService:         s.applicationService,
@@ -368,7 +360,7 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
 		},
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
+		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
 		ControllerCharmDeployer: controllerCharmDeployerFunc,

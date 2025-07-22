@@ -74,10 +74,10 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 
 	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), domainServices.ControllerNode())
 	toolsFinder := common.NewToolsFinder(
-		st, urlGetter, ctx.ControllerObjectStore(),
+		urlGetter, ctx.ControllerObjectStore(),
 		domainServices.AgentBinary(),
 	)
-	toolsGetter := common.NewToolsGetter(domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
+	toolsGetter := common.NewToolsGetter(domainServices.Agent(), urlGetter, toolsFinder, getCanReadWrite)
 
 	return NewUpgraderAPI(
 		toolsGetter,
