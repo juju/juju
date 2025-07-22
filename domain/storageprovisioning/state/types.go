@@ -160,3 +160,16 @@ func (l volumeLives) Iter(yield func(string, life.Life) bool) {
 		}
 	}
 }
+
+type filesystem struct {
+	FilesystemID string `db:"filesystem_id"`
+	VolumeID     string `db:"volume_id"`
+	Pool         string `db:"storage_pool"`
+	Size         uint64 `db:"size_mib"`
+}
+
+type filesystemAttachment struct {
+	FilesystemID string `db:"filesystem_id"`
+	MountPoint   string `db:"mount_point"`
+	ReadOnly     bool   `db:"read_only"`
+}
