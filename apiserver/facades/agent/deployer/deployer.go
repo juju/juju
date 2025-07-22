@@ -132,8 +132,7 @@ type DeployerAPI struct {
 	*common.APIAddresser
 	unitStatusSetter *common.UnitStatusSetter
 
-	canRead  func(tag names.Tag) bool
-	canWrite func(tag names.Tag) bool
+	getAuth common.GetAuthFunc
 
 	controllerConfigGetter ControllerConfigGetter
 	applicationService     ApplicationService
@@ -184,10 +183,6 @@ func NewDeployerAPI(
 	getCanWatch := func(context.Context) (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	auth, err := getAuthFunc(context.TODO())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	return &DeployerAPI{
 		PasswordChanger:        common.NewPasswordChanger(agentPasswordService, getAuthFunc),
@@ -197,8 +192,7 @@ func NewDeployerAPI(
 		applicationService:     applicationService,
 		removalService:         removalService,
 		leadershipRevoker:      leadershipRevoker,
-		canRead:                auth,
-		canWrite:               auth,
+		getAuth:                getAuthFunc,
 		store:                  store,
 		st:                     st,
 		authorizer:             authorizer,
@@ -289,13 +283,19 @@ func (d *DeployerAPI) Life(ctx context.Context, args params.Entities) (params.Li
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+	canRead, err := d.getAuth(ctx)
+	if err != nil {
+		return params.LifeResults{}, errors.Trace(err)
+	}
+
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if !d.canRead(tag) {
+
+		if !canRead(tag) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -323,6 +323,10 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+	canWrite, err := d.getAuth(ctx)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
@@ -330,7 +334,7 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if !d.canWrite(tag) {
+		if !canWrite(tag) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
