@@ -82,7 +82,6 @@ func (m *ModelOperatorSuite) TestProvisioningInfoImageRepoUnset(c *gc.C) {
 
 func (m *ModelOperatorSuite) TestProvisioningInfoImageRepoSet(c *gc.C) {
 	model, err := m.state.Model()
-
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelConfig, err := model.ModelConfig()

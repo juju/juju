@@ -399,7 +399,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		}
 	}
 
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerCfg, modelConfig, vers)
+	imagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, modelConfig, vers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -409,7 +409,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
 
-	imageInfo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, imagePath)
 	logger.Tracef("imageRepo %v", imageInfo)
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {

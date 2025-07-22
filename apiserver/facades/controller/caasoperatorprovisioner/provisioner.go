@@ -147,11 +147,11 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 	if err != nil {
 		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, modelConfig, vers)
+	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, modelConfig, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	imageInfo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, imagePath)
 	logger.Tracef("image info %v", imageInfo)
 
 	// PodSpec charms now use focal as the operator base until PodSpec is removed.
