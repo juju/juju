@@ -987,7 +987,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 				DownloadSize:       42,
 			},
 			Platform: platform,
-			StorageDirectives: []application.ApplicationStorageDirectiveArg{
+			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Name:         "data",
 					Count:        1,
@@ -1114,7 +1114,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 				DownloadSize:       42,
 			},
 			Platform: platform,
-			StorageDirectives: []application.ApplicationStorageDirectiveArg{
+			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Count:        3,
 					Name:         "data",
@@ -1243,7 +1243,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 				DownloadSize:       42,
 			},
 			Platform: platform,
-			StorageDirectives: []application.ApplicationStorageDirectiveArg{
+			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Count:        1,
 					Name:         "data",
@@ -1369,7 +1369,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 				DownloadSize:       42,
 			},
 			Platform: platform,
-			StorageDirectives: []application.ApplicationStorageDirectiveArg{
+			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Count:        2,
 					Name:         "data",
@@ -1499,7 +1499,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 				DownloadSize:       42,
 			},
 			Platform:          platform,
-			StorageDirectives: []application.ApplicationStorageDirectiveArg{},
+			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{},
 		},
 	}
 

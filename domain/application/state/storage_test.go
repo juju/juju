@@ -503,7 +503,7 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 		Name: "cache",
 		Type: "block",
 	}}
-	directives := []application.ApplicationStorageDirectiveArg{
+	directives := []application.CreateApplicationStorageDirectiveArg{
 		{
 			Name:         "database",
 			ProviderType: ptr("ebs"),
@@ -539,7 +539,7 @@ WHERE name=?`, "666").Scan(&charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	var (
 		foundCharmStorage []charm.Storage
-		foundAppStorage   []application.ApplicationStorageDirectiveArg
+		foundAppStorage   []application.CreateApplicationStorageDirectiveArg
 	)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -574,7 +574,7 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var (
-				stor         application.ApplicationStorageDirectiveArg
+				stor         application.CreateApplicationStorageDirectiveArg
 				providerType string
 			)
 			if err := rows.Scan(&stor.Name, &providerType, &stor.Size, &stor.Count); err != nil {
@@ -755,7 +755,7 @@ func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C)
 		CountMin: 1,
 		CountMax: 1,
 	}}
-	directives := []application.ApplicationStorageDirectiveArg{
+	directives := []application.CreateApplicationStorageDirectiveArg{
 		{
 			Name:         "database",
 			ProviderType: ptr("ebs"),
@@ -811,7 +811,7 @@ func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C)
 		{
 			AddUnitArg: application.AddUnitArg{
 				CreateUnitStorageArg: application.CreateUnitStorageArg{
-					StorageDirectives: []application.UnitStorageDirectiveArg(directives),
+					StorageDirectives: []application.CreateUnitStorageDirectiveArg(directives),
 					StorageInstances:  storageInstances,
 					StorageToAttach:   storageToAttach,
 				},

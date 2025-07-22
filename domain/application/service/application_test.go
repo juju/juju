@@ -1538,13 +1538,13 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 		CharmMetaStorage    map[string]internalcharm.Storage
 		Overrides           map[string]ApplicationStorageDirectiveOverride
 
-		Expected []application.ApplicationStorageDirectiveArg
+		Expected []application.CreateApplicationStorageDirectiveArg
 	}{
 		{
 			Name:             "no overrides, no charm meta storage, no default provisioners",
 			CharmMetaStorage: map[string]internalcharm.Storage{},
 			Overrides:        map[string]ApplicationStorageDirectiveOverride{},
-			Expected:         []application.ApplicationStorageDirectiveArg{},
+			Expected:         []application.CreateApplicationStorageDirectiveArg{},
 		},
 		{
 			// Check to see that the correct provisioner is chosen (filesystem)
@@ -1565,7 +1565,7 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				BlockdevicePoolUUID:    &fakeBlockdevicePoolUUID,
 			},
 
-			Expected: []application.ApplicationStorageDirectiveArg{
+			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Count:    2,
 					Name:     domainstorage.Name("foo"),
@@ -1593,7 +1593,7 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
 			},
 
-			Expected: []application.ApplicationStorageDirectiveArg{
+			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Count:        2,
 					Name:         domainstorage.Name("foo"),
@@ -1622,7 +1622,7 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
 			},
 
-			Expected: []application.ApplicationStorageDirectiveArg{
+			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Count:    2,
 					Name:     domainstorage.Name("foo"),
@@ -1649,7 +1649,7 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
 			},
 
-			Expected: []application.ApplicationStorageDirectiveArg{
+			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
 					Count:        2,
 					Name:         domainstorage.Name("foo"),

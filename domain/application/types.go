@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
@@ -51,7 +50,7 @@ type BaseAddApplicationArg struct {
 	PendingResources []resource.UUID
 	// StorageDirectives defines the list of storage directives to add to an
 	// application. The Name values must match the storage defined in the Charm.
-	StorageDirectives []ApplicationStorageDirectiveArg
+	StorageDirectives []CreateApplicationStorageDirectiveArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]ApplicationConfig
@@ -95,34 +94,6 @@ type AddApplicationResourceArg struct {
 	Revision *int
 	Origin   charmresource.Origin
 }
-
-// StorageDirectiveArg defines the arguments required to add a storage
-// directive to the model.
-type StorageDirectiveArg struct {
-	// Count represents the number of storage instances that should be made for
-	// this directive.
-	Count uint32
-
-	// Name relates to the charm storage name definition and must match up.
-	Name domainstorage.Name
-
-	// PoolUUID defines the storage pool uuid to use for the directive. This is
-	// an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.ProviderType] is set.
-	PoolUUID *domainstorage.StoragePoolUUID
-
-	// ProviderType defines the storage provider type to use for the directive.
-	// This is an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.PoolUUID] is set.
-	ProviderType *string
-
-	// Size defines the size of the storage directive in MiB.
-	Size uint64
-}
-
-// ApplicationStorageDirectiveArg defines an individual storage directive to be
-// associated with an application.
-type ApplicationStorageDirectiveArg = StorageDirectiveArg
 
 // CharmOrigin represents the origin of a charm.
 type CharmOrigin struct {
@@ -236,10 +207,6 @@ type AddIAASUnitArg struct {
 	Nonce    *string
 }
 
-// UnitStorageDirectiveArg describes the arguments required for making storage
-// directives on a unit.
-type UnitStorageDirectiveArg = StorageDirectiveArg
-
 // RegisterCAASUnitParams contains parameters for introducing
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitParams struct {
@@ -258,16 +225,11 @@ type RegisterCAASUnitArg struct {
 	OrderedScale bool
 	OrderedId    int
 
-	// CreateUnitStorageArg contains parameters for creating storage and also
+	// RegisterUnitStorageArg contains parameters for creating storage and also
 	// attaching existing storage to the unit. Described as well is the set of
 	// storage directives the unit should use if it is being created for the
 	// first time.
-	CreateUnitStorageArg
-
-	// TODO(storage) - this needs to be wired through to the register CAAS unit workflow.
-	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached
-	// by the infrastructure, used to map existing attachments.
-	ObservedAttachedVolumeIDs []string
+	RegisterUnitStorageArg
 }
 
 // UnitStatusArg contains parameters for updating a unit status in state.

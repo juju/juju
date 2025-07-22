@@ -1044,7 +1044,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	now := ptr(st.clock.Now())
 	addUnitArg := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
-			CreateUnitStorageArg: arg.CreateUnitStorageArg,
+			CreateUnitStorageArg: arg.RegisterUnitStorageArg.CreateUnitStorageArg,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,
@@ -1239,6 +1239,13 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
+	if err != nil {
+		return "", errors.Errorf(
+			"inserting storage ownership for unit %q: %w", unitName, err,
+		)
+	}
+
 	return unitUUID, nil
 }
 
@@ -1310,6 +1317,13 @@ func (st *State) insertIAASUnit(
 	if err != nil {
 		return "", nil, errors.Errorf(
 			"creating storage attachments for unit %q: %w", unitName, err,
+		)
+	}
+
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"inserting storage ownership for unit %q: %w", unitName, err,
 		)
 	}
 

@@ -47,7 +47,7 @@ func (st *State) insertApplicationStorageDirectives(
 	tx *sqlair.TX,
 	uuid coreapplication.ID,
 	charmUUID corecharm.ID,
-	directives []application.ApplicationStorageDirectiveArg,
+	directives []application.CreateApplicationStorageDirectiveArg,
 ) error {
 	if len(directives) == 0 {
 		return nil
@@ -124,7 +124,7 @@ func (st *State) insertUnitStorageAttachments(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageToAttach []domainstorage.StorageInstanceUUID,
 ) error {
-	storageAttachmentArgs, err := st.makeInsertUnitStorageAttachmentArgs(
+	storageAttachmentArgs, err := makeInsertUnitStorageAttachmentArgs(
 		ctx, unitUUID, storageToAttach,
 	)
 	if err != nil {
@@ -221,7 +221,7 @@ func (st *State) insertUnitStorageDirectives(
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
 	charmUUID corecharm.ID,
-	args []application.UnitStorageDirectiveArg,
+	args []application.CreateUnitStorageDirectiveArg,
 ) ([]unitStorageDirective, error) {
 	if len(args) == 0 {
 		return []unitStorageDirective{}, nil
@@ -301,7 +301,7 @@ func (st *State) insertUnitStorageInstances(
 	stDirectives []unitStorageDirective,
 	stArgs []application.CreateUnitStorageInstanceArg,
 ) error {
-	storageInstArgs, storageOwnerArgs, err := st.makeInsertUnitStorageInstanceArgs(
+	storageInstArgs, err := st.makeInsertUnitStorageInstanceArgs(
 		ctx, tx, stDirectives, stArgs)
 	if err != nil {
 		return errors.Errorf(
@@ -334,14 +334,6 @@ func (st *State) insertUnitStorageInstances(
 INSERT INTO storage_instance (*) VALUES ($insertStorageInstance.*)
 `,
 		insertStorageInstance{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	insertStorageOwnerStmt, err := st.Prepare(`
-INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
-`,
-		insertStorageUnitOwner{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -407,15 +399,6 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 		}
 	}
 
-	if len(storageOwnerArgs) != 0 {
-		err := tx.Query(ctx, insertStorageOwnerStmt, storageOwnerArgs).Run()
-		if err != nil {
-			return errors.Errorf(
-				"setting storage instance unit owner: %w", err,
-			)
-		}
-	}
-
 	if len(fsArgs) != 0 {
 		err := tx.Query(ctx, insertStorageFilesystemStmt, fsArgs).Run()
 		if err != nil {
@@ -474,6 +457,38 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 				err,
 			)
 		}
+	}
+
+	return nil
+}
+
+// insertUnitStorageOnwership is responsible setting unit ownership records for
+// the supplied storage instance uuids.
+func (st *State) insertUnitStorageOwnership(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	storageToOwn []domainstorage.StorageInstanceUUID,
+) error {
+	args := makeInsertUnitStorageOwnerArgs(ctx, unitUUID, storageToOwn)
+
+	insertStorageOwnerStmt, err := st.Prepare(`
+INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
+`,
+		insertStorageUnitOwner{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	err = tx.Query(ctx, insertStorageOwnerStmt, args).Run()
+	if err != nil {
+		return errors.Errorf(
+			"setting storage instance unit owner: %w", err,
+		)
 	}
 
 	return nil
@@ -662,22 +677,21 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 	tx *sqlair.TX,
 	directives []unitStorageDirective,
 	args []application.CreateUnitStorageInstanceArg,
-) ([]insertStorageInstance, []insertStorageUnitOwner, error) {
+) ([]insertStorageInstance, error) {
 
-	directiveMap := make(map[string]unitStorageDirective, len(directives))
+	directiveMap := make(map[domainstorage.Name]unitStorageDirective, len(directives))
 	for _, directive := range directives {
-		directiveMap[directive.Name] = directive
+		directiveMap[domainstorage.Name(directive.Name)] = directive
 	}
 
 	storageInstancesRval := make([]insertStorageInstance, 0, len(args))
-	storageOwnerRval := make([]insertStorageUnitOwner, 0, len(args))
 
 	for _, arg := range args {
 		directive := directiveMap[arg.Name]
 
 		id, err := sequencestate.NextValue(ctx, st, tx, storageNamespace)
 		if err != nil {
-			return nil, nil, errors.Errorf(
+			return nil, errors.Errorf(
 				"creating unique storage instance id: %w", err,
 			)
 		}
@@ -701,24 +715,19 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 			LifeID:          int(life.Alive),
 			RequestSizeMiB:  directive.Size,
 			StorageID:       storageID,
-			StorageName:     arg.Name,
+			StorageName:     arg.Name.String(),
 			StoragePoolUUID: storagePoolVal,
 			StorageType:     storageTypeVal,
 			UUID:            arg.UUID.String(),
 		})
-
-		storageOwnerRval = append(storageOwnerRval, insertStorageUnitOwner{
-			StorageInstanceUUID: arg.UUID.String(),
-			UnitUUID:            directive.UnitUUID.String(),
-		})
 	}
 
-	return storageInstancesRval, storageOwnerRval, nil
+	return storageInstancesRval, nil
 }
 
 // makeInsertUnitStorageAttachmentArgs is responsible for making the set of
 // storage instance attachment arguments that correspond to the storage uuids.
-func (st *State) makeInsertUnitStorageAttachmentArgs(
+func makeInsertUnitStorageAttachmentArgs(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	storageToAttach []domainstorage.StorageInstanceUUID,
@@ -733,6 +742,25 @@ func (st *State) makeInsertUnitStorageAttachmentArgs(
 	}
 
 	return rval, nil
+}
+
+// makeInsertUnitStorageOwnerArgs is responsible for making the set of
+// storage instance unit owner arguments that correspond to the unit and storage
+// instances supplied.
+func makeInsertUnitStorageOwnerArgs(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+	storageToOwn []domainstorage.StorageInstanceUUID,
+) []insertStorageUnitOwner {
+	rval := make([]insertStorageUnitOwner, 0, len(storageToOwn))
+	for _, instUUID := range storageToOwn {
+		rval = append(rval, insertStorageUnitOwner{
+			StorageInstanceUUID: instUUID.String(),
+			UnitUUID:            unitUUID.String(),
+		})
+	}
+
+	return rval
 }
 
 // makeInsertUnitVolumeArgs is responsible for making the insert args to
@@ -869,7 +897,7 @@ func (st *State) getApplicationStorageDirectiveAsArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.ID,
-) ([]application.ApplicationStorageDirectiveArg, error) {
+) ([]application.CreateApplicationStorageDirectiveArg, error) {
 	appUUIDInput := applicationID{ID: appUUID}
 
 	getStorageDirectivesStmt, err := st.Prepare(`
@@ -888,9 +916,9 @@ WHERE  application_uuid = $applicationID.uuid
 		return nil, errors.Capture(err)
 	}
 
-	rval := make([]application.ApplicationStorageDirectiveArg, 0, len(dbVals))
+	rval := make([]application.CreateApplicationStorageDirectiveArg, 0, len(dbVals))
 	for _, val := range dbVals {
-		arg := application.ApplicationStorageDirectiveArg{
+		arg := application.CreateApplicationStorageDirectiveArg{
 			Count: val.Count,
 			Name:  domainstorage.Name(val.StorageName),
 			Size:  val.SizeMiB,

@@ -8,12 +8,20 @@ import (
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 )
 
+// CreateApplicationStorageDirectiveArg defines an individual storage directive to be
+// associated with an application.
+type CreateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
+
+// CreateUnitStorageDirectiveArg describes the arguments required for making storage
+// directives on a unit.
+type CreateUnitStorageDirectiveArg = CreateStorageDirectiveArg
+
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
 // storage instance on behalf of a unit.
 type CreateUnitStorageInstanceArg struct {
 	// Name is the name of the storage and must correspond to the storage name
 	// defined in the charm the unit is running.
-	Name string
+	Name domainstorage.Name
 
 	// UUID is the unique identifier to associate with the storage instance.
 	UUID domainstorage.StorageInstanceUUID
@@ -35,7 +43,7 @@ type CreateUnitStorageInstanceArg struct {
 type CreateUnitStorageArg struct {
 	// StorageDirectives defines the storage directives that should be created
 	// for the unit.
-	StorageDirectives []UnitStorageDirectiveArg
+	StorageDirectives []CreateUnitStorageDirectiveArg
 
 	// StorageInstances defines the new storage instances that must be created
 	// for the unit.
@@ -46,6 +54,10 @@ type CreateUnitStorageArg struct {
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
 	StorageToAttach []domainstorage.StorageInstanceUUID
+
+	// StorageToOwn defines the storage instances that should be owned by the
+	// unit.
+	StorageToOwn []domainstorage.StorageInstanceUUID
 }
 
 // DefaultStorageProvisioners defines the set of default storage provisioners
@@ -76,4 +88,65 @@ type DefaultStorageProvisioners struct {
 	// value is set then [defaultStorageProvisioners.FilesystemPoolUUID] will
 	// not be set.
 	FilesystemProviderType *string
+}
+
+// RegisterUnitStorageArg represents the arguments required for registering a
+// unit's storage that has appeared in the model. This struct allows for
+// re-using previously created storage for the unit and also provisioning new
+// storage as needed.
+type RegisterUnitStorageArg struct {
+	CreateUnitStorageArg
+
+	// FilesystemProviderIDs defines the provider id value to set for each
+	// filesystem. This allows associating new filesystem that are being created
+	// with a unit with the information we already have from the provider.
+	FilesystemProviderIDs map[domainstorageprov.FilesystemUUID]string
+}
+
+// StorageDirective defines a storage directive that already exists for either
+// an application or unit.
+type StorageDirective struct {
+	// Count represents the number of storage instances that should be made for
+	// this directive.
+	Count uint32
+
+	// Name relates to the charm storage name definition and must match up.
+	Name domainstorage.Name
+
+	// PoolUUID defines the storage pool uuid to use for the directive. This is
+	// an optional value and if not set it is expected that
+	// [ApplicationStorageDirectiveArg.ProviderType] is set.
+	PoolUUID *domainstorage.StoragePoolUUID
+
+	// ProviderType defines the storage provider type to use for the directive.
+	// This is an optional value and if not set it is expected that
+	// [ApplicationStorageDirectiveArg.PoolUUID] is set.
+	ProviderType *string
+
+	// Size defines the size of the storage directive in MiB.
+	Size uint64
+}
+
+// CreateStorageDirectiveArg defines the arguments required to add a storage
+// directive to the model.
+type CreateStorageDirectiveArg struct {
+	// Count represents the number of storage instances that should be made for
+	// this directive.
+	Count uint32
+
+	// Name relates to the charm storage name definition and must match up.
+	Name domainstorage.Name
+
+	// PoolUUID defines the storage pool uuid to use for the directive. This is
+	// an optional value and if not set it is expected that
+	// [ApplicationStorageDirectiveArg.ProviderType] is set.
+	PoolUUID *domainstorage.StoragePoolUUID
+
+	// ProviderType defines the storage provider type to use for the directive.
+	// This is an optional value and if not set it is expected that
+	// [ApplicationStorageDirectiveArg.PoolUUID] is set.
+	ProviderType *string
+
+	// Size defines the size of the storage directive in MiB.
+	Size uint64
 }

@@ -134,7 +134,7 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 	name string,
 	charmStorage []charm.Storage,
-	directives []application.ApplicationStorageDirectiveArg,
+	directives []application.CreateApplicationStorageDirectiveArg,
 ) application.AddIAASApplicationArg {
 	platform := deployment.Platform{
 		Channel:      "666",
@@ -179,7 +179,7 @@ func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
 	name string,
 	charmStorage []charm.Storage,
-	directives []application.ApplicationStorageDirectiveArg,
+	directives []application.CreateApplicationStorageDirectiveArg,
 ) application.AddCAASApplicationArg {
 	platform := deployment.Platform{
 		Channel:      "666",
