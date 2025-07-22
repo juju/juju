@@ -6,13 +6,16 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/juju/tc"
 
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
+	storagetesting "github.com/juju/juju/core/storage/testing"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -23,6 +26,8 @@ import (
 // tests. Base suite does not seed a starting state and does not run any tests.
 type baseSuite struct {
 	schematesting.ModelSuite
+
+	storageInstCount int
 }
 
 // newMachineWithNetNode creates a new machine in the model attached to the
@@ -128,4 +133,57 @@ VALUES (?, ?, ?, ?, ?, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return unitUUID.String(), coreunit.Name(name)
+}
+
+func (s *baseSuite) newStorageInstance(c *tc.C, storageName, charmUUID string) string {
+	ctx := c.Context()
+
+	storageUUID := storagetesting.GenStorageUUID(c)
+	poolUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool(uuid, name, type)
+VALUES (?, ?, ?)
+ON CONFLICT DO NOTHING`, poolUUID, "pool", "rootfs")
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
+VALUES (?, ?, ?, ?, ?)
+		`, charmUUID, storageName, 0, 0, 1)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
+VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			storageUUID, charmUUID, storageName, fmt.Sprintf("%s/%d", storageName, s.storageInstCount), life.Alive, 100, poolUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.storageInstCount++
+	return storageUUID.String()
+}
+
+func (s *baseSuite) newStorageInstanceVolume(c *tc.C, instanceUUID, volumeUUID string) {
+	ctx := c.Context()
+	_, err := s.DB().ExecContext(ctx, `
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)`, instanceUUID, volumeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) newStorageInstanceFilesystem(c *tc.C, instanceUUID, filesystemUUID string) {
+	ctx := c.Context()
+	_, err := s.DB().ExecContext(ctx, `
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES (?, ?)`, instanceUUID, filesystemUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

@@ -591,7 +591,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumeAttachmen
 
 // changeVolumeLife is a utility function for updating the life value of a
 // volume.
-func (s *volumeSuite) changeVolumeLife(
+func (s *baseSuite) changeVolumeLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
 	_, err := s.DB().Exec(`
@@ -605,7 +605,7 @@ WHERE  uuid = ?
 
 // changeVolumeAttachmentLife is a utility function for updating the life
 // value of a volume attachment.
-func (s *volumeSuite) changeVolumeAttachmentLife(
+func (s *baseSuite) changeVolumeAttachmentLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
 	_, err := s.DB().Exec(`
@@ -619,7 +619,7 @@ WHERE  uuid = ?
 
 // changeVolumeAttachmentPlanLife is a utility function for updating the life
 // value of a volume attachment plan.
-func (s *volumeSuite) changeVolumeAttachmentPlanLife(
+func (s *baseSuite) changeVolumeAttachmentPlanLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
 	_, err := s.DB().Exec(`
@@ -634,7 +634,7 @@ WHERE  uuid = ?
 
 // newMachineVolume creates a new volume in the model with machine
 // provision scope. Returned is the uuid and volume id of the entity.
-func (s *volumeSuite) newMachineVolume(c *tc.C) (string, string) {
+func (s *baseSuite) newMachineVolume(c *tc.C) (string, string) {
 	vsUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -652,7 +652,7 @@ VALUES (?, ?, 0, 1)
 
 // newModelVolume creates a new volume in the model with model
 // provision scope. Return is the uuid and volume id of the entity.
-func (s *volumeSuite) newModelVolume(c *tc.C) (string, string) {
+func (s *baseSuite) newModelVolume(c *tc.C) (string, string) {
 	vsUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -671,7 +671,7 @@ VALUES (?, ?, 0, 0)
 // newMachineVolumeAttachment creates a new volume attachment that has
 // machine provision scope. The attachment is associated with the provided
 // volume uuid and net node uuid.
-func (s *volumeSuite) newMachineVolumeAttachment(
+func (s *baseSuite) newMachineVolumeAttachment(
 	c *tc.C, vsUUID string, netNodeUUID string,
 ) string {
 	attachmentUUID, err := uuid.NewUUID()
@@ -696,7 +696,7 @@ VALUES (?, ?, ?, 0, 1)
 // newModelVolumeAttachment creates a new volume attachment that has
 // model provision scope. The attachment is associated with the provided
 // volume uuid and net node uuid.
-func (s *volumeSuite) newModelVolumeAttachment(
+func (s *baseSuite) newModelVolumeAttachment(
 	c *tc.C, vsUUID string, netNodeUUID string,
 ) string {
 	attachmentUUID, err := uuid.NewUUID()
@@ -720,7 +720,7 @@ VALUES (?, ?, ?, 0, 0)
 
 // newVolumeAttachmentPlan creates a new volume attachment plan. The attachment
 // plan is associated with the provided volume uuid and net node uuid.
-func (s *volumeSuite) newVolumeAttachmentPlan(
+func (s *baseSuite) newVolumeAttachmentPlan(
 	c *tc.C, volumeUUID, netNodeUUID string,
 ) string {
 	attachmentUUID, err := uuid.NewUUID()
