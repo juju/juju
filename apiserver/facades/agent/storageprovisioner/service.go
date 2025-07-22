@@ -93,6 +93,30 @@ type StorageStatusService interface {
 // StorageProvisioningService provides methods to watch and manage storage
 // provisioning related resources.
 type StorageProvisioningService interface {
+	// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
+	// supplied filesystem id.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem
+	// exists for the provided filesystem id.
+	GetFilesystem(ctx context.Context, filesystemID string) (storageprovisioning.Filesystem, error)
+
+	// GetFilesystemAttachment retrieves the [storageprovisioning.FilesystemAttachment]
+	// for the supplied net node uuid and filesystem id.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
+	// is not valid.
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+	// machine exists for the provided machine UUUID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
+	// exists for the provided filesystem id.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
+	// the provided filesystem id.
+	GetFilesystemAttachment(
+		ctx context.Context, machineUUID machine.UUID, filesystemID string,
+	) (storageprovisioning.FilesystemAttachment, error)
+
 	// WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,
 	// whenever the given machine's provisioned filsystem's life changes.
 	//
