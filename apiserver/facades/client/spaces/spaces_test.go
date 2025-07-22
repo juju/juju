@@ -486,6 +486,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *tc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *tc.C) {
+	c.Skip("Re-enable when ConstraintsBySpaceName is implemented in dqlite")
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
@@ -528,6 +529,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *tc.C) {
 }
 
 func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *tc.C) {
+	c.Skip("Re-enable when ConstraintsBySpaceName is implemented in dqlite")
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 

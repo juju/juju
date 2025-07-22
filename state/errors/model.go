@@ -4,9 +4,6 @@
 package errors
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/errors"
 )
 
@@ -26,49 +23,4 @@ const (
 	// storage, without specifying how the storage should be removed
 	// (destroyed or released).
 	PersistentStorageError = errors.ConstError("model contains persistent storage")
-
-	// StorageNotReleasableError indicates that an attempt was made to destroy
-	// a model specifying that storage should be released but that some
-	// storage does not support that.
-	StorageNotReleasableError = errors.ConstError("storage cannot be released")
 )
-
-func NewHasHostedModelsError(i int) error {
-	sep := ""
-	if i != 1 {
-		sep = "s"
-	}
-	return errors.WithType(
-		fmt.Errorf("hosting %d other model%s", i, sep),
-		HasHostedModelsError)
-}
-
-// NewModelNotEmptyError constructs a ModelNotEmpty with the error message
-// tailored to match the number of machines, applications, volumes and
-// filesystem's left. The returned error satisfies ModelNotEmptyError.
-func NewModelNotEmptyError(machines, applications, volumes, filesystems int) error {
-	if machines+applications+volumes+filesystems == 0 {
-		return nil
-	}
-	plural := func(n int, thing string) string {
-		s := fmt.Sprintf("%d %s", n, thing)
-		if n != 1 {
-			s += "s"
-		}
-		return s
-	}
-	var contains []string
-	if n := machines; n > 0 {
-		contains = append(contains, plural(n, "machine"))
-	}
-	if n := applications; n > 0 {
-		contains = append(contains, plural(n, "application"))
-	}
-	if n := volumes; n > 0 {
-		contains = append(contains, plural(n, "volume"))
-	}
-	if n := filesystems; n > 0 {
-		contains = append(contains, plural(n, "filesystem"))
-	}
-	return fmt.Errorf("%w, found %s", ModelNotEmptyError, strings.Join(contains, ", "))
-}

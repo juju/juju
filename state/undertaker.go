@@ -5,8 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 const (
@@ -21,35 +19,5 @@ const (
 // be returned. If the model is otherwise non-empty, an error satisfying
 // IsNonEmptyModelError will be returned.
 func (st *State) ProcessDyingModel() (err error) {
-
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if model.Life() != Dying {
-		return errors.Trace(ErrModelNotDying)
-	}
-
-	if st.IsController() {
-		// We should not mark the controller model as Dead until
-		// all hosted models have been removed, otherwise the
-		// hosted model environs may not have been destroyed.
-		modelUUIDs, err := st.AllModelUUIDsIncludingDead()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if n := len(modelUUIDs) - 1; n > 0 {
-			return errors.Trace(stateerrors.NewHasHostedModelsError(n))
-		}
-	}
-
-	modelEntityRefsDoc, err := model.getEntityRefs()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := checkModelEntityRefsEmpty(modelEntityRefsDoc); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }

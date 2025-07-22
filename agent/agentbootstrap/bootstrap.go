@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 
@@ -43,7 +42,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -75,7 +73,6 @@ func CheckJWKSReachable(url string) error {
 type AgentBootstrap struct {
 	adminUser       names.UserTag
 	agentConfig     agent.ConfigSetter
-	mongoDialOpts   mongo.DialOpts
 	stateNewPolicy  state.NewPolicyFunc
 	bootstrapDqlite DqliteInitializerFunc
 
@@ -94,7 +91,6 @@ type AgentBootstrapArgs struct {
 	AgentConfig               agent.ConfigSetter
 	BootstrapEnviron          environs.BootstrapEnviron
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
-	MongoDialOpts             mongo.DialOpts
 	StateInitializationParams instancecfg.StateInitializationParams
 	StorageProviderRegistry   storage.ProviderRegistry
 	BootstrapDqlite           DqliteInitializerFunc
@@ -144,7 +140,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		agentConfig:               args.AgentConfig,
 		bootstrapDqlite:           args.BootstrapDqlite,
 		logger:                    args.Logger,
-		mongoDialOpts:             args.MongoDialOpts,
 		stateInitializationParams: args.StateInitializationParams,
 		storageProviderRegistry:   args.StorageProviderRegistry,
 	}, nil
@@ -288,12 +283,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	session, err := b.initMongo(info.Info, b.mongoDialOpts)
-	if err != nil {
-		return errors.Annotate(err, "failed to initialize mongo")
-	}
-	defer session.Close()
-
 	b.logger.Debugf(ctx, "initializing address %v", info.Addrs)
 
 	ctrl, err := state.Initialize(state.InitializeParams{
@@ -313,7 +302,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		ControllerConfig:          stateParams.ControllerConfig,
 		ControllerInheritedConfig: stateParams.ControllerInheritedConfig,
 		RegionInheritedConfig:     stateParams.RegionInheritedConfig,
-		MongoSession:              session,
 		NewPolicy:                 b.stateNewPolicy,
 	})
 	if err != nil {
@@ -355,14 +343,4 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 		return *stateParams.ControllerCloudCredential, cloudCredentialTag, nil
 	}
 	return cloud.Credential{}, cloudCredentialTag, nil
-}
-
-// initMongo dials the initial MongoDB connection, setting a
-// password for the admin user, and returning the session.
-func (b *AgentBootstrap) initMongo(info mongo.Info, dialOpts mongo.DialOpts) (*mgo.Session, error) {
-	session, err := mongo.DialWithInfo(mongo.MongoInfo{Info: info}, dialOpts)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return session, nil
 }

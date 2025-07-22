@@ -61,16 +61,13 @@ require (
 	github.com/juju/jsonschema v1.0.0
 	github.com/juju/loggo/v2 v2.2.0
 	github.com/juju/lumberjack/v2 v2.0.2
-	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.5
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
-	github.com/juju/pubsub/v2 v2.0.0
 	github.com/juju/ratelimit v1.0.2
-	github.com/juju/replicaset/v3 v3.0.1
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
 	github.com/juju/tc v0.0.0-20250528095810-3bfebf94677d
@@ -219,10 +216,10 @@ require (
 	github.com/juju/loggo v1.0.0 // indirect
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
+	github.com/juju/mgo/v3 v3.0.4 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/utils/v3 v3.2.2 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
-	github.com/juju/version/v2 v2.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect

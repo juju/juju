@@ -5,7 +5,6 @@ package kubernetes_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -528,12 +527,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 							},
 						},
 						{
-							Name: "mongo-scratch",
-							VolumeSource: core.VolumeSource{
-								EmptyDir: &core.EmptyDirVolumeSource{},
-							},
-						},
-						{
 							Name: "apiserver-scratch",
 							VolumeSource: core.VolumeSource{
 								EmptyDir: &core.EmptyDirVolumeSource{},
@@ -583,14 +576,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 
 	expectedVersion := jujuversion.Current
 	expectedVersion.Build = 666
-	probCmds := &core.ExecAction{
-		Command: []string{
-			"mongo",
-			fmt.Sprintf("--port=%d", controller.DefaultStatePort),
-			"--eval",
-			"db.adminCommand('ping')",
-		},
-	}
 	statefulSetSpec.Spec.Template.Spec.Containers = []core.Container{
 		{
 			Name:            "charm",
@@ -670,86 +655,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 					Name:      "storage",
 					MountPath: "/var/lib/juju",
 				},
-			},
-		},
-		{
-			Name:            "mongodb",
-			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "ghcr.io/juju/juju-db:4.4",
-			Command: []string{
-				"/bin/sh",
-			},
-			Args: []string{
-				"-c",
-				`printf 'args="--dbpath=/var/lib/juju/db --port=37017 --journal --replSet=juju --quiet --oplogSize=1024 --noauth --storageEngine=wiredTiger --bind_ip_all"\nipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)\nif [ $ipv6Disabled -eq 0 ]; then\n  args="${args} --ipv6"\nfi\nexec mongod ${args}\n'>/tmp/mongo.sh && chmod a+x /tmp/mongo.sh && exec /tmp/mongo.sh`,
-			},
-			Ports: []core.ContainerPort{
-				{
-					Name:          "mongodb",
-					ContainerPort: int32(controller.DefaultStatePort),
-					Protocol:      "TCP",
-				},
-			},
-			StartupProbe: &core.Probe{
-				ProbeHandler: core.ProbeHandler{
-					Exec: probCmds,
-				},
-				FailureThreshold:    120,
-				InitialDelaySeconds: 1,
-				PeriodSeconds:       5,
-				SuccessThreshold:    1,
-				TimeoutSeconds:      1,
-			},
-			ReadinessProbe: &core.Probe{
-				ProbeHandler: core.ProbeHandler{
-					Exec: probCmds,
-				},
-				FailureThreshold:    3,
-				InitialDelaySeconds: 5,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				TimeoutSeconds:      1,
-			},
-			LivenessProbe: &core.Probe{
-				ProbeHandler: core.ProbeHandler{
-					Exec: probCmds,
-				},
-				FailureThreshold:    3,
-				InitialDelaySeconds: 30,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				TimeoutSeconds:      5,
-			},
-			VolumeMounts: []core.VolumeMount{
-				{
-					Name:      "mongo-scratch",
-					ReadOnly:  false,
-					MountPath: "/var/log",
-					SubPath:   "var/log",
-				},
-				{
-					Name:      "mongo-scratch",
-					ReadOnly:  false,
-					MountPath: "/tmp",
-					SubPath:   "tmp",
-				},
-				{
-					Name:      "storage",
-					ReadOnly:  false,
-					MountPath: "/var/lib/juju",
-					SubPath:   "",
-				},
-				{
-					Name:      "storage",
-					ReadOnly:  false,
-					MountPath: "/var/lib/juju/db",
-					SubPath:   "db",
-				},
-			},
-			SecurityContext: &core.SecurityContext{
-				RunAsUser:              int64Ptr(170),
-				RunAsGroup:             int64Ptr(170),
-				ReadOnlyRootFilesystem: pointer.Bool(true),
 			},
 		},
 		{

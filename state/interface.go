@@ -7,9 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
-
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/objectstore"
 )
 
 // Entity represents any entity that can be returned
@@ -18,58 +15,9 @@ type Entity interface {
 	Tag() names.Tag
 }
 
-// EntityWithApplication is implemented by Units it is intended
-// for anything that can return its Application.
-type EntityWithApplication interface {
-	Application() (*Application, error)
-}
-
 // Lifer represents an entity with a life.
 type Lifer interface {
 	Life() Life
-}
-
-// EnsureDeader with an EnsureDead method.
-type EnsureDeader interface {
-	EnsureDead() error
-}
-
-// Remover represents entities with a Remove method.
-type Remover interface {
-	Remove(objectstore.ObjectStore) error
-}
-
-// Authenticator represents entites capable of handling password
-// authentication.
-type Authenticator interface {
-	SetPassword(pass string) error
-	PasswordValid(pass string) bool
-}
-
-// NotifyWatcherFactory represents an entity that
-// can be watched.
-type NotifyWatcherFactory interface {
-	Watch() NotifyWatcher
-}
-
-// UnitsWatcher defines the methods needed to retrieve an entity (a
-// machine or an application) and watch its units.
-type UnitsWatcher interface {
-	Entity
-	WatchUnits() StringsWatcher
-}
-
-// InstanceIdGetter defines a single method - InstanceId.
-type InstanceIdGetter interface {
-	InstanceId() (instance.Id, error)
-}
-
-// ActionsWatcher defines the methods an entity exposes to watch Actions
-// queued up for itself
-type ActionsWatcher interface {
-	Entity
-	WatchActionNotifications() StringsWatcher
-	WatchPendingActionNotifications() StringsWatcher
 }
 
 // ActionReceiver describes Entities that can have Actions queued for
@@ -114,7 +62,6 @@ type ActionReceiver interface {
 
 // GlobalEntity specifies entity.
 type GlobalEntity interface {
-	globalKey() string
 	Tag() names.Tag
 }
 
@@ -185,10 +132,4 @@ type Action interface {
 
 	// Refresh the contents of the action.
 	Refresh() error
-}
-
-// ApplicationEntity represents a local or remote application.
-type ApplicationEntity interface {
-	// Life returns the life status of the application.
-	Life() Life
 }

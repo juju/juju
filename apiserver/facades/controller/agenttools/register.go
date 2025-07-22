@@ -7,8 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tools"
@@ -25,14 +23,10 @@ func Register(registry facade.FacadeRegistry) {
 // newFacade is used to register the facade.
 func newFacade(ctx facade.ModelContext) (*AgentToolsAPI, error) {
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	domainServices := ctx.DomainServices()
 	newEnviron := func() (environs.Environ, error) {
 		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-		return newEnviron(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
+		return newEnviron(domainServices.ModelInfo(), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	}
 	return NewAgentToolsAPI(
 		st,

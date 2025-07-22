@@ -171,12 +171,6 @@ func (s *introspectionSuite) TestMissingMachineLock(c *tc.C) {
 	s.assertBody(c, response, "missing machine lock reporter")
 }
 
-func (s *introspectionSuite) TestStateTrackerReporter(c *tc.C) {
-	response := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
-	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
-	s.assertBodyContains(c, response, "juju/state/tracker profile: total")
-}
-
 func (s *introspectionSuite) TestEngineReporter(c *tc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.

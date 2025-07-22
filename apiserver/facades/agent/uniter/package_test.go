@@ -4,9 +4,6 @@
 package uniter_test
 
 import (
-	"os"
-	stdtesting "testing"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -26,7 +23,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -41,13 +37,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination apiserver_mock_test.go github.com/juju/juju/apiserver/common APIAddressAccessor
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination relation_mock_test.go github.com/juju/juju/domain/relation RelationUnitsWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination watcher_mock_test.go github.com/juju/juju/core/watcher NotifyWatcher
-
-func TestMain(m *stdtesting.M) {
-	os.Exit(func() int {
-		defer coretesting.MgoTestMain()()
-		return m.Run()
-	}())
-}
 
 // uniterSuiteBase implements common testing suite for all API versions.
 // It is not intended to be used directly or registered as a suite,

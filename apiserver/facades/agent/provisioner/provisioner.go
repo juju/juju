@@ -124,10 +124,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return authorizer.AuthOwner, nil
 	}
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	domainServices := ctx.DomainServices()
 
 	agentBinaryService := domainServices.AgentBinary()
@@ -157,7 +153,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model:              model,
+		ModelInfoService:   modelInfoService,
 		CloudService:       cloudService,
 		CredentialService:  credentialService,
 		ModelConfigService: modelConfigService,

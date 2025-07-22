@@ -166,7 +166,6 @@ func (m *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, e
 
 type mockApplication struct {
 	testhelpers.Stub
-	state.Authenticator
 	life                 state.Life
 	tag                  names.Tag
 	charmURL             string
