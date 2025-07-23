@@ -431,6 +431,182 @@ func (s *linkLayerSuite) TestSetMachineNetConfigLinkedSubnetWithDifferentCIDRNot
 	checkScalarResult(c, db, "SELECT subnet_uuid FROM ip_address", subnetUUID)
 }
 
+func (s *linkLayerSuite) TestSetMachineNetConfigDeleteAddressAndDevice(c *tc.C) {
+	db := s.DB()
+
+	// Arrange: run an update to get an existing device and address.
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+	newDevName := "eth1"
+	subnetUUID := "subnet-uuid"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
+		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "192.168.0.50/24",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: send a different NIC with no addresses.
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
+		Name:             newDevName,
+		Type:             corenetwork.EthernetDevice,
+		VirtualPortType:  corenetwork.NonVirtualPort,
+		IsAutoStart:      true,
+		IsEnabled:        true,
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+	}})
+
+	// Assert: the original device (and by implication its addresses) is gone.
+	c.Assert(err, tc.ErrorIsNil)
+
+	checkScalarResult(c, db, "SELECT name FROM link_layer_device", newDevName)
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigProviderAddressNotDeleted(c *tc.C) {
+	db := s.DB()
+
+	// Arrange: run an update to get an existing device and address,
+	// then ensure the address has a provider origin.
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+	newDevName := "eth1"
+	subnetUUID := "subnet-uuid"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
+		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "192.168.0.50/24",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "UPDATE ip_address SET origin_id = 1 WHERE net_node_uuid = ?", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: send a different NIC with no addresses.
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
+		Name:             newDevName,
+		Type:             corenetwork.EthernetDevice,
+		VirtualPortType:  corenetwork.NonVirtualPort,
+		IsAutoStart:      true,
+		IsEnabled:        true,
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+	}})
+
+	// Assert: the original device did not have its address deleted,
+	// and the device remains in the database.
+	c.Assert(err, tc.ErrorIsNil)
+
+	checkScalarResult(c, db, "SELECT name FROM link_layer_device WHERE name = 'eth0'", devName)
+}
+
+func (s *linkLayerSuite) TestSetMachineNetConfigParentNotDeleted(c *tc.C) {
+	db := s.DB()
+
+	// Arrange: run an update to get an existing parent and child device.
+	nodeUUID := "net-node-uuid"
+	devName := "br-eth"
+	parentDevName := "eth0"
+	subnetUUID := "subnet-uuid"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
+		subnetUUID, "192.168.0.0/24", corenetwork.AlphaSpaceId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{
+		{
+			Name:             parentDevName,
+			Type:             corenetwork.EthernetDevice,
+			VirtualPortType:  corenetwork.NonVirtualPort,
+			IsAutoStart:      true,
+			IsEnabled:        true,
+			DNSSearchDomains: []string{"search.maas.net"},
+			DNSAddresses:     []string{"8.8.8.8"},
+		},
+		{
+			Name:             devName,
+			Type:             corenetwork.BridgeDevice,
+			VirtualPortType:  corenetwork.NonVirtualPort,
+			IsAutoStart:      true,
+			IsEnabled:        true,
+			DNSSearchDomains: []string{"search.maas.net"},
+			DNSAddresses:     []string{"8.8.8.8"},
+			ParentDeviceName: parentDevName,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, "UPDATE ip_address SET origin_id = 1 WHERE net_node_uuid = ?", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: send only the child device in an update.
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
+		Name:             devName,
+		Type:             corenetwork.BridgeDevice,
+		VirtualPortType:  corenetwork.NonVirtualPort,
+		IsAutoStart:      true,
+		IsEnabled:        true,
+		DNSSearchDomains: []string{"search.maas.net"},
+		DNSAddresses:     []string{"8.8.8.8"},
+		ParentDeviceName: parentDevName,
+	}})
+
+	// Assert: the parent device, though not observed in the update,
+	// should not be deleted.
+	c.Assert(err, tc.ErrorIsNil)
+
+	checkScalarResult(c, db, "SELECT name FROM link_layer_device WHERE name = 'eth0'", parentDevName)
+}
+
 func checkScalarResult(c *tc.C, db *sql.DB, query string, expected string) {
 	rows, err := db.QueryContext(c.Context(), query)
 	c.Assert(err, tc.ErrorIsNil)
