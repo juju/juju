@@ -20,6 +20,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -179,6 +180,46 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestar
 	}
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersNotSupported(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan []string, 1)
+	extCtrlWatcher := watchertest.NewMockStringsWatcher(ch)
+	ch <- []string{coretesting.ControllerTag.Id()}
+
+	s.client.EXPECT().WatchExternalControllers().Return(extCtrlWatcher, nil)
+	info := &crossmodel.ControllerInfo{
+		ControllerTag: coretesting.ControllerTag,
+		Alias:         "alias",
+		Addrs:         []string{"10.6.6.6"},
+		CACert:        coretesting.CACert,
+	}
+	s.client.EXPECT().ExternalControllerInfo(coretesting.ControllerTag.Id()).Return(info, nil)
+
+	notSupportedErr := &params.Error{Code: params.CodeAccessRequired}
+	started := make(chan struct{})
+
+	w, err := externalcontrollerupdater.New(s.client, func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+		defer close(started)
+		return nil, notSupportedErr
+	}, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for watcher")
+	}
+
+	// We expect the worker NOT to stop, only the spawned controllerWatcher
+	// will finish. We can't check that here but if the notSupportedErr
+	// is changed to a different error, the test fails because there is
+	// no expected call to s.client.ExternalControllerInfo.
+	s.clock.Advance(time.Minute)
+	workertest.CheckAlive(c, w)
 }
 
 func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *gc.C) {
