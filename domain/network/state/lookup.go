@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -14,6 +15,10 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// netConfigLookups holds the mappings from names to IDs for various network
+// lookup tables. These are populated up-front to simplify database access in
+// the course of network configuration updates, while also ensuring that we
+// take a data-driven approach to values from fixed sets.
 type netConfigLookups struct {
 	deviceType      map[network.LinkLayerDeviceType]int
 	virtualPortType map[network.VirtualPortType]int
@@ -23,6 +28,8 @@ type netConfigLookups struct {
 	scope           map[network.Scope]int
 }
 
+// getNetConfigLookups queries the lookup table data and returns a populated
+// [netConfigLookups] struct.
 func (st *State) getNetConfigLookups(ctx context.Context, tx *sqlair.TX) (netConfigLookups, error) {
 	var err error
 	lookups := netConfigLookups{}
@@ -61,24 +68,24 @@ type lookupRow struct {
 	Name string `db:"name"`
 }
 
+// getLookupNameToID retrieves a mapping of names to IDs
+// for the lookup table with the input name.
+// There is a naive guard against SQL injection by checking
+// for spaces in the table name.
 func getLookupNameToID[T ~string](ctx context.Context, st *State, tx *sqlair.TX, tableName string) (map[T]int, error) {
-	types, err := st.getLookup(ctx, tx, tableName)
-	if err != nil {
-		return nil, errors.Capture(err)
+	if strings.Contains(tableName, " ") {
+		return nil, errors.Errorf("invalid table name: %q", tableName)
 	}
-	return transform.SliceToMap(types, func(in lookupRow) (T, int) {
-		return T(in.Name), in.ID
-	}), nil
-}
 
-func (st *State) getLookup(ctx context.Context, tx *sqlair.TX, table string) ([]lookupRow, error) {
-	deviceTypeStmt, err := st.Prepare(fmt.Sprintf("SELECT &lookupRow.* FROM %s", table), lookupRow{})
+	deviceTypeStmt, err := st.Prepare(fmt.Sprintf("SELECT &lookupRow.* FROM %s", tableName), lookupRow{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
 	var types []lookupRow
 	if err := tx.Query(ctx, deviceTypeStmt).GetAll(&types); err != nil {
 		return nil, errors.Errorf("querying link layer device types: %w", err)
 	}
-	return types, nil
+
+	return transform.SliceToMap(types, func(in lookupRow) (T, int) { return T(in.Name), in.ID }), nil
 }
