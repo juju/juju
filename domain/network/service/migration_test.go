@@ -231,7 +231,8 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 			Name:      "eth0",
 			Addresses: []internal.ImportIPAddress{
 				{
-					SubnetCIDR: "192.168.1.0/24", // No matching subnet for this CIDR
+					AddressValue: "192.168.1.10",
+					SubnetCIDR:   "192.168.1.0/24", // No matching subnet for this CIDR
 				},
 			},
 		},
@@ -245,7 +246,7 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 
 	// Assert: error about no subnet found for CIDR
 	c.Assert(err, tc.ErrorMatches,
-		`converting devices:.*converting addresses:.*no subnet found for CIDR "192.168.1.0/24"`)
+		`converting devices:.*converting addresses:.*no subnet found for address "192.168.1.10"`)
 }
 
 func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchSubnet(c *tc.C) {
@@ -290,7 +291,7 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchS
 
 	// Assert: error about multiple subnets found for CIDR
 	c.Assert(err, tc.ErrorMatches,
-		`converting devices:.*converting addresses:.*multiple subnets found for CIDR "192.168.1.0/24"`)
+		`converting devices:.*converting addresses:.*multiple subnets found for address "192.168.1.10".*`)
 }
 
 func (s *migrationSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
@@ -419,7 +420,7 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnet(c *tc.C) {
 
 	// Assert: no error is returned
 	c.Assert(err, tc.ErrorMatches,
-		`converting services:.*converting addresses:.*getting subnet by address "boom" in space "my-space":.*`)
+		`converting services:.*converting addresses:.*getting subnets for address "boom":.*`)
 }
 
 func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetNoSubnet(c *tc.C) {
@@ -450,7 +451,7 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetNoSubnet(c *tc.C) 
 
 	// Assert: no error is returned
 	c.Assert(err, tc.ErrorMatches,
-		`converting services:.*converting addresses:.*no subnet found for address "10.0.0.1" in space "my-space"`)
+		`converting services:.*converting addresses:.*no subnet found for address "10.0.0.1"`)
 }
 
 func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetSeveralSubnets(c *tc.C) {
@@ -489,7 +490,7 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetSeveralSubnets(c *
 
 	// Assert: no error is returned
 	c.Assert(err, tc.ErrorMatches,
-		`converting services:.*converting addresses:.*multiple subnets found for address "10.0.0.1" in space "my-space"`)
+		`converting services:.*converting addresses:.*multiple subnets found for address "10.0.0.1".*`)
 }
 
 func (s *migrationSuite) TestImportCloudServicesSuccess(c *tc.C) {
