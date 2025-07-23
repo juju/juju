@@ -839,24 +839,86 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(ctx context.Context, args p
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(ctx context.Context, args params.Entities) (
-	params.MachineNetworkConfigResults,
-	error,
-) {
-	return api.prepareOrGetContainerInterfaceInfo(ctx, args, false)
-}
+func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
+	ctx context.Context, args params.Entities,
+) (params.MachineNetworkConfigResults, error) {
+	result := params.MachineNetworkConfigResults{}
 
-// TODO (manadart 2020-07-23): This method is not used and can be removed when
-// next this facade version is bumped.
-// We then don't need the parameterised prepareOrGet...
+	canAccess, err := api.getAuthFunc(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 
-// GetContainerInterfaceInfo returns information to configure networking for a
-// container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) GetContainerInterfaceInfo(ctx context.Context, args params.Entities) (
-	params.MachineNetworkConfigResults,
-	error,
-) {
-	return api.prepareOrGetContainerInterfaceInfo(ctx, args, true)
+	hostAuthTag := api.authorizer.GetAuthTag()
+	if hostAuthTag == nil {
+		return result, apiservererrors.ErrPerm
+	}
+
+	if !canAccess(hostAuthTag) {
+		return result, apiservererrors.ErrPerm
+	}
+
+	hostName := coremachine.Name(hostAuthTag.Id())
+	hostUUID, err := api.machineService.GetMachineUUID(ctx, hostName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return result, apiservererrors.ServerError(errors.NotFoundf("machine %q", hostName))
+	}
+
+	hostInstanceID, err := api.machineService.GetInstanceID(ctx, hostUUID)
+	if errors.Is(err, machineerrors.NotProvisioned) {
+		return result, apiservererrors.ServerError(errors.NotProvisionedf("host machine %q", hostName.String()))
+	}
+
+	results := make([]params.MachineNetworkConfigResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		gTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			// TODO check if this is tested. It's a stupid obfuscation.
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		guestUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(gTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", hostName))
+			continue
+		}
+
+		devsForGuest, err := api.networkService.DevicesForGuest(ctx, hostUUID, guestUUID)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// TODO (manadart 2025-07-23): I so, so do not want to use
+		//  InterfaceInfos anymore, but changing it would flow deep into the
+		//  MAAS provider, which is not going to be undertaken under the Dqlite
+		//  rewrite. Ideally we would use NetInterface from the network domain
+		//  everywhere. Anyone who reads this and wants to be a hero...
+		//  If we *did* change the provider to use NetInterface, the correct
+		//  thing to do would be to push the logic for
+		//  AllocateContainerAddresses into DevicesForGuest - choreography for
+		//  these concerns is business logic and should not be in the facade.
+		preparedInfo := toInterfaceInfos(devsForGuest)
+
+		allocatedInfo, err := api.networkService.AllocateContainerAddresses(
+			ctx, hostInstanceID, gTag.Id(), preparedInfo)
+		if errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
+			api.logger.Debugf(ctx, "using DHCP allocated addresses")
+		} else if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else {
+			api.logger.Debugf(ctx, "got allocated info from provider: %+v", allocatedInfo)
+		}
+
+		allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
+		api.logger.Debugf(ctx, "allocated network config: %+v", allocatedConfig)
+		result.Results[i].Config = allocatedConfig
+	}
+
+	result.Results = results
+	return result, nil
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -1016,10 +1078,12 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 			DNSServers:          netInterface.DNSAddresses,
 			MTU:                 mtu,
 			DNSSearchDomains:    netInterface.DNSSearchDomains,
-			GatewayAddress:      network.ProviderAddress{MachineAddress: network.MachineAddress{Value: deref(netInterface.GatewayAddress)}},
-			IsDefaultGateway:    netInterface.IsDefaultGateway,
-			VirtualPortType:     netInterface.VirtualPortType,
-			Origin:              origin,
+			GatewayAddress: network.ProviderAddress{
+				MachineAddress: network.MachineAddress{Value: deref(netInterface.GatewayAddress)},
+			},
+			IsDefaultGateway: netInterface.IsDefaultGateway,
+			VirtualPortType:  netInterface.VirtualPortType,
+			Origin:           origin,
 		}
 	}
 	return res
@@ -1031,74 +1095,6 @@ func deref[T any](v *T) T {
 		return *v
 	}
 	return zero
-}
-
-type prepareOrGetHandler struct {
-	result   params.MachineNetworkConfigResults
-	maintain bool
-	logger   logger.Logger
-}
-
-// SetError implements perContainerHandler.SetError
-func (h *prepareOrGetHandler) SetError(idx int, err error) {
-	h.result.Results[idx].Error = apiservererrors.ServerError(err)
-}
-
-// ConfigType implements perContainerHandler.ConfigType
-func (h *prepareOrGetHandler) ConfigType() string {
-	return "network"
-}
-
-// ProcessOneContainer implements perContainerHandler.ProcessOneContainer
-func (h *prepareOrGetHandler) ProcessOneContainer(
-	ctx context.Context,
-	idx int,
-	networkService NetworkService,
-	guestMachineName coremachine.Name,
-	preparedInfo network.InterfaceInfos,
-	hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
-) error {
-	if h.maintain {
-		if guestInstanceID != "" {
-			// Since we want to configure and create NICs on the
-			// container before it starts, it must also be not
-			// provisioned yet.
-			return errors.Errorf("container %q already provisioned as %q", guestMachineName, guestInstanceID)
-		}
-	}
-
-	allocatedInfo, err := networkService.AllocateContainerAddresses(
-		ctx, hostInstanceID, guestMachineName.String(), preparedInfo)
-	if errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
-		h.logger.Debugf(ctx, "using dhcp allocated addresses")
-	} else if err != nil {
-		return errors.Trace(err)
-	} else {
-		h.logger.Debugf(ctx, "got allocated info from provider: %+v", allocatedInfo)
-	}
-
-	allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
-	h.logger.Debugf(ctx, "allocated network config: %+v", allocatedConfig)
-	h.result.Results[idx].Config = allocatedConfig
-	return nil
-}
-
-func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
-	ctx context.Context,
-	args params.Entities, maintain bool,
-) (params.MachineNetworkConfigResults, error) {
-	c := &prepareOrGetHandler{
-		result: params.MachineNetworkConfigResults{
-			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
-		},
-		maintain: maintain,
-		logger:   api.logger,
-	}
-
-	if err := api.processEachContainer(ctx, args, c); err != nil {
-		return c.result, errors.Trace(err)
-	}
-	return c.result, nil
 }
 
 // HostChangesForContainers returns the set of changes that need to be done
