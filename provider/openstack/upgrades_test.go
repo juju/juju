@@ -139,48 +139,53 @@ func (s *upgraderSuite) TestRun(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnvironForUpgradeStepTest()
 	tagGroupStep := tagExistingSecurityGroupsStep{env}
-	controllerUuid := env.controllerUUID
-	modelUuid := env.modelUUID
+	controllerUUID := env.controllerUUID
+	modelUUID := env.modelUUID
 	securityGroups := []neutron.SecurityGroupV2{
 		{
 			Id:          utils.MustNewUUID().String(),
-			Name:        "juju-" + controllerUuid + "-" + modelUuid,
+			Name:        "juju-" + controllerUUID + "-" + modelUUID,
 			Description: "juju group",
 			Tags:        []string{},
 		},
 		{
 			Id:          utils.MustNewUUID().String(),
-			Name:        "juju-" + controllerUuid + "-" + modelUuid + "-0",
+			Name:        "juju-" + controllerUUID + "-" + modelUUID + "-0",
 			Description: "juju group",
 			Tags:        []string{},
 		},
 		{
 			Id:          utils.MustNewUUID().String(),
-			Name:        "juju-" + controllerUuid + "-" + modelUuid,
+			Name:        "juju-" + controllerUUID + "-" + modelUUID,
 			Description: "juju group",
 			Tags:        []string{},
 		},
 		{
 			Id:          utils.MustNewUUID().String(),
-			Name:        "juju-" + controllerUuid + "-" + modelUuid + "-0",
+			Name:        "juju-" + controllerUUID + "-" + modelUUID + "-0",
 			Description: "juju group",
 			Tags:        []string{},
 		},
 	}
 	s.neutronClient.EXPECT().ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{}).Return(securityGroups, nil)
 	gomock.InOrder(
+		// Errors are retried.
 		s.neutronClient.EXPECT().ReplaceAllTags("security-groups", securityGroups[0].Id, []string{
-			fmt.Sprintf("%s=%s", tags.JujuController, controllerUuid),
-			fmt.Sprintf("%s=%s", tags.JujuModel, modelUuid)}),
+			fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+			fmt.Sprintf("%s=%s", tags.JujuModel, modelUUID)}).Return(errors.New("boom")),
+
+		s.neutronClient.EXPECT().ReplaceAllTags("security-groups", securityGroups[0].Id, []string{
+			fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+			fmt.Sprintf("%s=%s", tags.JujuModel, modelUUID)}),
 		s.neutronClient.EXPECT().ReplaceAllTags("security-groups", securityGroups[1].Id, []string{
-			fmt.Sprintf("%s=%s", tags.JujuController, controllerUuid),
-			fmt.Sprintf("%s=%s", tags.JujuModel, modelUuid)}),
+			fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+			fmt.Sprintf("%s=%s", tags.JujuModel, modelUUID)}),
 		s.neutronClient.EXPECT().ReplaceAllTags("security-groups", securityGroups[2].Id, []string{
-			fmt.Sprintf("%s=%s", tags.JujuController, controllerUuid),
-			fmt.Sprintf("%s=%s", tags.JujuModel, modelUuid)}),
+			fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+			fmt.Sprintf("%s=%s", tags.JujuModel, modelUUID)}),
 		s.neutronClient.EXPECT().ReplaceAllTags("security-groups", securityGroups[3].Id, []string{
-			fmt.Sprintf("%s=%s", tags.JujuController, controllerUuid),
-			fmt.Sprintf("%s=%s", tags.JujuModel, modelUuid)}),
+			fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+			fmt.Sprintf("%s=%s", tags.JujuModel, modelUUID)}),
 	)
 
 	err := tagGroupStep.Run(s.ctx)
@@ -194,7 +199,7 @@ func (s *upgraderSuite) TestRunSkipGroupsInDifferentModel(c *gc.C) {
 	tagGroupStep := tagExistingSecurityGroupsStep{env}
 	controllerUUID := env.controllerUUID
 	modelUUID := env.modelUUID
-	otherModelUuid := utils.MustNewUUID().String()
+	otherModelUUID := utils.MustNewUUID().String()
 	securityGroups := []neutron.SecurityGroupV2{
 		{
 			Id:          utils.MustNewUUID().String(),
@@ -218,7 +223,7 @@ func (s *upgraderSuite) TestRunSkipGroupsInDifferentModel(c *gc.C) {
 		// should not tag this group
 		{
 			Id:          utils.MustNewUUID().String(),
-			Name:        "juju-" + controllerUUID + "-" + otherModelUuid,
+			Name:        "juju-" + controllerUUID + "-" + otherModelUUID,
 			Description: "juju group",
 			Tags:        []string{},
 		},
