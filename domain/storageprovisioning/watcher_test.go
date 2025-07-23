@@ -4,6 +4,8 @@
 package storageprovisioning_test
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 
@@ -668,12 +670,18 @@ func (s *watcherSuite) TestWatchMachineCloudInstance(c *tc.C) {
 func (s *watcherSuite) changeFilesystemAttachmentLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_filesystem_attachment
 SET    life_id = ?
 WHERE  uuid = ?
 `,
-		int(life), uuid)
+			int(life), uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -682,12 +690,18 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeFilesystemLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_filesystem
 SET    life_id = ?
 WHERE  uuid = ?
 `,
-		int(life), uuid)
+			int(life), uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -697,12 +711,18 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeFilesystemAttachmentMountPoint(
 	c *tc.C, uuid string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_filesystem_attachment
 SET    mount_point = 'foobar'
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -712,12 +732,18 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeFilesystemProviderID(
 	c *tc.C, uuid string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_filesystem
 SET    provider_id = 'foobar'
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -728,12 +754,18 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeMachineCloudInstanceDisplayName(
 	c *tc.C, uuid string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE machine_cloud_instance
 SET    display_name = 'foobar'
 WHERE  machine_uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -743,12 +775,18 @@ WHERE  machine_uuid = ?
 func (s *watcherSuite) changeVolumeProviderID(
 	c *tc.C, uuid string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_volume
 SET    provider_id = 'foobar'
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -757,12 +795,18 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeVolumeAttchmentLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_volume_attachment
 SET    life_id = ?
 WHERE  uuid = ?
 `,
-		int(life), uuid)
+			int(life), uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -771,12 +815,19 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeVolumeAttchmentPlanLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_volume_attachment_plan
 SET    life_id = ?
 WHERE  uuid = ?
 `,
-		int(life), uuid)
+			int(life),
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -786,12 +837,18 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeVolumeAttachmentReadOnly(
 	c *tc.C, uuid string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_volume_attachment
 SET    read_only = FALSE
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -800,77 +857,120 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeVolumeLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 UPDATE storage_volume
 SET    life_id = ?
 WHERE  uuid = ?
 `,
-		int(life), uuid)
+			int(life),
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // deleteFilesystem is a utility function for deleting a filesystem from the
 // model.
 func (s *watcherSuite) deleteFilesystem(c *tc.C, uuid string) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 DELETE FROM storage_filesystem
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // deleteFilesystemAttachment is a utility function for deleting a filesystem
 // attachment from the model.
 func (s *watcherSuite) deleteFilesystemAttachment(c *tc.C, uuid string) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 DELETE FROM storage_filesystem_attachment
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // deleteMachineCloudInstance deletes the cloud instance associated with the
 // machine uuid.
 func (s *watcherSuite) deleteMachineCloudInstance(c *tc.C, uuid string) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 DELETE FROM machine_cloud_instance
 WHERE  machine_uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // deleteVolume is a utility function for deleting a filesystem from the model.
 func (s *watcherSuite) deleteVolume(c *tc.C, uuid string) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 DELETE FROM storage_volume
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // deleteVolumeAttachment is a utility function for deleting a volume
 // attachment from the model.
 func (s *watcherSuite) deleteVolumeAttachment(c *tc.C, uuid string) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 DELETE FROM storage_volume_attachment
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // deleteVolumeAttachmentPlan is a utility function for deleting a volume
 // attachment plan from the model.
 func (s *watcherSuite) deleteVolumeAttachmentPlan(c *tc.C, uuid string) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 DELETE FROM storage_volume_attachment_plan
 WHERE  uuid = ?
 `,
-		uuid)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -883,20 +983,25 @@ func (s *watcherSuite) newMachine(c *tc.C) string {
 	machineUUID := machinetesting.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		"INSERT INTO net_node VALUES (?)",
-		netNodeUUID.String(),
-	)
-	c.Assert(err, tc.ErrorIsNil)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			"INSERT INTO net_node VALUES (?)",
+			netNodeUUID.String(),
+		)
+		if err != nil {
+			return err
+		}
 
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		"INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)",
-		machineUUID.String(),
-		name,
-		netNodeUUID.String(),
-	)
+		_, err = tx.ExecContext(
+			ctx,
+			"INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)",
+			machineUUID.String(),
+			name,
+			netNodeUUID.String(),
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return machineUUID.String()
@@ -907,11 +1012,14 @@ func (s *watcherSuite) newMachine(c *tc.C) string {
 func (s *watcherSuite) newMachineCloudInstance(
 	c *tc.C, machineUUID string,
 ) {
-	_, err := s.DB().ExecContext(
-		c.Context(),
-		"INSERT INTO machine_cloud_instance (machine_uuid, life_id) VALUES (?, 0)",
-		machineUUID,
-	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			"INSERT INTO machine_cloud_instance (machine_uuid, life_id) VALUES (?, 0)",
+			machineUUID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -923,11 +1031,17 @@ func (s *watcherSuite) newMachineFilesystem(c *tc.C) (string, string) {
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
-	_, err = s.DB().Exec(`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx, `
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
 VALUES (?, ?, 0, 1)
-	`,
-		fsUUID.String(), fsID)
+		`,
+			fsUUID.String(),
+			fsID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return fsUUID.String(), fsID
@@ -943,20 +1057,23 @@ func (s *watcherSuite) newMachineFilesystemAttachmentForMachine(
 	c.Assert(err, tc.ErrorIsNil)
 
 	var netNodeUUID string
-	err = s.DB().QueryRowContext(
-		c.Context(),
-		`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err = tx.QueryRowContext(
+			ctx,
+			`
 SELECT net_node_uuid
 FROM machine
 WHERE uuid = ?
-		`,
-		machineUUID,
-	).Scan(&netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
+			`,
+			machineUUID,
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
 
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		`
+		_, err = tx.ExecContext(
+			ctx,
+			`
 INSERT INTO storage_filesystem_attachment (uuid,
                                            storage_filesystem_uuid,
                                            net_node_uuid,
@@ -964,7 +1081,10 @@ INSERT INTO storage_filesystem_attachment (uuid,
                                            provision_scope_id)
 VALUES (?, ?, ?, 0, 1)
 `,
-		attachmentUUID.String(), fsUUID, netNodeUUID)
+			attachmentUUID.String(), fsUUID, netNodeUUID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
@@ -978,11 +1098,18 @@ func (s *watcherSuite) newModelFilesystem(c *tc.C) (string, string) {
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
-	_, err = s.DB().Exec(`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
 VALUES (?, ?, 0, 0)
-	`,
-		fsUUID.String(), fsID)
+		`,
+			fsUUID.String(),
+			fsID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return fsUUID.String(), fsID
@@ -998,20 +1125,23 @@ func (s *watcherSuite) newModelFilesystemAttachmentForMachine(
 	c.Assert(err, tc.ErrorIsNil)
 
 	var netNodeUUID string
-	err = s.DB().QueryRowContext(
-		c.Context(),
-		`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(
+			ctx,
+			`
 SELECT net_node_uuid
 FROM machine
 WHERE uuid = ?
-		`,
-		machineUUID,
-	).Scan(&netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
+			`,
+			machineUUID,
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
 
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		`
+		_, err = tx.ExecContext(
+			ctx,
+			`
 INSERT INTO storage_filesystem_attachment (uuid,
                                            storage_filesystem_uuid,
                                            net_node_uuid,
@@ -1019,7 +1149,12 @@ INSERT INTO storage_filesystem_attachment (uuid,
                                            provision_scope_id)
 VALUES (?, ?, ?, 0, 0)
 `,
-		attachmentUUID.String(), fsUUID, netNodeUUID)
+			attachmentUUID.String(),
+			fsUUID,
+			netNodeUUID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
@@ -1035,20 +1170,23 @@ func (s *watcherSuite) newMachineVolumeAttachmentForMachine(
 	c.Assert(err, tc.ErrorIsNil)
 
 	var netNodeUUID string
-	err = s.DB().QueryRowContext(
-		c.Context(),
-		`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(
+			ctx,
+			`
 SELECT net_node_uuid
 FROM machine
 WHERE uuid = ?
-		`,
-		machineUUID,
-	).Scan(&netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
+			`,
+			machineUUID,
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
 
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		`
+		_, err = tx.ExecContext(
+			ctx,
+			`
 INSERT INTO storage_volume_attachment (uuid,
                                        storage_volume_uuid,
                                        net_node_uuid,
@@ -1056,7 +1194,10 @@ INSERT INTO storage_volume_attachment (uuid,
                                        provision_scope_id)
 VALUES (?, ?, ?, 0, 1)
 `,
-		attachmentUUID.String(), fsUUID, netNodeUUID)
+			attachmentUUID.String(), fsUUID, netNodeUUID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
@@ -1071,20 +1212,23 @@ func (s *watcherSuite) newVolumeAttachmentPlanForMachine(
 	c.Assert(err, tc.ErrorIsNil)
 
 	var netNodeUUID string
-	err = s.DB().QueryRowContext(
-		c.Context(),
-		`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(
+			ctx,
+			`
 SELECT net_node_uuid
 FROM machine
 WHERE uuid = ?
-		`,
-		machineUUID,
-	).Scan(&netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
+			`,
+			machineUUID,
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
 
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		`
+		_, err = tx.ExecContext(
+			ctx,
+			`
 INSERT INTO storage_volume_attachment_plan (uuid,
                                             storage_volume_uuid,
                                             net_node_uuid,
@@ -1092,7 +1236,10 @@ INSERT INTO storage_volume_attachment_plan (uuid,
                                             provision_scope_id)
 VALUES (?, ?, ?, 0, 1)
 `,
-		attachmentUUID.String(), vsUUID, netNodeUUID)
+			attachmentUUID.String(), vsUUID, netNodeUUID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
@@ -1106,11 +1253,18 @@ func (s *watcherSuite) newMachineVolume(c *tc.C) (string, string) {
 
 	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
 
-	_, err = s.DB().Exec(`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
 VALUES (?, ?, 0, 1)
-	`,
-		vsUUID.String(), vsID)
+		`,
+			vsUUID.String(),
+			vsID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return vsUUID.String(), vsID
@@ -1123,12 +1277,18 @@ func (s *watcherSuite) newModelVolume(c *tc.C) (string, string) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
-
-	_, err = s.DB().Exec(`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
 INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
 VALUES (?, ?, 0, 0)
-	`,
-		vsUUID.String(), vsID)
+		`,
+			vsUUID.String(),
+			vsID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return vsUUID.String(), vsID
@@ -1144,20 +1304,23 @@ func (s *watcherSuite) newModelVolumeAttachmentForMachine(
 	c.Assert(err, tc.ErrorIsNil)
 
 	var netNodeUUID string
-	err = s.DB().QueryRowContext(
-		c.Context(),
-		`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(
+			ctx,
+			`
 SELECT net_node_uuid
 FROM machine
 WHERE uuid = ?
-		`,
-		machineUUID,
-	).Scan(&netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
+			`,
+			machineUUID,
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
 
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		`
+		_, err = tx.ExecContext(
+			ctx,
+			`
 INSERT INTO storage_volume_attachment (uuid,
                                        storage_volume_uuid,
                                        net_node_uuid,
@@ -1165,7 +1328,10 @@ INSERT INTO storage_volume_attachment (uuid,
                                        provision_scope_id)
 VALUES (?, ?, ?, 0, 0)
 `,
-		attachmentUUID.String(), vsUUID, netNodeUUID)
+			attachmentUUID.String(), vsUUID, netNodeUUID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
