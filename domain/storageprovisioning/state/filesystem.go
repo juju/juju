@@ -185,7 +185,8 @@ WITH
 			asd.count,
 			asd.storage_type,
 			cs.read_only,
-			cs.location
+			cs.location,
+			cs.count_max
 		FROM application_storage_directive asd
 		JOIN charm_storage cs ON asd.charm_uuid = cs.charm_uuid AND asd.storage_name = cs.name
 		WHERE application_uuid = $entityUUID.uuid
@@ -197,7 +198,8 @@ WITH
 			asd.count,
 			sp.type AS storage_type,
 			cs.read_only,
-			cs.location
+			cs.location,
+			cs.count_max
 		FROM application_storage_directive asd
 		JOIN storage_pool sp ON asd.storage_pool_uuid = sp.uuid
 		JOIN charm_storage cs ON asd.charm_uuid = cs.charm_uuid AND asd.storage_name = cs.name
@@ -270,6 +272,7 @@ ORDER BY asd.storage_name
 		r = append(r, storageprovisioning.FilesystemTemplate{
 			StorageName:  v.StorageName,
 			Count:        v.Count,
+			MaxCount:     v.MaxCount,
 			SizeMiB:      v.SizeMiB,
 			ProviderType: v.ProviderType,
 			ReadOnly:     v.ReadOnly,

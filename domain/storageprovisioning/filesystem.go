@@ -80,9 +80,12 @@ type FilesystemTemplate struct {
 	// Count is the number of filesystem(s) to mount for this storage.
 	Count int
 
+	// MaxCount is the maxium number of filesystems for this storage.
+	MaxCount int
+
 	// SizeMiB is the number of mebibytes to allocate for this filesystem or
 	// each of these filesystems.
-	SizeMiB int64
+	SizeMiB uint64
 
 	// ProviderType is the name of the provider to be used to provision this
 	// filesystem(s).

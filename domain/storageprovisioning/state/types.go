@@ -187,8 +187,9 @@ type entityUUID struct {
 // storage and provider type.
 type filesystemTemplate struct {
 	StorageName  string `db:"storage_name"`
-	SizeMiB      int64  `db:"size_mib"`
+	SizeMiB      uint64 `db:"size_mib"`
 	Count        int    `db:"count"`
+	MaxCount     int    `db:"count_max"`
 	ProviderType string `db:"storage_type"`
 	ReadOnly     bool   `db:"read_only"`
 	Location     string `db:"location"`
