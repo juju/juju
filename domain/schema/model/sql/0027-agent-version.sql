@@ -24,3 +24,11 @@ CREATE TABLE agent_version (
 -- A unique constraint over a constant index
 -- ensures only 1 row can exist.
 CREATE UNIQUE INDEX idx_singleton_agent_version ON agent_version ((1));
+
+CREATE TABLE latest_agent_version (
+    version TEXT NOT NULL
+);
+
+-- A unique constraint over a constant index
+-- ensures only 1 row can exist.
+CREATE UNIQUE INDEX idx_singleton_latest_agent_version ON latest_agent_version ((1));

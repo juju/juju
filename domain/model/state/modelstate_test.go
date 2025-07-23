@@ -15,6 +15,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -95,17 +96,18 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 	model, err := state.GetModel(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.ModelInfo{
-		UUID:            id,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               id,
+		AgentVersion:       jujuversion.Current,
+		LatestToolsVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	})
 
 	// Ensure that we have a model life record.
@@ -118,6 +120,37 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 		return nil
 	})
 	c.Assert(lifeID, tc.Equals, 0)
+}
+
+func (s *modelSuite) TestUpdateLatestAgentVersion(c *tc.C) {
+	// Arrange
+	id := s.createTestModel(c)
+
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	// Act
+	err := state.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("9.10.11"))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	model, err := state.GetModel(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(model, tc.DeepEquals, coremodel.ModelInfo{
+		UUID:               id,
+		AgentVersion:       jujuversion.Current,
+		LatestToolsVersion: semversion.MustParse("9.10.11"),
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
+	})
 }
 
 func (s *modelSuite) TestDeleteModel(c *tc.C) {
@@ -291,17 +324,18 @@ func (s *modelSuite) TestGetModelMetrics(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.ModelMetrics{
 		Model: coremodel.ModelInfo{
-			UUID:            id,
-			AgentVersion:    jujuversion.Current,
-			ControllerUUID:  s.controllerUUID,
-			Name:            "my-awesome-model",
-			Qualifier:       "prod",
-			Type:            coremodel.IAAS,
-			Cloud:           "aws",
-			CloudType:       "ec2",
-			CloudRegion:     "myregion",
-			CredentialOwner: usertesting.GenNewName(c, "myowner"),
-			CredentialName:  "mycredential",
+			UUID:               id,
+			AgentVersion:       jujuversion.Current,
+			LatestToolsVersion: jujuversion.Current,
+			ControllerUUID:     s.controllerUUID,
+			Name:               "my-awesome-model",
+			Qualifier:          "prod",
+			Type:               coremodel.IAAS,
+			Cloud:              "aws",
+			CloudType:          "ec2",
+			CloudRegion:        "myregion",
+			CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+			CredentialName:     "mycredential",
 		},
 		ApplicationCount: 1,
 		MachineCount:     0,
