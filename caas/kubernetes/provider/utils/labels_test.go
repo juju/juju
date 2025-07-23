@@ -137,7 +137,7 @@ func (l *LabelSuite) TestDetectModelLabelVersion(c *gc.C) {
 		_, err := l.client.CoreV1().Namespaces().Create(context.TODO(), test.Namespace, meta.CreateOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
-		labelVersion, err := utils.DetectModelLabelVersion(test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
+		labelVersion, err := utils.MatchModelLabelVersion(test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
 		if test.ErrorString != "" {
 			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
 		} else {
@@ -429,7 +429,7 @@ func (l *LabelSuite) TestDetectModelMetaLabelVersion(c *gc.C) {
 		meta := meta.ObjectMeta{
 			Labels: test.Labels,
 		}
-		labelVersion, err := utils.DetectModelMetaLabelVersion(meta, test.ModelName, test.ModelUUID, test.ControllerUUID)
+		labelVersion, err := utils.MatchModelMetaLabelVersion(meta, test.ModelName, test.ModelUUID, test.ControllerUUID)
 		if test.ErrorString != "" {
 			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
 		} else {
@@ -472,7 +472,7 @@ func (l *LabelSuite) TestDetectOperatorMetaLabelVersion(c *gc.C) {
 		meta := meta.ObjectMeta{
 			Labels: test.Labels,
 		}
-		labelVersion, err := utils.DetectOperatorMetaLabelVersion(meta, test.ModelName, test.Target)
+		labelVersion, err := utils.MatchOperatorMetaLabelVersion(meta, test.ModelName, test.Target)
 		if test.ErrorString != "" {
 			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
 		} else {
@@ -511,7 +511,7 @@ func (l *LabelSuite) TestDetectApplicationMetaLabelVersion(c *gc.C) {
 		meta := meta.ObjectMeta{
 			Labels: test.Labels,
 		}
-		labelVersion, err := utils.DetectApplicationMetaLabelVersion(meta, test.AppName)
+		labelVersion, err := utils.MatchApplicationMetaLabelVersion(meta, test.AppName)
 		if test.ErrorString != "" {
 			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
 		} else {

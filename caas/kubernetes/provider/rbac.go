@@ -241,12 +241,12 @@ func (k *kubernetesClient) ensureServiceAccount(sa *core.ServiceAccount) (out *c
 	var existingLabelVersion constants.LabelVersion
 	switch name := sa.GetName(); name {
 	case ExecRBACResourceName, modelOperatorName:
-		existingLabelVersion, err = utils.DetectOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
 	default:
 		if isOperatorName(name) {
-			existingLabelVersion, err = utils.DetectOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
+			existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
 		} else {
-			existingLabelVersion, err = utils.DetectApplicationMetaLabelVersion(existing.ObjectMeta, name)
+			existingLabelVersion, err = utils.MatchApplicationMetaLabelVersion(existing.ObjectMeta, name)
 		}
 	}
 	if err != nil {
@@ -341,12 +341,12 @@ func (k *kubernetesClient) ensureRole(role *rbacv1.Role) (out *rbacv1.Role, clea
 	var existingLabelVersion constants.LabelVersion
 	switch name := role.GetName(); name {
 	case ExecRBACResourceName, modelOperatorName:
-		existingLabelVersion, err = utils.DetectOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
 	default:
 		if isOperatorName(name) {
-			existingLabelVersion, err = utils.DetectOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
+			existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
 		} else {
-			existingLabelVersion, err = utils.DetectApplicationMetaLabelVersion(existing.ObjectMeta, name)
+			existingLabelVersion, err = utils.MatchApplicationMetaLabelVersion(existing.ObjectMeta, name)
 		}
 	}
 	if err != nil {

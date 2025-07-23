@@ -56,7 +56,7 @@ func GetOperatorPodName(
 	modelUUID,
 	controllerUUID string,
 ) (string, error) {
-	labelVersion, err := utils.DetectModelLabelVersion(namespace, modelName, modelUUID, controllerUUID, nsAPI)
+	labelVersion, err := utils.MatchModelLabelVersion(namespace, modelName, modelUUID, controllerUUID, nsAPI)
 	if err != nil {
 		return "", errors.Annotatef(err, "determining legacy label status for model %s", modelName)
 	}

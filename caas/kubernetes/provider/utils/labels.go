@@ -50,9 +50,9 @@ const (
 	ErrUnexpectedApplicationLabels errors.ConstError = "unexpected application labels"
 )
 
-// DetectModelLabelVersion checks to see if the provided model is running on an older
-// labeling scheme or a newer one.
-func DetectModelLabelVersion(namespace, modelName, modelUUID, controllerUUID string, namespaceI core.NamespaceInterface) (constants.LabelVersion, error) {
+// MatchModelLabelVersion checks to see if the provided model is running on an older
+// labeling scheme or a newer one and returns the detected label version.
+func MatchModelLabelVersion(namespace, modelName, modelUUID, controllerUUID string, namespaceI core.NamespaceInterface) (constants.LabelVersion, error) {
 	ns, err := namespaceI.Get(context.TODO(), namespace, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return constants.LabelVersion2, nil
@@ -68,9 +68,9 @@ func DetectModelLabelVersion(namespace, modelName, modelUUID, controllerUUID str
 	return -1, ErrUnexpectedModelLabels
 }
 
-// DetectModelMetaLabelVersion checks to see if the provided resource is running on an older
-// model labeling scheme or a newer one.
-func DetectModelMetaLabelVersion(meta meta.ObjectMeta, modelName, modelUUID, controllerUUID string) (constants.LabelVersion, error) {
+// MatchModelMetaLabelVersion checks to see if the provided resource is running on an older
+// model labeling scheme or a newer one and returns the detected label version.
+func MatchModelMetaLabelVersion(meta meta.ObjectMeta, modelName, modelUUID, controllerUUID string) (constants.LabelVersion, error) {
 	for i := constants.LastLabelVersion; i >= constants.FirstLabelVersion; i-- {
 		if HasLabels(meta.Labels, LabelsForModel(modelName, modelUUID, controllerUUID, i)) {
 			return i, nil
@@ -79,9 +79,9 @@ func DetectModelMetaLabelVersion(meta meta.ObjectMeta, modelName, modelUUID, con
 	return -1, ErrUnexpectedModelLabels
 }
 
-// DetectOperatorMetaLabelVersion checks to see if the provided resource is running on an older
-// operator / role labeling scheme or a newer one.
-func DetectOperatorMetaLabelVersion(meta meta.ObjectMeta, operatorName, target string) (constants.LabelVersion, error) {
+// MatchOperatorMetaLabelVersion checks to see if the provided resource is running on an older
+// operator / role labeling scheme or a newer one and returns the detected label version.
+func MatchOperatorMetaLabelVersion(meta meta.ObjectMeta, operatorName, target string) (constants.LabelVersion, error) {
 	for i := constants.LastLabelVersion; i >= constants.FirstLabelVersion; i-- {
 		want := LabelsForOperator(operatorName, target, i)
 		if i != constants.LegacyLabelVersion {
@@ -94,9 +94,9 @@ func DetectOperatorMetaLabelVersion(meta meta.ObjectMeta, operatorName, target s
 	return -1, ErrUnexpectedOperatorLabels
 }
 
-// DetectApplicationMetaLabelVersion checks to see if the provided resource is running on an older
-// application labeling scheme or a newer one.
-func DetectApplicationMetaLabelVersion(meta meta.ObjectMeta, appName string) (constants.LabelVersion, error) {
+// MatchApplicationMetaLabelVersion checks to see if the provided resource is running on an older
+// application labeling scheme or a newer one and returns the detected label version.
+func MatchApplicationMetaLabelVersion(meta meta.ObjectMeta, appName string) (constants.LabelVersion, error) {
 	for i := constants.LastLabelVersion; i >= constants.FirstLabelVersion; i-- {
 		if HasLabels(meta.Labels, LabelsForApp(appName, i)) {
 			return i, nil

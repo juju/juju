@@ -139,7 +139,7 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1(cfg *admissionre
 	if err != nil {
 		return cleanUp, errors.Trace(err)
 	}
-	existingLabelVersion, err := utils.DetectModelMetaLabelVersion(existing.ObjectMeta, k.modelName, k.modelUUID, k.controllerUUID)
+	existingLabelVersion, err := utils.MatchModelMetaLabelVersion(existing.ObjectMeta, k.modelName, k.modelUUID, k.controllerUUID)
 	if err != nil {
 		return nil, errors.Annotatef(err, "ensuring MutatingWebhookConfiguration %q with labels %v ", cfg.GetName(), existing.Labels)
 	}
