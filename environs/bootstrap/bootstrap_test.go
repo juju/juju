@@ -762,7 +762,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
-func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapBuildAgentOfficial(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
@@ -806,6 +806,53 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	agentVersion, valid := cfg.AgentVersion()
 	c.Check(valid, jc.IsTrue)
 	c.Check(agentVersion.String(), gc.Equals, "2.99.0")
+}
+
+func (s *bootstrapSuite) TestBootstrapBuildAgentDevel(c *gc.C) {
+	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
+	// such as s390.
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	s.PatchValue(bootstrap.FindTools, func(envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+		c.Fatal("should not call FindTools if BuildAgent is specified")
+		return nil, errors.NotFoundf("tools")
+	})
+	s.PatchValue(&jujuversion.Grade, "devel")
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			BuildAgent:       true,
+			AdminSecret:      "admin-secret",
+			CAPrivateKey:     coretesting.CAKey,
+			SSHServerHostKey: coretesting.SSHServerHostKey,
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			BuildAgentTarball: func(build bool, _ string,
+				getForceVersion func(version.Number) version.Number,
+			) (*sync.BuiltAgent, error) {
+				ver := getForceVersion(version.Zero)
+				c.Logf("BuildAgentTarball version %s", ver)
+				c.Assert(build, jc.IsTrue)
+				c.Assert(ver.String(), gc.Equals, "2.99.0.1")
+				localVer := ver
+				return &sync.BuiltAgent{
+					Dir:      c.MkDir(),
+					Official: true,
+					Version: version.Binary{
+						// If we found an official build we suppress the build number.
+						Number:  localVer.ToPatch(),
+						Release: "ubuntu",
+						Arch:    "arm64",
+					},
+				}, nil
+			},
+			SupportedBootstrapBases: supportedJujuBases,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that the model config has the correct version set.
+	cfg := env.instanceConfig.Bootstrap.ControllerModelConfig
+	agentVersion, valid := cfg.AgentVersion()
+	c.Check(valid, jc.IsTrue)
+	c.Check(agentVersion.String(), gc.Equals, "2.99.0.1")
 }
 
 func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientArch string) {
