@@ -666,7 +666,7 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 		}
 	}
 
-	return updateProvisioningState(appName, false, 0, facade)
+	return updateProvisioningState(appName, false, 0, facade, logger)
 }
 
 // ensureScale determines how and when to scale up or down based on
@@ -695,9 +695,13 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		ps = &params.CAASApplicationProvisioningState{}
 	}
 
+	info, err := facade.ProvisioningInfo(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
 	if !ps.Scaling || appLife != life.Alive {
-		err := updateProvisioningState(appName, true, desiredScale, facade)
+		err := updateProvisioningState(appName, true, desiredScale, facade, logger)
 		if err != nil {
 			return err
 		}
@@ -709,15 +713,20 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if err != nil {
 		return err
 	}
+
 	if ps.ScaleTarget >= len(units) {
 		logger.Infof("scaling application %q to desired scale %d", appName, ps.ScaleTarget)
+		if err = app.EnsurePVC(info.Filesystems, info.FilesystemUnitAttachments); err != nil {
+			return err
+		}
+
 		err = app.Scale(ps.ScaleTarget)
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof("dying application %q is already removed", appName)
 		} else if err != nil {
 			return err
 		}
-		return updateProvisioningState(appName, false, 0, facade)
+		return updateProvisioningState(appName, false, 0, facade, logger)
 	}
 
 	unitsToDestroy, err := app.UnitsToRemove(context.TODO(), ps.ScaleTarget)
@@ -751,7 +760,7 @@ func setApplicationStatus(appName string, s status.Status, reason string, data m
 }
 
 func updateProvisioningState(appName string, scaling bool, scaleTarget int,
-	facade CAASProvisionerFacade) error {
+	facade CAASProvisionerFacade, logger Logger) error {
 	newPs := params.CAASApplicationProvisioningState{
 		Scaling:     scaling,
 		ScaleTarget: scaleTarget,
