@@ -524,6 +524,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	broker := mocks.NewMockCAASBroker(ctrl)
 
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 	password := "123456789"
@@ -644,7 +645,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		}),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, broker, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

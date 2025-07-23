@@ -44,17 +44,17 @@ func (m *MockApplicationOps) EXPECT() *MockApplicationOpsMockRecorder {
 }
 
 // AppAlive mocks base method.
-func (m *MockApplicationOps) AppAlive(arg0 string, arg1 caas.Application, arg2 string, arg3 *caas.ApplicationConfig, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 clock.Clock, arg6 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) AppAlive(arg0 string, arg1 caas.Application, arg2 string, arg3 *caas.ApplicationConfig, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 clock.Clock, arg6 caasapplicationprovisioner.CAASBroker, arg7 caasapplicationprovisioner.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppAlive", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "AppAlive", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AppAlive indicates an expected call of AppAlive.
-func (mr *MockApplicationOpsMockRecorder) AppAlive(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
+func (mr *MockApplicationOpsMockRecorder) AppAlive(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppAlive", reflect.TypeOf((*MockApplicationOps)(nil).AppAlive), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppAlive", reflect.TypeOf((*MockApplicationOps)(nil).AppAlive), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
 // AppDead mocks base method.

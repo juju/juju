@@ -56,6 +56,10 @@ func (b *dummyBroker) ModelOperatorExists() (bool, error) {
 	return b.modelOperatorExists()
 }
 
+func (b *dummyBroker) GetModelOperatorDeploymentImage() (string, error) {
+	return "ghcr.io/juju/jujud-operator:3.6.9", nil
+}
+
 func (a *dummyAPI) ModelOperatorProvisioningInfo() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
 	if a.provInfo == nil {
 		return modeloperatorapi.ModelOperatorProvisioningInfo{}, nil
