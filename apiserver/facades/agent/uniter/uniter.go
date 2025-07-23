@@ -1145,84 +1145,54 @@ func (u *UniterAPI) Relation(ctx context.Context, args params.RelationUnits) (pa
 
 // ActionStatus returns the status of Actions by Tags passed in.
 func (u *UniterAPI) ActionStatus(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
 
-	results := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	for k, entity := range args.Entities {
-		action, err := actionFn(entity.Tag)
-		if err != nil {
-			results.Results[k].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[k].Result = string(action.Status())
-	}
-
-	return results, nil
+	return params.StringResults{}, nil
 }
 
 // Actions returns the Actions by Tags passed and ensures that the Unit asking
 // for them is the same Unit that has the Actions.
 func (u *UniterAPI) Actions(ctx context.Context, args params.Entities) (params.ActionResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ActionResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.Actions(args, actionFn), nil
+	return params.ActionResults{}, nil
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
 func (u *UniterAPI) BeginActions(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.BeginActions(args, actionFn), nil
+	return params.ErrorResults{}, nil
 }
 
 // FinishActions saves the result of a completed Action
 func (u *UniterAPI) FinishActions(ctx context.Context, args params.ActionExecutionResults) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.FinishActions(args, actionFn), nil
+	return params.ErrorResults{}, nil
 }
 
 // LogActionsMessages records the log messages against the specified actions.
 func (u *UniterAPI) LogActionsMessages(ctx context.Context, args params.ActionMessageParams) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
-	}
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-
-	oneActionMessage := func(actionTag string, message string) error {
-		action, err := actionFn(actionTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return action.Log(message)
 	}
 
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Messages)),
-	}
-	for i, actionMessage := range args.Messages {
-		result.Results[i].Error = apiservererrors.ServerError(
-			oneActionMessage(actionMessage.Tag, actionMessage.Value))
 	}
 	return result, nil
 }
@@ -2231,7 +2201,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 					MACAddress:    dev.MACAddress,
 					InterfaceName: dev.Name,
 					Addresses: transform.Slice(dev.Addresses, func(addr domainnetork.AddressInfo) params.
-						InterfaceAddress {
+					InterfaceAddress {
 						return params.InterfaceAddress{
 							Hostname: addr.Hostname,
 							Address:  addr.Value,

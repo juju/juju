@@ -300,3 +300,14 @@ func (s *MachineRebootTestSuite) TestRebootCleared(c *tc.C) {
 		},
 	})
 }
+
+// entities is a convenience constructor for params.Entities.
+func entities(tags ...string) params.Entities {
+	entities := params.Entities{
+		Entities: make([]params.Entity, len(tags)),
+	}
+	for i, tag := range tags {
+		entities.Entities[i].Tag = tag
+	}
+	return entities
+}
