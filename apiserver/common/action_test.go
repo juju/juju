@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -148,8 +149,8 @@ func (s *actionsSuite) TestBeginActions(c *tc.C) {
 func (s *actionsSuite) TestGetActions(c *tc.C) {
 	args := entities("success", "fail", "notPending")
 	actionFn := makeGetActionByTagString(map[string]state.Action{
-		"success":    fakeAction{name: "floosh", status: state.ActionPending},
-		"notPending": fakeAction{status: state.ActionCancelled},
+		"success":    fakeAction{name: "floosh", status: status.Pending},
+		"notPending": fakeAction{status: status.Cancelled},
 	})
 
 	results := common.Actions(args, actionFn)
@@ -168,10 +169,10 @@ func (s *actionsSuite) TestGetActions(c *tc.C) {
 func (s *actionsSuite) TestFinishActions(c *tc.C) {
 	args := params.ActionExecutionResults{
 		[]params.ActionExecutionResult{
-			{ActionTag: "success", Status: string(state.ActionCompleted)},
+			{ActionTag: "success", Status: string(status.Completed)},
 			{ActionTag: "notfound"},
 			{ActionTag: "convertFail", Status: "failStatus"},
-			{ActionTag: "finishFail", Status: string(state.ActionCancelled)},
+			{ActionTag: "finishFail", Status: string(status.Cancelled)},
 		},
 	}
 	expectErr := errors.New("explosivo")
@@ -381,10 +382,10 @@ type fakeAction struct {
 	name      string
 	beginErr  error
 	finishErr error
-	status    state.ActionStatus
+	status    status.Status
 }
 
-func (mock fakeAction) Status() state.ActionStatus {
+func (mock fakeAction) Status() status.Status {
 	return mock.status
 }
 

@@ -8,36 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-)
 
-// ActionStatus represents the possible end states for an action.
-type ActionStatus string
-
-const (
-	// ActionError signifies that the action did not get run due to an error.
-	ActionError ActionStatus = "error"
-
-	// ActionFailed signifies that the action did not complete successfully.
-	ActionFailed ActionStatus = "failed"
-
-	// ActionCompleted indicates that the action ran to completion as intended.
-	ActionCompleted ActionStatus = "completed"
-
-	// ActionCancelled means that the Action was cancelled before being run.
-	ActionCancelled ActionStatus = "cancelled"
-
-	// ActionPending is the default status when an Action is first queued.
-	ActionPending ActionStatus = "pending"
-
-	// ActionRunning indicates that the Action is currently running.
-	ActionRunning ActionStatus = "running"
-
-	// ActionAborting indicates that the Action is running but should be
-	// aborted.
-	ActionAborting ActionStatus = "aborting"
-
-	// ActionAborted indicates the Action was aborted.
-	ActionAborted ActionStatus = "aborted"
+	"github.com/juju/juju/core/status"
 )
 
 type actionDoc struct {
@@ -80,10 +52,10 @@ type actionDoc struct {
 	// Operation is the parent operation of the action.
 	Operation string `bson:"operation"`
 
-	// Status represents the end state of the Action; ActionFailed for an
+	// Status represents the end state of the Action; Failed for an
 	// action that was removed prematurely, or that failed, and
-	// ActionCompleted for an action that successfully completed.
-	Status ActionStatus `bson:"status"`
+	// Completed for an action that successfully completed.
+	Status status.Status `bson:"status"`
 
 	// Message captures any error returned by the action.
 	Message string `bson:"message"`
@@ -175,7 +147,7 @@ func (a *action) Completed() time.Time {
 }
 
 // Status returns the final state of the action.
-func (a *action) Status() ActionStatus {
+func (a *action) Status() status.Status {
 	return a.doc.Status
 }
 
@@ -204,7 +176,7 @@ func (a *action) Model() (*Model, error) {
 // ActionResults is a data transfer object that holds the key Action
 // output and results information.
 type ActionResults struct {
-	Status  ActionStatus           `json:"status"`
+	Status  status.Status          `json:"status"`
 	Results map[string]interface{} `json:"results"`
 	Message string                 `json:"message"`
 }
@@ -237,7 +209,7 @@ func (a *action) Cancel() (Action, error) {
 // removeAndLog takes the action off of the pending queue, and creates
 // an actionresult to capture the outcome of the action. It asserts that
 // the action is not already completed.
-func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (Action, error) {
+func (a *action) removeAndLog(finalStatus status.Status, results map[string]interface{}, message string) (Action, error) {
 	m, err := a.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -45,11 +45,17 @@ type ModificationStatusGetter interface {
 }
 
 const (
-	// Status values common to machine and unit agents.
+	// Status values common to machine and unit agents, and actions.
 
 	// Error means the entity requires human intervention
 	// in order to operate correctly.
+	//
+	// The action did not get run due to an error.
 	Error Status = "error"
+)
+
+const (
+	// Status values common to machine and unit agents.
 
 	// Started is set when:
 	// The entity is actively participating in the model.
@@ -61,11 +67,18 @@ const (
 )
 
 const (
-	// Status values specific to machine agents.
+	// Status values specific to machine agents and actions.
 
 	// Pending is set when:
+	//
 	// The machine is not yet participating in the model.
+	//
+	// The action first is queued.
 	Pending Status = "pending"
+)
+
+const (
+	// Status values specific to machine agents.
 
 	// Stopped is set when:
 	// The machine's agent will perform no further action, other than
@@ -76,6 +89,19 @@ const (
 	// The machine ought to be signalling activity, but it cannot be
 	// detected.
 	Down Status = "down"
+)
+
+const (
+	// Status values specific to unit agents and actions.
+
+	// Failed is set when:
+	//
+	// The unit agent has failed in some way,eg the agent ought to be signalling
+	// activity, but it cannot be detected. It might also be that the unit agent
+	// detected an unrecoverable condition and managed to tell the Juju server about it.
+	//
+	// The action did not complete successfully.
+	Failed Status = "failed"
 )
 
 const (
@@ -101,12 +127,6 @@ const (
 	// becomes "idle". It will stay "idle" until some action (e.g. it needs to run a hook) or
 	// error (e.g it loses contact with the Juju server) moves it to a different state.
 	Idle Status = "idle"
-
-	// Failed is set when:
-	// The unit agent has failed in some way,eg the agent ought to be signalling
-	// activity, but it cannot be detected. It might also be that the unit agent
-	// detected an unrecoverable condition and managed to tell the Juju server about it.
-	Failed Status = "failed"
 
 	// Lost is set when:
 	// The juju agent has not communicated with the juju server for an unexpectedly long time;
@@ -211,6 +231,23 @@ const (
 )
 
 const (
+	// Status values specific to actions.
+
+	// Completed indicates that the action ran to completion as intended.
+	Completed Status = "completed"
+
+	// Cancelled means that the Action was cancelled before being run.
+	Cancelled Status = "cancelled"
+
+	// Aborting indicates that the Action is running but should be
+	// aborted.
+	Aborting Status = "aborting"
+
+	// Aborted indicates the Action was aborted.
+	Aborted Status = "aborted"
+)
+
+const (
 	// Status values that are common to several entities.
 
 	// Destroying indicates that the entity is being destroyed.
@@ -219,11 +256,17 @@ const (
 	Destroying Status = "destroying"
 )
 
+const (
+	// Status values that are common to instances and actions.
+
+	// Running indicates that the entity is currently running.
+	Running Status = "running"
+)
+
 // InstanceStatus
 const (
 	Empty             Status = ""
 	Provisioning      Status = "allocating"
-	Running           Status = "running"
 	ProvisioningError Status = "provisioning error"
 )
 

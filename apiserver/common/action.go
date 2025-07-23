@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -18,27 +19,27 @@ import (
 // ParamsActionExecutionResultsToStateActionResults does exactly what
 // the name implies.
 func ParamsActionExecutionResultsToStateActionResults(arg params.ActionExecutionResult) (state.ActionResults, error) {
-	var status state.ActionStatus
+	var statusStr status.Status
 	switch arg.Status {
 	case params.ActionCancelled:
-		status = state.ActionCancelled
+		statusStr = status.Cancelled
 	case params.ActionCompleted:
-		status = state.ActionCompleted
+		statusStr = status.Completed
 	case params.ActionFailed:
-		status = state.ActionFailed
+		statusStr = status.Failed
 	case params.ActionPending:
-		status = state.ActionPending
+		statusStr = status.Pending
 	case params.ActionAborting:
-		status = state.ActionAborting
+		statusStr = status.Aborting
 	case params.ActionAborted:
-		status = state.ActionAborted
+		statusStr = status.Aborted
 	case params.ActionError:
-		status = state.ActionError
+		statusStr = status.Error
 	default:
 		return state.ActionResults{}, errors.Errorf("unrecognized action status '%s'", arg.Status)
 	}
 	return state.ActionResults{
-		Status:  status,
+		Status:  statusStr,
 		Results: arg.Results,
 		Message: arg.Message,
 	}, nil
@@ -153,7 +154,7 @@ func Actions(args params.Entities, actionFn func(string) (state.Action, error)) 
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if action.Status() != state.ActionPending {
+		if action.Status() != status.Pending {
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)
 			continue
 		}
