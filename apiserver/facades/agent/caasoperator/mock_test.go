@@ -257,14 +257,6 @@ func (b *mockBroker) WatchContainerStart(appName string, containerName string) (
 	return b.watcher, b.NextErr()
 }
 
-func (b *mockBroker) GetModelOperatorDeploymentImage() (string, error) {
-	b.MethodCall(b, "GetModelOperatorDeploymentImage")
-	if err := b.NextErr(); err != nil {
-		return "", err
-	}
-	return "ghcr.io/juju/jujud-operator:3.6.9", nil
-}
-
 type mockCloudContainer struct {
 	unit       string
 	providerID string

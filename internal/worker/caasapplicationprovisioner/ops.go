@@ -123,6 +123,17 @@ type Tomb interface {
 	ErrDying() error
 }
 
+// splitImage splits an image string into its OCINamespace and ImageRef components.
+func splitImage(image string) (ociNamespace string, imageRef string) {
+	parts := strings.Split(image, "/")
+	if len(parts) < 3 {
+		return "", image //
+	}
+	ociNamespace = strings.Join(parts[:2], "/") // e.g., ghcr.io/juju
+	imageRef = strings.Join(parts[2:], "/")     // e.g., jujud-operator:3.6.9
+	return
+}
+
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
 // CAAS broker to create the resources in the k8s cluster for this application.
 func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
@@ -140,6 +151,8 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		return errors.Annotate(err, "alvin appAlive failed to get deployment image")
 	}
 	logger.Infof("alvin2 appalive image: %#v", image)
+
+	modelImageOCInamespace, _ := splitImage(image)
 
 	if provisionInfo.CharmURL == nil {
 		return errors.Errorf("missing charm url in provision info")
@@ -167,7 +180,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	}
 
 	ch := charmInfo.Charm()
-	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageDetails.Repository, charm.Base{
+	charmBaseImage, err := podcfg.ImageForBase(modelImageOCInamespace, charm.Base{
 		Name: provisionInfo.Base.OS,
 		Channel: charm.Channel{
 			Track: provisionInfo.Base.Channel.Track,
