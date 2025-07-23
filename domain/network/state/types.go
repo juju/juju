@@ -23,6 +23,11 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// String returns the UUID value of the entity as a string.
+func (e entityUUID) String() string {
+	return e.UUID
+}
+
 // name is an agnostic container for a `name` column.
 type name struct {
 	Name string `db:"name"`

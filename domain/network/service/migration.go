@@ -28,6 +28,14 @@ type MigrationState interface {
 
 	// GetAllSubnets returns all known subnets in the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+
+	// CreateCloudServices creates cloud service in state.
+	// It creates the associated netnode and link it to the application
+	// through the provided application name.
+	CreateCloudServices(ctx context.Context, cloudservices []internal.ImportCloudService) error
 }
 
 // MigrationService provides the API for model migration actions within

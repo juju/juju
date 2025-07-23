@@ -51,6 +51,9 @@ type MigrationService interface {
 	// DeleteImportedLinkLayerDevices removes all link layer device data
 	// imported via the ImportLinkLayerDevices method.
 	DeleteImportedLinkLayerDevices(ctx context.Context) error
+
+	// ImportCloudServices imports cloud service metadata into the model using the provided context and service data.
+	ImportCloudServices(ctx context.Context, services []internal.ImportCloudService) error
 }
 
 type importOperation struct {
