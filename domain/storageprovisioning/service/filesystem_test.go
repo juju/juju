@@ -219,6 +219,7 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
 		StorageName:  "a",
 		Count:        1,
+		MaxCount:     10,
 		SizeMiB:      1234,
 		ProviderType: "foo",
 		ReadOnly:     true,
@@ -231,7 +232,7 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 		Return(expectedResult, nil)
 
 	svc := NewService(s.state, s.watcherFactory)
-	result, err := svc.GetFilesystemsTemplateForApplication(c.Context(), appID)
+	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, expectedResult)
 }

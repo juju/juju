@@ -47,6 +47,7 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 	c.Check(result, tc.DeepEquals, []storageprovisioning.FilesystemTemplate{{
 		StorageName:  "x",
 		Count:        2,
+		MaxCount:     10,
 		SizeMiB:      123,
 		ProviderType: "magic",
 		ReadOnly:     true,
@@ -58,6 +59,7 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 	}, {
 		StorageName:  "y",
 		Count:        1,
+		MaxCount:     10,
 		SizeMiB:      456,
 		ProviderType: "rootfs",
 		ReadOnly:     true,
