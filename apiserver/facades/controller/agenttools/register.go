@@ -20,12 +20,9 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade is used to register the facade.
 func newFacade(ctx facade.ModelContext) (*AgentToolsAPI, error) {
-	st := ctx.State()
 	domainServices := ctx.DomainServices()
 	return NewAgentToolsAPI(
-		st,
 		tools.FindTools,
-		envVersionUpdate,
 		ctx.Auth(),
 		ctx.Logger().Child("model"),
 		domainServices.Machine(),

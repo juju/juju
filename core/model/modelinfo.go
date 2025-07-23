@@ -47,6 +47,9 @@ type ModelInfo struct {
 
 	// AgentVersion is the Juju version for agent binaries in this model.
 	AgentVersion semversion.Number
+
+	// LatestAgentVersion is the latest known agent version for the model.
+	LatestAgentVersion semversion.Number
 }
 
 // ModelMetrics represents the metrics information set in the database.

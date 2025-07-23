@@ -192,8 +192,9 @@ func CreateLocalModelRecordWithAgentStream(
 			// TODO (manadart 2024-01-13): Note that this comes from the arg.
 			// It is not populated in the return from the controller state.
 			// So that method should not return the core type.
-			AgentVersion: agentVersion,
-			AgentStream:  agentStreamArg,
+			AgentStream:        agentStreamArg,
+			AgentVersion:       agentVersion,
+			LatestAgentVersion: agentVersion,
 		}
 
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {

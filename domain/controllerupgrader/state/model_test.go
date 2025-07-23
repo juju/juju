@@ -86,9 +86,10 @@ func (s *controllerModelStateSuite) setModelTargetAgentVersionAndStream(
 	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB()
 	c.Assert(err, tc.ErrorIsNil)
 
-	q := "INSERT INTO agent_version (*) VALUES ($M.stream_id, $M.target_version)"
+	q := "INSERT INTO agent_version (*) VALUES ($M.stream_id, $M.target_version, $M.latest_version)"
 
 	args := sqlair.M{
+		"latest_version": vers,
 		"target_version": vers,
 		"stream_id":      int(stream),
 	}

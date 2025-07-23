@@ -17,6 +17,7 @@ INSERT INTO agent_stream VALUES
 CREATE TABLE agent_version (
     stream_id INT NOT NULL,
     target_version TEXT NOT NULL,
+    latest_version TEXT NOT NULL,
     FOREIGN KEY (stream_id)
     REFERENCES agent_stream (id)
 );

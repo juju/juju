@@ -131,6 +131,9 @@ type ModelDetailArgs struct {
 
 	// AgentVersion is the target version for agents running in this model.
 	AgentVersion semversion.Number
+
+	// LatestAgentVersion is the latest know agent version for the model.
+	LatestAgentVersion semversion.Number
 }
 
 // ModelImportArgs supplies the information needed for importing a model into a

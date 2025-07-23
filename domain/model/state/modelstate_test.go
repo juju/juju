@@ -51,18 +51,19 @@ func (s *modelSuite) createTestModel(c *tc.C) coremodel.UUID {
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            id,
-		AgentStream:     modelagent.AgentStreamReleased,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -75,18 +76,19 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            id,
-		AgentStream:     modelagent.AgentStreamReleased,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -95,17 +97,18 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 	model, err := state.GetModel(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.ModelInfo{
-		UUID:            id,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               id,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	})
 
 	// Ensure that we have a model life record.
@@ -126,18 +129,19 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            id,
-		AgentStream:     modelagent.AgentStreamReleased,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -161,16 +165,17 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *tc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:           id,
-		AgentStream:    modelagent.AgentStreamReleased,
-		AgentVersion:   jujuversion.Current,
-		ControllerUUID: s.controllerUUID,
-		Name:           "my-awesome-model",
-		Qualifier:      "prod",
-		Type:           coremodel.IAAS,
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -185,28 +190,30 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *tc.C) {
 	// Ensure that you can only ever insert one model.
 
 	err := state.Create(c.Context(), model.ModelDetailArgs{
-		UUID:         modeltesting.GenModelUUID(c),
-		AgentStream:  modelagent.AgentStreamReleased,
-		AgentVersion: jujuversion.Current,
-		Name:         "my-awesome-model",
-		Qualifier:    "prod",
-		Type:         coremodel.IAAS,
-		Cloud:        "aws",
-		CloudType:    "ec2",
-		CloudRegion:  "myregion",
+		UUID:               modeltesting.GenModelUUID(c),
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = state.Create(c.Context(), model.ModelDetailArgs{
-		UUID:         modeltesting.GenModelUUID(c),
-		AgentStream:  modelagent.AgentStreamReleased,
-		AgentVersion: jujuversion.Current,
-		Name:         "my-awesome-model",
-		Qualifier:    "prod",
-		Type:         coremodel.IAAS,
-		Cloud:        "aws",
-		CloudType:    "ec2",
-		CloudRegion:  "myregion",
+		UUID:               modeltesting.GenModelUUID(c),
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
 	})
 	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
@@ -219,16 +226,17 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *tc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 	err := state.Create(c.Context(), model.ModelDetailArgs{
-		UUID:           id,
-		AgentStream:    modelagent.AgentStreamReleased,
-		AgentVersion:   jujuversion.Current,
-		ControllerUUID: s.controllerUUID,
-		Name:           "my-awesome-model",
-		Qualifier:      "prod",
-		Type:           coremodel.IAAS,
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -245,15 +253,16 @@ func (s *modelSuite) TestCreateModelAndDelete(c *tc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 	err := state.Create(c.Context(), model.ModelDetailArgs{
-		UUID:         id,
-		AgentStream:  modelagent.AgentStreamReleased,
-		AgentVersion: jujuversion.Current,
-		Name:         "my-awesome-model",
-		Qualifier:    "prod",
-		Type:         coremodel.IAAS,
-		Cloud:        "aws",
-		CloudType:    "ec2",
-		CloudRegion:  "myregion",
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -291,17 +300,18 @@ func (s *modelSuite) TestGetModelMetrics(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(model, tc.DeepEquals, coremodel.ModelMetrics{
 		Model: coremodel.ModelInfo{
-			UUID:            id,
-			AgentVersion:    jujuversion.Current,
-			ControllerUUID:  s.controllerUUID,
-			Name:            "my-awesome-model",
-			Qualifier:       "prod",
-			Type:            coremodel.IAAS,
-			Cloud:           "aws",
-			CloudType:       "ec2",
-			CloudRegion:     "myregion",
-			CredentialOwner: usertesting.GenNewName(c, "myowner"),
-			CredentialName:  "mycredential",
+			UUID:               id,
+			AgentVersion:       jujuversion.Current,
+			LatestAgentVersion: jujuversion.Current,
+			ControllerUUID:     s.controllerUUID,
+			Name:               "my-awesome-model",
+			Qualifier:          "prod",
+			Type:               coremodel.IAAS,
+			Cloud:              "aws",
+			CloudType:          "ec2",
+			CloudRegion:        "myregion",
+			CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+			CredentialName:     "mycredential",
 		},
 		ApplicationCount: 1,
 		MachineCount:     0,
@@ -559,18 +569,19 @@ func (s *modelSuite) TestGetModelCloudType(c *tc.C) {
 	id := modeltesting.GenModelUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
-		UUID:            id,
-		AgentStream:     modelagent.AgentStreamReleased,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "mymodel",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       cloudType,
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "mymodel",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          cloudType,
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -595,18 +606,19 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
-		UUID:            uuid,
-		AgentStream:     modelagent.AgentStreamReleased,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "mymodel",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       cloudType,
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               uuid,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "mymodel",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          cloudType,
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -640,19 +652,20 @@ func (s *modelSuite) TestIsControllerModelTrue(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
-		UUID:              uuid,
-		AgentStream:       modelagent.AgentStreamReleased,
-		AgentVersion:      jujuversion.Current,
-		ControllerUUID:    s.controllerUUID,
-		Name:              "mycontrollermodel",
-		Qualifier:         "prod",
-		Type:              coremodel.IAAS,
-		Cloud:             "aws",
-		CloudType:         cloudType,
-		CloudRegion:       "myregion",
-		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
-		CredentialName:    "mycredential",
-		IsControllerModel: true,
+		UUID:               uuid,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "mycontrollermodel",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          cloudType,
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
+		IsControllerModel:  true,
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -669,19 +682,20 @@ func (s *modelSuite) TestIsControllerModelFalse(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
-		UUID:              uuid,
-		AgentStream:       modelagent.AgentStreamReleased,
-		AgentVersion:      jujuversion.Current,
-		ControllerUUID:    s.controllerUUID,
-		Name:              "mycontrollermodel",
-		Qualifier:         "prod",
-		Type:              coremodel.IAAS,
-		Cloud:             "aws",
-		CloudType:         cloudType,
-		CloudRegion:       "myregion",
-		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
-		CredentialName:    "mycredential",
-		IsControllerModel: false,
+		UUID:               uuid,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "mycontrollermodel",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          cloudType,
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
+		IsControllerModel:  false,
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -720,19 +734,20 @@ func (s *modelSuite) TestGetControllerUUID(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
-		UUID:              uuid,
-		AgentStream:       modelagent.AgentStreamReleased,
-		AgentVersion:      jujuversion.Current,
-		ControllerUUID:    s.controllerUUID,
-		Name:              "mycontrollermodel",
-		Qualifier:         "prod",
-		Type:              coremodel.CAAS,
-		Cloud:             "aws",
-		CloudType:         cloudType,
-		CloudRegion:       "myregion",
-		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
-		CredentialName:    "mycredential",
-		IsControllerModel: false,
+		UUID:               uuid,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "mycontrollermodel",
+		Qualifier:          "prod",
+		Type:               coremodel.CAAS,
+		Cloud:              "aws",
+		CloudType:          cloudType,
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
+		IsControllerModel:  false,
 	}
 	err := state.Create(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
@@ -751,19 +766,20 @@ func (s *modelSuite) TestGetModelType(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
-		UUID:              uuid,
-		AgentStream:       modelagent.AgentStreamReleased,
-		AgentVersion:      jujuversion.Current,
-		ControllerUUID:    s.controllerUUID,
-		Name:              "mycontrollermodel",
-		Qualifier:         "prod",
-		Type:              coremodel.CAAS,
-		Cloud:             "aws",
-		CloudType:         cloudType,
-		CloudRegion:       "myregion",
-		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
-		CredentialName:    "mycredential",
-		IsControllerModel: false,
+		UUID:               uuid,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "mycontrollermodel",
+		Qualifier:          "prod",
+		Type:               coremodel.CAAS,
+		Cloud:              "aws",
+		CloudType:          cloudType,
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
+		IsControllerModel:  false,
 	}
 	err := state.Create(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
@@ -793,19 +809,20 @@ func (s *modelSuite) TestGetModelInfoSummary(c *tc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
-		UUID:              uuid,
-		AgentStream:       modelagent.AgentStreamReleased,
-		AgentVersion:      jujuversion.Current,
-		ControllerUUID:    s.controllerUUID,
-		Name:              "mycontrollermodel",
-		Qualifier:         "prod",
-		Type:              coremodel.CAAS,
-		Cloud:             "aws",
-		CloudType:         cloudType,
-		CloudRegion:       "myregion",
-		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
-		CredentialName:    "mycredential",
-		IsControllerModel: false,
+		UUID:               uuid,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "mycontrollermodel",
+		Qualifier:          "prod",
+		Type:               coremodel.CAAS,
+		Cloud:              "aws",
+		CloudType:          cloudType,
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
+		IsControllerModel:  false,
 	}
 	err := state.Create(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)
