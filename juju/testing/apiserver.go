@@ -234,13 +234,6 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		}
 		return svc.Storage(), nil
 	}
-	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
-		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(c.Context(), modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return svc.Application(), nil
-	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		// Pass the minimal controller config needed for bootstrap, the rest
@@ -257,10 +250,9 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 			CloudRegion:     DefaultCloudRegion,
 			CloudCredential: DefaultCredentialTag,
 		},
-		CloudName:          DefaultCloud.Name,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
-		CharmServiceGetter: charmServiceGetter,
-		SSHServerHostKey:   coretesting.SSHServerHostKey,
+		CloudName:        DefaultCloud.Name,
+		NewPolicy:        stateenvirons.GetNewPolicyFunc(storageServiceGetter),
+		SSHServerHostKey: coretesting.SSHServerHostKey,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	s.controller = ctrl

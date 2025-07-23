@@ -76,7 +76,6 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		args.ControllerModelTag,
 		args.NewPolicy,
 		args.Clock,
-		args.CharmServiceGetter,
 		args.MaxTxnAttempts,
 	)
 	pool.systemState = st
@@ -95,7 +94,6 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 			stateClock:         clock.WallClock,
 			policy:             p.systemState.policy,
 			newPolicy:          p.systemState.newPolicy,
-			charmServiceGetter: p.systemState.charmServiceGetter,
 		},
 		modelUUID:     modelUUID,
 		pool:          p,

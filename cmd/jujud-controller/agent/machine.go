@@ -826,20 +826,12 @@ func openStatePool(
 		}
 		return svc.Storage(), nil
 	}
-	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
-		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
-		if err != nil {
-			return nil, err
-		}
-		return svc.Application(), nil
-	}
 
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
-		CharmServiceGetter: charmServiceGetter,
 	})
 	if err != nil {
 		pool.Close()

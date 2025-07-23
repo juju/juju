@@ -135,16 +135,6 @@ func (st *State) WatchControllerInfo() StringsWatcher {
 	return TODOStringsWatcher()
 }
 
-// Watch returns a watcher for observing changes to an application.
-func (a *Application) Watch() NotifyWatcher {
-	return TODONotifyWatcher()
-}
-
-// Watch returns a watcher for observing changes to a unit.
-func (u *Unit) Watch() NotifyWatcher {
-	return TODONotifyWatcher()
-}
-
 // Watch returns a watcher for observing changes to a model.
 func (m *Model) Watch() NotifyWatcher {
 	return TODONotifyWatcher()

@@ -11,18 +11,14 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
-	apiuniter "github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	portservice "github.com/juju/juju/domain/port/service"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
@@ -406,47 +402,6 @@ func (s *uniterLegacySuite) TestWatchUnitAddressesHash(c *tc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *uniterLegacySuite) TestWatchCAASUnitAddressesHash(c *tc.C) {
-	_, cm, _, _ := s.setupCAASModel(c)
-	c.Assert(s.resources.Count(), tc.Equals, 0)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-gitlab-0"},
-		{Tag: "unit-foo-42"},
-		{Tag: "machine-0"},
-		{Tag: "application-gitlab"},
-	}}
-
-	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
-
-	result, err := uniterAPI.WatchUnitAddressesHash(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
-		Results: []params.StringsWatchResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{
-				StringsWatcherId: "1",
-				// The container doesn't have an address.
-				Changes: []string{""},
-			},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), tc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
-	wc.AssertNoChange()
-}
-
 func (s *uniterLegacySuite) TestStorageAttachments(c *tc.C) {
 	// We need to set up a unit that has storage metadata defined.
 }
@@ -616,45 +571,6 @@ func (s *uniterLegacySuite) TestCommitHookChangesWithStorage(c *tc.C) {
 
 func (s *uniterLegacySuite) TestCommitHookChangesWithPortsSidecarApplication(c *tc.C) {
 	c.Skip("Rewrite this in the commitHookChangesSuite other hook commit concerns are in Dqlite")
-	_, cm, _, unit := s.setupCAASModel(c)
-
-	b := apiuniter.NewCommitHookParamsBuilder(names.NewUnitTag("foo/0"))
-	b.UpdateNetworkInfo()
-	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
-
-	b.OpenPortRange("db", network.MustParsePortRange("80/tcp"))
-	b.OpenPortRange("db", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
-	b.ClosePortRange("db", network.MustParsePortRange("7337/tcp"))
-	req, _ := b.Build()
-
-	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
-	uniterAPI, err := uniter.NewUniterAPI(c.Context(), facadetest.ModelContext{
-		State_:             cm.State(),
-		StatePool_:         s.StatePool(),
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.leadershipChecker,
-		DomainServices_:    s.DefaultModelDomainServices(c),
-		Logger_:            loggertesting.WrapCheckLog(c),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	result, err := uniterAPI.CommitHookChanges(c.Context(), req)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-		},
-	})
-
-	unitUUID, err := s.applicationService.GetUnitUUID(c.Context(), coreunit.Name(unit.Tag().Id()))
-	c.Assert(err, tc.ErrorIsNil)
-	portRanges, err := s.portService.GetUnitOpenedPorts(c.Context(), unitUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(portRanges, tc.DeepEquals, network.GroupedPortRanges{
-		"db": []network.PortRange{network.MustParsePortRange("80/tcp")},
-	})
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *tc.C) {

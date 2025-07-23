@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -134,14 +133,6 @@ func (s *uniterSuiteBase) newUniterAPIv19(c *tc.C, st *state.State, auth facade.
 	uniterAPI, err := uniter.NewUniterAPIv19(c.Context(), facadeContext)
 	c.Assert(err, tc.ErrorIsNil)
 	return uniterAPI
-}
-
-// TODO (manadart 2020-12-07): This should form the basis of a SetUpTest method
-// in a new suite.
-// If we are testing a CAAS model, it is a waste of resources to do preamble
-// for an IAAS model.
-func (s *uniterSuiteBase) setupCAASModel(c *tc.C) (*apiuniter.Client, *state.CAASModel, *state.Application, *state.Unit) {
-	return nil, nil, nil, nil
 }
 
 type fakeLeadershipChecker struct {

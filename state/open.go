@@ -9,8 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-
-	coremodel "github.com/juju/juju/core/model"
 )
 
 // OpenParams contains the parameters for opening the state database.
@@ -30,10 +28,6 @@ type OpenParams struct {
 
 	// MaxTxnAttempts is defaulted by OpenStatePool if otherwise not set.
 	MaxTxnAttempts int
-
-	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
-	// and should disapear as soon as we migrate units and applications.
-	CharmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
 
 	// WatcherPollInterval is defaulted by the TxnWatcher if otherwise not set.
 	WatcherPollInterval time.Duration
@@ -64,7 +58,6 @@ func open(
 	controllerModelTag names.ModelTag,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
-	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error),
 	maxTxnAttempts int,
 ) (*State, error) {
 	st, err := newState(controllerTag,
@@ -72,7 +65,6 @@ func open(
 		controllerModelTag,
 		newPolicy,
 		clock,
-		charmServiceGetter,
 		maxTxnAttempts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -91,7 +83,6 @@ func newState(
 	modelTag, controllerModelTag names.ModelTag,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
-	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error),
 	maxTxnAttempts int,
 ) (_ *State, err error) {
 	// Create State.
@@ -100,7 +91,6 @@ func newState(
 		modelTag:           modelTag,
 		controllerModelTag: controllerModelTag,
 		newPolicy:          newPolicy,
-		charmServiceGetter: charmServiceGetter,
 		maxTxnAttempts:     maxTxnAttempts,
 	}
 	if newPolicy != nil {

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -26,9 +25,6 @@ type State struct {
 	policy             Policy
 	newPolicy          NewPolicyFunc
 	maxTxnAttempts     int
-	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
-	// and should disapear as soon as we migrate units and applications.
-	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
 }
 
 // IsController returns true if this state instance has the bootstrap
