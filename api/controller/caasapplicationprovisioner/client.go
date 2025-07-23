@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -47,26 +46,6 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 		CharmInfoClient:            charmInfoClient,
 		ApplicationCharmInfoClient: appCharmInfoClient,
 	}
-}
-
-// SetPassword sets API password for the specified application.
-func (c *Client) SetPassword(ctx context.Context, appName string, password string) error {
-	var result params.ErrorResults
-	args := params.EntityPasswords{Changes: []params.EntityPassword{{
-		Tag:      names.NewApplicationTag(appName).String(),
-		Password: password,
-	}}}
-	err := c.facade.FacadeCall(ctx, "SetPasswords", args, &result)
-	if err != nil {
-		return err
-	}
-	if len(result.Results) != 1 {
-		return errors.Errorf("invalid number of results %d expected 1", len(result.Results))
-	}
-	if result.Results[0].Error != nil {
-		return errors.Trace(params.TranslateWellKnownError(result.Results[0].Error))
-	}
-	return nil
 }
 
 func (c *Client) WatchProvisioningInfo(ctx context.Context, applicationName string) (watcher.NotifyWatcher, error) {
@@ -104,7 +83,6 @@ type ProvisioningInfo struct {
 	Base                 corebase.Base
 	ImageDetails         resource.DockerImageDetails
 	CharmModifiedVersion int
-	CharmURL             *charm.URL
 	Trust                bool
 	Scale                int
 }
@@ -153,50 +131,7 @@ func (c *Client) ProvisioningInfo(ctx context.Context, applicationName string) (
 		})
 	}
 
-	if r.CharmURL != "" {
-		charmURL, err := charm.ParseURL(r.CharmURL)
-		if err != nil {
-			return info, errors.Trace(err)
-		}
-		info.CharmURL = charmURL
-	}
-
 	return info, nil
-}
-
-// ApplicationOCIResources returns all the OCI image resources for an application.
-func (c *Client) ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error) {
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewApplicationTag(appName).String(),
-	}}}
-	var result params.CAASApplicationOCIResourceResults
-	if err := c.facade.FacadeCall(ctx, "ApplicationOCIResources", args, &result); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d",
-			len(result.Results))
-	}
-	res := result.Results[0]
-	if res.Error != nil {
-		return nil, errors.Annotatef(params.TranslateWellKnownError(res.Error), "unable to fetch OCI image resources for %s", appName)
-	}
-	if res.Result == nil {
-		return nil, errors.Errorf("missing result")
-	}
-	images := make(map[string]resource.DockerImageDetails)
-	for k, v := range res.Result.Images {
-		images[k] = resource.DockerImageDetails{
-			RegistryPath: v.RegistryPath,
-			ImageRepoDetails: resource.ImageRepoDetails{
-				BasicAuthConfig: resource.BasicAuthConfig{
-					Username: v.Username,
-					Password: v.Password,
-				},
-			},
-		}
-	}
-	return images, nil
 }
 
 // RemoveUnit removes the specified unit from the current model.

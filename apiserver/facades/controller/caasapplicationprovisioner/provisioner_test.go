@@ -4,10 +4,6 @@
 package caasapplicationprovisioner_test
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"io"
 	"testing"
 	"time"
 
@@ -24,7 +20,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
-	jujuresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -36,8 +31,6 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/removal"
 	envconfig "github.com/juju/juju/environs/config"
-	charmresource "github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/docker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -90,11 +83,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	s.statusService = NewMockStatusService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
-	newResourceOpener := func(context.Context, string) (jujuresource.Opener, error) {
-		return s.resourceOpener, nil
-	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		newResourceOpener,
 		s.authorizer,
 		caasapplicationprovisioner.Services{
 			ApplicationService:      s.applicationService,
@@ -133,7 +122,6 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *tc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		nil,
 		s.authorizer,
 		caasapplicationprovisioner.Services{},
 		s.store,
@@ -193,7 +181,6 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			},
-			CharmURL:             "ch:amd64/gitlab",
 			CharmModifiedVersion: 10,
 			Scale:                3,
 			Trust:                true,
@@ -251,66 +238,6 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
 	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "42")
-}
-
-func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	res := &docker.DockerImageDetails{
-		RegistryPath: "gitlab:latest",
-		ImageRepoDetails: docker.ImageRepoDetails{
-			BasicAuthConfig: docker.BasicAuthConfig{
-				Username: "jujuqa",
-				Password: "pwd",
-			},
-		},
-	}
-
-	// Return the marshalled resource.
-	out, err := json.Marshal(res)
-	c.Assert(err, tc.ErrorIsNil)
-	s.resourceOpener.EXPECT().OpenResource(gomock.Any(), "gitlab-image").Return(
-		jujuresource.Opened{
-			ReadCloser: io.NopCloser(bytes.NewBuffer(out)),
-		},
-		nil,
-	)
-	s.resourceOpener.EXPECT().SetResourceUsed(gomock.Any(), "gitlab-image")
-
-	locator := applicationcharm.CharmLocator{
-		Name:     "gitlab",
-		Source:   applicationcharm.CharmHubSource,
-		Revision: -1,
-	}
-	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "gitlab").Return(locator, nil)
-	s.applicationService.EXPECT().GetCharmMetadataResources(gomock.Any(), locator).Return(map[string]charmresource.Meta{
-		"gitlab-image": {
-			Name: "gitlab-image",
-			Type: charmresource.TypeContainerImage,
-		},
-	}, nil)
-
-	result, err := s.api.ApplicationOCIResources(c.Context(), params.Entities{
-		Entities: []params.Entity{{
-			Tag: "application-gitlab",
-		}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-	c.Assert(result.Results[0].Result, tc.DeepEquals, &params.CAASApplicationOCIResources{
-		Images: map[string]params.DockerImageInfo{
-			"gitlab-image": {
-				RegistryPath: "gitlab:latest",
-				Username:     "jujuqa",
-				Password:     "pwd",
-			},
-		},
-	})
-}
-
-func strPtr(s string) *string {
-	return &s
 }
 
 func (s *CAASApplicationProvisionerSuite) fakeModelConfig() (*envconfig.Config, error) {

@@ -5,16 +5,13 @@ package caasapplicationprovisioner
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -33,12 +30,9 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/tags"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/resource"
-	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -57,7 +51,6 @@ type API struct {
 	watcherRegistry facade.WatcherRegistry
 
 	store                   objectstore.ObjectStore
-	newResourceOpener       NewResourceOpenerFunc
 	applicationService      ApplicationService
 	controllerConfigService ControllerConfigService
 	controllerNodeService   ControllerNodeService
@@ -80,7 +73,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	modelConfigService := domainServices.Config()
 
 	applicationService := domainServices.Application()
-	resourceService := domainServices.Resource()
 
 	modelTag := names.NewModelTag(ctx.ModelUUID().String())
 
@@ -91,17 +83,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(modelTag, applicationService, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	modelUUID := ctx.ModelUUID().String()
-
-	newResourceOpener := func(ctx context.Context, appName string) (coreresource.Opener, error) {
-		args := resource.ResourceOpenerArgs{
-			ModelUUID:            modelUUID,
-			ResourceService:      resourceService,
-			ApplicationService:   applicationService,
-			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(modelConfigService),
-		}
-		return resource.NewResourceOpenerForApplication(ctx, args, appName)
 	}
 
 	services := Services{
@@ -115,7 +96,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	}
 
 	api, err := NewCAASApplicationProvisionerAPI(
-		newResourceOpener,
 		authorizer,
 		services,
 		ctx.ObjectStore(),
@@ -154,7 +134,6 @@ func (a *APIGroup) ApplicationCharmInfo(ctx context.Context, args params.Entity)
 
 // NewCAASApplicationProvisionerAPI returns a new CAAS operator provisioner API facade.
 func NewCAASApplicationProvisionerAPI(
-	newResourceOpener NewResourceOpenerFunc,
 	authorizer facade.Authorizer,
 	services Services,
 	store objectstore.ObjectStore,
@@ -171,7 +150,6 @@ func NewCAASApplicationProvisionerAPI(
 	return &API{
 		auth:                    authorizer,
 		watcherRegistry:         watcherRegistry,
-		newResourceOpener:       newResourceOpener,
 		store:                   store,
 		controllerConfigService: services.ControllerConfigService,
 		controllerNodeService:   services.ControllerNodeService,
@@ -428,10 +406,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	charmURL, err := charmscommon.CharmURLFromLocator(locator.Name, locator)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
 
 	charmModifiedVersion, err := a.applicationService.GetCharmModifiedVersion(ctx, appID)
 	if err != nil {
@@ -452,7 +426,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		Base:                 base,
 		ImageRepo:            params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(imageRepoDetails), imagePath),
 		CharmModifiedVersion: charmModifiedVersion,
-		CharmURL:             charmURL,
 		Trust:                trustSetting,
 		Scale:                scale,
 	}, nil
@@ -473,102 +446,6 @@ func (a *API) devicesParams(ctx context.Context, appName string) ([]params.Kuber
 		})
 	}
 	return devicesParams, nil
-}
-
-// ApplicationOCIResources returns the OCI image resources for an application.
-func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities) (params.CAASApplicationOCIResourceResults, error) {
-	res := params.CAASApplicationOCIResourceResults{
-		Results: make([]params.CAASApplicationOCIResourceResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		appTag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		appName := appTag.Id()
-		locator, err := a.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			err = errors.NotFoundf("application %s", appName)
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else if errors.Is(err, applicationerrors.CharmNotFound) {
-			err = errors.NotFoundf("charm for application %s", appName)
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		charmResources, err := a.applicationService.GetCharmMetadataResources(ctx, locator)
-		if errors.Is(err, applicationerrors.CharmNotFound) {
-			err = errors.NotFoundf("charm %s", locator)
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		resourceClient, err := a.newResourceOpener(ctx, appName)
-		if err != nil {
-			res.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		imageResources := params.CAASApplicationOCIResources{
-			Images: make(map[string]params.DockerImageInfo),
-		}
-		for _, v := range charmResources {
-			if v.Type != charmresource.TypeContainerImage {
-				continue
-			}
-			reader, err := resourceClient.OpenResource(ctx, v.Name)
-			if err != nil {
-				res.Results[i].Error = apiservererrors.ServerError(err)
-				break
-			}
-			rsc, err := readDockerImageResource(reader)
-			_ = reader.Close()
-			if err != nil {
-				res.Results[i].Error = apiservererrors.ServerError(err)
-				break
-			}
-			imageResources.Images[v.Name] = rsc
-			err = resourceClient.SetResourceUsed(ctx, v.Name)
-			if err != nil {
-				a.logger.Errorf(ctx, "setting resource %s of application %s as in use: %w", v.Name, appName, err)
-				res.Results[i].Error = apiservererrors.ServerError(err)
-				break
-			}
-		}
-		if res.Results[i].Error != nil {
-			continue
-		}
-		res.Results[i].Result = &imageResources
-	}
-	return res, nil
-}
-
-func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
-	var details docker.DockerImageDetails
-	contents, err := io.ReadAll(reader)
-	if err != nil {
-		return params.DockerImageInfo{}, errors.Trace(err)
-	}
-	if err := json.Unmarshal(contents, &details); err != nil {
-		if err := yaml.Unmarshal(contents, &details); err != nil {
-			return params.DockerImageInfo{}, errors.Annotate(err, "file neither valid json or yaml")
-		}
-	}
-	if err := docker.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
-		return params.DockerImageInfo{}, err
-	}
-	return params.DockerImageInfo{
-		RegistryPath: details.RegistryPath,
-		Username:     details.Username,
-		Password:     details.Password,
-	}, nil
 }
 
 // DestroyUnits is responsible for scaling down a set of units on the this
@@ -665,10 +542,6 @@ func (a *API) watchEntity(ctx context.Context, appName string) (string, error) {
 		return "", errors.Annotatef(err, "registering watcher for application %q", appName)
 	}
 	return id, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func encodeOSType(t deployment.OSType) (string, error) {
