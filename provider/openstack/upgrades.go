@@ -5,16 +5,19 @@ package openstack
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
+	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
+	"github.com/juju/version/v2"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/retry"
-	"github.com/juju/version/v2"
-	"strings"
-	"time"
 )
 
 // PreparePrechecker is part of the environs.JujuUpgradePrechecker
@@ -74,21 +77,21 @@ type tagExistingSecurityGroupsStep struct {
 
 var tagSecGroupRetryStrategy = retry.CallArgs{
 	Clock:       clock.WallClock,
-	MaxDuration: 30 * time.Second,
+	Attempts:    5,
 	Delay:       time.Second,
-	BackoffFunc: retry.ExpBackoff(time.Second, 10*time.Second, 1.5, true),
+	BackoffFunc: retry.ExpBackoff(time.Second, 20*time.Second, 1.5, true),
 }
 
 func (t tagExistingSecurityGroupsStep) buildReplaceTagsWithRetry(ctx context.ProviderCallContext, neutronClient NetworkingNeutron, groupId string, tags []string) retry.CallArgs {
 	retryStrategy := tagSecGroupRetryStrategy
-	retryStrategy.IsFatalError = func(err error) bool {
-		if strings.Contains(err.Error(), "TLS handshake timeout") {
-			return false
-		}
-		return !errors.IsNotFound(err)
+	retryStrategy.NotifyFunc = func(lastErr error, attempt int) {
+		logger.Warningf("attempt %d to tag security group %q failed: %v", attempt, groupId, lastErr)
 	}
 	retryStrategy.Func = func() error {
 		tagsErr := neutronClient.ReplaceAllTags("security-groups", groupId, tags)
+		if gooseerrors.IsNotFound(tagsErr) {
+			return nil
+		}
 		if tagsErr != nil {
 			handleCredentialError(tagsErr, ctx)
 			return tagsErr
@@ -106,7 +109,7 @@ func (t tagExistingSecurityGroupsStep) Description() string {
 
 // Run is part of the environs.UpgradeStep interface.
 func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) error {
-	logger.Infof("starting upgrade step to tag existing security groups for controller: %s and model: %s", t.env.controllerUUID, t.env.modelUUID)
+	logger.Infof("starting provider upgrade step to tag existing security groups for model %s", t.env.modelUUID)
 
 	// Get all security groups.
 	neutronClient := t.env.neutron()
@@ -120,11 +123,15 @@ func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) erro
 	}
 
 	jujuGroupNamePrefix := fmt.Sprintf("juju-%s-%s", t.env.controllerUUID, t.env.modelUUID)
+	groupCount := 0
 	for _, securityGroup := range securityGroups {
 		if !strings.HasPrefix(securityGroup.Name, jujuGroupNamePrefix) {
-			logger.Debugf("skipping for security group: %s because it belongs to a different model, current model: %s", securityGroup.Name, t.env.modelUUID)
+			if logger.IsTraceEnabled() {
+				logger.Tracef("skipping for security group %s because it belongs to a different model (current model %s)", securityGroup.Name, t.env.modelUUID)
+			}
 			continue
 		}
+		groupCount++
 
 		// In addition to the new tags, we still include old tags so that we don't lose them.
 		groupTags := append([]string{}, securityGroup.Tags...)
@@ -132,7 +139,7 @@ func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) erro
 			fmt.Sprintf("%s=%s", tags.JujuController, t.env.controllerUUID),
 			fmt.Sprintf("%s=%s", tags.JujuModel, t.env.modelUUID),
 		)
-		logger.Infof("adding tags %v for security group: %s", groupTags, securityGroup.Name)
+		logger.Debugf("adding tags %v for security group: %s", groupTags, securityGroup.Name)
 
 		// Add the tags.
 		err := retry.Call(t.buildReplaceTagsWithRetry(ctx, neutronClient, securityGroup.Id, groupTags))
@@ -140,16 +147,14 @@ func (t tagExistingSecurityGroupsStep) Run(ctx context.ProviderCallContext) erro
 		if err != nil {
 			if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 				lastErr := retry.LastError(err)
-				logger.Errorf("failed to tag security groups for controller: %s and model: %s with retry error: %s", t.env.controllerUUID, t.env.modelUUID, lastErr)
-				return lastErr
+				return errors.Annotatef(lastErr, "timeout tagging security groups for model %s", t.env.modelUUID)
 			}
 
-			logger.Errorf("failed to tag security groups for controller: %s and model: %s with error: %s", t.env.controllerUUID, t.env.modelUUID, err)
-			return errors.Trace(err)
+			return errors.Annotatef(err, "failed to tag security group %s", securityGroup.Name)
 		}
 	}
 
-	logger.Infof("successfully executed upgrade step to tag existing security groups for controller: %s and model: %s", t.env.controllerUUID, t.env.modelUUID)
+	logger.Infof("successfully tagged %d existing security groups for model %s", groupCount, t.env.modelUUID)
 
 	return nil
 }
