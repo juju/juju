@@ -23,10 +23,6 @@ type MigrationState interface {
 	// net mode UUIDs in the model.
 	AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error)
 
-	// DeleteImportedLinkLayerDevices deletes all data added via the ImportLinkLayerDevices
-	// method.
-	DeleteImportedLinkLayerDevices(ctx context.Context) error
-
 	// ImportLinkLayerDevices adds link layer devices into the model as part
 	// of the migration import process.
 	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error
@@ -58,12 +54,6 @@ func NewMigrationService(st MigrationState, logger logger.Logger) *MigrationServ
 		st:     st,
 		logger: logger,
 	}
-}
-
-// DeleteImportedLinkLayerDevices is part of the [modelmigration.MigrationService]
-// interface.
-func (s *MigrationService) DeleteImportedLinkLayerDevices(ctx context.Context) error {
-	return s.st.DeleteImportedLinkLayerDevices(ctx)
 }
 
 // ImportLinkLayerDevices is part of the [modelmigration.MigrationService]

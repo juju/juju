@@ -321,19 +321,6 @@ func (s *migrationSuite) TestImportLinkLayerDevicesNoContent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *migrationSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	s.st.EXPECT().DeleteImportedLinkLayerDevices(gomock.Any()).Return(errors.New("boom"))
-
-	// Act
-	err := s.migrationService(c).DeleteImportedLinkLayerDevices(c.Context())
-
-	// Assert: the error from DeleteImportedLinkLayerDevices is passed
-	// through to the caller.
-	c.Assert(err, tc.ErrorMatches, "boom")
-}
-
 func (s *migrationSuite) migrationService(c *tc.C) *MigrationService {
 	return NewMigrationService(s.st, loggertesting.WrapCheckLog(c))
 }
