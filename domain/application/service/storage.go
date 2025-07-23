@@ -88,12 +88,12 @@ type StorageState interface {
 	DetachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID) error
 
 	// GetApplicationStorageDirectives returns the storage directives that are
-	// set for a unit. If the unit does not have any storage directives set then
-	// an empty result is returned.
+	// set for an application. If the application does not have any storage
+	// directives set then an empty result is returned.
 	//
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
-	// when the unit no longer exists.
+	// when the application no longer exists.
 	GetApplicationStorageDirectives(
 		context.Context, coreapplication.ID,
 	) ([]application.StorageDirective, error)

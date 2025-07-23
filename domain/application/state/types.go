@@ -86,17 +86,6 @@ type applicationScale struct {
 	ScaleTarget   int                `db:"scale_target"`
 }
 
-// applicationStorageDirective is used to represent the values held in the
-// application_storage_directive table representing the storage directives of
-// an application.
-type applicationStorageDirective struct {
-	Count           uint32           `db:"count"`
-	SizeMiB         uint64           `db:"size_mib"`
-	StorageName     string           `db:"storage_name"`
-	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
-	StorageType     sql.Null[string] `db:"storage_type"`
-}
-
 type architectureMap struct {
 	ID   int    `db:"id"`
 	Name string `db:"name"`

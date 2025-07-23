@@ -8,6 +8,17 @@ import (
 	"time"
 )
 
+// applicationStorageDirective is used to represent the values held in the
+// application_storage_directive table representing the storage directives of
+// an application.
+type applicationStorageDirective struct {
+	Count           uint32           `db:"count"`
+	SizeMiB         uint64           `db:"size_mib"`
+	StorageName     string           `db:"storage_name"`
+	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
+	StorageType     sql.Null[string] `db:"storage_type"`
+}
+
 // insertStorageFilesystem represents the set of values required for inserting a
 // new storage filesystem into the model.
 type insertStorageFilesystem struct {
@@ -105,4 +116,22 @@ type storageFilesystemUUIDRef struct {
 // to a storage volume uuid.
 type storageVolumeUUIDRef struct {
 	UUID string `db:"storage_volume_uuid"`
+}
+
+// unitStorageDirective is used to represent the values held in the
+// unit_storage_directive table representing the storage directives of
+// a unit.
+type unitStorageDirective struct {
+	CharmUUID       string           `db:"charm_uuid"`
+	Count           uint32           `db:"count"`
+	SizeMiB         uint64           `db:"size_mib"`
+	StorageName     string           `db:"storage_name"`
+	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
+	StorageType     sql.Null[string] `db:"storage_type"`
+}
+
+// unitOwnedStorage is represents a storage instance that is owned by a unit.
+type unitOwnedStorage struct {
+	UUID        string `db:"uuid"`
+	StorageName string `db:"storage_name"`
 }

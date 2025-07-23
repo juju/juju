@@ -650,6 +650,7 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 	// Now map all of the unassigned provider ids to the storage name that
 	// they can be assigned to.
 	unassignedNameMapping := map[domainstorage.Name][]string{}
+	for _, unassignedProviderID := range unassignedProviderIDs {
 		nameIDs := unassignedNameMapping[providerIDName[unassignedProviderID]]
 		nameIDs = append(nameIDs, unassignedProviderID)
 		unassignedNameMapping[providerIDName[unassignedProviderID]] = nameIDs

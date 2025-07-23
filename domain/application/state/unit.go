@@ -40,6 +40,35 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// checkUnitExists checks if the unit with the given UUID exists in the model.
+// True is returned when the unit is found.
+func (st *State) checkUnitExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+) (bool, error) {
+	uuidInput := entityUUID{UUID: unitUUID.String()}
+
+	checkStmt, err := st.Prepare(`
+SELECT entityUUID.*
+FROM   unit
+WHERE  uuid = $entityUUID.uuid
+	`,
+		uuidInput,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, uuidInput).Get(&uuidInput)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
 func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) (life.Life, string, error) {
 	unit := minimalUnit{UUID: unitUUID}
 	queryUnit := `

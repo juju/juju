@@ -37,10 +37,12 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type providerServiceSuite struct {
@@ -469,6 +471,275 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 		AddUnitArg: AddUnitArg{
 			Placement: &instance.Placement{
 				Scope:     instance.MachineScope,
+				Directive: "zone=default",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name:  "ubuntu",
+			RunAs: "default",
+			Storage: map[string]applicationcharm.Storage{
+				"foo-data": applicationcharm.Storage{
+					Name:        "foo-data",
+					Type:        applicationcharm.StorageBlock,
+					CountMin:    2,
+					CountMax:    -1,
+					MinimumSize: 2048,
+				},
+				"bar-data": applicationcharm.Storage{
+					Name:        "bar-data",
+					Type:        applicationcharm.StorageFilesystem,
+					CountMin:    1,
+					CountMax:    1,
+					MinimumSize: 4096,
+				},
+			},
+		},
+		Manifest:        s.minimalManifest(),
+		ReferenceName:   "ubuntu",
+		Source:          applicationcharm.CharmHubSource,
+		Revision:        42,
+		Architecture:    architecture.ARM64,
+		ObjectStoreUUID: objectStoreUUID,
+	}
+	platform := deployment.Platform{
+		Channel:      "24.04",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+
+	app := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance:         applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
+			},
+			Platform: platform,
+			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
+				Name:         "foo-data",
+				Count:        2,
+				ProviderType: ptr("a-blockdevice-provider"),
+				Size:         2048,
+			}, {
+				Name:         "bar-data",
+				Count:        1,
+				ProviderType: ptr("a-filesystem-provider"),
+				Size:         4096,
+			}},
+		},
+	}
+
+	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+		application.DefaultStorageProvisioners{
+			BlockdeviceProviderType: ptr("a-blockdevice-provider"),
+			FilesystemProviderType:  ptr("a-filesystem-provider"),
+		}, nil,
+	)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+		Placement: "zone=default",
+	}).Return(nil)
+
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil, nil)
+
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}).MinTimes(1)
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "ubuntu",
+	}).MinTimes(1)
+
+	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
+		CharmObjectStoreUUID: objectStoreUUID,
+		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
+	}, AddIAASUnitArg{
+		AddUnitArg: AddUnitArg{
+			Placement: &instance.Placement{
+				Scope:     instance.ModelScope,
+				Directive: "zone=default",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	blockDeviceStoragePoolUUID := storage.StoragePoolUUID(uuid.MustNewUUID().String())
+	filesystemStoragePoolUUID := storage.StoragePoolUUID(uuid.MustNewUUID().String())
+
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name:  "ubuntu",
+			RunAs: "default",
+			Storage: map[string]applicationcharm.Storage{
+				"foo-data": applicationcharm.Storage{
+					Name:        "foo-data",
+					Type:        applicationcharm.StorageBlock,
+					CountMin:    2,
+					CountMax:    -1,
+					MinimumSize: 2048,
+				},
+				"bar-data": applicationcharm.Storage{
+					Name:        "bar-data",
+					Type:        applicationcharm.StorageFilesystem,
+					CountMin:    1,
+					CountMax:    1,
+					MinimumSize: 4096,
+				},
+			},
+		},
+		Manifest:        s.minimalManifest(),
+		ReferenceName:   "ubuntu",
+		Source:          applicationcharm.CharmHubSource,
+		Revision:        42,
+		Architecture:    architecture.ARM64,
+		ObjectStoreUUID: objectStoreUUID,
+	}
+	platform := deployment.Platform{
+		Channel:      "24.04",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+
+	app := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Charm: ch,
+			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+				Provenance:         applicationcharm.ProvenanceDownload,
+				CharmhubIdentifier: "foo",
+				DownloadURL:        "https://example.com/foo",
+				DownloadSize:       42,
+			},
+			Platform: platform,
+			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
+				Name:         "foo-data",
+				Count:        2,
+				ProviderType: ptr("a-blockdevice-provider"),
+				Size:         2048,
+			}, {
+				Name:         "bar-data",
+				Count:        1,
+				ProviderType: ptr("a-filesystem-provider"),
+				Size:         4096,
+			}},
+		},
+	}
+
+	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+		application.DefaultStorageProvisioners{
+			BlockdeviceProviderType: ptr("unwanted-blockdevice-provider"),
+			FilesystemPoolUUID:      &filesystemStoragePoolUUID,
+		}, nil,
+	)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+		Placement: "zone=default",
+	}).Return(nil)
+
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil, nil)
+
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}).MinTimes(1)
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "ubuntu",
+	}).MinTimes(1)
+
+	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
+		gomock.Any(), blockDeviceStoragePoolUUID, charm.StorageBlock).Return(true, nil)
+	s.storageValidator.EXPECT().CheckProviderTypeSupportsCharmStorage(
+		gomock.Any(), "special-filesystem-provider", charm.StorageFilesystem).Return(true, nil)
+
+	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
+		CharmObjectStoreUUID: objectStoreUUID,
+		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
+		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
+			"foo-data": ApplicationStorageDirectiveOverride{
+				PoolUUID: &blockDeviceStoragePoolUUID,
+			},
+			"bar-data": ApplicationStorageDirectiveOverride{
+				ProviderType: ptr("special-filesystem-provider"),
+			},
+		},
+	}, AddIAASUnitArg{
+		AddUnitArg: AddUnitArg{
+			Placement: &instance.Placement{
+				Scope:     instance.ModelScope,
 				Directive: "zone=default",
 			},
 		},
@@ -1921,6 +2192,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 		},
 	}
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
@@ -1993,6 +2265,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 		},
 	}
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
@@ -2050,6 +2323,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 		},
 	}
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
@@ -2108,6 +2382,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
+	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	returnedCharm := applicationcharm.Charm{
@@ -2139,6 +2414,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
+	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,

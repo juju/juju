@@ -46,6 +46,35 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// checkApplicationExists checks that the provided application uuid exists. True
+// is returned when the application is found.
+func (st *State) checkApplicationExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID coreapplication.ID,
+) (bool, error) {
+	uuidInput := entityUUID{UUID: appUUID}
+
+	checkStmt, err := st.Prepare(`
+SELECT entityUUID.*
+FROM   application
+WHERE  uuid = $entityUUID.uuid
+	`,
+		uuidInput,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, uuidInput).Get(&uuidInput)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
 // Deprecated: This method will be removed, as there should be no need to
 // determine the model type from the state or service. That's an artifact of
 // the caller to call the correct methods.

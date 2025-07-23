@@ -39,6 +39,213 @@ const (
 	storageNamespace    = domainsequence.StaticNamespace("storage")
 )
 
+// GetApplicationStorageDirectives returns the storage directives that are
+// set for an application . If the application does not have any storage
+// directives set then an empty result is returned.
+//
+// The following error types can be expected:
+// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
+// when the application no longer exists.
+func (st *State) GetApplicationStorageDirectives(
+	ctx context.Context,
+	appUUID coreapplication.ID,
+) ([]application.StorageDirective, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	appUUIDInput := entityUUID{UUID: appUUID.String()}
+	query, err := st.Prepare(`
+SELECT &applicationStorageDirective.*
+FROM   application_storage_directive
+WHERE  application_uuid = $entityUUID.uuid
+		`,
+		appUUIDInput, applicationStorageDirective{},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	dbVals := []applicationStorageDirective{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking application %q exists: %w", appUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"application %q does not exist", appUUID,
+			).Add(applicationerrors.ApplicationNotFound)
+		}
+
+		err = tx.Query(ctx, query, appUUIDInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]application.StorageDirective, 0, len(dbVals))
+	for _, val := range dbVals {
+		var (
+			poolUUID     *domainstorage.StoragePoolUUID
+			providerType *string
+		)
+
+		if val.StoragePoolUUID.Valid {
+			poolUUIDT := domainstorage.StoragePoolUUID(val.StoragePoolUUID.V)
+			poolUUID = &poolUUIDT
+		}
+		if val.StorageType.Valid {
+			providerTypeStr := val.StorageType.V
+			providerType = &providerTypeStr
+		}
+
+		rval = append(rval, application.StorageDirective{
+			Count:        val.Count,
+			Name:         domainstorage.Name(val.StorageName),
+			PoolUUID:     poolUUID,
+			ProviderType: providerType,
+			Size:         val.SizeMiB,
+		})
+	}
+	return rval, nil
+}
+
+func (st *State) GetStorageInstancesForProviderIDs(
+	ctx context.Context,
+	appUUID coreapplication.ID,
+	ids []string,
+) (map[string]domainstorage.StorageInstanceUUID, error) {
+	return nil, nil
+}
+
+func (st *State) GetUnitOwnedStorageInstances(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+) (map[domainstorage.Name][]domainstorage.StorageInstanceUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
+	unitOwnedQuery, err := st.Prepare(`
+SELECT &unitOwnedStorage.*
+FROM   storage_unit_owner suo
+JOIN   storage_instance si ON suo.storage_instance_uuid = si.uuid
+WHERE  suo.unit_uuid = $entityUUID.uuid
+		`,
+		unitUUIDInput, unitOwnedStorage{},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbVals []unitOwnedStorage
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkUnitExists(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking unit %q existS: %w", unitUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf("unit %q doest not exist: %w", unitUUID, err)
+		}
+
+		err = tx.Query(ctx, unitOwnedQuery, unitUUIDInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+}
+
+func (st *State) GetUnitStorageDirectives(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+) ([]application.StorageDirective, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
+	query, err := st.Prepare(`
+SELECT &unitStorageDirective.*
+FROM   unit_storage_directive
+WHERE  unit_uuid = $entityUUID.uuid
+		`,
+		unitUUIDInput, unitStorageDirective{},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	dbVals := []unitStorageDirective{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkUnitExists(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking unit %q exists: %w", unitUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"unit %q does not exist", unitUUID,
+			).Add(applicationerrors.UnitNotFound)
+		}
+
+		err = tx.Query(ctx, query, unitUUIDInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]application.StorageDirective, 0, len(dbVals))
+	for _, val := range dbVals {
+		var (
+			poolUUID     *domainstorage.StoragePoolUUID
+			providerType *string
+		)
+
+		if val.StoragePoolUUID.Valid {
+			poolUUIDT := domainstorage.StoragePoolUUID(val.StoragePoolUUID.V)
+			poolUUID = &poolUUIDT
+		}
+		if val.StorageType.Valid {
+			providerTypeStr := val.StorageType.V
+			providerType = &providerTypeStr
+		}
+
+		rval = append(rval, application.StorageDirective{
+			Count:        val.Count,
+			Name:         domainstorage.Name(val.StorageName),
+			PoolUUID:     poolUUID,
+			ProviderType: providerType,
+			Size:         val.SizeMiB,
+		})
+	}
+	return rval, nil
+}
+
 // insertApplicationStorageDirectives inserts all of the storage directives for
 // a new application. This func checks to make sure that the caller has supplied
 // a directive for each of the storage definitions on the charm.
@@ -101,17 +308,6 @@ VALUES ($insertApplicationStorageDirective.*)
 	}
 
 	return nil
-}
-
-// unitStorageDirective represents a single storage directive for a unit.
-type unitStorageDirective struct {
-	CharmUUID       corecharm.ID
-	Count           uint32
-	Name            string
-	Size            uint64
-	StoragePoolUUID *string
-	StorageProvider *string
-	UnitUUID        coreunit.UUID
 }
 
 // insertUnitStorageAttachments is responsible for creating all of the unit
@@ -262,26 +458,13 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 			UnitUUID:        unitUUID.String(),
 		})
 
-		var (
-			poolUUID *string
-			provider *string
-		)
-		if arg.PoolUUID != nil {
-			poolUUIDStr := arg.PoolUUID.String()
-			poolUUID = &poolUUIDStr
-		}
-		if arg.ProviderType != nil {
-			poolTypeStr := *arg.ProviderType
-			provider = &poolTypeStr
-		}
 		rval = append(rval, unitStorageDirective{
 			CharmUUID:       charmUUID,
 			Count:           arg.Count,
 			Name:            arg.Name.String(),
-			StoragePoolUUID: poolUUID,
-			StorageProvider: provider,
+			StoragePoolUUID: storagePoolUUIDVal,
+			StorageProvider: storageTypeVal,
 			Size:            arg.Size,
-			UnitUUID:        unitUUID,
 		})
 	}
 
@@ -716,8 +899,8 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 			RequestSizeMiB:  directive.Size,
 			StorageID:       storageID,
 			StorageName:     arg.Name.String(),
-			StoragePoolUUID: storagePoolVal,
-			StorageType:     storageTypeVal,
+			StoragePoolUUID: directive.StoragePoolUUID,
+			StorageType:     directive.StorageType,
 			UUID:            arg.UUID.String(),
 		})
 	}
@@ -886,54 +1069,6 @@ WHERE storage_instance_uuid IN ($S[:])
 		})
 	}
 
-	return rval, nil
-}
-
-// getApplicationStorageDirectiveAsArgs returns the current set of storage
-// directives set for an application as the directive arguments that would have
-// been used to create them. This func does not check to make sure that the
-// application exists. No error is returned when no storage directives exist.
-func (st *State) getApplicationStorageDirectiveAsArgs(
-	ctx context.Context,
-	tx *sqlair.TX,
-	appUUID coreapplication.ID,
-) ([]application.CreateApplicationStorageDirectiveArg, error) {
-	appUUIDInput := applicationID{ID: appUUID}
-
-	getStorageDirectivesStmt, err := st.Prepare(`
-SELECT &applicationStorageDirective.*
-FROM   application_storage_directive
-WHERE  application_uuid = $applicationID.uuid
-`,
-		applicationStorageDirective{}, appUUIDInput)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var dbVals []applicationStorageDirective
-	err = tx.Query(ctx, getStorageDirectivesStmt, appUUIDInput).GetAll(&dbVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	rval := make([]application.CreateApplicationStorageDirectiveArg, 0, len(dbVals))
-	for _, val := range dbVals {
-		arg := application.CreateApplicationStorageDirectiveArg{
-			Count: val.Count,
-			Name:  domainstorage.Name(val.StorageName),
-			Size:  val.SizeMiB,
-		}
-		if val.StoragePoolUUID.Valid {
-			poolUUIID := domainstorage.StoragePoolUUID(val.StoragePoolUUID.V)
-			arg.PoolUUID = &poolUUIID
-		}
-		if val.StorageType.Valid {
-			providerType := val.StorageType.V
-			arg.ProviderType = &providerType
-		}
-
-		rval = append(rval, arg)
-	}
 	return rval, nil
 }
 
