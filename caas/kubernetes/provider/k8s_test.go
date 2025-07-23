@@ -4130,12 +4130,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
-			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(svcAccount, nil),
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), svcAccount, v1.UpdateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
-			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
+		s.mockRoles.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(role, nil),
 		s.mockRoles.EXPECT().Update(gomock.Any(), role, v1.UpdateOptions{}).Return(role, nil),
 		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(rb, nil),
@@ -4163,7 +4163,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	}
 
-	s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -4494,8 +4494,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
-			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(svcAccount, nil),
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), svcAccount, v1.UpdateOptions{}).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, gomock.Any()).Return(cr, nil),
 		s.mockClusterRoles.EXPECT().Update(gomock.Any(), cr, gomock.Any()).Return(cr, nil),

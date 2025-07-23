@@ -61,7 +61,7 @@ func (l *LabelSuite) TestHasLabels(c *gc.C) {
 	}
 }
 
-func (l *LabelSuite) TestDectectModelLabelVersion(c *gc.C) {
+func (l *LabelSuite) TestDetectModelLabelVersion(c *gc.C) {
 	tests := []struct {
 		LabelVersion   constants.LabelVersion
 		ModelName      string
@@ -137,7 +137,7 @@ func (l *LabelSuite) TestDectectModelLabelVersion(c *gc.C) {
 		_, err := l.client.CoreV1().Namespaces().Create(context.TODO(), test.Namespace, meta.CreateOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
-		labelVersion, err := utils.DetectModelLabelVersion(test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
+		labelVersion, err := utils.MatchModelLabelVersion(test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
 		if test.ErrorString != "" {
 			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
 		} else {
@@ -375,5 +375,148 @@ func (l *LabelSuite) TestStorageNameFromLabels(c *gc.C) {
 
 	for _, test := range tests {
 		c.Assert(utils.StorageNameFromLabels(test.Labels), gc.Equals, test.Expected)
+	}
+}
+
+func (l *LabelSuite) TestDetectModelMetaLabelVersion(c *gc.C) {
+	tests := []struct {
+		LabelVersion   constants.LabelVersion
+		ModelName      string
+		ModelUUID      string
+		ControllerUUID string
+		Labels         labels.Set
+		ErrorString    string
+	}{
+		{
+			LabelVersion:   constants.LegacyLabelVersion,
+			ModelName:      "model-label-test-3",
+			ModelUUID:      "badf00d3",
+			ControllerUUID: "d0gf00d3",
+			Labels:         map[string]string{"juju-model": "model-label-test-3"},
+		},
+		{
+			LabelVersion:   constants.LabelVersion1,
+			ModelName:      "model-label-test-1",
+			ModelUUID:      "badf00d1",
+			ControllerUUID: "d0gf00d1",
+			Labels:         map[string]string{"model.juju.is/name": "model-label-test-1"},
+		},
+		{
+			LabelVersion:   constants.LabelVersion2,
+			ModelName:      "model-label-test-2",
+			ModelUUID:      "badf00d2",
+			ControllerUUID: "d0gf00d2",
+			Labels:         map[string]string{"model.juju.is/name": "model-label-test-2", "model.juju.is/id": "badf00d2"},
+		},
+		{
+			LabelVersion:   constants.LabelVersion2,
+			ModelName:      "controller",
+			ModelUUID:      "badf00d4",
+			ControllerUUID: "d0gf00d4",
+			Labels:         map[string]string{"model.juju.is/name": "controller", "controller.juju.is/id": "d0gf00d4"},
+		},
+		{
+			LabelVersion:   -1,
+			ModelName:      "controller",
+			ModelUUID:      "badf00d4",
+			ControllerUUID: "d0gf00d4",
+			Labels:         map[string]string{"foo.juju.is/bar": "nope", "controller.juju.is/id": "d0gf00d"},
+			ErrorString:    "unexpected model labels",
+		},
+	}
+
+	for t, test := range tests {
+		meta := meta.ObjectMeta{
+			Labels: test.Labels,
+		}
+		labelVersion, err := utils.MatchModelMetaLabelVersion(meta, test.ModelName, test.ModelUUID, test.ControllerUUID)
+		if test.ErrorString != "" {
+			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
+		} else {
+			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", t))
+		}
+		c.Check(labelVersion, gc.Equals, test.LabelVersion, gc.Commentf("test %d", t))
+	}
+}
+
+func (l *LabelSuite) TestDetectOperatorMetaLabelVersion(c *gc.C) {
+	tests := []struct {
+		LabelVersion constants.LabelVersion
+		ModelName    string
+		Target       string
+		Labels       labels.Set
+		ErrorString  string
+	}{
+		{
+			LabelVersion: constants.LegacyLabelVersion,
+			ModelName:    "model-label-test-3",
+			Target:       "model",
+			Labels:       map[string]string{"juju-operator": "model-label-test-3"},
+		},
+		{
+			LabelVersion: constants.LabelVersion2,
+			ModelName:    "model-label-test-1",
+			Target:       "model",
+			Labels:       map[string]string{"operator.juju.is/name": "model-label-test-1", "operator.juju.is/target": "model", "app.kubernetes.io/managed-by": "juju"},
+		},
+		{
+			LabelVersion: -1,
+			ModelName:    "controller",
+			Target:       "something",
+			Labels:       map[string]string{"operator.juju.is/name": "controller"},
+			ErrorString:  "unexpected operator labels",
+		},
+	}
+
+	for t, test := range tests {
+		meta := meta.ObjectMeta{
+			Labels: test.Labels,
+		}
+		labelVersion, err := utils.MatchOperatorMetaLabelVersion(meta, test.ModelName, test.Target)
+		if test.ErrorString != "" {
+			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
+		} else {
+			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", t))
+		}
+		c.Check(labelVersion, gc.Equals, test.LabelVersion, gc.Commentf("test %d", t))
+	}
+}
+
+func (l *LabelSuite) TestDetectApplicationMetaLabelVersion(c *gc.C) {
+	tests := []struct {
+		LabelVersion constants.LabelVersion
+		AppName      string
+		Labels       labels.Set
+		ErrorString  string
+	}{
+		{
+			LabelVersion: constants.LegacyLabelVersion,
+			AppName:      "snappass",
+			Labels:       map[string]string{"juju-app": "snappass"},
+		},
+		{
+			LabelVersion: constants.LabelVersion2,
+			AppName:      "snappass",
+			Labels:       map[string]string{"app.kubernetes.io/name": "snappass", "app.kubernetes.io/managed-by": "juju"},
+		},
+		{
+			LabelVersion: -1,
+			AppName:      "snappass",
+			Labels:       map[string]string{"app.kubernetes.io/name": "snappass"},
+			ErrorString:  "unexpected application labels",
+		},
+	}
+
+	for t, test := range tests {
+		meta := meta.ObjectMeta{
+			Labels: test.Labels,
+		}
+		labelVersion, err := utils.MatchApplicationMetaLabelVersion(meta, test.AppName)
+		if test.ErrorString != "" {
+			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
+		} else {
+			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", t))
+		}
+		c.Check(labelVersion, gc.Equals, test.LabelVersion, gc.Commentf("test %d", t))
 	}
 }

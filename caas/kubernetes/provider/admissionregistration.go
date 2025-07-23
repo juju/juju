@@ -135,21 +135,19 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1(cfg *admissionre
 		return cleanUp, errors.Trace(err)
 	}
 
-	existingItems, err := api.List(context.TODO(), metav1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(cfg.GetLabels()).String(),
-	})
-	if k8serrors.IsNotFound(err) || existingItems == nil || len(existingItems.Items) == 0 {
-		// cfg.Name is already used for an existing MutatingWebhookConfiguration.
-		return cleanUp, errors.AlreadyExistsf("MutatingWebhookConfiguration %q", cfg.GetName())
-	}
+	existing, err := api.Get(context.TODO(), cfg.GetName(), metav1.GetOptions{})
 	if err != nil {
 		return cleanUp, errors.Trace(err)
 	}
-	existingCfg, err := api.Get(context.TODO(), cfg.GetName(), metav1.GetOptions{})
+	existingLabelVersion, err := utils.MatchModelMetaLabelVersion(existing.ObjectMeta, k.modelName, k.modelUUID, k.controllerUUID)
 	if err != nil {
-		return cleanUp, errors.Trace(err)
+		return nil, errors.Annotatef(err, "ensuring MutatingWebhookConfiguration %q with labels %v ", cfg.GetName(), existing.Labels)
 	}
-	cfg.SetResourceVersion(existingCfg.GetResourceVersion())
+	if existingLabelVersion < k.labelVersion {
+		logger.Warningf("updating label version for existing MutatingWebhookConfiguration %q from %d to %d ", cfg.GetName(), existingLabelVersion, k.labelVersion)
+	}
+
+	cfg.SetResourceVersion(existing.GetResourceVersion())
 	_, err = api.Update(context.TODO(), cfg, metav1.UpdateOptions{})
 	logger.Debugf("updating MutatingWebhookConfiguration %q", cfg.GetName())
 	return cleanUp, errors.Trace(err)

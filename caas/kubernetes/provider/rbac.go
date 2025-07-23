@@ -232,14 +232,30 @@ func (k *kubernetesClient) ensureServiceAccount(sa *core.ServiceAccount) (out *c
 	if !errors.IsAlreadyExists(err) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listServiceAccount(sa.GetLabels())
+
+	existing, err := k.getServiceAccount(sa.GetName())
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// sa.Name is already used for an existing service account.
-			return nil, cleanups, errors.AlreadyExistsf("service account %q", sa.GetName())
-		}
 		return nil, cleanups, errors.Trace(err)
 	}
+
+	var existingLabelVersion constants.LabelVersion
+	switch name := sa.GetName(); name {
+	case ExecRBACResourceName, modelOperatorName:
+		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	default:
+		if isOperatorName(name) {
+			existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
+		} else {
+			existingLabelVersion, err = utils.MatchApplicationMetaLabelVersion(existing.ObjectMeta, name)
+		}
+	}
+	if err != nil {
+		return nil, cleanups, errors.Annotatef(err, "ensuring ServiceAccount %q with labels %v ", sa.GetName(), existing.Labels)
+	}
+	if existingLabelVersion < k.labelVersion {
+		logger.Warningf("updating label version for existing ServiceAccount %q from %d to %d ", sa.GetName(), existingLabelVersion, k.labelVersion)
+	}
+
 	out, err = k.updateServiceAccount(sa)
 	logger.Debugf("updating service account %q", sa.GetName())
 	return out, cleanups, errors.Trace(err)
@@ -283,23 +299,6 @@ func (k *kubernetesClient) deleteServiceAccounts(selectors ...k8slabels.Selector
 	return nil
 }
 
-func (k *kubernetesClient) listServiceAccount(labels map[string]string) ([]core.ServiceAccount, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(labels).String(),
-	}
-	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(saList.Items) == 0 {
-		return nil, errors.NotFoundf("service account with labels %v", labels)
-	}
-	return saList.Items, nil
-}
-
 func (k *kubernetesClient) createRole(role *rbacv1.Role) (*rbacv1.Role, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
@@ -333,14 +332,30 @@ func (k *kubernetesClient) ensureRole(role *rbacv1.Role) (out *rbacv1.Role, clea
 	if !errors.IsAlreadyExists(err) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listRoles(utils.LabelsToSelector(role.GetLabels()))
+
+	existing, err := k.getRole(role.GetName())
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// role.Name is already used for an existing role.
-			return nil, cleanups, errors.AlreadyExistsf("role %q", role.GetName())
-		}
 		return nil, cleanups, errors.Trace(err)
 	}
+
+	var existingLabelVersion constants.LabelVersion
+	switch name := role.GetName(); name {
+	case ExecRBACResourceName, modelOperatorName:
+		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	default:
+		if isOperatorName(name) {
+			existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
+		} else {
+			existingLabelVersion, err = utils.MatchApplicationMetaLabelVersion(existing.ObjectMeta, name)
+		}
+	}
+	if err != nil {
+		return nil, cleanups, errors.Annotatef(err, "ensuring Role %q with labels %v ", role.GetName(), existing.Labels)
+	}
+	if existingLabelVersion < k.labelVersion {
+		logger.Warningf("updating label version for existing Role %q from %d to %d ", role.GetName(), existingLabelVersion, k.labelVersion)
+	}
+
 	out, err = k.updateRole(role)
 	logger.Debugf("updating role %q", role.GetName())
 	return out, cleanups, errors.Trace(err)
@@ -385,23 +400,6 @@ func (k *kubernetesClient) deleteRoles(selectors ...k8slabels.Selector) error {
 		}
 	}
 	return nil
-}
-
-func (k *kubernetesClient) listRoles(selector k8slabels.Selector) ([]rbacv1.Role, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	listOps := v1.ListOptions{
-		LabelSelector: selector.String(),
-	}
-	rList, err := k.client().RbacV1().Roles(k.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(rList.Items) == 0 {
-		return nil, errors.NotFoundf("role with selector %q", selector)
-	}
-	return rList.Items, nil
 }
 
 func (k *kubernetesClient) deleteClusterRoles(selector k8slabels.Selector) error {

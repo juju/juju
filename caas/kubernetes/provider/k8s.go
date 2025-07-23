@@ -202,7 +202,7 @@ func newK8sBroker(
 
 	labelVersion := constants.LastLabelVersion
 	if namespace != "" {
-		labelVersion, err = utils.DetectModelLabelVersion(
+		labelVersion, err = utils.MatchModelLabelVersion(
 			namespace, modelName, modelUUID, controllerUUID, k8sClient.CoreV1().Namespaces())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2615,6 +2615,18 @@ func (k *kubernetesClient) operatorName(appName string) string {
 		return "juju-operator-" + appName
 	}
 	return appName + "-operator"
+}
+
+func isOperatorName(name string) bool {
+	return strings.HasPrefix(name, "juju-operator-") ||
+		strings.HasSuffix(name, "-operator")
+}
+
+func appNameFromOperator(operatorName string) string {
+	if strings.HasPrefix(operatorName, "juju-operator-") {
+		return strings.TrimPrefix(operatorName, "juju-operator-")
+	}
+	return strings.TrimSuffix(operatorName, "-operator")
 }
 
 func (k *kubernetesClient) deploymentName(appName string, legacySupport bool) string {
