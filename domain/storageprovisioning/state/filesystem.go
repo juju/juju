@@ -42,14 +42,13 @@ func (st *State) GetFilesystem(
 SELECT (
 	sfs.filesystem_id,
 	sv.volume_id,
-	vsi.storage_pool,
 	sfs.size_mib
 ) AS (&filesystem.*)
-FROM  storage_filesystem sfs
-JOIN  storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
-JOIN  v_storage_instance vsi ON sifs.storage_instance_uuid = vsi.uuid
-JOIN  storage_instance_volume siv ON vsi.uuid = siv.storage_instance_uuid
-JOIN  storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+FROM      storage_filesystem sfs
+JOIN      storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
+JOIN      storage_instance si ON sifs.storage_instance_uuid = si.uuid
+LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
 WHERE sfs.filesystem_id=$filesystem.filesystem_id`, fs)
 	if err != nil {
 		return storageprovisioning.Filesystem{}, errors.Capture(err)
@@ -69,7 +68,6 @@ WHERE sfs.filesystem_id=$filesystem.filesystem_id`, fs)
 	return storageprovisioning.Filesystem{
 		FilesystemID: fs.FilesystemID,
 		VolumeID:     fs.VolumeID,
-		Pool:         fs.Pool,
 		Size:         fs.Size,
 	}, nil
 }
@@ -85,37 +83,33 @@ WHERE sfs.filesystem_id=$filesystem.filesystem_id`, fs)
 func (st *State) GetFilesystemAttachment(
 	ctx context.Context,
 	netNodeUUID domainnetwork.NetNodeUUID,
-	filesystemID string,
+	filesystemIDStr string,
 ) (storageprovisioning.FilesystemAttachment, error) {
 	db, err := st.DB()
 	if err != nil {
 		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
 
-	fs := filesystem{FilesystemID: filesystemID}
+	fs := filesystemID{ID: filesystemIDStr}
 	checkFilesystemExistsStmt, err := st.Prepare(`
-SELECT (filesystem_id) AS (&filesystem.*)
+SELECT &filesystemID.*
 FROM   storage_filesystem
-WHERE  filesystem_id = $filesystem.filesystem_id`, fs)
+WHERE  filesystem_id = $filesystemID.filesystem_id`, fs)
 	if err != nil {
 		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
 
 	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
 	attachment := filesystemAttachment{
-		FilesystemID: filesystemID,
+		FilesystemID: filesystemIDStr,
 	}
 
 	stmt, err := st.Prepare(`
-SELECT (
-    sf.filesystem_id,
-    sfa.mount_point,
-    sfa.read_only
-) AS (&filesystemAttachment.*)
-FROM  storage_filesystem_attachment sfa
-JOIN  storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
-WHERE sf.filesystem_id = $filesystemAttachment.filesystem_id
-  AND sfa.net_node_uuid = $netNodeUUIDRef.net_node_uuid
+SELECT &filesystemAttachment.*
+FROM   storage_filesystem_attachment sfa
+JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+WHERE  sf.filesystem_id = $filesystemAttachment.filesystem_id
+AND    sfa.net_node_uuid = $netNodeUUIDRef.net_node_uuid
 `, attachment, netNodeInput)
 	if err != nil {
 		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
@@ -131,7 +125,7 @@ WHERE sf.filesystem_id = $filesystemAttachment.filesystem_id
 
 		err = tx.Query(ctx, checkFilesystemExistsStmt, fs).Get(&fs)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("filesystem %q not found", filesystemID).
+			return errors.Errorf("filesystem %q not found", filesystemIDStr).
 				Add(storageprovisioningerrors.FilesystemNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
@@ -141,7 +135,7 @@ WHERE sf.filesystem_id = $filesystemAttachment.filesystem_id
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf(
 				"filesystem attachment for filesystem %q on net node %q not found",
-				filesystemID, netNodeUUID,
+				filesystemIDStr, netNodeUUID,
 			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
 		}
 		return err

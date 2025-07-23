@@ -780,7 +780,6 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 			FilesystemTag: tag.String(),
 			Info: params.FilesystemInfo{
 				FilesystemId: fs.FilesystemID,
-				Pool:         fs.Pool,
 				Size:         fs.Size,
 			},
 		}
@@ -906,14 +905,11 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 		Results: make([]params.FilesystemAttachmentResult, len(args.Ids)),
 	}
 	one := func(arg params.MachineStorageId) (result params.FilesystemAttachment, _ error) {
-		hostTag, err := names.ParseTag(arg.MachineTag)
+		machineTag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
 			return result, internalerrors.Errorf(
-				"parsing host tag %q: %w", arg.MachineTag, err,
+				"parsing machine tag %q: %w", arg.MachineTag, err,
 			)
-		}
-		if hostTag.Kind() != names.MachineTagKind && hostTag.Kind() != names.UnitTagKind {
-			return result, errors.NotValidf("filesystem attachment host tag %q", hostTag)
 		}
 		filesystemTag, err := names.ParseFilesystemTag(arg.AttachmentTag)
 		if err != nil {
@@ -921,13 +917,13 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 				"parsing filesystem tag %q: %w", arg.AttachmentTag, err,
 			)
 		}
-		if !canAccess(hostTag, filesystemTag) {
+		if !canAccess(machineTag, filesystemTag) {
 			return result, apiservererrors.ErrPerm
 		}
-		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(hostTag.Id()))
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			return result, internalerrors.Errorf(
-				"machine %q not found", hostTag.Id(),
+				"machine %q not found", machineTag.Id(),
 			).Add(errors.NotFound)
 		} else if err != nil {
 			return result, internalerrors.Capture(err)
@@ -938,20 +934,20 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 		switch {
 		case errors.Is(err, machineerrors.MachineNotFound):
 			return result, internalerrors.Errorf(
-				"machine %q not found", hostTag.Id(),
+				"machine %q not found", machineTag.Id(),
 			).Add(errors.NotFound)
 		case errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound):
 			return result, internalerrors.Errorf(
-				"filesystem attachment %q on %q not found", filesystemTag.Id(), hostTag.Id(),
+				"filesystem attachment %q on %q not found", filesystemTag.Id(), machineTag.Id(),
 			).Add(errors.NotFound)
 		case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
 			return result, internalerrors.Errorf(
-				"filesystem %q not found for attachment on %q", filesystemTag.Id(), hostTag.Id(),
+				"filesystem %q not found for attachment on %q", filesystemTag.Id(), machineTag.Id(),
 			).Add(errors.NotFound)
 		case err != nil:
 			return result, internalerrors.Errorf(
 				"getting filesystem attachment for %q on %q: %w",
-				filesystemTag.Id(), hostTag.Id(), err,
+				filesystemTag.Id(), machineTag.Id(), err,
 			)
 		}
 		if fsAttachment.MountPoint == "" {
@@ -962,12 +958,12 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 			// filesystem attachments. Ideally, we should have a consistent way to check
 			// provisioning status for all storage entities.
 			return result, internalerrors.Errorf(
-				"filesystem attachment %q on %q is not provisioned", filesystemTag.Id(), hostTag.String(),
+				"filesystem attachment %q on %q is not provisioned", filesystemTag.Id(), machineTag.String(),
 			).Add(errors.NotProvisioned)
 		}
 		return params.FilesystemAttachment{
 			FilesystemTag: filesystemTag.String(),
-			MachineTag:    hostTag.String(),
+			MachineTag:    machineTag.String(),
 			Info: params.FilesystemAttachmentInfo{
 				MountPoint: fsAttachment.MountPoint,
 				ReadOnly:   fsAttachment.ReadOnly,

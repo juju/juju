@@ -47,7 +47,6 @@ func (s *filesystemSuite) TestGetFilesystem(c *tc.C) {
 	fs := storageprovisioning.Filesystem{
 		FilesystemID: "fs-1234",
 		VolumeID:     "vol-1234",
-		Pool:         "pool-1",
 		Size:         100,
 	}
 	s.state.EXPECT().GetFilesystem(c.Context(), "fs-1234").Return(fs, nil)

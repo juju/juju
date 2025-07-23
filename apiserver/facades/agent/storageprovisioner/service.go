@@ -102,7 +102,7 @@ type StorageProvisioningService interface {
 	GetFilesystem(ctx context.Context, filesystemID string) (storageprovisioning.Filesystem, error)
 
 	// GetFilesystemAttachment retrieves the [storageprovisioning.FilesystemAttachment]
-	// for the supplied net node uuid and filesystem id.
+	// for the supplied machine uuid and filesystem id.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid

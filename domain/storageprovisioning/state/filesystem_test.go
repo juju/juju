@@ -46,7 +46,6 @@ func (s *filesystemSuite) TestGetFilesystem(c *tc.C) {
 	c.Assert(result, tc.DeepEquals, storageprovisioning.Filesystem{
 		FilesystemID: fsID,
 		VolumeID:     volID,
-		Pool:         "pool",
 		Size:         100,
 	})
 }

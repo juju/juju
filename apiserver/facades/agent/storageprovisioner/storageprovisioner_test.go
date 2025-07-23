@@ -103,7 +103,6 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 	fs := storageprovisioning.Filesystem{
 		FilesystemID: "fs-1234",
 		VolumeID:     "123",
-		Pool:         "pool1",
 		Size:         1000,
 	}
 
@@ -125,7 +124,6 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 					VolumeTag:     names.NewVolumeTag("123").String(),
 					Info: params.FilesystemInfo{
 						FilesystemId: "fs-1234",
-						Pool:         "pool1",
 						Size:         1000,
 					},
 				},
@@ -164,7 +162,6 @@ func (s *provisionerSuite) TestFilesystemsNotProvisioned(c *tc.C) {
 	fs := storageprovisioning.Filesystem{
 		FilesystemID: "fs-1234",
 		VolumeID:     "123",
-		Pool:         "pool1",
 	}
 
 	s.mockStorageProvisioningService.EXPECT().

@@ -41,11 +41,6 @@ type Filesystem struct {
 	// VolumeID is the ID of the volume that the filesystem is created on.
 	VolumeID string
 
-	// Pool is the name of the storage pool used to allocate the filesystem.
-	// TODO: should we remove this field???
-	// Juju controllers older than 2.2 do not populate this field, so it may be omitted.
-	Pool string
-
 	// Size is the size of the filesystem in MiB.
 	Size uint64
 }
