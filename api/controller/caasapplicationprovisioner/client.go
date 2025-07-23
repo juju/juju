@@ -522,3 +522,34 @@ func (c *Client) ProvisionerConfig() (params.CAASApplicationProvisionerConfig, e
 	}
 	return *result.ProvisionerConfig, nil
 }
+
+// ProvisioningFilesystemInfo holds the filesystem info needed to provision an operator.
+type FilesystemProvisioningInfo struct {
+	Filesystems               []storage.KubernetesFilesystemParams
+	FilesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams
+}
+
+// ProvisioningInfo returns the filesystem info needed to provision an operator for an application.
+func (c *Client) FilesystemProvisioningInfo(applicationName string) (FilesystemProvisioningInfo, error) {
+	args := params.Entity{Tag: names.NewApplicationTag(applicationName).String()}
+	var result params.CAASApplicationFilesystemProvisioningInfoResult
+	if err := c.facade.FacadeCall("FilesystemProvisioningInfo", args, &result); err != nil {
+		return FilesystemProvisioningInfo{}, err
+	}
+	info := FilesystemProvisioningInfo{}
+
+	for _, fs := range result.Result.Filesystems {
+		f, err := filesystemFromParams(fs)
+		if err != nil {
+			return info, errors.Trace(err)
+		}
+		info.Filesystems = append(info.Filesystems, *f)
+	}
+
+	fsUnitAttachments, err := filesystemUnitAttachmentsFromParams(result.Result.FilesystemUnitAttachments)
+	if err != nil {
+		return info, errors.Trace(err)
+	}
+	info.FilesystemUnitAttachments = fsUnitAttachments
+	return info, nil
+}

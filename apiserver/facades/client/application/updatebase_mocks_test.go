@@ -125,18 +125,18 @@ func (mr *MockApplicationMockRecorder) ApplicationTag() *gomock.Call {
 }
 
 // ChangeScale mocks base method.
-func (m *MockApplication) ChangeScale(arg0 int) (int, error) {
+func (m *MockApplication) ChangeScale(arg0 int, arg1 []names.StorageTag) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeScale", arg0)
+	ret := m.ctrl.Call(m, "ChangeScale", arg0, arg1)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ChangeScale indicates an expected call of ChangeScale.
-func (mr *MockApplicationMockRecorder) ChangeScale(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) ChangeScale(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeScale", reflect.TypeOf((*MockApplication)(nil).ChangeScale), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeScale", reflect.TypeOf((*MockApplication)(nil).ChangeScale), arg0, arg1)
 }
 
 // Charm mocks base method.

@@ -10,6 +10,7 @@ import (
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -722,4 +723,93 @@ func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.ProvisionerConfig, gc.NotNil)
 	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, gc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
+}
+
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfo(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag:  names.NewApplicationTag("gitlab"),
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{
+				Storage: map[string]charm.Storage{
+					"data": {
+						Name:        "data",
+						Type:        charm.StorageFilesystem,
+						Location:    "/var/lib/data",
+						MinimumSize: 1024,
+					},
+				},
+			},
+			url: "ch:gitlab",
+		},
+		storageConstraints: map[string]state.StorageConstraints{
+			"data": {
+				Pool:  "kubernetes",
+				Size:  1024,
+				Count: 1,
+			},
+		},
+		unitAttachmentInfos: []state.UnitAttachmentInfo{
+			{
+				Unit:      "gitlab/0",
+				StorageId: "data/0",
+				VolumeId:  "pvc-data-0",
+			},
+			{
+				Unit:      "gitlab/1",
+				StorageId: "data/1",
+				VolumeId:  "pvc-data-1",
+			},
+		},
+	}
+
+	result, err := s.api.FilesystemProvisioningInfo(params.Entity{
+		Tag: "application-gitlab",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.NotNil)
+	c.Assert(result.Result.Filesystems, gc.HasLen, 1)
+
+	fs := result.Result.Filesystems[0]
+	c.Assert(fs.StorageName, gc.Equals, "data")
+	c.Assert(fs.Provider, gc.Equals, "kubernetes")
+	c.Assert(fs.Size, gc.Equals, uint64(1024))
+
+	c.Assert(result.Result.FilesystemUnitAttachments, gc.HasLen, 1)
+	c.Assert(result.Result.FilesystemUnitAttachments["data"], gc.HasLen, 2)
+	c.Assert(result.Result.FilesystemUnitAttachments["data"][0].UnitTag, gc.Equals, "unit-gitlab-0")
+	c.Assert(result.Result.FilesystemUnitAttachments["data"][0].VolumeId, gc.Equals, "pvc-data-0")
+	c.Assert(result.Result.FilesystemUnitAttachments["data"][1].UnitTag, gc.Equals, "unit-gitlab-1")
+	c.Assert(result.Result.FilesystemUnitAttachments["data"][1].VolumeId, gc.Equals, "pvc-data-1")
+}
+
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoEmpty(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag:                 names.NewApplicationTag("gitlab"),
+		life:                state.Alive,
+		charm:               &mockCharm{meta: &charm.Meta{}, url: "ch:gitlab"},
+		storageConstraints:  map[string]state.StorageConstraints{},
+		unitAttachmentInfos: []state.UnitAttachmentInfo{},
+	}
+
+	result, err := s.api.FilesystemProvisioningInfo(params.Entity{
+		Tag: "application-gitlab",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.NotNil)
+	c.Assert(result.Result.Filesystems, gc.HasLen, 0)
+	c.Assert(result.Result.FilesystemUnitAttachments, gc.IsNil)
+}
+
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoAppNotFound(c *gc.C) {
+	s.st.SetErrors(errors.NotFoundf("application"))
+
+	result, err := s.api.FilesystemProvisioningInfo(params.Entity{
+		Tag: "application-foo",
+	})
+	c.Assert(err, gc.ErrorMatches, "app foo not found")
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.IsNil)
 }

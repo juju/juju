@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -36,13 +38,16 @@ Many charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
 documentation for specific charms to check how scale-out is supported.
 
-For k8s models the only valid argument is -n, --num-units.
+For k8s models the valid arguments are -n, --num-units and --attach-storage.
 Anything additional will result in an error.
 
-Example:
+Examples:
 
 Add five units of mysql:
     juju add-unit mysql --num-units 5
+
+Add a unit of mysql with existing storage attached:
+    juju add-unit mysql --attach-storage database/0
 
 
 For cloud models, by default, units are deployed to newly provisioned machines
@@ -113,7 +118,7 @@ type UnitCommandBase struct {
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine and/or container to deploy the unit in (bypasses constraints)")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit (not available on k8s models)")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -204,7 +209,7 @@ func (c *addUnitCommand) validateArgsByModelType() error {
 		return err
 	}
 	if modelType == model.CAAS {
-		if c.PlacementSpec != "" || len(c.AttachStorage) != 0 {
+		if c.PlacementSpec != "" || (len(c.AttachStorage) != 0 && !featureflag.Enabled(feature.K8SAttachStorage)) {
 			return errors.New("k8s models only support --num-units")
 		}
 	}
@@ -255,6 +260,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		_, err = apiclient.ScaleApplication(application.ScaleApplicationParams{
 			ApplicationName: c.ApplicationName,
 			ScaleChange:     c.NumUnits,
+			AttachStorage:   c.AttachStorage,
 		})
 		if err == nil {
 			return nil

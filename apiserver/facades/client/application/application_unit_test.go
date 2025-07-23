@@ -2390,7 +2390,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
 	defer ctrl.Finish()
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().ChangeScale(5).Return(7, nil)
+	app.EXPECT().ChangeScale(5, ([]names.StorageTag)(nil)).Return(7, nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
@@ -2434,6 +2434,76 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheckInvalidSca
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, "scale < 0 not valid")
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChangeAttachStorage(c *gc.C) {
+	s.modelType = state.ModelTypeCAAS
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().ChangeScale(1, []names.StorageTag{names.NewStorageTag("foo/1")}).Return(3, nil)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			ScaleChange:    1,
+			AttachStorage:  []string{"foo/1"},
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{{
+			Info: &params.ScaleApplicationInfo{Scale: 3},
+		}},
+	})
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChangeAttachStorageMultipleNumUnits(c *gc.C) {
+	s.modelType = state.ModelTypeCAAS
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			ScaleChange:    2,
+			AttachStorage:  []string{"foo/1"},
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{
+			{
+				Error: &params.Error{Message: "failed to scale a application: AttachStorage is non-empty, but NumUnits is 2"},
+			},
+		},
+	})
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChangeAttachStorageInValidStorageName(c *gc.C) {
+	s.modelType = state.ModelTypeCAAS
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			ScaleChange:    1,
+			AttachStorage:  []string{"foo-1"},
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{{
+			Error: &params.Error{Message: `failed to scale a application: storage name "foo-1" not valid`},
+		}},
+	})
 }
 
 func (s *ApplicationSuite) TestScaleApplicationsIAASModel(c *gc.C) {

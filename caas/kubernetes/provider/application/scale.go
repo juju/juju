@@ -10,9 +10,12 @@ import (
 	"github.com/juju/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/scale"
+	"github.com/juju/juju/storage"
 )
 
 // Scale scales the Application's unit to the value specificied. Scale must
@@ -81,4 +84,77 @@ func (a *app) UnitsToRemove(ctx context.Context, desiredScale int) ([]string, er
 	}
 
 	return unitsToRemove, nil
+}
+
+func (a *app) EnsurePVC(
+	filesystems []storage.KubernetesFilesystemParams,
+	filesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+) (func() error, error) {
+	applier := a.newApplier()
+
+	ss, getErr := a.getStatefulSet()
+	if errors.Is(getErr, errors.NotFound) {
+		// skip if statefulset not exists.
+		return nil, nil
+	} else if getErr != nil {
+		return nil, errors.Trace(getErr)
+	}
+
+	storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+		return ss, getErr
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	pvcNames, err := a.pvcNames(storageUniqueID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	pvcNameGetter := func(volName string) string {
+		if n, ok := pvcNames[volName]; ok {
+			logger.Debugf("using existing persistent volume claim %q (volume %q)", n, volName)
+			return n
+		}
+		return fmt.Sprintf("%s-%s", volName, storageUniqueID)
+	}
+	storageClasses, err := resources.ListStorageClass(context.Background(), a.client, metav1.ListOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageClassMap := make(map[string]resources.StorageClass)
+	for _, v := range storageClasses {
+		storageClassMap[v.Name] = v
+	}
+
+	pvcResources := []resources.PersistentVolumeClaim{}
+	for _, fs := range filesystems {
+		name := a.volumeName(fs.StorageName)
+		_, pvc, _, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if pvc != nil {
+			applyedPVCs, err := a.handleVolumeAttachment(applier, filesystemUnitAttachments, *pvc, fs.StorageName)
+			if err != nil {
+				return nil, err
+			}
+			pvcResources = append(pvcResources, applyedPVCs...)
+		}
+	}
+	if err := applier.Run(context.Background(), a.client, false); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// CleanUp function delete applyed PVC if need roll back.
+	cleanUpFunc := func() error {
+		for _, pvcResource := range pvcResources {
+			applier.Delete(&pvcResource)
+		}
+		if err := applier.Run(context.Background(), a.client, false); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+	return cleanUpFunc, nil
 }

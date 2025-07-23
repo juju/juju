@@ -435,6 +435,11 @@ type ScaleApplicationParams struct {
 	// Force controls whether or not scaling of an application
 	// will be forced, i.e. ignore operational errors.
 	Force bool `json:"force"`
+
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string
 }
 
 // ScaleApplicationResults contains the results of a ScaleApplication

@@ -7,7 +7,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -2198,12 +2197,13 @@ func (a *Application) GetScale() int {
 
 // ChangeScale alters the existing scale by the provided change amount, returning the new amount.
 // This is used on CAAS models.
-func (a *Application) ChangeScale(scaleChange int) (int, error) {
+func (a *Application) ChangeScale(scaleChange int, attachStorage []names.StorageTag) (int, error) {
 	newScale := a.doc.DesiredScale + scaleChange
 	logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
 	if newScale < 0 {
 		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
 	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := a.Refresh(); err != nil {
@@ -2220,6 +2220,7 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 				return nil, errors.NotValidf("cannot remove more units than currently exist")
 			}
 		}
+
 		ops := []txn.Op{{
 			C:  applicationsC,
 			Id: a.doc.DocID,
@@ -2231,6 +2232,35 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 			},
 			Update: bson.D{{"$set", bson.D{{"scale", newScale}}}},
 		}}
+
+		if scaleChange > 0 && len(attachStorage) > 0 {
+			// Since len(attachStorage) will always equal to one at this step,
+			// the unit OrderedId will be equal to a.doc.UnitCount.
+			unitName := a.doc.Name + "/" + strconv.Itoa(a.doc.UnitCount)
+
+			// The operations return should equal to a.insertCAASUnitOps but
+			// use different OrderedId check since the desired scale
+			// number haven't been updated.
+			insertUnitOps, err := a.insertCAASUnitOps(
+				UpsertCAASUnitParams{
+					AddUnitParams: AddUnitParams{
+						UnitName:      &unitName,
+						AttachStorage: attachStorage,
+					},
+				},
+				func() error {
+					if ps := a.ProvisioningState(); ps != nil && ps.Scaling && a.doc.UnitCount != ps.ScaleTarget+1 {
+						return errors.New("Can not scale application because there's already a scaling operation in progress")
+					}
+					return nil
+				},
+			)
+
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, insertUnitOps...)
+		}
 
 		cloudSvcDoc := cloudServiceDoc{
 			DocID:                 a.globalKey(),
@@ -2881,7 +2911,16 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 		}
 
 		if unit == nil {
-			return a.insertCAASUnitOps(args)
+			return a.insertCAASUnitOps(
+				args,
+				func() error {
+					if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
+						(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
+						return errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
+					}
+					return nil
+				},
+			)
 		}
 
 		if unit.Life() == Dead {
@@ -2927,16 +2966,16 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 	return unit, nil
 }
 
-func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams) ([]txn.Op, error) {
+func (a *Application) insertCAASUnitOps(
+	args UpsertCAASUnitParams,
+	validateFunc func() error,
+) ([]txn.Op, error) {
 	if args.UnitName == nil {
 		return nil, errors.NotValidf("nil unit name")
 	}
-
-	if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
-		(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
-		return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
+	if err := validateFunc(); err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -3139,37 +3178,17 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 // This is called by the same worker loop that deploy application && updates scales.
 // So consistency checks can be avoided since provisioning and scale updates are interleaved.
 func (a *Application) GetUnitAttachmentInfos() (unitAttachmentInfos []UnitAttachmentInfo, err error) {
-	// Skips if scaling down or already at desired scale (except initial 1-unit deploy).
-	// Note: Attaching storage is not allowed during deployment if DesiredScale > 1, so that case is ignored.
-	scaleUp := a.doc.DesiredScale > a.doc.UnitCount
-	initialDeploy := a.doc.UnitCount == 1 && a.doc.DesiredScale == 1
-	if !scaleUp && !initialDeploy {
-		return unitAttachmentInfos, nil
+	// CAAS deploy/add-unit attaching storage is rely on add-unit ops.
+	// In this case, the application's DesiredScale will equal to UnitCount.
+	if a.doc.DesiredScale != a.doc.UnitCount {
+		return nil, nil
 	}
 
-	// The unit ids follow the rules of statefulset created or scale up behaviour which allocates new ids in
-	// ascending order of their ordinal(0, 1, 2, etc.).
-	unitIds := []string{"0"} // initialDeploy == true
-	if !initialDeploy {
-		unitIds = []string{}
-		for i := a.doc.UnitCount; i < a.doc.DesiredScale; i++ {
-			unitIds = append(unitIds, strconv.Itoa(i))
-		}
-	}
-
-	idReg := strings.Join(unitIds, "|")
 	storageAttachmentDocs, err := getstorageAttachmentDocs(
 		a.st.db(),
 		bson.D{{"unitid", 1}, {"storageid", 1}},
 		bson.M{
-			"unitid": bson.RegEx{
-				Pattern: fmt.Sprintf(
-					`^%s/(?:%s)$`,
-					regexp.QuoteMeta(a.doc.Name),
-					idReg,
-				),
-				Options: "",
-			},
+			"unitid": fmt.Sprintf("%s/%d", a.doc.Name, a.doc.DesiredScale-1),
 		},
 	)
 	if err != nil {

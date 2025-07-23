@@ -15,6 +15,7 @@ import (
 
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
+	storage "github.com/juju/juju/storage"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )
@@ -83,6 +84,21 @@ func (m *MockApplication) Ensure(arg0 caas.ApplicationConfig) error {
 func (mr *MockApplicationMockRecorder) Ensure(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ensure", reflect.TypeOf((*MockApplication)(nil).Ensure), arg0)
+}
+
+// EnsurePVC mocks base method.
+func (m *MockApplication) EnsurePVC(arg0 []storage.KubernetesFilesystemParams, arg1 map[string][]storage.KubernetesFilesystemUnitAttachmentParams) (func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsurePVC", arg0, arg1)
+	ret0, _ := ret[0].(func() error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnsurePVC indicates an expected call of EnsurePVC.
+func (mr *MockApplicationMockRecorder) EnsurePVC(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsurePVC", reflect.TypeOf((*MockApplication)(nil).EnsurePVC), arg0, arg1)
 }
 
 // Exists mocks base method.

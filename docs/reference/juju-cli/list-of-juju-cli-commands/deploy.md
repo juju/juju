@@ -12,7 +12,7 @@ Deploys a new application or bundle.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--attach-storage` |  | Existing storage to attach to the deployed unit (not available on k8s models) |
+| `--attach-storage` |  | Existing storage to attach to the deployed unit |
 | `--base` |  | The base on which to deploy |
 | `--bind` |  | Configure application endpoint bindings to spaces |
 | `--channel` |  | Channel to use when deploying a charm or bundle from Charmhub |

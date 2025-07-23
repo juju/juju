@@ -48,6 +48,11 @@ type Application interface {
 	// Service returns the service associated with the application.
 	Service() (*Service, error)
 
+	EnsurePVC(
+		[]storage.KubernetesFilesystemParams,
+		map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+	) (func() error, error)
+
 	ServiceInterface
 }
 

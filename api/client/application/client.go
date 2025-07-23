@@ -597,10 +597,20 @@ type ScaleApplicationParams struct {
 	// Force controls whether or not the removal of applications
 	// will be forced, i.e. ignore removal errors.
 	Force bool
+
+	AttachStorage []string
 }
 
 // ScaleApplication sets the desired unit count for one or more applications.
 func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	if len(in.AttachStorage) > 0 && c.BestAPIVersion() < 21 {
+		// ScaleApplication with attach storage was introduced in ApplicationAPIV21.
+		return params.ScaleApplicationResult{}, errors.NotImplementedf("Scale application with attach storage (need V21+)")
+	}
+	if len(in.AttachStorage) > 0 && in.ScaleChange != 1 {
+		return params.ScaleApplicationResult{}, errors.New("cannot attach existing storage when more than one unit is requested")
+	}
+
 	if !names.IsValidApplication(in.ApplicationName) {
 		return params.ScaleApplicationResult{}, errors.NotValidf("application %q", in.ApplicationName)
 	}
@@ -615,6 +625,7 @@ func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplic
 			Scale:          in.Scale,
 			ScaleChange:    in.ScaleChange,
 			Force:          in.Force,
+			AttachStorage:  in.AttachStorage,
 		}},
 	}
 	var results params.ScaleApplicationResults

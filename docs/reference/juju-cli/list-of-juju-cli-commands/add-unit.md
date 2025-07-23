@@ -11,7 +11,7 @@ Adds one or more units to a deployed application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--attach-storage` |  | Existing storage to attach to the deployed unit (not available on k8s models) |
+| `--attach-storage` |  | Existing storage to attach to the deployed unit |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-n`, `--num-units` | 1 | Number of units to add |
 | `--to` |  | The machine and/or container to deploy the unit in (bypasses constraints) |
@@ -68,13 +68,16 @@ Many charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
 documentation for specific charms to check how scale-out is supported.
 
-For k8s models the only valid argument is -n, --num-units.
+For k8s models the valid arguments are -n, --num-units and --attach-storage.
 Anything additional will result in an error.
 
-Example:
+Examples:
 
 Add five units of mysql:
     juju add-unit mysql --num-units 5
+
+Add a unit of mysql with existing storage attached:
+    juju add-unit mysql --attach-storage database/0
 
 
 For cloud models, by default, units are deployed to newly provisioned machines
