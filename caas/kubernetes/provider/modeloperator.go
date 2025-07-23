@@ -17,6 +17,7 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -352,6 +353,7 @@ func (k *kubernetesClient) EnsureModelOperator(
 // ModelOperator return the model operator config used to create the current
 // model operator for this broker
 func (k *kubernetesClient) ModelOperator() (*caas.ModelOperatorConfig, error) {
+	logger.Infof("alvin fetching model operator config for %q in namespace %q", k.ModelName(), k.Namespace())
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
@@ -769,4 +771,26 @@ func ensureExecRBACResources(objMeta meta.ObjectMeta, clock jujuclock.Clock, bro
 
 func modelOperatorConfigMapAgentConfKey(operatorName string) string {
 	return operatorName + "-agent.conf"
+}
+
+func (k *kubernetesClient) GetModelOperatorDeploymentImage() (string, error) {
+	api := k.client().AppsV1().Deployments(k.namespace)
+	logger.Infof("alvin fetching model operator deployment for %q in namespace %q", k.ModelName(), k.Namespace())
+	res, err := api.Get(context.Background(), modelOperatorName, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return "", errors.NewNotFound(err, "k8s")
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	logger.Infof("alvin fetched model operator deployment res %#v", *res)
+
+	containers := res.Spec.Template.Spec.Containers
+	if len(containers) == 0 {
+		return "", errors.NotFoundf("no containers found in model operator deployment %q", modelOperatorName)
+	}
+
+	image := containers[0].Image
+	logger.Infof("alvin fetched image: %v", image)
+
+	return image, nil
 }

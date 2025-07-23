@@ -298,6 +298,18 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 			return nil, errors.NotSupportedf("operator storage provider %q", spType)
 		}
 	}
+
+	image, err := p.operatorManager.GetModelOperatorDeploymentImage()
+	if err != nil {
+		return nil, errors.Annotatef(err, "alvin fetching model operator config")
+	}
+	info.ImageDetails.RegistryPath = image
+	info.BaseImageDetails.RegistryPath = image
+
+	p.logger.Infof("alvin image in updateOperatorConfig: %#v", image)
+	// info.ImageDetails.Repository = modelOperatorConfig.ImageDetails.Repository
+	// info.ImageDetails.RegistryPath = modelOperatorConfig.ImageDetails.RegistryPath
+
 	p.logger.Tracef("using operator info %+v", info)
 
 	cfg := &caas.OperatorConfig{

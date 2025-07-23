@@ -4,6 +4,7 @@
 package caasmodeloperator
 
 import (
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
@@ -28,6 +29,7 @@ type ModelOperatorBroker interface {
 	EnsureModelOperator(string, string, *caas.ModelOperatorConfig) error
 	ModelOperator() (*caas.ModelOperatorConfig, error)
 	ModelOperatorExists() (bool, error)
+	GetModelOperatorDeploymentImage() (string, error)
 }
 
 // ModelOperatorManager defines the worker used for managing model operators in
@@ -86,6 +88,7 @@ func (m *ModelOperatorManager) update() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Infof("alvin2 info: %#v", info)
 
 	exists, err := m.broker.ModelOperatorExists()
 	if err != nil {
@@ -114,6 +117,15 @@ func (m *ModelOperatorManager) update() error {
 			password = prevConf.OldPassword()
 			setPassword = false
 		}
+
+		// ALVIN GET DOCKER IMAGE DETAILS FROM K8S for model operator
+		image, err := m.broker.GetModelOperatorDeploymentImage()
+		if err != nil {
+			return errors.Annotate(err, "alvin failed to get deployment image")
+		}
+		logger.Infof("alvin2 update image: %#v", image)
+
+		info.ImageDetails.RegistryPath = image
 	}
 	if setPassword {
 		err := m.api.SetPassword(password)

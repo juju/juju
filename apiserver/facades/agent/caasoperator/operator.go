@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
@@ -40,6 +41,10 @@ type Facade struct {
 
 type CAASBrokerInterface interface {
 	WatchContainerStart(appName string, containerName string) (corewatcher.StringsWatcher, error)
+
+	// ModelOperator return the model operator config used to create the current
+	// model operator for this broker
+	ModelOperator() (*caas.ModelOperatorConfig, error)
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -270,4 +275,9 @@ func (f *Facade) watchContainerStart(tagString string, containerName string) (st
 // It should be blanked when this facade version is next incremented.
 func (f *Facade) ModelUUID() params.StringResult {
 	return params.StringResult{Result: f.model.UUID()}
+}
+
+func (f *Facade) ModelOperatorConfig() (*caas.ModelOperatorConfig, error) {
+	modelOperatorConfig, err := f.broker.ModelOperator()
+	return modelOperatorConfig, err
 }

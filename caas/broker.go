@@ -263,6 +263,9 @@ type ModelOperatorManager interface {
 	// ModelOperator return the model operator config used to create the current
 	// model operator for this broker
 	ModelOperator() (*ModelOperatorConfig, error)
+
+	// GetModelOperatorDeploymentImage returns the image used for the model operator deployment.
+	GetModelOperatorDeploymentImage() (string, error)
 }
 
 // ApplicationOperatorManager provides an API for deploying operators for
@@ -292,6 +295,9 @@ type ApplicationOperatorManager interface {
 	// WatchService returns a watcher which notifies when there
 	// are changes to the deployment of the specified application.
 	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
+
+	// GetModelOperatorDeploymentImage returns the image used for the model operator deployment.
+	GetModelOperatorDeploymentImage() (string, error)
 }
 
 // Upgrader provides the API to perform upgrades.

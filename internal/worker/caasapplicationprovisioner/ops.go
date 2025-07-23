@@ -27,7 +27,7 @@ import (
 // This is exported for testing only.
 type ApplicationOps interface {
 	AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-		facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error
+		facade CAASProvisionerFacade, clk clock.Clock, broker CAASBroker, logger Logger) error
 
 	AppDying(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
@@ -64,8 +64,8 @@ type applicationOps struct {
 }
 
 func (applicationOps) AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	return appAlive(appName, app, password, lastApplied, facade, clk, logger)
+	facade CAASProvisionerFacade, clk clock.Clock, broker CAASBroker, logger Logger) error {
+	return appAlive(appName, app, password, lastApplied, facade, clk, broker, logger)
 }
 
 func (applicationOps) AppDying(appName string, app caas.Application, appLife life.Value,
@@ -126,13 +126,21 @@ type Tomb interface {
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
 // CAAS broker to create the resources in the k8s cluster for this application.
 func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
+	facade CAASProvisionerFacade, clk clock.Clock, broker CAASBroker, logger Logger) error {
 	logger.Debugf("ensuring application %q exists", appName)
 
 	provisionInfo, err := facade.ProvisioningInfo(appName)
+	//  Alvin change provisioning info image to model here
 	if err != nil {
 		return errors.Annotate(err, "retrieving provisioning info")
 	}
+
+	image, err := broker.GetModelOperatorDeploymentImage()
+	if err != nil {
+		return errors.Annotate(err, "alvin appAlive failed to get deployment image")
+	}
+	logger.Infof("alvin2 appalive image: %#v", image)
+
 	if provisionInfo.CharmURL == nil {
 		return errors.Errorf("missing charm url in provision info")
 	}
@@ -199,7 +207,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		IsPrivateImageRepo:   provisionInfo.ImageDetails.IsPrivate(),
 		IntroductionSecret:   password,
 		AgentVersion:         provisionInfo.Version,
-		AgentImagePath:       provisionInfo.ImageDetails.RegistryPath,
+		AgentImagePath:       image,
 		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
 		ControllerCertBundle: provisionInfo.CACert,
 		ResourceTags:         provisionInfo.Tags,
