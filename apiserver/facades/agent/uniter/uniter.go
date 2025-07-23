@@ -2201,7 +2201,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 					MACAddress:    dev.MACAddress,
 					InterfaceName: dev.Name,
 					Addresses: transform.Slice(dev.Addresses, func(addr domainnetork.AddressInfo) params.
-					InterfaceAddress {
+						InterfaceAddress {
 						return params.InterfaceAddress{
 							Hostname: addr.Hostname,
 							Address:  addr.Value,

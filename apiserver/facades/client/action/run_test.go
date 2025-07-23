@@ -83,7 +83,7 @@ func (s *runSuite) setupMocks(c *tc.C) *gomock.Controller {
 		Tag: jujutesting.AdminUser,
 	}
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.client, err = action.NewActionAPI(nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
+	s.client, err = action.NewActionAPI(auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl

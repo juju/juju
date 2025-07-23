@@ -33,7 +33,6 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 	return NewStateFirewallerAPI(
 		stShim,
 		domainServices.Network(),
-		ctx.Resources(),
 		ctx.WatcherRegistry(),
 		ctx.Auth(),
 		controllerConfigAPI,

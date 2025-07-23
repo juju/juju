@@ -78,7 +78,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 			ModelTag:   names.NewModelTag(ctx.ModelUUID().String()),
 			Authorizer: ctx.Auth(),
 		},
-		ctx.Resources(),
 		logger,
 		ctx.Clock(),
 		services,

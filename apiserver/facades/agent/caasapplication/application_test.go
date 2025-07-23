@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
@@ -33,7 +32,6 @@ func TestCAASApplicationSuite(t *testing.T) {
 type CAASApplicationSuite struct {
 	testhelpers.IsolationSuite
 
-	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	facade     *caasapplication.Facade
 
@@ -46,9 +44,6 @@ type CAASApplicationSuite struct {
 
 func (s *CAASApplicationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 }
 
 func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Controller {
@@ -67,7 +62,7 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 	s.applicationService = caasapplication.NewMockApplicationService(ctrl)
 	s.modelAgentService = caasapplication.NewMockModelAgentService(ctrl)
 
-	s.facade = caasapplication.NewFacade(s.resources, s.authorizer,
+	s.facade = caasapplication.NewFacade(s.authorizer,
 		coretesting.ControllerTag.Id(), s.modelUUID,
 		s.controllerConfigService, s.controllerNodeService, s.applicationService, s.modelAgentService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)

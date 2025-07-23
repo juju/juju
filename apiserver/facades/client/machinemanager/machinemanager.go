@@ -48,7 +48,6 @@ type MachineManagerAPI struct {
 	storageAccess   StorageInterface
 	authorizer      Authorizer
 	check           *common.BlockChecker
-	resources       facade.Resources
 	controllerStore objectstore.ObjectStore
 	clock           clock.Clock
 
@@ -75,7 +74,6 @@ func NewMachineManagerAPI(
 	controllerStore objectstore.ObjectStore,
 	storageAccess StorageInterface,
 	auth Authorizer,
-	resources facade.Resources,
 	logger corelogger.Logger,
 	clock clock.Clock,
 	services Services,
@@ -86,7 +84,6 @@ func NewMachineManagerAPI(
 		controllerStore: controllerStore,
 		authorizer:      auth,
 		check:           common.NewBlockChecker(services.BlockCommandService),
-		resources:       resources,
 		storageAccess:   storageAccess,
 		clock:           clock,
 		logger:          logger,

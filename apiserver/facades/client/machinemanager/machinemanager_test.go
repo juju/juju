@@ -15,7 +15,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -85,7 +84,6 @@ func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		common.NewResources(),
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 		Services{
@@ -212,7 +210,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		nil,
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 		Services{
@@ -676,7 +673,6 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		common.NewResources(),
 		loggertesting.WrapCheckLog(c),
 		s.clock,
 		Services{

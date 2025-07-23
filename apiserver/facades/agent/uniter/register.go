@@ -128,8 +128,6 @@ func newUniterAPIWithServices(
 	unitState := common.NewUnitStateAPI(
 		services.ControllerConfigService,
 		services.UnitStateService,
-		resources,
-		authorizer,
 		accessUnit,
 		logger,
 	)
