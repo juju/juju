@@ -157,24 +157,28 @@ func (c *Container) Mem() uint {
 // device described by the input arguments.
 // If the device already exists, an error is returned.
 func (c *Container) AddDisk(name, path, source, pool string, readOnly bool) error {
-	if _, ok := c.Devices[name]; ok {
-		return errors.Errorf("container %q already has a device %q", c.Name, name)
-	}
-
-	if c.Devices == nil {
-		c.Devices = map[string]device{}
-	}
-	c.Devices[name] = map[string]string{
+	dev := map[string]string{
 		"path":   path,
 		"source": source,
 		"type":   "disk",
 	}
 	if pool != "" {
-		c.Devices[name]["pool"] = pool
+		dev["pool"] = pool
 	}
 	if readOnly {
-		c.Devices[name]["readonly"] = "true"
+		dev["readonly"] = "true"
 	}
+	if existing, ok := c.Devices[name]; ok {
+		if !reflect.DeepEqual(existing, dev) {
+			return errors.Errorf("container %q already has a device %q", c.Name, name)
+		}
+		return nil
+	}
+
+	if c.Devices == nil {
+		c.Devices = map[string]device{}
+	}
+	c.Devices[name] = dev
 	return nil
 }
 
