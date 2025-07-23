@@ -320,6 +320,44 @@ func (c *MockMigrationServiceDeleteImportedLinkLayerDevicesCall) DoAndReturn(f f
 	return c
 }
 
+// ImportCloudServices mocks base method.
+func (m *MockMigrationService) ImportCloudServices(arg0 context.Context, arg1 []internal.ImportCloudService) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportCloudServices", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportCloudServices indicates an expected call of ImportCloudServices.
+func (mr *MockMigrationServiceMockRecorder) ImportCloudServices(arg0, arg1 any) *MockMigrationServiceImportCloudServicesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportCloudServices", reflect.TypeOf((*MockMigrationService)(nil).ImportCloudServices), arg0, arg1)
+	return &MockMigrationServiceImportCloudServicesCall{Call: call}
+}
+
+// MockMigrationServiceImportCloudServicesCall wrap *gomock.Call
+type MockMigrationServiceImportCloudServicesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationServiceImportCloudServicesCall) Return(arg0 error) *MockMigrationServiceImportCloudServicesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationServiceImportCloudServicesCall) Do(f func(context.Context, []internal.ImportCloudService) error) *MockMigrationServiceImportCloudServicesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationServiceImportCloudServicesCall) DoAndReturn(f func(context.Context, []internal.ImportCloudService) error) *MockMigrationServiceImportCloudServicesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ImportLinkLayerDevices mocks base method.
 func (m *MockMigrationService) ImportLinkLayerDevices(arg0 context.Context, arg1 []internal.ImportLinkLayerDevice) error {
 	m.ctrl.T.Helper()

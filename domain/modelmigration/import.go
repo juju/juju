@@ -76,6 +76,7 @@ func ImportOperations(
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	network.RegisterImport(coordinator, logger.Child("network"))
 	application.RegisterImport(coordinator, storageRegistryGetter, clock, logger.Child("application"))
+	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
 	agentpassword.RegisterImport(coordinator)
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
 	status.RegisterImport(coordinator, clock, logger.Child("status"))

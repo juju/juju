@@ -28,10 +28,10 @@ type ImportLinkLayerDevice struct {
 // ImportIPAddress represents an IP address with its configuration
 // details for import operations.
 type ImportIPAddress struct {
-	UUID  string                  // generated during import
-	Type  corenetwork.AddressType // deduced from AddressValue during import
-	Scope corenetwork.Scope       // deduced from AddressValue during import
+	UUID string                  // generated during import
+	Type corenetwork.AddressType // deduced from AddressValue during import
 
+	Scope            corenetwork.Scope
 	AddressValue     string
 	SubnetCIDR       string
 	ConfigType       corenetwork.AddressConfigType
@@ -50,4 +50,24 @@ type SpaceName struct {
 	UUID string
 	// Name is the human-readable name of the space.
 	Name string
+}
+
+type ImportCloudService struct {
+	UUID        string // generated during import
+	DeviceUUID  string // generated during import
+	NetNodeUUID string // generated during import
+
+	ApplicationName string
+	ProviderID      string
+	Addresses       []ImportCloudServiceAddress
+}
+
+type ImportCloudServiceAddress struct {
+	UUID string // generated during import
+
+	Value   string
+	Type    string
+	Scope   string
+	Origin  string
+	SpaceID string
 }
