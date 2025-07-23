@@ -36,18 +36,11 @@ import (
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var (
 	logger = internallogger.GetLogger("juju.apiserver.modelmanager")
 )
-
-// StateBackend represents the mongo backend.
-type StateBackend interface {
-	GetBackend(string) (commonmodel.ModelManagerBackend, func() bool, error)
-	NewModel(state.ModelArgs) (commonmodel.Model, commonmodel.ModelManagerBackend, error)
-}
 
 // ModelStatusAPI is the interface for the model status API.
 type ModelStatusAPI interface {
@@ -69,9 +62,6 @@ type ModelManagerAPI struct {
 	isAdmin    bool
 	apiUser    names.UserTag
 
-	// Legacy state access.
-	state StateBackend
-
 	check common.BlockCheckerInterface
 
 	// Services required by the model manager.
@@ -92,7 +82,6 @@ type ModelManagerAPI struct {
 // models.
 func NewModelManagerAPI(
 	ctx context.Context,
-	st StateBackend,
 	isAdmin bool,
 	apiUser names.UserTag,
 	modelStatusAPI ModelStatusAPI,
@@ -105,7 +94,6 @@ func NewModelManagerAPI(
 	return &ModelManagerAPI{
 		// TODO: remove mongo state from ModelStatusAPI entirely.
 		ModelStatusAPI:       modelStatusAPI,
-		state:                st,
 		domainServicesGetter: services.DomainServicesGetter,
 		credentialService:    services.CredentialService,
 		applicationService:   services.ApplicationService,
@@ -329,30 +317,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	if err != nil {
 		return result, err
 	}
-
-	cloudTag, err = names.ParseCloudTag(modelInfo.CloudTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	credentialTag, err := names.ParseCloudCredentialTag(modelInfo.CloudCredentialTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	// TODO: remove model creation from the mongo state.
-	_, st, err := m.state.NewModel(state.ModelArgs{
-		Name:            modelInfo.Name,
-		UUID:            modelUUID,
-		Type:            state.ModelType(modelInfo.Type),
-		CloudName:       cloudTag.Id(),
-		CloudRegion:     modelInfo.CloudRegion,
-		CloudCredential: credentialTag,
-		Owner:           m.apiUser,
-	})
-	if err != nil {
-		return result, errors.Annotatef(err, "creating new model for %q", creationArgs.Name)
-	}
-	defer st.Close()
 
 	return modelInfo, nil
 }
@@ -790,26 +754,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			}
 		}
 
-		domainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, coremodel.UUID(modelUUID))
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		st, releaseSt, err := m.state.GetBackend(modelUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer releaseSt()
-
-		err = commonmodel.DestroyModel(
-			ctx, st, // TODO: remove mongo state from the commonmodel.DestroyModel.
-			domainServices.BlockCommand(), domainServices.ModelInfo(),
-			destroyStorage, force, maxWait, timeout,
-		)
-		if err != nil {
-			logger.Warningf(ctx, "failed destroying model %v: %v", modelUUID, err)
-			return errors.Trace(err)
-		}
+		// TODO(model): Use the removal domain to destroy the model(s).
 
 		// TODO (stickupkid): We can't the delete the model info when
 		// destroying the model at the moment. Attempting to delete the
@@ -824,7 +769,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// 	return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
 		// }
 
-		err = m.modelService.DeleteModel(ctx, coremodel.UUID(modelUUID))
+		err := m.modelService.DeleteModel(ctx, coremodel.UUID(modelUUID))
 		if err != nil && !errors.Is(err, modelerrors.NotFound) {
 			return errors.Annotatef(err, "deleting model %q", modelUUID)
 		}
