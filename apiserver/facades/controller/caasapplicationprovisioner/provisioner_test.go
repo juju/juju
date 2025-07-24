@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/resources"
 	jujuresource "github.com/juju/juju/core/resources"
