@@ -17,7 +17,6 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type watcherCommon struct {
@@ -405,7 +404,7 @@ func (w *SrvModelSummaryWatcher) translateMessages(messages []corewatcher.ModelS
 // srvSecretTriggerWatcher defines the API wrapping a SecretTriggerWatcher.
 type srvSecretTriggerWatcher struct {
 	watcherCommon
-	st      *state.State
+	//st      *state.State
 	watcher corewatcher.SecretTriggerWatcher
 }
 
@@ -424,8 +423,8 @@ func newSecretsTriggerWatcher(_ context.Context, context facade.ModelContext) (f
 	}
 	return &srvSecretTriggerWatcher{
 		watcherCommon: newWatcherCommon(context),
-		st:            context.State(),
-		watcher:       watcher,
+		//st:            context.State(),
+		watcher: watcher,
 	}, nil
 }
 

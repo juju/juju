@@ -18,7 +18,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/state"
 )
 
 // AgentPasswordService defines the methods required to set an agent password
@@ -82,7 +81,7 @@ type agentAuthenticator struct {
 
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
-func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error) {
+func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (names.Tag, error) {
 	switch authParams.AuthTag.Kind() {
 	case names.UserTagKind:
 		return nil, errors.Trace(fmt.Errorf("user authentication: %w", apiservererrors.ErrBadRequest))
@@ -105,7 +104,7 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 	return nil, apiservererrors.ErrBadRequest
 }
 
-func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.UnitTag, credentials string) (state.Entity, error) {
+func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.UnitTag, credentials string) (names.Tag, error) {
 	unitName := unit.Name(tag.Id())
 
 	// Check if the password is correct.
@@ -129,10 +128,10 @@ func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.Uni
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	return TagToEntity(tag), nil
+	return tag, nil
 }
 
-func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.MachineTag, credentials, nonce string) (state.Entity, error) {
+func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.MachineTag, credentials, nonce string) (names.Tag, error) {
 	machineName := machine.Name(tag.Id())
 
 	// Check if the password is correct.
@@ -160,10 +159,10 @@ func (a *agentAuthenticator) authenticateMachine(ctx context.Context, tag names.
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	return TagToEntity(tag), nil
+	return tag, nil
 }
 
-func (a *agentAuthenticator) authenticateControllerAgent(ctx context.Context, tag names.ControllerAgentTag, credentials string) (state.Entity, error) {
+func (a *agentAuthenticator) authenticateControllerAgent(ctx context.Context, tag names.ControllerAgentTag, credentials string) (names.Tag, error) {
 	// Check if the password is correct.
 	// - If the password is empty, then we consider that a bad request
 	//   (incorrect payload).
@@ -184,10 +183,10 @@ func (a *agentAuthenticator) authenticateControllerAgent(ctx context.Context, ta
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	return TagToEntity(tag), nil
+	return tag, nil
 }
 
-func (a *agentAuthenticator) authenticateApplication(ctx context.Context, tag names.ApplicationTag, credentials string) (state.Entity, error) {
+func (a *agentAuthenticator) authenticateApplication(ctx context.Context, tag names.ApplicationTag, credentials string) (names.Tag, error) {
 	appName := tag.Id()
 
 	// Check if the password is correct.
@@ -212,5 +211,5 @@ func (a *agentAuthenticator) authenticateApplication(ctx context.Context, tag na
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	return TagToEntity(tag), nil
+	return tag, nil
 }

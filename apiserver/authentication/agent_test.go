@@ -57,12 +57,12 @@ func (s *agentAuthenticatorSuite) TestUnitLogin(c *tc.C) {
 	authTag := names.NewUnitTag("foo/0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
-	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+	authenticatedTag, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entity.Tag(), tc.DeepEquals, authTag)
+	c.Check(authenticatedTag, tc.DeepEquals, authTag)
 }
 
 func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *tc.C) {
@@ -133,13 +133,13 @@ func (s *agentAuthenticatorSuite) TestMachineLogin(c *tc.C) {
 	authTag := names.NewMachineTag("0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
-	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+	authenticatedTag, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
 		Nonce:       "nonce",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entity.Tag(), tc.DeepEquals, authTag)
+	c.Check(authenticatedTag, tc.DeepEquals, authTag)
 }
 
 func (s *agentAuthenticatorSuite) TestMachineLoginEmptyCredentials(c *tc.C) {
@@ -245,12 +245,12 @@ func (s *agentAuthenticatorSuite) TestControllerNodeLogin(c *tc.C) {
 	authTag := names.NewControllerAgentTag("0")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
-	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+	authenticatedTag, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entity.Tag(), tc.DeepEquals, authTag)
+	c.Check(authenticatedTag, tc.DeepEquals, authTag)
 }
 
 func (s *agentAuthenticatorSuite) TestControllerNodeLoginEmptyCredentials(c *tc.C) {
@@ -321,12 +321,12 @@ func (s *agentAuthenticatorSuite) TestApplicationLogin(c *tc.C) {
 	authTag := names.NewApplicationTag("foo")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
-	entity, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+	authenticatedTag, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entity.Tag(), tc.DeepEquals, authTag)
+	c.Check(authenticatedTag, tc.DeepEquals, authTag)
 }
 
 func (s *agentAuthenticatorSuite) TestApplicationLoginEmptyCredentials(c *tc.C) {

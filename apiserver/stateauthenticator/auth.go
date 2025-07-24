@@ -260,22 +260,22 @@ func (a *Authenticator) checkCreds(
 	authenticator authentication.EntityAuthenticator,
 	agentPasswordService authentication.AgentPasswordService,
 ) (authentication.AuthInfo, error) {
-	entity, err := authenticator.Authenticate(ctx, authParams)
+	authenticatedTag, err := authenticator.Authenticate(ctx, authParams)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
 	authInfo := authentication.AuthInfo{
 		Delegator: &PermissionDelegator{AccessService: a.authContext.accessService},
-		Entity:    entity,
+		Tag:       authenticatedTag,
 	}
 
-	switch entity.Tag().Kind() {
+	switch authenticatedTag.Kind() {
 	case names.UserTagKind:
 		// TODO (stickupkid): This is incorrect. We should only be updating the
 		// last login time if they've been authorized (not just authenticated).
 		// For now we'll leave it as is, but we should fix this.
-		userTag := entity.Tag().(names.UserTag)
+		userTag := authenticatedTag.(names.UserTag)
 
 		err = a.authContext.accessService.UpdateLastModelLogin(ctx, user.NameFromTag(userTag), modelUUID)
 		if err != nil {
@@ -283,7 +283,7 @@ func (a *Authenticator) checkCreds(
 		}
 
 	case names.MachineTagKind:
-		ctrl, err := agentPasswordService.IsMachineController(ctx, machine.Name(entity.Tag().Id()))
+		ctrl, err := agentPasswordService.IsMachineController(ctx, machine.Name(authenticatedTag.Id()))
 		if err != nil && !errors.Is(err, machineerrors.MachineNotFound) {
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
