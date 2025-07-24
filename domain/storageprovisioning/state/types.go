@@ -89,6 +89,11 @@ type machineUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// unitUUID represents the UUID of a record in the unit table.
+type unitUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // netNodeUUIDRef represents a reference to a network node uuid in a storage
 // entity table.
 type netNodeUUIDRef struct {

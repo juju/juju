@@ -12,6 +12,9 @@ import (
 
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -150,6 +153,29 @@ func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
 		c.Context(), machineUUID,
 	)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	rval, err := st.GetUnitNetNodeUUID(
+		c.Context(), coreunit.UUID(unitUUID),
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
+}
+
+func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetUnitNetNodeUUID(
+		c.Context(), unitUUID,
+	)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestMachineProvisionScopeValue tests that the value of machine provision
