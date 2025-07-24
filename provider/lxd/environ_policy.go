@@ -16,7 +16,11 @@ import (
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	_, err := env.parsePlacement(ctx, args.Placement)
+	_, err := env.deriveAvailabilityZone(ctx,
+		environs.StartInstanceParams{
+			Placement: args.Placement,
+		},
+	)
 	return errors.Trace(err)
 }
 
