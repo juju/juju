@@ -45,8 +45,10 @@ func (s *filesystemSuite) TestGetFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fs := storageprovisioning.Filesystem{
+		BackingVolume: &storageprovisioning.FilesystemBackingVolume{
+			VolumeID: "vol-123",
+		},
 		FilesystemID: "fs-1234",
-		VolumeID:     "vol-1234",
 		Size:         100,
 	}
 	s.state.EXPECT().GetFilesystem(c.Context(), "fs-1234").Return(fs, nil)

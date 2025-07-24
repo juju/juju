@@ -27,12 +27,12 @@ func TestFilesystemSuite(t *testing.T) {
 	tc.Run(t, &filesystemSuite{})
 }
 
-func (s *filesystemSuite) TestGetFilesystem(c *tc.C) {
+// TestGetFilesystemWithBackingVolume tests getting a filesystem's information
+// by id when it is backed by a volume.
+func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	netNodeUUID := s.newNetNode(c)
 	appUUID := s.newApplication(c, "foo")
-	_, _ = s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	storageInstanceUUID := s.newStorageInstance(c, "pgdata", appUUID)
 
 	volUUID, volID := s.newMachineVolume(c)
@@ -44,8 +44,29 @@ func (s *filesystemSuite) TestGetFilesystem(c *tc.C) {
 	result, err := st.GetFilesystem(c.Context(), fsID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, storageprovisioning.Filesystem{
+		BackingVolume: &storageprovisioning.FilesystemBackingVolume{
+			VolumeID: volID,
+		},
 		FilesystemID: fsID,
-		VolumeID:     volID,
+		Size:         100,
+	})
+}
+
+// TestGetFilesystemWithBackingVolume tests getting a filesystem's information
+// by id when it isn't backed by a volume.
+func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	appUUID := s.newApplication(c, "foo")
+	storageInstanceUUID := s.newStorageInstance(c, "pgdata", appUUID)
+
+	fsUUID, fsID := s.newMachineFilesystem(c, 100)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+
+	result, err := st.GetFilesystem(c.Context(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, storageprovisioning.Filesystem{
+		FilesystemID: fsID,
 		Size:         100,
 	})
 }
@@ -55,6 +76,25 @@ func (s *filesystemSuite) TestGetFilesystemNotFoundError(c *tc.C) {
 
 	_, err := st.GetFilesystem(c.Context(), "no-exist-filesystem-id")
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+// TestGetFilesystemNotAttachedToStorageInstance is a regression test to show
+// that when calling [State.GetFilesystem] for a filesystem uuid that is not
+// associated with a storage instance, the filesystem is correctly returned
+// and doesn't result in a [storageprovisioningerrors.FilesystemNotFound] error.
+//
+// This bug was found because part of the filesystem information tries to
+// establish a back volume for the filesystem. This is done via linking through
+// the storage instance. It is not an error if this information doesn't exist.
+// It just means that the filesystem is not backed by a volume in the model.
+func (s *filesystemSuite) TestGetFilesystemNotAttachedToStorageInstance(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	_, fsID := s.newMachineFilesystem(c, 100)
+
+	fs, err := st.GetFilesystem(c.Context(), fsID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(fs.FilesystemID, tc.Equals, fsID)
+	c.Check(fs.Size, tc.Equals, uint64(100))
 }
 
 func (s *filesystemSuite) TestGetFilesystemAttachment(c *tc.C) {

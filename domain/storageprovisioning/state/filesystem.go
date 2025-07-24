@@ -45,11 +45,14 @@ SELECT (
 	sfs.size_mib
 ) AS (&filesystem.*)
 FROM      storage_filesystem sfs
-JOIN      storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
-JOIN      storage_instance si ON sifs.storage_instance_uuid = si.uuid
+LEFT JOIN storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
+LEFT JOIN storage_instance si ON sifs.storage_instance_uuid = si.uuid
 LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
 LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-WHERE sfs.filesystem_id=$filesystem.filesystem_id`, fs)
+WHERE     sfs.filesystem_id=$filesystem.filesystem_id
+`,
+		fs,
+	)
 	if err != nil {
 		return storageprovisioning.Filesystem{}, errors.Capture(err)
 	}
@@ -65,10 +68,18 @@ WHERE sfs.filesystem_id=$filesystem.filesystem_id`, fs)
 	if err != nil {
 		return storageprovisioning.Filesystem{}, errors.Capture(err)
 	}
+
+	var backingVolume *storageprovisioning.FilesystemBackingVolume
+	if fs.VolumeID.Valid {
+		backingVolume = &storageprovisioning.FilesystemBackingVolume{
+			VolumeID: fs.VolumeID.V,
+		}
+	}
+
 	return storageprovisioning.Filesystem{
-		FilesystemID: fs.FilesystemID,
-		VolumeID:     fs.VolumeID,
-		Size:         fs.Size,
+		BackingVolume: backingVolume,
+		FilesystemID:  fs.FilesystemID,
+		Size:          fs.Size,
 	}, nil
 }
 

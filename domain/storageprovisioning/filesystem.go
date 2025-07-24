@@ -35,14 +35,23 @@ type FilesystemAttachmentID struct {
 
 // Filesystem is a struct that provides the information about a filesystem.
 type Filesystem struct {
+	// BackingVolume contains information about the volume that is used to back
+	// this filesystem. If this value is nil, this filesystem is not backed by
+	// a volume in the model.
+	BackingVolume *FilesystemBackingVolume
+
 	// FilesystemID is the ID of the filesystem resource that the attachment is for.
 	FilesystemID string
 
-	// VolumeID is the ID of the volume that the filesystem is created on.
-	VolumeID string
-
 	// Size is the size of the filesystem in MiB.
 	Size uint64
+}
+
+// FilesystemBackingVolume contains information about the volume that is used
+// to back a filesystem.
+type FilesystemBackingVolume struct {
+	// VolumeID is the ID of the volume that the filesystem is created on.
+	VolumeID string
 }
 
 // FilesystemAttachment is a struct that provides the information about a

@@ -783,16 +783,16 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 				Size:         fs.Size,
 			},
 		}
-		if fs.VolumeID == "" {
-			// Filesystem is not attached to a volume.
+		if fs.BackingVolume == nil {
+			// Filesystem is not backed by a volume.
 			return result, nil
 		}
-		if !names.IsValidVolume(fs.VolumeID) {
+		if !names.IsValidVolume(fs.BackingVolume.VolumeID) {
 			return params.Filesystem{}, internalerrors.Errorf(
-				"invalid volume ID %q for filesystem %q", fs.VolumeID, tag.Id(),
+				"invalid volume ID %q for filesystem %q", fs.BackingVolume.VolumeID, tag.Id(),
 			).Add(errors.NotValid)
 		}
-		result.VolumeTag = names.NewVolumeTag(fs.VolumeID).String()
+		result.VolumeTag = names.NewVolumeTag(fs.BackingVolume.VolumeID).String()
 		return result, nil
 	}
 
