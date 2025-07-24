@@ -127,7 +127,7 @@ CREATE TABLE unit_state_relation (
 CREATE TABLE k8s_pod (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     -- provider_id comes from the provider, no FK.
-    -- it represents the k8s pod UID.
+    -- it represents the k8s pod name.
     provider_id TEXT NOT NULL,
     CONSTRAINT fk_k8s_pod_unit
     FOREIGN KEY (unit_uuid)

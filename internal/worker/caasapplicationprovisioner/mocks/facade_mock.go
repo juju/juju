@@ -13,11 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charms "github.com/juju/juju/api/common/charms"
 	caasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
-	resource "github.com/juju/juju/core/resource"
 	watcher "github.com/juju/juju/core/watcher"
-	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,161 +39,6 @@ func NewMockCAASProvisionerFacade(ctrl *gomock.Controller) *MockCAASProvisionerF
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCAASProvisionerFacade) EXPECT() *MockCAASProvisionerFacadeMockRecorder {
 	return m.recorder
-}
-
-// ApplicationCharmInfo mocks base method.
-func (m *MockCAASProvisionerFacade) ApplicationCharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0, arg1)
-	ret0, _ := ret[0].(*charms.CharmInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ApplicationCharmInfo indicates an expected call of ApplicationCharmInfo.
-func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationCharmInfo(arg0, arg1 any) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ApplicationCharmInfo), arg0, arg1)
-	return &MockCAASProvisionerFacadeApplicationCharmInfoCall{Call: call}
-}
-
-// MockCAASProvisionerFacadeApplicationCharmInfoCall wrap *gomock.Call
-type MockCAASProvisionerFacadeApplicationCharmInfoCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) Return(arg0 *charms.CharmInfo, arg1 error) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ApplicationOCIResources mocks base method.
-func (m *MockCAASProvisionerFacade) ApplicationOCIResources(arg0 context.Context, arg1 string) (map[string]resource.DockerImageDetails, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationOCIResources", arg0, arg1)
-	ret0, _ := ret[0].(map[string]resource.DockerImageDetails)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ApplicationOCIResources indicates an expected call of ApplicationOCIResources.
-func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationOCIResources(arg0, arg1 any) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationOCIResources", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ApplicationOCIResources), arg0, arg1)
-	return &MockCAASProvisionerFacadeApplicationOCIResourcesCall{Call: call}
-}
-
-// MockCAASProvisionerFacadeApplicationOCIResourcesCall wrap *gomock.Call
-type MockCAASProvisionerFacadeApplicationOCIResourcesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) Return(arg0 map[string]resource.DockerImageDetails, arg1 error) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) Do(f func(context.Context, string) (map[string]resource.DockerImageDetails, error)) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) DoAndReturn(f func(context.Context, string) (map[string]resource.DockerImageDetails, error)) *MockCAASProvisionerFacadeApplicationOCIResourcesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// CharmInfo mocks base method.
-func (m *MockCAASProvisionerFacade) CharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmInfo", arg0, arg1)
-	ret0, _ := ret[0].(*charms.CharmInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CharmInfo indicates an expected call of CharmInfo.
-func (mr *MockCAASProvisionerFacadeMockRecorder) CharmInfo(arg0, arg1 any) *MockCAASProvisionerFacadeCharmInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).CharmInfo), arg0, arg1)
-	return &MockCAASProvisionerFacadeCharmInfoCall{Call: call}
-}
-
-// MockCAASProvisionerFacadeCharmInfoCall wrap *gomock.Call
-type MockCAASProvisionerFacadeCharmInfoCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASProvisionerFacadeCharmInfoCall) Return(arg0 *charms.CharmInfo, arg1 error) *MockCAASProvisionerFacadeCharmInfoCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeCharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeCharmInfoCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeCharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeCharmInfoCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ClearApplicationResources mocks base method.
-func (m *MockCAASProvisionerFacade) ClearApplicationResources(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClearApplicationResources", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ClearApplicationResources indicates an expected call of ClearApplicationResources.
-func (mr *MockCAASProvisionerFacadeMockRecorder) ClearApplicationResources(arg0, arg1 any) *MockCAASProvisionerFacadeClearApplicationResourcesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearApplicationResources", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ClearApplicationResources), arg0, arg1)
-	return &MockCAASProvisionerFacadeClearApplicationResourcesCall{Call: call}
-}
-
-// MockCAASProvisionerFacadeClearApplicationResourcesCall wrap *gomock.Call
-type MockCAASProvisionerFacadeClearApplicationResourcesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASProvisionerFacadeClearApplicationResourcesCall) Return(arg0 error) *MockCAASProvisionerFacadeClearApplicationResourcesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeClearApplicationResourcesCall) Do(f func(context.Context, string) error) *MockCAASProvisionerFacadeClearApplicationResourcesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeClearApplicationResourcesCall) DoAndReturn(f func(context.Context, string) error) *MockCAASProvisionerFacadeClearApplicationResourcesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // DestroyUnits mocks base method.
@@ -310,45 +152,6 @@ func (c *MockCAASProvisionerFacadeRemoveUnitCall) Do(f func(context.Context, str
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCAASProvisionerFacadeRemoveUnitCall) DoAndReturn(f func(context.Context, string) error) *MockCAASProvisionerFacadeRemoveUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UpdateUnits mocks base method.
-func (m *MockCAASProvisionerFacade) UpdateUnits(arg0 context.Context, arg1 params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUnits", arg0, arg1)
-	ret0, _ := ret[0].(*params.UpdateApplicationUnitsInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateUnits indicates an expected call of UpdateUnits.
-func (mr *MockCAASProvisionerFacadeMockRecorder) UpdateUnits(arg0, arg1 any) *MockCAASProvisionerFacadeUpdateUnitsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnits", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).UpdateUnits), arg0, arg1)
-	return &MockCAASProvisionerFacadeUpdateUnitsCall{Call: call}
-}
-
-// MockCAASProvisionerFacadeUpdateUnitsCall wrap *gomock.Call
-type MockCAASProvisionerFacadeUpdateUnitsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCAASProvisionerFacadeUpdateUnitsCall) Return(arg0 *params.UpdateApplicationUnitsInfo, arg1 error) *MockCAASProvisionerFacadeUpdateUnitsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeUpdateUnitsCall) Do(f func(context.Context, params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)) *MockCAASProvisionerFacadeUpdateUnitsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeUpdateUnitsCall) DoAndReturn(f func(context.Context, params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)) *MockCAASProvisionerFacadeUpdateUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

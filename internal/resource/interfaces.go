@@ -12,7 +12,6 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/resource/charmhub"
@@ -42,12 +41,6 @@ type ApplicationService interface {
 	// GetApplicationIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
-
-	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
-	// It returns an error if the charm can not be found by the name. This can also
-	// be used as a cheap way to see if a charm exists without needing to load the
-	// charm metadata.
-	GetCharmLocatorByApplicationName(ctx context.Context, name string) (charm.CharmLocator, error)
 
 	// GetApplicationCharmOrigin returns the charm origin for the specified
 	// application name.

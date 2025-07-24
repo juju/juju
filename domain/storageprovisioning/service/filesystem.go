@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
@@ -77,6 +78,10 @@ type FilesystemState interface {
 	// filesystem attachment is model provisioned and the initial query for
 	// getting the current set of model provisioned filesystem attachments.
 	InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery)
+
+	// GetFilesystemTemplatesForApplication returns all the filesystem templates for
+	// a given application.
+	GetFilesystemTemplatesForApplication(context.Context, coreapplication.ID) ([]storageprovisioning.FilesystemTemplate, error)
 }
 
 // GetFilesystemAttachmentIDs returns the
@@ -198,4 +203,22 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 	}
 
 	return w, nil
+}
+
+// GetFilesystemTemplatesForApplication returns all the filesystem templates for
+// a given application.
+func (s *Service) GetFilesystemTemplatesForApplication(
+	ctx context.Context, appID coreapplication.ID,
+) ([]storageprovisioning.FilesystemTemplate, error) {
+	if err := appID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	fsTemplates, err := s.st.GetFilesystemTemplatesForApplication(ctx, appID)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting filesystem templates for app %q: %w", appID, err,
+		)
+	}
+	return fsTemplates, nil
 }

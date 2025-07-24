@@ -20,6 +20,7 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type UnitResourcesHandlerSuite struct {
@@ -121,8 +122,10 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *tc.C) {
 	size := int64(len(body))
 	handler := s.newUnitResourceHander(c)
 
+	resourceUUID := coreresource.UUID(uuid.MustNewUUID().String())
 	opened := coreresource.Opened{
 		Resource: coreresource.Resource{
+			UUID: resourceUUID,
 			Resource: charmresource.Resource{
 				Fingerprint: fp,
 				Size:        size,
@@ -131,7 +134,7 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *tc.C) {
 		ReadCloser: io.NopCloser(strings.NewReader(body)),
 	}
 	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(opened, nil)
-	s.opener.EXPECT().SetResourceUsed(gomock.Any(), "blob").Return(nil)
+	s.opener.EXPECT().SetResourceUsed(gomock.Any(), resourceUUID).Return(nil)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
 	c.Assert(err, tc.ErrorIsNil)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
@@ -20,6 +21,121 @@ import (
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetFilesystemTemplatesForApplication returns all the filesystem templates for
+// a given application.
+func (st *State) GetFilesystemTemplatesForApplication(
+	ctx context.Context,
+	appID coreapplication.ID,
+) ([]storageprovisioning.FilesystemTemplate, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	id := applicationUUID{
+		UUID: appID,
+	}
+
+	fsTemplateQuery, err := st.Prepare(`
+SELECT &filesystemTemplate.* FROM (
+    SELECT asd.storage_name,
+           asd.size_mib,
+           asd.count,
+           asd.storage_type,
+           cs.read_only,
+           cs.location,
+           cs.count_max
+    FROM application_storage_directive asd
+    JOIN charm_storage cs ON asd.charm_uuid = cs.charm_uuid AND asd.storage_name = cs.name
+    WHERE application_uuid = $applicationUUID.uuid
+    AND asd.storage_pool_uuid IS NULL
+    
+    UNION
+    
+    SELECT asd.storage_name,
+           asd.size_mib,
+           asd.count,
+           sp.type AS storage_type,
+           cs.read_only,
+           cs.location,
+           cs.count_max
+    FROM application_storage_directive asd
+    JOIN storage_pool sp ON asd.storage_pool_uuid = sp.uuid
+    JOIN charm_storage cs ON asd.charm_uuid = cs.charm_uuid AND asd.storage_name = cs.name
+    WHERE application_uuid = $applicationUUID.uuid
+    AND asd.storage_type IS NULL
+)
+`, filesystemTemplate{}, id)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	fsAttributeQuery, err := st.Prepare(`
+SELECT (asd.storage_name, key, value) AS (&storageNameAttributes.*) 
+FROM storage_pool_attribute spa
+JOIN storage_pool sp ON spa.storage_pool_uuid = sp.uuid
+JOIN application_storage_directive asd ON sp.uuid = asd.storage_pool_uuid
+WHERE application_uuid = $applicationUUID.uuid
+ORDER BY asd.storage_name
+`, storageNameAttributes{}, id)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var fsTemplates []filesystemTemplate
+	var fsAttributes []storageNameAttributes
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, appID)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf("application %q does not exist", appID)
+		}
+		err = tx.Query(ctx, fsTemplateQuery, id).GetAll(&fsTemplates)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		err = tx.Query(ctx, fsAttributeQuery, id).GetAll(&fsAttributes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	attrs := map[string]map[string]string{}
+	for _, attr := range fsAttributes {
+		storageAttrs := attrs[attr.StorageName]
+		if storageAttrs == nil {
+			storageAttrs = map[string]string{}
+			attrs[attr.StorageName] = storageAttrs
+		}
+		storageAttrs[attr.Key] = attr.Value
+	}
+
+	r := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
+	for _, v := range fsTemplates {
+		r = append(r, storageprovisioning.FilesystemTemplate{
+			StorageName:  v.StorageName,
+			Count:        v.Count,
+			MaxCount:     v.MaxCount,
+			SizeMiB:      v.SizeMiB,
+			ProviderType: v.ProviderType,
+			ReadOnly:     v.ReadOnly,
+			Location:     v.Location,
+			Attributes:   attrs[v.StorageName],
+		})
+	}
+	return r, nil
+}
 
 // GetFilesystemAttachmentIDs returns the
 // [storageprovisioning.FilesystemAttachmentID] information for each

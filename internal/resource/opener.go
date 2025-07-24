@@ -30,29 +30,13 @@ var resourceLogger = internallogger.GetLogger("juju.resource")
 // ResourceOpenerArgs are common arguments for the 2
 // types of ResourceOpeners: for unit and for application.
 type ResourceOpenerArgs struct {
-	ModelUUID            string
 	ResourceService      ResourceService
-	ModelConfigService   ModelConfigService
 	ApplicationService   ApplicationService
 	CharmhubClientGetter ResourceClientGetter
 }
 
 // NewResourceOpenerForUnit returns a new resource.Opener for the given unit.
 func NewResourceOpenerForUnit(
-	ctx context.Context,
-	args ResourceOpenerArgs,
-	resourceDownloadLimiterFunc func() ResourceDownloadLock,
-	unitName coreunit.Name,
-) (opener coreresource.Opener, err error) {
-	return newResourceOpenerForUnit(
-		ctx,
-		args,
-		resourceDownloadLimiterFunc,
-		unitName,
-	)
-}
-
-func newResourceOpenerForUnit(
 	ctx context.Context,
 	args ResourceOpenerArgs,
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
@@ -69,11 +53,6 @@ func newResourceOpenerForUnit(
 	}
 
 	applicationName := unitName.Application()
-	charmLocator, err := args.ApplicationService.GetCharmLocatorByApplicationName(ctx, applicationName)
-	if err != nil {
-		return nil, errors.Errorf("getting charm locator for application %q: %w", applicationName, err)
-	}
-
 	charmOrigin, err := args.ApplicationService.GetApplicationCharmOrigin(ctx, applicationName)
 	if err != nil {
 		return nil, errors.Errorf("getting charm origin for application %q: %w", applicationName, err)
@@ -81,69 +60,38 @@ func newResourceOpenerForUnit(
 
 	return &ResourceOpener{
 		resourceService:      args.ResourceService,
-		modelUUID:            args.ModelUUID,
-		resourceClientGetter: newClientGetter(charmLocator.Source, args.CharmhubClientGetter),
+		resourceClientGetter: newClientGetter(charmOrigin.Source, args.CharmhubClientGetter),
 		retrievedBy:          unitName.String(),
 		retrievedByType:      coreresource.Unit,
 		setResourceFunc: func(ctx context.Context, resourceUUID coreresource.UUID) error {
 			return args.ResourceService.SetUnitResource(ctx, resourceUUID, unitUUID)
 		},
 		charmOrigin:                 charmOrigin,
-		appName:                     applicationName,
 		appID:                       applicationID,
 		resourceDownloadLimiterFunc: resourceDownloadLimiterFunc,
 	}, nil
 }
 
 // NewResourceOpenerForApplication returns a new resource.Opener for the given app.
-//
-// The caller owns the State provided. It is the caller's
-// responsibility to close it.
 func NewResourceOpenerForApplication(
 	ctx context.Context,
 	args ResourceOpenerArgs,
 	applicationName string,
+	applicationID coreapplication.ID,
 ) (opener coreresource.Opener, err error) {
-	return newResourceOpenerForApplication(
-		ctx,
-		args,
-		applicationName,
-	)
-}
-
-func newResourceOpenerForApplication(
-	ctx context.Context,
-	args ResourceOpenerArgs,
-	applicationName string,
-) (opener coreresource.Opener, err error) {
-
-	applicationID, err := args.ApplicationService.GetApplicationIDByName(ctx, applicationName)
-	if err != nil {
-		return nil, errors.Errorf("getting ID of application %s: %w", applicationName, err)
-	}
-
-	charmLocator, err := args.ApplicationService.GetCharmLocatorByApplicationName(ctx, applicationName)
-	if err != nil {
-		return nil, errors.Errorf("getting charm locator for application %q: %w", applicationName, err)
-	}
-
 	charmOrigin, err := args.ApplicationService.GetApplicationCharmOrigin(ctx, applicationName)
 	if err != nil {
 		return nil, errors.Errorf("getting charm origin for application %q: %w", applicationName, err)
 	}
-
 	return &ResourceOpener{
 		resourceService:      args.ResourceService,
-		modelUUID:            args.ModelUUID,
-		resourceClientGetter: newClientGetter(charmLocator.Source, args.CharmhubClientGetter),
+		resourceClientGetter: newClientGetter(charmOrigin.Source, args.CharmhubClientGetter),
 		retrievedBy:          applicationName,
 		retrievedByType:      coreresource.Application,
 		setResourceFunc: func(ctx context.Context, resourceUUID coreresource.UUID) error {
-			// noop
 			return nil
 		},
 		charmOrigin: charmOrigin,
-		appName:     applicationName,
 		appID:       applicationID,
 		resourceDownloadLimiterFunc: func() ResourceDownloadLock {
 			return noopDownloadResourceLocker{}
@@ -169,13 +117,11 @@ func newClientGetter(
 // ResourceOpener is a ResourceOpener for charmhub. It will first look on the
 // controller for the requested resource.
 type ResourceOpener struct {
-	modelUUID       string
 	resourceService ResourceService
 	retrievedBy     string
 	retrievedByType coreresource.RetrievedByType
 	setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
 	charmOrigin     application.CharmOrigin
-	appName         string
 	appID           coreapplication.ID
 
 	resourceClientGetter        ResourceClientGetter
@@ -186,13 +132,13 @@ type ResourceOpener struct {
 func (ro ResourceOpener) OpenResource(ctx context.Context, name string) (opener coreresource.Opened, err error) {
 	lock := ro.resourceDownloadLimiterFunc()
 
-	appKey := fmt.Sprintf("%s:%s", ro.modelUUID, ro.appName)
-	if err := lock.Acquire(ctx, appKey); err != nil {
-		return coreresource.Opened{}, errors.Errorf("acquiring resource download lock for %s: %w", appKey, err)
+	lockName := ro.appID.String()
+	if err := lock.Acquire(ctx, lockName); err != nil {
+		return coreresource.Opened{}, errors.Errorf("acquiring resource download lock for %s: %w", ro.appID, err)
 	}
 
 	return ro.getResource(ctx, name, func() {
-		lock.Release(appKey)
+		lock.Release(lockName)
 	})
 }
 
@@ -216,7 +162,7 @@ func (ro ResourceOpener) getResource(
 		}
 	}()
 
-	lockName := fmt.Sprintf("%s/%s/%s", ro.modelUUID, ro.appName, resName)
+	lockName := fmt.Sprintf("%s/%s", ro.appID, resName)
 	locker := resourceMutex.Locker(lockName)
 	locker.Lock()
 	defer locker.Unlock()
@@ -226,7 +172,7 @@ func (ro ResourceOpener) getResource(
 		Name:          resName,
 	})
 	if err != nil {
-		return coreresource.Opened{}, errors.Errorf("getting UUID of resource %s for application %s: %w", resName, ro.appName, err)
+		return coreresource.Opened{}, errors.Errorf("getting UUID of resource %s for application %s: %w", resName, ro.appID, err)
 	}
 
 	res, reader, err := ro.resourceService.OpenResource(ctx, resourceUUID)
@@ -333,20 +279,11 @@ func (ro ResourceOpener) store(
 }
 
 // SetResourceUsed records that the resource is currently in use.
-func (ro ResourceOpener) SetResourceUsed(ctx context.Context, resName string) error {
-	resourceUUID, err := ro.resourceService.GetApplicationResourceID(ctx, resource.GetApplicationResourceIDArgs{
-		ApplicationID: ro.appID,
-		Name:          resName,
-	})
+func (ro ResourceOpener) SetResourceUsed(ctx context.Context, resourceUUID coreresource.UUID) error {
+	err := ro.setResourceFunc(ctx, resourceUUID)
 	if err != nil {
-		return errors.Errorf("getting UUID of resource %s for application %s: %w", resName, ro.appName, err)
+		return errors.Errorf("setting resource %s on application %s: %w", resourceUUID, ro.appID, err)
 	}
-
-	err = ro.setResourceFunc(ctx, resourceUUID)
-	if err != nil {
-		return errors.Errorf("setting resource %s on application %s: %w", resName, ro.appName, err)
-	}
-
 	return nil
 }
 
