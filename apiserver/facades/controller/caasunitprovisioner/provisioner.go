@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
@@ -52,6 +53,7 @@ type Facade struct {
 	registry           storage.ProviderRegistry
 	devices            DeviceBackend
 	clock              clock.Clock
+	broker             caas.Broker
 }
 
 // NewFacade returns a new CAAS unit provisioner Facade facade.
@@ -66,6 +68,7 @@ func NewFacade(
 	charmInfoAPI *charmscommon.CharmInfoAPI,
 	appCharmInfoAPI *charmscommon.ApplicationCharmInfoAPI,
 	clock clock.Clock,
+	broker caas.Broker,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -88,6 +91,7 @@ func NewFacade(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 		clock:              clock,
+		broker:             broker,
 	}, nil
 }
 
@@ -383,23 +387,26 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	vers, ok := modelConfig.AgentVersion()
-	if !ok {
-		return nil, errors.NewNotValid(nil,
-			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
-		)
+
+	modelImage, err := f.broker.GetModelOperatorDeploymentImage()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting model operator deployment image")
 	}
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerCfg, vers)
+	logger.Infof("alvin provisioningInfo facade modelImage: %s", modelImage)
+
+	modelImageRepoNamespace, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	imageRepoDetails, err := docker.NewImageRepoDetails(controllerCfg.CAASImageRepo())
+	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepoNamespace)
 	if err != nil {
-		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+		return nil, errors.Annotatef(err, "parsing %s", modelImageRepoNamespace)
 	}
-	imageRepo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
-	logger.Tracef("imageRepo %v", imageRepo)
+
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, modelImage)
+
+	logger.Tracef("imageRepo %v", imageInfo)
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -436,7 +443,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		Constraints:          mergedCons,
 		Tags:                 resourceTags,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
-		ImageRepo:            imageRepo,
+		ImageRepo:            imageInfo,
 	}
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {

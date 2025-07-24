@@ -524,7 +524,6 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	broker := mocks.NewMockCAASBroker(ctrl)
 
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 	password := "123456789"
@@ -638,7 +637,6 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		facade.EXPECT().CharmInfo("ch:my-app").Return(&charmInfo, nil),
 		app.EXPECT().Exists().Return(ds, nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
-		broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:3.6.9", nil),
 		facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil),
 		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
 			c.Check(config, gc.DeepEquals, ensureParams)
