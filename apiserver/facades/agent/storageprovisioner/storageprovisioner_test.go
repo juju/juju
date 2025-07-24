@@ -18,7 +18,6 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -789,11 +788,11 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForModel(c *tc.C) {
 		GetVolumeAttachmentIDs(gomock.Any(), []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}).
 		Return(map[string]storageprovisioning.VolumeAttachmentID{
 			"volume-attachment-uuid-1": {
-				UnitName: ptr(unit.Name("foo/1")),
+				UnitName: ptr(coreunit.Name("foo/1")),
 				VolumeID: "1",
 			},
 			"volume-attachment-uuid-2": {
-				UnitName: ptr(unit.Name("foo/2")),
+				UnitName: ptr(coreunit.Name("foo/2")),
 				VolumeID: "2",
 			},
 		}, nil)
@@ -908,11 +907,11 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForModel(c *tc.C) {
 		GetFilesystemAttachmentIDs(gomock.Any(), []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}).
 		Return(map[string]storageprovisioning.FilesystemAttachmentID{
 			"filesystem-attachment-uuid-1": {
-				UnitName:     ptr(unit.Name("foo/1")),
+				UnitName:     ptr(coreunit.Name("foo/1")),
 				FilesystemID: "1",
 			},
 			"filesystem-attachment-uuid-2": {
-				UnitName:     ptr(unit.Name("foo/2")),
+				UnitName:     ptr(coreunit.Name("foo/2")),
 				FilesystemID: "2",
 			},
 		}, nil)

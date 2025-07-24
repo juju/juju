@@ -84,10 +84,10 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnit(c *tc.C) {
 		MountPoint:   "/mnt/fs-1234",
 		ReadOnly:     true,
 	}
-	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), coreunit.UUID(unitUUID)).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetFilesystemAttachment(c.Context(), netNodeUUID, "fs-1234").Return(attachment, nil)
 
-	result, err := NewService(s.state, s.watcherFactory).GetFilesystemAttachmentForUnit(c.Context(), coreunit.UUID(unitUUID), "fs-1234")
+	result, err := NewService(s.state, s.watcherFactory).GetFilesystemAttachmentForUnit(c.Context(), unitUUID, "fs-1234")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, attachment)
 }
@@ -103,9 +103,9 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitUnitNotFound(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), coreunit.UUID(unitUUID)).Return("", applicationerrors.UnitNotFound)
+	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return("", applicationerrors.UnitNotFound)
 
-	_, err := NewService(s.state, s.watcherFactory).GetFilesystemAttachmentForUnit(c.Context(), coreunit.UUID(unitUUID), "fs-1234")
+	_, err := NewService(s.state, s.watcherFactory).GetFilesystemAttachmentForUnit(c.Context(), unitUUID, "fs-1234")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -116,12 +116,12 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitAttachmentNotFound(c
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), coreunit.UUID(unitUUID)).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetFilesystemAttachment(c.Context(), netNodeUUID, "fs-1234").Return(
 		storageprovisioning.FilesystemAttachment{}, storageprovisioningerrors.FilesystemAttachmentNotFound,
 	)
 
-	_, err = NewService(s.state, s.watcherFactory).GetFilesystemAttachmentForUnit(c.Context(), coreunit.UUID(unitUUID), "fs-1234")
+	_, err = NewService(s.state, s.watcherFactory).GetFilesystemAttachmentForUnit(c.Context(), unitUUID, "fs-1234")
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
@@ -131,12 +131,12 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitFilesystemNotFound(c
 	unitUUID := unittesting.GenUnitUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), coreunit.UUID(unitUUID)).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetFilesystemAttachment(c.Context(), netNodeUUID, "fs-1234").Return(
 		storageprovisioning.FilesystemAttachment{}, storageprovisioningerrors.FilesystemNotFound,
 	)
 
-	_, err = NewService(s.state, s.watcherFactory).GetFilesystemAttachmentForUnit(c.Context(), coreunit.UUID(unitUUID), "fs-1234")
+	_, err = NewService(s.state, s.watcherFactory).GetFilesystemAttachmentForUnit(c.Context(), unitUUID, "fs-1234")
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
 }
 
