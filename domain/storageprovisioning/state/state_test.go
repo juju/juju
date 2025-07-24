@@ -158,6 +158,7 @@ func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+// TestGetUnitNetNodeUUID tests the happy path of [State.GetUnitNetNodeUUID].
 func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID := s.newApplication(c, "foo")
@@ -178,6 +179,23 @@ func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
 	_, err := st.GetUnitNetNodeUUID(
 		c.Context(), unitUUID,
 	)
+	st := NewState(s.TxnRunnerFactory())
+
+	gotNetNode, err := st.GetUnitNetNodeUUID(
+		c.Context(), unitUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(gotNetNode, tc.Equals, netNodeUUID)
+}
+
+// TestGetUnitNetNodeUUIDNotFound tests that asking for the net node of a unit
+// that does not exist returns a [applicationerrors.UnitNotFound] error to the
+// caller.
+func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetUnitNetNodeUUID(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 

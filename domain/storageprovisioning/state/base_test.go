@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/network"
 	storagetesting "github.com/juju/juju/core/storage/testing"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -129,7 +130,7 @@ VALUES (?, ?, ?, "0", ?)`, appUUID.String(), appUUID.String(), name, network.Alp
 // the new uuid of the unit and the name that was used.
 func (s *baseSuite) newUnitWithNetNode(
 	c *tc.C, name, appUUID string, netNodeUUID domainnetwork.NetNodeUUID,
-) (string, coreunit.Name) {
+) (coreunit.UUID, coreunit.Name) {
 	var charmUUID string
 	err := s.DB().QueryRowContext(
 		c.Context(),
@@ -138,8 +139,7 @@ func (s *baseSuite) newUnitWithNetNode(
 	).Scan(&charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
 
 	_, err = s.DB().ExecContext(
 		c.Context(), `
@@ -150,7 +150,7 @@ VALUES (?, ?, ?, ?, ?, 0)
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return unitUUID.String(), coreunit.Name(name)
+	return unitUUID, coreunit.Name(name)
 }
 
 func (s *baseSuite) newStorageInstance(c *tc.C, storageName, charmUUID string) string {
