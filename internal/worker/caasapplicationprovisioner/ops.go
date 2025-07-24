@@ -123,8 +123,8 @@ type Tomb interface {
 	ErrDying() error
 }
 
-// splitImage splits an image string into its OCINamespace and ImageRef components.
-func splitImage(image string) (ociNamespace string, imageRef string) {
+// SplitImage splits an image string into its OCINamespace and ImageRef components.
+func SplitImage(image string) (ociNamespace string, imageRef string) {
 	parts := strings.Split(image, "/")
 	if len(parts) < 3 {
 		return "", image //
@@ -152,7 +152,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	}
 	logger.Infof("alvin2 appalive image: %#v", image)
 
-	modelImageOCInamespace, _ := splitImage(image)
+	modelImageOCInamespace, _ := SplitImage(image)
 
 	if provisionInfo.CharmURL == nil {
 		return errors.Errorf("missing charm url in provision info")

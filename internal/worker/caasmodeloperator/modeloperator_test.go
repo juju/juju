@@ -116,7 +116,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 			}()
 			lastConfig = conf
 
-			c.Check(conf.ImageDetails.RegistryPath, gc.Equals, imagePath[iteration])
+			c.Check(conf.ImageDetails.RegistryPath, gc.Equals, "ghcr.io/juju/jujud-operator:3.6.9")
 
 			ac, err := agent.ParseConfigData(conf.AgentConf)
 			c.Check(err, jc.ErrorIsNil)

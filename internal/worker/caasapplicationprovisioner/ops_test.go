@@ -638,6 +638,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		facade.EXPECT().CharmInfo("ch:my-app").Return(&charmInfo, nil),
 		app.EXPECT().Exists().Return(ds, nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
+		broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:3.6.9", nil),
 		facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil),
 		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
 			c.Check(config, gc.DeepEquals, ensureParams)
@@ -702,6 +703,57 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 
 	err := caasapplicationprovisioner.AppOps.AppDead("test", app, broker, facade, unitFacade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestSplitImage(c *gc.C) {
+	tests := []struct {
+		desc              string
+		input             string
+		expectedNamespace string
+		expectedImageRef  string
+	}{
+		{
+			desc:              "GHCR with org and tag",
+			input:             "ghcr.io/juju/jujud-operator:3.6.9",
+			expectedNamespace: "ghcr.io/juju",
+			expectedImageRef:  "jujud-operator:3.6.9",
+		},
+		{
+			desc:              "Docker Hub with org and tag",
+			input:             "docker.io/juju/juju-core:latest",
+			expectedNamespace: "docker.io/juju",
+			expectedImageRef:  "juju-core:latest",
+		},
+		{
+			desc:              "Local image with no registry",
+			input:             "myimage:dev",
+			expectedNamespace: "",
+			expectedImageRef:  "myimage:dev",
+		},
+		{
+			desc:              "Single-segment image name",
+			input:             "nginx",
+			expectedNamespace: "",
+			expectedImageRef:  "nginx",
+		},
+		{
+			desc:              "Registry with long namespace",
+			input:             "registry.example.com/team/subteam/app:v1",
+			expectedNamespace: "registry.example.com/team",
+			expectedImageRef:  "subteam/app:v1",
+		},
+		{
+			desc:              "Malformed input with only one slash",
+			input:             "someorg/app",
+			expectedNamespace: "",
+			expectedImageRef:  "someorg/app",
+		},
+	}
+	for _, test := range tests {
+		ns, ref := caasapplicationprovisioner.SplitImage(test.input)
+		c.Assert(ns, gc.Equals, test.expectedNamespace)
+		c.Assert(ref, gc.Equals, test.expectedImageRef)
+	}
 }
 
 func intPtr(i int) *int {

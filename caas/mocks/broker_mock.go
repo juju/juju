@@ -305,6 +305,21 @@ func (mr *MockBrokerMockRecorder) ExposeService(arg0, arg1, arg2 any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExposeService", reflect.TypeOf((*MockBroker)(nil).ExposeService), arg0, arg1, arg2)
 }
 
+// GetModelOperatorDeploymentImage mocks base method.
+func (m *MockBroker) GetModelOperatorDeploymentImage() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelOperatorDeploymentImage")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelOperatorDeploymentImage indicates an expected call of GetModelOperatorDeploymentImage.
+func (mr *MockBrokerMockRecorder) GetModelOperatorDeploymentImage() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelOperatorDeploymentImage", reflect.TypeOf((*MockBroker)(nil).GetModelOperatorDeploymentImage))
+}
+
 // GetSecretToken mocks base method.
 func (m *MockBroker) GetSecretToken(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
