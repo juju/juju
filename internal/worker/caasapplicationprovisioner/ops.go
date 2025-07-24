@@ -133,8 +133,6 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	if err != nil {
 		return errors.Annotate(err, "retrieving provisioning info")
 	}
-	logger.Infof("alvin2 provisionInfo: %#v", provisionInfo)
-
 	if provisionInfo.CharmURL == nil {
 		return errors.Errorf("missing charm url in provision info")
 	}

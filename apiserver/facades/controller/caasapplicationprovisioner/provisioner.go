@@ -278,7 +278,6 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 }
 
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
-	logger.Infof("alvin3 provisioningInfo for %+v", appName)
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -341,7 +340,6 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting model operator deployment image")
 	}
-	logger.Infof("alvin provisioningInfo modelImage: %s", modelImage)
 
 	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
 	if err != nil {

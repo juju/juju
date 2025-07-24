@@ -351,7 +351,6 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 }
 
 func (f *Facade) provisioningInfo(model Model, tagString string) (*params.KubernetesProvisioningInfo, error) {
-	logger.Infof("alvin3 facade provisioningInfo called on model %#v", model)
 	appTag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -393,7 +392,6 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting model operator deployment image")
 	}
-	logger.Infof("alvin provisioningInfo facade modelImage: %s", modelImage)
 
 	modelImageRepoNamespace, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
 	if err != nil {

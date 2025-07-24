@@ -4,7 +4,6 @@
 package caasmodeloperator
 
 import (
-	"github.com/canonical/lxd/shared/logger"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
@@ -83,13 +82,11 @@ func (m *ModelOperatorManager) loop() error {
 }
 
 func (m *ModelOperatorManager) update() error {
-	logger.Infof("alvin3 modeloperatormanager updated called")
 	m.logger.Debugf("gathering model operator provisioning information for model %s", m.modelUUID)
 	info, err := m.api.ModelOperatorProvisioningInfo()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("alvin2 info: %#v", info)
 
 	exists, err := m.broker.ModelOperatorExists()
 	if err != nil {
@@ -122,9 +119,8 @@ func (m *ModelOperatorManager) update() error {
 		// retrieves model operator deployment image to keep model operator's image the same after migration
 		modelImage, err := m.broker.GetModelOperatorDeploymentImage()
 		if err != nil {
-			return errors.Annotate(err, "alvin failed to get deployment image")
+			return errors.Annotate(err, "failed to get model deployment image")
 		}
-		logger.Infof("alvin2 update image: %#v", modelImage)
 
 		info.ImageDetails.RegistryPath = modelImage
 	}

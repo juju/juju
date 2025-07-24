@@ -109,8 +109,6 @@ func (a *API) WatchApplications() (params.StringsWatchResult, error) {
 
 // OperatorProvisioningInfo returns the info needed to provision an operator.
 func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorProvisioningInfoResults, error) {
-	logger.Infof("alvin3 OperatorProvisioningInfo provisioningInfo called")
-
 	var result params.OperatorProvisioningInfoResults
 	cfg, err := a.ctrlState.ControllerConfig()
 	if err != nil {
@@ -142,7 +140,6 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 	if err != nil {
 		return result, errors.Annotatef(err, "getting model operator deployment image")
 	}
-	logger.Infof("alvin OperatorProvisioningInfo provisioningInfo modelImage: %s", modelImage)
 
 	modelImageRepoNamespace, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
 	if err != nil {

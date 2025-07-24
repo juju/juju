@@ -299,8 +299,6 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 		}
 	}
 
-	p.logger.Infof("alvin prevCfg in updateOperatorConfig: %#v", prevCfg)
-
 	info.ImageDetails.RegistryPath = prevCfg.ImageDetails.RegistryPath
 	info.BaseImageDetails.RegistryPath = prevCfg.ImageDetails.RegistryPath
 

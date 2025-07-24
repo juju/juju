@@ -353,7 +353,6 @@ func (k *kubernetesClient) EnsureModelOperator(
 // ModelOperator return the model operator config used to create the current
 // model operator for this broker
 func (k *kubernetesClient) ModelOperator() (*caas.ModelOperatorConfig, error) {
-	logger.Infof("alvin fetching model operator config for %q in namespace %q", k.ModelName(), k.Namespace())
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
@@ -775,14 +774,12 @@ func modelOperatorConfigMapAgentConfKey(operatorName string) string {
 
 func (k *kubernetesClient) GetModelOperatorDeploymentImage() (string, error) {
 	api := k.client().AppsV1().Deployments(k.namespace)
-	logger.Infof("alvin fetching model operator deployment for %q in namespace %q", k.ModelName(), k.Namespace())
 	res, err := api.Get(context.Background(), modelOperatorName, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return "", errors.NewNotFound(err, "k8s")
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}
-	logger.Infof("alvin fetched model operator deployment res %#v", *res)
 
 	containers := res.Spec.Template.Spec.Containers
 	if len(containers) == 0 {
@@ -790,7 +787,6 @@ func (k *kubernetesClient) GetModelOperatorDeploymentImage() (string, error) {
 	}
 
 	image := containers[0].Image
-	logger.Infof("alvin fetched image: %v", image)
-
+	logger.Tracef("model operator %q deployment image: %s", modelOperatorName, image)
 	return image, nil
 }

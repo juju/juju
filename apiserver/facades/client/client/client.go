@@ -285,7 +285,6 @@ func (c *ClientV7) FindTools(args params.FindToolsParams) (params.FindToolsResul
 }
 
 func (c *ClientV7) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {
-	logger.Infof("alvin4 toolVersionsForCAAS called with args %+v, streamsVersions %+v, current %v", args, streamsVersions.SortedValues(), current)
 	result := params.FindToolsResult{}
 	controllerCfg, err := c.stateAccessor.ControllerConfig()
 	if err != nil {
