@@ -96,6 +96,7 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	args common.FindAgentsParams,
 	streamsAgents coretools.List,
 ) (coretools.Versions, error) {
+	logger.Infof("alvin4 agentVersionsForCAAS called for upgrade")
 	result := coretools.Versions{}
 	imageRepoDetails, err := docker.NewImageRepoDetails(args.ControllerCfg.CAASImageRepo())
 	if err != nil {

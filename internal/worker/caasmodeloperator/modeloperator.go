@@ -83,6 +83,7 @@ func (m *ModelOperatorManager) loop() error {
 }
 
 func (m *ModelOperatorManager) update() error {
+	logger.Infof("alvin3 modeloperatormanager updated called")
 	m.logger.Debugf("gathering model operator provisioning information for model %s", m.modelUUID)
 	info, err := m.api.ModelOperatorProvisioningInfo()
 	if err != nil {

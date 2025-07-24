@@ -278,7 +278,7 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 }
 
 func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
-	logger.Infof("alvin provisioningInfo for %+v", appName)
+	logger.Infof("alvin3 provisioningInfo for %+v", appName)
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
 		return nil, errors.Trace(err)

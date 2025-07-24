@@ -351,6 +351,7 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 }
 
 func (f *Facade) provisioningInfo(model Model, tagString string) (*params.KubernetesProvisioningInfo, error) {
+	logger.Infof("alvin3 facade provisioningInfo called on model %#v", model)
 	appTag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return nil, errors.Trace(err)
