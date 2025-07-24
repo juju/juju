@@ -381,6 +381,29 @@ WHERE  subnet_cidr = $M.cidr`
 	return resultSubnets.ToSubnetInfos(), nil
 }
 
+// getSubnetByProviderID retrieves subnet information for a
+// specific provider ID using the provided transaction and context.
+func (st *State) getSubnetByProviderID(ctx context.Context, tx *sqlair.TX, id string) (*network.SubnetInfo, error) {
+
+	row := SubnetRow{ProviderID: id}
+	stmt, err := st.Prepare(`
+SELECT &SubnetRow.*
+FROM   v_space_subnet
+WHERE  subnet_provider_id = $SubnetRow.subnet_provider_id`, row)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmt, row).Get(&row); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, networkerrors.SubnetNotFound
+		}
+		return nil, errors.Capture(err)
+	}
+
+	return row.ToSubnetInfo(), nil
+}
+
 // updateSubnetSpaceID updates the space id of the subnet in the subnet table.
 // The subnet passed as an argument should have the UUID and SpaceUUID set to the
 // desired values.
