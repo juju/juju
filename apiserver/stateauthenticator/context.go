@@ -27,7 +27,6 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
-	"github.com/juju/juju/state"
 )
 
 var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not configured")
@@ -263,7 +262,7 @@ type authenticator struct {
 func (a authenticator) Authenticate(
 	ctx context.Context,
 	authParams authentication.AuthParams,
-) (state.Entity, error) {
+) (names.Tag, error) {
 	auth, err := a.authenticatorForTag(ctx, authParams.AuthTag)
 	if err != nil {
 		return nil, errors.Trace(err)

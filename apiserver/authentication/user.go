@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 	internallogger "github.com/juju/juju/internal/logger"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
-	"github.com/juju/juju/state"
 )
 
 const (
@@ -114,7 +113,7 @@ var _ EntityAuthenticator = (*LocalUserAuthenticator)(nil)
 // valid macaroons. Otherwise, password authentication will be performed.
 func (u *LocalUserAuthenticator) Authenticate(
 	ctx context.Context, authParams AuthParams,
-) (state.Entity, error) {
+) (names.Tag, error) {
 	// We know this is a user tag and can be nothing but. With those assumptions
 	// made, we don't need a full AgentAuthenticator.
 	userTag, ok := authParams.AuthTag.(names.UserTag)
@@ -143,11 +142,10 @@ func (u *LocalUserAuthenticator) Authenticate(
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	// StateEntity requires the user to be returned as a state.Entity.
-	return TaggedUser(user, userTag), nil
+	return userTag, nil
 }
 
-func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, userTag names.UserTag, authParams AuthParams) (state.Entity, error) {
+func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, userTag names.UserTag, authParams AuthParams) (names.Tag, error) {
 	// Check for a valid request macaroon.
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		mac, _ := json.Marshal(authParams.Macaroons)
@@ -191,8 +189,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
-	// StateEntity requires the user to be returned as a state.Entity.
-	return TaggedUser(user, userTag), nil
+	return userTag, nil
 }
 
 func (u *LocalUserAuthenticator) handleDischargeRequiredError(ctx context.Context, userTag names.UserTag, bakeryVersion bakery.Version, cause error) error {
@@ -255,7 +252,7 @@ var _ EntityAuthenticator = (*ExternalMacaroonAuthenticator)(nil)
 
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
-func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error) {
+func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (names.Tag, error) {
 	authChecker := m.Bakery.Checker.Auth(authParams.Macaroons...)
 	ai, identErr := authChecker.Allow(ctx, identchecker.LoginOp)
 	if de, ok := errors.Cause(identErr).(*bakery.DischargeRequiredError); ok {
@@ -293,7 +290,7 @@ func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, authPa
 			return nil, errors.Errorf("external identity provider has provided ostensibly local name %q", username)
 		}
 	}
-	return externalUser{tag: tag}, nil
+	return tag, nil
 }
 
 // IdentityFromContext implements IdentityClient.IdentityFromContext.

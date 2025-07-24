@@ -41,7 +41,7 @@ func (s *BasicAuthHandlerSuite) SetUpTest(c *tc.C) {
 		Authorizer:    s,
 		NextHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authInfo, ok := httpcontext.RequestAuthInfo(r.Context())
-			if !ok || authInfo.Entity != s.authInfo.Entity {
+			if !ok || authInfo.Tag != s.authInfo.Tag {
 				w.WriteHeader(http.StatusBadRequest)
 			} else {
 				w.WriteHeader(http.StatusOK)
@@ -51,7 +51,7 @@ func (s *BasicAuthHandlerSuite) SetUpTest(c *tc.C) {
 	}
 	s.server = httptest.NewServer(s.handler)
 	s.authInfo = authentication.AuthInfo{
-		Entity:   &mockEntity{tag: names.NewUserTag("bob")},
+		Tag:      names.NewUserTag("bob"),
 		ModelTag: jujutesting.ModelTag,
 	}
 }
@@ -128,14 +128,6 @@ func (s *BasicAuthHandlerSuite) TestAuthorizationOptional(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	defer resp.Body.Close()
-}
-
-type mockEntity struct {
-	tag names.Tag
-}
-
-func (e *mockEntity) Tag() names.Tag {
-	return e.tag
 }
 
 type CompositeAuthSuite struct {

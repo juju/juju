@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/clock"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -25,10 +26,10 @@ var (
 	MaxClientPingInterval = maxClientPingInterval
 )
 
-func APIHandlerWithEntity(entity state.Entity) *apiHandler {
+func APIHandlerWithEntity(tag names.Tag) *apiHandler {
 	return &apiHandler{
 		authInfo: authentication.AuthInfo{
-			Entity: entity,
+			Tag: tag,
 		},
 	}
 }
