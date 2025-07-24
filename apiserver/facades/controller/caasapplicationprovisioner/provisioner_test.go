@@ -54,8 +54,6 @@ type CAASApplicationProvisionerSuite struct {
 	modelInfoService        *MockModelInfoService
 	statusService           *MockStatusService
 	removalService          *MockRemovalService
-	resourceOpener          *MockOpener
-	store                   *MockObjectStore
 }
 
 func (s *CAASApplicationProvisionerSuite) SetUpTest(c *tc.C) {
@@ -79,9 +77,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
-	s.resourceOpener = NewMockOpener(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
-	s.store = NewMockObjectStore(ctrl)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
 		s.authorizer,
@@ -94,7 +90,6 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 			StatusService:           s.statusService,
 			RemovalService:          s.removalService,
 		},
-		s.store,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry)
@@ -108,9 +103,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		s.controllerNodeService = nil
 		s.modelConfigService = nil
 		s.modelInfoService = nil
-		s.resourceOpener = nil
 		s.statusService = nil
-		s.store = nil
 		s.watcherRegistry = nil
 	})
 
@@ -124,7 +117,6 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *tc.C) {
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
 		s.authorizer,
 		caasapplicationprovisioner.Services{},
-		s.store,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry)

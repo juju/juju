@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resource"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
@@ -713,7 +712,7 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 		Constraints: constraints.MustParse("mem=1G"),
 		Devices:     []devices.KubernetesDeviceParams{},
 		CharmMeta:   chMeta,
-		Images: map[string]resource.DockerImageDetails{
+		Images: map[string]coreresource.DockerImageDetails{
 			"mysql-image": {
 				RegistryPath: "mysql/ubuntu:latest-22.04",
 			},
