@@ -190,35 +190,36 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersNotSupporte
 	ch <- []string{coretesting.ControllerTag.Id()}
 
 	s.client.EXPECT().WatchExternalControllers().Return(extCtrlWatcher, nil)
-	info := &crossmodel.ControllerInfo{
-		ControllerTag: coretesting.ControllerTag,
-		Alias:         "alias",
-		Addrs:         []string{"10.6.6.6"},
-		CACert:        coretesting.CACert,
-	}
+	info := &crossmodel.ControllerInfo{}
 	s.client.EXPECT().ExternalControllerInfo(coretesting.ControllerTag.Id()).Return(info, nil)
 
-	notSupportedErr := &params.Error{Code: params.CodeAccessRequired}
-	started := make(chan struct{})
+	notSupportedErr := &params.Error{Code: params.CodeNotSupported}
+	watcherReady := make(chan struct{})
+	watcherFetched := make(chan struct{})
 
 	w, err := externalcontrollerupdater.New(s.client, func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
-		defer close(started)
+		close(watcherReady)
+		<-watcherFetched
 		return nil, notSupportedErr
 	}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for watcher")
-	}
+	// Here we synchronise access to the controllerWatcher worker started
+	// by the runner in the updaterWorker. Fetch the single controllerWatcher
+	// worker from the the list of running workers before it is killed and
+	// removed, then check that it is killed with the expected error.
+	<-watcherReady
+	runner := externalcontrollerupdater.GetWorkerRunner(c, w)
+	names := runner.WorkerNames()
+	c.Assert(names, gc.HasLen, 1)
+	controllerWatcher, err := runner.Worker(names[0], nil)
+	c.Assert(err, gc.IsNil)
+	close(watcherFetched)
 
-	// We expect the worker NOT to stop, only the spawned controllerWatcher
-	// will finish. We can't check that here but if the notSupportedErr
-	// is changed to a different error, the test fails because there is
-	// no expected call to s.client.ExternalControllerInfo.
-	s.clock.Advance(time.Minute)
+	err = workertest.CheckKilled(c, controllerWatcher)
+	c.Assert(err, gc.IsNil)
+
 	workertest.CheckAlive(c, w)
 }
 
