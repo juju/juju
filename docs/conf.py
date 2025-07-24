@@ -160,6 +160,8 @@ if 'READTHEDOCS_VERSION' in os.environ:
 else:
     sitemap_url_scheme = 'MANUAL/{link}'
 
+sitemap_show_lastmod = True
+
 #############
 # Redirects #
 #############
