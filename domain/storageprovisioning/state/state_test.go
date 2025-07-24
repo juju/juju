@@ -12,6 +12,8 @@ import (
 
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -150,6 +152,31 @@ func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
 		c.Context(), machineUUID,
 	)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetUnitNetNodeUUID tests the happy path of [State.GetUnitNetNodeUUID].
+func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	st := NewState(s.TxnRunnerFactory())
+
+	gotNetNode, err := st.GetUnitNetNodeUUID(
+		c.Context(), unitUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(gotNetNode, tc.Equals, netNodeUUID)
+}
+
+// TestGetUnitNetNodeUUIDNotFound tests that asking for the net node of a unit
+// that does not exist returns a [applicationerrors.UnitNotFound] error to the
+// caller.
+func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetUnitNetNodeUUID(c.Context(), unitUUID)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 // TestMachineProvisionScopeValue tests that the value of machine provision
