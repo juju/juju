@@ -9,14 +9,13 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
-	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	domainlife "github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -80,13 +79,13 @@ type FilesystemState interface {
 	GetFilesystemAttachmentLife(
 		context.Context,
 		domainstorageprovisioning.FilesystemAttachmentUUID,
-	) (domainlife.Life, error)
+	) (life.Life, error)
 
 	// GetFilesystemAttachmentLifeForNetNode returns a mapping of filesystem
 	// attachment uuids to the current life value for each machine provisioned
 	// filesystem attachment that is to be provisioned by the machine owning the
 	// supplied net node.
-	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// GetFilesystemAttachmentUUIDForIDNetNode returns the filesystem attachment uuid
 	// for the supplied filesystem id which is attached to the given net node
@@ -112,12 +111,12 @@ type FilesystemState interface {
 	// when no filesystem exists for the provided filesystem uuid.
 	GetFilesystemLife(
 		context.Context, domainstorageprovisioning.FilesystemUUID,
-	) (domainlife.Life, error)
+	) (life.Life, error)
 
 	// GetFilesystemLifeForNetNode returns a mapping of filesystem ids to current
 	// life value for each machine provisioned filesystem that is to be
 	// provisioned by the machine owning the supplied net node.
-	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// GetFilesystemUUIDForID returns the uuid for a filesystem with the supplied
 	// id.
@@ -134,7 +133,7 @@ type FilesystemState interface {
 	//
 	// Only filesystems that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+	InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 
 	// InitialWatchStatementModelProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
@@ -149,7 +148,7 @@ type FilesystemState interface {
 	//
 	// Only filesystem attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+	InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 
 	// InitialWatchStatementModelProvisionedFilesystemAttachments returns both
 	// the namespace for watching filesystem attachment life changes where the
@@ -290,18 +289,18 @@ func (s *Service) GetFilesystemAttachmentIDs(
 func (s *Service) GetFilesystemAttachmentLife(
 	ctx context.Context,
 	uuid domainstorageprovisioning.FilesystemAttachmentUUID,
-) (corelife.Value, error) {
+) (life.Life, error) {
 	if err := uuid.Validate(); err != nil {
-		return "", errors.Errorf(
+		return 0, errors.Errorf(
 			"validating filesystem attachment uuid: %w", err,
 		).Add(coreerrors.NotValid)
 	}
 
 	life, err := s.st.GetFilesystemAttachmentLife(ctx, uuid)
 	if err != nil {
-		return "", errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
-	return life.Value()
+	return life, nil
 }
 
 // GetFilesystemAttachmentUUIDForIDMachine returns the filesystem attachment
@@ -421,18 +420,18 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 func (s *Service) GetFilesystemLife(
 	ctx context.Context,
 	uuid domainstorageprovisioning.FilesystemUUID,
-) (corelife.Value, error) {
+) (life.Life, error) {
 	if err := uuid.Validate(); err != nil {
-		return "", errors.Errorf(
+		return 0, errors.Errorf(
 			"validating filesystem uuid: %w", err,
 		).Add(coreerrors.NotValid)
 	}
 
 	life, err := s.st.GetFilesystemLife(ctx, uuid)
 	if err != nil {
-		return "", errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
-	return life.Value()
+	return life, nil
 }
 
 // GetFilesystemUUIDForID returns the uuid for a filesystem with the supplied
@@ -487,7 +486,7 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
 		return s.st.GetFilesystemLifeForNetNode(ctx, netNodeUUID)
 	}
 
@@ -537,7 +536,7 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
 		return s.st.GetFilesystemAttachmentLifeForNetNode(ctx, netNodeUUID)
 	}
 

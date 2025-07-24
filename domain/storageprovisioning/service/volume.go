@@ -8,14 +8,13 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
-	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	domainlife "github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -52,7 +51,7 @@ type VolumeState interface {
 	GetVolumeAttachmentLife(
 		context.Context,
 		domainstorageprovisioning.VolumeAttachmentUUID,
-	) (domainlife.Life, error)
+	) (life.Life, error)
 
 	// GetVolumeAttachmentLifeForNetNode returns a mapping of volume
 	// attachment uuid to the current life value for each machine provisioned
@@ -60,14 +59,14 @@ type VolumeState interface {
 	// supplied net node.
 	GetVolumeAttachmentLifeForNetNode(
 		ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
-	) (map[string]domainlife.Life, error)
+	) (map[string]life.Life, error)
 
 	// GetVolumeAttachmentPlanLifeForNetNode returns a mapping of volume
 	// attachment plan volume id to the current life value for each volume
 	// attachment plan. The volume id of attachment plans is returned instead of
 	// the uuid because the caller for the watcher works off of this
 	// information.
-	GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+	GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// GetVolumeAttachmentUUIDForIDUnit returns the volume attachment uuid
 	// for the supplied volume id which is attached to the given net node
@@ -91,12 +90,12 @@ type VolumeState interface {
 	// when no volume exists for the provided volume uuid.
 	GetVolumeLife(
 		context.Context, domainstorageprovisioning.VolumeUUID,
-	) (domainlife.Life, error)
+	) (life.Life, error)
 
 	// GetVolumeLifeForNetNode returns a mapping of volume id to current
 	// life value for each machine provisioned volume that is to be
 	// provisioned by the machine owning the supplied net node.
-	GetVolumeLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+	GetVolumeLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
 
 	// GetVolumeUUIDForID returns the uuid for a volume with the supplied
 	// id.
@@ -113,7 +112,7 @@ type VolumeState interface {
 	//
 	// Only volumes that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedVolumes(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+	InitialWatchStatementMachineProvisionedVolumes(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 
 	// InitialWatchStatementModelProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
@@ -129,7 +128,7 @@ type VolumeState interface {
 	//
 	// Only volume attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+	InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 
 	// InitialWatchStatementModelProvisionedVolumeAttachments returns both
 	// the namespace for watching volume attachment life changes where the
@@ -141,7 +140,7 @@ type VolumeState interface {
 	// watching volume attachment plan life changes and the initial query for
 	// getting the set of volume attachment plans in the model that are
 	// provisioned by the supplied machine in the model.
-	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
 }
 
 // GetVolumeAttachmentIDs returns the
@@ -176,18 +175,18 @@ func (s *Service) GetVolumeAttachmentIDs(
 func (s *Service) GetVolumeAttachmentLife(
 	ctx context.Context,
 	uuid domainstorageprovisioning.VolumeAttachmentUUID,
-) (corelife.Value, error) {
+) (life.Life, error) {
 	if err := uuid.Validate(); err != nil {
-		return "", errors.Errorf(
+		return 0, errors.Errorf(
 			"validating volume attachment uuid: %w", err,
 		).Add(coreerrors.NotValid)
 	}
 
 	life, err := s.st.GetVolumeAttachmentLife(ctx, uuid)
 	if err != nil {
-		return "", errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
-	return life.Value()
+	return life, nil
 }
 
 // GetVolumeAttachmentUUIDForIDMachine returns the volume attachment
@@ -293,18 +292,18 @@ func (s *Service) GetVolumeAttachmentUUIDForIDUnit(
 func (s *Service) GetVolumeLife(
 	ctx context.Context,
 	uuid domainstorageprovisioning.VolumeUUID,
-) (corelife.Value, error) {
+) (life.Life, error) {
 	if err := uuid.Validate(); err != nil {
-		return "", errors.Errorf(
+		return 0, errors.Errorf(
 			"validating volume uuid: %w", err,
 		).Add(coreerrors.NotValid)
 	}
 
 	life, err := s.st.GetVolumeLife(ctx, uuid)
 	if err != nil {
-		return "", errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
-	return life.Value()
+	return life, nil
 }
 
 // GetVolumeUUIDForID returns the uuid for a volume with the supplied
@@ -359,7 +358,7 @@ func (s *Service) WatchMachineProvisionedVolumes(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
 		return s.st.GetVolumeLifeForNetNode(ctx, netNodeUUID)
 	}
 
@@ -409,7 +408,7 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
 		return s.st.GetVolumeAttachmentLifeForNetNode(ctx, netNodeUUID)
 	}
 
@@ -447,7 +446,7 @@ func (s *Service) WatchVolumeAttachmentPlans(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
 		return s.st.GetVolumeAttachmentPlanLifeForNetNode(ctx, netNodeUUID)
 	}
 
