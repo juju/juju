@@ -75,6 +75,13 @@ type ApplicationService interface {
 	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application is not found.
 	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/unit.InvalidUnitName] if the unit name is invalid.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the unit doesn't exist.
+	GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error)
 }
 
 // StorageStatusService provides methods to set filesystem and volume status.
@@ -101,7 +108,23 @@ type StorageProvisioningService interface {
 	// exists for the provided filesystem id.
 	GetFilesystem(ctx context.Context, filesystemID string) (storageprovisioning.Filesystem, error)
 
-	// GetFilesystemAttachment retrieves the [storageprovisioning.FilesystemAttachment]
+	// GetFilesystemAttachmentForUnit retrieves the [storageprovisioning.FilesystemAttachment]
+	// for the supplied unit uuid and filesystem id.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+	// is not valid.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+	// unit exists for the supplied unit uuid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
+	// exists for the provided filesystem id.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
+	// the provided filesystem id.
+	GetFilesystemAttachmentForUnit(
+		ctx context.Context, unitUUID unit.UUID, filesystemID string,
+	) (storageprovisioning.FilesystemAttachment, error)
+
+	// GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
 	// for the supplied machine uuid and filesystem id.
 	//
 	// The following errors may be returned:
@@ -113,7 +136,7 @@ type StorageProvisioningService interface {
 	// exists for the provided filesystem id.
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
 	// the provided filesystem id.
-	GetFilesystemAttachment(
+	GetFilesystemAttachmentForMachine(
 		ctx context.Context, machineUUID machine.UUID, filesystemID string,
 	) (storageprovisioning.FilesystemAttachment, error)
 
