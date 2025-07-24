@@ -58,14 +58,6 @@ type State interface {
 	// unit exists for the supplied unit uuid.
 	GetUnitNetNodeUUID(context.Context, coreunit.UUID) (domainnetwork.NetNodeUUID, error)
 
-	// GetUnitNetNodeUUID returns the node uuid associated with the supplied
-	// unit.
-	//
-	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-	// unit exists for the supplied unit uuid.
-	GetUnitNetNodeUUID(context.Context, coreunit.UUID) (domainnetwork.NetNodeUUID, error)
-
 	// NamespaceForWatchMachineCloudInstance returns the change stream namespace
 	// for watching machine cloud instance changes.
 	NamespaceForWatchMachineCloudInstance() string

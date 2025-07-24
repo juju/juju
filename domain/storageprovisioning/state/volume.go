@@ -16,10 +16,44 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/life"
+	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+// checkVolumeExists checks if a volume for the provided uuid exists.
+// Returning when this case is satisfied.
+func (st *State) checkVolumeExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid domainstorageprovisioning.VolumeUUID,
+) (bool, error) {
+	entityUUIDInput := entityUUID{UUID: uuid.String()}
+
+	checkQuery, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume
+WHERE  uuid = $entityUUID.uuid
+`,
+		entityUUIDInput,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkQuery, entityUUIDInput).Get(&entityUUIDInput)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
 
 // GetVolumeAttachmentIDs returns the [storageprovisioning.VolumeAttachmentID]
 // information for each volume attachment uuid supplied. If a uuid does not
@@ -39,7 +73,7 @@ func (st *State) GetVolumeAttachmentIDs(
 
 	uuidInputs := volumeAttachmentUUIDs(uuids)
 
-	// To statisfy the unit name column of this union query a filesystem attachment
+	// To statisfy the unit name column of this union query a volume attachment
 	// must be for a netnode uuid that is on a unit where that unit does not
 	// share a netnode with a machine. If units are for machines they share a
 	// netnode.
@@ -104,6 +138,54 @@ SELECT &volumeAttachmentIDs.* FROM (
 		rval[v.UUID] = id
 	}
 	return rval, nil
+}
+
+// GetVolumeAttachmentLife returns the current life value for a
+// volume attachment uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided uuid.
+func (st *State) GetVolumeAttachmentLife(
+	ctx context.Context,
+	uuid domainstorageprovisioning.VolumeAttachmentUUID,
+) (domainlife.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	var (
+		uuidInput = entityUUID{UUID: uuid.String()}
+		lifeDBVal entityLife
+	)
+
+	lifeQuery, err := st.Prepare(`
+SELECT &entityLife.*
+FROM   storage_volume_attachment
+WHERE  uuid = $entityUUID.uuid
+`,
+		uuidInput, lifeDBVal,
+	)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, lifeQuery, uuidInput).Get(&lifeDBVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	return domainlife.Life(lifeDBVal.Life), nil
 }
 
 // GetVolumeAttachmentLifeForNetNode returns a mapping of volume
@@ -213,6 +295,134 @@ AND             svap.net_node_uuid=$netNodeUUIDRef.net_node_uuid
 	return maps.Collect(volAttachmentPlanLives.Iter), nil
 }
 
+// GetVolumeAttachmentUUIDForIDNetNode returns the volume attachment uuid
+// for the supplied volume uuid which is attached to the given net node
+// uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
+// for the supplied uuid.
+// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
+// net node uuid.
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the supplied values.
+func (st *State) GetVolumeAttachmentUUIDForIDNetNode(
+	ctx context.Context,
+	vUUID domainstorageprovisioning.VolumeUUID,
+	nodeUUID domainnetwork.NetNodeUUID,
+) (domainstorageprovisioning.VolumeAttachmentUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		vUUIDInput   = entityUUID{UUID: vUUID.String()}
+		netNodeInput = netNodeUUID{UUID: nodeUUID.String()}
+		dbVal        entityUUID
+	)
+
+	uuidQuery, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume_attachment
+WHERE  storage_volume_uuid = $entityUUID.uuid
+AND    net_node_uuid = $netNodeUUID.uuid
+	`,
+		vUUIDInput, netNodeInput,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeExists(ctx, tx, vUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking if volume %q exists: %w", vUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"volume %q does not exist", vUUID,
+			).Add(storageprovisioningerrors.VolumeNotFound)
+		}
+
+		exists, err = st.checkNetNodeExists(ctx, tx, nodeUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking net node uuid %q exists: %w", nodeUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"net node %q does not exist", nodeUUID,
+			).Add(networkerrors.NetNodeNotFound)
+		}
+
+		err = tx.Query(ctx, uuidQuery, vUUIDInput, netNodeInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment does not exist",
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return domainstorageprovisioning.VolumeAttachmentUUID(dbVal.UUID), nil
+}
+
+// GetVolumeLife returns the current life value for a
+// volume uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided uuid.
+func (st *State) GetVolumeLife(
+	ctx context.Context,
+	uuid domainstorageprovisioning.VolumeUUID,
+) (domainlife.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	var (
+		uuidInput = entityUUID{UUID: uuid.String()}
+		lifeDBVal entityLife
+	)
+
+	lifeQuery, err := st.Prepare(`
+SELECT &entityLife.*
+FROM   storage_volume
+WHERE  uuid = $entityUUID.uuid
+`,
+		uuidInput, lifeDBVal,
+	)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, lifeQuery, uuidInput).Get(&lifeDBVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	return domainlife.Life(lifeDBVal.Life), nil
+}
+
 // GetVolumeLifeForNetNode returns a mapping of volume id to current life value
 // for each machine provisioned volume that is to be provisioned by the machine
 // owning the supplied net node.
@@ -263,6 +473,52 @@ AND             sva.net_node_uuid=$netNodeUUIDRef.net_node_uuid
 		return nil, errors.Capture(err)
 	}
 	return maps.Collect(volLives.Iter), nil
+}
+
+// GetVolumeUUIDForID returns the uuid for a volume with the supplied
+// id.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
+// for the provided volume uuid.
+func (st *State) GetVolumeUUIDForID(
+	ctx context.Context, vID string,
+) (domainstorageprovisioning.VolumeUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		idInput = volumeID{ID: vID}
+		dbVal   entityUUID
+	)
+	uuidQuery, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume
+WHERE  volume_id = $volumeID.volume_id
+`,
+		idInput, dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, uuidQuery, idInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume for id %q does not exist", vID,
+			).Add(storageprovisioningerrors.VolumeNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return domainstorageprovisioning.VolumeUUID(dbVal.UUID), nil
 }
 
 // InitialWatchStatementMachineProvisionedVolumes returns both the namespace for

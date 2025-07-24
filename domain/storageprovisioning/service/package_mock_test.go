@@ -282,7 +282,7 @@ func (c *MockStateGetFilesystemAttachmentLifeForNetNodeCall) DoAndReturn(f func(
 }
 
 // GetFilesystemAttachmentUUIDForIDNetNode mocks base method.
-func (m *MockState) GetFilesystemAttachmentUUIDForIDNetNode(arg0 context.Context, arg1 string, arg2 network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error) {
+func (m *MockState) GetFilesystemAttachmentUUIDForIDNetNode(arg0 context.Context, arg1 storageprovisioning.FilesystemUUID, arg2 network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilesystemAttachmentUUIDForIDNetNode", arg0, arg1, arg2)
 	ret0, _ := ret[0].(storageprovisioning.FilesystemAttachmentUUID)
@@ -309,13 +309,13 @@ func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) Return(arg0 stora
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) Do(f func(context.Context, string, network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error)) *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall {
+func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID, network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error)) *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) DoAndReturn(f func(context.Context, string, network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error)) *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall {
+func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID, network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error)) *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

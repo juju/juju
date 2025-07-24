@@ -47,7 +47,9 @@ func (s *baseSuite) nextSequenceNumber(c *tc.C, ctx context.Context, namespace d
 // newMachineWithNetNode creates a new machine in the model attached to the
 // supplied net node. The newly created machines uuid is returned along with the
 // name.
-func (s *baseSuite) newMachineWithNetNode(c *tc.C, netNodeUUID string) (string, coremachine.Name) {
+func (s *baseSuite) newMachineWithNetNode(
+	c *tc.C, netNodeUUID domainnetwork.NetNodeUUID,
+) (string, coremachine.Name) {
 	machineUUID := machinetesting.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
@@ -56,7 +58,7 @@ func (s *baseSuite) newMachineWithNetNode(c *tc.C, netNodeUUID string) (string, 
 		"INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)",
 		machineUUID.String(),
 		name,
-		netNodeUUID,
+		netNodeUUID.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -77,7 +79,7 @@ func (s *baseSuite) changeMachineLife(c *tc.C, machineUUID string, lifeID domain
 
 // newNetNode creates a new net node in the model for referencing to storage
 // entity attachments. The net node is not associated with any machine or units.
-func (s *baseSuite) newNetNode(c *tc.C) string {
+func (s *baseSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
 	nodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -88,7 +90,7 @@ func (s *baseSuite) newNetNode(c *tc.C) string {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return nodeUUID.String()
+	return nodeUUID
 }
 
 // newApplication creates a new application in the model returning the uuid of
@@ -125,7 +127,9 @@ VALUES (?, ?, ?, "0", ?)`, appUUID.String(), appUUID.String(), name, network.Alp
 // newUnitWithNetNode creates a new unit in the model for the provided
 // application uuid. The new unit will use the supplied net node. Returned is
 // the new uuid of the unit and the name that was used.
-func (s *baseSuite) newUnitWithNetNode(c *tc.C, name, appUUID, netNodeUUID string) (string, coreunit.Name) {
+func (s *baseSuite) newUnitWithNetNode(
+	c *tc.C, name, appUUID string, netNodeUUID domainnetwork.NetNodeUUID,
+) (string, coreunit.Name) {
 	var charmUUID string
 	err := s.DB().QueryRowContext(
 		c.Context(),
@@ -142,7 +146,7 @@ func (s *baseSuite) newUnitWithNetNode(c *tc.C, name, appUUID, netNodeUUID strin
 INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
 VALUES (?, ?, ?, ?, ?, 0)
 `,
-		unitUUID.String(), name, appUUID, charmUUID, netNodeUUID,
+		unitUUID.String(), name, appUUID, charmUUID, netNodeUUID.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
