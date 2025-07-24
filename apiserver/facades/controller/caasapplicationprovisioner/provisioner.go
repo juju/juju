@@ -20,7 +20,6 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/os/ostype"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
@@ -50,7 +49,6 @@ type API struct {
 	auth            facade.Authorizer
 	watcherRegistry facade.WatcherRegistry
 
-	store                   objectstore.ObjectStore
 	applicationService      ApplicationService
 	controllerConfigService ControllerConfigService
 	controllerNodeService   ControllerNodeService
@@ -98,7 +96,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	api, err := NewCAASApplicationProvisionerAPI(
 		authorizer,
 		services,
-		ctx.ObjectStore(),
 		ctx.Clock(),
 		ctx.Logger().Child("caasapplicationprovisioner"),
 		ctx.WatcherRegistry(),
@@ -136,7 +133,6 @@ func (a *APIGroup) ApplicationCharmInfo(ctx context.Context, args params.Entity)
 func NewCAASApplicationProvisionerAPI(
 	authorizer facade.Authorizer,
 	services Services,
-	store objectstore.ObjectStore,
 	clock clock.Clock,
 	logger corelogger.Logger,
 	watcherRegistry facade.WatcherRegistry,
@@ -150,7 +146,6 @@ func NewCAASApplicationProvisionerAPI(
 	return &API{
 		auth:                    authorizer,
 		watcherRegistry:         watcherRegistry,
-		store:                   store,
 		controllerConfigService: services.ControllerConfigService,
 		controllerNodeService:   services.ControllerNodeService,
 		modelConfigService:      services.ModelConfigService,
