@@ -433,6 +433,9 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	results, err := s.facade.ApplicationsConfig(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -449,6 +452,9 @@ func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestClearApplicationsResources(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	results, err := s.facade.ClearApplicationsResources(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -481,10 +487,16 @@ func int64Ptr(i int64) *int64 {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.assertUpdateApplicationsStatelessUnits(c, true)
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnitsWithoutGeneration(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.assertUpdateApplicationsStatelessUnits(c, false)
 }
 
@@ -563,6 +575,9 @@ func (s *CAASProvisionerSuite) assertUpdateApplicationsStatelessUnits(c *gc.C, w
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -623,6 +638,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -707,6 +725,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -870,6 +891,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVolume(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 	}
@@ -936,6 +960,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	addr := network.NewSpaceAddress("10.0.0.1")
 	results, err := s.facade.UpdateApplicationsService(params.UpdateApplicationServiceArgs{
 		Args: []params.UpdateApplicationServiceArg{
@@ -959,6 +986,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	results, err := s.facade.SetOperatorStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "application-gitlab", Status: "error", Info: "broken", Data: map[string]interface{}{"foo": "bar"}},

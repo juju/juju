@@ -160,6 +160,8 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	s.st.app = &mockApplication{
 		charm: &mockCharm{meta: &charm.Meta{}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:2.6-beta3.666", nil)
+
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
@@ -199,6 +201,8 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	s.st.app = &mockApplication{
 		charm: &mockCharm{meta: &charm.Meta{}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(s.st.operatorRepo+"/jujud-operator:"+"2.6-beta3.666", nil)
+
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
@@ -241,6 +245,8 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
 	s.st.app = &mockApplication{
 		charm: &mockCharm{meta: &charm.Meta{MinJujuVersion: minVers}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(s.st.operatorRepo+"/jujud-operator:"+"2.6-beta3.666", nil)
+
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
@@ -272,6 +278,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoSidecarNoStorage(c *g
 			meta:     &charm.Meta{},
 			manifest: &charm.Manifest{Bases: []charm.Base{{}}}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(s.st.operatorRepo+"/jujud-operator:"+"2.6-beta3.666", nil)
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
@@ -303,6 +310,8 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C
 	s.st.app = &mockApplication{
 		charm: &mockCharm{meta: &charm.Meta{MinJujuVersion: minVers}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(s.st.operatorRepo+"/jujud-operator:"+"2.6-beta3.666", nil)
+
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
