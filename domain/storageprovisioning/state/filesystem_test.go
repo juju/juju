@@ -644,7 +644,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNode(c *tc.C) {
 	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
 
 	st := NewState(s.TxnRunnerFactory())
-	uuid, err := st.GetFilesystemAttachmentUUIDForIDNetNode(
+	uuid, err := st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		c.Context(), fsUUID, netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -659,7 +659,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeFSNotFound(
 	notFoundFS := domaintesting.GenFilesystemUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetFilesystemAttachmentUUIDForIDNetNode(
+	_, err := st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		c.Context(), notFoundFS, netNodeUUID,
 	)
 
@@ -675,7 +675,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeNetNodeNotF
 	fsUUID, _ := s.newModelFilesystem(c)
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err = st.GetFilesystemAttachmentUUIDForIDNetNode(
+	_, err = st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		c.Context(), fsUUID, notFoundNodeUUID,
 	)
 
@@ -695,7 +695,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeUnrelated(c
 	s.newMachineFilesystemAttachment(c, fsUUIDTwo, nnUUIDTwo)
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetFilesystemAttachmentUUIDForIDNetNode(
+	_, err := st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		c.Context(), fsUUIDOne, nnUUIDTwo,
 	)
 

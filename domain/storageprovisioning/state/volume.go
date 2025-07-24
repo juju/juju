@@ -295,7 +295,7 @@ AND             svap.net_node_uuid=$netNodeUUIDRef.net_node_uuid
 	return maps.Collect(volAttachmentPlanLives.Iter), nil
 }
 
-// GetVolumeAttachmentUUIDForIDNetNode returns the volume attachment uuid
+// GetVolumeAttachmentUUIDForVolumeNetNode returns the volume attachment uuid
 // for the supplied volume uuid which is attached to the given net node
 // uuid.
 //
@@ -306,7 +306,7 @@ AND             svap.net_node_uuid=$netNodeUUIDRef.net_node_uuid
 // net node uuid.
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 // attachment exists for the supplied values.
-func (st *State) GetVolumeAttachmentUUIDForIDNetNode(
+func (st *State) GetVolumeAttachmentUUIDForVolumeNetNode(
 	ctx context.Context,
 	vUUID domainstorageprovisioning.VolumeUUID,
 	nodeUUID domainnetwork.NetNodeUUID,

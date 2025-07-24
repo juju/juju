@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/life"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -79,17 +79,17 @@ type FilesystemState interface {
 	GetFilesystemAttachmentLife(
 		context.Context,
 		domainstorageprovisioning.FilesystemAttachmentUUID,
-	) (life.Life, error)
+	) (domainlife.Life, error)
 
 	// GetFilesystemAttachmentLifeForNetNode returns a mapping of filesystem
 	// attachment uuids to the current life value for each machine provisioned
 	// filesystem attachment that is to be provisioned by the machine owning the
 	// supplied net node.
-	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
+	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
 
-	// GetFilesystemAttachmentUUIDForIDNetNode returns the filesystem attachment uuid
-	// for the supplied filesystem id which is attached to the given net node
-	// uuid.
+	// GetFilesystemAttachmentUUIDForFilesystemNetNode returns the filesystem
+	// attachment uuid for the supplied filesystem uuid which is attached to the
+	// given net node uuid.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
@@ -98,7 +98,7 @@ type FilesystemState interface {
 	// net node uuid.
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound]
 	// when no filesystem attachment exists for the supplied values.
-	GetFilesystemAttachmentUUIDForIDNetNode(
+	GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		context.Context,
 		domainstorageprovisioning.FilesystemUUID,
 		domainnetwork.NetNodeUUID,
@@ -111,12 +111,12 @@ type FilesystemState interface {
 	// when no filesystem exists for the provided filesystem uuid.
 	GetFilesystemLife(
 		context.Context, domainstorageprovisioning.FilesystemUUID,
-	) (life.Life, error)
+	) (domainlife.Life, error)
 
 	// GetFilesystemLifeForNetNode returns a mapping of filesystem ids to current
 	// life value for each machine provisioned filesystem that is to be
 	// provisioned by the machine owning the supplied net node.
-	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]life.Life, error)
+	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
 
 	// GetFilesystemUUIDForID returns the uuid for a filesystem with the supplied
 	// id.
@@ -133,7 +133,7 @@ type FilesystemState interface {
 	//
 	// Only filesystems that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementMachineProvisionedFilesystems(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
 
 	// InitialWatchStatementModelProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
@@ -148,7 +148,7 @@ type FilesystemState interface {
 	//
 	// Only filesystem attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]life.Life])
+	InitialWatchStatementMachineProvisionedFilesystemAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
 
 	// InitialWatchStatementModelProvisionedFilesystemAttachments returns both
 	// the namespace for watching filesystem attachment life changes where the
@@ -289,7 +289,7 @@ func (s *Service) GetFilesystemAttachmentIDs(
 func (s *Service) GetFilesystemAttachmentLife(
 	ctx context.Context,
 	uuid domainstorageprovisioning.FilesystemAttachmentUUID,
-) (life.Life, error) {
+) (domainlife.Life, error) {
 	if err := uuid.Validate(); err != nil {
 		return 0, errors.Errorf(
 			"validating filesystem attachment uuid: %w", err,
@@ -336,7 +336,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDMachine(
 		)
 	}
 
-	uuid, err := s.st.GetFilesystemAttachmentUUIDForIDNetNode(
+	uuid, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		ctx, fsUUID, netNodeUUID,
 	)
 	if errors.Is(err, networkerrors.NetNodeNotFound) {
@@ -390,7 +390,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 		)
 	}
 
-	uuid, err := s.st.GetFilesystemAttachmentUUIDForIDNetNode(
+	uuid, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		ctx, fsUUID, netNodeUUID,
 	)
 	if errors.Is(err, networkerrors.NetNodeNotFound) {
@@ -420,7 +420,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 func (s *Service) GetFilesystemLife(
 	ctx context.Context,
 	uuid domainstorageprovisioning.FilesystemUUID,
-) (life.Life, error) {
+) (domainlife.Life, error) {
 	if err := uuid.Validate(); err != nil {
 		return 0, errors.Errorf(
 			"validating filesystem uuid: %w", err,
@@ -486,7 +486,7 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
 		return s.st.GetFilesystemLifeForNetNode(ctx, netNodeUUID)
 	}
 
@@ -536,7 +536,7 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 		return nil, errors.Capture(err)
 	}
 
-	lifeGetter := func(ctx context.Context) (map[string]life.Life, error) {
+	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
 		return s.st.GetFilesystemAttachmentLifeForNetNode(ctx, netNodeUUID)
 	}
 

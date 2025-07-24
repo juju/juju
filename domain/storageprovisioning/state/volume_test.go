@@ -622,55 +622,55 @@ func (s *volumeSuite) TestGetVolumeAttachmentLife(c *tc.C) {
 	c.Check(life, tc.Equals, domainlife.Dying)
 }
 
-func (s *volumeSuite) TestGetVolumeAttachmentUUIDForIDNetNode(c *tc.C) {
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeNetNode(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	fsUUID, _ := s.newMachineVolume(c)
 	fsaUUID := s.newMachineVolumeAttachment(c, fsUUID, netNodeUUID)
 
 	st := NewState(s.TxnRunnerFactory())
-	uuid, err := st.GetVolumeAttachmentUUIDForIDNetNode(
+	uuid, err := st.GetVolumeAttachmentUUIDForVolumeNetNode(
 		c.Context(), fsUUID, netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(uuid.String(), tc.Equals, fsaUUID.String())
 }
 
-// TestGetVolumeAttachmentUUIDForIDNetNodeFSNotFound tests that the caller
+// TestGetVolumeAttachmentUUIDForVolumeNetNodeFSNotFound tests that the caller
 // get backs a [storageprovisioningerrors.VolumeNotFound] error when asking
 // for an attachment using a volume uuid that does not exist in the model.
-func (s *volumeSuite) TestGetVolumeAttachmentUUIDForIDNetNodeFSNotFound(c *tc.C) {
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeNetNodeFSNotFound(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	notFoundFS := domaintesting.GenVolumeUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetVolumeAttachmentUUIDForIDNetNode(
+	_, err := st.GetVolumeAttachmentUUIDForVolumeNetNode(
 		c.Context(), notFoundFS, netNodeUUID,
 	)
 
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
 
-// TestGetVolumeAttachmentUUIDForIDNetNodeNetNodeNotFound tests that the
+// TestGetVolumeAttachmentUUIDForVolumeNetNodeNetNodeNotFound tests that the
 // caller get backs a [networkerrors.NetNodeNotFound] error when asking
 // for an attachment using a net node uuid that does not exist in the model.
-func (s *volumeSuite) TestGetVolumeAttachmentUUIDForIDNetNodeNetNodeNotFound(c *tc.C) {
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeNetNodeNetNodeNotFound(c *tc.C) {
 	notFoundNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	fsUUID, _ := s.newModelVolume(c)
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err = st.GetVolumeAttachmentUUIDForIDNetNode(
+	_, err = st.GetVolumeAttachmentUUIDForVolumeNetNode(
 		c.Context(), fsUUID, notFoundNodeUUID,
 	)
 
 	c.Check(err, tc.ErrorIs, networkerrors.NetNodeNotFound)
 }
 
-// TestGetVolumeAttachmentUUIDForIDNetNodeUnrelated tests that if the
+// TestGetVolumeAttachmentUUIDForVolumeNetNodeUnrelated tests that if the
 // volume uuid and net node uuid exist but are unrelated within an
 // attachment an error satisfying
 // [storageprovisioningerrors.VolumeAttachmentNotFound] is returned.
-func (s *volumeSuite) TestGetVolumeAttachmentUUIDForIDNetNodeUnrelated(c *tc.C) {
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeNetNodeUnrelated(c *tc.C) {
 	nnUUIDOne := s.newNetNode(c)
 	nnUUIDTwo := s.newNetNode(c)
 	fsUUIDOne, _ := s.newMachineVolume(c)
@@ -679,7 +679,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForIDNetNodeUnrelated(c *tc.C) 
 	s.newMachineVolumeAttachment(c, fsUUIDTwo, nnUUIDTwo)
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetVolumeAttachmentUUIDForIDNetNode(
+	_, err := st.GetVolumeAttachmentUUIDForVolumeNetNode(
 		c.Context(), fsUUIDOne, nnUUIDTwo,
 	)
 

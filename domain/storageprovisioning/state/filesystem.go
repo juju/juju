@@ -486,9 +486,9 @@ AND             net_node_uuid=$netNodeUUIDRef.net_node_uuid
 	return maps.Collect(fsAttachmentLives.Iter), nil
 }
 
-// GetFilesystemAttachmentUUIDForIDNetNode returns the filesystem attachment
-// uuid for the supplied filesystem id which is attached to the given net node
-// uuid.
+// GetFilesystemAttachmentUUIDForFilesystemNetNode returns the filesystem
+// attachment uuid for the supplied filesystem id which is attached to the given
+// net node uuid.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
@@ -497,7 +497,7 @@ AND             net_node_uuid=$netNodeUUIDRef.net_node_uuid
 // net node uuid.
 // - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
 // attachment exists for the supplied values.
-func (st *State) GetFilesystemAttachmentUUIDForIDNetNode(
+func (st *State) GetFilesystemAttachmentUUIDForFilesystemNetNode(
 	ctx context.Context,
 	fsUUID domainstorageprovisioning.FilesystemUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
