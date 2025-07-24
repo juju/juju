@@ -36,6 +36,16 @@ type attachmentUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// entityLife represents the current life value of a storage entity in the model.
+type entityLife struct {
+	Life int `db:"life_id"`
+}
+
+// entityUUID represents the UUID of a storage entity in the model.
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // filesystemAttachmentIDs represents the ids of attachment points to a
 // filesystem attachment. This information includes the filesystem ID the
 // attachment is for. As well as this either the machine or unit name the

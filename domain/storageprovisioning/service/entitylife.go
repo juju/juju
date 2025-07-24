@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/life"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -21,7 +21,7 @@ import (
 //
 // The purpose of this function is to help work out what storage entities that
 // a machine provisioner cares about have had a life change.
-type EntityLifeGetter func(context.Context) (map[string]life.Life, error)
+type EntityLifeGetter func(context.Context) (map[string]domainlife.Life, error)
 
 // entityLifeMapperFunc provides a watcher mapper that can be used to
 // take change events for one concern and translate this into a set of entity
@@ -47,7 +47,7 @@ func entityLifeMapperFunc(
 	lifeGetter EntityLifeGetter,
 ) eventsource.Mapper {
 	var haveInitialLife bool
-	var knownLife map[string]life.Life
+	var knownLife map[string]domainlife.Life
 	return func(
 		ctx context.Context, _ []changestream.ChangeEvent,
 	) ([]string, error) {
@@ -102,12 +102,12 @@ func entityLifeMapperFunc(
 // This function returns a new initial query that can be supplied to the watcher
 // for seeding a set of initial values.
 func makeEntityLifePrerequisites(
-	initialQuery eventsource.Query[map[string]life.Life],
+	initialQuery eventsource.Query[map[string]domainlife.Life],
 	lifeGetter EntityLifeGetter,
 ) (eventsource.NamespaceQuery, eventsource.Mapper) {
 	// Make a buffered channel to capture the initial query values.
 	// Shimmed query is responsible for closing the channel.
-	initial := make(chan map[string]life.Life, 1)
+	initial := make(chan map[string]domainlife.Life, 1)
 	shimmedInitialQuery := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		defer close(initial)
 		initQueryData, err := initialQuery(ctx, db)
@@ -124,7 +124,7 @@ func makeEntityLifePrerequisites(
 		return slices.Collect(maps.Keys(initQueryData)), nil
 	}
 
-	initialLifeForMapper := func(ctx context.Context) (map[string]life.Life, error) {
+	initialLifeForMapper := func(ctx context.Context) (map[string]domainlife.Life, error) {
 		select {
 		case initialData, ok := <-initial:
 			if !ok {

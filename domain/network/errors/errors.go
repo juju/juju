@@ -10,6 +10,9 @@ const (
 	// returns false to SupportsContainerAddresses.
 	ContainerAddressesNotSupported = errors.ConstError("container addressing not supported")
 
+	// NetNodeNotFound is returned when a network node does not exist.
+	NetNodeNotFound = errors.ConstError("network node not found")
+
 	// SpaceAlreadyExists is returned when a space already exists.
 	SpaceAlreadyExists = errors.ConstError("space already exists")
 

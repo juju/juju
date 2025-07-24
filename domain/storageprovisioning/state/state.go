@@ -9,8 +9,10 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -28,7 +30,7 @@ type State struct {
 // - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 // machine exists for the provided uuid.
 func (st *State) CheckMachineIsDead(
-	ctx context.Context, uuid machine.UUID,
+	ctx context.Context, uuid coremachine.UUID,
 ) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -71,7 +73,7 @@ func (st *State) CheckMachineIsDead(
 // - [machineerrors.MachineNotFound] when no machine exists for the provided
 // uuid.
 func (st *State) GetMachineNetNodeUUID(
-	ctx context.Context, uuid machine.UUID,
+	ctx context.Context, uuid coremachine.UUID,
 ) (domainnetwork.NetNodeUUID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -79,11 +81,11 @@ func (st *State) GetMachineNetNodeUUID(
 	}
 
 	var (
-		input = machineUUID{UUID: uuid.String()}
+		input = entityUUID{UUID: uuid.String()}
 		dbVal netNodeUUIDRef
 	)
 	stmt, err := st.Prepare(
-		"SELECT &netNodeUUIDRef.* FROM machine WHERE uuid = $machineUUID.uuid",
+		"SELECT &netNodeUUIDRef.* FROM machine WHERE uuid = $entityUUID.uuid",
 		input, dbVal,
 	)
 	if err != nil {
@@ -95,6 +97,48 @@ func (st *State) GetMachineNetNodeUUID(
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine %q does not exist", uuid).Add(
 				machineerrors.MachineNotFound,
+			)
+		}
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return domainnetwork.NetNodeUUID(dbVal.UUID), nil
+}
+
+// GetUnitNetNodeUUID returns the node uuid associated with the supplied unit.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+// unit exists for the supplied unit uuid.
+func (st *State) GetUnitNetNodeUUID(
+	ctx context.Context, uuid coreunit.UUID,
+) (domainnetwork.NetNodeUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		input = entityUUID{UUID: uuid.String()}
+		dbVal netNodeUUIDRef
+	)
+	stmt, err := st.Prepare(
+		"SELECT &netNodeUUIDRef.* FROM unit WHERE uuid = $entityUUID.uuid",
+		input, dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("unit %q does not exist", uuid).Add(
+				applicationerrors.UnitNotFound,
 			)
 		}
 		return err
