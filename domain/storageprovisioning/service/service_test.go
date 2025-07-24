@@ -9,8 +9,11 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // serviceSuite is a test suite for the [Service] to test the common non storage
@@ -70,4 +73,33 @@ func (s *serviceSuite) TestWatchMachineCloudInstanceDead(c *tc.C) {
 		c.Context(), machineUUID,
 	)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineIsDead)
+}
+
+// TestGetStorageResourceTagsForApplication tests that the model config resource
+// tags value is parsed and returned as key-value pairs with controller uuid,
+// model uuid and application name overlayed.
+func (s *serviceSuite) TestGetStorageResourceTagsForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	ri := storageprovisioning.ResourceTagInfo{
+		BaseResourceTags: "a=x b=y",
+		ModelUUID:        uuid.MustNewUUID().String(),
+		ControllerUUID:   uuid.MustNewUUID().String(),
+		ApplicationName:  "foo",
+	}
+	s.state.EXPECT().GetStorageResourceTagInfoForApplication(gomock.Any(),
+		appUUID, "resource-tags").Return(ri, nil)
+
+	svc := NewService(s.state, s.watcherFactory)
+	tags, err := svc.GetStorageResourceTagsForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(tags, tc.DeepEquals, map[string]string{
+		"a":                    "x",
+		"b":                    "y",
+		"juju-controller-uuid": ri.ControllerUUID,
+		"juju-model-uuid":      ri.ModelUUID,
+		"juju-storage-owner":   ri.ApplicationName,
+	})
 }

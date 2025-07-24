@@ -202,3 +202,11 @@ type storageNameAttributes struct {
 	Key         string `db:"key"`
 	Value       string `db:"value"`
 }
+
+// resourceTagInfo is the required info to create resource tags for a given app.
+type resourceTagInfo struct {
+	ResourceTags    string `db:"resource_tags"`
+	ModelUUID       string `db:"model_uuid"`
+	ControllerUUID  string `db:"controller_uuid"`
+	ApplicationName string `db:"application_name"`
+}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
@@ -17,6 +17,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -166,6 +167,74 @@ func (st *State) NamespaceForWatchMachineCloudInstance() string {
 	return "machine_cloud_instance"
 }
 
+// GetStorageResourceTagInfoForApplication returns information required to
+// build resource tags for storage created for the given application.
+func (st *State) GetStorageResourceTagInfoForApplication(
+	ctx context.Context,
+	appUUID application.ID,
+	resourceTagModelConfigKey string,
+) (storageprovisioning.ResourceTagInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
+	}
+
+	type modelConfigKey struct {
+		Key string `db:"key"`
+	}
+	appUUIDInput := entityUUID{UUID: appUUID.String()}
+	modelConfigKeyInput := modelConfigKey{Key: resourceTagModelConfigKey}
+
+	appNameStmt, err := st.Prepare(`
+SELECT name AS &resourceTagInfo.application_name
+FROM application
+WHERE uuid = $entityUUID.uuid
+`, resourceTagInfo{}, appUUIDInput)
+	if err != nil {
+		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
+	}
+	resourceTagStmt, err := st.Prepare(`
+SELECT value AS &resourceTagInfo.resource_tags
+FROM model_config
+WHERE key = $modelConfigKey.key
+`, resourceTagInfo{}, modelConfigKeyInput)
+	if err != nil {
+		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
+	}
+	modelInfoStmt, err := st.Prepare(`
+SELECT uuid AS &resourceTagInfo.model_uuid, &resourceTagInfo.controller_uuid
+FROM model
+`, resourceTagInfo{})
+	if err != nil {
+		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
+	}
+
+	output := resourceTagInfo{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, appNameStmt, appUUIDInput).Get(&output)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("application %q does not exist", appUUID)
+		} else if err != nil {
+			return err
+		}
+		err = tx.Query(ctx, resourceTagStmt, modelConfigKeyInput).Get(&output)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return tx.Query(ctx, modelInfoStmt).Get(&output)
+	})
+	if err != nil {
+		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
+	}
+
+	return storageprovisioning.ResourceTagInfo{
+		BaseResourceTags: output.ResourceTags,
+		ModelUUID:        output.ModelUUID,
+		ControllerUUID:   output.ControllerUUID,
+		ApplicationName:  output.ApplicationName,
+	}, nil
+}
+
 // checkNetNodeExists checks if the provided net node uuid exists in the
 // database during a txn. False is returned when the net node does not exist.
 func (st *State) checkNetNodeExists(
@@ -198,9 +267,9 @@ func (st *State) checkNetNodeExists(
 func (st *State) checkApplicationExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appUUID application.ID,
 ) (bool, error) {
-	input := entityUUID{UUID: appID.String()}
+	input := entityUUID{UUID: appUUID.String()}
 
 	checkStmt, err := st.Prepare(
 		"SELECT &entityUUID.* FROM application WHERE uuid = $entityUUID.uuid",

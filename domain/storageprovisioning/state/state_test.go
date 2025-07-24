@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -19,6 +20,8 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ddlAssumptionsSuite provides a test suite for testing assumption relied on in
@@ -176,6 +179,33 @@ func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
 		c.Context(), unitUUID,
 	)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestGetStorageResourceTagInfoForApplication tests that values expected values
+// are obtained from model info, model config and application.
+func (s *stateSuite) TestGetStorageResourceTagInfoForApplication(c *tc.C) {
+	controllerUUID := uuid.MustNewUUID().String()
+	appUUID := s.newApplication(c, "foo")
+
+	_, err := s.DB().ExecContext(c.Context(),
+		`INSERT INTO model_config (key, value) VALUES (?, ?)`, "resource_tags", "a=x b=y")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(),
+		`INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type) VALUES (?, ?, "", "", "", "", "")`,
+		s.ModelUUID(), controllerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	resourceTags, err := st.GetStorageResourceTagInfoForApplication(
+		c.Context(), coreapplication.ID(appUUID), "resource_tags",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resourceTags, tc.DeepEquals, storageprovisioning.ResourceTagInfo{
+		BaseResourceTags: "a=x b=y",
+		ModelUUID:        s.ModelUUID(),
+		ControllerUUID:   controllerUUID,
+		ApplicationName:  "foo",
+	})
 }
 
 // TestMachineProvisionScopeValue tests that the value of machine provision

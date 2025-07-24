@@ -359,6 +359,45 @@ func (c *MockStateGetMachineNetNodeUUIDCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
+// GetStorageResourceTagInfoForApplication mocks base method.
+func (m *MockState) GetStorageResourceTagInfoForApplication(arg0 context.Context, arg1 application.ID, arg2 string) (storageprovisioning.ResourceTagInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageResourceTagInfoForApplication", arg0, arg1, arg2)
+	ret0, _ := ret[0].(storageprovisioning.ResourceTagInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageResourceTagInfoForApplication indicates an expected call of GetStorageResourceTagInfoForApplication.
+func (mr *MockStateMockRecorder) GetStorageResourceTagInfoForApplication(arg0, arg1, arg2 any) *MockStateGetStorageResourceTagInfoForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageResourceTagInfoForApplication", reflect.TypeOf((*MockState)(nil).GetStorageResourceTagInfoForApplication), arg0, arg1, arg2)
+	return &MockStateGetStorageResourceTagInfoForApplicationCall{Call: call}
+}
+
+// MockStateGetStorageResourceTagInfoForApplicationCall wrap *gomock.Call
+type MockStateGetStorageResourceTagInfoForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageResourceTagInfoForApplicationCall) Return(arg0 storageprovisioning.ResourceTagInfo, arg1 error) *MockStateGetStorageResourceTagInfoForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageResourceTagInfoForApplicationCall) Do(f func(context.Context, application.ID, string) (storageprovisioning.ResourceTagInfo, error)) *MockStateGetStorageResourceTagInfoForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageResourceTagInfoForApplicationCall) DoAndReturn(f func(context.Context, application.ID, string) (storageprovisioning.ResourceTagInfo, error)) *MockStateGetStorageResourceTagInfoForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitNetNodeUUID mocks base method.
 func (m *MockState) GetUnitNetNodeUUID(arg0 context.Context, arg1 unit.UUID) (network.NetNodeUUID, error) {
 	m.ctrl.T.Helper()
