@@ -22,7 +22,6 @@ import (
 // AgentToolsAPI implements the API used by the machine model worker.
 type AgentToolsAPI struct {
 	modelGetter ModelGetter
-	newEnviron  newEnvironFunc
 	authorizer  facade.Authorizer
 	// tools lookup
 	findTools        toolsFinder
@@ -31,26 +30,27 @@ type AgentToolsAPI struct {
 
 	modelConfigService ModelConfigService
 	modelAgentService  ModelAgentService
+	machineService     MachineService
 }
 
 // NewAgentToolsAPI creates a new instance of the Model API.
 func NewAgentToolsAPI(
 	modelGetter ModelGetter,
-	newEnviron func() (environs.Environ, error),
 	findTools toolsFinder,
 	envVersionUpdate func(*state.Model, semversion.Number) error,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
+	machineService MachineService,
 	modelConfigService ModelConfigService,
 	modelAgentService ModelAgentService,
 ) (*AgentToolsAPI, error) {
 	return &AgentToolsAPI{
 		modelGetter:        modelGetter,
-		newEnviron:         newEnviron,
 		authorizer:         authorizer,
 		findTools:          findTools,
 		envVersionUpdate:   envVersionUpdate,
 		logger:             logger,
+		machineService:     machineService,
 		modelConfigService: modelConfigService,
 		modelAgentService:  modelAgentService,
 	}, nil
@@ -60,9 +60,6 @@ func NewAgentToolsAPI(
 type ModelGetter interface {
 	Model() (*state.Model, error)
 }
-
-type newEnvironFunc func() (environs.Environ, error)
-
 type toolsFinder func(context.Context, tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
 
 type envVersionUpdater func(*state.Model, semversion.Number) error
@@ -73,15 +70,15 @@ func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (semversio
 		return semversion.Zero, errors.Annotate(err, "getting agent version from service")
 	}
 
-	env, err := api.newEnviron()
-	if err != nil {
-		return semversion.Zero, errors.Annotatef(err, "cannot make cloud provider")
-	}
-
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	modelCfg, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Annotate(err, "cannot get model config")
+	}
+
+	env, err := api.machineService.GetBootstrapEnviron(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Annotatef(err, "cannot get cloud provider")
 	}
 
 	preferredStreams := tools.PreferredStreams(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())

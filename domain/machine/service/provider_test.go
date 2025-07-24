@@ -431,3 +431,38 @@ func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesFail(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "getting provider: boom")
 }
+
+func (s *lxdProviderServiceSuite) TestGetBootstrapEnviron(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	providerGetter := func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}
+	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+
+	// Act
+	p, err := service.GetBootstrapEnviron(c.Context())
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(p, tc.NotNil)
+}
+
+func (s *lxdProviderServiceSuite) TestGetBootstrapEnvironFail(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	providerGetter := func(ctx context.Context) (Provider, error) {
+		return nil, errors.Errorf("boom")
+	}
+	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+
+	// Act
+	_, err := service.GetBootstrapEnviron(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "boom")
+}

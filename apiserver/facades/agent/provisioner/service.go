@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
@@ -138,6 +139,9 @@ type MachineService interface {
 	// is returned. If the provider does not support LXDProfiles, no error
 	// is returned.
 	UpdateLXDProfiles(ctx context.Context, modelName, machineID string) ([]string, error)
+
+	// GetBootstrapEnviron returns the bootstrap environ.
+	GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status

@@ -106,24 +106,6 @@ func CloudSpecForModel(
 	return environscloudspec.MakeCloudSpec(*cld, regionName, &cred)
 }
 
-// NewEnvironFunc aliases a function that, given a Model,
-// returns a new Environ.
-type NewEnvironFunc = func(ModelInfoService, CloudService, CredentialService, ModelConfigService) (environs.Environ, error)
-
-// GetNewEnvironFunc returns a NewEnvironFunc, that constructs Environs
-// using the given environs.NewEnvironFunc.
-func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
-	return func(modelInfoService ModelInfoService, cloudService CloudService, credentialService CredentialService, modelConfigService ModelConfigService) (environs.Environ, error) {
-		g := EnvironConfigGetter{
-			ModelInfoService:   modelInfoService,
-			CloudService:       cloudService,
-			CredentialService:  credentialService,
-			ModelConfigService: modelConfigService,
-		}
-		return environs.GetEnviron(context.TODO(), g, environs.NoopCredentialInvalidator(), newEnviron)
-	}
-}
-
 // NewCAASBrokerFunc aliases a function that, given a state.State,
 // returns a new CAAS broker.
 type NewCAASBrokerFunc = func(ModelInfoService, CloudService, CredentialService, ModelConfigService) (caas.Broker, error)

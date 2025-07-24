@@ -27,18 +27,28 @@ func TestAgentToolsSuite(t *testing.T) {
 
 type AgentToolsSuite struct {
 	coretesting.BaseSuite
+
+	bootstrapEnviron   *MockBootstrapEnviron
+	machineService     *MockMachineService
 	modelConfigService *MockModelConfigService
 	modelAgentService  *MockModelAgentService
 }
 
-type dummyEnviron struct {
-	environs.Environ
-}
-
 func (s *AgentToolsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	s.modelAgentService = NewMockModelAgentService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+
+	s.machineService.EXPECT().GetBootstrapEnviron(gomock.Any()).Return(s.bootstrapEnviron, nil)
+
+	c.Cleanup(func() {
+		s.bootstrapEnviron = nil
+		s.machineService = nil
+		s.modelAgentService = nil
+		s.modelConfigService = nil
+	})
 	return ctrl
 }
 
@@ -55,7 +65,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *tc.C) {
 	var (
 		calledWithMajor, calledWithMinor int
 	)
-	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		ver := semversion.Binary{Number: semversion.Number{Major: maj, Minor: min}}
@@ -66,7 +76,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *tc.C) {
 		return coretools.List{&t}, nil
 	}
 
-	api, err := NewAgentToolsAPI(nil, getDummyEnviron, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
+	api, err := NewAgentToolsAPI(nil, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedVer, err := api.checkToolsAvailability(c.Context())
@@ -93,7 +103,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *tc.C) {
 		calledWithMajor, calledWithMinor int
 		calledWithStreams                [][]string
 	)
-	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		calledWithStreams = append(calledWithStreams, streams)
@@ -107,7 +117,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *tc.C) {
 		return coretools.List{&t}, nil
 	}
 
-	api, err := NewAgentToolsAPI(nil, getDummyEnviron, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
+	api, err := NewAgentToolsAPI(nil, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedVer, err := api.checkToolsAvailability(c.Context())
@@ -146,7 +156,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *tc.C) {
 		return nil
 	}
 
-	api, err := NewAgentToolsAPI(&mockState{}, getDummyEnviron, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
+	api, err := NewAgentToolsAPI(&mockState{}, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.updateToolsAvailability(c.Context())
@@ -175,13 +185,9 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
 		return nil
 	}
 
-	api, err := NewAgentToolsAPI(&mockState{}, getDummyEnviron, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.modelConfigService, s.modelAgentService)
+	api, err := NewAgentToolsAPI(&mockState{}, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.updateToolsAvailability(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func getDummyEnviron() (environs.Environ, error) {
-	return dummyEnviron{}, nil
 }
