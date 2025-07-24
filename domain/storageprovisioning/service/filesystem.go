@@ -220,6 +220,5 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 			"getting filesystem templates for app %q: %w", appID, err,
 		)
 	}
-
 	return fsTemplates, nil
 }
