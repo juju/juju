@@ -21,27 +21,26 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
-	charmscommon "github.com/juju/juju/api/common/charms"
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/storageprovisioning"
+	internalcharm "github.com/juju/juju/internal/charm"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
 	ProvisioningInfo(context.Context, string) (api.ProvisioningInfo, error)
-	CharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
-	ApplicationCharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
-	ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error)
 	RemoveUnit(ctx context.Context, unitName string) error
 	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
 	DestroyUnits(ctx context.Context, unitNames []string) error
@@ -97,6 +96,10 @@ type ApplicationService interface {
 	// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
 	// and their cloud container provider IDs for the given application.
 	GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id application.ID) (map[unit.Name]string, error)
+
+	// GetCharmByApplicationID returns the charm for the specified application
+	// ID.
+	GetCharmByApplicationID(context.Context, application.ID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -135,31 +138,54 @@ type AgentPasswordService interface {
 	SetApplicationPassword(ctx context.Context, appID application.ID, password string) error
 }
 
+type StorageProvisioningService interface {
+	// GetFilesystemTemplatesForApplication returns all the filesystem templates for
+	// a given application.
+	GetFilesystemTemplatesForApplication(ctx context.Context, appID application.ID) ([]storageprovisioning.FilesystemTemplate, error)
+	// GetStorageResourceTagsForApplication returns the storage resource tags for
+	// the given application. These tags are used when creating a resource in an
+	// environ.
+	GetStorageResourceTagsForApplication(ctx context.Context, appID application.ID) (map[string]string, error)
+}
+
+type ResourceOpenerGetter interface {
+	ResourceOpenerForApplication(ctx context.Context, appID application.ID, appName string) (coreresource.Opener, error)
+}
+
+type ResourceOpenerGetterFunc func(context.Context, application.ID, string) (coreresource.Opener, error)
+
+func (f ResourceOpenerGetterFunc) ResourceOpenerForApplication(ctx context.Context, appID application.ID, appName string) (coreresource.Opener, error) {
+	return f(ctx, appID, appName)
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
-	ApplicationService   ApplicationService
-	StatusService        StatusService
-	AgentPasswordService AgentPasswordService
-	Facade               CAASProvisionerFacade
-	Broker               CAASBroker
-	ModelTag             names.ModelTag
-	Clock                clock.Clock
-	Logger               logger.Logger
-	NewAppWorker         NewAppWorkerFunc
+	ApplicationService         ApplicationService
+	StatusService              StatusService
+	AgentPasswordService       AgentPasswordService
+	StorageProvisioningService StorageProvisioningService
+	ResourceOpenerGetter       ResourceOpenerGetter
+	Facade                     CAASProvisionerFacade
+	Broker                     CAASBroker
+	Clock                      clock.Clock
+	Logger                     logger.Logger
+	NewAppWorker               NewAppWorkerFunc
 }
 
 type provisioner struct {
-	catacomb             catacomb.Catacomb
-	runner               Runner
-	applicationService   ApplicationService
-	statusService        StatusService
-	agentPasswordService AgentPasswordService
-	facade               CAASProvisionerFacade
-	broker               CAASBroker
-	clock                clock.Clock
-	logger               logger.Logger
-	newAppWorker         NewAppWorkerFunc
-	modelTag             names.ModelTag
+	catacomb                   catacomb.Catacomb
+	runner                     Runner
+	applicationService         ApplicationService
+	statusService              StatusService
+	agentPasswordService       AgentPasswordService
+	storageProvisioningService StorageProvisioningService
+	resourceOpenerGetter       ResourceOpenerGetter
+	Facade                     CAASProvisionerFacade
+	facade                     CAASProvisionerFacade
+	broker                     CAASBroker
+	clock                      clock.Clock
+	logger                     logger.Logger
+	newAppWorker               NewAppWorkerFunc
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -181,16 +207,17 @@ func newProvisionerWorker(
 	config Config, runner Runner,
 ) (worker.Worker, error) {
 	p := &provisioner{
-		applicationService:   config.ApplicationService,
-		statusService:        config.StatusService,
-		agentPasswordService: config.AgentPasswordService,
-		facade:               config.Facade,
-		broker:               config.Broker,
-		modelTag:             config.ModelTag,
-		clock:                config.Clock,
-		logger:               config.Logger,
-		newAppWorker:         config.NewAppWorker,
-		runner:               runner,
+		applicationService:         config.ApplicationService,
+		statusService:              config.StatusService,
+		agentPasswordService:       config.AgentPasswordService,
+		storageProvisioningService: config.StorageProvisioningService,
+		resourceOpenerGetter:       config.ResourceOpenerGetter,
+		facade:                     config.Facade,
+		broker:                     config.Broker,
+		clock:                      config.Clock,
+		logger:                     config.Logger,
+		newAppWorker:               config.NewAppWorker,
+		runner:                     runner,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "caas-application-provisioner",
@@ -254,15 +281,16 @@ func (p *provisioner) loop() error {
 				}
 
 				config := AppWorkerConfig{
-					AppID:                appID,
-					ApplicationService:   p.applicationService,
-					StatusService:        p.statusService,
-					AgentPasswordService: p.agentPasswordService,
-					Facade:               p.facade,
-					Broker:               p.broker,
-					ModelTag:             p.modelTag,
-					Clock:                p.clock,
-					Logger:               p.logger.Child(id),
+					AppID:                      appID,
+					ApplicationService:         p.applicationService,
+					StatusService:              p.statusService,
+					AgentPasswordService:       p.agentPasswordService,
+					StorageProvisioningService: p.storageProvisioningService,
+					ResourceOpenerGetter:       p.resourceOpenerGetter,
+					Facade:                     p.facade,
+					Broker:                     p.broker,
+					Clock:                      p.clock,
+					Logger:                     p.logger.Child(id),
 				}
 				startFunc := p.newAppWorker(config)
 				p.logger.Debugf(ctx, "starting app worker %q", appID)
