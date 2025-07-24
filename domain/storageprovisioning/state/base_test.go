@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	coremachine "github.com/juju/juju/core/machine"
@@ -18,6 +19,8 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -25,8 +28,20 @@ import (
 // tests. Base suite does not seed a starting state and does not run any tests.
 type baseSuite struct {
 	schematesting.ModelSuite
+}
 
-	storageInstCount int
+func (s *baseSuite) nextSequenceNumber(c *tc.C, ctx context.Context, namespace domainsequence.StaticNamespace) uint64 {
+	st := NewState(s.TxnRunnerFactory())
+	db, err := st.DB()
+	c.Assert(err, tc.ErrorIsNil)
+
+	var id uint64
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		id, err = sequencestate.NextValue(ctx, st, tx, namespace)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return id
 }
 
 // newMachineWithNetNode creates a new machine in the model attached to the
@@ -139,6 +154,7 @@ func (s *baseSuite) newStorageInstance(c *tc.C, storageName, charmUUID string) s
 
 	storageUUID := storagetesting.GenStorageUUID(c)
 	poolUUID := uuid.MustNewUUID().String()
+	storageID := fmt.Sprintf("%s/%d", storageName, s.nextSequenceNumber(c, ctx, domainsequence.StaticNamespace("storage")))
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_pool(uuid, name, type)
@@ -154,16 +170,15 @@ VALUES (?, ?, ?, ?, ?)
 		if err != nil {
 			return err
 		}
-
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			storageUUID, charmUUID, storageName, fmt.Sprintf("%s/%d", storageName, s.storageInstCount), domainlife.Alive, 100, poolUUID)
+			storageUUID, charmUUID, storageName, storageID, domainlife.Alive, 100, poolUUID,
+		)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.storageInstCount++
 	return storageUUID.String()
 }
 
