@@ -19,6 +19,7 @@ import (
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	life "github.com/juju/juju/domain/life"
 	network "github.com/juju/juju/domain/network"
+	storage "github.com/juju/juju/domain/storage"
 	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -203,7 +204,7 @@ func (c *MockStateGetFilesystemAttachmentLifeForNetNodeCall) DoAndReturn(f func(
 }
 
 // GetFilesystemAttachmentUUIDForIDNetNode mocks base method.
-func (m *MockState) GetFilesystemAttachmentUUIDForIDNetNode(arg0 context.Context, arg1 string, arg2 network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error) {
+func (m *MockState) GetFilesystemAttachmentUUIDForIDNetNode(arg0 context.Context, arg1 storageprovisioning.FilesystemUUID, arg2 network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilesystemAttachmentUUIDForIDNetNode", arg0, arg1, arg2)
 	ret0, _ := ret[0].(storageprovisioning.FilesystemAttachmentUUID)
@@ -230,13 +231,13 @@ func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) Return(arg0 stora
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) Do(f func(context.Context, string, network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error)) *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall {
+func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID, network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error)) *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) DoAndReturn(f func(context.Context, string, network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error)) *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall {
+func (c *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID, network.NetNodeUUID) (storageprovisioning.FilesystemAttachmentUUID, error)) *MockStateGetFilesystemAttachmentUUIDForIDNetNodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -393,6 +394,45 @@ func (c *MockStateGetMachineNetNodeUUIDCall) Do(f func(context.Context, machine.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachineNetNodeUUIDCall) DoAndReturn(f func(context.Context, machine.UUID) (network.NetNodeUUID, error)) *MockStateGetMachineNetNodeUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStorageInstanceUUIDForID mocks base method.
+func (m *MockState) GetStorageInstanceUUIDForID(arg0 context.Context, arg1 string) (storage.StorageInstanceUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageInstanceUUIDForID", arg0, arg1)
+	ret0, _ := ret[0].(storage.StorageInstanceUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageInstanceUUIDForID indicates an expected call of GetStorageInstanceUUIDForID.
+func (mr *MockStateMockRecorder) GetStorageInstanceUUIDForID(arg0, arg1 any) *MockStateGetStorageInstanceUUIDForIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageInstanceUUIDForID", reflect.TypeOf((*MockState)(nil).GetStorageInstanceUUIDForID), arg0, arg1)
+	return &MockStateGetStorageInstanceUUIDForIDCall{Call: call}
+}
+
+// MockStateGetStorageInstanceUUIDForIDCall wrap *gomock.Call
+type MockStateGetStorageInstanceUUIDForIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageInstanceUUIDForIDCall) Return(arg0 storage.StorageInstanceUUID, arg1 error) *MockStateGetStorageInstanceUUIDForIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageInstanceUUIDForIDCall) Do(f func(context.Context, string) (storage.StorageInstanceUUID, error)) *MockStateGetStorageInstanceUUIDForIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageInstanceUUIDForIDCall) DoAndReturn(f func(context.Context, string) (storage.StorageInstanceUUID, error)) *MockStateGetStorageInstanceUUIDForIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
