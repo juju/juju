@@ -48,7 +48,6 @@ type debugLogHandlerFunc func(
 	debugLogSocket,
 	logTailerFunc,
 	<-chan struct{},
-	<-chan struct{},
 ) error
 
 func newDebugLogHandler(
@@ -113,13 +112,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		st, err := h.ctxt.stateForRequestUnauthenticated(req.Context())
-		if err != nil {
-			socket.sendError(err)
-			return
-		}
-		defer st.Release()
-
 		modelUUID, _ := httpcontext.RequestModelUUID(req.Context())
 
 		params, err := readDebugLogParams(req.URL.Query())
@@ -154,7 +146,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}()
 
-		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, done, st.Removing()); err != nil {
+		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, done); err != nil {
 			if isBrokenPipe(err) {
 				logger.Tracef(req.Context(), "debug-log handler stopped (client disconnected)")
 			} else {

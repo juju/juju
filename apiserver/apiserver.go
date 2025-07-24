@@ -776,12 +776,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 
 	resourceAuthFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
-		_, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return entity.Tag(), nil
+		return httpCtxt.authenticatedTagFromRequest(req, tagKinds...)
 	}
 	resourceChangeAllowedFunc := func(ctx context.Context) error {
 		serviceFactory, err := httpCtxt.domainServicesForRequest(ctx)

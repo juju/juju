@@ -41,14 +41,13 @@ func newAgentLogWriteFunc(
 }
 
 func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
-	st, entity, err := ctxt.stateForRequestAuthenticatedAgent(req)
+	authTag, err := ctxt.authenticatedAgentFromRequest(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = st.Release() }()
 
 	modelUUID, _ := httpcontext.RequestModelUUID(req.Context())
-	s.entity = entity.Tag().String()
+	s.entity = authTag.String()
 	s.modelUUID = coremodel.UUID(modelUUID)
 
 	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {

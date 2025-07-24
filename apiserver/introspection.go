@@ -35,11 +35,10 @@ func (h introspectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h introspectionHandler) checkAuth(r *http.Request) error {
-	st, entity, err := h.ctx.stateAndEntityForRequestAuthenticatedUser(r)
+	authTag, err := h.ctx.authenticatedUserFromRequest(r)
 	if err != nil {
 		return err
 	}
-	defer st.Release()
 
 	// Users with "superuser" access on the controller,
 	// or "read" access on the controller model, can
@@ -60,12 +59,16 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 		return access, errors.Trace(err)
 	}
 
+	modelInfo, err := svc.ModelInfo().GetModelInfo(r.Context())
+	if err != nil {
+		return err
+	}
 	ok, err := common.HasPermission(
 		r.Context(),
 		userPermission,
-		entity.Tag(),
+		authTag,
 		permission.SuperuserAccess,
-		st.ControllerTag(),
+		names.NewControllerTag(modelInfo.ControllerUUID.String()),
 	)
 	if err != nil {
 		return err
@@ -74,12 +77,16 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 		return nil
 	}
 
+	controllerModelUUID, err := svc.Controller().ControllerModelUUID(r.Context())
+	if err != nil {
+		return err
+	}
 	ok, err = common.HasPermission(
 		r.Context(),
 		userPermission,
-		entity.Tag(),
+		authTag,
 		permission.ReadAccess,
-		names.NewModelTag(st.ControllerModelUUID()),
+		names.NewModelTag(controllerModelUUID.String()),
 	)
 	if err != nil {
 		return err
