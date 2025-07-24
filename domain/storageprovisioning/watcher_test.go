@@ -59,7 +59,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 	// Assert that without any attachments machine provisioned filesystems do
 	// not emit a change event on the watcher until at least one attachment
 	// exists.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		fsOneUUID, fsOneID = s.newMachineFilesystem(c)
 		fsTwoUUID, fsTwoID = s.newMachineFilesystem(c)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -68,7 +68,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 
 	// Assert that adding the first attachment for the filesystem causes the
 	// watcher to fire.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.newMachineFilesystemAttachmentForMachine(c, fsOneUUID, machineUUID)
 		fsaTwoUUID = s.newMachineFilesystemAttachmentForMachine(c, fsTwoUUID, machineUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -78,7 +78,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 	})
 
 	// Assert that a life change to a filesystem is reported by the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemLife(c, fsOneUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -88,7 +88,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 
 	// Assert that changing something about a filesystem which isn't the life
 	// does not produce a change in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemProviderID(c, fsTwoUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -96,7 +96,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 
 	// Assert that deleting the last filesystem attachment for a filesystem
 	// results in the watcher firing.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteFilesystemAttachment(c, fsaTwoUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -132,7 +132,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc.C)
 
 	// Assert new machine provisioned filesystem attachments come out in the
 	// watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		fsOneUUID, _ := s.newModelFilesystem(c)
 		fsTwoUUID, _ := s.newModelFilesystem(c)
 		fsaOneUUID := s.newMachineFilesystemAttachmentForMachine(c, fsOneUUID, machineUUID)
@@ -147,7 +147,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc.C)
 
 	// Assert that a life change to a filesystem attachment is reported in the
 	// watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemAttachmentLife(c, fsaChangeUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -157,14 +157,14 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc.C)
 
 	// Assert that changing something about a filesystem attachment which isn't
 	// the life does not produce a change in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemAttachmentMountPoint(c, fsaChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that deleting a filesystem attachemtn is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteFilesystemAttachment(c, fsaChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -197,7 +197,7 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C) {
 	)
 
 	// Assert new model provisioned filesystems come out in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		fsOneUUID, _ := s.newModelFilesystem(c)
 		fsTwoUUID, _ := s.newModelFilesystem(c)
 		fsaOneUUID := s.newModelFilesystemAttachmentForMachine(c, fsOneUUID, machineUUID)
@@ -212,7 +212,7 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C) {
 
 	// Assert that a life change to a filesystem attachment is reported in the
 	// watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemAttachmentLife(c, fsaChangeUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -222,14 +222,14 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C) {
 
 	// Assert that changing something about a filesystem attachment which isn't
 	// the life does not produce a change in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemAttachmentMountPoint(c, fsaChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that deleting a filesystem attachment is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteFilesystemAttachment(c, fsaChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -261,7 +261,7 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 	)
 
 	// Assert new model provisioned filesystems come out in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_, fsOneID := s.newModelFilesystem(c)
 		fsChangeUUID, fsChangeID = s.newModelFilesystem(c)
 		changeVals = []string{fsOneID, fsChangeID}
@@ -272,7 +272,7 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 	})
 
 	// Assert that a life change to a filesystem is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemLife(c, fsChangeUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -282,14 +282,14 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 
 	// Assert that changing something about a filesystem which isn't the life
 	// does not produce a change in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeFilesystemProviderID(c, fsChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that deleting a filesystem is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteFilesystem(c, fsChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -324,7 +324,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 	// Assert that without any attachments machine provisioned volumes do
 	// not emit a change event on the watcher until at least one attachment
 	// exists.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		vsOneUUID, vsOneID = s.newMachineVolume(c)
 		vsTwoUUID, vsTwoID = s.newMachineVolume(c)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -333,7 +333,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 
 	// Assert that adding the first attachment for the volume causes the
 	// watcher to fire.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.newMachineVolumeAttachmentForMachine(c, vsOneUUID, machineUUID)
 		vsaTwoUUID = s.newMachineVolumeAttachmentForMachine(c, vsTwoUUID, machineUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -343,7 +343,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 	})
 
 	// Assert that a life change to a volume is reported by the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeLife(c, vsOneUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -353,7 +353,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 
 	// Assert that changing something about a volume which isn't the life
 	// does not produce a change in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeProviderID(c, vsTwoUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -361,7 +361,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 
 	// Assert that deleting the last volume attachment for a volume results in
 	// the watcher firing.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteVolumeAttachment(c, vsaTwoUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -397,7 +397,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 
 	// Assert new machine provisioned volume attachment comes out in the
 	// watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		vsOneUUID, _ := s.newMachineVolume(c)
 		vsTwoUUID, _ := s.newMachineVolume(c)
 		vsaOneUUID := s.newMachineVolumeAttachmentForMachine(c, vsOneUUID, machineUUID)
@@ -412,7 +412,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 
 	// Assert that a life change to a volume attachment is reported in the
 	// watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeAttchmentLife(c, vsaChangeUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -422,14 +422,14 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 
 	// Assert that changing something about a volume attachment which isn't
 	// the life does not produce a change in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeAttachmentReadOnly(c, vsaChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that deleting a volume attachment is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteVolumeAttachment(c, vsaChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -462,7 +462,7 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 	)
 
 	// Assert new model provisioned volume attachments come out in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		vsOneUUID, _ := s.newModelVolume(c)
 		vsTwoUUID, _ := s.newModelVolume(c)
 		vsaOneUUID := s.newModelVolumeAttachmentForMachine(c, vsOneUUID, machineUUID)
@@ -477,7 +477,7 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 
 	// Assert that a life change to a volume attachment is reported in the
 	// watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeAttchmentLife(c, vsaChangeUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -487,14 +487,14 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 
 	// Assert that changing something about a volume attachment which isn't
 	// the life does not produce a change in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeAttachmentReadOnly(c, vsaChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that deleting a volume attachment is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteVolumeAttachment(c, vsaChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -525,7 +525,7 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 	)
 
 	// Assert new model provisioned volumes come out in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_, fsOneID := s.newModelVolume(c)
 		vsChangeUUID, vsChangeID = s.newModelVolume(c)
 		changeVals = []string{fsOneID, vsChangeID}
@@ -536,7 +536,7 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 	})
 
 	// Assert that a life change to a volume is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeLife(c, vsChangeUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -546,14 +546,14 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 
 	// Assert that changing something about a volume which isn't the life
 	// does not produce a change in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeProviderID(c, vsChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Assert that deleting a volume is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteVolume(c, vsChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -588,7 +588,7 @@ func (s *watcherSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	)
 
 	// Assert new volume attachment plans come out in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		vsOneUUID, vsOneID := s.newMachineVolume(c)
 		vsTwoUUID, vsTwoID := s.newMachineVolume(c)
 		s.newVolumeAttachmentPlanForMachine(c, vsOneUUID, machineUUID)
@@ -606,7 +606,7 @@ func (s *watcherSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 
 	// Assert that a life change to a volume attachment plan is reported in the
 	// watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeVolumeAttchmentPlanLife(c, vapChangeUUID, domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -615,7 +615,7 @@ func (s *watcherSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	})
 
 	// Assert that deleting a volume attachment plan is reported in the watcher.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteVolumeAttachmentPlan(c, vapChangeUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -644,19 +644,19 @@ func (s *watcherSuite) TestWatchMachineCloudInstance(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.newMachineCloudInstance(c, machineUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.changeMachineCloudInstanceDisplayName(c, machineUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		s.deleteMachineCloudInstance(c, machineUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
