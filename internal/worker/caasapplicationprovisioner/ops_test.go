@@ -4,7 +4,9 @@
 package caasapplicationprovisioner_test
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"testing"
 	"time"
 
@@ -14,7 +16,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	charmscommon "github.com/juju/juju/api/common/charms"
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
@@ -26,12 +27,17 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
@@ -53,58 +59,6 @@ func (s *OpsSuite) SetUpTest(c *tc.C) {
 
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggertesting.WrapCheckLog(c)
-}
-
-func (s *OpsSuite) TestCheckCharmFormatV1(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	charmInfoV1 := &charmscommon.CharmInfo{
-		Meta: &charm.Meta{Name: "test"},
-	}
-
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-
-	// Wait till charm is v2
-	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").Return(charmInfoV1, nil)
-
-	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(c.Context(), "test", facade, s.logger)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isOk, tc.IsFalse)
-}
-
-func (s *OpsSuite) TestCheckCharmFormatV2(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	charmInfoV2 := &charmscommon.CharmInfo{
-		Meta:     &charm.Meta{Name: "test"},
-		Manifest: &charm.Manifest{Bases: []charm.Base{{}}},
-	}
-
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-
-	// Wait till charm is v2
-	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").Return(charmInfoV2, nil)
-
-	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(c.Context(), "test", facade, s.logger)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isOk, tc.IsTrue)
-}
-
-func (s *OpsSuite) TestCheckCharmFormatNotFound(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-
-	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").DoAndReturn(func(_ context.Context, appName string) (*charmscommon.CharmInfo, error) {
-		return nil, errors.NotFoundf("test charm")
-	})
-
-	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(c.Context(), "test", facade, s.logger)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(isOk, tc.IsFalse)
 }
 
 func (s *OpsSuite) TestEnsureTrust(c *tc.C) {
@@ -440,18 +394,16 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	defer ctrl.Finish()
 
 	app := caasmocks.NewMockApplication(ctrl)
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 	password := "123456789"
 	lastApplied := caas.ApplicationConfig{}
 
-	pi := api.ProvisioningInfo{
-		CharmURL: charm.MustParseURL("ch:my-app"),
-		ImageDetails: resource.DockerImageDetails{
+	pi := caasapplicationprovisioner.ProvisioningInfo{
+		ImageDetails: coreresource.DockerImageDetails{
 			RegistryPath: "test-repo/jujud-operator:2.9.99",
-			ImageRepoDetails: resource.ImageRepoDetails{
+			ImageRepoDetails: coreresource.ImageRepoDetails{
 				Repository:    "test-repo",
 				ServerAddress: "registry.com",
 			},
@@ -473,20 +425,14 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 		Trust:       true,
 		Scale:       10,
 		Constraints: constraints.MustParse("mem=1G"),
-		//Filesystems: []storage.KubernetesFilesystemParams{{
-		//	StorageName: "data",
-		//	Size:        100,
-		//}},
-		Devices: []devices.KubernetesDeviceParams{},
-	}
-	charmInfo := charmscommon.CharmInfo{
-		Meta: &charm.Meta{
+		Devices:     []devices.KubernetesDeviceParams{},
+		CharmMeta: &charm.Meta{
 			Containers: map[string]charm.Container{
 				"mysql": {
 					Resource: "mysql-image",
 					Mounts: []charm.Mount{{
 						Storage:  "data",
-						Location: "/data",
+						Location: "/container-defined-location",
 					}},
 				},
 				"rootless": {
@@ -496,19 +442,35 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 				},
 			},
 		},
+		Images: map[string]coreresource.DockerImageDetails{
+			"mysql-image": {
+				RegistryPath: "mysql/ubuntu:latest-22.04",
+			},
+			"rootless-image": {
+				RegistryPath: "rootless:foo-bar",
+			},
+		},
+		FilesystemTemplates: []storageprovisioning.FilesystemTemplate{{
+			StorageName:  "data",
+			Count:        1,
+			MaxCount:     1,
+			SizeMiB:      100,
+			ProviderType: "kubernetes",
+			ReadOnly:     false,
+			Location:     "/charm-defined-location",
+			Attributes: map[string]string{
+				"attr-foo": "attr-bar",
+			},
+		}},
+		StorageResourceTags: map[string]string{
+			"rsc-foo": "rsc-bar",
+		},
 	}
 	ds := caas.DeploymentState{
 		Exists:      true,
 		Terminating: true,
 	}
-	oci := map[string]resource.DockerImageDetails{
-		"mysql-image": {
-			RegistryPath: "mysql/ubuntu:latest-22.04",
-		},
-		"rootless-image": {
-			RegistryPath: "rootless:foo-bar",
-		},
-	}
+
 	ensureParams := caas.ApplicationConfig{
 		AgentVersion:         semversion.Number{Major: 2, Minor: 9, Patch: 99},
 		AgentImagePath:       "test-repo/jujud-operator:2.9.99",
@@ -517,17 +479,17 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 		Containers: map[string]caas.ContainerConfig{
 			"mysql": {
 				Name: "mysql",
-				Image: resource.DockerImageDetails{
+				Image: coreresource.DockerImageDetails{
 					RegistryPath: "mysql/ubuntu:latest-22.04",
 				},
 				Mounts: []caas.MountConfig{{
 					StorageName: "data",
-					Path:        "/data",
+					Path:        "/container-defined-location",
 				}},
 			},
 			"rootless": {
 				Name: "rootless",
-				Image: resource.DockerImageDetails{
+				Image: coreresource.DockerImageDetails{
 					RegistryPath: "rootless:foo-bar",
 				},
 				Uid: ptr(5000),
@@ -541,28 +503,36 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 			"tag": "tag-value",
 		},
 		Constraints: constraints.MustParse("mem=1G"),
-		//Filesystems: []storage.KubernetesFilesystemParams{{
-		//	StorageName: "data",
-		//	Size:        100,
-		//}},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "data",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attributes: map[string]any{
+				"attr-foo": "attr-bar",
+			},
+			ResourceTags: map[string]string{
+				"rsc-foo": "rsc-bar",
+			},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				ReadOnly: false,
+				Path:     "/charm-defined-location",
+			},
+		}},
 		Devices:      []devices.KubernetesDeviceParams{},
 		Trust:        true,
 		InitialScale: 10,
 		CharmUser:    caas.RunAsDefault,
 	}
 	gomock.InOrder(
-		facade.EXPECT().ProvisioningInfo(gomock.Any(), "test").Return(pi, nil),
-		facade.EXPECT().CharmInfo(gomock.Any(), "ch:my-app").Return(&charmInfo, nil),
 		app.EXPECT().Exists().Return(ds, nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
-		facade.EXPECT().ApplicationOCIResources(gomock.Any(), "test").Return(oci, nil),
 		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
 			c.Check(config, tc.DeepEquals, ensureParams)
 			return nil
 		}),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test", app, password, &lastApplied, facade, statusService, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test", app, password, &lastApplied, &pi, statusService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -612,6 +582,148 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 
 	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", appId, app, broker, applicationService, statusService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewID()
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
+	ro := mocks.NewMockOpener(ctrl)
+	resourceOpenerGetter.EXPECT().ResourceOpenerForApplication(gomock.Any(), appId, "test").Return(ro, nil)
+
+	facadePi := api.ProvisioningInfo{
+		ImageDetails: coreresource.DockerImageDetails{
+			RegistryPath: "test-repo/jujud-operator:2.9.99",
+			ImageRepoDetails: coreresource.ImageRepoDetails{
+				Repository:    "test-repo",
+				ServerAddress: "registry.com",
+			},
+		},
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+				Risk:  corebase.Stable,
+			},
+		},
+		Version:              semversion.MustParse("2.9.99"),
+		CharmModifiedVersion: 123,
+		APIAddresses:         []string{"1.2.3.1", "1.2.3.2", "1.2.3.3"},
+		CACert:               "CACERT",
+		Tags: map[string]string{
+			"tag": "tag-value",
+		},
+		Trust:       true,
+		Scale:       10,
+		Constraints: constraints.MustParse("mem=1G"),
+		Devices:     []devices.KubernetesDeviceParams{},
+	}
+	facade.EXPECT().ProvisioningInfo(gomock.Any(), "test").Return(facadePi, nil)
+
+	fsTemplates := []storageprovisioning.FilesystemTemplate{{
+		StorageName:  "data",
+		Count:        1,
+		MaxCount:     1,
+		SizeMiB:      100,
+		ProviderType: "kubernetes",
+		ReadOnly:     false,
+		Location:     "/charm-defined-location",
+		Attributes: map[string]string{
+			"attr-foo": "attr-bar",
+		},
+	}}
+	storageProvisioningService.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appId).Return(fsTemplates, nil)
+
+	storageResourceTags := map[string]string{
+		"rsc-foo": "rsc-bar",
+	}
+	storageProvisioningService.EXPECT().GetStorageResourceTagsForApplication(gomock.Any(), appId).Return(storageResourceTags, nil)
+
+	chMeta := &charm.Meta{
+		Containers: map[string]charm.Container{
+			"mysql": {
+				Resource: "mysql-image",
+				Mounts: []charm.Mount{{
+					Storage:  "data",
+					Location: "/container-defined-location",
+				}},
+			},
+			"rootless": {
+				Resource: "rootless-image",
+				Uid:      ptr(5000),
+				Gid:      ptr(5001),
+			},
+		},
+		Resources: map[string]charmresource.Meta{
+			"mysql-image": {
+				Name: "mysql-image",
+				Type: charmresource.TypeContainerImage,
+			},
+			"rootless-image": {
+				Name: "rootless-image",
+				Type: charmresource.TypeContainerImage,
+			},
+		},
+	}
+	ch := charm.NewCharmBase(chMeta, nil, nil, nil, nil)
+	applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), appId).Return(ch, applicationcharm.CharmLocator{}, nil)
+
+	mysqlImageResource := coreresource.Opened{
+		ReadCloser: io.NopCloser(bytes.NewBufferString("registrypath: mysql/ubuntu:latest-22.04")),
+	}
+	ro.EXPECT().OpenResource(gomock.Any(), "mysql-image").Return(mysqlImageResource, nil)
+	ro.EXPECT().SetResourceUsed(gomock.Any(), gomock.Any()).Return(nil)
+	rootlessImageResource := coreresource.Opened{
+		ReadCloser: io.NopCloser(bytes.NewBufferString("registrypath: rootless:foo-bar")),
+	}
+	ro.EXPECT().OpenResource(gomock.Any(), "rootless-image").Return(rootlessImageResource, nil)
+	ro.EXPECT().SetResourceUsed(gomock.Any(), gomock.Any()).Return(nil)
+
+	pi, err := caasapplicationprovisioner.AppOps.ProvisioningInfo(c.Context(), "test", appId, facade, storageProvisioningService, applicationService, resourceOpenerGetter, nil, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pi, tc.DeepEquals, &caasapplicationprovisioner.ProvisioningInfo{
+		ImageDetails: coreresource.DockerImageDetails{
+			RegistryPath: "test-repo/jujud-operator:2.9.99",
+			ImageRepoDetails: coreresource.ImageRepoDetails{
+				Repository:    "test-repo",
+				ServerAddress: "registry.com",
+			},
+		},
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+				Risk:  corebase.Stable,
+			},
+		},
+		Version:              semversion.MustParse("2.9.99"),
+		CharmModifiedVersion: 123,
+		APIAddresses:         []string{"1.2.3.1", "1.2.3.2", "1.2.3.3"},
+		CACert:               "CACERT",
+		Tags: map[string]string{
+			"tag": "tag-value",
+		},
+		Trust:       true,
+		Scale:       10,
+		Constraints: constraints.MustParse("mem=1G"),
+		Devices:     []devices.KubernetesDeviceParams{},
+		CharmMeta:   chMeta,
+		Images: map[string]resource.DockerImageDetails{
+			"mysql-image": {
+				RegistryPath: "mysql/ubuntu:latest-22.04",
+			},
+			"rootless-image": {
+				RegistryPath: "rootless:foo-bar",
+			},
+		},
+		FilesystemTemplates: fsTemplates,
+		StorageResourceTags: storageResourceTags,
+	})
 }
 
 func ptr[T any](i T) *T {

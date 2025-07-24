@@ -46,7 +46,7 @@ func (m *MockApplicationOps) EXPECT() *MockApplicationOpsMockRecorder {
 }
 
 // AppAlive mocks base method.
-func (m *MockApplicationOps) AppAlive(arg0 context.Context, arg1 string, arg2 caas.Application, arg3 string, arg4 *caas.ApplicationConfig, arg5 caasapplicationprovisioner.CAASProvisionerFacade, arg6 caasapplicationprovisioner.StatusService, arg7 clock.Clock, arg8 logger.Logger) error {
+func (m *MockApplicationOps) AppAlive(arg0 context.Context, arg1 string, arg2 caas.Application, arg3 string, arg4 *caas.ApplicationConfig, arg5 *caasapplicationprovisioner.ProvisioningInfo, arg6 caasapplicationprovisioner.StatusService, arg7 clock.Clock, arg8 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppAlive", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	ret0, _ := ret[0].(error)
@@ -72,13 +72,13 @@ func (c *MockApplicationOpsAppAliveCall) Return(arg0 error) *MockApplicationOpsA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsAppAliveCall) Do(f func(context.Context, string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.StatusService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
+func (c *MockApplicationOpsAppAliveCall) Do(f func(context.Context, string, caas.Application, string, *caas.ApplicationConfig, *caasapplicationprovisioner.ProvisioningInfo, caasapplicationprovisioner.StatusService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(context.Context, string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.StatusService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
+func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(context.Context, string, caas.Application, string, *caas.ApplicationConfig, *caasapplicationprovisioner.ProvisioningInfo, caasapplicationprovisioner.StatusService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -159,45 +159,6 @@ func (c *MockApplicationOpsAppDyingCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
-// CheckCharmFormat mocks base method.
-func (m *MockApplicationOps) CheckCharmFormat(arg0 context.Context, arg1 string, arg2 caasapplicationprovisioner.CAASProvisionerFacade, arg3 logger.Logger) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckCharmFormat", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CheckCharmFormat indicates an expected call of CheckCharmFormat.
-func (mr *MockApplicationOpsMockRecorder) CheckCharmFormat(arg0, arg1, arg2, arg3 any) *MockApplicationOpsCheckCharmFormatCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmFormat", reflect.TypeOf((*MockApplicationOps)(nil).CheckCharmFormat), arg0, arg1, arg2, arg3)
-	return &MockApplicationOpsCheckCharmFormatCall{Call: call}
-}
-
-// MockApplicationOpsCheckCharmFormatCall wrap *gomock.Call
-type MockApplicationOpsCheckCharmFormatCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationOpsCheckCharmFormatCall) Return(arg0 bool, arg1 error) *MockApplicationOpsCheckCharmFormatCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsCheckCharmFormatCall) Do(f func(context.Context, string, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsCheckCharmFormatCall) DoAndReturn(f func(context.Context, string, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // EnsureScale mocks base method.
 func (m *MockApplicationOps) EnsureScale(arg0 context.Context, arg1 string, arg2 application.ID, arg3 caas.Application, arg4 life.Value, arg5 caasapplicationprovisioner.CAASProvisionerFacade, arg6 caasapplicationprovisioner.ApplicationService, arg7 caasapplicationprovisioner.StatusService, arg8 logger.Logger) error {
 	m.ctrl.T.Helper()
@@ -270,6 +231,45 @@ func (c *MockApplicationOpsEnsureTrustCall) Do(f func(context.Context, string, c
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationOpsEnsureTrustCall) DoAndReturn(f func(context.Context, string, caas.Application, caasapplicationprovisioner.ApplicationService, logger.Logger) error) *MockApplicationOpsEnsureTrustCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ProvisioningInfo mocks base method.
+func (m *MockApplicationOps) ProvisioningInfo(arg0 context.Context, arg1 string, arg2 application.ID, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.StorageProvisioningService, arg5 caasapplicationprovisioner.ApplicationService, arg6 caasapplicationprovisioner.ResourceOpenerGetter, arg7 *caasapplicationprovisioner.ProvisioningInfo, arg8 logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProvisioningInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	ret0, _ := ret[0].(*caasapplicationprovisioner.ProvisioningInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProvisioningInfo indicates an expected call of ProvisioningInfo.
+func (mr *MockApplicationOpsMockRecorder) ProvisioningInfo(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *MockApplicationOpsProvisioningInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisioningInfo", reflect.TypeOf((*MockApplicationOps)(nil).ProvisioningInfo), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	return &MockApplicationOpsProvisioningInfoCall{Call: call}
+}
+
+// MockApplicationOpsProvisioningInfoCall wrap *gomock.Call
+type MockApplicationOpsProvisioningInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationOpsProvisioningInfoCall) Return(arg0 *caasapplicationprovisioner.ProvisioningInfo, arg1 error) *MockApplicationOpsProvisioningInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationOpsProvisioningInfoCall) Do(f func(context.Context, string, application.ID, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.StorageProvisioningService, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.ResourceOpenerGetter, *caasapplicationprovisioner.ProvisioningInfo, logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error)) *MockApplicationOpsProvisioningInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationOpsProvisioningInfoCall) DoAndReturn(f func(context.Context, string, application.ID, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.StorageProvisioningService, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.ResourceOpenerGetter, *caasapplicationprovisioner.ProvisioningInfo, logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error)) *MockApplicationOpsProvisioningInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

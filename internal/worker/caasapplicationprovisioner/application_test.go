@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -39,9 +38,8 @@ func TestApplicationWorkerSuite(t *testing.T) {
 type ApplicationWorkerSuite struct {
 	coretesting.BaseSuite
 
-	appID    application.ID
-	modelTag names.ModelTag
-	logger   logger.Logger
+	appID  application.ID
+	logger logger.Logger
 }
 
 func (s *ApplicationWorkerSuite) SetUpTest(c *tc.C) {
@@ -51,7 +49,6 @@ func (s *ApplicationWorkerSuite) SetUpTest(c *tc.C) {
 	s.appID, err = application.NewID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggertesting.WrapCheckLog(c)
 }
 
@@ -72,18 +69,21 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	applicationService ApplicationService,
 	statusService StatusService,
 	agentPasswordService AgentPasswordService,
+	storageProvisioningService StorageProvisioningService,
+	resourceOpenerGetter ResourceOpenerGetter,
 ) worker.Worker {
 	config := AppWorkerConfig{
-		AppID:                s.appID,
-		Facade:               facade,
-		Broker:               broker,
-		ModelTag:             s.modelTag,
-		Clock:                clk,
-		Logger:               s.logger,
-		Ops:                  ops,
-		ApplicationService:   applicationService,
-		StatusService:        statusService,
-		AgentPasswordService: agentPasswordService,
+		AppID:                      s.appID,
+		Facade:                     facade,
+		Broker:                     broker,
+		Clock:                      clk,
+		Logger:                     s.logger,
+		Ops:                        ops,
+		ApplicationService:         applicationService,
+		StatusService:              statusService,
+		AgentPasswordService:       agentPasswordService,
+		StorageProvisioningService: storageProvisioningService,
+		ResourceOpenerGetter:       resourceOpenerGetter,
 	}
 	startFunc := NewAppWorker(config)
 	c.Assert(startFunc, tc.NotNil)
@@ -105,6 +105,8 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
 	done := make(chan struct{})
 
 	gomock.InOrder(
@@ -113,7 +115,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 			return "", applicationerrors.ApplicationNotFound
 		}),
 	)
-	appWorker := s.startAppWorker(c, nil, facade, broker, ops, applicationService, statusService, agentPasswordService)
+	appWorker := s.startAppWorker(c, nil, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -132,6 +134,8 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
 
 	done := make(chan struct{})
@@ -147,7 +151,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 			return nil
 		}),
 	)
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -166,6 +170,8 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
@@ -185,8 +191,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
 
-		ops.EXPECT().CheckCharmFormat(x, "test", x, x).Return(true, nil),
-
 		agentPasswordService.EXPECT().SetApplicationPassword(x, s.appID, x).Return(nil),
 
 		applicationService.EXPECT().WatchApplicationScale(x, "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
@@ -197,6 +201,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
 		applicationService.EXPECT().GetApplicationScalingState(x, "test").Return(applicationservice.ScalingState{}, nil),
 		facade.EXPECT().WatchProvisioningInfo(x, "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
 		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).Return(nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
@@ -240,7 +245,8 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 
 		// provisioningInfoChan fired
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
-		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).DoAndReturn(func(ctx context.Context, s1 string, a caas.Application, s2 string, ac *caas.ApplicationConfig, cf CAASProvisionerFacade, ss StatusService, c clock.Clock, l logger.Logger) error {
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).DoAndReturn(func(ctx context.Context, s1 string, a caas.Application, s2 string, ac *caas.ApplicationConfig, pi *ProvisioningInfo, ss StatusService, c clock.Clock, l logger.Logger) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),
@@ -257,7 +263,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -275,6 +281,8 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
@@ -336,7 +344,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -354,6 +362,8 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
 	done := make(chan struct{})
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
@@ -373,8 +383,6 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
 
-		ops.EXPECT().CheckCharmFormat(x, "test", x, x).Return(true, nil),
-
 		agentPasswordService.EXPECT().SetApplicationPassword(x, s.appID, x).Return(nil),
 
 		applicationService.EXPECT().WatchApplicationScale(x, "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
@@ -386,10 +394,11 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(x, "test").Return(applicationservice.ScalingState{}, nil),
 		facade.EXPECT().WatchProvisioningInfo(x, "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		// error with not provisioned
-		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).Return(errors.NotProvisioned),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(nil, errors.NotProvisioned),
 
 		// retry handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
 		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).Return(nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
@@ -433,7 +442,8 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 
 		// provisioningInfoChan fired
 		applicationService.EXPECT().GetApplicationLife(x, s.appID).Return(life.Alive, nil),
-		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).DoAndReturn(func(ctx context.Context, s1 string, a caas.Application, s2 string, ac *caas.ApplicationConfig, cf CAASProvisionerFacade, ss StatusService, c clock.Clock, l logger.Logger) error {
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		ops.EXPECT().AppAlive(x, "test", app, x, x, x, x, x, x).DoAndReturn(func(ctx context.Context, s1 string, a caas.Application, s2 string, ac *caas.ApplicationConfig, pi *ProvisioningInfo, ss StatusService, c clock.Clock, l logger.Logger) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),
@@ -450,7 +460,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -29,22 +28,26 @@ type appNotifyWorker interface {
 }
 
 type appWorker struct {
-	catacomb             catacomb.Catacomb
-	applicationService   ApplicationService
-	statusService        StatusService
-	agentPasswordService AgentPasswordService
-	facade               CAASProvisionerFacade
-	broker               CAASBroker
-	clock                clock.Clock
-	logger               logger.Logger
-	ops                  ApplicationOps
+	catacomb catacomb.Catacomb
 
-	appID       coreapplication.ID
-	modelTag    names.ModelTag
-	changes     chan struct{}
-	password    string
-	lastApplied caas.ApplicationConfig
-	life        life.Value
+	agentPasswordService       AgentPasswordService
+	applicationService         ApplicationService
+	statusService              StatusService
+	storageProvisioningService StorageProvisioningService
+	resourceOpenerGetter       ResourceOpenerGetter
+
+	facade CAASProvisionerFacade
+	broker CAASBroker
+	clock  clock.Clock
+	logger logger.Logger
+	ops    ApplicationOps
+
+	appID            coreapplication.ID
+	changes          chan struct{}
+	password         string
+	lastApplied      caas.ApplicationConfig
+	provisioningInfo *ProvisioningInfo
+	life             life.Value
 
 	engineReportRequest chan chan<- map[string]any
 }
@@ -52,9 +55,11 @@ type appWorker struct {
 type AppWorkerConfig struct {
 	AppID coreapplication.ID
 
-	ApplicationService   ApplicationService
-	StatusService        StatusService
-	AgentPasswordService AgentPasswordService
+	AgentPasswordService       AgentPasswordService
+	ApplicationService         ApplicationService
+	StatusService              StatusService
+	StorageProvisioningService StorageProvisioningService
+	ResourceOpenerGetter       ResourceOpenerGetter
 
 	Ops    ApplicationOps
 	Broker CAASBroker
@@ -62,8 +67,7 @@ type AppWorkerConfig struct {
 	Logger logger.Logger
 
 	// TODO: remove these
-	Facade   CAASProvisionerFacade
-	ModelTag names.ModelTag
+	Facade CAASProvisionerFacade
 }
 
 const tryAgain errors.ConstError = "try again"
@@ -79,18 +83,19 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
-			applicationService:   config.ApplicationService,
-			statusService:        config.StatusService,
-			agentPasswordService: config.AgentPasswordService,
-			appID:                config.AppID,
-			facade:               config.Facade,
-			broker:               config.Broker,
-			modelTag:             config.ModelTag,
-			clock:                config.Clock,
-			logger:               config.Logger,
-			changes:              changes,
-			ops:                  ops,
-			engineReportRequest:  make(chan chan<- map[string]any),
+			agentPasswordService:       config.AgentPasswordService,
+			applicationService:         config.ApplicationService,
+			statusService:              config.StatusService,
+			storageProvisioningService: config.StorageProvisioningService,
+			resourceOpenerGetter:       config.ResourceOpenerGetter,
+			appID:                      config.AppID,
+			facade:                     config.Facade,
+			broker:                     config.Broker,
+			clock:                      config.Clock,
+			logger:                     config.Logger,
+			changes:                    changes,
+			ops:                        ops,
+			engineReportRequest:        make(chan chan<- map[string]any),
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Name: "caas-application-provisioner",
@@ -168,12 +173,6 @@ func (a *appWorker) loop() error {
 	}
 
 	if appLife == life.Alive && !statusOnly {
-		// Ensure the charm is to a v2 charm.
-		isOk, err := a.ops.CheckCharmFormat(ctx, name, a.facade, a.logger)
-		if !isOk || err != nil {
-			return errors.Trace(err)
-		}
-
 		// Update the password once per worker start to avoid it changing too frequently.
 		a.password, err = password.RandomPassword()
 		if err != nil {
@@ -271,13 +270,20 @@ func (a *appWorker) loop() error {
 				appProvisionChanges = appProvisionWatcher.Changes()
 			}
 			if !statusOnly {
-				err = a.ops.AppAlive(ctx, name, app, a.password, &a.lastApplied, a.facade, a.statusService, a.clock, a.logger)
+				a.provisioningInfo, err = a.ops.ProvisioningInfo(ctx, name,
+					a.appID, a.facade, a.storageProvisioningService,
+					a.applicationService, a.resourceOpenerGetter,
+					a.provisioningInfo, a.logger)
 				if errors.Is(err, errors.NotProvisioned) {
 					a.logger.Debugf(ctx, "application %q is not provisioned", name)
 					// State not ready for this application to be provisioned yet.
 					// Usually because the charm has not yet been downloaded.
 					return tryAgain
 				} else if err != nil {
+					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
+				}
+				err = a.ops.AppAlive(ctx, name, app, a.password, &a.lastApplied, a.provisioningInfo, a.statusService, a.clock, a.logger)
+				if err != nil {
 					return errors.Trace(err)
 				}
 			}
