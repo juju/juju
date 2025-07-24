@@ -32,3 +32,39 @@ type FilesystemAttachmentID struct {
 	// one of these values to be set.
 	UnitName *coreunit.Name
 }
+
+// Filesystem is a struct that provides the information about a filesystem.
+type Filesystem struct {
+	// BackingVolume contains information about the volume that is used to back
+	// this filesystem. If this value is nil, this filesystem is not backed by
+	// a volume in the model.
+	BackingVolume *FilesystemBackingVolume
+
+	// FilesystemID is the ID of the filesystem resource that the attachment is for.
+	FilesystemID string
+
+	// Size is the size of the filesystem in MiB.
+	Size uint64
+}
+
+// FilesystemBackingVolume contains information about the volume that is used
+// to back a filesystem.
+type FilesystemBackingVolume struct {
+	// VolumeID is the ID of the volume that the filesystem is created on.
+	VolumeID string
+}
+
+// FilesystemAttachment is a struct that provides the information about a
+// filesystem attachment.
+type FilesystemAttachment struct {
+	// FilesystemID is the ID of the filesystem resource that the attachment is for.
+	FilesystemID string
+
+	// MountPoint is the path at which the filesystem is mounted on the
+	// machine. MountPoint may be empty, meaning that the filesystem is
+	// not mounted yet.
+	MountPoint string
+
+	// ReadOnly indicates whether the filesystem is mounted read-only.
+	ReadOnly bool
+}

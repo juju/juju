@@ -22,9 +22,13 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -134,30 +138,31 @@ func NewStorageProvisionerAPIv4(
 			if ok {
 				return authorizer.AuthController()
 			}
-			f, err := sb.Filesystem(tag)
-			if errors.Is(err, errors.NotFound) {
+			_, err := storageProvisioningService.GetFilesystem(ctx, tag.Id())
+			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 				return authorizer.AuthController()
 			} else if err != nil {
 				return false
 			}
-			volumeTag, err := f.Volume()
-			if err == nil {
-				// The filesystem has a backing volume. If the
-				// authenticated agent has access to any of the
-				// machines that the volume is attached to, then
-				// it may access the filesystem too.
-				volumeAttachments, err := sb.VolumeAttachments(volumeTag)
-				if err != nil && !errors.Is(err, errors.NotFound) {
-					return false
-				}
-				for _, a := range volumeAttachments {
-					if canAccessStorageMachine(a.Host(), false) {
-						return true
-					}
-				}
-			} else if !errors.Is(err, errors.NotFound) && err != state.ErrNoBackingVolume {
-				return false
-			}
+			// TODO: implement volume auth in Dqlite.
+			// volumeTag, err := f.Volume()
+			// if err == nil {
+			// 	// The filesystem has a backing volume. If the
+			// 	// authenticated agent has access to any of the
+			// 	// machines that the volume is attached to, then
+			// 	// it may access the filesystem too.
+			// 	volumeAttachments, err := sb.VolumeAttachments(volumeTag)
+			// 	if err != nil && !errors.Is(err, errors.NotFound) {
+			// 		return false
+			// 	}
+			// 	for _, a := range volumeAttachments {
+			// 		if canAccessStorageMachine(a.Host(), false) {
+			// 			return true
+			// 		}
+			// 	}
+			// } else if !errors.Is(err, errors.NotFound) && err != state.ErrNoBackingVolume {
+			// 	return false
+			// }
 			return authorizer.AuthController()
 		case names.MachineTag:
 			return allowMachines && canAccessStorageMachine(tag, true)
@@ -747,21 +752,55 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 	if err != nil {
 		return params.FilesystemResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
-	results := params.FilesystemResults{
-		Results: make([]params.FilesystemResult, len(args.Entities)),
-	}
+
 	one := func(arg params.Entity) (params.Filesystem, error) {
 		tag, err := names.ParseFilesystemTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
 			return params.Filesystem{}, apiservererrors.ErrPerm
 		}
-		filesystem, err := s.sb.Filesystem(tag)
-		if errors.Is(err, errors.NotFound) {
-			return params.Filesystem{}, apiservererrors.ErrPerm
-		} else if err != nil {
-			return params.Filesystem{}, err
+		fs, err := s.storageProvisioningService.GetFilesystem(ctx, tag.Id())
+		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+			return params.Filesystem{}, internalerrors.Errorf(
+				"filesystem %q not found", tag.Id(),
+			).Add(errors.NotFound)
 		}
-		return storagecommon.FilesystemFromState(filesystem)
+		if err != nil {
+			return params.Filesystem{}, internalerrors.Errorf(
+				"getting filesystem %q: %v", tag.Id(), err,
+			)
+		}
+		if fs.Size == 0 {
+			// TODO: We think that a filesystem with size 0 is not provisioned.
+			// The size is set when the storage provisioner worker calls SetFilesystemInfo.
+			// This is a temporary workaround for checking the provision state of the filesystem.
+			// Ideally, we should have a consistent way to check provisioning status
+			// for all storage entities.
+			return params.Filesystem{}, internalerrors.Errorf(
+				"filesystem %q is not provisioned", tag.Id(),
+			).Add(errors.NotProvisioned)
+		}
+		result := params.Filesystem{
+			FilesystemTag: tag.String(),
+			Info: params.FilesystemInfo{
+				FilesystemId: fs.FilesystemID,
+				Size:         fs.Size,
+			},
+		}
+		if fs.BackingVolume == nil {
+			// Filesystem is not backed by a volume.
+			return result, nil
+		}
+		if !names.IsValidVolume(fs.BackingVolume.VolumeID) {
+			return params.Filesystem{}, internalerrors.Errorf(
+				"invalid volume ID %q for filesystem %q", fs.BackingVolume.VolumeID, tag.Id(),
+			).Add(errors.NotValid)
+		}
+		result.VolumeTag = names.NewVolumeTag(fs.BackingVolume.VolumeID).String()
+		return result, nil
+	}
+
+	results := params.FilesystemResults{
+		Results: make([]params.FilesystemResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
 		var result params.FilesystemResult
@@ -868,12 +907,108 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 	results := params.FilesystemAttachmentResults{
 		Results: make([]params.FilesystemAttachmentResult, len(args.Ids)),
 	}
-	one := func(arg params.MachineStorageId) (params.FilesystemAttachment, error) {
-		filesystemAttachment, err := s.oneFilesystemAttachment(arg, canAccess)
+	one := func(arg params.MachineStorageId) (result params.FilesystemAttachment, _ error) {
+		hostTag, err := names.ParseTag(arg.MachineTag)
 		if err != nil {
-			return params.FilesystemAttachment{}, err
+			return result, internalerrors.Errorf(
+				"parsing host tag %q: %w", arg.MachineTag, err,
+			)
 		}
-		return storagecommon.FilesystemAttachmentFromState(filesystemAttachment)
+
+		filesystemTag, err := names.ParseFilesystemTag(arg.AttachmentTag)
+		if err != nil {
+			return result, internalerrors.Errorf(
+				"parsing filesystem tag %q: %w", arg.AttachmentTag, err,
+			)
+		}
+		if !canAccess(hostTag, filesystemTag) {
+			return result, apiservererrors.ErrPerm
+		}
+
+		var fsAttachment storageprovisioning.FilesystemAttachment
+		switch tag := hostTag.(type) {
+		case names.MachineTag:
+			var machineUUID machine.UUID
+			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				return result, internalerrors.Errorf(
+					"machine %q not found", tag.Id(),
+				).Add(errors.NotFound)
+			} else if err != nil {
+				return result, internalerrors.Capture(err)
+			}
+			fsAttachment, err = s.storageProvisioningService.GetFilesystemAttachmentForMachine(
+				ctx, machineUUID, filesystemTag.Id(),
+			)
+		case names.UnitTag:
+			var unitName coreunit.Name
+			unitName, err = coreunit.NewName(tag.Id())
+			if errors.Is(err, coreunit.InvalidUnitName) {
+				return result, internalerrors.Errorf(
+					"invalid unit name %q", tag.Id(),
+				).Add(errors.NotValid)
+			} else if err != nil {
+				return result, internalerrors.Capture(err)
+			}
+
+			var unitUUID coreunit.UUID
+			unitUUID, err = s.applicationService.GetUnitUUID(ctx, unitName)
+			if errors.Is(err, coreunit.InvalidUnitName) {
+				return result, internalerrors.Errorf(
+					"invalid unit name %q", unitName,
+				).Add(errors.NotValid)
+			} else if errors.Is(err, applicationerrors.UnitNotFound) {
+				return result, internalerrors.Errorf(
+					"unit %q not found", unitName,
+				).Add(errors.NotFound)
+			} else if err != nil {
+				return result, internalerrors.Errorf("getting unit %q UUID: %w", unitName, err)
+			}
+			fsAttachment, err = s.storageProvisioningService.GetFilesystemAttachmentForUnit(
+				ctx, unitUUID, filesystemTag.Id(),
+			)
+		default:
+			return result, errors.NotValidf("filesystem attachment host tag %q", tag)
+		}
+
+		switch {
+		case errors.Is(err, machineerrors.MachineNotFound):
+			return result, internalerrors.Errorf(
+				"machine %q not found", hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound):
+			return result, internalerrors.Errorf(
+				"filesystem attachment %q on %q not found", filesystemTag.Id(), hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+			return result, internalerrors.Errorf(
+				"filesystem %q not found for attachment on %q", filesystemTag.Id(), hostTag.Id(),
+			).Add(errors.NotFound)
+		case err != nil:
+			return result, internalerrors.Errorf(
+				"getting filesystem attachment for %q on %q: %w",
+				filesystemTag.Id(), hostTag.Id(), err,
+			)
+		}
+		if fsAttachment.MountPoint == "" {
+			// TODO: We think that filesystem attachments is not provisioned if
+			// the mount point is empty. The mount point is set when the the
+			// storage provisioner worker calls the SetFilesystemAttachmentInfo method.
+			// This is a temporary workaround for checking the provisioned state of
+			// filesystem attachments. Ideally, we should have a consistent way to check
+			// provisioning status for all storage entities.
+			return result, internalerrors.Errorf(
+				"filesystem attachment %q on %q is not provisioned", filesystemTag.Id(), hostTag.String(),
+			).Add(errors.NotProvisioned)
+		}
+		return params.FilesystemAttachment{
+			FilesystemTag: filesystemTag.String(),
+			MachineTag:    hostTag.String(),
+			Info: params.FilesystemAttachmentInfo{
+				MountPoint: fsAttachment.MountPoint,
+				ReadOnly:   fsAttachment.ReadOnly,
+			},
+		}, nil
 	}
 	for i, arg := range args.Ids {
 		var result params.FilesystemAttachmentResult

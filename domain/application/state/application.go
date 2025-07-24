@@ -139,7 +139,7 @@ func (st *State) CreateCAASApplication(
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.insertApplication(ctx, tx, name, appUUID, args.BaseAddApplicationArg); err != nil {
-			return errors.Errorf("inserting IAAS application %q: %w", name, err)
+			return errors.Errorf("inserting CAAS application %q: %w", name, err)
 		}
 
 		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
@@ -150,12 +150,12 @@ func (st *State) CreateCAASApplication(
 			return nil
 		}
 		if err = st.insertCAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
-			return errors.Errorf("inserting IAAS units for application %q: %w", appUUID, err)
+			return errors.Errorf("inserting CAAS units for application %q: %w", appUUID, err)
 		}
 		return nil
 	})
 	if err != nil {
-		return "", errors.Errorf("creating IAAS application %q: %w", name, err)
+		return "", errors.Errorf("creating CAAS application %q: %w", name, err)
 	}
 	return appUUID, nil
 }

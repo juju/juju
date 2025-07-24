@@ -89,6 +89,11 @@ type machineUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// unitUUID represents the UUID of a record in the unit table.
+type unitUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // netNodeUUIDRef represents a reference to a network node uuid in a storage
 // entity table.
 type netNodeUUIDRef struct {
@@ -159,4 +164,16 @@ func (l volumeLives) Iter(yield func(string, life.Life) bool) {
 			return
 		}
 	}
+}
+
+type filesystem struct {
+	FilesystemID string           `db:"filesystem_id"`
+	VolumeID     sql.Null[string] `db:"volume_id"`
+	Size         uint64           `db:"size_mib"`
+}
+
+type filesystemAttachment struct {
+	FilesystemID string `db:"filesystem_id"`
+	MountPoint   string `db:"mount_point"`
+	ReadOnly     bool   `db:"read_only"`
 }

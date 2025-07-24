@@ -10,7 +10,9 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -19,6 +21,16 @@ import (
 
 type State struct {
 	*domain.StateBase
+}
+
+// NewState creates and returns a new [State] for provisioning storage in the
+// model.
+func NewState(
+	factory database.TxnRunnerFactory,
+) *State {
+	return &State{
+		StateBase: domain.NewStateBase(factory),
+	}
 }
 
 // CheckMachineIsDead checks to see if a machine is not dead returning
@@ -107,6 +119,48 @@ func (st *State) GetMachineNetNodeUUID(
 	return domainnetwork.NetNodeUUID(dbVal.UUID), nil
 }
 
+// GetUnitNetNodeUUID retrieves the net node uuid associated with provided unit.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] when no unit exists for the provided
+// uuid.
+func (st *State) GetUnitNetNodeUUID(
+	ctx context.Context, uuid unit.UUID,
+) (domainnetwork.NetNodeUUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		input = unitUUID{UUID: uuid.String()}
+		dbVal netNodeUUIDRef
+	)
+	stmt, err := st.Prepare(`
+SELECT &netNodeUUIDRef.*
+FROM unit
+WHERE uuid = $unitUUID.uuid`,
+		input, dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("unit %q does not exist", uuid).Add(
+				applicationerrors.UnitNotFound,
+			)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return domainnetwork.NetNodeUUID(dbVal.UUID), nil
+}
+
 func (st *State) NamespaceForWatchMachineCloudInstance() string {
 	return "machine_cloud_instance"
 }
@@ -136,14 +190,4 @@ func (st *State) checkNetNodeExists(
 	}
 
 	return true, nil
-}
-
-// NewState creates and returns a new [State] for provisioning storage in the
-// model.
-func NewState(
-	factory database.TxnRunnerFactory,
-) *State {
-	return &State{
-		StateBase: domain.NewStateBase(factory),
-	}
 }

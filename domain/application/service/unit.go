@@ -333,8 +333,11 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	return nil
 }
 
-// GetUnitUUID returns the UUID for the named unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// GetUnitUUID returns the UUID for the named unit.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/unit.InvalidUnitName] if the unit name is invalid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the unit doesn't exist.
 func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
