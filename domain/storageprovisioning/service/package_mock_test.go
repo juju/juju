@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	machine "github.com/juju/juju/core/machine"
+	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	life "github.com/juju/juju/domain/life"
@@ -314,6 +315,45 @@ func (c *MockStateGetMachineNetNodeUUIDCall) Do(f func(context.Context, machine.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachineNetNodeUUIDCall) DoAndReturn(f func(context.Context, machine.UUID) (network.NetNodeUUID, error)) *MockStateGetMachineNetNodeUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitNetNodeUUID mocks base method.
+func (m *MockState) GetUnitNetNodeUUID(arg0 context.Context, arg1 unit.UUID) (network.NetNodeUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitNetNodeUUID", arg0, arg1)
+	ret0, _ := ret[0].(network.NetNodeUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitNetNodeUUID indicates an expected call of GetUnitNetNodeUUID.
+func (mr *MockStateMockRecorder) GetUnitNetNodeUUID(arg0, arg1 any) *MockStateGetUnitNetNodeUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNetNodeUUID", reflect.TypeOf((*MockState)(nil).GetUnitNetNodeUUID), arg0, arg1)
+	return &MockStateGetUnitNetNodeUUIDCall{Call: call}
+}
+
+// MockStateGetUnitNetNodeUUIDCall wrap *gomock.Call
+type MockStateGetUnitNetNodeUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitNetNodeUUIDCall) Return(arg0 network.NetNodeUUID, arg1 error) *MockStateGetUnitNetNodeUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitNetNodeUUIDCall) Do(f func(context.Context, unit.UUID) (network.NetNodeUUID, error)) *MockStateGetUnitNetNodeUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitNetNodeUUIDCall) DoAndReturn(f func(context.Context, unit.UUID) (network.NetNodeUUID, error)) *MockStateGetUnitNetNodeUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

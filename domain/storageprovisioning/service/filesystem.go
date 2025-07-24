@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/life"
@@ -112,7 +113,34 @@ func (s *Service) GetFilesystem(
 	return s.st.GetFilesystem(ctx, filesystemID)
 }
 
-// GetFilesystemAttachment retrieves the [storageprovisioning.FilesystemAttachment]
+// GetFilesystemAttachmentForUnit retrieves the [storageprovisioning.FilesystemAttachment]
+// for the supplied unit uuid and filesystem id.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+// is not valid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+// unit exists for the supplied unit uuid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
+// exists for the provided filesystem id.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
+// the provided filesystem id.
+func (s *Service) GetFilesystemAttachmentForUnit(
+	ctx context.Context,
+	unitUUID unit.UUID,
+	filesystemID string,
+) (storageprovisioning.FilesystemAttachment, error) {
+	if err := unitUUID.Validate(); err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+	return s.st.GetFilesystemAttachment(ctx, netNodeUUID, filesystemID)
+}
+
+// GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
 // for the supplied net node uuid and filesystem id.
 //
 // The following errors may be returned:
@@ -124,7 +152,7 @@ func (s *Service) GetFilesystem(
 // exists for the provided filesystem id.
 // - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
 // the provided filesystem id.
-func (s *Service) GetFilesystemAttachment(
+func (s *Service) GetFilesystemAttachmentForMachine(
 	ctx context.Context,
 	machineUUID machine.UUID,
 	filesystemID string,
