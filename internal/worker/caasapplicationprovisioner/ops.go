@@ -27,7 +27,7 @@ import (
 // This is exported for testing only.
 type ApplicationOps interface {
 	AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-		facade CAASProvisionerFacade, clk clock.Clock, broker CAASBroker, logger Logger) error
+		facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error
 
 	AppDying(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
@@ -64,8 +64,8 @@ type applicationOps struct {
 }
 
 func (applicationOps) AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	facade CAASProvisionerFacade, clk clock.Clock, broker CAASBroker, logger Logger) error {
-	return appAlive(appName, app, password, lastApplied, facade, clk, broker, logger)
+	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
+	return appAlive(appName, app, password, lastApplied, facade, clk, logger)
 }
 
 func (applicationOps) AppDying(appName string, app caas.Application, appLife life.Value,
@@ -123,36 +123,17 @@ type Tomb interface {
 	ErrDying() error
 }
 
-// SplitImage splits an image string into its OCINamespace and ImageRef components.
-func SplitImage(image string) (ociNamespace string, imageRef string) {
-	parts := strings.Split(image, "/")
-	if len(parts) < 3 {
-		return "", image //
-	}
-	ociNamespace = strings.Join(parts[:2], "/") // e.g., ghcr.io/juju
-	imageRef = strings.Join(parts[2:], "/")     // e.g., jujud-operator:3.6.9
-	return
-}
-
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
 // CAAS broker to create the resources in the k8s cluster for this application.
 func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	facade CAASProvisionerFacade, clk clock.Clock, broker CAASBroker, logger Logger) error {
+	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
 	logger.Debugf("ensuring application %q exists", appName)
 
 	provisionInfo, err := facade.ProvisioningInfo(appName)
-	//  Alvin change provisioning info image to model here
 	if err != nil {
 		return errors.Annotate(err, "retrieving provisioning info")
 	}
-
-	image, err := broker.GetModelOperatorDeploymentImage()
-	if err != nil {
-		return errors.Annotate(err, "alvin appAlive failed to get deployment image")
-	}
-	logger.Infof("alvin2 appalive image: %#v", image)
-
-	modelImageOCInamespace, _ := SplitImage(image)
+	logger.Infof("alvin2 provisionInfo: %#v", provisionInfo)
 
 	if provisionInfo.CharmURL == nil {
 		return errors.Errorf("missing charm url in provision info")
@@ -180,7 +161,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	}
 
 	ch := charmInfo.Charm()
-	charmBaseImage, err := podcfg.ImageForBase(modelImageOCInamespace, charm.Base{
+	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageDetails.Repository, charm.Base{
 		Name: provisionInfo.Base.OS,
 		Channel: charm.Channel{
 			Track: provisionInfo.Base.Channel.Track,
@@ -220,7 +201,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		IsPrivateImageRepo:   provisionInfo.ImageDetails.IsPrivate(),
 		IntroductionSecret:   password,
 		AgentVersion:         provisionInfo.Version,
-		AgentImagePath:       image,
+		AgentImagePath:       provisionInfo.ImageDetails.RegistryPath,
 		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
 		ControllerCertBundle: provisionInfo.CACert,
 		ResourceTags:         provisionInfo.Tags,

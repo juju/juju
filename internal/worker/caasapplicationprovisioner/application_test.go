@@ -206,7 +206,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
 		facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
-		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, broker, s.logger).Return(nil),
+		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).Return(nil),
 		app.EXPECT().Watch().Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 			scaleChan <- struct{}{}
@@ -249,7 +249,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 
 		// provisioningInfoChan fired
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, broker, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) error {
+		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),

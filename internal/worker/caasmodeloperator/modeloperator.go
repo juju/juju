@@ -118,14 +118,14 @@ func (m *ModelOperatorManager) update() error {
 			setPassword = false
 		}
 
-		// ALVIN GET DOCKER IMAGE DETAILS FROM K8S for model operator
-		image, err := m.broker.GetModelOperatorDeploymentImage()
+		// retrieves model operator deployment image to keep model operator's image the same after migration
+		modelImage, err := m.broker.GetModelOperatorDeploymentImage()
 		if err != nil {
 			return errors.Annotate(err, "alvin failed to get deployment image")
 		}
-		logger.Infof("alvin2 update image: %#v", image)
+		logger.Infof("alvin2 update image: %#v", modelImage)
 
-		info.ImageDetails.RegistryPath = image
+		info.ImageDetails.RegistryPath = modelImage
 	}
 	if setPassword {
 		err := m.api.SetPassword(password)

@@ -299,16 +299,10 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 		}
 	}
 
-	image, err := p.operatorManager.GetModelOperatorDeploymentImage()
-	if err != nil {
-		return nil, errors.Annotatef(err, "alvin fetching model operator config")
-	}
-	info.ImageDetails.RegistryPath = image
-	info.BaseImageDetails.RegistryPath = image
+	p.logger.Infof("alvin prevCfg in updateOperatorConfig: %#v", prevCfg)
 
-	p.logger.Infof("alvin image in updateOperatorConfig: %#v", image)
-	// info.ImageDetails.Repository = modelOperatorConfig.ImageDetails.Repository
-	// info.ImageDetails.RegistryPath = modelOperatorConfig.ImageDetails.RegistryPath
+	info.ImageDetails.RegistryPath = prevCfg.ImageDetails.RegistryPath
+	info.BaseImageDetails.RegistryPath = prevCfg.ImageDetails.RegistryPath
 
 	p.logger.Tracef("using operator info %+v", info)
 
