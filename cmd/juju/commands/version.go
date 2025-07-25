@@ -36,8 +36,6 @@ type versionDetail struct {
 	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
 	// Compiler reported by runtime.Compiler
 	Compiler string `json:"compiler" yaml:"compiler"`
-	// OfficialBuildNumber is a monotonic integer set by Jenkins.
-	OfficialBuildNumber int `json:"official-build-number,omitempty" yaml:"official-build-number,omitempty"`
 	// Official is true if this is an official build.
 	Official bool `json:"official" yaml:"official"`
 	// Grade reflects the snap grade value.
@@ -89,14 +87,13 @@ func (v *versionCommand) Init(args []string) error {
 		Release: coreos.HostOSTypeName(),
 	}
 	detail := versionDetail{
-		Version:             current,
-		GitCommit:           jujuversion.GitCommit,
-		GitTreeState:        jujuversion.GitTreeState,
-		Compiler:            jujuversion.Compiler,
-		GoBuildTags:         jujuversion.GoBuildTags,
-		OfficialBuildNumber: jujuversion.OfficialBuild,
-		Official:            isOfficialClient(),
-		Grade:               jujuversion.Grade,
+		Version:      current,
+		GitCommit:    jujuversion.GitCommit,
+		GitTreeState: jujuversion.GitTreeState,
+		Compiler:     jujuversion.Compiler,
+		GoBuildTags:  jujuversion.GoBuildTags,
+		Official:     isOfficialClient(),
+		Grade:        jujuversion.Grade,
 	}
 
 	v.version = detail.Version

@@ -91,6 +91,23 @@ func (s *containerSuite) TestContainerAddDiskNoDevices(c *tc.C) {
 	c.Check(container.Devices["root"], tc.DeepEquals, expected)
 }
 
+func (s *containerSuite) TestContainerAddDiskIdempotent(c *tc.C) {
+	container := lxd.Container{}
+	for range 2 {
+		err := container.AddDisk("root", "/", "source", "default", true)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	expected := map[string]string{
+		"type":     "disk",
+		"path":     "/",
+		"source":   "source",
+		"pool":     "default",
+		"readonly": "true",
+	}
+	c.Check(container.Devices["root"], tc.DeepEquals, expected)
+}
+
 func (s *containerSuite) TestContainerAddDiskDevicePresentError(c *tc.C) {
 	container := lxd.Container{}
 	container.Name = "seeyounexttuesday"

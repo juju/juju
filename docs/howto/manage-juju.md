@@ -12,7 +12,7 @@
 
 **Install from snap.**
 
-```{important}
+```{note}
 **Why install from snap?** Snaps get updated automatically. Thus, your client will be updated automatically as soon as a new Juju release becomes available.
 
 **Snap command not available on your system?** Visit [snapcraft.io](https://snapcraft.io) for instructions on how to install `snapd`.
@@ -262,14 +262,12 @@ For Microsoft Windows any native Windows backup tool will do.
 
 ```
 
-The above invocation embeds a timestamp in the generated archive's filename, which is useful for knowing **when** a backup was made. You may, of course, call it what you wish.
+The above invocation embeds a timestamp in the generated archive's filename, which is useful for knowing **when** a backup was made. You may, of course, call it whatever you wish.
 
 The archive should normally be transferred to another system (or at the very least to a different physical drive) for safe-keeping.
 
-```{note}
-
+```{important}
 Whoever has access to a client backup will have access to its associated environments. Appropriate steps should be taken to protect it (e.g. encryption).
-
 ```
 
 **Restore the `juju` client from a backup.** To restore your client from a backup, extract the backup created earlier. E.g., on Ubuntu:
@@ -297,7 +295,7 @@ tar -xzf juju-yymmdd-hhmmss.tar.gz
 **If you've installed via `snap`.**
 
 ```{note}
-Ensure you've created a backup of your ./local/share/juju before starting the upgrade process for the client.
+Ensure you've created a backup of your `./local/share/juju` before starting the upgrade process for the client.
 ```
 
 If the Juju client was installed via snap, the updates to the client should be handled automatically. Run `snap info juju` to view a list of releases and `juju version` to view the current release.

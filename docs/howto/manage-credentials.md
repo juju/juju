@@ -192,7 +192,7 @@ juju update-credential mycloud mycredential
 
 This will start an interactive session where you will be asked to specify various parameters for the update.
 
-By passing various flags, you can also perform this operation in-line. And by dropping the credential (and the cloud) argument and passing a flag with a credential YAMl file, you can also update all your credentials at once.
+By passing various flags, you can also perform this operation in-line. And by dropping the credential (and the cloud) argument and passing a flag with a credential YAML file, you can also update all your credentials at once.
 
 > See more: {ref}`command-juju-update-credential`
 
