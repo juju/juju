@@ -295,9 +295,6 @@ type ApplicationOperatorManager interface {
 	// WatchService returns a watcher which notifies when there
 	// are changes to the deployment of the specified application.
 	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
-
-	// GetModelOperatorDeploymentImage returns the image used for the model operator deployment.
-	GetModelOperatorDeploymentImage() (string, error)
 }
 
 // Upgrader provides the API to perform upgrades.

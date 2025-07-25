@@ -361,12 +361,12 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}
 	base := app.Base()
 
-	modelImageRepoNamespace, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
+	modelImageRepo, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepoNamespace)
+	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepo)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}

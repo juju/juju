@@ -141,14 +141,14 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		return result, errors.Annotatef(err, "getting model operator deployment image")
 	}
 
-	modelImageRepoNamespace, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
+	modelImageRepo, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepoNamespace)
+	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepo)
 	if err != nil {
-		return result, errors.Annotatef(err, "parsing %s", modelImageRepoNamespace)
+		return result, errors.Annotatef(err, "parsing %s", modelImageRepo)
 	}
 
 	imageInfo := params.NewDockerImageInfo(imageRepoDetails, modelImage)
