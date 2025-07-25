@@ -73,7 +73,7 @@ func DestroyController(
 			}
 		}
 	}
-	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
+	return destroyControllerModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
 		Force:               force,
@@ -82,27 +82,7 @@ func DestroyController(
 	})
 }
 
-// DestroyModel sets the model to Dying, such that the model's resources will
-// be destroyed and the model removed from the controller.
-func DestroyModel(
-	ctx context.Context,
-	st ModelManagerBackend,
-	blockCommandService BlockCommandService,
-	modelInfoService ModelInfoService,
-	destroyStorage *bool,
-	force *bool,
-	maxWait *time.Duration,
-	timeout *time.Duration,
-) error {
-	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
-		DestroyStorage: destroyStorage,
-		Force:          force,
-		MaxWait:        common.MaxWait(maxWait),
-		Timeout:        timeout,
-	})
-}
-
-func destroyModel(
+func destroyControllerModel(
 	ctx context.Context,
 	st ModelManagerBackend,
 	blockCommandService BlockCommandService,

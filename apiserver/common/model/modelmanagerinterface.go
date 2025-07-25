@@ -23,7 +23,6 @@ import (
 // All the interface methods are defined directly on state.State
 // and are reproduced here for use in tests.
 type ModelManagerBackend interface {
-	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 

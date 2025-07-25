@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modeldefaults"
+	"github.com/juju/juju/domain/removal"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/services"
@@ -55,6 +56,9 @@ type ModelDomainServices interface {
 
 	// Status returns the status service.
 	Status() StatusService
+
+	// Removal returns the removal service.
+	RemovalService() RemovalService
 }
 
 // DomainServicesGetter is a factory for creating model services.
@@ -348,6 +352,19 @@ type ApplicationService interface {
 	GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error)
 }
 
+// RemovalService defines operations for removing juju entities.
+type RemovalService interface {
+	// RemoveModel checks if a model with the input name exists.
+	// If it does, the model is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// model. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveModel(ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration) (removal.UUID, error)
+}
+
 // Services holds the services needed by the model manager api.
 type Services struct {
 	// DomainServicesGetter is an interface for interacting with a factory for
@@ -379,6 +396,8 @@ type Services struct {
 	// ModelAgentService is an interface for interacting with the model agent
 	// service.
 	ModelAgentService ModelAgentService
+	// RemovalService is an interface for interacting with the removal service.
+	RemovalService RemovalService
 }
 
 // BlockCommandService defines methods for interacting with block commands.
@@ -433,4 +452,8 @@ func (s domainServices) BlockCommand() BlockCommandService {
 
 func (s domainServices) Status() StatusService {
 	return s.domainServices.Status()
+}
+
+func (s domainServices) RemovalService() RemovalService {
+	return s.domainServices.Removal()
 }
