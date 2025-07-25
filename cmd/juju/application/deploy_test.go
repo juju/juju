@@ -125,6 +125,9 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"bundle", "--map-machines", "foo"},
 		err:  `error in --map-machines: expected "existing" or "<bundle-id>=<machine-id>", got "foo"`,
+	}, {
+		args: []string{"craziness", strings.Repeat("a", 64)},
+		err:  `application name is too long: Kubernetes resource names must be 63 characters or less`,
 	},
 }
 
