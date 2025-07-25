@@ -27,7 +27,12 @@ import (
 
 type storageMetadataFunc func() (poolmanager.PoolManager, storage.ProviderRegistry, error)
 
-// StorageAPI implements the latest version (v6) of the Storage API.
+// StorageAPIv6 provides the Storage API facade for version 6.
+type StorageAPIv6 struct {
+	*StorageAPI
+}
+
+// StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
 	backend         backend
 	storageAccess   storageAccess
@@ -725,6 +730,17 @@ func (a *StorageAPI) Import(args params.BulkImportStorageParams) (params.ImportS
 	return params.ImportStorageResults{Results: results}, nil
 }
 
+// Import imports existing storage into the model.
+// A "CHANGE" block can block this operation.
+func (a *StorageAPIv6) Import(args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
+	for _, storageParam := range args.Storage {
+		if storageParam.Force {
+			return params.ImportStorageResults{}, errors.NotSupportedf("Force import filesystem on this version of Juju")
+		}
+	}
+	return a.StorageAPI.Import(args)
+}
+
 func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.ImportStorageDetails, error) {
 	if arg.Kind != params.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.
@@ -803,7 +819,7 @@ func (a *StorageAPI) importFilesystem(
 				cfg.Provider(),
 			)
 		}
-		info, err := volumeImporter.ImportVolume(a.callContext, arg.ProviderId, resourceTags)
+		info, err := volumeImporter.ImportVolume(a.callContext, arg.ProviderId, resourceTags, arg.Force)
 		if err != nil {
 			return nil, errors.Annotate(err, "importing volume")
 		}

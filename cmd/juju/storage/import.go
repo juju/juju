@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 
 	apistorage "github.com/juju/juju/api/client/storage"
@@ -75,6 +76,10 @@ conditions must be met:
  - the PersistentVolume's reclaim policy must be set to "Retain".
  - the PersistentVolume must not be bound to any PersistentVolumeClaim.
 
+If the PersistentVolume is bound to a PersistentVolumeClaim that is not used
+by another Juju application, you can use the --force option to make the PV
+available for import.
+
 `
 	importFilesystemCommandExamples = `
 Import an existing filesystem backed by an EBS volume,
@@ -88,6 +93,10 @@ Import an existing unbound PersistentVolume in a Kubernetes model,
 and assign it the "pgdata" storage name:
 
     juju import-filesystem kubernetes pv-data-001 pgdata
+
+Import a PersistentVolume that is bound to a PVC not used by Juju:
+
+    juju import-filesystem --force kubernetes pv-data-001 pgdata
 `
 
 	importFilesystemCommandAgs = `
@@ -103,6 +112,7 @@ type importFilesystemCommand struct {
 	storagePool       string
 	storageProviderId string
 	storageName       string
+	force             bool
 }
 
 // Init implements Command.Init.
@@ -126,6 +136,12 @@ func (c *importFilesystemCommand) Init(args []string) error {
 		return errors.Errorf("%q is not a valid storage name", c.storageName)
 	}
 	return nil
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *importFilesystemCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.StorageCommandBase.SetFlags(f)
+	f.BoolVar(&c.force, "force", false, "Force import by deleting existing PVC if bound but not used by Juju (CAAS models only)")
 }
 
 // Info implements Command.Info.
@@ -162,7 +178,7 @@ func (c *importFilesystemCommand) Run(ctx *cmd.Context) (err error) {
 	)
 	storageTag, err := api.ImportStorage(
 		storage.StorageKindFilesystem,
-		c.storagePool, c.storageProviderId, c.storageName,
+		c.storagePool, c.storageProviderId, c.storageName, c.force,
 	)
 	if err != nil {
 		return err
@@ -178,6 +194,7 @@ type StorageImporter interface {
 	ImportStorage(
 		kind storage.StorageKind,
 		storagePool, storageProviderId, storageName string,
+		force bool,
 	) (names.StorageTag, error)
 }
 
@@ -186,7 +203,7 @@ type apiStorageImporter struct {
 }
 
 func (a apiStorageImporter) ImportStorage(
-	kind storage.StorageKind, storagePool, storageProviderId, storageName string,
+	kind storage.StorageKind, storagePool, storageProviderId, storageName string, force bool,
 ) (names.StorageTag, error) {
-	return a.Import(kind, storagePool, storageProviderId, storageName)
+	return a.Import(kind, storagePool, storageProviderId, storageName, force)
 }

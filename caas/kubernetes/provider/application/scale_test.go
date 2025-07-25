@@ -13,11 +13,12 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/storage"
 )
 
 func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, nil, false, false, "", func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
 	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
@@ -31,7 +32,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, nil, false, false, "", func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
 	dep, err := s.client.AppsV1().Deployments(s.namespace).Get(
@@ -45,14 +46,14 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, nil, false, false, "", func() {})
 
 	c.Assert(errors.IsNotValid(app.Scale(-1)), jc.IsTrue)
 }
 
 func (s *applicationSuite) TestCurrentScale(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, nil, false, false, "", func() {})
 
 	c.Assert(app.Scale(3), jc.ErrorIsNil)
 
@@ -63,4 +64,40 @@ func (s *applicationSuite) TestCurrentScale(c *gc.C) {
 	units, err = app.UnitsToRemove(context.Background(), 3)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 0)
+}
+
+func (s *applicationSuite) TestEnsurePVC(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(c, app, false, constraints.Value{}, nil, false, false, "", func() {})
+
+	// Test EnsurePVC with filesystem params and unit attachments
+	filesystems := []storage.KubernetesFilesystemParams{
+		{
+			StorageName: "database",
+			Size:        1024, // 1GiB in MiB
+			Provider:    storage.ProviderType("kubernetes"),
+			Attributes:  map[string]interface{}{"storage-class": "fast"},
+		},
+	}
+
+	filesystemUnitAttachments := map[string][]storage.KubernetesFilesystemUnitAttachmentParams{
+		"database": {
+			{
+				UnitName: "gitlab/0",
+				VolumeId: "test-volume-id",
+			},
+		},
+	}
+
+	err := app.EnsurePVC(filesystems, filesystemUnitAttachments)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Verify PVC was created
+	pvcList, err := s.client.CoreV1().PersistentVolumeClaims(s.namespace).List(context.Background(), metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pvcList.Items, gc.HasLen, 1)
+
+	pvc := pvcList.Items[0]
+	c.Assert(pvc.Spec.VolumeName, gc.Equals, "test-volume-id")
+	c.Assert(pvc.Name, gc.Matches, "gitlab-database-.*-gitlab-0")
 }

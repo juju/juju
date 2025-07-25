@@ -1532,3 +1532,23 @@ func (sb *storageBackend) AllVolumes() ([]Volume, error) {
 func volumeGlobalKey(name string) string {
 	return "v#" + name
 }
+
+func (sb *storageBackend) GetVolumeByVolumeId(volumeId string) (Volume, error) {
+	coll, cleanup := sb.mb.db().GetCollection(volumesC)
+	defer cleanup()
+
+	var doc volumeDoc
+	err := coll.Find(
+		bson.M{
+			"info":          bson.M{"$exists": true},
+			"info.volumeid": volumeId,
+		},
+	).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("volume with volumeid %q", volumeId)
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "getting volume with volumeid %q", volumeId)
+	}
+	vol := &volume{sb.mb, doc}
+	return vol, nil
+}

@@ -913,6 +913,10 @@ type ImportStorageParams struct {
 
 	// StorageName is the name of the storage to assign to the entity.
 	StorageName string `json:"storage-name"`
+
+	// Force indicates whether to force the import operation when there are
+	// conflicting storage resources that would otherwise prevent the import.
+	Force bool `json:"force,omitempty"`
 }
 
 // ImportStorageResults contains the results of importing a collection of

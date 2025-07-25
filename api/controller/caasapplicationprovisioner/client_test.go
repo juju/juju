@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/storage"
 )
 
 type provisionerSuite struct {
@@ -205,6 +206,77 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		CharmURL:             &charm.URL{Schema: "ch", Name: "charm", Revision: 1},
 		Trust:                true,
 		Scale:                3,
+	})
+}
+
+func (s *provisionerSuite) TestProvisioningInfoAttachStorage(c *gc.C) {
+	vers := version.MustParse("2.99.0")
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "ProvisioningInfo")
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.CAASApplicationProvisioningInfoResults{})
+		*(result.(*params.CAASApplicationProvisioningInfoResults)) = params.CAASApplicationProvisioningInfoResults{
+			Results: []params.CAASApplicationProvisioningInfo{{
+				Version:      vers,
+				APIAddresses: []string{"10.0.0.1:1"},
+				Tags:         map[string]string{"foo": "bar"},
+				Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
+				ImageRepo: params.DockerImageInfo{
+					Repository:   "jujuqa",
+					RegistryPath: "juju-operator-image",
+				},
+				CharmModifiedVersion: 1,
+				CharmURL:             "ch:charm-1",
+				Trust:                true,
+				Scale:                1,
+				FilesystemUnitAttachments: map[string][]params.KubernetesFilesystemUnitAttachmentParams{
+					"data": {
+						{
+							UnitTag: "unit-charm-0", VolumeId: "pvc-foo-0",
+						},
+						{
+							UnitTag: "unit-charm-1", VolumeId: "pvc-foo-1",
+						},
+					},
+					"config": {
+						{
+							UnitTag: "unit-charm-0", VolumeId: "pvc-bar-0",
+						},
+						{
+							UnitTag: "unit-charm-1", VolumeId: "pvc-bar-1",
+						},
+					},
+				},
+			}}}
+		return nil
+	})
+	info, err := client.ProvisioningInfo("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, caasapplicationprovisioner.ProvisioningInfo{
+		Version:      vers,
+		APIAddresses: []string{"10.0.0.1:1"},
+		Tags:         map[string]string{"foo": "bar"},
+		Base:         corebase.MakeDefaultBase("ubuntu", "18.04"),
+		ImageDetails: params.ConvertDockerImageInfo(params.DockerImageInfo{
+			Repository:   "jujuqa",
+			RegistryPath: "juju-operator-image",
+		}),
+		CharmModifiedVersion: 1,
+		CharmURL:             &charm.URL{Schema: "ch", Name: "charm", Revision: 1},
+		Trust:                true,
+		Scale:                1,
+		FilesystemUnitAttachments: map[string][]storage.KubernetesFilesystemUnitAttachmentParams{
+			"data": {
+				{UnitName: "charm/0", VolumeId: "pvc-foo-0"},
+				{UnitName: "charm/1", VolumeId: "pvc-foo-1"},
+			},
+			"config": {
+				{UnitName: "charm/0", VolumeId: "pvc-bar-0"},
+				{UnitName: "charm/1", VolumeId: "pvc-bar-1"},
+			},
+		},
 	})
 }
 

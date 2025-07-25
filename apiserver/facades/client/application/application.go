@@ -63,9 +63,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv21 provides the Application API facade for version 21.
+type APIv21 struct {
+	*APIBase
+}
+
 // APIv20 provides the Application API facade for version 20.
 type APIv20 struct {
-	*APIBase
+	*APIv21
 }
 
 // APIv19 provides the Application API facade for version 19.
@@ -457,11 +462,6 @@ func (c caasDeployParams) precheck(
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
-	if len(c.attachStorage) > 0 {
-		return errors.Errorf(
-			"AttachStorage may not be specified for container models",
-		)
-	}
 	if len(c.placement) > 1 {
 		return errors.Errorf(
 			"only 1 placement directive is supported for container models, got %d",
@@ -1866,6 +1866,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ScaleApplicationResults{}, errors.Trace(err)
 	}
+
 	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
 		if arg.Scale < 0 && arg.ScaleChange == 0 {
 			return nil, errors.NotValidf("scale < 0")
@@ -1897,9 +1898,21 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 			}
 		}
 
+		_, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, arg.ScaleChange)
+		if len(attachStorageErrs) > 0 {
+			var errStrings []string
+			for _, err := range attachStorageErrs {
+				if err == nil {
+					continue
+				}
+				errStrings = append(errStrings, err.Error())
+			}
+			return nil, errors.Errorf("failed to scale a application: %s", strings.Join(errStrings, ", "))
+		}
+
 		var info params.ScaleApplicationInfo
 		if arg.ScaleChange != 0 {
-			newScale, err := app.ChangeScale(arg.ScaleChange)
+			newScale, err := app.ChangeScale(arg.ScaleChange, arg.AttachStorage)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

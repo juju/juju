@@ -15,6 +15,7 @@ import (
 
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
+	storage "github.com/juju/juju/storage"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )
@@ -23,6 +24,7 @@ import (
 type MockApplication struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplicationMockRecorder
+	isgomock struct{}
 }
 
 // MockApplicationMockRecorder is the mock recorder for MockApplication.
@@ -43,18 +45,18 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 }
 
 // ApplicationPodSpec mocks base method.
-func (m *MockApplication) ApplicationPodSpec(arg0 caas.ApplicationConfig) (*v1.PodSpec, error) {
+func (m *MockApplication) ApplicationPodSpec(config caas.ApplicationConfig) (*v1.PodSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationPodSpec", arg0)
+	ret := m.ctrl.Call(m, "ApplicationPodSpec", config)
 	ret0, _ := ret[0].(*v1.PodSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationPodSpec indicates an expected call of ApplicationPodSpec.
-func (mr *MockApplicationMockRecorder) ApplicationPodSpec(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) ApplicationPodSpec(config any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationPodSpec", reflect.TypeOf((*MockApplication)(nil).ApplicationPodSpec), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationPodSpec", reflect.TypeOf((*MockApplication)(nil).ApplicationPodSpec), config)
 }
 
 // Delete mocks base method.
@@ -72,17 +74,31 @@ func (mr *MockApplicationMockRecorder) Delete() *gomock.Call {
 }
 
 // Ensure mocks base method.
-func (m *MockApplication) Ensure(arg0 caas.ApplicationConfig) error {
+func (m *MockApplication) Ensure(config caas.ApplicationConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Ensure", arg0)
+	ret := m.ctrl.Call(m, "Ensure", config)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Ensure indicates an expected call of Ensure.
-func (mr *MockApplicationMockRecorder) Ensure(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) Ensure(config any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ensure", reflect.TypeOf((*MockApplication)(nil).Ensure), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ensure", reflect.TypeOf((*MockApplication)(nil).Ensure), config)
+}
+
+// EnsurePVC mocks base method.
+func (m *MockApplication) EnsurePVC(arg0 []storage.KubernetesFilesystemParams, arg1 map[string][]storage.KubernetesFilesystemUnitAttachmentParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsurePVC", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsurePVC indicates an expected call of EnsurePVC.
+func (mr *MockApplicationMockRecorder) EnsurePVC(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsurePVC", reflect.TypeOf((*MockApplication)(nil).EnsurePVC), arg0, arg1)
 }
 
 // Exists mocks base method.
@@ -189,17 +205,17 @@ func (mr *MockApplicationMockRecorder) UnitsToRemove(arg0, arg1 any) *gomock.Cal
 }
 
 // UpdatePorts mocks base method.
-func (m *MockApplication) UpdatePorts(arg0 []caas.ServicePort, arg1 bool) error {
+func (m *MockApplication) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdatePorts", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdatePorts", ports, updateContainerPorts)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdatePorts indicates an expected call of UpdatePorts.
-func (mr *MockApplicationMockRecorder) UpdatePorts(arg0, arg1 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) UpdatePorts(ports, updateContainerPorts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePorts", reflect.TypeOf((*MockApplication)(nil).UpdatePorts), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePorts", reflect.TypeOf((*MockApplication)(nil).UpdatePorts), ports, updateContainerPorts)
 }
 
 // UpdateService mocks base method.

@@ -10,9 +10,12 @@ import (
 	"github.com/juju/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/scale"
+	"github.com/juju/juju/storage"
 )
 
 // Scale scales the Application's unit to the value specificied. Scale must
@@ -81,4 +84,53 @@ func (a *app) UnitsToRemove(ctx context.Context, desiredScale int) ([]string, er
 	}
 
 	return unitsToRemove, nil
+}
+
+func (a *app) EnsurePVC(filesystems []storage.KubernetesFilesystemParams, filesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams) error {
+	applier := a.newApplier()
+
+	ss, getErr := a.getStatefulSet()
+	storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+		return ss, getErr
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	pvcNames, err := a.pvcNames(storageUniqueID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pvcNameGetter := func(volName string) string {
+		if n, ok := pvcNames[volName]; ok {
+			logger.Debugf("using existing persistent volume claim %q (volume %q)", n, volName)
+			return n
+		}
+		return fmt.Sprintf("%s-%s", volName, storageUniqueID)
+	}
+	storageClasses, err := resources.ListStorageClass(context.Background(), a.client, metav1.ListOptions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storageClassMap := make(map[string]resources.StorageClass)
+	for _, v := range storageClasses {
+		storageClassMap[v.Name] = v
+	}
+
+	for _, fs := range filesystems {
+		name := a.volumeName(fs.StorageName)
+		_, pvc, _, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if pvc != nil {
+			if err := a.handleVolumeAttachment(applier, filesystemUnitAttachments, *pvc, fs.StorageName); err != nil {
+				return err
+			}
+		}
+	}
+	if err := applier.Run(context.Background(), a.client, false); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
