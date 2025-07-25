@@ -128,6 +128,7 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
 
 // UpgradeModel upgrades a model.
 func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
+	logger.Infof("alvin UpgradeModel called with arg: %#v", arg)
 	logger.Tracef("UpgradeModel arg %#v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {
@@ -179,6 +180,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	// has been specified.
 	useControllerVersion := false
 	if !model.IsControllerModel() {
+		logger.Infof("alvin not IsControllerModel")
 		ctrlModel, err := m.statePool.ControllerModel()
 		if err != nil {
 			return result, errors.Trace(err)
@@ -193,8 +195,11 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 		} else if vers.Compare(targetVersion.ToPatch()) < 0 {
 			return result, errors.Errorf("cannot upgrade to a version %q greater than that of the controller %q", targetVersion, vers)
 		}
+		logger.Infof("alvin vers %q, targetVersion %q, useControllerVersion %t", vers, targetVersion, useControllerVersion)
 	}
 	if !useControllerVersion {
+		logger.Infof("alvin !useControllerVersion")
+
 		logger.Debugf("deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
 		args := common.FindAgentsParams{
 			AgentStream:   arg.AgentStream,
@@ -215,6 +220,8 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 		if err != nil {
 			return result, errors.Trace(err)
 		}
+		logger.Infof("alvin targetVersion: %#v", targetVersion)
+
 	}
 
 	// Before changing the agent version to trigger an upgrade or downgrade,

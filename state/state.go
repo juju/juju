@@ -619,6 +619,8 @@ func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
 func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) (err error) {
+	logger.Infof("alvin SetModelAgentVersion called with newVersion: %s, stream: %v, ignoreAgentVersions: %t", newVersion, stream, ignoreAgentVersions)
+
 	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
 		return errors.Errorf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
 			newVersion.String(),
@@ -699,6 +701,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string,
 			err = errors.Annotate(err, "cannot set agent version")
 		}
 	}
+	logger.Infof("alvin SetModelAgentVersion completed with error: %v", err)
 	return errors.Trace(err)
 }
 
