@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -124,6 +125,16 @@ func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 		},
 	})
 	c.Assert(err, gc.ErrorMatches, "no registered provider for.*")
+	c.Assert(env, gc.IsNil)
+}
+
+func (*OpenSuite) TestNewKubernetes(c *gc.C) {
+	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+		Cloud: environscloudspec.CloudSpec{
+			Type: k8sconstants.CAASProviderType,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "cloud environ provider provider.kubernetesEnvironProvider not valid")
 	c.Assert(env, gc.IsNil)
 }
 
