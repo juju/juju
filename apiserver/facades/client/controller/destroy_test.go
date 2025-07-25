@@ -110,10 +110,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 	stdCtx := c.Context()
 	ctx := s.context
 	var (
-		st             = ctx.State()
 		authorizer     = ctx.Auth()
-		pool           = ctx.StatePool()
-		resources      = ctx.Resources()
 		domainServices = ctx.DomainServices()
 	)
 
@@ -197,10 +194,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
-		st,
-		pool,
 		authorizer,
-		resources,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
@@ -313,7 +307,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
 
 	err := model.DestroyModel(
-		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
+		c.Context(),
 		domainServices.BlockCommand(), s.mockModelInfoService,
 		nil, nil, nil, nil,
 	)
@@ -332,7 +326,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 	domainServices := s.DefaultModelDomainServices(c)
 
 	err := model.DestroyModel(
-		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
+		c.Context(),
 		domainServices.BlockCommand(), domainServices.ModelInfo(),
 		nil, nil, nil, nil,
 	)

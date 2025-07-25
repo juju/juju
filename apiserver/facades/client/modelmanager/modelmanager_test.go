@@ -15,7 +15,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
-	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -50,14 +49,11 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type modelManagerSuite struct {
 	testhelpers.IsolationSuite
 
-	st                   *mockState
-	ctlrSt               *mockState
 	accessService        *MockAccessService
 	modelService         *MockModelService
 	modelDefaultService  *MockModelDefaultsService
@@ -116,37 +112,6 @@ func (s *modelManagerSuite) SetUpTest(c *tc.C) {
 
 	attrs := coretesting.FakeConfig()
 	attrs["agent-version"] = jujuversion.Current.String()
-	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, tc.ErrorIsNil)
-
-	controllerModel := &mockModel{
-		owner: names.NewUserTag("admin"),
-		life:  state.Alive,
-		cfg:   cfg,
-		status: corestatus.StatusInfo{
-			Status: corestatus.Available,
-			Since:  &time.Time{},
-		},
-	}
-
-	s.st = &mockState{
-		controllerModel: controllerModel,
-		model: &mockModel{
-			owner: names.NewUserTag("admin"),
-			life:  state.Alive,
-			tag:   coretesting.ModelTag,
-			cfg:   cfg,
-			status: corestatus.StatusInfo{
-				Status: corestatus.Available,
-				Since:  &time.Time{},
-			},
-		},
-	}
-	s.ctlrSt = &mockState{
-		model:           s.st.model,
-		controllerModel: controllerModel,
-		cloudUsers:      map[string]permission.Access{},
-	}
 
 	s.authoriser = apiservertesting.FakeAuthorizer{Tag: jujutesting.AdminUser}
 }
@@ -164,7 +129,6 @@ func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomoc
 	cred := cloud.NewEmptyCredential()
 	s.api = modelmanager.NewModelManagerAPI(
 		c.Context(),
-		s.st,
 		user.Name() == "admin",
 		user,
 		s.modelStatusAPI,
@@ -317,23 +281,6 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	networkService.EXPECT().ReloadSpaces(gomock.Any())
 }
 
-func (s *modelManagerSuite) getModelArgs(c *tc.C) state.ModelArgs {
-	return getModelArgsFor(c, s.st)
-}
-
-func getModelArgsFor(c *tc.C, mockState *mockState) state.ModelArgs {
-	for _, v := range mockState.Calls() {
-		if v.Args == nil {
-			continue
-		}
-		if newModelArgs, ok := v.Args[0].(state.ModelArgs); ok {
-			return newModelArgs
-		}
-	}
-	c.Fatal("failed to find state.ModelArgs")
-	panic("unreachable")
-}
-
 func (s *modelManagerSuite) TestCreateModelQualifierMismatch(c *tc.C) {
 	ctrl := s.setUpAPI(c)
 	defer ctrl.Finish()
@@ -381,9 +328,6 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-
-	newModelArgs := s.getModelArgs(c)
-	c.Assert(newModelArgs.CloudName, tc.Equals, "dummy")
 }
 
 func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
@@ -400,9 +344,6 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-
-	newModelArgs := s.getModelArgs(c)
-	c.Assert(newModelArgs.CloudRegion, tc.Equals, "dummy-region")
 }
 
 func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
@@ -419,11 +360,6 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-
-	newModelArgs := s.getModelArgs(c)
-	c.Assert(newModelArgs.CloudCredential, tc.Equals, names.NewCloudCredentialTag(
-		"dummy/admin/some-credential",
-	))
 }
 
 func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
@@ -452,9 +388,6 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-
-	newModelArgs := s.getModelArgs(c)
-	c.Assert(newModelArgs.CloudName, tc.Equals, "dummy")
 }
 
 func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C) {
@@ -484,9 +417,6 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-
-	newModelArgs := s.getModelArgs(c)
-	c.Assert(newModelArgs.CloudName, tc.Equals, "dummy")
 }
 
 func (s *modelManagerSuite) TestModelDefaults(c *tc.C) {
@@ -719,27 +649,29 @@ func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
 func (s *modelManagerSuite) TestModelStatus(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
+	_, modelTag := generateModelUUIDAndTag(c)
+
 	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil).AnyTimes()
 	s.domainServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
 	s.modelStatusAPI.EXPECT().ModelStatus(gomock.Any(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: s.st.ModelTag().String()},
+			{Tag: modelTag.String()},
 		},
 	}).Return(params.ModelStatusResults{
 		Results: []params.ModelStatus{
-			{ModelTag: s.st.ModelTag().String()},
+			{ModelTag: modelTag.String()},
 		},
 	}, nil)
 
 	results, err := s.api.ModelStatus(c.Context(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: s.st.ModelTag().String()},
+			{Tag: modelTag.String()},
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ModelStatusResults{
 		Results: []params.ModelStatus{
-			{ModelTag: s.st.ModelTag().String()},
+			{ModelTag: modelTag.String()},
 		},
 	})
 }
@@ -1004,13 +936,11 @@ func (s *modelManagerStateSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *modelManagerStateSuite) setAPIUser(c *tc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	st := commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 
 	domainServices := s.ControllerDomainServices(c)
 
 	s.modelmanager = modelmanager.NewModelManagerAPI(
 		c.Context(),
-		mockCredentialShim{ModelManagerBackend: st},
 		user.Name() == "admin",
 		user,
 		s.modelStatusAPI,
