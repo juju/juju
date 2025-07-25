@@ -85,7 +85,6 @@ func (s *RemoteFirewallerSuite) setupAPI(c *tc.C) {
 	s.api, err = firewaller.NewStateFirewallerAPI(
 		s.st,
 		s.networkService,
-		s.resources,
 		s.watcherRegistry,
 		s.authorizer,
 		s.controllerConfigAPI,
@@ -226,7 +225,6 @@ func (s *FirewallerSuite) setupAPI(c *tc.C) {
 	s.api, err = firewaller.NewStateFirewallerAPI(
 		s.st,
 		s.networkService,
-		nil,
 		s.watcherRegistry,
 		s.authorizer,
 		s.controllerConfigAPI,

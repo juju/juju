@@ -25,14 +25,11 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	resources := ctx.Resources()
-
 	domainServices := ctx.DomainServices()
 
 	applicationService := domainServices.Application()
 
 	return NewFacade(
-		resources,
 		authorizer,
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),

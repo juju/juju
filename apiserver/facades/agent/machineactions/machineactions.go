@@ -7,34 +7,23 @@ package machineactions
 import (
 	"context"
 
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-type Backend interface {
-	ActionByTag(tag names.ActionTag) (state.Action, error)
-	TagToActionReceiverFn(findEntity func(names.Tag) (state.Entity, error)) func(string) (state.ActionReceiver, error)
-	ConvertActions(ar state.ActionReceiver, fn common.GetActionsFn) ([]params.ActionResult, error)
-}
 
 // Facade implements the machineactions interface and is the concrete
 // implementation of the api end point.
 type Facade struct {
-	backend         Backend
 	watcherRegistry facade.WatcherRegistry
 	accessMachine   common.AuthFunc
 }
 
 // NewFacade creates a new server-side machineactions API end point.
 func NewFacade(
-	backend Backend,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 ) (*Facade, error) {
@@ -42,7 +31,6 @@ func NewFacade(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		backend:         backend,
 		watcherRegistry: watcherRegistry,
 		accessMachine:   authorizer.AuthOwner,
 	}, nil
@@ -51,20 +39,17 @@ func NewFacade(
 // Actions returns the Actions by Tags passed and ensures that the machine asking
 // for them is the machine that has the actions
 func (f *Facade) Actions(ctx context.Context, args params.Entities) params.ActionResults {
-	actionFn := common.AuthAndActionFromTagFn(f.accessMachine, f.backend.ActionByTag)
-	return common.Actions(args, actionFn)
+	return params.ActionResults{}
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
 func (f *Facade) BeginActions(ctx context.Context, args params.Entities) params.ErrorResults {
-	actionFn := common.AuthAndActionFromTagFn(f.accessMachine, f.backend.ActionByTag)
-	return common.BeginActions(args, actionFn)
+	return params.ErrorResults{}
 }
 
 // FinishActions saves the result of a completed Action
 func (f *Facade) FinishActions(ctx context.Context, args params.ActionExecutionResults) params.ErrorResults {
-	actionFn := common.AuthAndActionFromTagFn(f.accessMachine, f.backend.ActionByTag)
-	return common.FinishActions(args, actionFn)
+	return params.ErrorResults{}
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing

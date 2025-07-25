@@ -58,7 +58,6 @@ type Facade struct {
 	modelUUID      coremodel.UUID
 
 	auth                    facade.Authorizer
-	resources               facade.Resources
 	controllerConfigService ControllerConfigService
 	controllerNodeService   ControllerNodeService
 	applicationService      ApplicationService
@@ -68,7 +67,6 @@ type Facade struct {
 
 // NewFacade returns a new CAASOperator facade.
 func NewFacade(
-	resources facade.Resources,
 	authorizer facade.Authorizer,
 	controllerUUID string,
 	modelUUID coremodel.UUID,
@@ -80,7 +78,6 @@ func NewFacade(
 ) *Facade {
 	return &Facade{
 		auth:                    authorizer,
-		resources:               resources,
 		controllerUUID:          controllerUUID,
 		modelUUID:               modelUUID,
 		controllerConfigService: controllerConfigService,

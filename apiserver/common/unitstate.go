@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
@@ -31,8 +30,6 @@ type UnitStateAPI struct {
 	controllerConfigService ControllerConfigService
 	unitStateService        UnitStateService
 
-	resources facade.Resources
-
 	AccessMachine GetAuthFunc
 	accessUnit    GetAuthFunc
 
@@ -44,15 +41,12 @@ type UnitStateAPI struct {
 func NewUnitStateAPI(
 	controllerConfigService ControllerConfigService,
 	unitStateService UnitStateService,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
 	logger corelogger.Logger,
 ) *UnitStateAPI {
 	return &UnitStateAPI{
 		controllerConfigService: controllerConfigService,
 		unitStateService:        unitStateService,
-		resources:               resources,
 		accessUnit:              accessUnit,
 		logger:                  logger,
 	}

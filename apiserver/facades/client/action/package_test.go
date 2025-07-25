@@ -28,20 +28,21 @@ type MockBaseSuite struct {
 
 func (s *MockBaseSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	modelUUID := modeltesting.GenModelUUID(c)
-	api, err := newActionAPI(nil, s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, modelUUID)
+	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return api
 }
 
 func NewActionAPI(
-	resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
+	authorizer facade.Authorizer,
+	leadership leadership.Reader,
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
 	modelInfoService ModelInfoService,
 	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
-	return newActionAPI(resources, authorizer, LeaderFactory(leadership), applicationService, blockCommandService, modelInfoService, modelUUID)
+	return newActionAPI(authorizer, LeaderFactory(leadership), applicationService, blockCommandService, modelInfoService, modelUUID)
 }
 
 type FakeLeadership struct {

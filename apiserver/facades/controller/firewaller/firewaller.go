@@ -56,7 +56,6 @@ type FirewallerAPI struct {
 	networkService                           NetworkService
 	applicationService                       ApplicationService
 	machineService                           MachineService
-	resources                                facade.Resources
 	watcherRegistry                          facade.WatcherRegistry
 	authorizer                               facade.Authorizer
 	accessUnit                               common.GetAuthFunc
@@ -74,7 +73,6 @@ type FirewallerAPI struct {
 func NewStateFirewallerAPI(
 	st State,
 	networkService NetworkService,
-	resources facade.Resources,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	controllerConfigAPI ControllerConfigAPI,
@@ -127,7 +125,6 @@ func NewStateFirewallerAPI(
 		InstanceIdGetter:                         instanceIdGetter,
 		ControllerConfigAPI:                      controllerConfigAPI,
 		st:                                       st,
-		resources:                                resources,
 		watcherRegistry:                          watcherRegistry,
 		authorizer:                               authorizer,
 		accessUnit:                               accessUnit,
