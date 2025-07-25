@@ -21,6 +21,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -59,6 +60,8 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -997,6 +1000,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 
 type CAASDeploySuiteBase struct {
 	jujutesting.IsolationSuite
+	coretesting.JujuOSEnvSuite
 	deployer.DeployerAPI
 	Store           *jujuclient.MemStore
 	DeployResources deployer.DeployResourcesFunc
@@ -1188,6 +1192,39 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	}
 
 	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "-m", "caas-model", "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CAASDeploySuite) TestDeployAttachStorage(c *gc.C) {
+	s.SetFeatureFlags(feature.K8SAttachStorage)
+	defer func() {
+		// Unset feature flag
+		os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+		featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	}()
+
+	repo := testcharms.RepoWithSeries("kubernetes")
+	charmDir := repo.ClonedDir(s.CharmsPath, "gitlab")
+
+	defer s.setupMocks(c).Finish()
+	cfg := basicDeployerConfig(charmDir.Path)
+	cfg.AttachStorage = []string{"foo/0", "bar/0"}
+	cfg.Base = corebase.LegacyKubernetesBase()
+	s.expectDeployer(c, cfg)
+
+	fakeAPI := s.fakeAPI()
+	curl := charm.MustParseURL("local:kubernetes/gitlab-0")
+	withLocalCharmDeployable(fakeAPI, curl, charmDir, false)
+	withCharmDeployable(
+		fakeAPI, curl, corebase.LegacyKubernetesBase(),
+		charmDir.Meta(),
+		charmDir.Metrics(),
+		true, false, 1, nil, nil,
+	)
+	_, err := s.runDeploy(
+		c, fakeAPI, charmDir.Path,
+		"-m", "caas-model", "--series", "kubernetes", "--attach-storage", "foo/0,bar/0",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
