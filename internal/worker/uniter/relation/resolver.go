@@ -146,7 +146,7 @@ func (r *relationsResolver) processRelationSnapshot(
 		}
 		relState = NewState(relationID)
 	}
-	hInfo, err := r.nextHookForRelation(relState, relationSnapshot, remoteBroken)
+	hInfo, err := r.nextHookForRelation(relState, relationSnapshot, remoteBroken, remoteState.Leader)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -182,7 +182,7 @@ func (r *relationsResolver) maybeDestroySubordinates(remoteState remotestate.Sna
 	return nil
 }
 
-func (r *relationsResolver) nextHookForRelation(localState *State, remote remotestate.RelationSnapshot, remoteBroken bool) (hook.Info, error) {
+func (r *relationsResolver) nextHookForRelation(localState *State, remote remotestate.RelationSnapshot, remoteBroken bool, leader bool) (hook.Info, error) {
 	// If there's a guaranteed next hook, return that.
 	relationId := localState.RelationId
 	if localState.ChangedPending != "" {
@@ -284,26 +284,30 @@ func (r *relationsResolver) nextHookForRelation(localState *State, remote remote
 		}, nil
 	}
 
-	for _, appName := range sortedAppNames {
-		changeVersion, found := remote.ApplicationMembers[appName]
-		if !found {
-			// ?
-			continue
-		}
-		// Note(jam): 2019-10-23 For compatibility purposes, we don't trigger a hook if
-		//  localState.ApplicationMembers doesn't contain the app and the changeVersion == 0.
-		//  This is because otherwise all charms always get a hook with the app
-		//  as the context, and that is likely to expose them to something they
-		//  may not be ready for. Also, since no app content has been set, there
-		//  is nothing for them to respond to.
-		if oldVersion := localState.ApplicationMembers[appName]; oldVersion != changeVersion {
-			return hook.Info{
-				Kind:              hooks.RelationChanged,
-				RelationId:        relationId,
-				RemoteUnit:        "",
-				RemoteApplication: appName,
-				ChangeVersion:     changeVersion,
-			}, nil
+	// Don't trigger the relation-changed hook for the unit that triggered it.
+	// TODO: check if the leadership didn't change since the unit triggered this hook.
+	if !isPeer || !leader {
+		for _, appName := range sortedAppNames {
+			changeVersion, found := remote.ApplicationMembers[appName]
+			if !found {
+				// ?
+				continue
+			}
+			// Note(jam): 2019-10-23 For compatibility purposes, we don't trigger a hook if
+			//  localState.ApplicationMembers doesn't contain the app and the changeVersion == 0.
+			//  This is because otherwise all charms always get a hook with the app
+			//  as the context, and that is likely to expose them to something they
+			//  may not be ready for. Also, since no app content has been set, there
+			//  is nothing for them to respond to.
+			if oldVersion := localState.ApplicationMembers[appName]; oldVersion != changeVersion {
+				return hook.Info{
+					Kind:              hooks.RelationChanged,
+					RelationId:        relationId,
+					RemoteUnit:        "",
+					RemoteApplication: appName,
+					ChangeVersion:     changeVersion,
+				}, nil
+			}
 		}
 	}
 
