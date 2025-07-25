@@ -84,7 +84,6 @@ func (s *upgraderSuite) SetUpTest(c *tc.C) {
 
 	s.upgrader = upgrader.NewUpgraderAPI(
 		nil,
-		nil,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
@@ -112,7 +111,6 @@ func (s *upgraderSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *upgraderSuite) makeMockedUpgraderAPI(c *tc.C) *upgrader.UpgraderAPI {
 	return upgrader.NewUpgraderAPI(
-		nil,
 		nil,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
@@ -148,7 +146,6 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *tc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 
 	anUpgrader := upgrader.NewUpgraderAPI(
-		nil,
 		nil,
 		anAuthorizer,
 		loggertesting.WrapCheckLog(c),
@@ -587,7 +584,6 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *tc.C) {
 
 	anUpgrader := upgrader.NewUpgraderAPI(
 		nil,
-		nil,
 		anAuthorizer,
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
@@ -658,7 +654,6 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *tc.C) {
 	}
 
 	upgraderAPI := upgrader.NewUpgraderAPI(
-		nil,
 		nil,
 		authorizer,
 		loggertesting.WrapCheckLog(c),

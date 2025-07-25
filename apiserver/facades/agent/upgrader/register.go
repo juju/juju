@@ -49,8 +49,6 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-
 	domainServices := ctx.DomainServices()
 	modelType, err := domainServices.ModelInfo().GetModelType(stdCtx)
 	if err != nil {
@@ -81,7 +79,6 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 
 	return NewUpgraderAPI(
 		toolsGetter,
-		st,
 		auth,
 		ctx.Logger().Child("upgrader"),
 		ctx.WatcherRegistry(),
