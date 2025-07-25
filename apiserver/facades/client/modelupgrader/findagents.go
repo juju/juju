@@ -95,8 +95,6 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	args common.FindAgentsParams,
 	streamsAgents coretools.List,
 ) (coretools.Versions, error) {
-	logger.Infof("alvin agentVersionsForCAAS called with arg: %#v | streamAgents: %#v", args, streamsAgents)
-
 	result := coretools.Versions{}
 	modelImage, err := m.broker.GetModelOperatorDeploymentImage()
 	if err != nil {

@@ -128,7 +128,6 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
 
 // UpgradeModel upgrades a model.
 func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
-	logger.Infof("alvin update model upgrader UpgradeModel called with arg: %#v", arg)
 	logger.Tracef("UpgradeModel arg %#v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {
