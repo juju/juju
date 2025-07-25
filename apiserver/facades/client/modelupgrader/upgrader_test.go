@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/controller"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
@@ -101,6 +102,7 @@ type modelUpgradeSuite struct {
 	blockChecker     *mocks.MockBlockCheckerInterface
 	registryProvider *registrymocks.MockRegistry
 	cloudSpec        lxd.CloudSpec
+	broker           *caasmocks.MockBroker
 }
 
 var _ = gc.Suite(&modelUpgradeSuite{})
@@ -126,6 +128,7 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 	s.bootstrapEnviron = mocks.NewMockBootstrapEnviron(ctrl)
 	s.blockChecker = mocks.NewMockBlockCheckerInterface(ctrl)
 	s.registryProvider = registrymocks.NewMockRegistry(ctrl)
+	s.broker = caasmocks.NewMockBroker(ctrl)
 
 	api, err := modelupgrader.NewModelUpgraderAPI(
 		coretesting.ControllerTag,
@@ -141,6 +144,7 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
 		},
+		s.broker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl, api
