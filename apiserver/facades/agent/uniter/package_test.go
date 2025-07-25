@@ -92,7 +92,7 @@ func (s *uniterSuiteBase) SetUpTest(c *tc.C) {
 	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.leadershipChecker = &fakeLeadershipChecker{false}
-	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	s.uniter = s.newUniterAPI(c, nil, s.authorizer)
 	s.PatchValue(&k8s.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
@@ -103,7 +103,7 @@ func (s *uniterSuiteBase) setupState(c *tc.C) {}
 
 func (s *uniterSuiteBase) facadeContext(c *tc.C) facadetest.ModelContext {
 	return facadetest.ModelContext{
-		State_:             s.ControllerModel(c).State(),
+		State_:             nil,
 		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,
 		WatcherRegistry_:   s.watcherRegistry,
