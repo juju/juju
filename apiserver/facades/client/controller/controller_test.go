@@ -161,10 +161,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 	stdCtx := c.Context()
 	ctx := s.context
 	var (
-		st             = ctx.State()
 		authorizer     = ctx.Auth()
-		pool           = ctx.StatePool()
-		resources      = ctx.Resources()
 		domainServices = ctx.DomainServices()
 	)
 
@@ -248,10 +245,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
-		st,
-		pool,
 		authorizer,
-		resources,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
@@ -813,11 +807,12 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *tc.C) {
 
 func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	modelTag := names.NewModelTag(s.context.ControllerModelUUID().String()).String()
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
-		Tag: s.Model.ModelTag().String(),
+		Tag: modelTag,
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
@@ -825,7 +820,7 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
 	results, err = s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
-		Tag: s.Model.ModelTag().String(),
+		Tag: modelTag,
 	}, {
 		Tag: "bad-tag",
 	}}})
@@ -835,7 +830,7 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 
 	// Check that we return successfully if no errors.
 	results, err = s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
-		Tag: s.Model.ModelTag().String(),
+		Tag: modelTag,
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
@@ -1128,10 +1123,7 @@ func (s *accessSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 	api, err := controller.NewControllerAPI(
 		c.Context(),
-		s.State,
-		s.StatePool,
 		s.authorizer,
-		s.resources,
 		loggertesting.WrapCheckLog(c),
 		nil,
 		nil,

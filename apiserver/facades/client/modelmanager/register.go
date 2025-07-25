@@ -59,15 +59,6 @@ func newFacadeV11(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 
-	st := ctx.State()
-	pool := ctx.StatePool()
-
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	backend := commonmodel.NewUserAwareModelManagerBackend(model, pool, apiUser)
-
 	controllerUUID, err := uuid.UUIDFromString(ctx.ControllerUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -91,8 +82,8 @@ func newFacadeV11(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 
 	domainServices := ctx.DomainServices()
 	modelStatusAPI := commonmodel.NewModelStatusAPI(
-		backend,
 		ctx.ControllerUUID(),
+		ctx.ModelUUID().String(),
 		domainServices.Model(),
 		machineServiceGetter,
 		statusServiceGetter,

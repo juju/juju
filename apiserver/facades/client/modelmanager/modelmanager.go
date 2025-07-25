@@ -93,7 +93,6 @@ func NewModelManagerAPI(
 ) *ModelManagerAPI {
 
 	return &ModelManagerAPI{
-		// TODO: remove mongo state from ModelStatusAPI entirely.
 		ModelStatusAPI:       modelStatusAPI,
 		domainServicesGetter: services.DomainServicesGetter,
 		credentialService:    services.CredentialService,
