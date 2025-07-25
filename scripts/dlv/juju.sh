@@ -71,6 +71,7 @@ fi
 
 # find out the remote host to ssh to
 remote_host=$(juju status -m ${target_model} --format=json | jq -r ".machines[\"${target_machine}\"][\"ip-addresses\"][0]")
+remote_host=${remote_host%%/*}
 
 if [ -z $target_socket ]; then
     echo "No target specified, trying to figure it out"
@@ -79,7 +80,7 @@ if [ -z $target_socket ]; then
     cmd="find /var/lib/juju/ -type s -name '*.socketd' 2> /dev/null || true"
 
     # Run the command over SSH and capture the output
-    output=$(ssh -o StrictHostKeyChecking=no -i ${identity_key} "ubuntu@$remote_host" "$cmd")
+    output=$(ssh -o StrictHostKeyChecking=no -i ${identity_key} "ubuntu@${remote_host}" "$cmd")
 
     # Capture the number of results
     result_count=$(echo "$output" | wc -l)
