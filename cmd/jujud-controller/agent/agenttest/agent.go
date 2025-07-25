@@ -179,7 +179,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Nonce:                 agent.BootstrapNonce,
 			APIAddresses:          apiAddr,
 			CACert:                coretesting.CACert,
-			Controller:            s.ControllerModel(c).ControllerTag(),
+			Controller:            names.NewControllerTag(s.ControllerUUID),
 			Model:                 modelTag,
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,

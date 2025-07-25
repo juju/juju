@@ -29,7 +29,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type upgraderSuite struct {
@@ -45,7 +44,6 @@ type upgraderSuite struct {
 	upgrader   *upgrader.UpgraderAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	hosted     *state.State
 	store      objectstore.ObjectStore
 
 	controllerConfigGetter *MockControllerConfigGetter
@@ -70,10 +68,6 @@ func (s *upgraderSuite) SetUpTest(c *tc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
-	// For now, test with the controller model, but
-	// we may add a different hosted model later.
-	s.hosted = s.ControllerModel(c).State()
-
 	s.rawMachineTag = names.NewMachineTag("0")
 	s.apiMachineTag = names.NewMachineTag("1")
 
@@ -82,13 +76,14 @@ func (s *upgraderSuite) SetUpTest(c *tc.C) {
 		Tag: s.apiMachineTag,
 	}
 
+	// For now, test with the controller model, but
+	// we may add a different hosted model later.
 	domainServices := s.ControllerDomainServices(c)
 
 	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 
 	s.upgrader = upgrader.NewUpgraderAPI(
 		nil,
-		s.hosted,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
@@ -116,7 +111,6 @@ func (s *upgraderSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *upgraderSuite) makeMockedUpgraderAPI(c *tc.C) *upgrader.UpgraderAPI {
 	return upgrader.NewUpgraderAPI(
-		nil,
 		nil,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
@@ -153,7 +147,6 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *tc.C) {
 
 	anUpgrader := upgrader.NewUpgraderAPI(
 		nil,
-		s.hosted,
 		anAuthorizer,
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
@@ -591,7 +584,6 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *tc.C) {
 
 	anUpgrader := upgrader.NewUpgraderAPI(
 		nil,
-		s.hosted,
 		anAuthorizer,
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
@@ -663,7 +655,6 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *tc.C) {
 
 	upgraderAPI := upgrader.NewUpgraderAPI(
 		nil,
-		s.hosted,
 		authorizer,
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,

@@ -17,11 +17,9 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type controllerConfigSuite struct {
@@ -110,9 +108,6 @@ func (s *controllerConfigSuite) TestControllerInfo(c *tc.C) {
 
 type controllerInfoSuite struct {
 	jujutesting.ApiServerSuite
-
-	localState *state.State
-	localModel *state.Model
 }
 
 func TestControllerInfoSuite(t *stdtesting.T) {
@@ -121,17 +116,6 @@ func TestControllerInfoSuite(t *stdtesting.T) {
 
 func (s *controllerInfoSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	s.localState = f.MakeModel(c, &factory.ModelParams{
-		UUID: s.DefaultModelUUID,
-	})
-	s.AddCleanup(func(*tc.C) {
-		s.localState.Close()
-	})
-	model, err := s.localState.Model()
-	c.Assert(err, tc.ErrorIsNil)
-	s.localModel = model
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *tc.C) {

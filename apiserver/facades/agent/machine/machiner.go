@@ -28,7 +28,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ControllerConfigService defines the methods on the controller config service
@@ -136,7 +135,6 @@ type MachinerAPI struct {
 	machineService          MachineService
 	statusService           StatusService
 	removalService          RemovalService
-	st                      *state.State
 	controllerConfigService ControllerConfigService
 	auth                    facade.Authorizer
 	getCanModify            common.GetAuthFunc
@@ -152,7 +150,6 @@ type MachinerAPIv5 struct {
 
 // NewMachinerAPIForState creates a new instance of the Machiner API.
 func NewMachinerAPIForState(
-	st *state.State,
 	clock clock.Clock,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
@@ -180,7 +177,6 @@ func NewMachinerAPIForState(
 		machineService:          machineService,
 		statusService:           statusService,
 		removalService:          removalService,
-		st:                      st,
 		controllerConfigService: controllerConfigService,
 		auth:                    authorizer,
 		getCanModify:            getCanAccess,
