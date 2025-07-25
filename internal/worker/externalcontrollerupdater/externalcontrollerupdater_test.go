@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package externalcontrollerupdater_test
+package externalcontrollerupdater
 
 import (
 	"time"
@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -53,7 +52,7 @@ func (s *ExternalControllerUpdaterSuite) TestStartStop(c *gc.C) {
 
 	s.client.EXPECT().WatchExternalControllers().Return(extCtrlWatcher, nil)
 
-	w, err := externalcontrollerupdater.New(s.client, func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,7 +83,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c
 	})
 	s.watcher.EXPECT().Close()
 
-	w, err := externalcontrollerupdater.New(s.client, func(gotInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(gotInfo *api.Info) (ExternalControllerWatcherClientCloser, error) {
 		defer close(started)
 		c.Assert(gotInfo, jc.DeepEquals, &api.Info{
 			Addrs:  info.Addrs,
@@ -125,7 +124,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *gc
 		close(done)
 	})
 
-	w, err := externalcontrollerupdater.New(s.client, func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +156,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestar
 	})
 	s.watcher.EXPECT().Close()
 
-	w, err := externalcontrollerupdater.New(s.client, func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,9 +196,13 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersNotSupporte
 	watcherReady := make(chan struct{})
 	watcherFetched := make(chan struct{})
 
-	w, err := externalcontrollerupdater.New(s.client, func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, error) {
 		close(watcherReady)
-		<-watcherFetched
+		select {
+		case <-watcherFetched:
+		case <-time.After(coretesting.LongWait):
+			c.Error("timed out waiting for watcher to be fetched")
+		}
 		return nil, notSupportedErr
 	}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,8 +212,14 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersNotSupporte
 	// by the runner in the updaterWorker. Fetch the single controllerWatcher
 	// worker from the the list of running workers before it is killed and
 	// removed, then check that it is killed with the expected error.
-	<-watcherReady
-	runner := externalcontrollerupdater.GetWorkerRunner(c, w)
+	select {
+	case <-watcherReady:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for watcher to be ready")
+	}
+	updater, _ := w.(*updaterWorker)
+	c.Assert(updater, gc.NotNil)
+	runner := updater.runner
 	names := runner.WorkerNames()
 	c.Assert(names, gc.HasLen, 1)
 	controllerWatcher, err := runner.Worker(names[0], nil)
@@ -247,7 +256,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *g
 	})
 	s.watcher.EXPECT().Close()
 
-	w, err := externalcontrollerupdater.New(s.client, func(gotInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(gotInfo *api.Info) (ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
