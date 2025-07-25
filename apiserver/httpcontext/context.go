@@ -19,5 +19,5 @@ func EntityForContext(ctx context.Context) string {
 		return "unknown"
 	}
 
-	return authInfo.Entity.Tag().Id()
+	return authInfo.Tag.Id()
 }

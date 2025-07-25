@@ -16,7 +16,7 @@ import (
 	authentication "github.com/juju/juju/apiserver/authentication"
 	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
-	state "github.com/juju/juju/state"
+	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -44,10 +44,10 @@ func (m *MockEntityAuthenticator) EXPECT() *MockEntityAuthenticatorMockRecorder 
 }
 
 // Authenticate mocks base method.
-func (m *MockEntityAuthenticator) Authenticate(arg0 context.Context, arg1 authentication.AuthParams) (state.Entity, error) {
+func (m *MockEntityAuthenticator) Authenticate(arg0 context.Context, arg1 authentication.AuthParams) (names.Tag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Authenticate", arg0, arg1)
-	ret0, _ := ret[0].(state.Entity)
+	ret0, _ := ret[0].(names.Tag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -65,19 +65,19 @@ type MockEntityAuthenticatorAuthenticateCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockEntityAuthenticatorAuthenticateCall) Return(arg0 state.Entity, arg1 error) *MockEntityAuthenticatorAuthenticateCall {
+func (c *MockEntityAuthenticatorAuthenticateCall) Return(arg0 names.Tag, arg1 error) *MockEntityAuthenticatorAuthenticateCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEntityAuthenticatorAuthenticateCall) Do(f func(context.Context, authentication.AuthParams) (state.Entity, error)) *MockEntityAuthenticatorAuthenticateCall {
+func (c *MockEntityAuthenticatorAuthenticateCall) Do(f func(context.Context, authentication.AuthParams) (names.Tag, error)) *MockEntityAuthenticatorAuthenticateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEntityAuthenticatorAuthenticateCall) DoAndReturn(f func(context.Context, authentication.AuthParams) (state.Entity, error)) *MockEntityAuthenticatorAuthenticateCall {
+func (c *MockEntityAuthenticatorAuthenticateCall) DoAndReturn(f func(context.Context, authentication.AuthParams) (names.Tag, error)) *MockEntityAuthenticatorAuthenticateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

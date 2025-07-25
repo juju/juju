@@ -314,10 +314,7 @@ func (r *apiHandler) AuthClient() bool {
 
 // GetAuthTag returns the tag of the authenticated entity, if any.
 func (r *apiHandler) GetAuthTag() names.Tag {
-	if r.authInfo.Entity == nil {
-		return nil
-	}
-	return r.authInfo.Entity.Tag()
+	return r.authInfo.Tag
 }
 
 // HasPermission is responsible for reporting if the logged in user is

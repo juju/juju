@@ -81,13 +81,6 @@ func (m *mockState) Model() (Model, error) {
 	return m.model, nil
 }
 
-func (m *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
-	if tag.Kind() == names.ModelTagKind && tag.Id() == m.model.UUID() {
-		return m.model, nil
-	}
-	return nil, errors.NotFoundf("entity with tag %q", tag.String())
-}
-
 func (m *mockState) WatchModelEntityReferences(mUUID string) state.NotifyWatcher {
 	return m.watcher
 }
