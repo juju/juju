@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.worker.externalcontrollerupdater")
@@ -243,6 +244,12 @@ func (w *controllerWatcher) loop() error {
 			if err == w.catacomb.ErrDying() {
 				return err
 			} else if err != nil {
+				// If the controller cannot report its own addresses e.g. if it's
+				// behind a load-balancer then stop the worker without error.
+				if params.IsCodeNotSupported(err) {
+					logger.Debugf("assuming controller cannot report its own addresses and completing watch for %q", w.tag.Id())
+					return nil
+				}
 				return errors.Trace(err)
 			}
 			_ = w.catacomb.Add(nw)
