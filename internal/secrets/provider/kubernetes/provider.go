@@ -352,8 +352,8 @@ func (k *kubernetesClient) createServiceAccount(ctx context.Context, sa *core.Se
 			// sa.Name is already used for an existing service account.
 			return nil, errors.Errorf("service account %q exists and is not managed by Juju", sa.GetName())
 		}
-		if existing.Annotations[modelIdKey] != k.modelUUID {
-			// sa.Name is already used for an existing service account.
+		if existingModelIdValue, ok := existing.Annotations[modelIdKey]; ok && existingModelIdValue != k.modelUUID {
+			// sa.Name is already used for an existing service account from a different model.
 			return nil, errors.Errorf("service account %q exists and is not managed by this model", sa.GetName())
 		}
 		return nil, errors.AlreadyExistsf("service account %q", sa.GetName())

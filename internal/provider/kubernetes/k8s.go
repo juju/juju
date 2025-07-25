@@ -171,7 +171,7 @@ func newK8sBroker(
 
 	labelVersion := constants.LastLabelVersion
 	if namespace != "" {
-		labelVersion, err = utils.DetectModelLabelVersion(
+		labelVersion, err = utils.MatchModelLabelVersion(
 			ctx, namespace, modelName, modelUUID, controllerUUID, k8sClient.CoreV1().Namespaces())
 		if err != nil {
 			return nil, errors.Trace(err)

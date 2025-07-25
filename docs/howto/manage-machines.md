@@ -23,7 +23,7 @@ juju add-machine
 
 The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify the Ubuntu series to be installed on them, choose to deploy on a lxd container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc.
 
-Machines provisioned via `add-machine` can be used for an initial deployment (`deploy` ) or a scale-out deployment (`add-unit`).
+Machines provisioned via `add-machine` can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`).
 
 > See more: {ref}`command-juju-add-machine`
 
@@ -31,7 +31,7 @@ Machines provisioned via `add-machine` can be used for an initial deployment (`d
 ```{note}
 Issues during machine provisioning can occur at any stage in the following sequence:
 
-> Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the jujud binaries from the controller, start jujud.
+> Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the jujud binaries from the controller, start `jujud`.
 
 To troubleshoot, try to gather more information until you understand what caused the issue.
 

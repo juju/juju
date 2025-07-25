@@ -28,7 +28,7 @@ The code used to implement an action can call any {ref}`hook command <list-of-ho
 
 ```{tip}
 In many cases, an action only has a need to run hook commands such as `config-get` to supplement the configuration passed
-in via the action parameters. A action may also commonly use `status-set` to update the unit or application status while
+in via the action parameters. An action may also commonly use `status-set` to update the unit or application status while
 it is running.
 If the action does use a hook command like `relation-set`, after the action completes successfully, a
 {ref}`relation-changed hook <hook-relation-changed>`  will be emitted afterwards on the affected units.
