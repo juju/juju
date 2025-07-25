@@ -20,6 +20,7 @@ type mockModel struct {
 	password           string
 	tag                names.Tag
 	modelConfigChanged state.NotifyWatcher
+	modelConfig        *config.Config
 }
 
 type mockState struct {
@@ -85,6 +86,9 @@ func (m *mockModel) UUID() string {
 }
 
 func (m *mockModel) ModelConfig() (*config.Config, error) {
+	if m.modelConfig != nil {
+		return m.modelConfig, nil
+	}
 	attrs := coretesting.FakeConfig()
 	attrs["operator-storage"] = "k8s-storage"
 	attrs["agent-version"] = "2.6-beta3"
@@ -93,4 +97,21 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 
 func (m *mockModel) WatchForModelConfigChanges() state.NotifyWatcher {
 	return m.modelConfigChanged
+}
+
+func (m *mockModel) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...state.ValidateConfigFunc) error {
+	attrs := map[string]interface{}{}
+	modelConfig := m.modelConfig
+
+	if modelConfig != nil {
+		for k, v := range modelConfig.AllAttrs() {
+			attrs[k] = v
+		}
+	}
+	for k, v := range updateAttrs {
+		attrs[k] = v
+	}
+	var err error
+	m.modelConfig, err = config.New(config.UseDefaults, attrs)
+	return err
 }

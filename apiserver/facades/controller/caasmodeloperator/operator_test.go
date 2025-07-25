@@ -53,28 +53,52 @@ func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 	m.api = api
 }
 
-func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
+func (m *ModelOperatorSuite) TestProvisioningInfoImageRepoUnset(c *gc.C) {
+	model, err := m.state.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelConfig, err := model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	m.state.model.modelConfig = modelConfig
+
+	vers, ok := modelConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+
 	info, err := m.api.ModelOperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConf, err := m.state.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version)
+	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, modelConfig, info.Version)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
 
 	c.Assert(info.ImageDetails.Auth, gc.Equals, `xxxxx==`)
 	c.Assert(info.ImageDetails.Repository, gc.Equals, `test-account`)
 
+	c.Assert(vers, jc.DeepEquals, info.Version)
+}
+
+func (m *ModelOperatorSuite) TestProvisioningInfoImageRepoSet(c *gc.C) {
 	model, err := m.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelConfig, err := model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
+	m.state.model.modelConfig = modelConfig
 
 	vers, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
+
+	imageRepo := "ghcr.io/juju"
+	err = model.UpdateModelConfig(map[string]interface{}{"model-caas-image-repo": imageRepo}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := m.api.ModelOperatorProvisioningInfo()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(info.ImageDetails.Repository, gc.Equals, imageRepo)
 
 	c.Assert(vers, jc.DeepEquals, info.Version)
 }

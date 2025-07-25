@@ -563,6 +563,9 @@ Model configuration keys (affecting the controller model):
         - If 'requires-prompts' is present, clients will ask for confirmation before removing
         potentially valuable resources.
         (default "")
+    model-caas-image-repo:
+      type: string
+      description: The container image repository. (default "")
     net-bond-reconfigure-delay:
       type: int
       description: The amount of time in seconds to sleep between ifdown and ifup when

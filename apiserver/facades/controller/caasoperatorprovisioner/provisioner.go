@@ -134,26 +134,35 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		modelConfig,
 	)
 
-	imageRepo, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+	imageRepo, exists := modelConfig.CAASImageRepo()
+	if !exists {
+		imageRepo = controller.CAASImageRepo
+
+		if imageRepo == "" {
+			imageRepo = podcfg.JujudOCINamespace
+		}
+	}
+
+	imageRepoDetails, err := docker.NewImageRepoDetails(imageRepo)
 	if err != nil {
 		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
+	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, modelConfig, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	imageInfo := params.NewDockerImageInfo(imageRepo, registryPath)
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, imagePath)
 	logger.Tracef("image info %v", imageInfo)
 
 	// PodSpec charms now use focal as the operator base until PodSpec is removed.
-	baseRegistryPath, err := podcfg.ImageForBase(imageRepo.Repository, charm.Base{
+	baseRegistryPath, err := podcfg.ImageForBase(imageRepoDetails.Repository, charm.Base{
 		Name:    "ubuntu",
 		Channel: charm.Channel{Track: "20.04", Risk: charm.Stable},
 	})
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	baseImageInfo := params.NewDockerImageInfo(imageRepo, baseRegistryPath)
+	baseImageInfo := params.NewDockerImageInfo(imageRepoDetails, baseRegistryPath)
 	logger.Tracef("base image info %v", baseImageInfo)
 
 	apiAddresses, err := a.APIAddresses()

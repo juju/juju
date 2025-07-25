@@ -389,17 +389,28 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerCfg, vers)
+
+	imageRepo, exists := modelConfig.CAASImageRepo()
+	if !exists {
+		imageRepo = controllerCfg.CAASImageRepo()
+
+		if imageRepo == "" {
+			imageRepo = podcfg.JujudOCINamespace
+		}
+	}
+
+	imagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, modelConfig, vers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	imageRepoDetails, err := docker.NewImageRepoDetails(controllerCfg.CAASImageRepo())
+	imageRepoDetails, err := docker.NewImageRepoDetails(imageRepo)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	imageRepo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
-	logger.Tracef("imageRepo %v", imageRepo)
+
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, imagePath)
+	logger.Tracef("imageRepo %v", imageInfo)
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -436,7 +447,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		Constraints:          mergedCons,
 		Tags:                 resourceTags,
 		CharmModifiedVersion: app.CharmModifiedVersion(),
-		ImageRepo:            imageRepo,
+		ImageRepo:            imageInfo,
 	}
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {

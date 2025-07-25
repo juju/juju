@@ -14,8 +14,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -116,16 +116,31 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConf, vers)
+	imageRepo, exists := modelConfig.CAASImageRepo()
+	if !exists {
+		imageRepo = controllerConf.CAASImageRepo()
+
+		if imageRepo == "" {
+			imageRepo = podcfg.JujudOCINamespace
+		}
+
+		if err := model.UpdateModelConfig(map[string]interface{}{config.ModelCAASImageRepo: imageRepo}, nil); err != nil {
+			return result, errors.Trace(err)
+		}
+	}
+
+	imageRef, err := podcfg.GetJujuOCIImagePath(controllerConf, modelConfig, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	imageRepoDetails, err := docker.NewImageRepoDetails(controllerConf.CAASImageRepo())
+	imageRepoDetails, err := docker.NewImageRepoDetails(imageRepo)
 	if err != nil {
-		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+		return result, errors.Annotatef(err, "parsing %s", imageRepo)
 	}
-	imageInfo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
+
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, imageRef)
+
 	logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{

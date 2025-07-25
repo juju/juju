@@ -329,6 +329,9 @@ const (
 
 	// SecretBackendKey is used to specify the secret backend.
 	SecretBackendKey = "secret-backend"
+
+	// ModelCAASImageRepo is used to specify the model's container image repository.
+	ModelCAASImageRepo = "model-caas-image-repo"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -596,6 +599,7 @@ var defaultConfigValues = map[string]interface{}{
 	ContainerImageStreamKey:                   "released",
 	ContainerImageMetadataURLKey:              "",
 	ContainerImageMetadataDefaultsDisabledKey: false,
+	ModelCAASImageRepo:                        "",
 
 	// Log forward settings.
 	LogForwardEnabled: false,
@@ -1846,6 +1850,15 @@ func (c *Config) Telemetry() bool {
 	return !value
 }
 
+// CAASImageRepo returns the configured full image reference string for the container
+// and a boolean indicating whether the value was explicitly set in the config.
+func (c *Config) CAASImageRepo() (string, bool) {
+	if imageRepo, ok := c.defined[ModelCAASImageRepo]; ok && imageRepo != "" {
+		return imageRepo.(string), true
+	}
+	return "", false
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1988,6 +2001,7 @@ var alwaysOptional = schema.Defaults{
 	ContainerImageStreamKey:                   schema.Omit,
 	ContainerImageMetadataURLKey:              schema.Omit,
 	ContainerImageMetadataDefaultsDisabledKey: schema.Omit,
+	ModelCAASImageRepo:                        schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -2586,6 +2600,11 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 	},
 	SecretBackendKey: {
 		Description: `The name of the secret store backend. (default "auto")`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ModelCAASImageRepo: {
+		Description: `The container image repository. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

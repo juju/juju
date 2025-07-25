@@ -331,7 +331,17 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
+
+	imageRepo, exists := modelConfig.CAASImageRepo()
+	if !exists {
+		imageRepo = cfg.CAASImageRepo()
+
+		if imageRepo == "" {
+			imageRepo = podcfg.JujudOCINamespace
+		}
+	}
+
+	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, modelConfig, vers)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}
@@ -354,7 +364,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Annotatef(err, "getting application config")
 	}
 	base := app.Base()
-	imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+	imageRepoDetails, err := docker.NewImageRepoDetails(imageRepo)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}

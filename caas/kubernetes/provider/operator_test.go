@@ -244,8 +244,8 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	labels := map[string]string{"operator.juju.is/name": "gitlab", "operator.juju.is/target": "application"}
 	pod, err := provider.OperatorPod(
 		"gitlab", "gitlab", "10666", "/var/lib/juju",
-		coreresources.DockerImageDetails{RegistryPath: "docker.io/jujusolutions/jujud-operator"},
-		coreresources.DockerImageDetails{RegistryPath: "docker.io/jujusolutions/charm-base:ubuntu-20.04"},
+		coreresources.DockerImageDetails{RegistryPath: "ghcr.io/juju/jujud-operator"},
+		coreresources.DockerImageDetails{RegistryPath: "ghcr.io/juju/charm-base:ubuntu-20.04"},
 		labels, tags, "operator-service-account",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -260,10 +260,10 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	c.Assert(pod.Spec.ServiceAccountName, gc.Equals, "operator-service-account")
 	c.Assert(pod.Spec.InitContainers, gc.HasLen, 1)
 	c.Assert(pod.Spec.InitContainers[0].VolumeMounts, gc.HasLen, 1)
-	c.Assert(pod.Spec.InitContainers[0].Image, gc.Equals, "docker.io/jujusolutions/jujud-operator")
+	c.Assert(pod.Spec.InitContainers[0].Image, gc.Equals, "ghcr.io/juju/jujud-operator")
 	c.Assert(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath, gc.Equals, "/opt/juju")
 	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
-	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "docker.io/jujusolutions/charm-base:ubuntu-20.04")
+	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "ghcr.io/juju/charm-base:ubuntu-20.04")
 	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 3)
 	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/template-agent.conf")
 	c.Assert(pod.Spec.Containers[0].VolumeMounts[1].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/operator.yaml")
