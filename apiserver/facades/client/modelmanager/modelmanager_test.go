@@ -15,7 +15,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
-	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -1004,13 +1003,12 @@ func (s *modelManagerStateSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *modelManagerStateSuite) setAPIUser(c *tc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	st := commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 
 	domainServices := s.ControllerDomainServices(c)
 
 	s.modelmanager = modelmanager.NewModelManagerAPI(
 		c.Context(),
-		mockCredentialShim{ModelManagerBackend: st},
+		mockCredentialShim{},
 		user.Name() == "admin",
 		user,
 		s.modelStatusAPI,

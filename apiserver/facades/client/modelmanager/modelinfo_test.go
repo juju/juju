@@ -191,8 +191,17 @@ func (m *mockModel) UUID() string {
 	return m.cfg.UUID()
 }
 
+// TODO remove that one when no more used
 type mockCredentialShim struct {
-	commonmodel.ModelManagerBackend
+}
+
+func (s mockCredentialShim) GetBackend(string) (commonmodel.ModelManagerBackend, func() bool, error) {
+	return nil, func() bool {
+		return true
+	}, nil
+}
+func (s mockCredentialShim) NewModel(state.ModelArgs) (commonmodel.Model, commonmodel.ModelManagerBackend, error) {
+	return nil, nil, nil
 }
 
 func (s mockCredentialShim) InvalidateModelCredential(reason string) error {

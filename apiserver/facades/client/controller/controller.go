@@ -138,11 +138,6 @@ func NewControllerAPI(
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			controllerConfigService,
@@ -151,7 +146,7 @@ func NewControllerAPI(
 			modelService,
 		),
 		ModelStatusAPI: commonmodel.NewModelStatusAPI(
-			commonmodel.NewModelManagerBackend(model, pool),
+			commonmodel.NewModelManagerBackend(nil, pool),
 			controllerUUID,
 			modelService,
 			func(ctx context.Context, uuid coremodel.UUID) (commonmodel.MachineService, error) {
