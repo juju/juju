@@ -1773,6 +1773,44 @@ func (c *MockModelDomainServicesNetworkCall) DoAndReturn(f func() modelmanager.N
 	return c
 }
 
+// RemovalService mocks base method.
+func (m *MockModelDomainServices) RemovalService() modelmanager.RemovalService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemovalService")
+	ret0, _ := ret[0].(modelmanager.RemovalService)
+	return ret0
+}
+
+// RemovalService indicates an expected call of RemovalService.
+func (mr *MockModelDomainServicesMockRecorder) RemovalService() *MockModelDomainServicesRemovalServiceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovalService", reflect.TypeOf((*MockModelDomainServices)(nil).RemovalService))
+	return &MockModelDomainServicesRemovalServiceCall{Call: call}
+}
+
+// MockModelDomainServicesRemovalServiceCall wrap *gomock.Call
+type MockModelDomainServicesRemovalServiceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDomainServicesRemovalServiceCall) Return(arg0 modelmanager.RemovalService) *MockModelDomainServicesRemovalServiceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDomainServicesRemovalServiceCall) Do(f func() modelmanager.RemovalService) *MockModelDomainServicesRemovalServiceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDomainServicesRemovalServiceCall) DoAndReturn(f func() modelmanager.RemovalService) *MockModelDomainServicesRemovalServiceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Status mocks base method.
 func (m *MockModelDomainServices) Status() modelmanager.StatusService {
 	m.ctrl.T.Helper()

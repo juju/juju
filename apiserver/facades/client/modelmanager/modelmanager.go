@@ -72,6 +72,7 @@ type ModelManagerAPI struct {
 	modelService         ModelService
 	modelDefaultsService ModelDefaultsService
 	secretBackendService SecretBackendService
+	removalService       RemovalService
 
 	store objectstore.ObjectStore
 
@@ -106,6 +107,7 @@ func NewModelManagerAPI(
 		modelDefaultsService: services.ModelDefaultsService,
 		accessService:        services.AccessService,
 		secretBackendService: services.SecretBackendService,
+		removalService:       services.RemovalService,
 		controllerUUID:       controllerUUID,
 	}
 }
@@ -746,7 +748,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
 
-	destroyModel := func(modelUUID string, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration) error {
+	destroyModel := func(modelUUID string, force *bool, maxWait *time.Duration) error {
 		modelTag := names.NewModelTag(modelUUID)
 		if !m.isAdmin {
 			if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag); err != nil {
@@ -754,25 +756,25 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			}
 		}
 
-		// TODO(model): Use the removal domain to destroy the model(s).
-
-		// TODO (stickupkid): We can't the delete the model info when
-		// destroying the model at the moment. Attempting to delete the
-		// model causes everything to lock up. Once we implement tear-down
-		// we'll need to ensure we correctly delete the model info.
-		// We need to progress the life of the model, atm it goes from
-		// alive to dead, skipping dying.
-		//
-		// modelDomainServices := m.domainServicesGetter.DomainServicesForModel(modelUUID)
-		// modelInfoService := modelDomainServices.ModelInfo()
-		// if err := modelInfoService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
-		// 	return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
-		// }
-
-		err := m.modelService.DeleteModel(ctx, coremodel.UUID(modelUUID))
-		if err != nil && !errors.Is(err, modelerrors.NotFound) {
-			return errors.Annotatef(err, "deleting model %q", modelUUID)
+		var argForce bool
+		if force != nil {
+			argForce = *force
 		}
+		var argMaxWait time.Duration
+		if maxWait != nil {
+			argMaxWait = *maxWait
+		}
+
+		mUUID := coremodel.UUID(modelUUID)
+		modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, mUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = modelDomainServices.RemovalService().RemoveModel(ctx, mUUID, argForce, argMaxWait)
+		if err != nil && !errors.Is(err, modelerrors.NotFound) {
+			return errors.Annotatef(err, "removing model %q", modelUUID)
+		}
+
 		return nil
 	}
 
@@ -782,7 +784,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := destroyModel(tag.Id(), arg.DestroyStorage, arg.Force, arg.MaxWait, arg.Timeout); err != nil {
+		if err := destroyModel(tag.Id(), arg.Force, arg.MaxWait); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

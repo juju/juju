@@ -308,7 +308,6 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
-	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
