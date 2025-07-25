@@ -15896,7 +15896,7 @@
     {
         "Name": "Storage",
         "Description": "",
-        "Version": 6,
+        "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -16378,6 +16378,9 @@
                 "ImportStorageParams": {
                     "type": "object",
                     "properties": {
+                        "force": {
+                            "type": "boolean"
+                        },
                         "kind": {
                             "type": "integer"
                         },

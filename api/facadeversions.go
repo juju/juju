@@ -129,7 +129,7 @@ var facadeVersions = facades.FacadeVersions{
 	"SSHSession":                   {1},
 	"SSHTunneler":                  {1},
 	"StatusHistory":                {2},
-	"Storage":                      {6},
+	"Storage":                      {6, 7},
 	"StorageProvisioner":           {4},
 	"StringsWatcher":               {1},
 	"Subnets":                      {5},

@@ -58,6 +58,13 @@ type KubernetesFilesystemAttachmentParams struct {
 	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
+// KubernetesFilesystemUnitAttachmentParams holds the parameters for
+// creating a filesystem attachment for the unit.
+type KubernetesFilesystemUnitAttachmentParams struct {
+	UnitTag  string `json:"unit-tag"`
+	VolumeId string `json:"volume-id"`
+}
+
 // KubernetesVolumeParams holds the parameters for creating a storage volume.
 type KubernetesVolumeParams struct {
 	StorageName string                            `json:"storagename"`
