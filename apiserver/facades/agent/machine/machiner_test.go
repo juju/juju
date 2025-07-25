@@ -71,7 +71,6 @@ func (s *machinerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *machinerSuite) makeAPI(c *tc.C) {
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPIForState(
-		nil,
 		s.clock,
 		s.ControllerDomainServices(c).ControllerConfig(),
 		s.ControllerDomainServices(c).ControllerNode(),
@@ -94,7 +93,6 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	aMachiner, err := machine.NewMachinerAPIForState(
-		nil,
 		clock.WallClock,
 		s.ControllerDomainServices(c).ControllerConfig(),
 		nil,

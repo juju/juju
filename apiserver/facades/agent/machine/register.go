@@ -29,7 +29,6 @@ func Register(registry facade.FacadeRegistry) {
 func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerAPI, error) {
 	domainServices := ctx.DomainServices()
 	return NewMachinerAPIForState(
-		ctx.State(),
 		ctx.Clock(),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
