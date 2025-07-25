@@ -36,7 +36,6 @@ type BlockCommandService interface {
 func DestroyController(
 	ctx context.Context,
 	modelUUIDs []model.UUID,
-	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
@@ -73,7 +72,7 @@ func DestroyController(
 			}
 		}
 	}
-	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
+	return destroyModel(ctx, blockCommandService, modelInfoService, state.DestroyModelParams{
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
 		Force:               force,
@@ -86,7 +85,6 @@ func DestroyController(
 // be destroyed and the model removed from the controller.
 func DestroyModel(
 	ctx context.Context,
-	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
 	destroyStorage *bool,
@@ -94,7 +92,7 @@ func DestroyModel(
 	maxWait *time.Duration,
 	timeout *time.Duration,
 ) error {
-	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
+	return destroyModel(ctx, blockCommandService, modelInfoService, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
 		Force:          force,
 		MaxWait:        common.MaxWait(maxWait),
@@ -104,7 +102,6 @@ func DestroyModel(
 
 func destroyModel(
 	ctx context.Context,
-	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
 	args state.DestroyModelParams,
@@ -114,10 +111,6 @@ func destroyModel(
 		return interrors.Capture(err)
 	}
 
-	model, err := st.Model()
-	if err != nil {
-		return interrors.Capture(err)
-	}
 	notForcing := args.Force == nil || !*args.Force
 	if notForcing {
 		hasValidCredential, err := modelInfoService.HasValidCredential(ctx)
@@ -129,14 +122,10 @@ func destroyModel(
 			return interrors.Errorf("invalid cloud credential, use --force")
 		}
 	}
-	if err := model.Destroy(args); err != nil {
-		if notForcing {
-			return interrors.Capture(err)
-		}
-		if err := filterNonCriticalErrorForForce(err); err != nil {
-			return interrors.Capture(err)
-		}
-	}
+
+	// TODO(gfouillet) - 2025-07-25: this method actually just check if it is
+	//   ok to destroy a model, but is noop. Rename or implements model
+	//   destroy
 
 	// Return to the caller. If it's the CLI, it will finish up by calling the
 	// provider's Destroy method, which will destroy the controllers, any

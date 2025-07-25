@@ -46,10 +46,7 @@ func makeControllerAPIV12(stdCtx context.Context, ctx facade.MultiModelContext) 
 // makeControllerAPI creates a new ControllerAPI.
 func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPI, error) {
 	var (
-		st             = ctx.State()
 		authorizer     = ctx.Auth()
-		pool           = ctx.StatePool()
-		resources      = ctx.Resources()
 		domainServices = ctx.DomainServices()
 	)
 
@@ -133,10 +130,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 
 	return NewControllerAPI(
 		stdCtx,
-		st,
-		pool,
 		authorizer,
-		resources,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
