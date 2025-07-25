@@ -135,7 +135,6 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 	c.Assert(args[1], gc.Equals, "/var/lib/juju")
 	c.Assert(args[2], gc.FitsTypeOf, &caas.OperatorConfig{})
 	config := args[2].(*caas.OperatorConfig)
-	c.Assert(config.ImageDetails.RegistryPath, gc.Equals, "")
 	c.Assert(config.Version, gc.Equals, version.MustParse("2.99.0"))
 	c.Assert(config.ResourceTags, jc.DeepEquals, map[string]string{"fred": "mary"})
 	if s.provisionerFacade.withStorage {

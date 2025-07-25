@@ -168,9 +168,11 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 		Results: []params.OperatorProvisioningInfo{{
 			ImageDetails: params.DockerImageInfo{
 				RegistryPath: "ghcr.io/juju/jujud-operator:2.6-beta3.666",
+				Repository:   "ghcr.io/juju",
 			},
 			BaseImageDetails: params.DockerImageInfo{
 				RegistryPath: "ghcr.io/juju/charm-base:ubuntu-20.04",
+				Repository:   "ghcr.io/juju",
 			},
 			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},

@@ -246,6 +246,10 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 		},
 	}
 	*s.isRawK8sSpec = isRawK8sSpec
+	expectedVersion := jujuversion.Current
+	expectedVersion.Build = 666
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(fmt.Sprintf("ghcr.io/juju/jujud-operator:%s", expectedVersion.String()), nil)
+
 	results, err := s.facade.ProvisioningInfo(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -253,8 +257,6 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	expectedVersion := jujuversion.Current
-	expectedVersion.Build = 666
 	// Maps are harder to check...
 	// http://ci.jujucharms.com/job/make-check-juju/4853/testReport/junit/github/com_juju_juju_apiserver_facades_controller_caasunitprovisioner/TestAll/
 	expectedResult := &params.KubernetesProvisioningInfo{
@@ -692,6 +694,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},

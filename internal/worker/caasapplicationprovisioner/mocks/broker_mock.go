@@ -96,21 +96,6 @@ func (mr *MockCAASBrokerMockRecorder) DeleteService(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteService", reflect.TypeOf((*MockCAASBroker)(nil).DeleteService), arg0)
 }
 
-// GetModelOperatorDeploymentImage mocks base method.
-func (m *MockCAASBroker) GetModelOperatorDeploymentImage() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelOperatorDeploymentImage")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetModelOperatorDeploymentImage indicates an expected call of GetModelOperatorDeploymentImage.
-func (mr *MockCAASBrokerMockRecorder) GetModelOperatorDeploymentImage() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelOperatorDeploymentImage", reflect.TypeOf((*MockCAASBroker)(nil).GetModelOperatorDeploymentImage))
-}
-
 // OperatorExists mocks base method.
 func (m *MockCAASBroker) OperatorExists(arg0 string) (caas.DeploymentState, error) {
 	m.ctrl.T.Helper()
