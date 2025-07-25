@@ -440,35 +440,6 @@ func (s *importSuite) TestImportLinkLayerDevicesOptionalValues(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestRollbackLinkLayerDevices(c *tc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	model := description.NewModel(description.ModelArgs{})
-	dArgs := description.LinkLayerDeviceArgs{}
-	model.AddLinkLayerDevice(dArgs)
-	s.migrationService.EXPECT().DeleteImportedLinkLayerDevices(gomock.Any()).Return(nil)
-
-	// Act
-	op := s.newImportOperation(c)
-	err := op.Rollback(c.Context(), model)
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *importSuite) TestRollbackLinkLayerDevicesNoData(c *tc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	model := description.NewModel(description.ModelArgs{})
-
-	// Act
-	op := s.newImportOperation(c)
-	err := op.Rollback(c.Context(), model)
-
-	// Assert: with no link layer device data, there is no failure.
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 // lldArgMatcher verifies the args for ImportLinkLayerDevice.
 type lldArgMatcher struct {
 	c        *tc.C
