@@ -74,7 +74,7 @@ type ApplicationState interface {
 	// application already exists. If returns as error satisfying
 	// [applicationerrors.CharmNotFound] if the charm for the application is not
 	// found.
-	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
+	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddCAASUnitArg) (coreapplication.ID, error)
 
 	// UpsertCloudService updates the cloud service for the specified application.
 	// The following errors may be returned:
@@ -758,7 +758,7 @@ func validateDeviceConstraints(cons map[string]devices.Constraints, charmMeta *i
 // directives are missing that are required by the charm.
 func validateApplicationStorageDirectives(
 	charmStorageDefs map[string]internalcharm.Storage,
-	directives []application.ApplicationStorageDirectiveArg,
+	directives []application.CreateApplicationStorageDirectiveArg,
 ) error {
 	// seenDirectives acts as a sanity check to see if a directive by a name has
 	// been witnessed.
@@ -809,7 +809,7 @@ func validateApplicationStorageDirectives(
 // expectations of the charm storage definition.
 func validateApplicationStorageDirective(
 	charmStorageDef internalcharm.Storage,
-	directive application.ApplicationStorageDirectiveArg,
+	directive application.CreateApplicationStorageDirectiveArg,
 ) error {
 	minCount := uint32(0)
 	if charmStorageDef.CountMin > 0 {
@@ -881,7 +881,7 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 }
 
 // makeApplicationStorageDirectiveArgs creates a slice of
-// [application.ApplicationStorageDirectiveArg] from a set of overrides and the
+// [application.CreateApplicationStorageDirectiveArg] from a set of overrides and the
 // charm storage information. The resultant directives are a merging of all the
 // data sources to form an approximation of what the storage directives for an
 // application should be.
@@ -891,12 +891,12 @@ func makeApplicationStorageDirectiveArgs(
 	directiveOverrides map[string]ApplicationStorageDirectiveOverride,
 	charmMetaStorage map[string]internalcharm.Storage,
 	defaultProvisioners application.DefaultStorageProvisioners,
-) []application.ApplicationStorageDirectiveArg {
+) []application.CreateApplicationStorageDirectiveArg {
 	if len(charmMetaStorage) == 0 {
 		return nil
 	}
 
-	rval := make([]application.ApplicationStorageDirectiveArg, 0, len(charmMetaStorage))
+	rval := make([]application.CreateApplicationStorageDirectiveArg, 0, len(charmMetaStorage))
 	for charmStorageName, charmStorageDef := range charmMetaStorage {
 		// We don't support shared storage. If the charm has a shared storage
 		// definition we ignore it.
@@ -928,8 +928,8 @@ func makeApplicationStorageDirectiveArg(
 	directiveOverride ApplicationStorageDirectiveOverride,
 	charmStorageDef internalcharm.Storage,
 	defaultProvisioners application.DefaultStorageProvisioners,
-) application.ApplicationStorageDirectiveArg {
-	rval := application.ApplicationStorageDirectiveArg{
+) application.CreateApplicationStorageDirectiveArg {
+	rval := application.CreateApplicationStorageDirectiveArg{
 		Name: name,
 	}
 

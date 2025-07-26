@@ -95,14 +95,13 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
 	arg := application.RegisterCAASUnitArg{
-		UnitName:                  "foo/666",
-		PasswordHash:              "secret",
-		ProviderID:                "foo-666",
-		Address:                   ptr("10.6.6.6"),
-		Ports:                     ptr([]string{"8080"}),
-		OrderedScale:              true,
-		OrderedId:                 666,
-		ObservedAttachedVolumeIDs: []string{"vol-666"},
+		UnitName:     "foo/666",
+		PasswordHash: "secret",
+		ProviderID:   "foo-666",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"8080"}),
+		OrderedScale: true,
+		OrderedId:    666,
 	}
 	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), "foo", registerArgMatcher{arg: arg})
 

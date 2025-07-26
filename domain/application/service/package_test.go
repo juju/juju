@@ -128,6 +128,7 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 	s.charm = NewMockCharm(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
 	s.validator = NewMockValidator(ctrl)
+	s.storageValidator = NewMockStorageProviderValidator(ctrl)
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(

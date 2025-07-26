@@ -30,7 +30,7 @@ type UnitState interface {
 
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names.
-	AddCAASUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) ([]coreunit.Name, error)
+	AddCAASUnits(context.Context, coreapplication.ID, ...application.AddCAASUnitArg) ([]coreunit.Name, error)
 
 	// InsertMigratingIAASUnits inserts the fully formed units for the specified
 	// IAAS application. This is only used when inserting units during model
@@ -163,7 +163,12 @@ type UnitState interface {
 	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
 }
 
-func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, platform deployment.Platform, constraints constraints.Constraints) ([]application.AddIAASUnitArg, error) {
+func (s *Service) makeIAASUnitArgs(
+	units []AddIAASUnitArg,
+	storageDirectives []application.StorageDirective,
+	platform deployment.Platform,
+	constraints constraints.Constraints,
+) ([]application.AddIAASUnitArg, error) {
 	args := make([]application.AddIAASUnitArg, len(units))
 	for i, u := range units {
 		placement, err := deployment.ParsePlacement(u.Placement)
@@ -171,11 +176,19 @@ func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, platform deployment.P
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
+		unitStorageArgs, err := makeUnitStorageArgs(storageDirectives, nil)
+		if err != nil {
+			return nil, errors.Errorf(
+				"making storage arguments for IAAS unit: %w", err,
+			)
+		}
+
 		arg := application.AddIAASUnitArg{
 			AddUnitArg: application.AddUnitArg{
-				Constraints:   constraints,
-				Placement:     placement,
-				UnitStatusArg: s.makeIAASUnitStatusArgs(),
+				CreateUnitStorageArg: unitStorageArgs,
+				Constraints:          constraints,
+				Placement:            placement,
+				UnitStatusArg:        s.makeIAASUnitStatusArgs(),
 			},
 			Platform: platform,
 			Nonce:    u.Nonce,
@@ -186,18 +199,30 @@ func (s *Service) makeIAASUnitArgs(units []AddIAASUnitArg, platform deployment.P
 	return args, nil
 }
 
-func (s *Service) makeCAASUnitArgs(units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
-	args := make([]application.AddUnitArg, len(units))
+func (s *Service) makeCAASUnitArgs(
+	units []AddUnitArg,
+	storageDirectives []application.StorageDirective,
+	constraints constraints.Constraints,
+) ([]application.AddCAASUnitArg, error) {
+	args := make([]application.AddCAASUnitArg, len(units))
 	for i, u := range units {
 		placement, err := deployment.ParsePlacement(u.Placement)
 		if err != nil {
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		arg := application.AddUnitArg{
-			Constraints:   constraints,
-			Placement:     placement,
-			UnitStatusArg: s.makeCAASUnitStatusArgs(),
+		unitStorageArgs, err := makeUnitStorageArgs(storageDirectives, nil)
+		if err != nil {
+			return nil, errors.Errorf("making storage for CAAS unit: %w", err)
+		}
+
+		arg := application.AddCAASUnitArg{
+			AddUnitArg: application.AddUnitArg{
+				CreateUnitStorageArg: unitStorageArgs,
+				Constraints:          constraints,
+				Placement:            placement,
+				UnitStatusArg:        s.makeCAASUnitStatusArgs(),
+			},
 		}
 		args[i] = arg
 	}

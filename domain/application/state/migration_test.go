@@ -180,26 +180,16 @@ func (s *migrationStateSuite) TestGetApplicationsForExportWithNoApplications(c *
 
 func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-			Password: &application.PasswordInfo{
-				PasswordHash:  "password",
-				HashAlgorithm: 0,
-			},
-		},
-	})
-
-	unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := st.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
 
-	units, err := st.GetApplicationUnitsForExport(c.Context(), id)
+	units, err := st.GetApplicationUnitsForExport(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
-			UUID:    unitUUID,
-			Name:    "foo/0",
+			UUID:    unitUUIDs[0],
+			Name:    unitName,
 			Machine: machine.Name("0"),
 		},
 	})
@@ -208,30 +198,17 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *tc.C) {
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportMultipleApplications(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-			Password: &application.PasswordInfo{
-				PasswordHash:  "password",
-				HashAlgorithm: 0,
-			},
-		},
-	})
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "bar/0",
-		},
-	})
-
-	unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)
+	unitName, err := st.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
 
-	units, err := st.GetApplicationUnitsForExport(c.Context(), id)
+	units, err := st.GetApplicationUnitsForExport(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
-			UUID:    unitUUID,
-			Name:    "foo/0",
+			UUID:    unitUUIDs[0],
+			Name:    unitName,
 			Machine: machine.Name("0"),
 		},
 	})
@@ -240,37 +217,23 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportMultipleApplicatio
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *tc.C) {
 	// Arrange:
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	subName := coreunit.Name("foo/0")
-	principalName := coreunit.Name("principal/0")
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: subName,
-			Password: &application.PasswordInfo{
-				PasswordHash:  "password",
-				HashAlgorithm: 0,
-			},
-		},
-	})
-	s.createIAASApplication(c, "principal", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: principalName,
-		},
-	})
+	subAppUUID, subUnits := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	_, principalUnits := s.createIAASApplicationWithNUnits(c, "principal", life.Alive, 1)
 
-	principalUUID, err := st.GetUnitUUIDByName(c.Context(), principalName)
+	subName, err := st.GetUnitNameForUUID(c.Context(), subUnits[0])
 	c.Assert(err, tc.ErrorIsNil)
-	subUUID, err := st.GetUnitUUIDByName(c.Context(), subName)
+	principalName, err := st.GetUnitNameForUUID(c.Context(), principalUnits[0])
 	c.Assert(err, tc.ErrorIsNil)
-	s.insertUnitPrincipal(c, principalUUID, subUUID)
+	s.insertUnitPrincipal(c, principalUnits[0], subUnits[0])
 
 	// Act:
-	units, err := st.GetApplicationUnitsForExport(c.Context(), id)
+	units, err := st.GetApplicationUnitsForExport(c.Context(), subAppUUID)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
-			UUID:      subUUID,
+			UUID:      subUnits[0],
 			Name:      subName,
 			Machine:   "0",
 			Principal: principalName,
@@ -306,30 +269,14 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-			Password: &application.PasswordInfo{
-				PasswordHash:  "password",
-				HashAlgorithm: 0,
-			},
-		},
-	})
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	s.setUnitLife(c, unitUUIDs[0], life.Dying)
 
-	unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE uuid = ?", life.Dying, unitUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	units, err := st.GetApplicationUnitsForExport(c.Context(), id)
+	units, err := st.GetApplicationUnitsForExport(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
-			UUID:    unitUUID,
+			UUID:    unitUUIDs[0],
 			Name:    "foo/0",
 			Machine: machine.Name("0"),
 		},
@@ -339,33 +286,16 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *tc.C) {
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *tc.C) {
 	// We shouldn't export units that are in the dead state, but the old code
 	// doesn't prohibit this.
-
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-			Password: &application.PasswordInfo{
-				PasswordHash:  "password",
-				HashAlgorithm: 0,
-			},
-		},
-	})
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	s.setUnitLife(c, unitUUIDs[0], life.Dead)
 
-	unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE uuid = ?", life.Dead, unitUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	units, err := st.GetApplicationUnitsForExport(c.Context(), id)
+	units, err := st.GetApplicationUnitsForExport(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(units, tc.DeepEquals, []application.ExportUnit{
 		{
-			UUID:    unitUUID,
+			UUID:    unitUUIDs[0],
 			Name:    "foo/0",
 			Machine: machine.Name("0"),
 		},
@@ -556,8 +486,8 @@ func (s *migrationStateSuite) updateApplicationEndpoint(c *tc.C, endpoint, space
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var charmRelationUUID string
 		err := tx.QueryRowContext(ctx, `
-SELECT uuid 
-FROM   charm_relation 
+SELECT uuid
+FROM   charm_relation
 WHERE  name = ?
 `, endpoint).Scan(&charmRelationUUID)
 		if err != nil {
@@ -626,16 +556,14 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
-	principal := unittesting.GenNewName(c, "bar/0")
 	sub := unittesting.GenNewName(c, "foo/666")
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: principal,
-		},
-	})
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)
 	subAppID := s.createIAASApplication(c, "foo", life.Alive)
 
-	err := s.state.InsertMigratingCAASUnits(c.Context(), subAppID, application.ImportUnitArg{
+	principal, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.InsertMigratingCAASUnits(c.Context(), subAppID, application.ImportUnitArg{
 		UnitName:  sub,
 		Principal: principal,
 	})
@@ -646,17 +574,15 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
-	principal := unittesting.GenNewName(c, "bar/0")
 	sub := unittesting.GenNewName(c, "foo/666")
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: principal,
-		},
-	})
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)
 	subAppID := s.createIAASApplication(c, "foo", life.Alive)
 
-	err := s.state.InsertMigratingIAASUnits(c.Context(), subAppID, application.ImportUnitArg{
-		UnitName:  "foo/666",
+	principal, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.InsertMigratingIAASUnits(c.Context(), subAppID, application.ImportUnitArg{
+		UnitName:  sub,
 		Machine:   "0",
 		Principal: principal,
 	})

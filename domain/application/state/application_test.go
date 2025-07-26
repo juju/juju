@@ -1008,40 +1008,8 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveEmptyMod
 
 func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAlive(c *tc.C) {
 	// Arrange: Some apps with units
-	s.createIAASApplication(c, "foo", life.Alive,
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "foo/0",
-			},
-		},
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "foo/1",
-			},
-		},
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "foo/2",
-			},
-		},
-	)
-	s.createIAASApplication(c, "bar", life.Alive,
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "bar/0",
-			},
-		},
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "bar/1",
-			},
-		},
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "bar/2",
-			},
-		},
-	)
+	s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 3)
+	s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 3)
 
 	// Act:
 	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
@@ -1052,27 +1020,9 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAlive(c *tc.C
 
 func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyingApplications(c *tc.C) {
 	// Arrange: Some apps with units, where some are dying
-	s.createIAASApplication(c, "foo", life.Dying,
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "foo/0",
-			},
-		},
-	)
-	s.createIAASApplication(c, "bar", life.Dying,
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "bar/0",
-			},
-		},
-	)
-	s.createIAASApplication(c, "baz", life.Alive,
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "baz/0",
-			},
-		},
-	)
+	s.createIAASApplicationWithNUnits(c, "foo", life.Dying, 1)
+	s.createIAASApplicationWithNUnits(c, "bar", life.Dying, 1)
+	s.createIAASApplicationWithNUnits(c, "baz", life.Alive, 1)
 
 	// Act:
 	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
@@ -1084,33 +1034,12 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 
 func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyingUnits(c *tc.C) {
 	// Arrange: an application with some dying units
-	s.createIAASApplication(c, "foo", life.Alive,
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "foo/0",
-			},
-		},
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "foo/1",
-			},
-		},
-		application.InsertIAASUnitArg{
-			InsertUnitArg: application.InsertUnitArg{
-				UnitName: "foo/2",
-			},
-		},
-	)
-
-	u0, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
-	c.Assert(err, tc.ErrorIsNil)
-	u1, err := s.state.GetUnitUUIDByName(c.Context(), "foo/1")
-	c.Assert(err, tc.ErrorIsNil)
+	_, units := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 3)
 
 	removalState := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), u0.String())
+	_, err := removalState.EnsureUnitNotAliveCascade(c.Context(), units[0].String())
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), u1.String())
+	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), units[1].String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
@@ -1329,14 +1258,9 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *tc.C) {
-	u1 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/666",
-		},
-	}
-	expectedAppUUID := s.createIAASApplication(c, "foo", life.Alive, u1)
+	expectedAppUUID := s.createIAASApplication(c, "foo", life.Alive, application.AddIAASUnitArg{})
 
-	obtainedAppUUID, err := s.state.GetApplicationIDByUnitName(c.Context(), u1.UnitName)
+	obtainedAppUUID, err := s.state.GetApplicationIDByUnitName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedAppUUID, tc.Equals, expectedAppUUID)
 }
@@ -1347,14 +1271,9 @@ func (s *applicationStateSuite) TestGetApplicationIDByUnitNameUnitUnitNotFound(c
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
-	u1 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/666",
-		},
-	}
-	expectedAppUUID := s.createIAASApplication(c, "foo", life.Alive, u1)
+	expectedAppUUID := s.createIAASApplication(c, "foo", life.Alive, application.AddIAASUnitArg{})
 
-	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), u1.UnitName)
+	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appUUID, tc.Equals, expectedAppUUID)
 	c.Check(appName, tc.Equals, "foo")
@@ -1388,10 +1307,7 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleState(c *tc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	appID := s.createCAASApplication(c, "foo", life.Alive, u)
+	appID, _ := s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	scaleState, err := s.state.GetApplicationScaleState(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1452,10 +1368,7 @@ func (s *applicationStateSuite) TestUpdateApplicationScaleInvalidScale(c *tc.C) 
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *tc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	appID := s.createCAASApplication(c, "foo", life.Dead, u)
+	appID := s.createCAASApplication(c, "foo", life.Dead)
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
@@ -1491,10 +1404,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	appID := s.createCAASApplication(c, "foo", life.Alive, u)
+	appID := s.createCAASApplication(c, "foo", life.Alive)
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
@@ -1507,10 +1417,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	appID := s.createCAASApplication(c, "foo", life.Dying, u)
+	appID := s.createCAASApplication(c, "foo", life.Dying)
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
@@ -1539,10 +1446,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) 
 // This test is exactly like TestSetApplicationScalingStateAppDying but the app
 // is dead instead of dying.
 func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	appID := s.createCAASApplication(c, "foo", life.Dead, u)
+	appID := s.createCAASApplication(c, "foo", life.Dead)
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
@@ -1569,10 +1473,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	appID := s.createCAASApplication(c, "foo", life.Alive, u)
+	appID := s.createCAASApplication(c, "foo", life.Alive)
 
 	// Set up the initial scale value.
 	err := s.state.SetDesiredApplicationScale(c.Context(), appID, 666)
@@ -1712,12 +1613,7 @@ func (s *applicationStateSuite) TestDeleteDeadApplication(c *tc.C) {
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *tc.C) {
 	ctx := c.Context()
-	u1 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/666",
-		},
-	}
-	s.createIAASApplication(c, "foo", life.Alive, u1)
+	s.createIAASApplication(c, "foo", life.Alive, application.AddIAASUnitArg{})
 
 	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
@@ -1736,57 +1632,28 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
-	u1 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/666",
-		},
-	}
-	u2 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/667",
-		},
-	}
-	u3 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "bar/667",
-		},
-	}
-	s.createIAASApplication(c, "foo", life.Alive, u1, u2)
-	s.createIAASApplication(c, "bar", life.Alive, u3)
+	_, fooUnits := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 2)
+	_, barUnits := s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)
 
-	var unitID1, unitID2, unitID3 coreunit.UUID
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/666"); err != nil {
-			return err
-		}
-		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/666").Scan(&unitID1); err != nil {
-			return err
-		}
-		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "foo/667").Scan(&unitID2); err != nil {
-			return err
-		}
-		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "bar/667").Scan(&unitID3)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	s.setUnitLife(c, fooUnits[0], life.Dead)
 
-	got, err := s.state.GetApplicationUnitLife(c.Context(), "foo", unitID2)
+	got, err := s.state.GetApplicationUnitLife(c.Context(), "foo", fooUnits[1])
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
-		unitID2: life.Alive,
+		fooUnits[1]: life.Alive,
 	})
 
-	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo", unitID1, unitID2)
+	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo", fooUnits[:]...)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
-		unitID1: life.Dead,
-		unitID2: life.Alive,
+		fooUnits[0]: life.Dead,
+		fooUnits[1]: life.Alive,
 	})
 
-	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo", unitID2, unitID3)
+	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo", fooUnits[1], barUnits[0])
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
-		unitID2: life.Alive,
+		fooUnits[1]: life.Alive,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo")
@@ -1795,43 +1662,21 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
-	u1 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/666",
-		},
-	}
-	u2 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/667",
-		},
-	}
-	u3 := application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "bar/667",
-		},
-	}
-	fooAppID := s.createIAASApplication(c, "foo", life.Alive, u1, u2)
-	barAppID := s.createIAASApplication(c, "bar", life.Alive, u3)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name=?", "foo/666"); err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	fooAppID, fooUnits := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 2)
+	barAppID, _ := s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)
+	s.setUnitLife(c, fooUnits[0], life.Dead)
 
 	fooUnitLife, err := s.state.GetAllUnitLifeForApplication(c.Context(), fooAppID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(fooUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
-		coreunit.Name("foo/666"): life.Dead,
-		coreunit.Name("foo/667"): life.Alive,
+		coreunit.Name("foo/0"): life.Dead,
+		coreunit.Name("foo/1"): life.Alive,
 	})
 
 	barUnitLife, err := s.state.GetAllUnitLifeForApplication(c.Context(), barAppID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(barUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
-		coreunit.Name("bar/667"): life.Alive,
+		coreunit.Name("bar/0"): life.Alive,
 	})
 
 	_, err = s.state.GetAllUnitLifeForApplication(c.Context(),
@@ -2389,11 +2234,7 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *tc.C)
 func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *tc.C) {
 	// Create a few applications.
 	s.createIAASApplication(c, "foo", life.Alive)
-	s.createIAASApplication(c, "bar", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "bar/0",
-		},
-	})
+	s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)
 
 	// Get the applications for the revision updater.
 	apps, err := s.state.GetApplicationsForRevisionUpdater(c.Context())
@@ -3711,11 +3552,7 @@ func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *tc.C) 
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-		},
-	})
+	appID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	hash, err := s.state.GetAddressesHash(c.Context(), appID, "net-node-uuid")
 	c.Assert(err, tc.ErrorIsNil)
@@ -3725,11 +3562,7 @@ func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-		},
-	})
+	appID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -3772,11 +3605,7 @@ func (s *applicationStateSuite) TestGetAddressesHash(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C) {
-	appID := s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-		},
-	})
+	appID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
@@ -3835,10 +3664,7 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive,
-		application.InsertUnitArg{
-			UnitName: "foo/0",
-		})
+	appID := s.createCAASApplication(c, "foo", life.Alive)
 
 	network.NewMachineAddress("10.0.0.1/24")
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
@@ -3864,9 +3690,7 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBindings(c *tc.C) {
-	appID := s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-	})
+	appID := s.createCAASApplication(c, "foo", life.Alive)
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.NewMachineAddress("10.0.0.1/24"),
@@ -3953,9 +3777,7 @@ func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
-	_ = s.createCAASApplication(c, "foo", life.Alive, application.InsertUnitArg{
-		UnitName: "foo/0",
-	})
+	unitName, unitUUID := s.createNamedCAASUnit(c)
 
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
@@ -3972,8 +3794,8 @@ func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
 		if err != nil {
 			return err
 		}
-		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
-		_, err = tx.ExecContext(ctx, updateUnit, "net-node-uuid", "foo/0")
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE uuid = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "net-node-uuid", unitUUID.String())
 		if err != nil {
 			return err
 		}
@@ -3984,17 +3806,13 @@ func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
 	// Check the k8s service net node is returned (since the uuid is generated
 	// we check that the unit net node uuid, which is manually crafted, is not
 	// returned).
-	netNode, err := s.state.GetNetNodeUUIDByUnitName(c.Context(), "foo/0")
+	netNode, err := s.state.GetNetNodeUUIDByUnitName(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(netNode, tc.Not(tc.Equals), "net-node-uuid")
 }
 
 func (s *applicationStateSuite) TestGetNetNodeFromUnit(c *tc.C) {
-	_ = s.createIAASApplication(c, "foo", life.Alive, application.InsertIAASUnitArg{
-		InsertUnitArg: application.InsertUnitArg{
-			UnitName: "foo/0",
-		},
-	})
+	unitName, unitUUID := s.createNamedIAASUnit(c)
 	expectedNetNodeUUID := "net-node-uuid"
 
 	// Insert the unit net node to make sure the k8s service one is
@@ -4005,8 +3823,8 @@ func (s *applicationStateSuite) TestGetNetNodeFromUnit(c *tc.C) {
 		if err != nil {
 			return err
 		}
-		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
-		_, err = tx.ExecContext(ctx, updateUnit, expectedNetNodeUUID, "foo/0")
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE uuid = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, expectedNetNodeUUID, unitUUID.String())
 		if err != nil {
 			return err
 		}
@@ -4015,7 +3833,7 @@ func (s *applicationStateSuite) TestGetNetNodeFromUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the unit net node is returned.
-	netNode, err := s.state.GetNetNodeUUIDByUnitName(c.Context(), "foo/0")
+	netNode, err := s.state.GetNetNodeUUIDByUnitName(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(netNode, tc.Equals, expectedNetNodeUUID)
 }
