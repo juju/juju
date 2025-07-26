@@ -11,11 +11,13 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/rpc/params"
@@ -35,6 +37,18 @@ type CAASProvisionerSuite struct {
 	st                 *mockState
 	storagePoolManager *mockStoragePoolManager
 	registry           *mockStorageRegistry
+	broker             *mocks.MockBroker
+}
+
+func (s *CAASProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.broker = mocks.NewMockBroker(ctrl)
+
+	api, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(
+		s.resources, s.authorizer, s.st, s.st, s.storagePoolManager, s.registry, s.broker)
+	c.Assert(err, jc.ErrorIsNil)
+	s.api = api
+	return ctrl
 }
 
 func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
@@ -52,22 +66,27 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.registry = &mockStorageRegistry{}
-	api, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(
-		s.resources, s.authorizer, s.st, s.st, s.storagePoolManager, s.registry)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+
 }
 
 func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.broker = mocks.NewMockBroker(ctrl)
+
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(
-		s.resources, s.authorizer, s.st, s.st, s.storagePoolManager, s.registry)
+		s.resources, s.authorizer, s.st, s.st, s.storagePoolManager, s.registry, s.broker)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	applicationNames := []string{"db2", "hadoop"}
 	s.st.applicationWatcher.changes <- applicationNames
 	result, err := s.api.WatchApplications()
@@ -82,6 +101,9 @@ func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestSetPasswords(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		tag: names.NewApplicationTag("app"),
 	}
@@ -106,6 +128,9 @@ func (s *CAASProvisionerSuite) TestSetPasswords(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		tag: names.NewApplicationTag("app"),
 	}
@@ -129,18 +154,25 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		charm: &mockCharm{meta: &charm.Meta{}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:2.6-beta3.666", nil)
+
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
 		Results: []params.OperatorProvisioningInfo{{
 			ImageDetails: params.DockerImageInfo{
 				RegistryPath: "ghcr.io/juju/jujud-operator:2.6-beta3.666",
+				Repository:   "ghcr.io/juju",
 			},
 			BaseImageDetails: params.DockerImageInfo{
 				RegistryPath: "ghcr.io/juju/charm-base:ubuntu-20.04",
+				Repository:   "ghcr.io/juju",
 			},
 			Version:      version.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
@@ -164,10 +196,15 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.operatorRepo = "somerepo"
 	s.st.app = &mockApplication{
 		charm: &mockCharm{meta: &charm.Meta{}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(s.st.operatorRepo+"/jujud-operator:"+"2.6-beta3.666", nil)
+
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
@@ -202,11 +239,16 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.operatorRepo = "somerepo"
 	minVers := version.MustParse("2.8.0")
 	s.st.app = &mockApplication{
 		charm: &mockCharm{meta: &charm.Meta{MinJujuVersion: minVers}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(s.st.operatorRepo+"/jujud-operator:"+"2.6-beta3.666", nil)
+
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
@@ -229,12 +271,16 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStorage(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoSidecarNoStorage(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.operatorRepo = "somerepo"
 	s.st.app = &mockApplication{
 		charm: &mockCharm{
 			meta:     &charm.Meta{},
 			manifest: &charm.Manifest{Bases: []charm.Base{{}}}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(s.st.operatorRepo+"/jujud-operator:"+"2.6-beta3.666", nil)
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
@@ -257,12 +303,17 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoSidecarNoStorage(c *g
 }
 
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
 	s.st.operatorRepo = "somerepo"
 	minVers := version.MustParse("2.7.0")
 	s.st.app = &mockApplication{
 		charm: &mockCharm{meta: &charm.Meta{MinJujuVersion: minVers}},
 	}
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(s.st.operatorRepo+"/jujud-operator:"+"2.6-beta3.666", nil)
+
 	result, err := s.api.OperatorProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfoResults{
@@ -296,12 +347,18 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C
 }
 
 func (s *CAASProvisionerSuite) TestAddresses(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	_, err := s.api.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "APIHostPortsForAgents")
 }
 
 func (s *CAASProvisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	res, err := s.api.IssueOperatorCertificate(params.Entities{
 		Entities: []params.Entity{{Tag: "application-appname"}},
 	})

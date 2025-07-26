@@ -13,11 +13,13 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/resources"
 	jujuresource "github.com/juju/juju/core/resources"
@@ -43,10 +45,12 @@ type CAASApplicationProvisionerSuite struct {
 	storage            *mockStorage
 	storagePoolManager *mockStoragePoolManager
 	registry           *mockStorageRegistry
+	broker             *mocks.MockBroker
 }
 
 func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	ctrl := gomock.NewController(c)
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -67,11 +71,12 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.registry = &mockStorageRegistry{}
+	s.broker = mocks.NewMockBroker(ctrl)
 	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
+		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock, s.broker)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -81,7 +86,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
+		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock, s.broker)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

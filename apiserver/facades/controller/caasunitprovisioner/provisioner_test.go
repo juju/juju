@@ -13,12 +13,14 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -50,12 +52,25 @@ type CAASProvisionerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	facade     *caasunitprovisioner.Facade
+	broker     *mocks.MockBroker
 
 	isRawK8sSpec *bool
 }
 
 func boolptr(i bool) *bool {
 	return &i
+}
+
+func (s *CAASProvisionerSuite) setupFacade(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.broker = mocks.NewMockBroker(ctrl)
+
+	facade, err := caasunitprovisioner.NewFacade(
+		s.resources, s.authorizer, s.st, s.storage, s.devices,
+		s.storagePoolManager, s.registry, nil, nil, s.clock, s.broker)
+	c.Assert(err, jc.ErrorIsNil)
+	s.facade = facade
+	return ctrl
 }
 
 func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
@@ -103,25 +118,25 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.clock = testclock.NewClock(time.Now())
 	s.PatchValue(&jujuversion.OfficialBuild, 0)
-
-	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.devices,
-		s.storagePoolManager, s.registry, nil, nil, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
-	s.facade = facade
 }
 
 func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	s.broker = mocks.NewMockBroker(ctrl)
+
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices,
-		s.storagePoolManager, s.registry, nil, nil, s.clock)
+		s.storagePoolManager, s.registry, nil, nil, s.clock, s.broker)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	applicationNames := []string{"db2", "hadoop"}
 	s.applicationsChanges <- applicationNames
 	result, err := s.facade.WatchApplications()
@@ -135,6 +150,9 @@ func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestWatchPodSpec(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.podSpecChanges <- struct{}{}
 
 	results, err := s.facade.WatchPodSpec(params.Entities{
@@ -156,6 +174,9 @@ func (s *CAASProvisionerSuite) TestWatchPodSpec(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.scaleChanges <- struct{}{}
 
 	results, err := s.facade.WatchApplicationsScale(params.Entities{
@@ -177,6 +198,9 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.settingsChanges <- []string{"hash"}
 
 	results, err := s.facade.WatchApplicationsTrustHash(params.Entities{
@@ -222,6 +246,10 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 		},
 	}
 	*s.isRawK8sSpec = isRawK8sSpec
+	expectedVersion := jujuversion.Current
+	expectedVersion.Build = 666
+	s.broker.EXPECT().GetModelOperatorDeploymentImage().Return(fmt.Sprintf("ghcr.io/juju/jujud-operator:%s", expectedVersion.String()), nil)
+
 	results, err := s.facade.ProvisioningInfo(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -229,8 +257,6 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	expectedVersion := jujuversion.Current
-	expectedVersion.Build = 666
 	// Maps are harder to check...
 	// http://ci.jujucharms.com/job/make-check-juju/4853/testReport/junit/github/com_juju_juju_apiserver_facades_controller_caasunitprovisioner/TestAll/
 	expectedResult := &params.KubernetesProvisioningInfo{
@@ -317,13 +343,22 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 }
 
 func (s *CAASProvisionerSuite) TestProvisioningInfoK8sSpec(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.assertProvisioningInfo(c, false)
 }
 func (s *CAASProvisionerSuite) TestProvisioningInfoRawK8sSpec(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.assertProvisioningInfo(c, true)
 }
 
 func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	results, err := s.facade.ApplicationsScale(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -344,6 +379,9 @@ func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestDeploymentMode(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.charm = &mockCharm{
 		meta: charm.Meta{
 			Deployment: &charm.Deployment{
@@ -371,6 +409,9 @@ func (s *CAASProvisionerSuite) TestDeploymentMode(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	results, err := s.facade.Life(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "unit-gitlab-0"},
@@ -394,6 +435,9 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	results, err := s.facade.ApplicationsConfig(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -410,6 +454,9 @@ func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestClearApplicationsResources(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	results, err := s.facade.ClearApplicationsResources(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -442,10 +489,16 @@ func int64Ptr(i int64) *int64 {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.assertUpdateApplicationsStatelessUnits(c, true)
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnitsWithoutGeneration(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.assertUpdateApplicationsStatelessUnits(c, false)
 }
 
@@ -524,6 +577,9 @@ func (s *CAASProvisionerSuite) assertUpdateApplicationsStatelessUnits(c *gc.C, w
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -584,6 +640,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -635,6 +694,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -668,6 +730,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -831,6 +896,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVolume(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 	}
@@ -897,6 +965,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	addr := network.NewSpaceAddress("10.0.0.1")
 	results, err := s.facade.UpdateApplicationsService(params.UpdateApplicationServiceArgs{
 		Args: []params.UpdateApplicationServiceArg{
@@ -920,6 +991,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
 	results, err := s.facade.SetOperatorStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "application-gitlab", Status: "error", Info: "broken", Data: map[string]interface{}{"foo": "bar"}},

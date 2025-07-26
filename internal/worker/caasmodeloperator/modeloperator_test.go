@@ -56,6 +56,10 @@ func (b *dummyBroker) ModelOperatorExists() (bool, error) {
 	return b.modelOperatorExists()
 }
 
+func (b *dummyBroker) GetModelOperatorDeploymentImage() (string, error) {
+	return "ghcr.io/juju/jujud-operator:3.6.9", nil
+}
+
 func (a *dummyAPI) ModelOperatorProvisioningInfo() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
 	if a.provInfo == nil {
 		return modeloperatorapi.ModelOperatorProvisioningInfo{}, nil
@@ -83,7 +87,6 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 		iteration = 0 // ... n
 
 		apiAddresses = [n][]string{{"fe80:abcd::1"}, {"fe80:abcd::2"}, {"fe80:abcd::3"}}
-		imagePath    = [n]string{"juju/jujud:1", "juju/jujud:2", "juju/jujud:3"}
 		modelUUID    = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 		ver          = [n]version.Number{version.MustParse("2.8.2"), version.MustParse("2.9.1"), version.MustParse("2.9.99")}
 
@@ -96,7 +99,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
 			return modeloperatorapi.ModelOperatorProvisioningInfo{
 				APIAddresses: apiAddresses[iteration],
-				ImageDetails: resources.DockerImageDetails{RegistryPath: imagePath[iteration]},
+				ImageDetails: resources.DockerImageDetails{RegistryPath: "ghcr.io/juju/jujud-operator:3.6.9"},
 				Version:      ver[iteration],
 			}, nil
 		},
@@ -112,7 +115,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 			}()
 			lastConfig = conf
 
-			c.Check(conf.ImageDetails.RegistryPath, gc.Equals, imagePath[iteration])
+			c.Check(conf.ImageDetails.RegistryPath, gc.Equals, "ghcr.io/juju/jujud-operator:3.6.9")
 
 			ac, err := agent.ParseConfigData(conf.AgentConf)
 			c.Check(err, jc.ErrorIsNil)

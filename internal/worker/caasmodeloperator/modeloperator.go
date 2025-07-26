@@ -28,6 +28,7 @@ type ModelOperatorBroker interface {
 	EnsureModelOperator(string, string, *caas.ModelOperatorConfig) error
 	ModelOperator() (*caas.ModelOperatorConfig, error)
 	ModelOperatorExists() (bool, error)
+	GetModelOperatorDeploymentImage() (string, error)
 }
 
 // ModelOperatorManager defines the worker used for managing model operators in
@@ -114,6 +115,14 @@ func (m *ModelOperatorManager) update() error {
 			password = prevConf.OldPassword()
 			setPassword = false
 		}
+
+		// retrieves model operator deployment image to keep model operator's image the same after migration
+		modelImage, err := m.broker.GetModelOperatorDeploymentImage()
+		if err != nil {
+			return errors.Annotate(err, "failed to get model deployment image")
+		}
+
+		info.ImageDetails.RegistryPath = modelImage
 	}
 	if setPassword {
 		err := m.api.SetPassword(password)

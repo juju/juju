@@ -263,6 +263,9 @@ type ModelOperatorManager interface {
 	// ModelOperator return the model operator config used to create the current
 	// model operator for this broker
 	ModelOperator() (*ModelOperatorConfig, error)
+
+	// GetModelOperatorDeploymentImage returns the image used for the model operator deployment.
+	GetModelOperatorDeploymentImage() (string, error)
 }
 
 // ApplicationOperatorManager provides an API for deploying operators for
