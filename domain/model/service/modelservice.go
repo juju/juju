@@ -44,6 +44,9 @@ type ModelState interface {
 	// layer.
 	GetControllerUUID(context.Context) (uuid.UUID, error)
 
+	// UpdateLatestAgentVersion persists the latest available agent version.
+	UpdateLatestAgentVersion(context.Context, semversion.Number) error
+
 	// GetModel returns the read only model information set in the database.
 	GetModel(context.Context) (coremodel.ModelInfo, error)
 
@@ -344,6 +347,13 @@ func (s *ModelService) SetModelConstraints(ctx context.Context, cons coreconstra
 
 	modelCons := constraints.DecodeConstraints(cons)
 	return s.modelSt.SetModelConstraints(ctx, modelCons)
+}
+
+// UpdateLatestAgentVersion persists the latest available agent version.
+func (s *ModelService) UpdateLatestAgentVersion(ctx context.Context, version semversion.Number) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.modelSt.UpdateLatestAgentVersion(ctx, version)
 }
 
 // GetModelInfo returns the readonly model information for the model in

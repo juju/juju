@@ -31,3 +31,8 @@ type ModelAgentService interface {
 	// not exist.
 	GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error)
 }
+
+type ModelInfoService interface {
+	// UpdateLatestAgentVersion persists the latest available agent version.
+	UpdateLatestAgentVersion(context.Context, semversion.Number) error
+}

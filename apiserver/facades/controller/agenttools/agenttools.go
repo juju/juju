@@ -16,53 +16,43 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/state"
 )
 
 // AgentToolsAPI implements the API used by the machine model worker.
 type AgentToolsAPI struct {
-	modelGetter ModelGetter
-	authorizer  facade.Authorizer
+	authorizer facade.Authorizer
 	// tools lookup
-	findTools        toolsFinder
-	envVersionUpdate envVersionUpdater
-	logger           corelogger.Logger
+	findTools toolsFinder
+	logger    corelogger.Logger
 
 	modelConfigService ModelConfigService
 	modelAgentService  ModelAgentService
 	machineService     MachineService
+	modelInfoService   ModelInfoService
 }
 
 // NewAgentToolsAPI creates a new instance of the Model API.
 func NewAgentToolsAPI(
-	modelGetter ModelGetter,
 	findTools toolsFinder,
-	envVersionUpdate func(*state.Model, semversion.Number) error,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	machineService MachineService,
 	modelConfigService ModelConfigService,
 	modelAgentService ModelAgentService,
+	modelInfoService ModelInfoService,
 ) (*AgentToolsAPI, error) {
 	return &AgentToolsAPI{
-		modelGetter:        modelGetter,
 		authorizer:         authorizer,
 		findTools:          findTools,
-		envVersionUpdate:   envVersionUpdate,
 		logger:             logger,
 		machineService:     machineService,
 		modelConfigService: modelConfigService,
 		modelAgentService:  modelAgentService,
+		modelInfoService:   modelInfoService,
 	}, nil
 }
 
-// ModelGetter represents a struct that can provide a state.Model.
-type ModelGetter interface {
-	Model() (*state.Model, error)
-}
 type toolsFinder func(context.Context, tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
-
-type envVersionUpdater func(*state.Model, semversion.Number) error
 
 func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (semversion.Number, error) {
 	currentVersion, err := api.modelAgentService.GetModelTargetAgentVersion(ctx)
@@ -92,11 +82,6 @@ func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (semversio
 	return newest, nil
 }
 
-// Base implementation of envVersionUpdater
-func envVersionUpdate(env *state.Model, ver semversion.Number) error {
-	return nil
-}
-
 func (api *AgentToolsAPI) updateToolsAvailability(ctx context.Context) error {
 	ver, err := api.checkToolsAvailability(ctx)
 	if err != nil {
@@ -111,11 +96,11 @@ func (api *AgentToolsAPI) updateToolsAvailability(ctx context.Context) error {
 		return nil
 	}
 
-	model, err := api.modelGetter.Model()
+	err = api.modelInfoService.UpdateLatestAgentVersion(ctx, ver)
 	if err != nil {
-		return errors.Annotate(err, "cannot get model")
+		return errors.Annotate(err, "updating latest agent version")
 	}
-	return api.envVersionUpdate(model, ver)
+	return nil
 }
 
 // UpdateToolsAvailable invokes a lookup and further update in environ

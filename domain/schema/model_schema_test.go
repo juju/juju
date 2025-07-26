@@ -79,6 +79,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"model_life",
 		"agent_stream",
 		"agent_version",
+		"latest_agent_version",
 
 		// Model config
 		"model_config",

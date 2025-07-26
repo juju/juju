@@ -18,6 +18,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	credential "github.com/juju/juju/core/credential"
 	model "github.com/juju/juju/core/model"
+	semversion "github.com/juju/juju/core/semversion"
 	user "github.com/juju/juju/core/user"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -814,6 +815,44 @@ func (c *MockModelStateSetModelConstraintsCall) Do(f func(context.Context, const
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateSetModelConstraintsCall) DoAndReturn(f func(context.Context, constraints0.Constraints) error) *MockModelStateSetModelConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateLatestAgentVersion mocks base method.
+func (m *MockModelState) UpdateLatestAgentVersion(arg0 context.Context, arg1 semversion.Number) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateLatestAgentVersion", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateLatestAgentVersion indicates an expected call of UpdateLatestAgentVersion.
+func (mr *MockModelStateMockRecorder) UpdateLatestAgentVersion(arg0, arg1 any) *MockModelStateUpdateLatestAgentVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLatestAgentVersion", reflect.TypeOf((*MockModelState)(nil).UpdateLatestAgentVersion), arg0, arg1)
+	return &MockModelStateUpdateLatestAgentVersionCall{Call: call}
+}
+
+// MockModelStateUpdateLatestAgentVersionCall wrap *gomock.Call
+type MockModelStateUpdateLatestAgentVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateUpdateLatestAgentVersionCall) Return(arg0 error) *MockModelStateUpdateLatestAgentVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateUpdateLatestAgentVersionCall) Do(f func(context.Context, semversion.Number) error) *MockModelStateUpdateLatestAgentVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateUpdateLatestAgentVersionCall) DoAndReturn(f func(context.Context, semversion.Number) error) *MockModelStateUpdateLatestAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
