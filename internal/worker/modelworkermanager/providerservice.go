@@ -20,6 +20,8 @@ type ProviderModelService interface {
 	// WatchModelCloudCredential returns a new NotifyWatcher watching for changes that
 	// result in the cloud spec for a model changing.
 	WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error)
+	// WatchModel returns a watcher that emits an event if the model changes.
+	WatchModel(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ProviderCloudService represents the cloud service provided by the provider.

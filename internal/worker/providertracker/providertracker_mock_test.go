@@ -319,6 +319,45 @@ func (c *MockModelServiceModelCall) DoAndReturn(f func(context.Context) (model.M
 	return c
 }
 
+// WatchModel mocks base method.
+func (m *MockModelService) WatchModel(arg0 context.Context) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchModel", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchModel indicates an expected call of WatchModel.
+func (mr *MockModelServiceMockRecorder) WatchModel(arg0 any) *MockModelServiceWatchModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModel", reflect.TypeOf((*MockModelService)(nil).WatchModel), arg0)
+	return &MockModelServiceWatchModelCall{Call: call}
+}
+
+// MockModelServiceWatchModelCall wrap *gomock.Call
+type MockModelServiceWatchModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelServiceWatchModelCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockModelServiceWatchModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelServiceWatchModelCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockModelServiceWatchModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelServiceWatchModelCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockModelServiceWatchModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchModelCloudCredential mocks base method.
 func (m *MockModelService) WatchModelCloudCredential(arg0 context.Context, arg1 model.UUID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()

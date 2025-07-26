@@ -4,6 +4,7 @@
 package model
 
 import (
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
@@ -47,6 +48,9 @@ type ModelInfo struct {
 
 	// AgentVersion is the Juju version for agent binaries in this model.
 	AgentVersion semversion.Number
+
+	// Life is the life state of the model.
+	Life life.Value
 }
 
 // ModelMetrics represents the metrics information set in the database.

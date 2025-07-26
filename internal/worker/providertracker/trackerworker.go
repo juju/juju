@@ -13,9 +13,11 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/eventsource"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -174,6 +176,14 @@ func (t *trackerWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
+	modelWatcher, err := t.config.ModelService.WatchModel(ctx)
+	if err != nil {
+		return errors.Annotate(err, "watching model")
+	}
+	if err := t.addNotifyWatcher(ctx, modelWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Empty channels block forever, so we can just return them here, then
 	// the caller can ignore them.
 	var cloudSpecChanges <-chan struct{}
@@ -222,6 +232,21 @@ func (t *trackerWorker) loop() (err error) {
 
 			if err := t.updateCloudSpec(ctx, cloudSpecSetter); err != nil {
 				return errors.Annotate(err, "updating cloud spec")
+			}
+
+		case <-modelWatcher.Changes():
+			model, err := t.config.ModelService.Model(ctx)
+			if errors.Is(err, modelerrors.NotFound) {
+				// The model has been removed, we can stop the worker.
+				logger.Infof(ctx, "model %q (%s) has been removed, stopping tracker worker", t.model.Name, t.model.UUID)
+				return nil
+			} else if err != nil {
+				return errors.Annotate(err, "reading model")
+			}
+			if corelife.IsDead(model.Life) {
+				// The model is dead, we can stop the worker.
+				logger.Infof(ctx, "model %q (%s) is dead, stopping tracker worker", model.Name, model.UUID)
+				return nil
 			}
 		}
 	}
@@ -282,7 +307,7 @@ func (t *trackerWorker) addNotifyWatcher(ctx context.Context, watcher eventsourc
 	// Consume the initial events from the watchers. The watcher will
 	// dispatch an initial event when it is created, so we need to consume
 	// that event before we can start watching.
-	if _, err := eventsource.ConsumeInitialEvent[struct{}](ctx, watcher); err != nil {
+	if _, err := eventsource.ConsumeInitialEvent(ctx, watcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -297,7 +322,7 @@ func (t *trackerWorker) addStringsWatcher(ctx context.Context, watcher eventsour
 	// Consume the initial events from the watchers. The watcher will
 	// dispatch an initial event when it is created, so we need to consume
 	// that event before we can start watching.
-	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+	if _, err := eventsource.ConsumeInitialEvent(ctx, watcher); err != nil {
 		return errors.Trace(err)
 	}
 
