@@ -811,6 +811,7 @@ func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expec
 			ModelType: state.ModelTypeCAAS,
 			Arch:      wantArch,
 		}).Return(simpleStreams, nil),
+		s.broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:3.6.9", nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
 			image.NewImageInfo(version.MustParse("2.9.8")),
 			image.NewImageInfo(version.MustParse("2.9.9")),
@@ -855,6 +856,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 			Number:    version.MustParse("2.9.10"),
 			ModelType: state.ModelTypeCAAS,
 		}).Return(simpleStreams, nil),
+		s.broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:3.6.9", nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
 			image.NewImageInfo(version.MustParse("2.9.8")),
 			image.NewImageInfo(version.MustParse("2.9.9")),
@@ -896,6 +898,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
 			ModelType: state.ModelTypeCAAS,
 		}).Return(simpleStreams, nil),
+		s.broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:3.6.9", nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
 			image.NewImageInfo(version.MustParse("2.9.8")), // skip: it's not released in simplestream yet.
 			image.NewImageInfo(version.MustParse("2.9.9")),
