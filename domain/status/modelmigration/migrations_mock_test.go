@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	machine "github.com/juju/juju/core/machine"
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	gomock "go.uber.org/mock/gomock"
@@ -251,6 +252,46 @@ func (c *MockExportServiceExportApplicationStatusesCall) Do(f func(context.Conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockExportServiceExportApplicationStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.StatusInfo, error)) *MockExportServiceExportApplicationStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ExportMachineStatuses mocks base method.
+func (m *MockExportService) ExportMachineStatuses(arg0 context.Context) (map[machine.Name]status.StatusInfo, map[machine.Name]status.StatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExportMachineStatuses", arg0)
+	ret0, _ := ret[0].(map[machine.Name]status.StatusInfo)
+	ret1, _ := ret[1].(map[machine.Name]status.StatusInfo)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ExportMachineStatuses indicates an expected call of ExportMachineStatuses.
+func (mr *MockExportServiceMockRecorder) ExportMachineStatuses(arg0 any) *MockExportServiceExportMachineStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportMachineStatuses", reflect.TypeOf((*MockExportService)(nil).ExportMachineStatuses), arg0)
+	return &MockExportServiceExportMachineStatusesCall{Call: call}
+}
+
+// MockExportServiceExportMachineStatusesCall wrap *gomock.Call
+type MockExportServiceExportMachineStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceExportMachineStatusesCall) Return(arg0, arg1 map[machine.Name]status.StatusInfo, arg2 error) *MockExportServiceExportMachineStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceExportMachineStatusesCall) Do(f func(context.Context) (map[machine.Name]status.StatusInfo, map[machine.Name]status.StatusInfo, error)) *MockExportServiceExportMachineStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceExportMachineStatusesCall) DoAndReturn(f func(context.Context) (map[machine.Name]status.StatusInfo, map[machine.Name]status.StatusInfo, error)) *MockExportServiceExportMachineStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

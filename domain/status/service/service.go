@@ -869,6 +869,59 @@ func (s *Service) CheckMachineStatusesReadyForMigration(ctx context.Context) err
 	return nil
 }
 
+// ExportMachineStatuses returns the statuses of all the machines and their
+// instances in the model, indexed by machine name.
+func (s *Service) ExportMachineStatuses(ctx context.Context) (
+	machineStatuses map[machine.Name]corestatus.StatusInfo,
+	instanceStatuses map[machine.Name]corestatus.StatusInfo,
+	err error,
+) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	mStatuses, err := s.modelState.GetAllMachineStatuses(ctx)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	iStatuses, err := s.modelState.GetAllInstanceStatuses(ctx)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	if len(mStatuses) != len(iStatuses) {
+		return nil, nil, errors.Errorf("some machines have unset statuses")
+	}
+
+	machineStatuses = make(map[machine.Name]corestatus.StatusInfo, len(mStatuses))
+	instanceStatuses = make(map[machine.Name]corestatus.StatusInfo, len(mStatuses))
+	for name, mStatus := range mStatuses {
+		iStatus, ok := iStatuses[name]
+		if !ok {
+			return nil, nil, errors.Errorf("some machines have unset statuses")
+		}
+
+		machineName := machine.Name(name)
+		if err := machineName.Validate(); err != nil {
+			return nil, nil, errors.Errorf("validating returned machine name %q: %w", name, err)
+		}
+
+		decodedMachineStatus, err := decodeMachineStatus(mStatus)
+		if err != nil {
+			return nil, nil, errors.Errorf("decoding machine status for %q: %w", name, err)
+		}
+		machineStatuses[machineName] = decodedMachineStatus
+
+		decodedInstanceStatus, err := decodeInstanceStatus(iStatus)
+		if err != nil {
+			return nil, nil, errors.Errorf("decoding instance status for %q: %w", name, err)
+		}
+		instanceStatuses[machineName] = decodedInstanceStatus
+	}
+
+	return machineStatuses, instanceStatuses, nil
+}
+
 // ExportUnitStatuses workload and agent statuses of all the units in
 // in the model, indexed by unit name.
 //
