@@ -38,8 +38,8 @@ import (
 type modelStatusSuite struct {
 	statetesting.StateSuite
 
-	controllerUUID uuid.UUID
-	modelUUID      uuid.UUID
+	controllerUUID string
+	modelUUID      string
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -71,12 +71,8 @@ func (s *modelStatusSuite) SetUpTest(c *tc.C) {
 		AdminTag: s.Owner,
 	}
 
-	controllerUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	s.controllerUUID = controllerUUID
-	modelUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	s.modelUUID = modelUUID
+	s.controllerUUID = uuid.MustNewUUID().String()
+	s.modelUUID = uuid.MustNewUUID().String()
 }
 
 func (s *modelStatusSuite) TestStub(c *tc.C) {
@@ -96,8 +92,8 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *tc.C) {
 	}
 
 	api := model.NewModelStatusAPI(
-		s.controllerUUID.String(),
-		s.modelUUID.String(),
+		s.controllerUUID,
+		s.modelUUID,
 		s.modelService,
 		s.machineServiceGetter,
 		s.statusServiceGetter,
@@ -126,8 +122,8 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *tc.C) {
 	defer st.Close()
 
 	api := model.NewModelStatusAPI(
-		s.controllerUUID.String(),
-		s.modelUUID.String(),
+		s.controllerUUID,
+		s.modelUUID,
 		s.modelService,
 		s.machineServiceGetter,
 		s.statusServiceGetter,
@@ -151,7 +147,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 		map[string]int{}, nil,
 	)
 
-	modelTag := names.NewModelTag(s.modelUUID.String()).String()
+	modelTag := names.NewModelTag(s.modelUUID).String()
 	req := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "fail.me"},
@@ -178,8 +174,8 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).Return(map[machine.Name]status.StatusInfo{}, nil)
 
 	modelStatusAPI := model.NewModelStatusAPI(
-		s.controllerUUID.String(),
-		s.modelUUID.String(),
+		s.controllerUUID,
+		s.modelUUID,
 		s.modelService,
 		s.machineServiceGetter,
 		s.statusServiceGetter,
