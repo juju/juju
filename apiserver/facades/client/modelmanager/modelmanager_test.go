@@ -649,27 +649,29 @@ func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
 func (s *modelManagerSuite) TestModelStatus(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
+	_, modelTag := generateModelUUIDAndTag(c)
+
 	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil).AnyTimes()
 	s.domainServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
 	s.modelStatusAPI.EXPECT().ModelStatus(gomock.Any(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: "foo"},
+			{Tag: modelTag.String()},
 		},
 	}).Return(params.ModelStatusResults{
 		Results: []params.ModelStatus{
-			{ModelTag: "foo"},
+			{ModelTag: modelTag.String()},
 		},
 	}, nil)
 
 	results, err := s.api.ModelStatus(c.Context(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: "foo"},
+			{Tag: modelTag.String()},
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ModelStatusResults{
 		Results: []params.ModelStatus{
-			{ModelTag: "foo"},
+			{ModelTag: modelTag.String()},
 		},
 	})
 }

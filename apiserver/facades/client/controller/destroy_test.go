@@ -109,10 +109,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 	stdCtx := c.Context()
 	ctx := s.context
 	var (
-		st             = ctx.State()
 		authorizer     = ctx.Auth()
-		pool           = ctx.StatePool()
-		resources      = ctx.Resources()
 		domainServices = ctx.DomainServices()
 	)
 
@@ -196,10 +193,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
-		st,
-		pool,
 		authorizer,
-		resources,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),

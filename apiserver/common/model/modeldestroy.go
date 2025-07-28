@@ -14,7 +14,6 @@ import (
 	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 var logger = internallogger.GetLogger("juju.apiserver.common")
@@ -36,7 +35,6 @@ type BlockCommandService interface {
 func DestroyController(
 	ctx context.Context,
 	modelUUIDs []model.UUID,
-	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
@@ -73,7 +71,7 @@ func DestroyController(
 			}
 		}
 	}
-	return destroyControllerModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
+	return destroyControllerModel(ctx, blockCommandService, modelInfoService, state.DestroyModelParams{
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
 		Force:               force,
@@ -84,7 +82,6 @@ func DestroyController(
 
 func destroyControllerModel(
 	ctx context.Context,
-	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
 	args state.DestroyModelParams,
@@ -94,10 +91,6 @@ func destroyControllerModel(
 		return interrors.Capture(err)
 	}
 
-	model, err := st.Model()
-	if err != nil {
-		return interrors.Capture(err)
-	}
 	notForcing := args.Force == nil || !*args.Force
 	if notForcing {
 		hasValidCredential, err := modelInfoService.HasValidCredential(ctx)
@@ -109,26 +102,15 @@ func destroyControllerModel(
 			return interrors.Errorf("invalid cloud credential, use --force")
 		}
 	}
-	if err := model.Destroy(args); err != nil {
-		if notForcing {
-			return interrors.Capture(err)
-		}
-		if err := filterNonCriticalErrorForForce(err); err != nil {
-			return interrors.Capture(err)
-		}
-	}
+
+	// TODO(gfouillet) - 2025-07-25: this method actually just check if it is
+	//   ok to destroy a model, but is noop. Rename or implements model
+	//   destroy
 
 	// Return to the caller. If it's the CLI, it will finish up by calling the
 	// provider's Destroy method, which will destroy the controllers, any
 	// straggler instances, and other provider-specific resources. Once all
 	// resources are torn down, the Undertaker worker handles the removal of
 	// the model.
-	return nil
-}
-
-func filterNonCriticalErrorForForce(err error) error {
-	if interrors.Is(err, stateerrors.PersistentStorageError) {
-		return err
-	}
 	return nil
 }

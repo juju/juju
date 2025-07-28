@@ -38,20 +38,13 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		return errors.Trace(err)
 	}
 
-	stModel, err := c.state.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// If we are destroying models, we need to tolerate living
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	backend := commonmodel.NewModelManagerBackend(stModel, c.statePool)
 	err = commonmodel.DestroyController(
 		ctx,
 		modelUUIDs,
-		backend,
 		c.blockCommandService,
 		c.modelInfoService,
 		c.modelService,
