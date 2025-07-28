@@ -188,6 +188,9 @@ func ModelDDL() *schema.Schema {
 		// Machine controller is unmodifiable.
 		triggersForUnmodifiableTable("application_controller", "application_controller table is unmodifiable, only insertions and deletions are allowed"),
 
+		// Offer endpoints are unmodifiable.
+		triggersForUnmodifiableTable("offer_endpoint", "offer_endpoint table is unmodifiable, only insertions and deletions are allowed"),
+
 		// Secret permissions do not allow subject or scope to be updated.
 		triggerGuardForTable("secret_permission",
 			"OLD.subject_type_id <> NEW.subject_type_id OR OLD.scope_uuid <> NEW.scope_uuid OR OLD.scope_type_id <> NEW.scope_type_id",
@@ -270,6 +273,30 @@ BEGIN
 END;
 `,
 			tableAgentVersion))
+	})
+
+	// Ensures that for an offer uuid, the application_endpoint included
+	// in the offer_endpoint table are for the same application. There is
+	// a corresponding trigger to make the offer_endpoint table
+	// immutable.
+	patches = append(patches, func() schema.Patch {
+		return schema.MakePatch(`
+CREATE TRIGGER trg_ensure_single_app_per_offer
+BEFORE INSERT ON offer_endpoint
+FOR EACH ROW
+BEGIN
+    -- Check if the new endpoint_uuid has a different application_uuid than
+    -- existing ones for the same offer_uuid
+    SELECT RAISE(ABORT, 'All endpoints for an offer must belong to the same application')
+    WHERE EXISTS (
+        SELECT 1
+        FROM  offer_endpoint oe
+        JOIN  application_endpoint ae_new ON ae_new.uuid = NEW.endpoint_uuid
+        JOIN  application_endpoint ae_existing ON ae_existing.uuid = oe.endpoint_uuid
+        WHERE oe.offer_uuid = NEW.offer_uuid
+        AND   ae_new.application_uuid <> ae_existing.application_uuid
+    );
+END;	`)
 	})
 
 	patches = append(patches, customModelTriggers()...)
