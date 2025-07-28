@@ -95,7 +95,7 @@ func (ctxt *httpContext) authenticatedTagFromRequest(r *http.Request, kinds ...s
 	if !ok {
 		return nil, apiservererrors.ErrPerm
 	}
-	authTag := authInfo.Entity.Tag()
+	authTag := authInfo.Tag
 	if ok, err := checkPermissions(r.Context(), authTag, common.AuthAny(funcs...)); !ok {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ type tagKindAuthorizer []string
 
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a tagKindAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
-	tagKind := authInfo.Entity.Tag().Kind()
+	tagKind := authInfo.Tag.Kind()
 	for _, kind := range a {
 		if tagKind == kind {
 			return nil
@@ -147,9 +147,9 @@ type controllerAdminAuthorizer struct {
 
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
-	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
-		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
+		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Tag))
 	}
 
 	has, err := common.HasPermission(ctx,
@@ -162,7 +162,7 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 		return errors.Trace(err)
 	}
 	if !has {
-		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
+		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Tag))
 	}
 	return nil
 }
@@ -175,9 +175,9 @@ type modelPermissionAuthorizer struct {
 
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
-	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
-		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
+		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Tag))
 	}
 	if !names.IsValidModel(authInfo.ModelTag.Id()) {
 		return errors.Errorf("%q is not a valid model", authInfo.ModelTag.Id())
@@ -192,7 +192,7 @@ func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authe
 		return errors.Trace(err)
 	}
 	if !has {
-		return errors.Errorf("%s does not have %q permission", names.ReadableString(authInfo.Entity.Tag()), a.perm)
+		return errors.Errorf("%s does not have %q permission", names.ReadableString(authInfo.Tag), a.perm)
 	}
 	return nil
 }

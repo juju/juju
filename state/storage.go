@@ -17,7 +17,7 @@ import (
 // StorageInstance represents the state of a unit or application-wide storage
 // instance in the model.
 type StorageInstance interface {
-	Entity
+	Tag() names.Tag
 
 	// StorageTag returns the tag for the storage instance.
 	StorageTag() names.StorageTag

@@ -78,12 +78,12 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerDomainServices(c).Access(),
 	}
-	entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
+	authenticatedTag, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entity.Tag(), tc.Equals, names.NewUserTag("bobbrown"))
+	c.Check(authenticatedTag, tc.Equals, names.NewUserTag("bobbrown"))
 }
 
 func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *tc.C) {
@@ -206,7 +206,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
+	authenticatedTag, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag(name.Name()),
 		Macaroons: macaroons,
 	})
@@ -216,7 +216,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 	call := bakeryService.Calls()[0]
 	c.Assert(call.Args, tc.HasLen, 1)
 	c.Assert(call.Args[0], tc.DeepEquals, macaroons)
-	c.Check(entity.Tag(), tc.Equals, names.NewUserTag(name.Name()))
+	c.Check(authenticatedTag, tc.Equals, names.NewUserTag(name.Name()))
 }
 
 func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *tc.C) {
@@ -513,15 +513,15 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
-		entity, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
+		authenticatedTag, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 			Macaroons: []macaroon.Slice{ms},
 		})
 		if test.expectError != "" {
 			c.Assert(err, tc.ErrorMatches, test.expectError)
-			c.Assert(entity, tc.Equals, nil)
+			c.Assert(authenticatedTag, tc.Equals, nil)
 		} else {
 			c.Assert(err, tc.ErrorIsNil)
-			c.Assert(entity.Tag().String(), tc.Equals, test.expectTag)
+			c.Assert(authenticatedTag.String(), tc.Equals, test.expectTag)
 		}
 	}
 }
