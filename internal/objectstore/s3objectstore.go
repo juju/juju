@@ -316,6 +316,24 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
+// RemoveAll removes all data in the object store, namespaced to the model.
+func (t *s3ObjectStore) RemoveAll(ctx context.Context) error {
+	select {
+	case <-t.catacomb.Dying():
+	default:
+		return errors.Errorf("cannot remove all files while the worker is running")
+	}
+
+	// TODO (stickupkid): Remove all the s3 objects in the bucket. This requires
+	// deleting the bucket as well.
+	// We can't rely on the metadata service to remove the metadata, as it
+	// might be inconsistent with the s3 bucket (e.g. the data is removed).
+	// Consider our options, maybe we have to use the s3 client directly to
+	// remove all objects in the bucket.
+
+	return nil
+}
+
 // Report returns a map of internal state for the s3 object store.
 func (t *s3ObjectStore) Report() map[string]any {
 	report := make(map[string]any)

@@ -132,4 +132,8 @@ type WriteObjectStore interface {
 
 	// Remove removes data at path, namespaced to the model.
 	Remove(ctx context.Context, path string) error
+
+	// RemoveAll removes all data in the object store, namespaced to the model.
+	// This is used when the object store context is being removed.
+	RemoveAll(ctx context.Context) error
 }

@@ -169,6 +169,20 @@ func (t *trackerWorker) Remove(ctx context.Context, path string) (err error) {
 	return nil
 }
 
+// Remove removes data at path, namespaced to the model.
+func (t *trackerWorker) RemoveAll(ctx context.Context) (err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := t.objectStore.RemoveAll(ctx); err != nil {
+		return errors.Annotatef(err, "removing all objects")
+	}
+	return nil
+}
+
 func (t *trackerWorker) Report() map[string]any {
 	report := t.objectStore.Report()
 	report["modelUUID"] = t.modelUUID
@@ -197,14 +211,14 @@ func (t *trackerWorker) loop() error {
 			if errors.Is(err, modelerrors.NotFound) {
 				// The model has been removed, we can stop the worker.
 				t.logger.Infof(ctx, "model %q has been removed, stopping tracker worker", t.modelUUID)
-				return nil
+				return t.objectStore.RemoveAll(ctx)
 			} else if err != nil {
 				return errors.Annotate(err, "reading model")
 			}
 			if corelife.IsDead(model.Life) {
 				// The model is dead, we can stop the worker.
 				t.logger.Infof(ctx, "model %q (%s) is dead, stopping tracker worker", model.Name, model.UUID)
-				return nil
+				return t.objectStore.RemoveAll(ctx)
 			}
 		}
 	}

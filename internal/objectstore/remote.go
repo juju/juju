@@ -106,6 +106,11 @@ func (c *remoteFileObjectStore) Remove(ctx context.Context, path string) error {
 	return c.objectStore.Remove(ctx, path)
 }
 
+// RemoveAll removes all data in the object store, namespaced to the model.
+func (c *remoteFileObjectStore) RemoveAll(ctx context.Context) error {
+	return c.objectStore.RemoveAll(ctx)
+}
+
 // Report returns a map of internal state for the remoteFileObjectStore.
 func (c *remoteFileObjectStore) Report() map[string]any {
 	report := make(map[string]any)

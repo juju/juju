@@ -355,6 +355,22 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
+// RemoveAll removes all data in the object store, namespaced to the model.
+func (t *fileObjectStore) RemoveAll(ctx context.Context) error {
+	select {
+	case <-t.catacomb.Dying():
+	default:
+		return errors.Errorf("cannot remove all files while the worker is running")
+	}
+
+	// This will remove all the files in the namespaced directory.
+	if err := os.RemoveAll(t.path); err != nil {
+		return errors.Errorf("removing all files in %q: %w", t.path, err)
+	}
+
+	return nil
+}
+
 func (t *fileObjectStore) Report() map[string]any {
 	report := make(map[string]any)
 

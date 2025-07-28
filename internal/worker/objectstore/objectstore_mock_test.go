@@ -317,6 +317,44 @@ func (c *MockTrackedObjectStoreRemoveCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// RemoveAll mocks base method.
+func (m *MockTrackedObjectStore) RemoveAll(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveAll", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveAll indicates an expected call of RemoveAll.
+func (mr *MockTrackedObjectStoreMockRecorder) RemoveAll(arg0 any) *MockTrackedObjectStoreRemoveAllCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAll", reflect.TypeOf((*MockTrackedObjectStore)(nil).RemoveAll), arg0)
+	return &MockTrackedObjectStoreRemoveAllCall{Call: call}
+}
+
+// MockTrackedObjectStoreRemoveAllCall wrap *gomock.Call
+type MockTrackedObjectStoreRemoveAllCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTrackedObjectStoreRemoveAllCall) Return(arg0 error) *MockTrackedObjectStoreRemoveAllCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTrackedObjectStoreRemoveAllCall) Do(f func(context.Context) error) *MockTrackedObjectStoreRemoveAllCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTrackedObjectStoreRemoveAllCall) DoAndReturn(f func(context.Context) error) *MockTrackedObjectStoreRemoveAllCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Report mocks base method.
 func (m *MockTrackedObjectStore) Report() map[string]any {
 	m.ctrl.T.Helper()
