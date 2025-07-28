@@ -7,35 +7,16 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
-	"github.com/juju/names/v6"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-// State provides the subset of global state required by the
-// remote firewaller facade.
-type State interface {
-	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
-	KeyRelation(string) (Relation, error)
-}
-
-type Relation interface {
-	status.StatusSetter
-	Endpoints() []relation.Endpoint
-	WatchUnits(applicationName string) (relation.RelationUnitsWatcher, error)
-}
 
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
@@ -132,18 +113,4 @@ type ModelInfoService interface {
 	// The following errors may be returned:
 	// - [modelerrors.NotFound] when the model does not exist.
 	IsControllerModel(ctx context.Context) (bool, error)
-}
-
-type MacaroonGetter interface {
-	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
-}
-
-type stateShim struct {
-	*state.State
-	MacaroonGetter
-}
-
-func (st stateShim) KeyRelation(key string) (Relation, error) {
-	return nil, errors.NotImplementedf("cross model relations are disabled until " +
-		"backend functionality is moved to domain")
 }
