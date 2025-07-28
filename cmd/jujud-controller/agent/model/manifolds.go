@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
-	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -375,18 +374,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
-		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.undertaker"),
-			NewFacade:     undertaker.NewFacade,
-			NewWorker:     undertaker.NewWorker,
-			NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
-				return config.NewEnvironFunc(ctx, params, invalidator)
-			},
-		})),
-
 		// All the rest depend on ifNotMigrating.
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:          agentName,
@@ -438,17 +425,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	manifolds := dependency.Manifolds{
-		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.undertaker"),
-			NewFacade:     undertaker.NewFacade,
-			NewWorker:     undertaker.NewWorker,
-			NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
-				return config.NewContainerBrokerFunc(ctx, params, invalidator)
-			},
-		})),
 
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
@@ -522,15 +498,6 @@ var (
 	ifResponsible = engine.Housing{
 		Flags: []string{
 			isResponsibleFlagName,
-		},
-	}.Decorate
-
-	// ifNotAlive wraps a manifold such that it only runs if the
-	// responsibility flag is set and the model is Dying or Dead.
-	ifNotAlive = engine.Housing{
-		Flags: []string{
-			isResponsibleFlagName,
-			notAliveFlagName,
 		},
 	}.Decorate
 
