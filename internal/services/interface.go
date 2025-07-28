@@ -230,7 +230,8 @@ type ControllerObjectStoreServices interface {
 // apiserver.
 type ObjectStoreServices interface {
 	ControllerObjectStoreServices
-
+	// Model returns the provider model service.
+	Model() *modelservice.ProviderService
 	// ObjectStore returns the object store service.
 	ObjectStore() *objectstoreservice.WatchableService
 }

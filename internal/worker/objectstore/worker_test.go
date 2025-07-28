@@ -18,6 +18,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
+	watcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -30,8 +32,10 @@ type workerSuite struct {
 	trackedObjectStore         *MockTrackedObjectStore
 	controllerMetadataService  *MockMetadataService
 	modelMetadataServiceGetter *MockMetadataServiceGetter
+	modelServiceGetter         *MockModelServiceGetter
 	modelClaimGetter           *MockModelClaimGetter
 	modelMetadataService       *MockMetadataService
+	modelServices              *MockModelServices
 	called                     int64
 }
 
@@ -65,19 +69,10 @@ func (s *workerSuite) TestGetObjectStore(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	done := make(chan struct{})
-	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
-	s.trackedObjectStore.EXPECT().Wait().DoAndReturn(func() error {
-		<-done
-		return nil
-	}).AnyTimes()
-
 	worker := w.(*objectStoreWorker)
 	objectStore, err := worker.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(objectStore, tc.NotNil)
-
-	close(done)
 
 	workertest.CleanKill(c, w)
 }
@@ -92,21 +87,11 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	done := make(chan struct{})
-	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
-	s.trackedObjectStore.EXPECT().Wait().DoAndReturn(func() error {
-		<-done
-		return nil
-	}).AnyTimes()
-
 	worker := w.(*objectStoreWorker)
-	for i := 0; i < 10; i++ {
-
+	for range 10 {
 		_, err := worker.GetObjectStore(c.Context(), "foo")
 		c.Assert(err, tc.ErrorIsNil)
 	}
-
-	close(done)
 
 	workertest.CleanKill(c, w)
 
@@ -123,22 +108,13 @@ func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *tc.
 
 	s.ensureStartup(c)
 
-	done := make(chan struct{})
-	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
-	s.trackedObjectStore.EXPECT().Wait().DoAndReturn(func() error {
-		<-done
-		return nil
-	}).AnyTimes()
-
 	worker := w.(*objectStoreWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := fmt.Sprintf("anything-%d", i)
 
 		_, err := worker.GetObjectStore(c.Context(), name)
 		c.Assert(err, tc.ErrorIsNil)
 	}
-
-	close(done)
 
 	workertest.CleanKill(c, w)
 
@@ -155,18 +131,11 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	done := make(chan struct{})
-	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
-	s.trackedObjectStore.EXPECT().Wait().DoAndReturn(func() error {
-		<-done
-		return nil
-	}).AnyTimes()
-
 	var wg sync.WaitGroup
 	wg.Add(10)
 
 	worker := w.(*objectStoreWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(i int) {
 			defer wg.Done()
 
@@ -180,8 +149,6 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 	assertWait(c, wg.Wait)
 	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(10))
 
-	close(done)
-
 	workertest.CleanKill(c, w)
 }
 
@@ -194,10 +161,11 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		APIRemoteCaller: s.apiRemoteCaller,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)
-			return s.trackedObjectStore, nil
+			return newStubTrackedObjectStore(s.trackedObjectStore), nil
 		},
 		ControllerMetadataService:  s.controllerMetadataService,
 		ModelMetadataServiceGetter: s.modelMetadataServiceGetter,
+		ModelServiceGetter:         s.modelServiceGetter,
 		ModelClaimGetter:           s.modelClaimGetter,
 		RootDir:                    c.MkDir(),
 		RootBucket:                 uuid.MustNewUUID().String(),
@@ -220,6 +188,16 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.modelMetadataServiceGetter = NewMockMetadataServiceGetter(ctrl)
 	s.modelMetadataServiceGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.modelMetadataService).AnyTimes()
+
+	s.modelService.EXPECT().WatchModel(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
+	}).AnyTimes()
+
+	s.modelServices = NewMockModelServices(ctrl)
+	s.modelServices.EXPECT().ModelService().Return(s.modelService).AnyTimes()
+
+	s.modelServiceGetter = NewMockModelServiceGetter(ctrl)
+	s.modelServiceGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.modelServices).AnyTimes()
 
 	s.modelClaimGetter = NewMockModelClaimGetter(ctrl)
 	s.modelClaimGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.claimer, nil).AnyTimes()
