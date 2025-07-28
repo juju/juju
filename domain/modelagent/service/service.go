@@ -183,6 +183,9 @@ type State interface {
 		stream modelagent.AgentStream,
 	) error
 
+	// UpdateLatestAgentVersion persists the latest available agent version.
+	UpdateLatestAgentVersion(context.Context, semversion.Number) error
+
 	// SetUnitRunningAgentBinaryVersion sets the running agent version for the unit.
 	// The following error types can be expected:
 	// - [applicationerrors.UnitNotFound] - when the unit does not exist.
@@ -839,6 +842,13 @@ func (s *Service) UpgradeModelTargetAgentVersionStreamTo(
 		return errors.Capture(err)
 	}
 	return nil
+}
+
+// UpdateLatestAgentVersion persists the latest available agent version.
+func (s *Service) UpdateLatestAgentVersion(ctx context.Context, version semversion.Number) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.st.UpdateLatestAgentVersion(ctx, version)
 }
 
 // validateModelCanBeUpgraded checks if the current model is currently in a

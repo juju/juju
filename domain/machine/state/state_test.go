@@ -1254,18 +1254,19 @@ func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            id,
-		AgentStream:     modelagent.AgentStreamReleased,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  uuid.MustNewUUID(),
-		Name:            "my-awesome-model",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     uuid.MustNewUUID(),
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)

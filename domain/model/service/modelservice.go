@@ -457,7 +457,8 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 		// TODO (manadart 2024-01-13): Note that this comes from the arg.
 		// It is not populated in the return from the controller state.
 		// So that method should not return the core type.
-		AgentVersion: agentVersion,
+		AgentVersion:       agentVersion,
+		LatestAgentVersion: agentVersion,
 	}
 	return s.modelSt.Create(ctx, args)
 }

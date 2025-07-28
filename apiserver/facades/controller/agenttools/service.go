@@ -30,4 +30,7 @@ type ModelAgentService interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
 	GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error)
+
+	// UpdateLatestAgentVersion persists the latest available agent version.
+	UpdateLatestAgentVersion(context.Context, semversion.Number) error
 }

@@ -103,18 +103,19 @@ func (s *stateSuite) TestGetModelId(c *tc.C) {
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
-		UUID:            modelUUID,
-		AgentVersion:    jujuversion.Current,
-		AgentStream:     modelagent.AgentStreamReleased,
-		ControllerUUID:  uuid.MustNewUUID(),
-		Name:            "my-awesome-model",
-		Qualifier:       "prod",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+		UUID:               modelUUID,
+		LatestAgentVersion: jujuversion.Current,
+		AgentVersion:       jujuversion.Current,
+		AgentStream:        modelagent.AgentStreamReleased,
+		ControllerUUID:     uuid.MustNewUUID(),
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
 	}
 	err := mst.Create(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)

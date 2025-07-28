@@ -5,7 +5,6 @@ package client
 
 import (
 	"testing"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -15,9 +14,7 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	permission "github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	statusservice "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
@@ -35,65 +32,6 @@ type statusSuite struct {
 
 func TestStatusSuite(t *testing.T) {
 	tc.Run(t, &statusSuite{})
-}
-
-func (s *statusSuite) TestModelStatus(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
-		UUID:         s.modelUUID,
-		Name:         "model-name",
-		Type:         model.IAAS,
-		Cloud:        "mycloud",
-		CloudRegion:  "region",
-		AgentVersion: semversion.MustParse("4.0.0"),
-	}, nil)
-	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
-		Status:  status.Available,
-		Message: "all good now",
-		Since:   &now,
-	}, nil)
-
-	client := &Client{
-		modelInfoService: s.modelInfoService,
-		statusService:    s.statusService,
-	}
-	statusInfo, err := client.modelStatus(c.Context())
-	c.Assert(err, tc.IsNil)
-	c.Assert(statusInfo, tc.DeepEquals, params.ModelStatusInfo{
-		Name:        "model-name",
-		Type:        model.IAAS.String(),
-		CloudTag:    "cloud-mycloud",
-		CloudRegion: "region",
-		Version:     "4.0.0",
-		ModelStatus: params.DetailedStatus{
-			Status: status.Available.String(),
-			Info:   "all good now",
-			Since:  &now,
-		},
-	})
-}
-
-func (s *statusSuite) TestModelStatusModelNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
-		UUID:         s.modelUUID,
-		Name:         "model-name",
-		Type:         model.IAAS,
-		Cloud:        "mycloud",
-		CloudRegion:  "region",
-		AgentVersion: semversion.MustParse("4.0.0"),
-	}, nil)
-	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{}, domainmodelerrors.NotFound)
-
-	client := &Client{
-		modelInfoService: s.modelInfoService,
-		statusService:    s.statusService,
-	}
-	_, err := client.modelStatus(c.Context())
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *statusSuite) TestStatusHistory(c *tc.C) {

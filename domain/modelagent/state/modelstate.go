@@ -1386,6 +1386,79 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 	return nil
 }
 
+// UpdateLatestAgentVersion persists the latest available agent version.
+func (st *State) UpdateLatestAgentVersion(ctx context.Context, version semversion.Number) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkLatestAgentVersion, err := st.Prepare(`
+SELECT &agentVersionInfo.*
+FROM   agent_version
+`, agentVersionInfo{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	modelAgentLatestVersion := latestAgentVersion{
+		Version: version.String(),
+	}
+	stmt, err := st.Prepare(`
+UPDATE agent_version
+SET    latest_version = $latestAgentVersion.latest_version
+`, modelAgentLatestVersion)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		agentVersionInfo := agentVersionInfo{}
+		err := tx.Query(ctx, checkLatestAgentVersion).Get(&agentVersionInfo)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"agent version record has not been set for the model",
+			)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting agent version: %w", err,
+			)
+		}
+
+		currentTargetVersion, err := semversion.Parse(agentVersionInfo.TargetVersion)
+		if err != nil {
+			return errors.Errorf(
+				"parsing target agent version: %w", err,
+			)
+		}
+		if currentTargetVersion.Compare(version) == 1 {
+			return errors.Errorf(
+				"unable to update latest agent version to %q. The current agent version is %q", version, currentTargetVersion,
+			)
+		}
+
+		currentLatestVersion, err := semversion.Parse(agentVersionInfo.LatestVersion)
+		if err != nil {
+			return errors.Errorf(
+				"parsing latest agent version: %w", err,
+			)
+		}
+		if currentLatestVersion.Compare(version) == 1 {
+			return errors.Errorf(
+				"unable to update latest agent version to %q. The current latest agent version is %q", version, currentLatestVersion,
+			)
+		}
+
+		return tx.Query(ctx, stmt, modelAgentLatestVersion).Run()
+	})
+
+	if err != nil {
+		return errors.Errorf("updating latest agent version: %w", err)
+	}
+
+	return nil
+}
+
 // SetUnitRunningAgentBinaryVersion sets the running agent binary version for
 // the provided unit uuid. Any previously set values for this unit uuid will be
 // overwritten by this call.

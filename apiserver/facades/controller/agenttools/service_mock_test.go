@@ -204,3 +204,41 @@ func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) DoAndReturn(f func
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// UpdateLatestAgentVersion mocks base method.
+func (m *MockModelAgentService) UpdateLatestAgentVersion(arg0 context.Context, arg1 semversion.Number) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateLatestAgentVersion", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateLatestAgentVersion indicates an expected call of UpdateLatestAgentVersion.
+func (mr *MockModelAgentServiceMockRecorder) UpdateLatestAgentVersion(arg0, arg1 any) *MockModelAgentServiceUpdateLatestAgentVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLatestAgentVersion", reflect.TypeOf((*MockModelAgentService)(nil).UpdateLatestAgentVersion), arg0, arg1)
+	return &MockModelAgentServiceUpdateLatestAgentVersionCall{Call: call}
+}
+
+// MockModelAgentServiceUpdateLatestAgentVersionCall wrap *gomock.Call
+type MockModelAgentServiceUpdateLatestAgentVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelAgentServiceUpdateLatestAgentVersionCall) Return(arg0 error) *MockModelAgentServiceUpdateLatestAgentVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelAgentServiceUpdateLatestAgentVersionCall) Do(f func(context.Context, semversion.Number) error) *MockModelAgentServiceUpdateLatestAgentVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelAgentServiceUpdateLatestAgentVersionCall) DoAndReturn(f func(context.Context, semversion.Number) error) *MockModelAgentServiceUpdateLatestAgentVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

@@ -666,32 +666,34 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
-	var m dbReadOnlyModel
-	roStmt, err := s.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, m)
+	var model dbReadOnlyModel
+	roStmt, err := s.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, model)
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
-	var v dbModelAgent
-	avStmt, err := s.Prepare(`SELECT &dbModelAgent.* FROM agent_version`, v)
+	var agentVersion dbModelAgent
+	avStmt, err := s.Prepare(`SELECT &dbModelAgent.* FROM agent_version`, agentVersion)
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, roStmt).Get(&m)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return modelerrors.NotFound
-			}
+		err := tx.Query(ctx, roStmt).Get(&model)
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelerrors.NotFound
+		} else if err != nil {
 			return errors.Capture(err)
 		}
 
-		err = tx.Query(ctx, avStmt).Get(&v)
+		err = tx.Query(ctx, avStmt).Get(&agentVersion)
 		if errors.Is(err, sql.ErrNoRows) {
 			return modelagenterrors.AgentVersionNotFound
+		} else if err != nil {
+			return errors.Capture(err)
 		}
-		return errors.Capture(err)
+
+		return nil
 	})
 
 	if err != nil {
@@ -700,36 +702,51 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		)
 	}
 
-	info := coremodel.ModelInfo{
-		UUID:              coremodel.UUID(m.UUID),
-		Name:              m.Name,
-		Qualifier:         coremodel.Qualifier(m.Qualifier),
-		Type:              coremodel.ModelType(m.Type),
-		Cloud:             m.Cloud,
-		CloudType:         m.CloudType,
-		CloudRegion:       m.CloudRegion,
-		CredentialName:    m.CredentialName,
-		IsControllerModel: m.IsControllerModel,
-		AgentVersion:      semversion.MustParse(v.TargetVersion),
+	agentVersionNumber, err := parseNullableVersion(agentVersion.TargetVersion)
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Errorf(
+			"parsing agent version %q: %w", agentVersion.TargetVersion.V, err,
+		)
 	}
 
-	if owner := m.CredentialOwner; owner != "" {
+	latestAgentVersionNumber, err := parseNullableVersion(agentVersion.LatestVersion)
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Errorf(
+			"parsing latest agent version %q: %w", agentVersion.LatestVersion.V, err,
+		)
+	}
+
+	info := coremodel.ModelInfo{
+		UUID:               coremodel.UUID(model.UUID),
+		Name:               model.Name,
+		Qualifier:          coremodel.Qualifier(model.Qualifier),
+		Type:               coremodel.ModelType(model.Type),
+		Cloud:              model.Cloud,
+		CloudType:          model.CloudType,
+		CloudRegion:        model.CloudRegion,
+		CredentialName:     model.CredentialName,
+		IsControllerModel:  model.IsControllerModel,
+		AgentVersion:       agentVersionNumber,
+		LatestAgentVersion: latestAgentVersionNumber,
+	}
+
+	if owner := model.CredentialOwner; owner != "" {
 		info.CredentialOwner, err = user.NewName(owner)
 		if err != nil {
 			return coremodel.ModelInfo{}, errors.Errorf(
 				"parsing model %q owner username %q: %w",
-				m.UUID, owner, err,
+				model.UUID, owner, err,
 			)
 		}
 	} else {
-		s.logger.Infof(ctx, "model %s: cloud credential owner name is empty", m.Name)
+		s.logger.Infof(ctx, "model %s: cloud credential owner name is empty", model.Name)
 	}
 
-	info.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
+	info.ControllerUUID, err = uuid.UUIDFromString(model.ControllerUUID)
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Errorf(
 			"parsing controller uuid %q for model %q: %w",
-			m.ControllerUUID, m.UUID, err,
+			model.ControllerUUID, model.UUID, err,
 		)
 	}
 	return info, nil
@@ -984,10 +1001,15 @@ func InsertModelInfo(
 	// This is some defensive programming. The zero value of agent version is
 	// still valid but should really be considered null for the purposes of
 	// allowing the DDL to assert constraints.
-	var agentVersion sql.NullString
+	var agentVersion sql.Null[string]
 	if args.AgentVersion != semversion.Zero {
-		agentVersion.String = args.AgentVersion.String()
+		agentVersion.V = args.AgentVersion.String()
 		agentVersion.Valid = true
+	}
+	var latestVersion sql.Null[string]
+	if args.LatestAgentVersion != semversion.Zero {
+		latestVersion.V = args.LatestAgentVersion.String()
+		latestVersion.Valid = true
 	}
 
 	mID := dbUUID{UUID: args.UUID.String()}
@@ -1003,7 +1025,7 @@ func InsertModelInfo(
 		return errors.Errorf("read-only model record already exists: %w", modelerrors.AlreadyExists)
 	}
 
-	m := dbReadOnlyModel{
+	model := dbReadOnlyModel{
 		UUID:              args.UUID.String(),
 		ControllerUUID:    args.ControllerUUID.String(),
 		Name:              args.Name,
@@ -1017,16 +1039,17 @@ func InsertModelInfo(
 		IsControllerModel: args.IsControllerModel,
 	}
 
-	roStmt, err := preparer.Prepare("INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)", m)
+	modelStmt, err := preparer.Prepare("INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)", model)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	v := dbModelAgent{
+	modelAgentVersion := dbModelAgent{
 		StreamID:      int(args.AgentStream),
-		TargetVersion: args.AgentVersion.String(),
+		TargetVersion: agentVersion,
+		LatestVersion: latestVersion,
 	}
-	vStmt, err := preparer.Prepare("INSERT INTO agent_version (*) VALUES ($dbModelAgent.*)", v)
+	versionStmt, err := preparer.Prepare("INSERT INTO agent_version (*) VALUES ($dbModelAgent.*)", modelAgentVersion)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1041,11 +1064,11 @@ func InsertModelInfo(
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, roStmt, m).Run(); err != nil {
+	if err := tx.Query(ctx, modelStmt, model).Run(); err != nil {
 		return errors.Errorf("creating model read-only record for %q: %w", args.UUID, err)
 	}
 
-	if err := tx.Query(ctx, vStmt, v).Run(); err != nil {
+	if err := tx.Query(ctx, versionStmt, modelAgentVersion).Run(); err != nil {
 		return errors.Errorf("creating agent_version record for %q: %w", args.UUID, err)
 	}
 
@@ -1084,4 +1107,11 @@ func (s *ModelState) IsControllerModel(ctx context.Context) (bool, error) {
 	}
 
 	return m.IsControllerModel, nil
+}
+
+func parseNullableVersion(version sql.Null[string]) (semversion.Number, error) {
+	if !version.Valid {
+		return semversion.Zero, nil
+	}
+	return semversion.Parse(version.V)
 }

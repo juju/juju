@@ -158,7 +158,7 @@ func (s *stateSuite) TestGetModelAgentVersionAndStreamNotFound(c *tc.C) {
 // version and stream is set it is reported back correctly with no errors.
 func (s *stateSuite) TestGetModelAgentVersionAndStream(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version (stream_id, target_version) VALUES (0, '1.2.3')")
+		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version (stream_id, target_version, latest_version) VALUES (0, '1.2.3', '1.2.3')")
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

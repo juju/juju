@@ -110,15 +110,16 @@ func (s *suite) TestModelID(c *tc.C) {
 	modelID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := modelSt.Create(c.Context(), model.ModelDetailArgs{
-		UUID:           modelID,
-		AgentVersion:   semversion.Number{Major: 4, Minor: 21, Patch: 67},
-		AgentStream:    modelagent.AgentStreamReleased,
-		ControllerUUID: uuid.MustNewUUID(),
-		Name:           "test-model",
-		Qualifier:      "prod",
-		Type:           coremodel.IAAS,
-		Cloud:          "aws",
-		CloudType:      "ec2",
+		UUID:               modelID,
+		LatestAgentVersion: semversion.Number{Major: 4, Minor: 21, Patch: 67},
+		AgentVersion:       semversion.Number{Major: 4, Minor: 21, Patch: 67},
+		AgentStream:        modelagent.AgentStreamReleased,
+		ControllerUUID:     uuid.MustNewUUID(),
+		Name:               "test-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

@@ -370,7 +370,8 @@ type dbPermission struct {
 	ObjectType string `db:"object_type"`
 }
 
-// dbModelAgent represents a row from the controller model_agent table.
+// dbModelAgent represents a row from the model_agent table
+// with nullable values for the purpose of defensive programming.
 type dbModelAgent struct {
 	// StreamID is the unique identifier for the agent stream that is being used
 	// for model agents.
@@ -380,7 +381,10 @@ type dbModelAgent struct {
 	// being run in this model. It should not be considered "the" version that
 	// is being run for every agent as each agent needs to upgrade to this
 	// version.
-	TargetVersion string `db:"target_version"`
+	TargetVersion sql.Null[string] `db:"target_version"`
+
+	// LatestVersion describes the latest known agent version for the model.
+	LatestVersion sql.Null[string] `db:"latest_version"`
 }
 
 type dbModelSecretBackend struct {

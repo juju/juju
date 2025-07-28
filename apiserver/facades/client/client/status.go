@@ -225,7 +225,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		logger.Tracef(ctx, "Volumes: %v", context.volumes)
 	}
 
-	modelStatus, err := c.modelStatus(ctx)
+	modelStatus, err := context.processModel(ctx)
 	if err != nil {
 		return noStatus, internalerrors.Errorf("cannot determine model status: %w", err)
 	}
@@ -260,51 +260,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Filesystems:         filesystemDetails,
 		Volumes:             volumeDetails,
 	}, nil
-}
-
-// modelStatus returns the status of the current model.
-func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error) {
-	var info params.ModelStatusInfo
-
-	modelInfo, err := c.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return info, fmt.Errorf("getting model info: %w", err)
-	}
-	info.Name = modelInfo.Name
-	info.Type = modelInfo.Type.String()
-	info.CloudTag = names.NewCloudTag(modelInfo.Cloud).String()
-	info.CloudRegion = modelInfo.CloudRegion
-
-	currentVersion := modelInfo.AgentVersion
-	info.Version = currentVersion.String()
-
-	// // TODO: replace here once we implement the latest agent version in Dqlite.
-	// m, err := c.stateAccessor.Model()
-	// if err != nil {
-	// 	return info, internalerrors.Errorf("cannot get model: %w", err)
-	// }
-
-	// latestVersion := m.LatestToolsVersion()
-	// if currentVersion.Compare(latestVersion) < 0 {
-	// 	info.AvailableVersion = latestVersion.String()
-	// }
-
-	aStatus, err := c.statusService.GetModelStatus(ctx)
-	if internalerrors.Is(err, domainmodelerrors.NotFound) {
-		// This should never happen but just in case.
-		return params.ModelStatusInfo{}, internalerrors.Errorf("model status for %q: %w", modelInfo.Name, errors.NotFound)
-	}
-	if err != nil {
-		return params.ModelStatusInfo{}, internalerrors.Errorf("cannot obtain model status info: %w", err)
-	}
-
-	info.ModelStatus = params.DetailedStatus{
-		Status: aStatus.Status.String(),
-		Info:   aStatus.Message,
-		Since:  aStatus.Since,
-	}
-
-	return info, nil
 }
 
 type applicationStatusInfo struct {
@@ -661,6 +616,45 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 		}
 	}
 	return out, outById, nil
+}
+
+func (s *statusContext) processModel(ctx context.Context) (params.ModelStatusInfo, error) {
+	var info params.ModelStatusInfo
+
+	info.Name = s.model.Name
+	info.Type = s.model.Type.String()
+	info.CloudTag = names.NewCloudTag(s.model.Cloud).String()
+	info.CloudRegion = s.model.CloudRegion
+
+	currentVersion := s.model.AgentVersion
+	info.Version = currentVersion.String()
+
+	// TODO: AvailableVersion being an empty string controls if the juju client
+	// tells the user that there is an upgrade available. How this should work
+	// is the controller should just report the version back to the client of
+	// the facade. Let the client do the calculation and work out if some
+	// information should be displayed.
+	latestVersion := s.model.LatestAgentVersion
+	if currentVersion.Compare(latestVersion) < 0 {
+		info.AvailableVersion = latestVersion.String()
+	}
+
+	aStatus, err := s.statusService.GetModelStatus(ctx)
+	if internalerrors.Is(err, domainmodelerrors.NotFound) {
+		// This should never happen but just in case.
+		return params.ModelStatusInfo{}, internalerrors.Errorf("model status for %q: %w", s.model.Name, errors.NotFound)
+	}
+	if err != nil {
+		return params.ModelStatusInfo{}, internalerrors.Errorf("cannot obtain model status info: %w", err)
+	}
+
+	info.ModelStatus = params.DetailedStatus{
+		Status: aStatus.Status.String(),
+		Info:   aStatus.Message,
+		Since:  aStatus.Since,
+	}
+
+	return info, nil
 }
 
 func (c *statusContext) processMachines(ctx context.Context) map[string]params.MachineStatus {

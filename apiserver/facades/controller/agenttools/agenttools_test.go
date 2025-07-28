@@ -18,7 +18,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/state"
 )
 
 func TestAgentToolsSuite(t *testing.T) {
@@ -46,9 +45,10 @@ func (s *AgentToolsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	c.Cleanup(func() {
 		s.bootstrapEnviron = nil
 		s.machineService = nil
-		s.modelAgentService = nil
 		s.modelConfigService = nil
+		s.modelAgentService = nil
 	})
+
 	return ctrl
 }
 
@@ -76,7 +76,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *tc.C) {
 		return coretools.List{&t}, nil
 	}
 
-	api, err := NewAgentToolsAPI(nil, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
+	api, err := NewAgentToolsAPI(fakeToolFinder, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedVer, err := api.checkToolsAvailability(c.Context())
@@ -117,19 +117,13 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *tc.C) {
 		return coretools.List{&t}, nil
 	}
 
-	api, err := NewAgentToolsAPI(nil, fakeToolFinder, nil, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
+	api, err := NewAgentToolsAPI(fakeToolFinder, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedVer, err := api.checkToolsAvailability(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(calledWithStreams, tc.DeepEquals, [][]string{{"proposed", "released"}})
 	c.Assert(obtainedVer, tc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 0})
-}
-
-type mockState struct{}
-
-func (e *mockState) Model() (*state.Model, error) {
-	return &state.Model{}, nil
 }
 
 func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *tc.C) {
@@ -142,6 +136,8 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 
+	s.modelAgentService.EXPECT().UpdateLatestAgentVersion(gomock.Any(), semversion.Number{Major: 2, Minor: 5, Patch: 2}).Return(nil)
+
 	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		ver := semversion.Binary{Number: semversion.Number{Major: 2, Minor: 5, Patch: 2}}
 		olderVer := semversion.Binary{Number: semversion.Number{Major: 2, Minor: 5, Patch: 1}}
@@ -150,18 +146,11 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *tc.C) {
 		return coretools.List{&t, &tOld}, nil
 	}
 
-	var ver semversion.Number
-	fakeUpdate := func(_ *state.Model, v semversion.Number) error {
-		ver = v
-		return nil
-	}
-
-	api, err := NewAgentToolsAPI(&mockState{}, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
+	api, err := NewAgentToolsAPI(fakeToolFinder, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.updateToolsAvailability(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(ver, tc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 2})
 }
 
 func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
@@ -179,13 +168,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
 		return nil, errors.NotFoundf("tools")
 	}
 
-	// Update should never be called.
-	fakeUpdate := func(_ *state.Model, v semversion.Number) error {
-		c.Fail()
-		return nil
-	}
-
-	api, err := NewAgentToolsAPI(&mockState{}, fakeToolFinder, fakeUpdate, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
+	api, err := NewAgentToolsAPI(fakeToolFinder, nil, loggertesting.WrapCheckLog(c), s.machineService, s.modelConfigService, s.modelAgentService)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.updateToolsAvailability(c.Context())
