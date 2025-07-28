@@ -10,6 +10,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -164,6 +165,9 @@ type VolumeState interface {
 func (s *Service) GetVolumeAttachmentIDs(
 	ctx context.Context, uuids []string,
 ) (map[string]storageprovisioning.VolumeAttachmentID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.GetVolumeAttachmentIDs(ctx, uuids)
 }
 
@@ -178,6 +182,9 @@ func (s *Service) GetVolumeAttachmentLife(
 	ctx context.Context,
 	uuid storageprovisioning.VolumeAttachmentUUID,
 ) (domainlife.Life, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := uuid.Validate(); err != nil {
 		return 0, errors.Errorf(
 			"validating volume attachment uuid: %w", err,
@@ -208,6 +215,9 @@ func (s *Service) GetVolumeAttachmentUUIDForIDMachine(
 	id corestorage.ID,
 	machineUUID coremachine.UUID,
 ) (storageprovisioning.VolumeAttachmentUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := id.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -262,6 +272,9 @@ func (s *Service) GetVolumeAttachmentUUIDForIDUnit(
 	id corestorage.ID,
 	unitUUID coreunit.UUID,
 ) (storageprovisioning.VolumeAttachmentUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := id.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -309,6 +322,9 @@ func (s *Service) GetVolumeLife(
 	ctx context.Context,
 	uuid storageprovisioning.VolumeUUID,
 ) (domainlife.Life, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := uuid.Validate(); err != nil {
 		return 0, errors.Errorf(
 			"validating volume uuid: %w", err,
@@ -332,6 +348,9 @@ func (s *Service) GetVolumeLife(
 func (s *Service) GetVolumeUUIDForID(
 	ctx context.Context, id corestorage.ID,
 ) (storageprovisioning.VolumeUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := id.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -349,6 +368,9 @@ func (s *Service) GetVolumeUUIDForID(
 func (s *Service) WatchModelProvisionedVolumes(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumes()
 	return s.watcherFactory.NewNamespaceWatcher(
 		initialQuery,
@@ -366,6 +388,9 @@ func (s *Service) WatchModelProvisionedVolumes(
 func (s *Service) WatchMachineProvisionedVolumes(
 	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -399,6 +424,9 @@ func (s *Service) WatchMachineProvisionedVolumes(
 func (s *Service) WatchModelProvisionedVolumeAttachments(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumeAttachments()
 	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
 		eventsource.NamespaceFilter(ns, changestream.All))
@@ -416,6 +444,9 @@ func (s *Service) WatchModelProvisionedVolumeAttachments(
 func (s *Service) WatchMachineProvisionedVolumeAttachments(
 	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -454,6 +485,9 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 func (s *Service) WatchVolumeAttachmentPlans(
 	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}

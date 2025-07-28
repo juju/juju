@@ -10,6 +10,7 @@ import (
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -171,6 +172,9 @@ type FilesystemState interface {
 func (s *Service) CheckFilesystemForIDExists(
 	ctx context.Context, id string,
 ) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.CheckFilesystemForIDExists(ctx, id)
 }
 
@@ -192,6 +196,9 @@ func (s *Service) GetFilesystemAttachmentForMachine(
 	filesystemID string,
 	machineUUID coremachine.UUID,
 ) (storageprovisioning.FilesystemAttachment, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.GetFilesystemAttachmentUUIDForIDMachine(
 		ctx, filesystemID, machineUUID,
 	)
@@ -220,6 +227,9 @@ func (s *Service) GetFilesystemAttachmentForUnit(
 	filesystemID string,
 	unitUUID coreunit.UUID,
 ) (storageprovisioning.FilesystemAttachment, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.GetFilesystemAttachmentUUIDForIDUnit(
 		ctx, filesystemID, unitUUID,
 	)
@@ -249,6 +259,9 @@ func (s *Service) GetFilesystemAttachmentForUnit(
 func (s *Service) GetFilesystemAttachmentIDs(
 	ctx context.Context, uuids []string,
 ) (map[string]storageprovisioning.FilesystemAttachmentID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.st.GetFilesystemAttachmentIDs(ctx, uuids)
 }
 
@@ -263,6 +276,9 @@ func (s *Service) GetFilesystemAttachmentLife(
 	ctx context.Context,
 	uuid storageprovisioning.FilesystemAttachmentUUID,
 ) (domainlife.Life, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := uuid.Validate(); err != nil {
 		return 0, errors.Errorf(
 			"validating filesystem attachment uuid: %w", err,
@@ -292,6 +308,9 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDMachine(
 	id string,
 	machineUUID coremachine.UUID,
 ) (storageprovisioning.FilesystemAttachmentUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineUUID.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -342,6 +361,9 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 	id string,
 	unitUUID coreunit.UUID,
 ) (storageprovisioning.FilesystemAttachmentUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := unitUUID.Validate(); err != nil {
 		return "", errors.Errorf("validating unit uuid: %w", err)
 	}
@@ -384,6 +406,9 @@ func (s *Service) GetFilesystemForID(
 	ctx context.Context,
 	filesystemID string,
 ) (storageprovisioning.Filesystem, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.GetFilesystemUUIDForID(ctx, filesystemID)
 	if err != nil {
 		return storageprovisioning.Filesystem{}, errors.Capture(err)
@@ -409,6 +434,9 @@ func (s *Service) GetFilesystemLife(
 	ctx context.Context,
 	uuid storageprovisioning.FilesystemUUID,
 ) (domainlife.Life, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := uuid.Validate(); err != nil {
 		return 0, errors.Errorf(
 			"validating filesystem uuid: %w", err,
@@ -431,6 +459,9 @@ func (s *Service) GetFilesystemLife(
 func (s *Service) GetFilesystemUUIDForID(
 	ctx context.Context, id string,
 ) (storageprovisioning.FilesystemUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	uuid, err := s.st.GetFilesystemUUIDForID(ctx, id)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -444,6 +475,9 @@ func (s *Service) GetFilesystemUUIDForID(
 func (s *Service) WatchModelProvisionedFilesystems(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystems()
 	return s.watcherFactory.NewNamespaceWatcher(
 		initialQuery,
@@ -461,6 +495,9 @@ func (s *Service) WatchModelProvisionedFilesystems(
 func (s *Service) WatchMachineProvisionedFilesystems(
 	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -494,6 +531,9 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 func (s *Service) WatchModelProvisionedFilesystemAttachments(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystemAttachments()
 	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
 		eventsource.NamespaceFilter(ns, corechangestream.All))
@@ -511,6 +551,9 @@ func (s *Service) WatchModelProvisionedFilesystemAttachments(
 func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
