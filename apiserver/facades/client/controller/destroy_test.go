@@ -13,7 +13,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
@@ -303,26 +302,17 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	domainServices := s.DefaultModelDomainServices(c)
 	s.mockModelService.EXPECT().ListModelUUIDs(gomock.Any()).Return(
 		[]coremodel.UUID{
 			coremodel.UUID(s.ControllerUUID),
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
-	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
-
-	err := model.DestroyModel(
-		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), s.mockModelInfoService,
-		nil, nil, nil, nil,
-	)
-	c.Assert(err, tc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
+	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
 	c.Assert(err, tc.ErrorMatches, "found blocks in controller models")
 	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Alive)
 }
@@ -331,13 +321,6 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 	defer s.setupMocks(c).Finish()
 	domainServices := s.DefaultModelDomainServices(c)
 
-	err := model.DestroyModel(
-		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), domainServices.ModelInfo(),
-		nil, nil, nil, nil,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
@@ -347,7 +330,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
-	err = s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
+	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
 	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 
 	numBlocks, err := domainServices.BlockCommand().GetBlocks(c.Context())
