@@ -242,6 +242,25 @@ func NewStorageProvisionerAPIv4(
 	}, nil
 }
 
+// Life returns the life status of every supplied entity, where available.
+func (s *StorageProvisionerAPIv4) Life(args params.Entities) (params.LifeResults, error) {
+	// TODO: implement this method using the storageProvisioningService.
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	return result, nil
+}
+
+// InstanceId returns the provider specific instance id for each given
+// machine or an CodeNotProvisioned error, if not set.
+func (s *StorageProvisionerAPIv4) InstanceId(args params.Entities) (params.StringResults, error) {
+	// TODO: implement this method using the storageProvisioningService.
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	return result, nil
+}
+
 // EnsureDead ensures that the specified entities are dead.
 //
 // Deprecated: This facade endpoint has not been in use since before 3.6, and

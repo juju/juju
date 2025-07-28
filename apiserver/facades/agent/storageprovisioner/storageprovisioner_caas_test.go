@@ -22,5 +22,7 @@ func (s *caasProvisionerSuite) TestStub(c *tc.C) {
 - TestRemoveFilesystemAttachments: remove filesystem attachments.
 - TestFilesystemAttachmentLife: get life of filesystem attachments.
 - TestVolumeAttachmentLife: get life of volume attachments.
+- TestLife: get life of storage entities.
+- TestInstanceId: get instance ID of each machine.
 `)
 }
