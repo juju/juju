@@ -4,13 +4,13 @@
 package gen
 
 import (
-	reflect "reflect"
+	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/rpcreflect"
 
-	facade "github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade"
 )
 
 // FacadeGroup defines the grouping you want to export.
@@ -35,7 +35,7 @@ func ParseFacadeGroup(s string) (FacadeGroup, error) {
 	case "latest", "all", "client", "jimm":
 		return FacadeGroup(s), nil
 	default:
-		return FacadeGroup(""), errors.NotValidf("facade group")
+		return FacadeGroup(""), errors.NotValidf("facade group %q", s)
 	}
 }
 
