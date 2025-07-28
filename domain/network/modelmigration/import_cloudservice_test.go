@@ -66,7 +66,7 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 		ProviderId: "app-1-service",
 		Addresses: []description.AddressArgs{
 			{
-				Value:   "10.0.0.1",
+				Value:   "192.0.2.1",
 				Type:    "ipv4",
 				Scope:   "public",
 				Origin:  "provider",
@@ -85,7 +85,7 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 		ProviderId: "app-2-service",
 		Addresses: []description.AddressArgs{
 			{
-				Value:   "10.0.0.2",
+				Value:   "192.0.2.2",
 				Type:    "ipv4",
 				Scope:   "public",
 				Origin:  "provider",
@@ -99,7 +99,7 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 			ProviderID:      "app-1-service",
 			Addresses: []internal.ImportCloudServiceAddress{
 				{
-					Value:   "10.0.0.1",
+					Value:   "192.0.2.1",
 					Type:    "ipv4",
 					Scope:   "public",
 					Origin:  "provider",
@@ -118,7 +118,7 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 			ApplicationName: "app-2",
 			ProviderID:      "app-2-service",
 			Addresses: []internal.ImportCloudServiceAddress{{
-				Value:   "10.0.0.2",
+				Value:   "192.0.2.2",
 				Type:    "ipv4",
 				Scope:   "public",
 				Origin:  "provider",

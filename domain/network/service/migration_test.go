@@ -178,7 +178,7 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProvider(c *tc.C
 	subnetUUID := uuid.MustNewUUID().String()
 	subnets := corenetwork.SubnetInfos{{
 		ID:   corenetwork.Id(subnetUUID),
-		CIDR: "192.168.1.0/24",
+		CIDR: "192.0.2.0/24",
 	}}
 
 	args := []internal.ImportLinkLayerDevice{
@@ -187,7 +187,7 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProvider(c *tc.C
 			Name:      "eth0",
 			Addresses: []internal.ImportIPAddress{
 				{
-					SubnetCIDR: "192.168.1.0/31",
+					SubnetCIDR: "192.0.2.0/31",
 				},
 			},
 		},
@@ -221,7 +221,7 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 	subnetUUID := uuid.MustNewUUID().String()
 	subnetInfo := corenetwork.SubnetInfo{
 		ID:   corenetwork.Id(subnetUUID),
-		CIDR: "10.0.0.0/24", // Different CIDR than the one in the address
+		CIDR: "198.51.100.0/24", // Different CIDR than the one in the address
 	}
 	subnets := corenetwork.SubnetInfos{subnetInfo}
 
@@ -231,8 +231,8 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 			Name:      "eth0",
 			Addresses: []internal.ImportIPAddress{
 				{
-					AddressValue: "192.168.1.10",
-					SubnetCIDR:   "192.168.1.0/24", // No matching subnet for this CIDR
+					AddressValue: "192.0.2.10",
+					SubnetCIDR:   "192.0.2.0/24", // No matching subnet for this CIDR
 				},
 			},
 		},
@@ -246,7 +246,7 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 
 	// Assert: error about no subnet found for CIDR
 	c.Assert(err, tc.ErrorMatches,
-		`converting devices:.*converting addresses:.*no subnet found for address "192.168.1.10"`)
+		`converting devices:.*converting addresses:.*no subnet found for address "192.0.2.10"`)
 }
 
 func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchSubnet(c *tc.C) {
@@ -262,11 +262,11 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchS
 	subnetUUID2 := uuid.MustNewUUID().String()
 	subnetInfo1 := corenetwork.SubnetInfo{
 		ID:   corenetwork.Id(subnetUUID1),
-		CIDR: "192.168.1.0/24",
+		CIDR: "192.0.2.0/24",
 	}
 	subnetInfo2 := corenetwork.SubnetInfo{
 		ID:   corenetwork.Id(subnetUUID2),
-		CIDR: "192.168.1.0/24", // Same CIDR as subnetInfo1
+		CIDR: "192.0.2.0/24", // Same CIDR as subnetInfo1
 	}
 	subnets := corenetwork.SubnetInfos{subnetInfo1, subnetInfo2}
 
@@ -276,8 +276,8 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchS
 			Name:      "eth0",
 			Addresses: []internal.ImportIPAddress{
 				{
-					AddressValue: "192.168.1.10",
-					SubnetCIDR:   "192.168.1.0/24", // Matches multiple subnets
+					AddressValue: "192.0.2.10",
+					SubnetCIDR:   "192.0.2.0/24", // Matches multiple subnets
 				},
 			},
 		},
@@ -291,7 +291,7 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchS
 
 	// Assert: error about multiple subnets found for CIDR
 	c.Assert(err, tc.ErrorMatches,
-		`converting devices:.*converting addresses:.*multiple subnets found for address "192.168.1.10".*`)
+		`converting devices:.*converting addresses:.*multiple subnets found for address "192.0.2.10".*`)
 }
 
 func (s *migrationSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
@@ -434,7 +434,7 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetNoSubnet(c *tc.C) 
 				{
 					UUID:    "addr-uuid",
 					SpaceID: "space-id",
-					Value:   "10.0.0.1",
+					Value:   "192.0.2.1",
 				},
 			},
 		},
@@ -451,7 +451,7 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetNoSubnet(c *tc.C) 
 
 	// Assert: no error is returned
 	c.Assert(err, tc.ErrorMatches,
-		`converting services:.*converting addresses:.*no subnet found for address "10.0.0.1"`)
+		`converting services:.*converting addresses:.*no subnet found for address "192.0.2.1"`)
 }
 
 func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetSeveralSubnets(c *tc.C) {
@@ -465,7 +465,7 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetSeveralSubnets(c *
 				{
 					UUID:    "addr-uuid",
 					SpaceID: "space-id",
-					Value:   "10.0.0.1",
+					Value:   "192.0.2.1",
 				},
 			},
 		},
@@ -477,11 +477,11 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetSeveralSubnets(c *
 		Subnets: corenetwork.SubnetInfos{
 			{
 				ID:   "subnet-id-1",
-				CIDR: "10.0.0.0/24",
+				CIDR: "192.0.2.0/24",
 			},
 			{
 				ID:   "subnet-id-2",
-				CIDR: "10.0.1.0/16",
+				CIDR: "192.0.2.1/31",
 			}},
 	}}, nil)
 
@@ -490,7 +490,7 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetSeveralSubnets(c *
 
 	// Assert: no error is returned
 	c.Assert(err, tc.ErrorMatches,
-		`converting services:.*converting addresses:.*multiple subnets found for address "10.0.0.1".*`)
+		`converting services:.*converting addresses:.*multiple subnets found for address "192.0.2.1".*`)
 }
 
 func (s *migrationSuite) TestImportCloudServicesSuccess(c *tc.C) {
@@ -508,7 +508,7 @@ func (s *migrationSuite) TestImportCloudServicesSuccess(c *tc.C) {
 			Addresses: []internal.ImportCloudServiceAddress{
 				{
 					UUID:    "addr-uuid",
-					Value:   "192.168.1.1",
+					Value:   "192.0.2.1",
 					Type:    "ipv4",
 					Scope:   "local-cloud",
 					Origin:  "provider",
@@ -523,7 +523,7 @@ func (s *migrationSuite) TestImportCloudServicesSuccess(c *tc.C) {
 	subnets := corenetwork.SubnetInfos{
 		{
 			ID:   corenetwork.Id(subnetUUID),
-			CIDR: "192.168.1.0/24",
+			CIDR: "192.0.2.0/24",
 		},
 	}
 
