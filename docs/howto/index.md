@@ -64,7 +64,7 @@ Install the `juju` client and any plugins, add a cloud to the client, bootstrap 
 
 ## Handle authentication and authorization
 
-Set up SSH keys. Add users, service accounts, roles, and groups and control their access to controllers, clouds, models, or application offers.
+Set up SSH keys. Add users and control their access to controllers, clouds, models, or application offers.
 
 - {ref}`Manage SSH keys <manage-ssh-keys>`
 - {ref}`Manage users <manage-users>`
