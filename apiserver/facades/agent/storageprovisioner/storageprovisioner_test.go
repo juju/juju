@@ -71,11 +71,9 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 		c.Context(),
 		s.watcherRegistry,
 		testclock.NewClock(time.Now()),
-		nil, // storageBackend
 		nil, // blockDeviceService
 		nil, // configService
 		s.mockMachineService,
-		nil, // resourcesService
 		s.mockApplicationService,
 		s.authorizer,
 		nil, // storageProviderRegistry
