@@ -309,9 +309,24 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 			return nil, errors.Annotatef(err, "creating object store for namespace %q", namespace)
 		}
 
+		if namespace == database.ControllerNS {
+			// If we're in the controller namespace, then agents should only
+			// be using this. We don't need to track the model service.
+			return newControllerWorker(
+				objectStore,
+				tracer,
+			)
+		}
+
 		modelServices := w.cfg.ModelServiceGetter.ForModelUUID(modelUUID)
 		modelService := modelServices.ModelService()
-		return newTrackerWorker(modelUUID, modelService, objectStore, tracer, w.cfg.Logger)
+		return newTrackerWorker(
+			modelUUID,
+			modelService,
+			objectStore,
+			tracer,
+			w.cfg.Logger,
+		)
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil

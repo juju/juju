@@ -159,10 +159,10 @@ func (c *MockObjectStoreServicesControllerNodeCall) DoAndReturn(f func() *servic
 }
 
 // Model mocks base method.
-func (m *MockObjectStoreServices) Model() *service1.ProviderService {
+func (m *MockObjectStoreServices) Model() *service1.ObjectStoreService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
-	ret0, _ := ret[0].(*service1.ProviderService)
+	ret0, _ := ret[0].(*service1.ObjectStoreService)
 	return ret0
 }
 
@@ -179,19 +179,19 @@ type MockObjectStoreServicesModelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockObjectStoreServicesModelCall) Return(arg0 *service1.ProviderService) *MockObjectStoreServicesModelCall {
+func (c *MockObjectStoreServicesModelCall) Return(arg0 *service1.ObjectStoreService) *MockObjectStoreServicesModelCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockObjectStoreServicesModelCall) Do(f func() *service1.ProviderService) *MockObjectStoreServicesModelCall {
+func (c *MockObjectStoreServicesModelCall) Do(f func() *service1.ObjectStoreService) *MockObjectStoreServicesModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStoreServicesModelCall) DoAndReturn(f func() *service1.ProviderService) *MockObjectStoreServicesModelCall {
+func (c *MockObjectStoreServicesModelCall) DoAndReturn(f func() *service1.ObjectStoreService) *MockObjectStoreServicesModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

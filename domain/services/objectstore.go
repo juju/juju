@@ -74,15 +74,12 @@ func (s *ObjectStoreServices) ObjectStore() *objectstoreservice.WatchableService
 }
 
 // Model returns the provider model service.
-func (s *ObjectStoreServices) Model() *modelservice.ProviderService {
-	return modelservice.NewProviderService(
-		modelstate.NewState(
-			changestream.NewTxnRunnerFactory(s.controllerDB),
-		),
+func (s *ObjectStoreServices) Model() *modelservice.ObjectStoreService {
+	return modelservice.NewObjectStoreService(
 		modelstate.NewModelState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("modelinfo"),
 		),
-		s.controllerWatcherFactory("model"),
+		s.modelWatcherFactory("model"),
 	)
 }
