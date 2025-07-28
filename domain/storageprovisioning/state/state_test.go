@@ -172,22 +172,6 @@ func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
 	c.Check(rval, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
 }
 
-func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
-	unitUUID := unittesting.GenUnitUUID(c)
-
-	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetUnitNetNodeUUID(
-		c.Context(), unitUUID,
-	)
-	st := NewState(s.TxnRunnerFactory())
-
-	gotNetNode, err := st.GetUnitNetNodeUUID(
-		c.Context(), unitUUID,
-	)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(gotNetNode, tc.Equals, netNodeUUID)
-}
-
 // TestGetUnitNetNodeUUIDNotFound tests that asking for the net node of a unit
 // that does not exist returns a [applicationerrors.UnitNotFound] error to the
 // caller.

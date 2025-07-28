@@ -127,7 +127,7 @@ func (st *State) GetMachineNetNodeUUID(
 // - [applicationerrors.UnitNotFound] when no unit exists for the provided
 // uuid.
 func (st *State) GetUnitNetNodeUUID(
-	ctx context.Context, uuid unit.UUID,
+	ctx context.Context, uuid coreunit.UUID,
 ) (domainnetwork.NetNodeUUID, error) {
 	db, err := st.DB()
 	if err != nil {

@@ -11,10 +11,10 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
-	storagetesting "github.com/juju/juju/core/storage/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	domainlife "github.com/juju/juju/domain/life"
@@ -22,6 +22,10 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storagetesting "github.com/juju/juju/domain/storage/testing"
+	"github.com/juju/juju/domain/storageprovisioning"
+	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -31,18 +35,65 @@ type baseSuite struct {
 	schematesting.ModelSuite
 }
 
-func (s *baseSuite) nextSequenceNumber(c *tc.C, ctx context.Context, namespace domainsequence.StaticNamespace) uint64 {
-	st := NewState(s.TxnRunnerFactory())
-	db, err := st.DB()
+type preparer struct{}
+
+// changeMachineLife is a utility function for updating the life value of a
+// machine.
+func (s *baseSuite) changeMachineLife(c *tc.C, machineUUID string, lifeID domainlife.Life) {
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		"UPDATE machine SET life_id = ? WHERE uuid = ?",
+		int(lifeID),
+		machineUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newApplication creates a new application in the model returning the uuid of
+// the new application.
+func (s *baseSuite) newApplication(c *tc.C, name string) string {
+	appUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	var id uint64
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		id, err = sequencestate.NextValue(ctx, st, tx, namespace)
+	charmUUID := s.newCharm(c)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	return id
+
+	return appUUID.String()
+}
+
+// newCharm creates a new charm in the model and returns the uuid for it.
+func (s *baseSuite) newCharm(c *tc.C) string {
+	charmUUID := charmtesting.GenCharmID(c)
+
+	err := s.TxnRunner().StdTxn(
+		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
+VALUES (?, 0, ?, 1, 0)
+`,
+				charmUUID.String(), "foo",
+			)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, 'myapp')
+`,
+				charmUUID.String(),
+			)
+			return err
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	return charmUUID.String()
 }
 
 // newMachineWithNetNode creates a new machine in the model attached to the
@@ -66,16 +117,90 @@ func (s *baseSuite) newMachineWithNetNode(
 	return machineUUID.String(), coremachine.Name(name)
 }
 
-// changeMachineLife is a utility function for updating the life value of a
-// machine.
-func (s *baseSuite) changeMachineLife(c *tc.C, machineUUID string, lifeID domainlife.Life) {
+// newMachineVolume creates a new volume in the model with machine
+// provision scope. Returned is the uuid and volume id of the entity.
+func (s *baseSuite) newMachineVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
+	vsUUID := domaintesting.GenVolumeUUID(c)
+
+	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 1)
+	`,
+		vsUUID.String(), vsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return vsUUID, vsID
+}
+
+// newMachineVolumeAttachment creates a new volume attachment that has
+// machine provision scope. The attachment is associated with the provided
+// volume uuid and net node uuid.
+func (s *baseSuite) newMachineVolumeAttachment(
+	c *tc.C,
+	vsUUID storageprovisioning.VolumeUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+) storageprovisioning.VolumeAttachmentUUID {
+	attachmentUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
 	_, err := s.DB().ExecContext(
 		c.Context(),
-		"UPDATE machine SET life_id = ? WHERE uuid = ?",
-		int(lifeID),
-		machineUUID,
-	)
+		`
+INSERT INTO storage_volume_attachment (uuid,
+                                       storage_volume_uuid,
+                                       net_node_uuid,
+                                       life_id,
+                                       provision_scope_id)
+VALUES (?, ?, ?, 0, 1)
+`,
+		attachmentUUID.String(), vsUUID.String(), netNodeUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
+}
+
+// newModelVolume creates a new volume in the model with model
+// provision scope. Return is the uuid and volume id of the entity.
+func (s *baseSuite) newModelVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
+	vsUUID := domaintesting.GenVolumeUUID(c)
+
+	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		vsUUID.String(), vsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return vsUUID, vsID
+}
+
+// newModelVolumeAttachment creates a new volume attachment that has
+// model provision scope. The attachment is associated with the provided
+// volume uuid and net node uuid.
+func (s *baseSuite) newModelVolumeAttachment(
+	c *tc.C,
+	vsUUID storageprovisioning.VolumeUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+) storageprovisioning.VolumeAttachmentUUID {
+	attachmentUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_volume_attachment (uuid,
+                                       storage_volume_uuid,
+                                       net_node_uuid,
+                                       life_id,
+                                       provision_scope_id)
+VALUES (?, ?, ?, 0, 0)
+`,
+		attachmentUUID.String(), vsUUID.String(), netNodeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
 }
 
 // newNetNode creates a new net node in the model for referencing to storage
@@ -94,35 +219,39 @@ func (s *baseSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
 	return nodeUUID
 }
 
-// newApplication creates a new application in the model returning the uuid of
-// the new application.
-func (s *baseSuite) newApplication(c *tc.C, name string) string {
-	appUUID, err := uuid.NewUUID()
+func (s *baseSuite) newStorageInstance(c *tc.C) domainstorage.StorageInstanceUUID {
+	charmUUID := s.newCharm(c)
+	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageName := "mystorage"
+	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
+
+	err := s.TxnRunner().StdTxn(
+		c.Context(),
+		func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
+VALUES (?, ?, 0, 0, 1)
+`,
+				charmUUID, storageName,
+			)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_type)
+VALUES (?, ?, ?, ?, 0, 100, 'rootfs')
+`,
+				storageInstanceUUID.String(),
+				charmUUID,
+				storageName,
+				storageID,
+			)
+			return err
+		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
-VALUES (?, 0, ?, 1, 0)`, appUUID.String(), name)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_metadata (charm_uuid, name)
-VALUES (?, 'myapp')`, appUUID.String())
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)`, appUUID.String(), appUUID.String(), name, network.AlphaSpaceId)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	return appUUID.String()
+	return storageInstanceUUID
 }
 
 // newUnitWithNetNode creates a new unit in the model for the provided
@@ -153,188 +282,51 @@ VALUES (?, ?, ?, ?, ?, 0)
 	return unitUUID, coreunit.Name(name)
 }
 
-func (s *baseSuite) newStorageInstance(c *tc.C, storageName, charmUUID string) string {
-	ctx := c.Context()
-
-	storageUUID := storagetesting.GenStorageUUID(c)
-	poolUUID := uuid.MustNewUUID().String()
-	storageID := fmt.Sprintf("%s/%d", storageName, s.nextSequenceNumber(c, ctx, domainsequence.StaticNamespace("storage")))
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_pool(uuid, name, type)
-VALUES (?, ?, ?)
-ON CONFLICT DO NOTHING`, poolUUID, "pool", "rootfs")
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, ?, ?, ?)
-		`, charmUUID, storageName, 0, 0, 1)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			storageUUID, charmUUID, storageName, storageID, domainlife.Alive, 100, poolUUID,
+// nextStorageSequenceNumber retrieves the next sequence number in the storage
+// namespace.
+func (s *baseSuite) nextStorageSequenceNumber(
+	c *tc.C,
+) uint64 {
+	var id uint64
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		id, err = sequencestate.NextValue(
+			ctx, preparer{}, tx, domainsequence.StaticNamespace("storage"),
 		)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-
-	return storageUUID.String()
+	return id
 }
 
-func (s *baseSuite) newStorageInstanceVolume(c *tc.C, instanceUUID, volumeUUID string) {
+func (s *baseSuite) newStorageInstanceVolume(
+	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
+	volumeUUID storageprovisioning.VolumeUUID,
+) {
 	ctx := c.Context()
 	_, err := s.DB().ExecContext(ctx, `
 INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
-VALUES (?, ?)`, instanceUUID, volumeUUID)
+VALUES (?, ?)`, instanceUUID.String(), volumeUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) newStorageInstanceFilesystem(c *tc.C, instanceUUID, filesystemUUID string) {
+func (s *baseSuite) newStorageInstanceFilesystem(
+	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
+	filesystemUUID storageprovisioning.FilesystemUUID,
+) {
 	ctx := c.Context()
 	_, err := s.DB().ExecContext(ctx, `
 INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
-VALUES (?, ?)`, instanceUUID, filesystemUUID)
+VALUES (?, ?)`, instanceUUID.String(), filesystemUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-// changeVolumeLife is a utility function for updating the life value of a
-// volume.
-func (s *baseSuite) changeVolumeLife(
-	c *tc.C, uuid string, life domainlife.Life,
-) {
-	_, err := s.DB().Exec(`
-UPDATE storage_volume
-SET    life_id = ?
-WHERE  uuid = ?
-`,
-		int(life), uuid)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// changeVolumeAttachmentLife is a utility function for updating the life
-// value of a volume attachment.
-func (s *baseSuite) changeVolumeAttachmentLife(
-	c *tc.C, uuid string, life domainlife.Life,
-) {
-	_, err := s.DB().Exec(`
-UPDATE storage_volume_attachment
-SET    life_id = ?
-WHERE  uuid = ?
-`,
-		int(life), uuid)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// changeVolumeAttachmentPlanLife is a utility function for updating the life
-// value of a volume attachment plan.
-func (s *baseSuite) changeVolumeAttachmentPlanLife(
-	c *tc.C, uuid string, life domainlife.Life,
-) {
-	_, err := s.DB().Exec(`
-UPDATE storage_volume_attachment_plan
-SET    life_id = ?
-WHERE  uuid = ?
-`,
-		int(life), uuid)
-	c.Assert(err, tc.ErrorIsNil)
-
-}
-
-// newMachineVolume creates a new volume in the model with machine
-// provision scope. Returned is the uuid and volume id of the entity.
-func (s *baseSuite) newMachineVolume(c *tc.C) (string, string) {
-	vsUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
-
-	_, err = s.DB().Exec(`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
-VALUES (?, ?, 0, 1)
-	`,
-		vsUUID.String(), vsID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return vsUUID.String(), vsID
-}
-
-// newModelVolume creates a new volume in the model with model
-// provision scope. Return is the uuid and volume id of the entity.
-func (s *baseSuite) newModelVolume(c *tc.C) (string, string) {
-	vsUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
-
-	_, err = s.DB().Exec(`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
-VALUES (?, ?, 0, 0)
-	`,
-		vsUUID.String(), vsID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return vsUUID.String(), vsID
-}
-
-// newMachineVolumeAttachment creates a new volume attachment that has
-// machine provision scope. The attachment is associated with the provided
-// volume uuid and net node uuid.
-func (s *baseSuite) newMachineVolumeAttachment(
-	c *tc.C, vsUUID string, netNodeUUID string,
-) string {
-	attachmentUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		`
-INSERT INTO storage_volume_attachment (uuid,
-                                       storage_volume_uuid,
-                                       net_node_uuid,
-                                       life_id,
-                                       provision_scope_id)
-VALUES (?, ?, ?, 0, 1)
-`,
-		attachmentUUID.String(), vsUUID, netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return attachmentUUID.String()
-}
-
-// newModelVolumeAttachment creates a new volume attachment that has
-// model provision scope. The attachment is associated with the provided
-// volume uuid and net node uuid.
-func (s *baseSuite) newModelVolumeAttachment(
-	c *tc.C, vsUUID string, netNodeUUID string,
-) string {
-	attachmentUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		`
-INSERT INTO storage_volume_attachment (uuid,
-                                       storage_volume_uuid,
-                                       net_node_uuid,
-                                       life_id,
-                                       provision_scope_id)
-VALUES (?, ?, ?, 0, 0)
-`,
-		attachmentUUID.String(), vsUUID, netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return attachmentUUID.String()
 }
 
 // newVolumeAttachmentPlan creates a new volume attachment plan. The attachment
 // plan is associated with the provided volume uuid and net node uuid.
 func (s *baseSuite) newVolumeAttachmentPlan(
-	c *tc.C, volumeUUID, netNodeUUID string,
+	c *tc.C,
+	volumeUUID storageprovisioning.VolumeUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
 ) string {
 	attachmentUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
@@ -349,7 +341,7 @@ INSERT INTO storage_volume_attachment_plan (uuid,
                                             provision_scope_id)
 VALUES (?, ?, ?, 0, 1)
 `,
-		attachmentUUID.String(), volumeUUID, netNodeUUID)
+		attachmentUUID.String(), volumeUUID.String(), netNodeUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
@@ -428,4 +420,8 @@ VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?)`,
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, typeSamples...)
 }

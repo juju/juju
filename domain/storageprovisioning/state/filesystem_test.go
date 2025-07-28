@@ -30,21 +30,39 @@ func TestFilesystemSuite(t *testing.T) {
 	tc.Run(t, &filesystemSuite{})
 }
 
+// TestCheckFilesystemForIDExists tests the happy path of
+// [State.CheckFilesystemForIDExists].
+func (s *filesystemSuite) TestCheckFilesystemForIDExists(c *tc.C) {
+	_, id := s.newModelFilesystem(c)
+	st := NewState(s.TxnRunnerFactory())
+
+	exists, err := st.CheckFilesystemForIDExists(c.Context(), id)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, true)
+}
+
+func (s *filesystemSuite) TestCheckFilesystemForIDNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	exists, err := st.CheckFilesystemForIDExists(c.Context(), "no-exist")
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
 // TestGetFilesystemWithBackingVolume tests getting a filesystem's information
 // by id when it is backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	appUUID := s.newApplication(c, "foo")
-	storageInstanceUUID := s.newStorageInstance(c, "pgdata", appUUID)
-
+	storageInstanceUUID := s.newStorageInstance(c)
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
-
-	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
-	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID.String())
+	fsUUID, fsID := s.newMachineFilesystem(c)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+	st := NewState(s.TxnRunnerFactory())
 
 	result, err := st.GetFilesystem(c.Context(), fsUUID)
+
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, storageprovisioning.Filesystem{
 		BackingVolume: &storageprovisioning.FilesystemBackingVolume{
@@ -59,15 +77,13 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 // TestGetFilesystemWithBackingVolume tests getting a filesystem's information
 // by id when it isn't backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
+	storageInstanceUUID := s.newStorageInstance(c)
+	fsUUID, fsID := s.newMachineFilesystem(c)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
 	st := NewState(s.TxnRunnerFactory())
 
-	appUUID := s.newApplication(c, "foo")
-	storageInstanceUUID := s.newStorageInstance(c, "pgdata", appUUID)
-
-	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
-	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID.String())
-
 	result, err := st.GetFilesystem(c.Context(), fsUUID)
+
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, storageprovisioning.Filesystem{
 		FilesystemID: fsID,
@@ -78,8 +94,10 @@ func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemNotFoundError(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
+	notFoundUUID := domaintesting.GenFilesystemUUID(c)
 
-	_, err := st.GetFilesystem(c.Context(), "no-exist-filesystem-id")
+	_, err := st.GetFilesystem(c.Context(), notFoundUUID)
+
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
 }
 
@@ -94,9 +112,10 @@ func (s *filesystemSuite) TestGetFilesystemNotFoundError(c *tc.C) {
 // It just means that the filesystem is not backed by a volume in the model.
 func (s *filesystemSuite) TestGetFilesystemNotAttachedToStorageInstance(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
+	fsUUID, fsID := s.newMachineFilesystem(c)
 
 	fs, err := st.GetFilesystem(c.Context(), fsUUID)
+
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(fs.FilesystemID, tc.Equals, fsID)
 	c.Check(fs.ProviderID, tc.Equals, "fs-123")
@@ -108,10 +127,10 @@ func (s *filesystemSuite) TestGetFilesystemAttachment(c *tc.C) {
 
 	netNodeUUID := s.newNetNode(c)
 	fsUUID, fsID := s.newMachineFilesystem(c)
-	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
+	uuid := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
 
-	result, err := st.GetFilesystemAttachment(
-		c.Context(), fsaUUID)
+	result, err := st.GetFilesystemAttachment(c.Context(), uuid)
+
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, storageprovisioning.FilesystemAttachment{
 		FilesystemID: fsID,
@@ -120,13 +139,14 @@ func (s *filesystemSuite) TestGetFilesystemAttachment(c *tc.C) {
 	})
 }
 
-func (s *filesystemSuite) TestGetFilesystemAttachmentFilesystemAttachmentNotFoundError(c *tc.C) {
+func (s *filesystemSuite) TestGetFilesystemAttachmentNotFound(c *tc.C) {
+	notFoundUUID := domaintesting.GenFilesystemAttachmentUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
-	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
-
 	_, err := st.GetFilesystemAttachment(
-		c.Context(), fsaUUID)
+		c.Context(), notFoundUUID,
+	)
+
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
@@ -792,13 +812,9 @@ func (s *filesystemSuite) newMachineFilesystem(c *tc.C) (
 // id of the entity.
 func (s *filesystemSuite) newMachineFilesystemWithSize(
 	c *tc.C, providerID string, size uint64,
-) (
-	domainstorageprovisioning.FilesystemUUID, string,
-) {
+) (domainstorageprovisioning.FilesystemUUID, string) {
 	fsUUID := domaintesting.GenFilesystemUUID(c)
-
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
-
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provider_id, size_mib, provision_scope_id)
 VALUES (?, ?, 0, ?, ?, 1)

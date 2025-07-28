@@ -10,7 +10,6 @@ import (
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -20,7 +19,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -28,6 +26,11 @@ import (
 // FilesystemState defines the interface required for performing filesystem
 // provisioning operations in the model.
 type FilesystemState interface {
+	// CheckFilesystemExists checks if a filesystem exists for the supplied
+	// filesystem id. True is returned when a filesystem exists for the supplied
+	// id.
+	CheckFilesystemForIDExists(context.Context, string) (bool, error)
+
 	// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
 	// supplied filesystem uuid.
 	//
@@ -36,7 +39,7 @@ type FilesystemState interface {
 	// exists for the provided filesystem uuid.
 	GetFilesystem(
 		context.Context,
-		domainstorageprovisioning.FilesystemUUID,
+		storageprovisioning.FilesystemUUID,
 	) (storageprovisioning.Filesystem, error)
 
 	// GetFilesystemAttachment retrieves the
@@ -49,7 +52,7 @@ type FilesystemState interface {
 	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
 	// exists for the provided filesystem uuid.
 	GetFilesystemAttachment(
-		context.Context, domainstorageprovisioning.FilesystemAttachmentUUID,
+		context.Context, storageprovisioning.FilesystemAttachmentUUID,
 	) (storageprovisioning.FilesystemAttachment, error)
 
 	// GetFilesystemAttachmentIDs returns the
@@ -68,7 +71,7 @@ type FilesystemState interface {
 	//
 	// All returned values will have either the machine name or unit name value
 	// filled out in the [domainstorageprovisioning.FilesystemAttachmentID] struct.
-	GetFilesystemAttachmentIDs(ctx context.Context, uuids []string) (map[string]domainstorageprovisioning.FilesystemAttachmentID, error)
+	GetFilesystemAttachmentIDs(ctx context.Context, uuids []string) (map[string]storageprovisioning.FilesystemAttachmentID, error)
 
 	// GetFilesystemAttachmentLife returns the current life value for a
 	// filesystem attachment uuid.
@@ -78,7 +81,7 @@ type FilesystemState interface {
 	// when no filesystem attachment exists for the provided uuid.
 	GetFilesystemAttachmentLife(
 		context.Context,
-		domainstorageprovisioning.FilesystemAttachmentUUID,
+		storageprovisioning.FilesystemAttachmentUUID,
 	) (domainlife.Life, error)
 
 	// GetFilesystemAttachmentLifeForNetNode returns a mapping of filesystem
@@ -100,9 +103,9 @@ type FilesystemState interface {
 	// when no filesystem attachment exists for the supplied values.
 	GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		context.Context,
-		domainstorageprovisioning.FilesystemUUID,
+		storageprovisioning.FilesystemUUID,
 		domainnetwork.NetNodeUUID,
-	) (domainstorageprovisioning.FilesystemAttachmentUUID, error)
+	) (storageprovisioning.FilesystemAttachmentUUID, error)
 
 	// GetFilesystemLife returns the current life value for a filesystem uuid.
 	//
@@ -110,7 +113,7 @@ type FilesystemState interface {
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
 	// when no filesystem exists for the provided filesystem uuid.
 	GetFilesystemLife(
-		context.Context, domainstorageprovisioning.FilesystemUUID,
+		context.Context, storageprovisioning.FilesystemUUID,
 	) (domainlife.Life, error)
 
 	// GetFilesystemLifeForNetNode returns a mapping of filesystem ids to current
@@ -124,7 +127,9 @@ type FilesystemState interface {
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
 	// when no filesystem exists for the provided filesystem uuid.
-	GetFilesystemUUIDForID(context.Context, string) (domainstorageprovisioning.FilesystemUUID, error)
+	GetFilesystemUUIDForID(
+		context.Context, string,
+	) (storageprovisioning.FilesystemUUID, error)
 
 	// InitialWatchStatementMachineProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
@@ -161,62 +166,35 @@ type FilesystemState interface {
 	GetFilesystemTemplatesForApplication(context.Context, coreapplication.ID) ([]storageprovisioning.FilesystemTemplate, error)
 }
 
-// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
-// supplied filesystem id.
-//
-// The following errors may be returned:
-// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
-// exists for the provided filesystem id.
-func (s *Service) GetFilesystem(
-	ctx context.Context,
-	filesystemID string,
-) (storageprovisioning.Filesystem, error) {
-	uuid, err := s.GetFilesystemUUIDForID(ctx, corestorage.ID(filesystemID))
-	if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-		return storageprovisioning.Filesystem{}, errors.Errorf(
-			"filesystem with id %q does not exist", filesystemID,
-		).Add(storageprovisioningerrors.FilesystemNotFound)
-	} else if err != nil {
-		return storageprovisioning.Filesystem{}, errors.Capture(err)
-	}
-
-	fs, err := s.st.GetFilesystem(ctx, uuid)
-	if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-		return storageprovisioning.Filesystem{}, errors.Errorf(
-			"filesystem with id %q does not exist", filesystemID,
-		).Add(storageprovisioningerrors.FilesystemNotFound)
-	}
-
-	return fs, errors.Capture(err)
+// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
+// filesystem id. True is returned when a filesystem exists.
+func (s *Service) CheckFilesystemForIDExists(
+	ctx context.Context, id string,
+) (bool, error) {
+	return s.st.CheckFilesystemForIDExists(ctx, id)
 }
 
-// GetFilesystemAttachmentForUnit retrieves the
-// [storageprovisioning.FilesystemAttachment]
-// for the supplied unit uuid and filesystem id.
+// GetFilesystemAttachmentForMachine retrieves the
+// [storageprovisioning.FilesystemAttachment] for the supplied filesystem id
+// and machine uuid.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
 // is not valid.
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-// unit exists for the supplied unit uuid.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
-// exists for the provided filesystem id.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
-// the provided filesystem id.
-func (s *Service) GetFilesystemAttachmentForUnit(
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+// machine exists for the provided machine UUUID.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided values.
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the provided filesystem id.
+func (s *Service) GetFilesystemAttachmentForMachine(
 	ctx context.Context,
-	unitUUID coreunit.UUID,
 	filesystemID string,
+	machineUUID coremachine.UUID,
 ) (storageprovisioning.FilesystemAttachment, error) {
-	if err := unitUUID.Validate(); err != nil {
-		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
-	}
-	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
-	if err != nil {
-		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
-	}
-
-	uuid, err := s.st.GetFilesystemAttachmentUUIDForIDNetNode(ctx, filesystemID, netNodeUUID)
+	uuid, err := s.GetFilesystemAttachmentUUIDForIDMachine(
+		ctx, filesystemID, machineUUID,
+	)
 	if err != nil {
 		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
@@ -224,32 +202,27 @@ func (s *Service) GetFilesystemAttachmentForUnit(
 	return s.st.GetFilesystemAttachment(ctx, uuid)
 }
 
-// GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
-// for the supplied net node uuid and filesystem id.
+// GetFilesystemAttachmentForUnit retrieves the
+// [storageprovisioning.FilesystemAttachment]
+// for the supplied filesystem id that is attached to the supplied unit.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
 // is not valid.
-// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-// machine exists for the provided machine UUUID.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
-// exists for the provided filesystem id.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
-// the provided filesystem id.
-func (s *Service) GetFilesystemAttachmentForMachine(
+// - [applicationerrors.UnitNotFound] when no
+// unit exists for the supplied unit uuid.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the supplied values.
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the provided filesystem id.
+func (s *Service) GetFilesystemAttachmentForUnit(
 	ctx context.Context,
-	machineUUID coremachine.UUID,
 	filesystemID string,
+	unitUUID coreunit.UUID,
 ) (storageprovisioning.FilesystemAttachment, error) {
-	if err := machineUUID.Validate(); err != nil {
-		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
-	}
-	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
-	if err != nil {
-		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
-	}
-
-	uuid, err := s.st.GetFilesystemAttachmentUUIDForIDNetNode(ctx, filesystemID, netNodeUUID)
+	uuid, err := s.GetFilesystemAttachmentUUIDForIDUnit(
+		ctx, filesystemID, unitUUID,
+	)
 	if err != nil {
 		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
@@ -258,7 +231,7 @@ func (s *Service) GetFilesystemAttachmentForMachine(
 }
 
 // GetFilesystemAttachmentIDs returns the
-// [domainstorageprovisioning.FilesystemAttachmentID] information for each of the
+// [storageprovisioning.FilesystemAttachmentID] information for each of the
 // supplied filesystem attachment uuids. If a filesystem attachment does exist
 // for a supplied uuid or if a filesystem attachment is not attached to either a
 // machine or unit then this uuid will be left out of the final result.
@@ -272,10 +245,10 @@ func (s *Service) GetFilesystemAttachmentForMachine(
 // attached to.
 //
 // All returned values will have either the machine name or unit name value
-// filled out in the [domainstorageprovisioning.FilesystemAttachmentID] struct.
+// filled out in the [storageprovisioning.FilesystemAttachmentID] struct.
 func (s *Service) GetFilesystemAttachmentIDs(
 	ctx context.Context, uuids []string,
-) (map[string]domainstorageprovisioning.FilesystemAttachmentID, error) {
+) (map[string]storageprovisioning.FilesystemAttachmentID, error) {
 	return s.st.GetFilesystemAttachmentIDs(ctx, uuids)
 }
 
@@ -284,11 +257,11 @@ func (s *Service) GetFilesystemAttachmentIDs(
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the filesystem attachment uuid is not valid.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound]
-// when no filesystem attachment exists for the provided uuid.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided uuid.
 func (s *Service) GetFilesystemAttachmentLife(
 	ctx context.Context,
-	uuid domainstorageprovisioning.FilesystemAttachmentUUID,
+	uuid storageprovisioning.FilesystemAttachmentUUID,
 ) (domainlife.Life, error) {
 	if err := uuid.Validate(); err != nil {
 		return 0, errors.Errorf(
@@ -307,7 +280,6 @@ func (s *Service) GetFilesystemAttachmentLife(
 // uuid for the supplied filesystem id which is attached to the machine.
 //
 // The following errors may be returned:
-// - [corestorage.InvalidStorageID] when the provided id is not valid.
 // - [coreerrors.NotValid] when the provided unit uuid is not valid.
 // - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
 // for the supplied id.
@@ -319,13 +291,8 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDMachine(
 	ctx context.Context,
 	id string,
 	machineUUID coremachine.UUID,
-) (domainstorageprovisioning.FilesystemAttachmentUUID, error) {
+) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	if err := machineUUID.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
-	if err != nil {
 		return "", errors.Capture(err)
 	}
 
@@ -334,6 +301,11 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDMachine(
 		return "", errors.Errorf(
 			"getting filesystem uuid for id %q: %w", id, err,
 		)
+	}
+
+	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
+	if err != nil {
+		return "", errors.Capture(err)
 	}
 
 	uuid, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
@@ -358,24 +330,20 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDMachine(
 // for the supplied filesystem id which is attached to the unit.
 //
 // The following errors may be returned:
-// - [corestorage.InvalidStorageID] when the provided id is not valid.
 // - [coreerrors.NotValid] when the provided unit uuid is not valid.
 // - [storageprovisioningerrors.FilesystemNotFound] when no fileystem exists
 // for the supplied id.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound]
-// when no filesystem attachment exists for the supplied values.
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no unit
-// exists for the provided unit uuid.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the supplied values.
+// - [applicationerrors.UnitNotFound] when no unit exists for the provided unit
+// uuid.
 func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 	ctx context.Context,
-	id corestorage.ID,
+	id string,
 	unitUUID coreunit.UUID,
-) (domainstorageprovisioning.FilesystemAttachmentUUID, error) {
-	if err := id.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
+) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	if err := unitUUID.Validate(); err != nil {
-		return "", errors.Capture(err)
+		return "", errors.Errorf("validating unit uuid: %w", err)
 	}
 
 	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
@@ -383,11 +351,9 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 		return "", errors.Capture(err)
 	}
 
-	fsUUID, err := s.st.GetFilesystemUUIDForID(ctx, id.String())
+	fsUUID, err := s.st.GetFilesystemUUIDForID(ctx, id)
 	if err != nil {
-		return "", errors.Errorf(
-			"getting filesystem uuid for id %q: %w", id.String(), err,
-		)
+		return "", errors.Capture(err)
 	}
 
 	uuid, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
@@ -399,16 +365,38 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 		).Add(applicationerrors.UnitNotFound)
 	} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 		return "", errors.Errorf(
-			"filesystem %q does not exist", id.String(),
+			"filesystem %q does not exist", id,
 		).Add(storageprovisioningerrors.FilesystemNotFound)
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}
-	if err != nil {
-		return "", errors.Capture(err)
-	}
 
 	return uuid, nil
+}
+
+// GetFilesystemForID retrieves the [storageprovisioning.Filesystem] for the
+// supplied filesystem id.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
+// exists for the provided filesystem id.
+func (s *Service) GetFilesystemForID(
+	ctx context.Context,
+	filesystemID string,
+) (storageprovisioning.Filesystem, error) {
+	uuid, err := s.GetFilesystemUUIDForID(ctx, filesystemID)
+	if err != nil {
+		return storageprovisioning.Filesystem{}, errors.Capture(err)
+	}
+
+	fs, err := s.st.GetFilesystem(ctx, uuid)
+	if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+		return storageprovisioning.Filesystem{}, errors.Errorf(
+			"filesystem with id %q does not exist", filesystemID,
+		).Add(storageprovisioningerrors.FilesystemNotFound)
+	}
+
+	return fs, errors.Capture(err)
 }
 
 // GetFilesystemLife returns the current life value for a filesystem uuid.
@@ -419,7 +407,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 // when no filesystem exists for the provided filesystem uuid.
 func (s *Service) GetFilesystemLife(
 	ctx context.Context,
-	uuid domainstorageprovisioning.FilesystemUUID,
+	uuid storageprovisioning.FilesystemUUID,
 ) (domainlife.Life, error) {
 	if err := uuid.Validate(); err != nil {
 		return 0, errors.Errorf(
@@ -438,17 +426,12 @@ func (s *Service) GetFilesystemLife(
 // id.
 //
 // The following errors may be returned:
-// - [corestorage.InvalidStorageID] when the provided id is not valid.
 // - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
 // when no filesystem exists for the provided filesystem uuid.
 func (s *Service) GetFilesystemUUIDForID(
-	ctx context.Context, id corestorage.ID,
-) (domainstorageprovisioning.FilesystemUUID, error) {
-	if err := id.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	uuid, err := s.st.GetFilesystemUUIDForID(ctx, id.String())
+	ctx context.Context, id string,
+) (storageprovisioning.FilesystemUUID, error) {
+	uuid, err := s.st.GetFilesystemUUIDForID(ctx, id)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

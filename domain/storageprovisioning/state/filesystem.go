@@ -26,120 +26,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
-// supplied filesystem uuid.
-//
-// The following errors may be returned:
-// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
-// exists for the provided filesystem uuid.
-func (st *State) GetFilesystem(
-	ctx context.Context,
-	uuid domainstorageprovisioning.FilesystemUUID,
-) (storageprovisioning.Filesystem, error) {
-	db, err := st.DB()
-	if err != nil {
-		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
-	}
-
-	fs := filesystem{FilesystemID: uuid.String()}
-	stmt, err := st.Prepare(`
-SELECT (
-	sfs.filesystem_id,
-	sfs.provider_id,
-	sv.volume_id,
-	sfs.size_mib
-) AS (&filesystem.*)
-FROM      storage_filesystem sfs
-LEFT JOIN storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
-LEFT JOIN storage_instance si ON sifs.storage_instance_uuid = si.uuid
-LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
-LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-WHERE     sfs.filesystem_id=$filesystem.filesystem_id
-`,
-		fs,
-	)
-	if err != nil {
-		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, fs).Get(&fs)
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("filesystem %q not found", uuid).
-				Add(storageprovisioningerrors.FilesystemNotFound)
-		}
-		return err
-	})
-	if err != nil {
-		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
-	}
-
-	var backingVolume *domainstorageprovisioning.FilesystemBackingVolume
-	if fs.VolumeID.Valid {
-		backingVolume = &domainstorageprovisioning.FilesystemBackingVolume{
-			VolumeID: fs.VolumeID.V,
-		}
-	}
-
-	return domainstorageprovisioning.Filesystem{
-		BackingVolume: backingVolume,
-		FilesystemID:  fs.FilesystemID,
-		ProviderID:    fs.ProviderID,
-		Size:          fs.Size,
-	}, nil
-}
-
-// GetFilesystemAttachment retrieves the
-// [storageprovisioning.FilesystemAttachment] for the supplied filesystem
-// attachment uuid.
-//
-// The following errors may be returned:
-// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
-// attachment exists for the provided filesystem attachment uuid.
-func (st *State) GetFilesystemAttachment(
-	ctx context.Context,
-	uuid domainstorageprovisioning.FilesystemAttachmentUUID,
-) (domainstorageprovisioning.FilesystemAttachment, error) {
-	db, err := st.DB()
-	if err != nil {
-		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
-	}
-
-	attachment := filesystemAttachment{
-		FilesystemID: uuid.String(),
-	}
-
-	stmt, err := st.Prepare(`
-SELECT &filesystemAttachment.*
-FROM   storage_filesystem_attachment sfa
-JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
-WHERE  sf.filesystem_id = $filesystemAttachment.filesystem_id
-`,
-		attachment,
-	)
-	if err != nil {
-		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, attachment).Get(&attachment)
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf(
-				"filesystem attachment for filesystem %q on net node %q not found",
-			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
-		}
-		return err
-	})
-	if err != nil {
-		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
-	}
-	return domainstorageprovisioning.FilesystemAttachment{
-		FilesystemID: attachment.FilesystemID,
-		MountPoint:   attachment.MountPoint,
-		ReadOnly:     attachment.ReadOnly,
-	}, nil
-}
-
 // GetFilesystemTemplatesForApplication returns all the filesystem templates for
 // a given application.
 func (st *State) GetFilesystemTemplatesForApplication(
@@ -289,6 +175,164 @@ WHERE  uuid = $entityUUID.uuid
 	}
 
 	return true, nil
+}
+
+// CheckFilesystemExists checks if a filesystem exists for the supplied
+// filesystem id. True is returned when a filesystem exists for the supplied
+// id.
+func (st *State) CheckFilesystemForIDExists(
+	ctx context.Context, fsID string,
+) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	filesystemIDInput := filesystemID{ID: fsID}
+	checkQuery, err := st.Prepare(`
+SELECT &filesystemIDInput.*
+FROM   storage_filesystem
+WHERE  filesystem_id= $filesystem_id
+`,
+		filesystemIDInput,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var exists bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, checkQuery, filesystemIDInput).Get(&filesystemIDInput)
+		if err == nil {
+			exists = true
+			return nil
+		} else if errors.Is(err, sqlair.ErrNoRows) {
+			exists = false
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return exists, nil
+}
+
+// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
+// supplied filesystem uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
+// exists for the provided filesystem uuid.
+func (st *State) GetFilesystem(
+	ctx context.Context,
+	uuid domainstorageprovisioning.FilesystemUUID,
+) (storageprovisioning.Filesystem, error) {
+	db, err := st.DB()
+	if err != nil {
+		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
+	}
+
+	var (
+		uuidInput = entityUUID{UUID: uuid.String()}
+		dbVal     filesystem
+	)
+
+	stmt, err := st.Prepare(`
+SELECT    &filesystem.*,
+FROM      storage_filesystem sfs
+LEFT JOIN storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
+LEFT JOIN storage_instance si ON sifs.storage_instance_uuid = si.uuid
+LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+WHERE     sfs.uuid = $entityUUID.uuid
+`,
+		uuidInput, dbVal,
+	)
+	if err != nil {
+		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uuidInput).Get(&dbVal)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("filesystem %q not found", uuid).
+				Add(storageprovisioningerrors.FilesystemNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
+	}
+
+	var backingVolume *domainstorageprovisioning.FilesystemBackingVolume
+	if dbVal.VolumeID.Valid {
+		backingVolume = &domainstorageprovisioning.FilesystemBackingVolume{
+			VolumeID: dbVal.VolumeID.V,
+		}
+	}
+
+	return domainstorageprovisioning.Filesystem{
+		BackingVolume: backingVolume,
+		FilesystemID:  dbVal.FilesystemID,
+		ProviderID:    dbVal.ProviderID,
+		Size:          dbVal.Size,
+	}, nil
+}
+
+// GetFilesystemAttachment retrieves the
+// [storageprovisioning.FilesystemAttachment] for the supplied filesystem
+// attachment uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided filesystem attachment uuid.
+func (st *State) GetFilesystemAttachment(
+	ctx context.Context,
+	uuid domainstorageprovisioning.FilesystemAttachmentUUID,
+) (domainstorageprovisioning.FilesystemAttachment, error) {
+	db, err := st.DB()
+	if err != nil {
+		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+
+	var (
+		uuidInput = entityUUID{UUID: uuid.String()}
+		dbVal     filesystemAttachment
+	)
+
+	stmt, err := st.Prepare(`
+SELECT &filesystemAttachment.*
+FROM   storage_filesystem_attachment sfa
+JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+WHERE  sfa.uuid = $entityUUID.uuid
+`,
+		uuidInput, dbVal,
+	)
+	if err != nil {
+		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, uuidInput).Get(&dbVal)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf(
+				"filesystem attachment %q not found",
+			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+	return domainstorageprovisioning.FilesystemAttachment{
+		FilesystemID: dbVal.FilesystemID,
+		MountPoint:   dbVal.MountPoint,
+		ReadOnly:     dbVal.ReadOnly,
+	}, nil
 }
 
 // GetFilesystemAttachmentIDs returns the
@@ -487,8 +531,8 @@ AND             net_node_uuid=$netNodeUUIDRef.net_node_uuid
 }
 
 // GetFilesystemAttachmentUUIDForFilesystemNetNode returns the filesystem
-// attachment uuid for the supplied filesystem id which is attached to the given
-// net node uuid.
+// attachment uuid for the supplied filesystem uuid which is attached to the
+// given net node uuid.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
@@ -509,7 +553,7 @@ func (st *State) GetFilesystemAttachmentUUIDForFilesystemNetNode(
 
 	var (
 		fsUUIDInput  = entityUUID{UUID: fsUUID.String()}
-		netNodeInput = netNodeUUID{UUID: nodeUUID.String()}
+		netNodeInput = entityUUID{UUID: nodeUUID.String()}
 		dbVal        entityUUID
 	)
 
@@ -517,9 +561,9 @@ func (st *State) GetFilesystemAttachmentUUIDForFilesystemNetNode(
 SELECT &entityUUID.*
 FROM   storage_filesystem_attachment
 WHERE  storage_filesystem_uuid = $entityUUID.uuid
-AND    net_node_uuid = $netNodeUUID.uuid
+AND    net_node_uuid = $entityUUID.uuid
 	`,
-		fsUUIDInput, netNodeInput,
+		dbVal,
 	)
 	if err != nil {
 		return "", errors.Capture(err)

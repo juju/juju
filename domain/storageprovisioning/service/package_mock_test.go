@@ -47,6 +47,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// CheckFilesystemForIDExists mocks base method.
+func (m *MockState) CheckFilesystemForIDExists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckFilesystemForIDExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckFilesystemForIDExists indicates an expected call of CheckFilesystemForIDExists.
+func (mr *MockStateMockRecorder) CheckFilesystemForIDExists(arg0, arg1 any) *MockStateCheckFilesystemForIDExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckFilesystemForIDExists", reflect.TypeOf((*MockState)(nil).CheckFilesystemForIDExists), arg0, arg1)
+	return &MockStateCheckFilesystemForIDExistsCall{Call: call}
+}
+
+// MockStateCheckFilesystemForIDExistsCall wrap *gomock.Call
+type MockStateCheckFilesystemForIDExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCheckFilesystemForIDExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckFilesystemForIDExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCheckFilesystemForIDExistsCall) Do(f func(context.Context, string) (bool, error)) *MockStateCheckFilesystemForIDExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCheckFilesystemForIDExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateCheckFilesystemForIDExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CheckMachineIsDead mocks base method.
 func (m *MockState) CheckMachineIsDead(arg0 context.Context, arg1 machine.UUID) (bool, error) {
 	m.ctrl.T.Helper()

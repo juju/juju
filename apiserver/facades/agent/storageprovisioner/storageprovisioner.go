@@ -127,11 +127,15 @@ func NewStorageProvisionerAPIv4(
 			if ok {
 				return authorizer.AuthController()
 			}
-			_, err := storageProvisioningService.GetFilesystem(ctx, tag.Id())
-			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-				return authorizer.AuthController()
-			} else if err != nil {
+
+			exists, err := storageProvisioningService.CheckFilesystemForIDExists(
+				ctx, tag.Id(),
+			)
+			if err != nil {
 				return false
+			}
+			if !exists {
+				return authorizer.AuthController()
 			}
 			// TODO: implement volume auth in Dqlite.
 			// volumeTag, err := f.Volume()
@@ -706,7 +710,7 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 		if err != nil || !canAccess(tag) {
 			return params.Filesystem{}, apiservererrors.ErrPerm
 		}
-		fs, err := s.storageProvisioningService.GetFilesystem(ctx, tag.Id())
+		fs, err := s.storageProvisioningService.GetFilesystemForID(ctx, tag.Id())
 		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 			return params.Filesystem{}, internalerrors.Errorf(
 				"filesystem %q not found", tag.Id(),
@@ -831,7 +835,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 				return result, internalerrors.Capture(err)
 			}
 			fsAttachment, err = s.storageProvisioningService.GetFilesystemAttachmentForMachine(
-				ctx, machineUUID, filesystemTag.Id(),
+				ctx, filesystemTag.Id(), machineUUID,
 			)
 		case names.UnitTag:
 			var unitName coreunit.Name
@@ -858,7 +862,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 				return result, internalerrors.Errorf("getting unit %q UUID: %w", unitName, err)
 			}
 			fsAttachment, err = s.storageProvisioningService.GetFilesystemAttachmentForUnit(
-				ctx, unitUUID, filesystemTag.Id(),
+				ctx, filesystemTag.Id(), unitUUID,
 			)
 		default:
 			return result, errors.NotValidf("filesystem attachment host tag %q", tag)
