@@ -16,26 +16,46 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
 	// GetModelTargetAgentVersion returns the target agent version for the
-	// entire model. The following errors can be returned:
-	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
-	// not exist.
+	// entire model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
+
+	// UpgradeModelTargetAgentVersionTo upgrades a model to a new target agent
+	// version. All agents that run on behalf of entities within the model will be
+	// eventually upgraded to the new version after this call successfully returns.
+	//
+	// The version supplied must not be a downgrade from the current target agent
+	// version of the model. It must also not be greater than the maximum supported
+	// version of the controller.
+	UpgradeModelTargetAgentVersionTo(context.Context, semversion.Number) error
+
+	// UpgradeModelTargetAgentVersionStreamTo upgrades a model to a new target agent
+	// version and updates the agent stream that is in use. All agents that run on
+	// behalf of entities within the model will be eventually upgraded to the new
+	// version after this call successfully returns.
+	//
+	// The version supplied must not be a downgrade from the current target agent
+	// version of the model. It must also not be greater than the maximum supported
+	// version of the controller.
+	UpgradeModelTargetAgentVersionStreamTo(context.Context, semversion.Number, modelagent.AgentStream) error
 }
 
 // UpgradeService is an interface that allows us to check if the model
@@ -61,17 +81,25 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ModelInfoService is the interface that provides access to the model info
+// service.
 type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
 	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
 }
 
+// ModelService is the interface that provides access to the model service.
+type ModelService interface {
+	// ListModelUUIDs returns a list of all model UUIDs in the controller that are
+	// active.
+	ListAllModels(context.Context) ([]coremodel.Model, error)
+}
+
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
 	controllerTag names.ControllerTag
-	statePool     StatePool
 	check         common.BlockCheckerInterface
 	authorizer    facade.Authorizer
 	toolsFinder   common.ToolsFinder
@@ -82,6 +110,7 @@ type ModelUpgraderAPI struct {
 	controllerConfigService ControllerConfigService
 	modelAgentService       ModelAgentService
 	modelInfoService        ModelInfoService
+	modelService            ModelService
 	upgradeService          UpgradeService
 	machineService          MachineService
 
@@ -93,7 +122,6 @@ type ModelUpgraderAPI struct {
 // models.
 func NewModelUpgraderAPI(
 	controllerUUID string,
-	stPool StatePool,
 	toolsFinder common.ToolsFinder,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
@@ -105,6 +133,7 @@ func NewModelUpgraderAPI(
 	modelAgentService ModelAgentService,
 	machineService MachineService,
 	modelInfoService ModelInfoService,
+	modelService ModelService,
 	upgradeService UpgradeService,
 	logger corelogger.Logger,
 ) (*ModelUpgraderAPI, error) {
@@ -114,7 +143,6 @@ func NewModelUpgraderAPI(
 
 	return &ModelUpgraderAPI{
 		controllerTag:           names.NewControllerTag(controllerUUID),
-		statePool:               stPool,
 		check:                   blockChecker,
 		authorizer:              authorizer,
 		toolsFinder:             toolsFinder,
@@ -125,6 +153,7 @@ func NewModelUpgraderAPI(
 		machineServiceGetter:    machineServiceGetter,
 		machineService:          machineService,
 		modelInfoService:        modelInfoService,
+		modelService:            modelService,
 		controllerAgentService:  controllerAgentService,
 		controllerConfigService: controllerConfigService,
 		logger:                  logger,
@@ -180,13 +209,6 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
-
-	// We now need to access the state pool for that given model.
-	st, err := m.statePool.Get(modelTag.Id())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	defer st.Release()
 
 	controllerCfg, err := m.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
@@ -252,7 +274,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 		}
 	}
 
-	if err := m.validateModelUpgrade(ctx, false, modelTag, targetVersion, st, model); err != nil {
+	if err := m.validateModelUpgrade(ctx, false, modelTag, targetVersion, model); err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
@@ -260,23 +282,43 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 		return result, nil
 	}
 
-	var agentStream *string
 	if arg.AgentStream != "" {
-		agentStream = &arg.AgentStream
-	}
-	if err := st.SetModelAgentVersion(targetVersion, agentStream, arg.IgnoreAgentVersions, shimUpgrader{
-		upgradeService: m.upgradeService,
-		ctx:            ctx,
-	}); err != nil {
-		return result, errors.Trace(err)
+		agentStream, err := encodeAgentStream(arg.AgentStream)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if err := m.modelAgentService.UpgradeModelTargetAgentVersionStreamTo(ctx, targetVersion, agentStream); err != nil {
+			return result, errors.Trace(err)
+		}
+	} else {
+		if err := m.modelAgentService.UpgradeModelTargetAgentVersionTo(ctx, targetVersion); err != nil {
+			return result, errors.Trace(err)
+		}
 	}
 	return result, nil
+}
+
+func encodeAgentStream(agentStream string) (modelagent.AgentStream, error) {
+	switch agentStream {
+	case "released":
+		return modelagent.AgentStreamReleased, nil
+	case "proposed":
+		return modelagent.AgentStreamProposed, nil
+	case "testing":
+		return modelagent.AgentStreamTesting, nil
+	case "devel":
+		return modelagent.AgentStreamDevel, nil
+	default:
+		return modelagent.AgentStream(-1), internalerrors.Errorf(
+			"agent stream %q is not recognised as a valid value", agentStream,
+		).Add(coreerrors.NotValid)
+	}
 }
 
 func (m *ModelUpgraderAPI) validateModelUpgrade(
 	ctx context.Context,
 	force bool, modelTag names.ModelTag, targetVersion semversion.Number,
-	st State, model coremodel.ModelInfo,
+	model coremodel.ModelInfo,
 ) (err error) {
 	var blockers *upgradevalidation.ModelUpgradeBlockers
 	defer func() {
@@ -314,47 +356,41 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		return errors.Trace(err)
 	}
 
-	modelUUIDs, err := st.AllModelUUIDs()
+	models, err := m.modelService.ListAllModels(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, modelUUID := range modelUUIDs {
-		if modelUUID == modelTag.Id() {
+
+	for _, model := range models {
+		if model.UUID.String() == modelTag.Id() {
 			// We have done checks for controller model above already.
 			continue
 		}
 
-		st, err := m.statePool.Get(modelUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer st.Release()
-		stModel, err := st.Model()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if stModel.Life() != state.Alive {
-			m.logger.Tracef(ctx, "skipping upgrade check for dying/dead model %s", modelUUID)
+		if model.Life != life.Alive {
+			m.logger.Tracef(ctx, "skipping upgrade check for dying/dead model %s", model.Name)
 			continue
 		}
 
 		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion)
 
-		modelNameKey := fmt.Sprintf("%s/%s", stModel.Owner().Id(), stModel.Name())
-		modelAgentService, err := m.modelAgentServiceGetter(ctx, coremodel.UUID(modelUUID))
+		modelNameKey := fmt.Sprintf("%s/%s", model.Qualifier, model.Name)
+		modelAgentService, err := m.modelAgentServiceGetter(ctx, model.UUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
-
+		machineService, err := m.machineServiceGetter(ctx, model.UUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		validationServices := upgradevalidation.ValidatorServices{
 			ModelAgentService: modelAgentService,
-			MachineService:    m.machineService,
+			MachineService:    machineService,
 		}
 		checker := upgradevalidation.NewModelUpgradeCheck(modelNameKey, validationServices, validators...)
 		blockersForModel, err := checker.Validate(ctx)
 		if err != nil {
-			return errors.Annotatef(err, "validating model %q for controller upgrade", stModel.Name())
+			return errors.Annotatef(err, "validating model %q for controller upgrade", model.Name)
 		}
 		if blockersForModel == nil {
 			// all good.
@@ -367,16 +403,4 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		blockers.Join(blockersForModel)
 	}
 	return
-}
-
-// shimUpgrader is shim for the state methods that don't have access to
-// the context.Context. This allows us to pass it in, until we re-write the
-// state layer.
-type shimUpgrader struct {
-	upgradeService UpgradeService
-	ctx            context.Context
-}
-
-func (s shimUpgrader) IsUpgrading() (bool, error) {
-	return s.upgradeService.IsUpgrading(s.ctx)
 }
