@@ -1106,3 +1106,58 @@ func removeStorageInstance(c *gc.C, sb *state.StorageBackend, storageTag names.S
 	_, err = sb.StorageInstance(storageTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
+
+func (s *VolumeStateSuite) TestGetVolumeByVolumeId(c *gc.C) {
+	// Create a storage instance with a volume and set its VolumeId
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume := s.storageInstanceVolume(c, storageTag)
+	volumeId := "test-volume-123"
+
+	// Set the volume info with a specific VolumeId
+	err = s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{
+		Pool:     "loop-pool",
+		Size:     1024,
+		VolumeId: volumeId,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Test GetVolumeByVolumeId - should find the volume
+	foundVolume, err := s.storageBackend.GetVolumeByVolumeId(volumeId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundVolume.VolumeTag(), gc.Equals, volume.VolumeTag())
+
+	// Verify the volume info matches
+	foundInfo, err := foundVolume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundInfo.VolumeId, gc.Equals, volumeId)
+	c.Assert(foundInfo.Pool, gc.Equals, "loop-pool")
+	c.Assert(foundInfo.Size, gc.Equals, uint64(1024))
+}
+
+func (s *VolumeStateSuite) TestGetVolumeByVolumeIdNotFound(c *gc.C) {
+	// Test GetVolumeByVolumeId with non-existent VolumeId
+	_, err := s.storageBackend.GetVolumeByVolumeId("non-existent-volume")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `volume with volumeid "non-existent-volume" not found`)
+}
+
+func (s *VolumeStateSuite) TestGetVolumeByVolumeIdUnprovisionedVolume(c *gc.C) {
+	// Create a volume but don't set its info (unprovisioned)
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume := s.storageInstanceVolume(c, storageTag)
+
+	// Verify the volume exists but has no info
+	_, err = volume.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+
+	// Test GetVolumeByVolumeId - should not find unprovisioned volume
+	_, err = s.storageBackend.GetVolumeByVolumeId("any-volume-id")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `volume with volumeid "any-volume-id" not found`)
+}
