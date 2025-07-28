@@ -296,11 +296,11 @@ for that relation.
 
 For every endpoint defined by a charm, relation hook events are named after the charm endpoint:
 
-* `<endpoint_name>-relation-created`
-* `<endpoint_name>-relation-joined`
-* `<endpoint_name>-relation-changed`
-* `<endpoint_name>-relation-departed`
-* `<endpoint_name>-relation-broken`
+* `<endpoint>-relation-created`
+* `<endpoint>-relation-joined`
+* `<endpoint>-relation-changed`
+* `<endpoint>-relation-departed`
+* `<endpoint>-relation-broken`
 
 For each charm endpoint, any or all of the above relation hooks can be implemented.
 Relation hooks operate in an environment with additional environment variables available:
@@ -338,15 +338,15 @@ This hook also sets an additional environment variable:
 * JUJU_DEPARTING_UNIT holds the name of the related unit departing the relation.
 
 The `relation-broken` hook is not specific to any unit, and always runs once when the local unit is ready to depart the relation itself.
-Before this hook is run, a relation-departed hook will be executed for every unit known to be related; it will never run while the relation
+Before this hook is run, a `relation-departed` hook will be executed for every unit known to be related; it will never run while the relation
 appears to have members, but it may be the first and only hook to run for a given relation.
 The `stop` hook will not run until all relations have run the `relation-broken` hook.
 
 ```{note}
-So what's the difference between relation-departed and relation-broken?
-Think of relation-departed as the "saying goodbye" event; relation settings can still be read and a relation can even still be set.
-Once relation-broken fires, however, the relation no longer exists. This is a good spot to do any final cleanup, if necessary.
-Both relation-departed and relation-broken will always fire, regardless of how the relation is terminated.
+So what's the difference between `relation-departed` and `relation-broken`?
+Think of `relation-departed` as the "saying goodbye" event; relation settings can still be read and a relation can even still be set.
+Once `relation-broken` fires, however, the relation no longer exists. This is a good spot to do any final cleanup, if necessary.
+Both `relation-departed` and `relation-broken` will always fire, regardless of how the relation is terminated.
 ```
 
 (secret-hooks)=
@@ -726,11 +726,11 @@ Also removing a relation altogether will trigger `*-relation-departed` events (f
 
 Of course, removing the application altogether, instead of a single unit, will have a similar effect and also trigger these events.
 
-Both relation-departed and relation-broken will always fire, regardless of how the relation is terminated.
+Both `relation-departed` and `relation-broken` will always fire, regardless of how the relation is terminated.
 
 ```{note}
 
-For a peer relation, the relation itself will never be destroyed until the application is removed and no units remain, at which point there won't be anything to call the relation-broken hook on anyway.
+For a peer relation, the relation itself will never be destroyed until the application is removed and no units remain, at which point there won't be anything to call the `relation-broken` hook on anyway.
 
 ```
 

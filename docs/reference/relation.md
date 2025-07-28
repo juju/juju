@@ -119,7 +119,7 @@ Note that, in peer relations, all permissions related to the remote application 
 ## Relation lifecycle
 
 
-When an application becomes involved in a relation, each one of its units gets an  `<endpoint>-relation-created` hook, then an `<endpoint name>-relation-joined` hook.
+When an application becomes involved in a relation, each one of its units gets an  `<endpoint>-relation-created` hook, then an `<endpoint>-relation-joined` hook.
 
 From the moment the relation is created, any unit involved in it can interact with it.
 In practice, that means using one of the following hook tools that the Juju unit agent exposes to the charm:
@@ -128,7 +128,7 @@ In practice, that means using one of the following hook tools that the Juju unit
 - `relation-get`
 - `relation-set`
 
-When the charm uses `relation-set` to write something to a databag, all of the units that have read access to that same databag will be notified by means of a `<endpoint name>-relation-changed` hook.
+When the charm uses `relation-set` to write something to a databag, all of the units that have read access to that same databag will be notified by means of a `<endpoint>-relation-changed` hook.
 
 For example, if the `wordpress/0*` leader uses `relation-set` to write to its local *unit* databag, its peers and the `mysql/0*` leader will receive `http-relation-changed`, because they can access that data (by calling `relation-get`), but the other mysql units will not be notified.
 
@@ -170,10 +170,10 @@ So, outside a very narrow range of circumstances, relation-get should be treated
 
 A unit will depart a relation when either the relation or the unit itself is marked for termination. In either case, it follows the same sequence:
 
--   For every known related unit (those which have joined and not yet departed), run the relation-departed hook.
--   Run the relation-broken hook.
+-   For every known related unit (those which have joined and not yet departed), run the `relation-departed` hook.
+-   Run the `relation-broken` hook.
 -   `depart` from its scope in the relation.
 
-So what's the difference between relation-departed and relation-broken? Think of relation-departed as the "saying goodbye" event. While in the latter state, relation settings can still be read (with relation-get) and a relation can even still be set (with relation-set). Once relation-broken fires, however, the relation no longer exists. This is a good spot to do any final cleanup, if necessary. Both relation-departed and relation-broken will always fire, regardless of how the relation is terminated.
+So what's the difference between `relation-departed` and `relation-broken`? Think of `relation-departed` as the "saying goodbye" event. While in the latter state, relation settings can still be read (with relation-get) and a relation can even still be set (with relation-set). Once `relation-broken` fires, however, the relation no longer exists. This is a good spot to do any final cleanup, if necessary. Both `relation-departed` and `relation-broken` will always fire, regardless of how the relation is terminated.
 
-The unit's eventual departure from its scope will in turn be detected by units of the related application (if they have not already inferred its imminent departure by other means) and cause them to run relation-departed hooks. A unit's integration settings persist beyond its own departure from the integration; the final unit to depart a relation marked for termination is responsible for destroying the relation and all associated data.
+The unit's eventual departure from its scope will in turn be detected by units of the related application (if they have not already inferred its imminent departure by other means) and cause them to run `relation-departed` hooks. A unit's integration settings persist beyond its own departure from the integration; the final unit to depart a relation marked for termination is responsible for destroying the relation and all associated data.
