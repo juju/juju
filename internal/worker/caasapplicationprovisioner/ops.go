@@ -196,21 +196,22 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 
 	// TODO(sidecar): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
-		IsPrivateImageRepo:   provisionInfo.ImageDetails.IsPrivate(),
-		IntroductionSecret:   password,
-		AgentVersion:         provisionInfo.Version,
-		AgentImagePath:       provisionInfo.ImageDetails.RegistryPath,
-		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
-		ControllerCertBundle: provisionInfo.CACert,
-		ResourceTags:         provisionInfo.Tags,
-		Constraints:          provisionInfo.Constraints,
-		Filesystems:          provisionInfo.Filesystems,
-		Devices:              provisionInfo.Devices,
-		CharmBaseImagePath:   charmBaseImage,
-		Containers:           containers,
-		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
-		Trust:                provisionInfo.Trust,
-		InitialScale:         provisionInfo.Scale,
+		IsPrivateImageRepo:        provisionInfo.ImageDetails.IsPrivate(),
+		IntroductionSecret:        password,
+		AgentVersion:              provisionInfo.Version,
+		AgentImagePath:            provisionInfo.ImageDetails.RegistryPath,
+		ControllerAddresses:       strings.Join(provisionInfo.APIAddresses, ","),
+		ControllerCertBundle:      provisionInfo.CACert,
+		ResourceTags:              provisionInfo.Tags,
+		Constraints:               provisionInfo.Constraints,
+		Filesystems:               provisionInfo.Filesystems,
+		FilesystemUnitAttachments: provisionInfo.FilesystemUnitAttachments,
+		Devices:                   provisionInfo.Devices,
+		CharmBaseImagePath:        charmBaseImage,
+		Containers:                containers,
+		CharmModifiedVersion:      provisionInfo.CharmModifiedVersion,
+		Trust:                     provisionInfo.Trust,
+		InitialScale:              provisionInfo.Scale,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:

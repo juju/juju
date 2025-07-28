@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
@@ -39,6 +40,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	apiparams "github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -732,7 +734,7 @@ func (c *DeployCommand) validateStorageByModelType() error {
 	if modelType == model.IAAS {
 		return nil
 	}
-	if len(c.AttachStorage) > 0 {
+	if len(c.AttachStorage) > 0 && !featureflag.Enabled(feature.K8SAttachStorage) {
 		return errors.New("--attach-storage cannot be used on k8s models")
 	}
 	return nil
