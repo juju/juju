@@ -30,9 +30,6 @@ type objectStoreServiceSuite struct {
 	testhelpers.IsolationSuite
 
 	state *dummyObjectStoreState
-
-	mockControllerState *MockState
-	mockWatcherFactory  *MockWatcherFactory
 }
 
 func TestObjectStoreServiceSuite(t *testing.T) {
