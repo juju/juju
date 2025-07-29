@@ -635,18 +635,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"termination-signal-handler": {},
 
-	"tools-version-checker": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"upgrade-check-flag": {"upgrade-check-gate"},
 
 	"upgrade-check-gate": {},
