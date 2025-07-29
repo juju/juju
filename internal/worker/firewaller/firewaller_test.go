@@ -67,6 +67,7 @@ type firewallerBaseSuite struct {
 
 	firewallerStarted bool
 	modelFlushed      chan bool
+	modelFlushSkipped chan bool
 	machineFlushed    chan names.MachineTag
 	watchingMachine   chan names.MachineTag
 
@@ -305,6 +306,14 @@ func (s *firewallerBaseSuite) waitForModelFlush(c *gc.C) {
 	}
 }
 
+func (s *firewallerBaseSuite) waitForSkipModelFlush(c *gc.C) {
+	select {
+	case <-s.modelFlushSkipped:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for firewaller worker to skip model flush")
+	}
+}
+
 func (s *firewallerBaseSuite) waitForMachine(c *gc.C, id string) {
 	select {
 	case got := <-s.watchingMachine:
@@ -391,6 +400,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 
 func (s *firewallerBaseSuite) newFirewaller(c *gc.C) worker.Worker {
 	s.modelFlushed = make(chan bool, 1)
+	s.modelFlushSkipped = make(chan bool, 1)
 	s.machineFlushed = make(chan names.MachineTag, 1)
 	s.watchingMachine = make(chan names.MachineTag, 1)
 
@@ -403,6 +413,12 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C) worker.Worker {
 	flushModelNotify := func() {
 		select {
 		case s.modelFlushed <- true:
+		default:
+		}
+	}
+	skipFlushModelNotify := func() {
+		select {
+		case s.modelFlushSkipped <- true:
 		default:
 		}
 	}
@@ -424,12 +440,13 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C) worker.Worker {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:              s.clock,
-		Logger:             loggo.GetLogger("test"),
-		CredentialAPI:      s.credentialsFacade,
-		WatchMachineNotify: watchMachineNotify,
-		FlushModelNotify:   flushModelNotify,
-		FlushMachineNotify: flushMachineNotify,
+		Clock:                s.clock,
+		Logger:               loggo.GetLogger("test"),
+		CredentialAPI:        s.credentialsFacade,
+		WatchMachineNotify:   watchMachineNotify,
+		FlushModelNotify:     flushModelNotify,
+		FlushMachineNotify:   flushMachineNotify,
+		SkipFlushModelNotify: skipFlushModelNotify,
 	}
 	if s.withModelFirewaller {
 		cfg.EnvironModelFirewaller = s.envModelFirewaller
@@ -632,6 +649,8 @@ func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachine(c *gc.C) {
 
 	fw := s.newFirewaller(c)
 	defer workertest.CleanKill(c, fw)
+
+	s.waitForSkipModelFlush(c)
 
 	m := s.addMachineUnitAndEnsureMocks(c, ctrl)
 
