@@ -663,3 +663,40 @@ func (s *unitServiceSuite) TestGetAllUnitLifeForApplicationError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, boom)
 	c.Check(allUnitLife, tc.IsNil)
 }
+
+func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	expectedResult := map[coreunit.Name]string{
+		"test/4": "foo",
+		"test/5": "bar",
+	}
+	s.state.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appID).
+		Return(expectedResult, nil)
+
+	result, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expectedResult)
+}
+
+func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appID).
+		Return(nil, errors.New("nope"))
+
+	_, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	c.Assert(err, tc.NotNil)
+}
+
+func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationInvalidApplicationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := coreapplication.ID("$")
+	_, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	c.Assert(err, tc.NotNil)
+}

@@ -162,6 +162,11 @@ type cloudContainer struct {
 	ProviderID string        `db:"provider_id"`
 }
 
+type unitNameCloudContainer struct {
+	Name       string `db:"name"`
+	ProviderID string `db:"provider_id"`
+}
+
 type cloudService struct {
 	UUID            string             `db:"uuid"`
 	ApplicationUUID coreapplication.ID `db:"application_uuid"`

@@ -9,6 +9,8 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	coreapplication "github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -20,6 +22,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // filesystemSuite provides a test suite for asserting the [Service] interface
@@ -372,4 +375,56 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystemAttachmentsNotFou
 	_, err := NewService(s.state, s.watcherFactory).
 		WatchMachineProvisionedFilesystemAttachments(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetFilesystemsTemplateForApplication tests the caller gets filesystem
+// templates back.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	expectedResult := []storageprovisioning.FilesystemTemplate{{
+		StorageName:  "a",
+		Count:        1,
+		MaxCount:     10,
+		SizeMiB:      1234,
+		ProviderType: "foo",
+		ReadOnly:     true,
+		Location:     "bar",
+		Attributes: map[string]string{
+			"laz": "baz",
+		},
+	}}
+	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appID).
+		Return(expectedResult, nil)
+
+	svc := NewService(s.state, s.watcherFactory)
+	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expectedResult)
+}
+
+// TestGetFilesystemsTemplateForApplicationErrors tests the caller gets an error when
+// the state errors.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appID).
+		Return(nil, errors.New("oops"))
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
+	c.Assert(err, tc.NotNil)
+}
+
+// TestGetFilesystemsTemplateForApplicationInvalidApplicationUUID tests the
+// caller gets an error when the application UUID is invalid.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationInvalidApplicationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := coreapplication.ID("$")
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
+	c.Assert(err, tc.NotNil)
 }

@@ -5,7 +5,9 @@ package service
 
 import (
 	"context"
+	"strings"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
@@ -13,6 +15,9 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -56,6 +61,10 @@ type State interface {
 	// NamespaceForWatchMachineCloudInstance returns the change stream namespace
 	// for watching machine cloud instance changes.
 	NamespaceForWatchMachineCloudInstance() string
+
+	// GetStorageResourceTagInfoForApplication returns information required to
+	// build resource tags for storage created for the given application.
+	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ResourceTagInfo, error)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -126,4 +135,45 @@ func (s *Service) WatchMachineCloudInstance(
 	filter := eventsource.PredicateFilter(ns, changestream.All,
 		eventsource.EqualsPredicate(machineUUID.String()))
 	return s.watcherFactory.NewNotifyWatcher(filter)
+}
+
+// GetStorageResourceTagsForApplication returns the storage resource tags for
+// the given application. These tags are used when creating a resource in an
+// environ.
+func (s *Service) GetStorageResourceTagsForApplication(
+	ctx context.Context, appUUID application.ID,
+) (map[string]string, error) {
+	if err := appUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	info, err := s.st.GetStorageResourceTagInfoForApplication(
+		ctx, appUUID, config.ResourceTagsKey)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting filesystem templates for app %q: %w", appUUID, err,
+		)
+	}
+
+	resourceTags := map[string]string{}
+	// Resource tags as defined in model config are space separated key-value
+	// pairs, where the key and value are separated by an equals sign.
+	for pair := range strings.SplitSeq(info.BaseResourceTags, " ") {
+		if pair == "" {
+			continue
+		}
+		key, value, ok := strings.Cut(pair, "=")
+		if !ok {
+			return nil, errors.Errorf("malformed resource tag %q", pair)
+		}
+		if strings.HasPrefix(key, tags.JujuTagPrefix) {
+			continue
+		}
+		resourceTags[key] = value
+	}
+	resourceTags[tags.JujuController] = info.ControllerUUID
+	resourceTags[tags.JujuModel] = info.ModelUUID
+	resourceTags[tags.JujuStorageOwner] = info.ApplicationName
+
+	return resourceTags, nil
 }

@@ -350,3 +350,78 @@ VALUES (?, ?, ?, 0, 1)
 
 	return attachmentUUID.String()
 }
+
+// newStoragePool creates a new storage pool with name, provider type and attrs.
+// It returns the UUID of the new storage pool.
+func (s *baseSuite) newStoragePool(c *tc.C, name string, providerType string, attrs map[string]string) string {
+	spUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range attrs {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_pool_attribute (storage_pool_uuid, key, value)
+VALUES (?, ?, ?)`, spUUID.String(), k, v)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return spUUID.String()
+}
+
+// newApplicationStorageDirective creates a new application storage directive.
+// Only one of storagePoolUUID or storageType can be specified.
+func (s *baseSuite) newApplicationStorageDirective(c *tc.C,
+	appUUID string, charmUUID string, storageName string, storagePoolUUID string,
+	storageType string, sizeMiB int64, count int,
+) {
+	var storagePoolUUIDArg sql.NullString
+	if storagePoolUUID != "" {
+		storagePoolUUIDArg.String = storagePoolUUID
+		storagePoolUUIDArg.Valid = true
+	}
+	var storageTypeArg sql.NullString
+	if storageType != "" {
+		storageTypeArg.String = storageType
+		storageTypeArg.Valid = true
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_storage_directive (application_uuid, charm_uuid, storage_name, storage_pool_uuid, storage_type, size_mib, count)
+VALUES (?, ?, ?, ?, ?, ?, ?)`, appUUID, charmUUID, storageName, storagePoolUUIDArg, storageTypeArg, sizeMiB, count)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newCharmStorage creates a new charm storage for the given charm with fixed
+// values for min/max count of 0 -> 10.
+func (s *baseSuite) newCharmStorage(c *tc.C,
+	charmUUID string, name string, kind string, readOnly bool, location string,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, read_only, count_min, count_max, location)
+VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?)`, charmUUID, name, kind, readOnly, location)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}

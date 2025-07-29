@@ -68,3 +68,38 @@ type FilesystemAttachment struct {
 	// ReadOnly indicates whether the filesystem is mounted read-only.
 	ReadOnly bool
 }
+
+// FilesystemTemplate represents the required information to supply a Kubernetes
+// PVC template/Pod template, such that the required Filsystems for a new unit
+// of the supplied application are created and mounted correctly.
+type FilesystemTemplate struct {
+	// StorageName is the name of the storage as defined in the charm for this
+	// application.
+	StorageName string
+
+	// Count is the number of filesystem(s) to mount for this storage.
+	Count int
+
+	// MaxCount is the maxium number of filesystems for this storage.
+	MaxCount int
+
+	// SizeMiB is the number of mebibytes to allocate for this filesystem or
+	// each of these filesystems.
+	SizeMiB uint64
+
+	// ProviderType is the name of the provider to be used to provision this
+	// filesystem(s).
+	ProviderType string
+
+	// ReadOnly is true if this filesystem(s) or the mount should be read-only.
+	ReadOnly bool
+
+	// Location is a path to hint where the filesystem(s) should be mounted for
+	// the charm to access. It is not the exact path the filesystem(s) will be
+	// mounted.
+	Location string
+
+	// Attributes are a set of key value pairs that are supplied to the provider
+	// or provisioner to facilitate this filesystem(s).
+	Attributes map[string]string
+}

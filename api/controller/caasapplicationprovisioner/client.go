@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -48,26 +46,6 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 		CharmInfoClient:            charmInfoClient,
 		ApplicationCharmInfoClient: appCharmInfoClient,
 	}
-}
-
-// SetPassword sets API password for the specified application.
-func (c *Client) SetPassword(ctx context.Context, appName string, password string) error {
-	var result params.ErrorResults
-	args := params.EntityPasswords{Changes: []params.EntityPassword{{
-		Tag:      names.NewApplicationTag(appName).String(),
-		Password: password,
-	}}}
-	err := c.facade.FacadeCall(ctx, "SetPasswords", args, &result)
-	if err != nil {
-		return err
-	}
-	if len(result.Results) != 1 {
-		return errors.Errorf("invalid number of results %d expected 1", len(result.Results))
-	}
-	if result.Results[0].Error != nil {
-		return errors.Trace(params.TranslateWellKnownError(result.Results[0].Error))
-	}
-	return nil
 }
 
 func (c *Client) WatchProvisioningInfo(ctx context.Context, applicationName string) (watcher.NotifyWatcher, error) {
@@ -101,12 +79,10 @@ type ProvisioningInfo struct {
 	CACert               string
 	Tags                 map[string]string
 	Constraints          constraints.Value
-	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
 	Base                 corebase.Base
 	ImageDetails         resource.DockerImageDetails
 	CharmModifiedVersion int
-	CharmURL             *charm.URL
 	Trust                bool
 	Scale                int
 }
@@ -146,13 +122,6 @@ func (c *Client) ProvisioningInfo(ctx context.Context, applicationName string) (
 		Trust:                r.Trust,
 		Scale:                r.Scale,
 	}
-	for _, fs := range r.Filesystems {
-		f, err := filesystemFromParams(fs)
-		if err != nil {
-			return info, errors.Trace(err)
-		}
-		info.Filesystems = append(info.Filesystems, *f)
-	}
 
 	for _, device := range r.Devices {
 		info.Devices = append(info.Devices, devices.KubernetesDeviceParams{
@@ -162,115 +131,7 @@ func (c *Client) ProvisioningInfo(ctx context.Context, applicationName string) (
 		})
 	}
 
-	if r.CharmURL != "" {
-		charmURL, err := charm.ParseURL(r.CharmURL)
-		if err != nil {
-			return info, errors.Trace(err)
-		}
-		info.CharmURL = charmURL
-	}
-
 	return info, nil
-}
-
-func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.KubernetesFilesystemParams, error) {
-	var attachment *storage.KubernetesFilesystemAttachmentParams
-	if in.Attachment != nil {
-		var err error
-		attachment, err = filesystemAttachmentFromParams(*in.Attachment)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return &storage.KubernetesFilesystemParams{
-		StorageName:  in.StorageName,
-		Provider:     storage.ProviderType(in.Provider),
-		Size:         in.Size,
-		Attributes:   in.Attributes,
-		ResourceTags: in.Tags,
-		Attachment:   attachment,
-	}, nil
-}
-
-func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentParams) (*storage.KubernetesFilesystemAttachmentParams, error) {
-	return &storage.KubernetesFilesystemAttachmentParams{
-		AttachmentParams: storage.AttachmentParams{
-			Provider: storage.ProviderType(in.Provider),
-			ReadOnly: in.ReadOnly,
-		},
-		Path: in.MountPoint,
-	}, nil
-}
-
-// ApplicationOCIResources returns all the OCI image resources for an application.
-func (c *Client) ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error) {
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewApplicationTag(appName).String(),
-	}}}
-	var result params.CAASApplicationOCIResourceResults
-	if err := c.facade.FacadeCall(ctx, "ApplicationOCIResources", args, &result); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d",
-			len(result.Results))
-	}
-	res := result.Results[0]
-	if res.Error != nil {
-		return nil, errors.Annotatef(params.TranslateWellKnownError(res.Error), "unable to fetch OCI image resources for %s", appName)
-	}
-	if res.Result == nil {
-		return nil, errors.Errorf("missing result")
-	}
-	images := make(map[string]resource.DockerImageDetails)
-	for k, v := range res.Result.Images {
-		images[k] = resource.DockerImageDetails{
-			RegistryPath: v.RegistryPath,
-			ImageRepoDetails: resource.ImageRepoDetails{
-				BasicAuthConfig: resource.BasicAuthConfig{
-					Username: v.Username,
-					Password: v.Password,
-				},
-			},
-		}
-	}
-	return images, nil
-}
-
-// UpdateUnits updates the state model to reflect the state of the units
-// as reported by the cloud.
-func (c *Client) UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
-	var result params.UpdateApplicationUnitResults
-	args := params.UpdateApplicationUnitArgs{Args: []params.UpdateApplicationUnits{arg}}
-	err := c.facade.FacadeCall(ctx, "UpdateApplicationsUnits", args, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != len(args.Args) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Args), len(result.Results))
-	}
-	firstResult := result.Results[0]
-	if firstResult.Error == nil {
-		return firstResult.Info, nil
-	}
-	return firstResult.Info, params.TranslateWellKnownError(firstResult.Error)
-}
-
-// ClearApplicationResources clears the flag which indicates an
-// application still has resources in the cluster.
-func (c *Client) ClearApplicationResources(ctx context.Context, appName string) error {
-	var result params.ErrorResults
-	args := params.Entities{Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}}}
-	if err := c.facade.FacadeCall(ctx, "ClearApplicationsResources", args, &result); err != nil {
-		return errors.Trace(err)
-	}
-	if len(result.Results) != len(args.Entities) {
-		return errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(result.Results))
-	}
-	if result.Results[0].Error == nil {
-		return nil
-	}
-	return params.TranslateWellKnownError(result.Results[0].Error)
 }
 
 // RemoveUnit removes the specified unit from the current model.

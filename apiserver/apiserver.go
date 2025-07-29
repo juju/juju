@@ -798,11 +798,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logger,
 	), "applications")
 	unitResourceNewOpenerFunc := resourceOpenerGetter(func(req *http.Request, tagKinds ...string) (coreresource.Opener, error) {
-		modelUUID, ok := httpcontext.RequestModelUUID(req.Context())
-		if !ok {
-			return nil, errors.Errorf("missing model UUID")
-		}
-
 		tagStr := req.URL.Query().Get(":unit")
 		tag, err := names.ParseUnitTag(tagStr)
 		if err != nil {
@@ -818,7 +813,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			return nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
 		}
 		args := resource.ResourceOpenerArgs{
-			ModelUUID:          modelUUID,
 			ApplicationService: domainServices.Application(),
 			ResourceService:    domainServices.Resource(),
 			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(

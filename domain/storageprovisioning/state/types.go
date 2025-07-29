@@ -177,3 +177,36 @@ type filesystemAttachment struct {
 	MountPoint   string `db:"mount_point"`
 	ReadOnly     bool   `db:"read_only"`
 }
+
+// entityUUID provides a way to query by uuid.
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// filesystemTemplate represents the combination of storage directives, charm
+// storage and provider type.
+type filesystemTemplate struct {
+	StorageName  string `db:"storage_name"`
+	SizeMiB      uint64 `db:"size_mib"`
+	Count        int    `db:"count"`
+	MaxCount     int    `db:"count_max"`
+	ProviderType string `db:"storage_type"`
+	ReadOnly     bool   `db:"read_only"`
+	Location     string `db:"location"`
+}
+
+// storageNameAttributes represents each key/value attribute for a given storage
+// derived from the provider/pool used to provisioner the storage.
+type storageNameAttributes struct {
+	StorageName string `db:"storage_name"`
+	Key         string `db:"key"`
+	Value       string `db:"value"`
+}
+
+// resourceTagInfo is the required info to create resource tags for a given app.
+type resourceTagInfo struct {
+	ResourceTags    string `db:"resource_tags"`
+	ModelUUID       string `db:"model_uuid"`
+	ControllerUUID  string `db:"controller_uuid"`
+	ApplicationName string `db:"application_name"`
+}
