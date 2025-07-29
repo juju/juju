@@ -212,6 +212,9 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// If the object store type has changed whilst we're starting the worker,
 	// crash the agent and come back up clean.
