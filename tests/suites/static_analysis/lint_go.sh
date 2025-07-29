@@ -42,6 +42,9 @@ run_govulncheck() {
 		# https://pkg.go.dev/vuln/GO-2024-3313
 		"GO-2024-3312"
 		"GO-2024-3313"
+		# The vulnerability below is for a method not used since Juju 1.x.
+		# https://pkg.go.dev/vuln/GO-2025-3798
+		"GO-2025-3798"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
