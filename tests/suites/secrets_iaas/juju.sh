@@ -87,7 +87,7 @@ run_user_secrets() {
 	echo "data: $(cat /dev/zero | tr '\0' A | head -c 786430)" >"${TEST_DIR}/secret.txt"
 	secret_uri=$(juju add-secret big --file "${TEST_DIR}/secret.txt")
 	secret_short_uri=${secret_uri##*:}
-	check_contains "$(juju show-secret big --reveal | yq ".${secret_short_uri}.content.key" | grep -o A | wc -l)" 786430
+	check_contains "$(juju show-secret big --reveal | yq ".${secret_short_uri}.content.data" | grep -o A | wc -l)" 786430
 	juju --show-log remove-secret big
 
 	# test user secret revisions and grants.
