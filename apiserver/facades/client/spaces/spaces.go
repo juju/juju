@@ -104,47 +104,10 @@ type API struct {
 
 	modelTag names.ModelTag
 
-	backing   Backing
-	resources facade.Resources
-	auth      facade.Authorizer
+	auth facade.Authorizer
 
 	check  BlockChecker
 	logger corelogger.Logger
-}
-
-type apiConfig struct {
-	modelTag                names.ModelTag
-	NetworkService          NetworkService
-	ControllerConfigService ControllerConfigService
-	ApplicationService      ApplicationService
-	MachineService          MachineService
-	Backing                 Backing
-	Check                   BlockChecker
-	Resources               facade.Resources
-	Authorizer              facade.Authorizer
-	logger                  corelogger.Logger
-}
-
-// newAPIWithBacking creates a new server-side Spaces API facade with
-// the given Backing.
-func newAPIWithBacking(cfg apiConfig) (*API, error) {
-	// Only clients can access the Spaces facade.
-	if !cfg.Authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	return &API{
-		modelTag:                cfg.modelTag,
-		networkService:          cfg.NetworkService,
-		controllerConfigService: cfg.ControllerConfigService,
-		applicationService:      cfg.ApplicationService,
-		machineService:          cfg.MachineService,
-		auth:                    cfg.Authorizer,
-		backing:                 cfg.Backing,
-		resources:               cfg.Resources,
-		check:                   cfg.Check,
-		logger:                  cfg.logger,
-	}, nil
 }
 
 // CreateSpaces creates a new Juju network space, associating the
