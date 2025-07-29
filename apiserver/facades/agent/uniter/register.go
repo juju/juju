@@ -81,7 +81,6 @@ func newUniterAPIWithServices(
 	if !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	st := context.State()
 	aClock := context.Clock()
 	resources := context.Resources()
 	watcherRegistry := context.WatcherRegistry()
@@ -104,7 +103,7 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageAccessor, err := getStorageState(st, modelInfo.Type)
+	storageAccessor, err := getStorageState(modelInfo.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -133,7 +132,6 @@ func newUniterAPIWithServices(
 	)
 
 	extLXDProfile := NewExternalLXDProfileAPI(
-		st,
 		services.MachineService,
 		watcherRegistry,
 		authorizer,
@@ -160,7 +158,6 @@ func newUniterAPIWithServices(
 
 		modelUUID:               context.ModelUUID(),
 		modelType:               modelInfo.Type,
-		st:                      st,
 		clock:                   aClock,
 		auth:                    authorizer,
 		resources:               resources,

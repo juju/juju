@@ -301,18 +301,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return cmd.Main(jujuCmd, ctx, strings.Split(cmdPlusARgs, " "))
 	}
 
-	// Get the state pool after grabbing dependencies so we don't need
-	// to remember to call Done on it if they're not running yet.
-	statePool, _, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w, err := config.NewWorker(ctx, Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
 		Mux:                               mux,
-		StatePool:                         statePool,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		UpgradeComplete:                   upgradeLock.IsUnlocked,

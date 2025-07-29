@@ -23,7 +23,7 @@ func Register(registry facade.FacadeRegistry) {
 // newStorageAPI returns a new storage API facade.
 func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI, error) {
 	domainServices := ctx.DomainServices()
-	storageAccessor, err := getStorageAccessor(ctx.State())
+	storageAccessor, err := getStorageAccessor()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}

@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
@@ -55,7 +54,6 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 
 	networkService            NetworkService
-	st                        *state.State
 	controllerConfigService   ControllerConfigService
 	cloudImageMetadataService CloudImageMetadataService
 	agentProvisionerService   AgentProvisionerService
@@ -123,7 +121,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	getAuthOwner := func(context.Context) (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	st := ctx.State()
 	domainServices := ctx.DomainServices()
 
 	agentBinaryService := domainServices.AgentBinary()
@@ -186,7 +183,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 			modelService,
 		),
 		networkService:            networkService,
-		st:                        st,
 		controllerConfigService:   controllerConfigService,
 		agentProvisionerService:   agentProvisionerService,
 		cloudImageMetadataService: cloudImageMetadataService,

@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/state"
 )
 
 const AdminSecret = "dummy-secret"
@@ -94,8 +93,7 @@ var (
 type ApiServerSuite struct {
 	servicefactorytesting.DomainServicesSuite
 
-	apiInfo   api.Info
-	statePool *state.StatePool // TODO - remove  me when statePool is removed from everywhere
+	apiInfo api.Info
 
 	// apiConns are opened api.Connections to close on teardown
 	apiConns []api.Connection
@@ -220,15 +218,6 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 	// modelUUID param is not used so can pass in anything.
 	domainServices := s.ControllerDomainServices(c)
 
-	// TODO - remove state pool whenever all apiserver facade will be ripped of that.
-	//    We keep it for now to not step in other toes
-	s.statePool, err = state.OpenStatePool(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      names.NewControllerTag(controllerCfg.ControllerUUID()),
-		ControllerModelTag: names.NewModelTag(controllerModelCfg.UUID()),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Set the api host ports in state.
 	apiAddrArgs := controllernode.SetAPIAddressArgs{
 		MgmtSpace: nil,
@@ -264,7 +253,6 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 	cfg.DBDeleter = stubDBDeleter{}
 	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 	cfg.ControllerConfigService = s.ControllerDomainServices(c).ControllerConfig()
-	cfg.StatePool = s.statePool
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
 	cfg.UpgradeComplete = func() bool {
@@ -471,11 +459,6 @@ func (s *ApiServerSuite) OpenModelAPI(c *tc.C, modelUUID string) api.Connection 
 	return s.openAPIAs(c, AdminUser, AdminSecret, "", modelUUID)
 }
 
-// StatePool returns the server's state pool.
-func (s *ApiServerSuite) StatePool() *state.StatePool {
-	return s.statePool
-}
-
 // ControllerModelUUID returns the controller model uuid.
 func (s *ApiServerSuite) ControllerModelUUID() string {
 	return s.DomainServicesSuite.ControllerModelUUID.String()
@@ -549,7 +532,6 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		DomainServicesGetter:       nil,
 		TracerGetter:               &stubTracerGetter{},
 		ObjectStoreGetter:          &stubObjectStoreGetter{},
-		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
 		GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },

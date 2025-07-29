@@ -5,8 +5,6 @@ package controller_test
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -20,7 +18,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -40,7 +37,6 @@ import (
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -49,15 +45,12 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalservices "github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type controllerSuite struct {
-	statetesting.StateSuite
 	servicefactorytesting.DomainServicesSuite
 
 	controllerConfigAttrs map[string]any
@@ -84,13 +77,11 @@ func (s *controllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *controllerSuite) SetUpSuite(c *tc.C) {
-	s.StateSuite.SetUpSuite(c)
 	s.DomainServicesSuite.SetUpSuite(c)
 }
 
 func (s *controllerSuite) TearDownSuite(c *tc.C) {
 	s.DomainServicesSuite.TearDownSuite(c)
-	s.StateSuite.TearDownSuite(c)
 }
 
 func (s *controllerSuite) SetUpTest(c *tc.C) {
@@ -98,16 +89,11 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 		s.controllerConfigAttrs = map[string]any{}
 	}
 	// Initial config needs to be set before the StateSuite SetUpTest.
-	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
-		"name": "controller",
-	})
 	controllerCfg := testing.FakeControllerConfig()
 	for key, value := range s.controllerConfigAttrs {
 		controllerCfg[key] = value
 	}
 
-	s.StateSuite.ControllerConfig = controllerCfg
-	s.StateSuite.SetUpTest(c)
 	s.DomainServicesSuite.ControllerConfig = controllerCfg
 	s.DomainServicesSuite.SetUpTest(c)
 
@@ -122,16 +108,15 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
+	owner := names.NewLocalUserTag("test-admin")
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:      s.Owner,
-		AdminTag: s.Owner,
+		Tag:      owner,
+		AdminTag: owner,
 	}
 
 	s.leadershipReader = noopLeadershipReader{}
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			State_:            s.State,
-			StatePool_:        s.StatePool,
 			Resources_:        s.resources,
 			WatcherRegistry_:  s.watcherRegistry,
 			Auth_:             s.authorizer,
@@ -151,7 +136,6 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 
 func (s *controllerSuite) TearDownTest(c *tc.C) {
 	s.DomainServicesSuite.TearDownTest(c)
-	s.StateSuite.TearDownTest(c)
 }
 
 // controllerAPI sets up and returns a new instance of the controller API,
@@ -283,7 +267,6 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {
 	}
 	endPoint, err := controller.LatestAPI(c.Context(), facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			State_:          s.State,
 			Resources_:      s.resources,
 			Auth_:           anAuthoriser,
 			DomainServices_: s.ControllerDomainServices(c),
@@ -357,15 +340,8 @@ func (s *controllerSuite) makeCloudSpec(c *tc.C, pSpec *params.CloudSpec) enviro
 func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	c.Skip("Hosted model config is skipped because the tests aren't wired up correctly")
-	owner := names.NewUserTag("owner")
-	st1 := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner})
-	defer func() { _ = st1.Close() }()
-	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
-	st2 := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "second", Owner: remoteUserTag})
-	defer func() { _ = st2.Close() }()
 
+	// Two models should be created before assessing.
 	results, err := s.controller.HostedModelConfigs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(results.Models), tc.Equals, 2)
@@ -445,16 +421,13 @@ func (s *controllerSuite) TestControllerConfig(c *tc.C) {
 }
 
 func (s *controllerSuite) TestControllerConfigFromNonController(c *tc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "test"})
-	defer func() { _ = st.Close() }()
 
-	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
+	owner := names.NewUserTag("owner")
+	authorizer := &apiservertesting.FakeAuthorizer{Tag: owner}
 	controller, err := controller.LatestAPI(
 		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
-				State_:          st,
 				Resources_:      common.NewResources(),
 				Auth_:           authorizer,
 				DomainServices_: s.ControllerDomainServices(c),
@@ -506,157 +479,14 @@ func (s *controllerSuite) TestRemoveBlocksNotAll(c *tc.C) {
 
 func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
 	c.Skip("re-implement test when model migrations are implemented in dqlite")
-	defer s.setupMocks(c).Finish()
-	// Create two hosted models to migrate.
-	st1 := s.Factory.MakeModel(c, nil)
-	defer func() { _ = st1.Close() }()
-	model1, err := st1.Model()
-	c.Assert(err, tc.ErrorIsNil)
-	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(model1.ModelTag().Id())).Return(
-		model.Model{
-			UUID:      model.UUID(model1.UUID()),
-			Name:      model1.Name(),
-			Qualifier: model.QualifierFromUserTag(model1.Owner()),
-		}, nil,
-	)
-
-	st2 := s.Factory.MakeModel(c, nil)
-	defer func() { _ = st2.Close() }()
-	model2, err := st2.Model()
-	c.Assert(err, tc.ErrorIsNil)
-	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(model2.ModelTag().Id())).Return(
-		model.Model{
-			UUID:      model.UUID(model2.UUID()),
-			Name:      model2.Name(),
-			Qualifier: model.QualifierFromUserTag(model2.Owner()),
-		}, nil,
-	)
-
-	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
-	c.Assert(err, tc.ErrorIsNil)
-	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// TODO(modelmigration): skip/mock migration pre-check
-
-	// Kick off migrations
-	args := params.InitiateMigrationArgs{
-		Specs: []params.MigrationSpec{
-			{
-				ModelTag: model1.ModelTag().String(),
-				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag:   randomControllerTag(),
-					ControllerAlias: "", // intentionally left empty; simulates older client
-					Addrs:           []string{"1.1.1.1:1111", "2.2.2.2:2222"},
-					CACert:          "cert1",
-					AuthTag:         names.NewUserTag("admin1").String(),
-					Password:        "secret1",
-					Token:           "token1",
-				},
-			}, {
-				ModelTag: model2.ModelTag().String(),
-				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag:   randomControllerTag(),
-					ControllerAlias: "target-controller",
-					Addrs:           []string{"3.3.3.3:3333"},
-					CACert:          "cert2",
-					AuthTag:         names.NewUserTag("admin2").String(),
-					Macaroons:       string(macsJSON),
-					Password:        "secret2",
-					Token:           "token2",
-				},
-			},
-		},
-	}
-
-	out, err := s.controller.InitiateMigration(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out.Results, tc.HasLen, 2)
 }
 
 func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
 	c.Skip("re-implement test when model migrations are implemented in dqlite")
-	defer s.setupMocks(c).Finish()
-	// Create a hosted model to migrate.
-	st := s.Factory.MakeModel(c, nil)
-	defer func() { _ = st.Close() }()
-	m, err := st.Model()
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Kick off the migration with missing details.
-	args := params.InitiateMigrationArgs{
-		Specs: []params.MigrationSpec{{
-			ModelTag: m.ModelTag().String(),
-			// TargetInfo missing
-		}},
-	}
-
-	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
-		model.Model{
-			UUID:      model.UUID(m.UUID()),
-			Name:      m.Name(),
-			Qualifier: model.QualifierFromUserTag(m.Owner()),
-		}, nil,
-	)
-	out, err := s.controller.InitiateMigration(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out.Results, tc.HasLen, 1)
-	result := out.Results[0]
-	c.Check(result.ModelTag, tc.Equals, args.Specs[0].ModelTag)
-	c.Check(result.MigrationId, tc.Equals, "")
-	c.Check(result.Error, tc.ErrorMatches, "controller tag: .+ is not a valid tag")
 }
 
 func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
 	c.Skip("re-implement test when model migrations are implemented in dqlite")
-	defer s.setupMocks(c).Finish()
-	st := s.Factory.MakeModel(c, nil)
-	defer func() { _ = st.Close() }()
-
-	// TODO(modelmigration): skip/mock migration pre-check
-
-	m, err := st.Model()
-	c.Assert(err, tc.ErrorIsNil)
-	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
-		model.Model{
-			UUID:      model.UUID(m.UUID()),
-			Name:      m.Name(),
-			Qualifier: model.QualifierFromUserTag(m.Owner()),
-		}, nil,
-	)
-
-	randomUUID := modeltesting.GenModelUUID(c)
-	randomModelTag := names.NewModelTag(randomUUID.String())
-
-	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(randomModelTag.Id())).Return(
-		model.Model{}, modelerrors.NotFound,
-	)
-
-	args := params.InitiateMigrationArgs{
-		Specs: []params.MigrationSpec{
-			{
-				ModelTag: m.ModelTag().String(),
-				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomControllerTag(),
-					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
-					CACert:        "cert",
-					AuthTag:       names.NewUserTag("admin").String(),
-					Password:      "secret",
-				},
-			}, {
-				ModelTag: randomModelTag.String(), // Doesn't exist.
-			},
-		},
-	}
-	out, err := s.controller.InitiateMigration(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out.Results, tc.HasLen, 2)
-
-	c.Check(out.Results[0].ModelTag, tc.Equals, m.ModelTag().String())
-	c.Check(out.Results[0].Error, tc.IsNil)
-
-	c.Check(out.Results[1].ModelTag, tc.Equals, args.Specs[1].ModelTag)
-	c.Check(out.Results[1].Error.Error(), tc.Equals, fmt.Sprintf("model %q not found", randomModelTag.Id()))
 }
 
 func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
@@ -694,46 +524,6 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 
 func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
 	c.Skip("re-implement test when model migrations are implemented in dqlite")
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	defer s.setupMocks(c).Finish()
-	st := s.Factory.MakeModel(c, &factory.ModelParams{UUID: s.DefaultModelUUID})
-	defer st.Close()
-
-	// TODO(modelmigration): skip/mock migration pre-check
-	//controller.SetPrecheckResult(s, errors.New("boom"))
-
-	m, err := st.Model()
-	c.Assert(err, tc.ErrorIsNil)
-	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
-		model.Model{
-			UUID:      model.UUID(m.UUID()),
-			Name:      m.Name(),
-			Qualifier: model.Qualifier(m.Owner().Id()),
-		}, nil,
-	)
-
-	c.Assert(err, tc.ErrorIsNil)
-
-	args := params.InitiateMigrationArgs{
-		Specs: []params.MigrationSpec{{
-			ModelTag: m.ModelTag().String(),
-			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: randomControllerTag(),
-				Addrs:         []string{"1.1.1.1:1111"},
-				CACert:        "cert1",
-				AuthTag:       names.NewUserTag("admin1").String(),
-				Password:      "secret1",
-			},
-		}},
-	}
-	out, err := s.controller.InitiateMigration(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out.Results, tc.HasLen, 1)
-	c.Check(out.Results[0].Error, tc.ErrorMatches, "boom")
 }
 
 func randomControllerTag() string {
@@ -864,7 +654,6 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *tc.C) {
 		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
-				State_:          s.State,
 				Resources_:      s.resources,
 				Auth_:           anAuthoriser,
 				DomainServices_: s.ControllerDomainServices(c),
@@ -1022,7 +811,6 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *tc.C) {
 		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
-				State_:          s.State,
 				Resources_:      s.resources,
 				Auth_:           anAuthoriser,
 				DomainServices_: s.ControllerDomainServices(c),
@@ -1076,8 +864,6 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *tc.C) {
 }
 
 type accessSuite struct {
-	statetesting.StateSuite
-
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
@@ -1092,21 +878,12 @@ func TestAccessSuite(t *stdtesting.T) {
 }
 
 func (s *accessSuite) SetUpTest(c *tc.C) {
-	// Initial config needs to be set before the StateSuite SetUpTest.
-	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
-		"name": "controller",
-	})
-	controllerCfg := testing.FakeControllerConfig()
-
-	s.StateSuite.ControllerConfig = controllerCfg
-	s.StateSuite.SetUpTest(c)
-
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
+	owner := names.NewUserTag("owner")
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:      s.Owner,
-		AdminTag: s.Owner,
+		Tag:      owner,
+		AdminTag: owner,
 	}
 
 	s.controllerUUID = modeltesting.GenModelUUID(c).String()

@@ -140,9 +140,3 @@ func (p *StatePool) Report() map[string]interface{} {
 	report := make(map[string]interface{})
 	return report
 }
-
-// StartWorkers is used by factory.NewModel in tests.
-// TODO(wallyworld) refactor to remove this dependency.
-func (p *StatePool) StartWorkers(st *State) error {
-	return nil
-}

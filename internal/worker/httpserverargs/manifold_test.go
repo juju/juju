@@ -28,12 +28,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type ManifoldSuite struct {
-	statetesting.StateSuite
-
 	config         httpserverargs.ManifoldConfig
 	manifold       dependency.Manifold
 	getter         dependency.Getter
@@ -50,12 +47,8 @@ func TestManifoldSuite(t *testing.T) {
 }
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
-	s.StateSuite.SetUpTest(c)
-
 	s.clock = testclock.NewClock(time.Time{})
-	s.stateTracker = stubStateTracker{
-		pool: s.StatePool,
-	}
+	s.stateTracker = stubStateTracker{}
 	s.domainServices = stubDomainServices{}
 	s.stub.ResetCalls()
 

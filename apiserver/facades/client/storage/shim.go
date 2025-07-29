@@ -95,10 +95,8 @@ type storageFile interface {
 	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
-var getStorageAccessor = func(
-	st *state.State,
-) (storageAccess, error) {
-	sb, err := state.NewStorageConfigBackend(st)
+var getStorageAccessor = func() (storageAccess, error) {
+	sb, err := state.NewStorageConfigBackend()
 	if err != nil {
 		return nil, err
 	}

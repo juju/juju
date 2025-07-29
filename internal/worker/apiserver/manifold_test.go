@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/trace"
-	"github.com/juju/juju/state"
 )
 
 type ManifoldSuite struct {
@@ -55,7 +54,6 @@ type ManifoldSuite struct {
 	metricsCollector        *coreapiserver.Collector
 	mux                     *apiserverhttp.Mux
 	prometheusRegisterer    stubPrometheusRegisterer
-	state                   stubStateTracker
 	upgradeGate             stubGateWaiter
 	logSink                 corelogger.ModelLogger
 	httpClientGetter        *stubHTTPClientGetter
@@ -83,7 +81,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.authenticator = &mockAuthenticator{}
 	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
-	s.state = stubStateTracker{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.upgradeGate = stubGateWaiter{}
 	s.auditConfig = stubAuditConfig{}
@@ -135,7 +132,6 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"authenticator":       s.authenticator,
 		"clock":               s.clock,
 		"mux":                 s.mux,
-		"state":               &s.state,
 		"upgrade":             &s.upgradeGate,
 		"auditconfig-updater": s.auditConfig.get,
 		"lease-manager":       s.leaseManager,
@@ -188,22 +184,6 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
-	for _, input := range expectedInputs {
-		getter := s.newGetter(map[string]interface{}{
-			input: dependency.ErrMissing,
-		})
-		_, err := s.manifold.Start(c.Context(), getter)
-		c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
-
-		// The state tracker must have either no calls, or a Use and a Done.
-		if len(s.state.Calls()) > 0 {
-			s.state.CheckCallNames(c, "Use", "Done")
-		}
-		s.state.ResetCalls()
-	}
-}
-
 func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
@@ -239,7 +219,6 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		LocalMacaroonAuthenticator: s.authenticator,
 		Clock:                      s.clock,
 		Mux:                        s.mux,
-		StatePool:                  &s.state.pool,
 		LeaseManager:               s.leaseManager,
 		MetricsCollector:           s.metricsCollector,
 		LogSink:                    s.logSink,
@@ -259,10 +238,7 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
-	s.state.CheckCallNames(c, "Use")
-
 	workertest.CleanKill(c, w)
-	s.state.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
@@ -333,27 +309,6 @@ func (c *mockAgentConfig) StateServingInfo() (controller.ControllerAgentInfo, bo
 
 func (c *mockAgentConfig) Value(key string) string {
 	return c.values[key]
-}
-
-type stubStateTracker struct {
-	testhelpers.Stub
-	pool  state.StatePool
-	state state.State
-}
-
-func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
-	s.MethodCall(s, "Use")
-	return &s.pool, &s.state, s.NextErr()
-}
-
-func (s *stubStateTracker) Done() error {
-	s.MethodCall(s, "Done")
-	return s.NextErr()
-}
-
-func (s *stubStateTracker) Report() map[string]interface{} {
-	s.MethodCall(s, "Report")
-	return nil
 }
 
 type stubPrometheusRegisterer struct {

@@ -73,17 +73,15 @@ const (
 )
 
 // NewStorageBackend creates a backend for managing storage.
-func NewStorageBackend(st *State) (*storageBackend, error) {
+func NewStorageBackend() (*storageBackend, error) {
 	sb := &storageBackend{}
 	return sb, nil
 }
 
 // NewStorageConfigBackend creates a backend for managing storage with a model
 // config service.
-func NewStorageConfigBackend(
-	st *State,
-) (*storageConfigBackend, error) {
-	sb, err := NewStorageBackend(st)
+func NewStorageConfigBackend() (*storageConfigBackend, error) {
+	sb, err := NewStorageBackend()
 	if err != nil {
 		return nil, err
 	}

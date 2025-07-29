@@ -50,10 +50,9 @@ type storageFilesystemInterface interface {
 }
 
 var getStorageState = func(
-	st *state.State,
 	modelType coremodel.ModelType,
 ) (storageAccess, error) {
-	sb, err := state.NewStorageConfigBackend(st)
+	sb, err := state.NewStorageConfigBackend()
 	if err != nil {
 		return nil, err
 	}

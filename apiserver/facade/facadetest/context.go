@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/state"
 )
 
 // ModelContext implements facade.ModelContext in the simplest possible way.
@@ -28,8 +27,6 @@ type ModelContext struct {
 	Dispose_             func()
 	Resources_           facade.Resources
 	WatcherRegistry_     facade.WatcherRegistry
-	State_               *state.State
-	StatePool_           *state.StatePool
 	ID_                  string
 	ControllerUUID_      string
 	ControllerModelUUID_ model.UUID
@@ -93,16 +90,6 @@ func (c ModelContext) ObjectStore() objectstore.ObjectStore {
 // It returns the object store for this c.
 func (c ModelContext) ControllerObjectStore() objectstore.ObjectStore {
 	return c.ControllerObjectStore_
-}
-
-// State is part of the facade.ModelContext interface.
-func (c ModelContext) State() *state.State {
-	return c.State_
-}
-
-// StatePool is part of the facade.ModelContext interface.
-func (c ModelContext) StatePool() *state.StatePool {
-	return c.StatePool_
 }
 
 // ControllerUUID returns the controller unique identifier.

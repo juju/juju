@@ -43,14 +43,7 @@ func (p OpenParams) Validate() error {
 //
 // OpenController returns unauthorizedError if access is unauthorized.
 func OpenController(args OpenParams) (*Controller, error) {
-	pool, err := OpenStatePool(args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &Controller{
-		pool:     pool,
-		ownsPool: true,
-	}, nil
+	return &Controller{}, nil
 }
 
 func open(

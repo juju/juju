@@ -31,8 +31,8 @@ type StorageInterface interface {
 	FilesystemAccess() storagecommon.FilesystemAccess
 }
 
-var getStorageState = func(st *state.State, modelType coremodel.ModelType) (StorageInterface, error) {
-	sb, err := state.NewStorageBackend(st)
+var getStorageState = func(modelType coremodel.ModelType) (StorageInterface, error) {
+	sb, err := state.NewStorageBackend()
 	if err != nil {
 		return nil, err
 	}

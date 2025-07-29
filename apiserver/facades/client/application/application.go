@@ -128,7 +128,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, internalerrors.Errorf("getting model info: %w", err)
 	}
 
-	storageAccess, err := getStorageState(ctx.State(), modelInfo.Type)
+	storageAccess, err := getStorageState(modelInfo.Type)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
 	}

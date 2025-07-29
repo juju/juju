@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // UniterAPI implements the latest version (v21) of the Uniter API.
@@ -62,7 +61,6 @@ type UniterAPI struct {
 	modelType model.ModelType
 
 	lxdProfileAPI           *LXDProfileAPI
-	st                      *state.State
 	clock                   clock.Clock
 	auth                    facade.Authorizer
 	resources               facade.Resources
@@ -2695,8 +2693,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	changes params.CommitHookChangesArg,
 	canAccessUnit, canAccessApp common.AuthFunc,
 ) error {
-	var modelOps []state.ModelOperation
-
 	if changes.UpdateNetworkInfo {
 		err := u.setUnitRelationNetworks(ctx, coreunit.Name(unitTag.Id()))
 		if err != nil {
@@ -2811,11 +2807,12 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Trace(err)
 		}
 
-		modelOp, err := u.addStorageToOneUnitOperation(unitTag, addParams, curCons)
+		// TODO(storage): This operation is no longer applied on the legacy
+		// state, this functionality must be migrated to dqlite.
+		_, err = u.addStorageToOneUnitOperation(unitTag, addParams, curCons)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		modelOps = append(modelOps, modelOp)
 	}
 
 	// TODO - do in txn once we have support for that
@@ -2881,9 +2878,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Annotate(err, "removing secrets")
 		}
 	}
-
-	// Apply all changes in a single transaction.
-	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
+	return nil
 }
 
 func (u *UniterAPI) setUnitRelationNetworks(ctx context.Context, name coreunit.Name) error {

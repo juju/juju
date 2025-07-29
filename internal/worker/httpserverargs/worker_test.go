@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type workerConfigSuite struct {
@@ -73,8 +72,6 @@ func (s *workerConfigSuite) TestMissing(c *tc.C) {
 }
 
 type workerSuite struct {
-	statetesting.StateSuite
-
 	domainServicesGetter    *MockDomainServicesGetter
 	controllerConfigService *MockControllerConfigService
 	accessService           *MockAccessService
@@ -234,7 +231,6 @@ func (s *workerSuite) newWorkerConfig(c *tc.C) workerConfig {
 		accessService:           s.accessService,
 	}
 	return workerConfig{
-		statePool:               s.StatePool,
 		domainServicesGetter:    services,
 		controllerConfigService: services,
 		accessService:           services,
