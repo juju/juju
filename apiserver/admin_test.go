@@ -413,7 +413,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *tc.C) {
 	err := conn.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.UserInfo, tc.IsNil)
-	c.Assert(result.ControllerTag, tc.Equals, s.ControllerModel(c).State().ControllerTag().String())
+	c.Assert(result.ControllerTag, tc.Equals, names.NewControllerTag(s.ControllerUUID).String())
 	c.Assert(result.ModelTag, tc.Equals, names.NewModelTag(s.ControllerModelUUID()).String())
 	c.Assert(result.Facades, tc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossModelRelations", Versions: []int{3}},
@@ -439,7 +439,7 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *tc.C) {
 	err := conn.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.UserInfo, tc.IsNil)
-	c.Assert(result.ControllerTag, tc.Equals, s.ControllerModel(c).State().ControllerTag().String())
+	c.Assert(result.ControllerTag, tc.Equals, names.NewControllerTag(s.ControllerUUID).String())
 	c.Assert(result.Facades, tc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossController", Versions: []int{1}},
 		{Name: "NotifyWatcher", Versions: []int{1}},

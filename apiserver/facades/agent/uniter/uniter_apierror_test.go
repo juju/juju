@@ -44,7 +44,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *tc.C) {
 	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 
 	facadeContext := facadetest.ModelContext{
-		State_:             s.ControllerModel(c).State(),
+		State_:             nil,
 		StatePool_:         s.StatePool(),
 		Resources_:         resources,
 		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},

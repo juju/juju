@@ -17,14 +17,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/blockcommand"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // NOTE: the testing of the general model destruction code
@@ -40,8 +38,6 @@ type destroyControllerSuite struct {
 	resources  *common.Resources
 	controller *controller.ControllerAPI
 
-	otherState           *state.State
-	otherModel           *state.Model
 	otherModelOwner      names.UserTag
 	otherModelUUID       string
 	context              facadetest.MultiModelContext
@@ -73,7 +69,7 @@ func (s *destroyControllerSuite) SetUpTest(c *tc.C) {
 	}
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			State_:          s.ControllerModel(c).State(),
+			State_:          nil,
 			StatePool_:      s.StatePool(),
 			Resources_:      s.resources,
 			Auth_:           s.authorizer,
@@ -83,23 +79,8 @@ func (s *destroyControllerSuite) SetUpTest(c *tc.C) {
 		DomainServicesForModel_: s.DefaultModelDomainServices(c),
 	}
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
 	s.otherModelOwner = names.NewUserTag("jess@dummy")
-	s.otherState = f.MakeModel(c, &factory.ModelParams{
-		Name:  "dummytoo",
-		Owner: s.otherModelOwner,
-		ConfigAttrs: testing.Attrs{
-			"controller": false,
-		},
-		UUID: s.DefaultModelUUID,
-	})
-	s.AddCleanup(func(c *tc.C) { s.otherState.Close() })
 	s.otherModelUUID = s.DefaultModelUUID.String()
-
-	var err error
-	s.otherModel, err = s.otherState.Model()
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 // controllerAPI sets up and returns a new instance of the controller API,
@@ -251,7 +232,10 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWith
 	})
 	c.Assert(err, tc.ErrorMatches, "found blocks in controller models")
 
-	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Alive)
+	ctrlLife, err := s.ControllerDomainServices(c).Model().GetModelLife(c.Context(),
+		coremodel.UUID(s.ControllerModelUUID()))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctrlLife, tc.Equals, life.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *tc.C) {
@@ -308,7 +292,9 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 
 	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
 	c.Assert(err, tc.ErrorMatches, "found blocks in controller models")
-	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Alive)
+	ctrlLife, err := s.ControllerDomainServices(c).Model().GetModelLife(c.Context(), coremodel.UUID(s.ControllerModelUUID()))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctrlLife, tc.Equals, life.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *tc.C) {

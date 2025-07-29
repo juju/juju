@@ -114,7 +114,7 @@ func (s *uniterLegacySuite) TestEnsureDead(c *tc.C) {
 func (s *uniterLegacySuite) TestWatch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	// Recreate the uniter API with the mocks initialized.
-	uniterAPI := s.newUniterAPIv19(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPIv19(c, nil, s.authorizer)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -140,7 +140,7 @@ func (s *uniterLegacySuite) TestWatch(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestWatchNoArgsNoError(c *tc.C) {
-	uniterAPI := s.newUniterAPIv19(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPIv19(c, nil, s.authorizer)
 	result, err := uniterAPI.Watch(c.Context(), params.Entities{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
@@ -149,7 +149,7 @@ func (s *uniterLegacySuite) TestWatchNoArgsNoError(c *tc.C) {
 func (s *uniterLegacySuite) TestApplicationWatch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	// Recreate the uniter API with the mocks initialized.
-	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPI(c, nil, s.authorizer)
 	args := params.Entity{Tag: "application-wordpress"}
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	result, err := uniterAPI.WatchApplication(c.Context(), args)
@@ -160,7 +160,7 @@ func (s *uniterLegacySuite) TestApplicationWatch(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestWatchApplicationBadTag(c *tc.C) {
-	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPI(c, nil, s.authorizer)
 	result, err := uniterAPI.WatchApplication(c.Context(), params.Entity{Tag: "bad-tag"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
@@ -170,7 +170,7 @@ func (s *uniterLegacySuite) TestWatchApplicationBadTag(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestWatchApplicationNoPermission(c *tc.C) {
-	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPI(c, nil, s.authorizer)
 	// Permissions for mysql will be denied by the accessApplication function
 	// defined in test set up.
 	result, err := uniterAPI.WatchApplication(c.Context(), params.Entity{Tag: "application-mysql"})
@@ -184,7 +184,7 @@ func (s *uniterLegacySuite) TestWatchApplicationNoPermission(c *tc.C) {
 func (s *uniterLegacySuite) TestUnitWatch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	// Recreate the uniter API with the mocks initialized.
-	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPI(c, nil, s.authorizer)
 	args := params.Entity{Tag: "unit-wordpress-0"}
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	result, err := uniterAPI.WatchUnit(c.Context(), args)
@@ -195,7 +195,7 @@ func (s *uniterLegacySuite) TestUnitWatch(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestWatchUnitBadTag(c *tc.C) {
-	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPI(c, nil, s.authorizer)
 	result, err := uniterAPI.WatchUnit(c.Context(), params.Entity{Tag: "bad-tag"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{Error: &params.Error{
@@ -205,7 +205,7 @@ func (s *uniterLegacySuite) TestWatchUnitBadTag(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestWatchUnitNoPermission(c *tc.C) {
-	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+	uniterAPI := s.newUniterAPI(c, nil, s.authorizer)
 	// Permissions for mysql will be denied by the accessUnit function
 	// defined in test set up.
 	result, err := uniterAPI.WatchUnit(c.Context(), params.Entity{Tag: "unit-mysql-0"})
