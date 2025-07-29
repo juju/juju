@@ -14,22 +14,36 @@ run_api_imports() {
 }
 
 run_domain_imports() {
-	dirs=$(find ./domain -mindepth 1 -maxdepth 3 -type d | grep -E "/service$|/state$" | awk '{split($0,a,"/"); print "./"a[2]"/"a[3]}' | sort -u)
+	dirs=$(find ./domain -mindepth 1 -maxdepth 4 -type d | grep -E "/service$|/state$" | awk '{split($0,a,"/"); print "./"a[2]"/"a[3]}' | sort -u)
 	for dir in $dirs; do
 		echo "Checking $dir"
 
 		if [[ -d "$dir/service" ]]; then
-			# Serice domain packages should not import state domain packages.
+			# Service domain packages should not import state domain packages.
 			got=$(go run ./scripts/import-inspector "$dir/service" 2>/dev/null | jq -r ".[]")
 			disallowed="github.com/juju/juju/${dir#*/}/state"
-			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain service imports it's state pkg' $dir" && exit 1)
+			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain service imports it's state pkg $dir" && exit 1)
 		fi
 
 		if [[ -d "$dir/state" ]]; then
 			# State domain packages should not import service domain packages.
 			got=$(go run ./scripts/import-inspector "$dir/state" 2>/dev/null | jq -r ".[]")
 			disallowed="github.com/juju/juju/${dir#*/}/service"
-			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state imports it's service pkg' $dir" && exit 1)
+			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state imports it's service pkg $dir" && exit 1)
+		fi
+
+		if [[ -d "$dir/state/controller" ]]; then
+			# State domain packages should not import service domain packages.
+			got=$(go run ./scripts/import-inspector "$dir/state/controller" 2>/dev/null | jq -r ".[]")
+			disallowed="github.com/juju/juju/${dir#*/}/service"
+			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state/controller imports it's service pkg $dir" && exit 1)
+		fi
+
+		if [[ -d "$dir/state/model" ]]; then
+			# State domain packages should not import service domain packages.
+			got=$(go run ./scripts/import-inspector "$dir/state/model" 2>/dev/null | jq -r ".[]")
+			disallowed="github.com/juju/juju/${dir#*/}/service"
+			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state/model imports it's service pkg $dir" && exit 1)
 		fi
 	done
 }

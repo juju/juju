@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 )
 
@@ -21,7 +22,13 @@ func main() {
 	cmd := exec.Command("go", "list", "-json", os.Args[1])
 	stdout, err := cmd.Output()
 	if err != nil {
-		log.Fatal("failed to run go list", err.Error())
+		matches, err := filepath.Glob(filepath.Join(os.Args[1], "*.go"))
+		if len(matches) == 0 && err == nil {
+			fmt.Println(string("[]"))
+			return
+		}
+
+		log.Fatalf("failed to run go list: %v", err.Error())
 	}
 
 	set := make(map[string]struct{})
