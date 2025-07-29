@@ -11,19 +11,15 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -32,136 +28,19 @@ func TestRemoteFirewallerSuite(t *testing.T) {
 }
 
 type RemoteFirewallerSuite struct {
-	coretesting.BaseSuite
-
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-
-	controllerConfigAPI *MockControllerConfigAPI
-	watcherRegistry     *facademocks.MockWatcherRegistry
-	api                 *firewaller.FirewallerAPI
-
-	controllerConfigService *MockControllerConfigService
-	modelConfigService      *MockModelConfigService
-	networkService          *MockNetworkService
-	applicationService      *MockApplicationService
-	machineService          *MockMachineService
-	modelInfoService        *MockModelInfoService
 }
 
-func (s *RemoteFirewallerSuite) SetUpTest(c *tc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
-
-	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag:        names.NewMachineTag("0"),
-		Controller: true,
-	}
+func (s *RemoteFirewallerSuite) TestStub(c *tc.C) {
+	c.Skip(`
+This suite is missing tests for the following scenarios:
+- Watch for changes to ingress addresses of remote peer in a cross-model relation.
+- Set the status of a cross-model relation, for instance to suspend a relation 
+  with an informational message.
+- Generate an authentication macaroon for a cross-model relation to secure 
+  communication between models.
+`)
 }
 
-func (s *RemoteFirewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
-	s.controllerConfigAPI = NewMockControllerConfigAPI(ctrl)
-
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.modelConfigService = NewMockModelConfigService(ctrl)
-	s.networkService = NewMockNetworkService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
-	s.machineService = NewMockMachineService(ctrl)
-	s.modelInfoService = NewMockModelInfoService(ctrl)
-
-	return ctrl
-}
-
-func (s *RemoteFirewallerSuite) setupAPI(c *tc.C) {
-	var err error
-	s.api, err = firewaller.NewStateFirewallerAPI(
-		s.networkService,
-		s.watcherRegistry,
-		s.authorizer,
-		s.controllerConfigAPI,
-		s.controllerConfigService,
-		s.modelConfigService,
-		s.applicationService,
-		s.machineService,
-		s.modelInfoService,
-		loggertesting.WrapCheckLog(c),
-	)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *tc.C) {
-	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.setupAPI(c)
-
-	result, err := s.api.WatchIngressAddressesForRelations(
-		c.Context(),
-		params.Entities{Entities: []params.Entity{{
-			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
-		}}},
-	)
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Changes, tc.SameContents, []string{"1.2.3.4/32"})
-	c.Assert(result.Results[0].Error, tc.IsNil)
-	c.Assert(result.Results[0].StringsWatcherId, tc.Equals, "1")
-
-	resource := s.resources.Get("1")
-	c.Assert(resource, tc.NotNil)
-	c.Assert(resource, tc.Implements, new(watcher.StringsWatcher))
-}
-
-func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *tc.C) {
-	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.setupAPI(c)
-
-	mac, err := jujutesting.NewMacaroon("apimac")
-	c.Assert(err, tc.ErrorIsNil)
-	entity := names.NewRelationTag("mysql:db wordpress:db")
-
-	result, err := s.api.MacaroonForRelations(
-		c.Context(),
-		params.Entities{Entities: []params.Entity{{
-			Tag: entity.String(),
-		}}},
-	)
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-	c.Assert(result.Results[0].Result, tc.DeepEquals, mac)
-}
-
-func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *tc.C) {
-	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.setupAPI(c)
-
-	db2Relation := newMockRelation(123)
-	entity := names.NewRelationTag("remote-db2:db django:db")
-
-	result, err := s.api.SetRelationsStatus(
-		c.Context(),
-		params.SetStatus{Entities: []params.EntityStatusArgs{{
-			Tag:    entity.String(),
-			Status: "suspended",
-			Info:   "a message",
-		}}})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-	c.Assert(db2Relation.status, tc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
-}
 func TestFirewallerSuite(t *testing.T) {
 	tc.Run(t, &FirewallerSuite{})
 }
