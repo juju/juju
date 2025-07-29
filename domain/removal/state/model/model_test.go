@@ -80,6 +80,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 	c.Check(len(artifacts.MachineUUIDs), tc.Equals, 1)
 	c.Check(len(artifacts.RelationUUIDs), tc.Equals, 0)
 
+	s.checkModelLife(c, modelUUID, 1)
 	s.checkUnitLife(c, artifacts.UnitUUIDs[0], 1)
 	s.checkMachineLife(c, artifacts.MachineUUIDs[0], 1)
 	s.checkInstanceLife(c, artifacts.MachineUUIDs[0], 1)

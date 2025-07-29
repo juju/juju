@@ -61,7 +61,9 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 		return removal.ModelArtifacts{}, errors.Capture(err)
 	}
 
-	var eUUID entityUUID
+	eUUID := entityUUID{
+		UUID: modelUUID,
+	}
 
 	// Cascading of the dying state of the model means that we will also set the entities to dying all of the
 	// following:
