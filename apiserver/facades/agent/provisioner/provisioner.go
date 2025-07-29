@@ -6,6 +6,7 @@ package provisioner
 import (
 	"context"
 	"fmt"
+
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -933,11 +934,7 @@ type perContainerHandler interface {
 	ProcessOneContainer(
 		ctx context.Context,
 		idx int,
-		networkService NetworkService,
 		guestMachineName coremachine.Name,
-		preparedInfo network.InterfaceInfos,
-		hostInstanceID, guestInstanceID instance.Id,
-		allSubnets network.SubnetInfos,
 	) error
 
 	// SetError will be called whenever there is a problem with the a given
@@ -959,25 +956,6 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 	if hostAuthTag == nil {
 		return errors.Errorf("authenticated entity tag is nil")
 	}
-	hostTag, err := names.ParseMachineTag(hostAuthTag.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	hostMachineName := coremachine.Name(hostTag.Id())
-	hostInstanceID, err := api.getInstanceID(ctx, hostMachineName)
-	if errors.Is(err, machineerrors.NotProvisioned) {
-		return errors.NotProvisionedf("cannot prepare container %s config: host machine %q",
-			handler.ConfigType(), hostMachineName)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	allSubnets, err := api.networkService.GetAllSubnets(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	for i, entity := range args.Entities {
 		guestTag, err := names.ParseMachineTag(entity.Tag)
@@ -996,32 +974,10 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			handler.SetError(i, err)
 			continue
 		}
-		guestInstanceID, err := api.getInstanceID(ctx, guestMachineName)
-		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
-			return errors.Trace(err)
-		}
-		guestUUID, err := api.machineService.GetMachineUUID(ctx, guestMachineName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		hostUUID, err := api.machineService.GetMachineUUID(ctx, hostMachineName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		preparedInfo, err := api.networkService.DevicesForGuest(ctx, hostUUID, guestUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		mappedPreparedInfo := toInterfaceInfos(preparedInfo)
 		if err := handler.ProcessOneContainer(
 			ctx,
 			i,
-			api.networkService,
 			coremachine.Name(guestTag.Id()),
-			mappedPreparedInfo,
-			hostInstanceID,
-			guestInstanceID,
-			allSubnets,
 		); err != nil {
 			handler.SetError(i, err)
 			continue
@@ -1169,10 +1125,7 @@ type containerProfileHandler struct {
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
 	idx int,
-	networkService NetworkService,
 	guestMachineName coremachine.Name,
-	_ network.InterfaceInfos,
-	_, _ instance.Id, _ network.SubnetInfos,
 ) error {
 	unitNames, err := h.applicationService.GetUnitNamesOnMachine(ctx, guestMachineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {

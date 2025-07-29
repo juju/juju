@@ -304,9 +304,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 		modelName:          "testme",
 		logger:             loggertesting.WrapCheckLog(c),
 	}
-	// ProviderCallContext and BridgePolicy are not
-	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(c.Context(), 0, s.networkService, coremachine.Name("0/lxd/0"), network.InterfaceInfos{}, "", "", nil)
+	err := ctx.ProcessOneContainer(c.Context(), 0, "0/lxd/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
@@ -344,9 +342,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *tc.C) {
 		modelName:          "testme",
 		logger:             loggertesting.WrapCheckLog(c),
 	}
-	// ProviderCallContext and BridgePolicy are not
-	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(c.Context(), 0, s.networkService, coremachine.Name("0/lxd/0"), network.InterfaceInfos{}, "", "", nil)
+	err := ctx.ProcessOneContainer(c.Context(), 0, "0/lxd/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
