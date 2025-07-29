@@ -202,6 +202,16 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelClaimGetter = NewMockModelClaimGetter(ctrl)
 	s.modelClaimGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.claimer, nil).AnyTimes()
 
+	c.Cleanup(func() {
+		s.trackedObjectStore = nil
+		s.controllerMetadataService = nil
+		s.modelMetadataServiceGetter = nil
+		s.modelServiceGetter = nil
+		s.modelClaimGetter = nil
+		s.modelMetadataService = nil
+		s.modelServices = nil
+	})
+
 	return ctrl
 }
 

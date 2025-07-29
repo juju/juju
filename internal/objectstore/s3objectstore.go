@@ -317,6 +317,7 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 }
 
 // RemoveAll removes all data in the object store, namespaced to the model.
+// This is a destructive operation and should be used with caution.
 func (t *s3ObjectStore) RemoveAll(ctx context.Context) error {
 	select {
 	case <-t.catacomb.Dying():

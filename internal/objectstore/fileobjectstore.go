@@ -356,6 +356,7 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 }
 
 // RemoveAll removes all data in the object store, namespaced to the model.
+// This is a destructive operation and should be used with caution.
 func (t *fileObjectStore) RemoveAll(ctx context.Context) error {
 	// This will remove all the files in the namespaced directory.
 	if err := os.RemoveAll(t.path); err != nil {

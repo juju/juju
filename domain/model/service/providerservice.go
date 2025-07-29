@@ -17,7 +17,7 @@ import (
 
 // ProviderModelState is the model state required by the provide service.
 type ProviderModelState interface {
-	// GetModel returns a the model info.
+	// GetModel returns the model info.
 	GetModel(context.Context) (coremodel.ModelInfo, error)
 }
 

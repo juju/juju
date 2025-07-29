@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package service
@@ -15,7 +15,7 @@ import (
 
 // ObjectStoreModelState is the model state required by the provide service.
 type ObjectStoreModelState interface {
-	// GetModel returns a the model info.
+	// GetModel returns the model info.
 	GetModel(context.Context) (coremodel.ModelInfo, error)
 }
 
@@ -51,6 +51,6 @@ func (s ObjectStoreService) WatchModel(ctx context.Context) (watcher.NotifyWatch
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
-		eventsource.PredicateFilter("model", changestream.All, eventsource.AlwaysPredicate),
+		eventsource.NamespaceFilter("model", changestream.All),
 	)
 }
