@@ -964,6 +964,23 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *gc.C, ctrl *gomock.C
 		}
 		return nil, opened, nil
 	}).Times(1)
+	s.firewaller.EXPECT().ModelFirewallRules().MinTimes(1).DoAndReturn(func() (firewall.IngressRules, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.modelIngressRules, nil
+	})
+	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).MinTimes(1).DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.envModelPorts, nil
+	})
+	s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).MinTimes(1).DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		add, _ := s.envModelPorts.Diff(rules)
+		s.envModelPorts = append(s.envModelPorts, add...)
+		return nil
+	})
 
 	// Added machine watches units.
 	unitsCh := make(chan []string, 5)
@@ -981,26 +998,6 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *gc.C, ctrl *gomock.C
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).Times(1)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).Times(1)
-
-	s.machinesCh <- []string{m.Tag().Id()}
-
-	s.firewaller.EXPECT().ModelFirewallRules().MinTimes(1).MaxTimes(2).DoAndReturn(func() (firewall.IngressRules, error) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		return s.modelIngressRules, nil
-	})
-	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).MinTimes(1).MaxTimes(2).DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		return s.envModelPorts, nil
-	})
-	s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		add, _ := s.envModelPorts.Diff(rules)
-		s.envModelPorts = append(s.envModelPorts, add...)
-		return nil
-	}).Times(1)
 
 	return m
 }
