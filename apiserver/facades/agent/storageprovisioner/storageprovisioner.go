@@ -730,8 +730,8 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 		result := params.Filesystem{
 			FilesystemTag: tag.String(),
 			Info: params.FilesystemInfo{
-				FilesystemId: fs.FilesystemID,
-				Size:         fs.Size,
+				ProviderId: fs.ProviderID,
+				Size:       fs.Size,
 			},
 		}
 		if fs.BackingVolume == nil {
@@ -993,7 +993,6 @@ func (s *StorageProvisionerAPIv4) SetVolumeInfo(ctx context.Context, args params
 
 // SetFilesystemInfo records the details of newly provisioned filesystems.
 func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args params.Filesystems) (params.ErrorResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Filesystems)),
 	}

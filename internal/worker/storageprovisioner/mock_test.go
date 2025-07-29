@@ -332,7 +332,7 @@ func (m *mockFilesystemAccessor) provisionFilesystem(tag names.FilesystemTag) pa
 	f := params.Filesystem{
 		FilesystemTag: tag.String(),
 		Info: params.FilesystemInfo{
-			FilesystemId: "fs-" + tag.Id(),
+			ProviderId: "fs-" + tag.Id(),
 		},
 	}
 	m.provisionedFilesystems[tag.String()] = f
@@ -408,9 +408,9 @@ func (v *mockFilesystemAccessor) RemoveFilesystemParams(_ context.Context, files
 			continue
 		}
 		filesystemParams := params.RemoveFilesystemParams{
-			Provider:     "dummy",
-			FilesystemId: f.Info.FilesystemId,
-			Destroy:      tag.Id() != releasingFilesystemId,
+			Provider:   "dummy",
+			ProviderId: f.Info.ProviderId,
+			Destroy:    tag.Id() != releasingFilesystemId,
 		}
 		results[i] = params.RemoveFilesystemParamsResult{Result: filesystemParams}
 	}
@@ -423,10 +423,10 @@ func (f *mockFilesystemAccessor) FilesystemAttachmentParams(_ context.Context, i
 		// Parameters are returned regardless of whether the attachment
 		// exists; this is to support reattachment.
 		instanceId := f.provisionedMachines[id.MachineTag]
-		filesystemId := f.provisionedMachinesFilesystems[id.AttachmentTag].Info.FilesystemId
+		filesystemId := f.provisionedMachinesFilesystems[id.AttachmentTag].Info.ProviderId
 		result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
 			MachineTag:    id.MachineTag,
-			FilesystemId:  filesystemId,
+			ProviderId:    filesystemId,
 			FilesystemTag: id.AttachmentTag,
 			InstanceId:    string(instanceId),
 			Provider:      "dummy",
@@ -683,8 +683,8 @@ func (s *dummyFilesystemSource) CreateFilesystems(ctx context.Context, params []
 		results[i].Filesystem = &storage.Filesystem{
 			Tag: p.Tag,
 			FilesystemInfo: storage.FilesystemInfo{
-				Size:         p.Size,
-				FilesystemId: "id-" + p.Tag.Id(),
+				Size:       p.Size,
+				ProviderId: "id-" + p.Tag.Id(),
 			},
 		}
 	}
@@ -715,7 +715,7 @@ func (s *dummyFilesystemSource) AttachFilesystems(ctx context.Context, params []
 
 	results := make([]storage.AttachFilesystemsResult, len(params))
 	for i, p := range params {
-		if p.FilesystemId == "" {
+		if p.ProviderId == "" {
 			panic("AttachFilesystems called with unprovisioned filesystem")
 		}
 		if p.InstanceId == "" {
@@ -725,7 +725,7 @@ func (s *dummyFilesystemSource) AttachFilesystems(ctx context.Context, params []
 			Filesystem: p.Filesystem,
 			Machine:    p.Machine,
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
-				Path: "/srv/" + p.FilesystemId,
+				Path: "/srv/" + p.ProviderId,
 			},
 		}
 	}
@@ -761,8 +761,8 @@ func (s *mockManagedFilesystemSource) CreateFilesystems(ctx context.Context, arg
 		results[i].Filesystem = &storage.Filesystem{
 			Tag: arg.Tag,
 			FilesystemInfo: storage.FilesystemInfo{
-				Size:         blockDevice.SizeMiB,
-				FilesystemId: blockDevice.DeviceName,
+				Size:       blockDevice.SizeMiB,
+				ProviderId: blockDevice.DeviceName,
 			},
 		}
 	}

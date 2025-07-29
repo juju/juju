@@ -262,8 +262,8 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 			FilesystemTag: "filesystem-0-0",
 			VolumeTag:     "volume-0-1",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-0-0",
-				Size:         512,
+				ProviderId: "provider-supplied-filesystem-0-0",
+				Size:       512,
 			},
 			Life:   "alive",
 			Status: createTestStatus(corestatus.Attached, "", t),
@@ -296,8 +296,8 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 		{
 			FilesystemTag: "filesystem-1",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-1",
-				Size:         2048,
+				ProviderId: "provider-supplied-filesystem-1",
+				Size:       2048,
 			},
 			Status: createTestStatus(corestatus.Attaching, "failed to attach, will retry", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -321,8 +321,8 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 		{
 			FilesystemTag: "filesystem-2",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-2",
-				Size:         3,
+				ProviderId: "provider-supplied-filesystem-2",
+				Size:       3,
 			},
 			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -338,9 +338,9 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 		{
 			FilesystemTag: "filesystem-4",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-4",
-				Pool:         "radiance",
-				Size:         1024,
+				ProviderId: "provider-supplied-filesystem-4",
+				Pool:       "radiance",
+				Size:       1024,
 			},
 			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -382,8 +382,8 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 			// attached to any machines.
 			FilesystemTag: "filesystem-5",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-5",
-				Size:         3,
+				ProviderId: "provider-supplied-filesystem-5",
+				Size:       3,
 			},
 			Status: createTestStatus(corestatus.Attached, "", t),
 			Storage: &params.StorageDetails{

@@ -52,8 +52,8 @@ func testDetachFilesystems(
 	}
 
 	results, err := source.DetachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
-		Filesystem:   names.NewFilesystemTag("0/0"),
-		FilesystemId: "filesystem-0-0",
+		Filesystem: names.NewFilesystemTag("0/0"),
+		ProviderId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{
 			Machine:    names.NewMachineTag("0"),
 			InstanceId: "inst-id",

@@ -94,8 +94,8 @@ func (s *managedfsSuite) TestCreateFilesystems(c *tc.C) {
 			names.NewFilesystemTag("0/0"),
 			names.NewVolumeTag("0"),
 			storage.FilesystemInfo{
-				FilesystemId: "filesystem-0-0",
-				Size:         2,
+				ProviderId: "filesystem-0-0",
+				Size:       2,
 			},
 		},
 	}, {
@@ -103,8 +103,8 @@ func (s *managedfsSuite) TestCreateFilesystems(c *tc.C) {
 			names.NewFilesystemTag("0/1"),
 			names.NewVolumeTag("1"),
 			storage.FilesystemInfo{
-				FilesystemId: "filesystem-0-1",
-				Size:         3,
+				ProviderId: "filesystem-0-1",
+				Size:       3,
 			},
 		},
 	}})
@@ -207,8 +207,8 @@ func (s *managedfsSuite) testAttachFilesystems(c *tc.C, readOnly, reattach bool,
 	}
 
 	results, err := source.AttachFilesystems(c.Context(), []storage.FilesystemAttachmentParams{{
-		Filesystem:   names.NewFilesystemTag("0/0"),
-		FilesystemId: "filesystem-0-0",
+		Filesystem: names.NewFilesystemTag("0/0"),
+		ProviderId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{
 			Machine:    names.NewMachineTag("0"),
 			InstanceId: "inst-ance",

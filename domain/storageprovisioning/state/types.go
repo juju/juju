@@ -168,6 +168,7 @@ func (l volumeLives) Iter(yield func(string, life.Life) bool) {
 
 type filesystem struct {
 	FilesystemID string           `db:"filesystem_id"`
+	ProviderID   string           `db:"provider_id"`
 	VolumeID     sql.Null[string] `db:"volume_id"`
 	Size         uint64           `db:"size_mib"`
 }

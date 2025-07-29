@@ -241,8 +241,8 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 				Result: params.Filesystem{
 					FilesystemTag: "filesystem-100",
 					Info: params.FilesystemInfo{
-						FilesystemId: "filesystem-id",
-						Size:         1024,
+						ProviderId: "filesystem-id",
+						Size:       1024,
 					},
 				},
 			}},
@@ -260,8 +260,8 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 		Result: params.Filesystem{
 			FilesystemTag: "filesystem-100",
 			Info: params.FilesystemInfo{
-				FilesystemId: "filesystem-id",
-				Size:         1024,
+				ProviderId: "filesystem-id",
+				Size:       1024,
 			},
 		},
 	}})
@@ -544,9 +544,9 @@ func (s *provisionerSuite) TestRemoveFilesystemParams(c *tc.C) {
 		*(result.(*params.RemoveFilesystemParamsResults)) = params.RemoveFilesystemParamsResults{
 			Results: []params.RemoveFilesystemParamsResult{{
 				Result: params.RemoveFilesystemParams{
-					Provider:     "foo",
-					FilesystemId: "bar",
-					Destroy:      true,
+					Provider:   "foo",
+					ProviderId: "bar",
+					Destroy:    true,
 				},
 			}},
 		}
@@ -559,9 +559,9 @@ func (s *provisionerSuite) TestRemoveFilesystemParams(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(filesystemParams, tc.DeepEquals, []params.RemoveFilesystemParamsResult{{
 		Result: params.RemoveFilesystemParams{
-			Provider:     "foo",
-			FilesystemId: "bar",
-			Destroy:      true,
+			Provider:   "foo",
+			ProviderId: "bar",
+			Destroy:    true,
 		},
 	}})
 }
@@ -860,8 +860,8 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
 			Filesystems: []params.Filesystem{{
 				FilesystemTag: "filesystem-100",
 				Info: params.FilesystemInfo{
-					FilesystemId: "123",
-					Size:         1024,
+					ProviderId: "123",
+					Size:       1024,
 				},
 			}},
 		})
@@ -878,8 +878,8 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
 	filesystems := []params.Filesystem{{
 		FilesystemTag: "filesystem-100",
 		Info: params.FilesystemInfo{
-			FilesystemId: "123",
-			Size:         1024,
+			ProviderId: "123",
+			Size:       1024,
 		},
 	}}
 	errorResults, err := st.SetFilesystemInfo(c.Context(), filesystems)

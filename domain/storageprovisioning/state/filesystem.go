@@ -42,6 +42,7 @@ func (st *State) GetFilesystem(
 	stmt, err := st.Prepare(`
 SELECT (
 	sfs.filesystem_id,
+	sfs.provider_id,
 	sv.volume_id,
 	sfs.size_mib
 ) AS (&filesystem.*)
@@ -80,6 +81,7 @@ WHERE     sfs.filesystem_id=$filesystem.filesystem_id
 	return storageprovisioning.Filesystem{
 		BackingVolume: backingVolume,
 		FilesystemID:  fs.FilesystemID,
+		ProviderID:    fs.ProviderID,
 		Size:          fs.Size,
 	}, nil
 }

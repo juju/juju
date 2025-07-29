@@ -148,8 +148,8 @@ func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams
 	}
 
 	info := storage.FilesystemInfo{
-		FilesystemId: params.Tag.String(),
-		Size:         sizeInMiB,
+		ProviderId: params.Tag.String(),
+		Size:       sizeInMiB,
 	}
 
 	// Creating the mount is the responsibility of AttachFilesystems.
@@ -269,8 +269,8 @@ func (s *tmpfsFilesystemSource) readFilesystemInfo(tag names.FilesystemTag) (sto
 		return storage.FilesystemInfo{}, errors.New("invalid filesystem info: missing size")
 	}
 	return storage.FilesystemInfo{
-		FilesystemId: tag.String(),
-		Size:         *info.Size,
+		ProviderId: tag.String(),
+		Size:       *info.Size,
 	}, nil
 }
 

@@ -120,8 +120,8 @@ func (s *storageSuite) TestCreateFilesystems(c *tc.C) {
 	c.Assert(results[0].Filesystem, tc.DeepEquals, &storage.Filesystem{
 		Tag: names.NewFilesystemTag("0"),
 		FilesystemInfo: storage.FilesystemInfo{
-			FilesystemId: "radiance:juju-f75cba-filesystem-0",
-			Size:         1024,
+			ProviderId: "radiance:juju-f75cba-filesystem-0",
+			Size:       1024,
 		},
 	})
 
@@ -157,8 +157,8 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *tc.C) {
 		Tag:    names.NewFilesystemTag("0"),
 		Volume: names.VolumeTag{},
 		FilesystemInfo: storage.FilesystemInfo{
-			FilesystemId: "radiance:juju-f75cba-filesystem-0",
-			Size:         1024,
+			ProviderId: "radiance:juju-f75cba-filesystem-0",
+			Size:       1024,
 		},
 	})
 
@@ -324,9 +324,9 @@ func (s *storageSuite) TestAttachFilesystems(c *tc.C) {
 			InstanceId: "inst-0",
 			ReadOnly:   true,
 		},
-		Filesystem:   names.NewFilesystemTag("0"),
-		FilesystemId: "pool:filesystem-0",
-		Path:         "/mnt/path",
+		Filesystem: names.NewFilesystemTag("0"),
+		ProviderId: "pool:filesystem-0",
+		Path:       "/mnt/path",
 	}, {
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
@@ -334,18 +334,18 @@ func (s *storageSuite) TestAttachFilesystems(c *tc.C) {
 			InstanceId: "inst-0",
 			ReadOnly:   true,
 		},
-		Filesystem:   names.NewFilesystemTag("1"),
-		FilesystemId: "pool:filesystem-1",
-		Path:         "/mnt/socio",
+		Filesystem: names.NewFilesystemTag("1"),
+		ProviderId: "pool:filesystem-1",
+		Path:       "/mnt/socio",
 	}, {
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("42"),
 			InstanceId: "inst-42",
 		},
-		Filesystem:   names.NewFilesystemTag("2"),
-		FilesystemId: "pool:filesystem-2",
-		Path:         "/mnt/psycho",
+		Filesystem: names.NewFilesystemTag("2"),
+		ProviderId: "pool:filesystem-2",
+		Path:       "/mnt/psycho",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 3)
@@ -404,9 +404,9 @@ func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsInstanceError(c *t
 			InstanceId: "inst-0",
 			ReadOnly:   true,
 		},
-		Filesystem:   names.NewFilesystemTag("0"),
-		FilesystemId: "pool:filesystem-0",
-		Path:         "/mnt/path",
+		Filesystem: names.NewFilesystemTag("0"),
+		ProviderId: "pool:filesystem-0",
+		Path:       "/mnt/path",
 	}})
 	c.Assert(err, tc.ErrorMatches, "not authorized")
 	c.Assert(results, tc.HasLen, 0)
@@ -439,9 +439,9 @@ func (s *storageSuite) TestAttachFilesystemsInvalidCredentialsAttachingFilesyste
 			InstanceId: "inst-0",
 			ReadOnly:   true,
 		},
-		Filesystem:   names.NewFilesystemTag("0"),
-		FilesystemId: "pool:filesystem-0",
-		Path:         "/mnt/path",
+		Filesystem: names.NewFilesystemTag("0"),
+		ProviderId: "pool:filesystem-0",
+		Path:       "/mnt/path",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
@@ -471,24 +471,24 @@ func (s *storageSuite) TestDetachFilesystems(c *tc.C) {
 			Machine:    names.NewMachineTag("123"),
 			InstanceId: "inst-0",
 		},
-		Filesystem:   names.NewFilesystemTag("0"),
-		FilesystemId: "pool:filesystem-0",
+		Filesystem: names.NewFilesystemTag("0"),
+		ProviderId: "pool:filesystem-0",
 	}, {
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
 			InstanceId: "inst-0",
 		},
-		Filesystem:   names.NewFilesystemTag("1"),
-		FilesystemId: "pool:filesystem-1",
+		Filesystem: names.NewFilesystemTag("1"),
+		ProviderId: "pool:filesystem-1",
 	}, {
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("42"),
 			InstanceId: "inst-42",
 		},
-		Filesystem:   names.NewFilesystemTag("2"),
-		FilesystemId: "pool:filesystem-2",
+		Filesystem: names.NewFilesystemTag("2"),
+		ProviderId: "pool:filesystem-2",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 3)
@@ -524,8 +524,8 @@ func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsInstanceErrors(c *
 			Machine:    names.NewMachineTag("123"),
 			InstanceId: "inst-0",
 		},
-		Filesystem:   names.NewFilesystemTag("0"),
-		FilesystemId: "pool:filesystem-0",
+		Filesystem: names.NewFilesystemTag("0"),
+		ProviderId: "pool:filesystem-0",
 	}})
 	c.Assert(err, tc.ErrorMatches, "not authorized")
 	c.Assert(results, tc.HasLen, 0)
@@ -557,8 +557,8 @@ func (s *storageSuite) TestDetachFilesystemsInvalidCredentialsDetachFilesystem(c
 			Machine:    names.NewMachineTag("123"),
 			InstanceId: "inst-0",
 		},
-		Filesystem:   names.NewFilesystemTag("0"),
-		FilesystemId: "pool:filesystem-0",
+		Filesystem: names.NewFilesystemTag("0"),
+		ProviderId: "pool:filesystem-0",
 	}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 1)
@@ -587,8 +587,8 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, storage.FilesystemInfo{
-		FilesystemId: "foo:bar",
-		Size:         10 * 1024,
+		ProviderId: "foo:bar",
+		Size:       10 * 1024,
 	})
 
 	update := api.StorageVolumePut{

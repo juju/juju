@@ -129,8 +129,8 @@ func (s *ListSuite) TestCAASFilesystemListTabular(c *tc.C) {
 			{
 				FilesystemTag: "filesystem-0-0",
 				Info: params.FilesystemInfo{
-					FilesystemId: "provider-supplied-filesystem-0-0",
-					Size:         512,
+					ProviderId: "provider-supplied-filesystem-0-0",
+					Size:       512,
 				},
 				Life:   "alive",
 				Status: createTestStatus(status.Attached, "", s.mockAPI.time),
@@ -229,8 +229,8 @@ func (s mockListAPI) ListFilesystems(ctx context.Context, machines []string) ([]
 			FilesystemTag: "filesystem-0-0",
 			VolumeTag:     "volume-0-1",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-0-0",
-				Size:         512,
+				ProviderId: "provider-supplied-filesystem-0-0",
+				Size:       512,
 			},
 			Life:   "alive",
 			Status: createTestStatus(status.Attached, "", s.time),
@@ -263,8 +263,8 @@ func (s mockListAPI) ListFilesystems(ctx context.Context, machines []string) ([]
 		{
 			FilesystemTag: "filesystem-1",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-1",
-				Size:         2048,
+				ProviderId: "provider-supplied-filesystem-1",
+				Size:       2048,
 			},
 			Status: createTestStatus(status.Attaching, "failed to attach, will retry", s.time),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -288,8 +288,8 @@ func (s mockListAPI) ListFilesystems(ctx context.Context, machines []string) ([]
 		{
 			FilesystemTag: "filesystem-2",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-2",
-				Size:         3,
+				ProviderId: "provider-supplied-filesystem-2",
+				Size:       3,
 			},
 			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -305,9 +305,9 @@ func (s mockListAPI) ListFilesystems(ctx context.Context, machines []string) ([]
 		{
 			FilesystemTag: "filesystem-4",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-4",
-				Pool:         "radiance",
-				Size:         1024,
+				ProviderId: "provider-supplied-filesystem-4",
+				Pool:       "radiance",
+				Size:       1024,
 			},
 			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -349,8 +349,8 @@ func (s mockListAPI) ListFilesystems(ctx context.Context, machines []string) ([]
 			// attached to any machines.
 			FilesystemTag: "filesystem-5",
 			Info: params.FilesystemInfo{
-				FilesystemId: "provider-supplied-filesystem-5",
-				Size:         3,
+				ProviderId: "provider-supplied-filesystem-5",
+				Size:       3,
 			},
 			Status: createTestStatus(status.Attached, "", s.time),
 			Storage: &params.StorageDetails{
