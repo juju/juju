@@ -86,6 +86,10 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select machines query: %w", err)
 	}
 
+	updateModelLife, err := st.Prepare(`UPDATE model_life SET life_id = 1 WHERE model_uuid = $entityUUID.uuid AND life_id = 0`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update model life query: %w", err)
+	}
 	updateUnits, err := st.Prepare(`UPDATE unit SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update units query: %w", err)
@@ -112,6 +116,11 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 		artifacts                        removal.ModelArtifacts
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Update the model life to dying.
+		if err := tx.Query(ctx, updateModelLife, eUUID).Run(); err != nil {
+			return errors.Errorf("setting model life to dying: %w", err)
+		}
+
 		if err := tx.Query(ctx, selectUnits).GetAll(&units); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting units: %w", err)
 		}

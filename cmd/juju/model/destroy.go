@@ -405,7 +405,7 @@ func waitForModelDestroyed(
 				fmt.Fprint(ctx.Stderr, ".")
 				lineLength++
 			} else {
-				fmt.Fprint(ctx.Stderr, fmt.Sprintf("\n%v...", msg))
+				fmt.Fprintf(ctx.Stderr, "\n%v...", msg)
 				reported = msg
 				lineLength = len(msg) + 3
 			}
@@ -437,7 +437,7 @@ func (s modelResourceErrorStatusSummary) PrettyPrint(writer io.Writer) error {
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 	w.Println(`
 The following errors were encountered during destroying the model.
 You can fix the problem causing the errors and run destroy-model again.
