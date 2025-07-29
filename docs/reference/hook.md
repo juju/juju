@@ -170,13 +170,13 @@ and waiting for the desired event to fire. If the next prompt looks as below
 
     root@database-0:/var/lib/juju#
 
-this means that we are still waiting for an event to occur.
+meaning that we are still waiting for an event to occur.
 
 As soon as that happens, the prompt will look similar to the below
 
     root@database-0:/var/lib/juju/agents/unit-database-0/charm#
 
-and this means we're inside the charm execution context.
+meaning we're inside the charm hook execution context.
 
 At this point,  typing `printenv` will print out the environment variables.
 
@@ -291,15 +291,16 @@ This section describes the workflows and associated hook events which are import
 (relation-hooks)=
 ### Relation hooks
 
-The hook names that these kinds represent will be prefixed by the endpoint name; for example, `database-relation-joined`.
+When an application becomes involved in a relation, each one of its units will start to receive relevant hook events
+for that relation.
 
 For every endpoint defined by a charm, relation hook events are named after the charm endpoint:
 
-* `<name>-relation-created`
-* `<name>-relation-joined`
-* `<name>-relation-changed`
-* `<name>-relation-departed`
-* `<name>-relation-broken`
+* `<endpoint>-relation-created`
+* `<endpoint>-relation-joined`
+* `<endpoint>-relation-changed`
+* `<endpoint>-relation-departed`
+* `<endpoint>-relation-broken`
 
 For each charm endpoint, any or all of the above relation hooks can be implemented.
 Relation hooks operate in an environment with additional environment variables available:
@@ -317,6 +318,7 @@ For every relation in which a unit participates, hooks for the appropriate charm
 The `relation-created` hook always runs once when the relation is first created, before any related units are processed.
 
 The `relation-joined` hook always runs once when a related unit is first seen.
+As related applications are scaled up, each unit will receive `<endpoint>-relation-joined`, once for each related unit being added.
 
 The `relation-changed` hook for a given unit always runs once immediately following the relation-joined hook for that unit, and subsequently whenever the related unit changes its settings (by calling relation-set and exiting without error).
 
@@ -328,12 +330,24 @@ Non-relation hooks may intervene, as may hooks for other relations, and even for
 ```
 
 The `relation-departed` hook for a given unit always runs once when a related unit is no longer related.
-After the `relation-departed` hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
+Any time a related applications is scaled down, each unit will receive `<endpoint>-relation-departed`, once for each related unit being removed.
+After the `relation-departed` hook has run, no further notifications will be received from that unit; however, its settings will remain accessible
+via relation-get for the complete lifetime of the relation. It's also still possible to call `relation-set`.
 This hook also sets an additional environment variable:
 
 * JUJU_DEPARTING_UNIT holds the name of the related unit departing the relation.
 
-The `relation-broken` hook is not specific to any unit, and always runs once when the local unit is ready to depart the relation itself. Before this hook is run, a relation-departed hook will be executed for every unit known to be related; it will never run while the relation appears to have members, but it may be the first and only hook to run for a given relation. The `stop` hook will not run while relations remain to be broken.
+The `relation-broken` hook is not specific to any unit, and always runs once when the local unit is ready to depart the relation itself.
+Before this hook is run, a `relation-departed` hook will be executed for every unit known to be related; it will never run while the relation
+appears to have members, but it may be the first and only hook to run for a given relation.
+The `stop` hook will not run until all relations have run the `relation-broken` hook.
+
+```{note}
+So what's the difference between `relation-departed` and `relation-broken`?
+Think of `relation-departed` as the "saying goodbye" event; relation settings can still be read and a relation can even still be set.
+Once `relation-broken` fires, however, the relation no longer exists. This is a good spot to do any final cleanup, if necessary.
+Both `relation-departed` and `relation-broken` will always fire, regardless of how the relation is terminated.
+```
 
 (secret-hooks)=
 ### Secret hooks
@@ -351,8 +365,11 @@ Secret hooks are used to:
 * inform the consumer of a secret that a new revision is available.
 
 The `secret-expired` hook is triggered when the secret's expiry time has been reached and the expired secret revision should be removed.
+
 The `secret-rotate` hook is triggered when a secret has become stale at the end of its rotation interval and a new revision should be created.
+
 The `secret-remove` hook is triggered when there are revisions of a secret that are no longer being tracked by any consumers and can be safely removed.
+
 The `secret-changed` hook is triggered when there is a new revision available for a previously consumed secret.
 
 (storage-hooks)=
@@ -360,10 +377,10 @@ The `secret-changed` hook is triggered when there is a new revision available fo
 
 The hook names that these kinds represent will be prefixed by the storage name; for example, `database-storage-attached`.
 
-For every storage defined by a charm, storage hook events are named after the charm endpoint:
+For every storage defined by a charm, storage hook events are named after the storage name:
 
-* `<name>-storage-attached`
-* `<name>-storage-detaching`
+* `<storage_name>-storage-attached`
+* `<storage_name>-storage-detaching`
 
 For each charm storage, any or all of the above storage hooks can be implemented.
 Storage hooks operate in an environment with additional environment variables available:
@@ -407,21 +424,6 @@ Workload hooks operate in an environment with additional environment variables a
 ## List of hooks
 
 > [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go)
-
-(hook-collect-metrics)=
-### `collect-metrics` (deprecated)
-
-<!--
-*What triggers it?*
-
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-*Which environment variables is it executed with?*
-
-*Who gets it*?
--->
-
-Exposes metrics for external monitoring.
 
 (hook-config-changed)=
 ### `config-changed`
@@ -724,11 +726,11 @@ Also removing a relation altogether will trigger `*-relation-departed` events (f
 
 Of course, removing the application altogether, instead of a single unit, will have a similar effect and also trigger these events.
 
-Both relation-departed and relation-broken will always fire, regardless of how the relation is terminated.
+Both `relation-departed` and `relation-broken` will always fire, regardless of how the relation is terminated.
 
 ```{note}
 
-For a peer relation, the relation itself will never be destroyed until the application is removed and no units remain, at which point there won't be anything to call the relation-broken hook on anyway.
+For a peer relation, the relation itself will never be destroyed until the application is removed and no units remain, at which point there won't be anything to call the `relation-broken` hook on anyway.
 
 ```
 
