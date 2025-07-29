@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/collections/transform"
-
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
@@ -72,62 +70,91 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 		return errors.Capture(err)
 	}
 
-	getSubnets, err := s.findSubnetsForImportIpAddress(ctx)
+	subnets, err := s.st.GetAllSubnets(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("getting all subnets: %w", err)
 	}
-	transformAddress := newAddressTransformer(ctx, ident, getSubnets)
-	useData, err := transform.SliceOrErr(data,
-		func(device internal.ImportLinkLayerDevice) (internal.ImportLinkLayerDevice, error) {
-			netNodeUUID, ok := namesToUUIDs[device.MachineID]
-			if !ok {
-				return device, errors.Errorf("no net node found for machineID %q", device.MachineID)
-			}
-			device.NetNodeUUID = netNodeUUID
 
-			if len(device.Addresses) == 0 {
-				return device, nil
-			}
+	// Create a map of provider subnet ID to subnet info for quick lookup
+	subnetByProviderId := make(map[string]network.SubnetInfo)
+	for _, subnet := range subnets {
+		subnetByProviderId[subnet.ProviderId.String()] = subnet
+	}
 
-			device.Addresses, err = transform.SliceOrErr(device.Addresses, transformAddress)
-			if err != nil {
-				return device, errors.Errorf("converting addresses: %w", err)
-			}
-
-			return device, nil
-		})
-	if err != nil {
-		return errors.Errorf("converting devices: %w", err)
+	// Process each device
+	useData := make([]internal.ImportLinkLayerDevice, 0, len(data))
+	for _, device := range data {
+		dev, err := s.transformImportLinkLayerDevice(ctx, device, namesToUUIDs, subnets, subnetByProviderId)
+		if err != nil {
+			return errors.Errorf("converting device %q on machine %q: %w", device.Name, device.MachineID, err)
+		}
+		useData = append(useData, dev)
 	}
 
 	return s.st.ImportLinkLayerDevices(ctx, useData)
 }
 
-// findSubnetsForImportIpAddress returns a finder function to find subnets for
-// a given imported IP address.
-// This function returns a subnet UUID if a ProviderSubnetID is provided, or
-// tries to match the subnet through the address subnetCIDR if not.
-func (s *MigrationService) findSubnetsForImportIpAddress(ctx context.Context,
-) (subnetFinder[internal.ImportIPAddress], error) {
-	subnets, err := s.st.GetAllSubnets(ctx)
-	if err != nil {
-		return nil, errors.Errorf("getting all subnets: %w", err)
+// transformImportLinkLayerDevice transforms an ImportLinkLayerDevice for
+// migration by setting net node UUID and transforming addresses.
+// It uses the mapping of names to UUIDs and subnet information for processing.
+// Returns the transformed device or an error if processing fails.
+func (s *MigrationService) transformImportLinkLayerDevice(
+	ctx context.Context,
+	device internal.ImportLinkLayerDevice,
+	namesToUUIDs map[string]string,
+	subnets network.SubnetInfos,
+	subnetByProviderId map[string]network.SubnetInfo,
+) (internal.ImportLinkLayerDevice, error) {
+	// Set the net node UUID
+	netNodeUUID, ok := namesToUUIDs[device.MachineID]
+	if !ok {
+		return internal.ImportLinkLayerDevice{}, errors.Errorf("no net node found for machine")
 	}
-	subnetByProviderId := transform.SliceToMap(subnets, func(f network.SubnetInfo) (string, network.SubnetInfo) {
-		return f.ProviderId.String(), f
-	})
+	device.NetNodeUUID = netNodeUUID
 
-	return func(ctx context.Context, addr internal.ImportIPAddress) (network.SubnetInfos, error) {
-		if addr.ProviderSubnetID != nil {
-			subnet, ok := subnetByProviderId[*addr.ProviderSubnetID]
-			if !ok {
-				return nil, errors.Errorf("no subnet found for provider subnet ID %q", *addr.ProviderSubnetID)
+	// Process addresses if any
+	if len(device.Addresses) > 0 {
+		transformedAddresses := make([]internal.ImportIPAddress, 0, len(device.Addresses))
+		for _, addr := range device.Addresses {
+			transformedAddr, err := s.transformImportIPAddress(ctx, addr, subnets, subnetByProviderId)
+			if err != nil {
+				return internal.ImportLinkLayerDevice{}, errors.Errorf("converting address %q: %w",
+					addr.AddressValue, err)
 			}
-			return network.SubnetInfos{subnet}, nil
+			transformedAddresses = append(transformedAddresses, transformedAddr)
 		}
-		result, err := subnets.GetByCIDR(addr.SubnetCIDR)
-		return result, errors.Capture(err)
-	}, nil
+		device.Addresses = transformedAddresses
+	}
+	return device, nil
+}
+
+// transformImportIPAddress transforms an ImportIPAddress by finding and setting its subnet UUID
+func (s *MigrationService) transformImportIPAddress(
+	ctx context.Context,
+	addr internal.ImportIPAddress,
+	subnets network.SubnetInfos,
+	subnetByProviderId map[string]network.SubnetInfo,
+) (internal.ImportIPAddress, error) {
+	var candidateSubnets network.SubnetInfos
+
+	// If provider subnet ID is provided, use it to find the subnet
+	if addr.ProviderSubnetID != nil {
+		subnet, ok := subnetByProviderId[*addr.ProviderSubnetID]
+		if !ok {
+			return addr, errors.Errorf("no subnet found for provider subnet ID %q", *addr.ProviderSubnetID)
+		}
+		candidateSubnets = network.SubnetInfos{subnet}
+	} else {
+		// Otherwise, use the subnet CIDR to find matching subnets
+		var err error
+		candidateSubnets, err = subnets.GetByCIDR(addr.SubnetCIDR)
+		if err != nil {
+			return addr, errors.Capture(err)
+		}
+	}
+	var err error
+	addr.SubnetUUID, err = s.ensureOneSubnet(ctx, candidateSubnets)
+	return addr, errors.Capture(err)
 }
 
 // ImportCloudServices is part of the [modelmigration.MigrationService]
@@ -161,104 +188,89 @@ func (s *MigrationService) getPlaceholderLinkLayerDevices(
 	ctx context.Context,
 	services []internal.ImportCloudService,
 ) ([]internal.ImportLinkLayerDevice, error) {
-
-	addressToImport := func(addr internal.ImportCloudServiceAddress) internal.ImportIPAddress {
-		return internal.ImportIPAddress{
-			UUID:         addr.UUID,
-			Type:         network.AddressType(addr.Type),
-			Scope:        network.Scope(addr.Scope),
-			AddressValue: addr.Value,
-			ConfigType:   network.ConfigStatic,
-			Origin:       network.Origin(addr.Origin),
-		}
-	}
-	getSubnets, err := s.findSubnetsForImportCloudServiceAddress(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	transformAddress := newAddressTransformer(ctx, addressToImport, getSubnets)
-
-	devices, err := transform.SliceOrErr(services,
-		func(service internal.ImportCloudService) (internal.ImportLinkLayerDevice, error) {
-			addresses, err := transform.SliceOrErr(service.Addresses, transformAddress)
-			if err != nil {
-				return internal.ImportLinkLayerDevice{}, errors.Errorf("converting addresses: %w", err)
-			}
-			return internal.ImportLinkLayerDevice{
-				UUID:            service.DeviceUUID,
-				IsAutoStart:     true,
-				IsEnabled:       true,
-				NetNodeUUID:     service.NetNodeUUID,
-				Name:            fmt.Sprintf("placeholder for %q cloud service", service.ApplicationName),
-				Type:            network.UnknownDevice,
-				VirtualPortType: network.NonVirtualPort,
-				Addresses:       addresses,
-			}, nil
-		})
-
-	return devices, errors.Capture(err)
-}
-
-// findSubnetsForImportCloudServiceAddress returns a finder function to locate
-// subnets for a given imported cloud service address.
-// It solves the subnet by searching a matching subnet for the address value in
-// the input address space.
-func (s *MigrationService) findSubnetsForImportCloudServiceAddress(ctx context.Context,
-) (subnetFinder[internal.ImportCloudServiceAddress], error) {
 	spaces, err := s.st.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting all spaces: %w", err)
 	}
 
-	return func(ctx context.Context, addr internal.ImportCloudServiceAddress) (network.SubnetInfos, error) {
-		space := spaces.GetByID(network.SpaceUUID(addr.SpaceID))
-		if space == nil {
-			return nil, errors.Errorf("getting no space for space ID %q",
-				addr.SpaceID)
+	devices := make([]internal.ImportLinkLayerDevice, 0, len(services))
+	for _, service := range services {
+		transformedAddresses := make([]internal.ImportIPAddress, 0, len(service.Addresses))
+		for _, addr := range service.Addresses {
+			transformedAddr, err := s.transformCloudServiceAddress(ctx, addr, spaces)
+			if err != nil {
+				return nil, errors.Errorf("converting address %q for %q cloud service: %w",
+					addr.Value,
+					service.ApplicationName,
+					err)
+			}
+			transformedAddresses = append(transformedAddresses, transformedAddr)
 		}
-		result, err := space.Subnets.GetByAddress(addr.Value)
-		return result, errors.Capture(err)
-	}, nil
+
+		device := internal.ImportLinkLayerDevice{
+			UUID:            service.DeviceUUID,
+			IsAutoStart:     true,
+			IsEnabled:       true,
+			NetNodeUUID:     service.NetNodeUUID,
+			Name:            fmt.Sprintf("placeholder for %q cloud service", service.ApplicationName),
+			Type:            network.UnknownDevice,
+			VirtualPortType: network.NonVirtualPort,
+			Addresses:       transformedAddresses,
+		}
+		devices = append(devices, device)
+	}
+
+	return devices, nil
 }
 
-// subnetFinder defines a generic function type for finding network subnets
-// based on input criteria.
-type subnetFinder[T any] func(context.Context, T) (network.SubnetInfos, error)
-
-// toImportIpAddress defines a generic function type that transforms an input of
-// any type T into an ImportIPAddress to migrates LinkLayerDevices
-type toImportIpAddress[T any] func(T) internal.ImportIPAddress
-
-// ident returns the input value unchanged.
-// It is a generic identity function for any type.
-func ident[T any](t T) T { return t }
-
-// newAddressTransformer creates a function to transform an address of type T
-// into an ImportIPAddress for import operations.
-// It uses generic function to transform input to expected output, and a
-// specific logic to resolve the subnetUUID, which can vary with the various
-// migration use cases.
-func newAddressTransformer[T any](
+// transformCloudServiceAddress transforms an ImportCloudServiceAddress by
+// finding and setting its subnet UUID
+func (s *MigrationService) transformCloudServiceAddress(
 	ctx context.Context,
-	toImport toImportIpAddress[T],
-	getSubnets subnetFinder[T],
-) func(addr T) (internal.ImportIPAddress, error) {
-	return func(addr T) (internal.ImportIPAddress, error) {
-		result := toImport(addr)
-		candidateSubnets, err := getSubnets(ctx, addr)
-		if err != nil {
-			return result, errors.Errorf("getting subnets for address %q: %w", result.AddressValue, err)
-		}
-		if len(candidateSubnets) == 0 {
-			return result, errors.Errorf("no subnet found for address %q", result.AddressValue)
-		}
-		if len(candidateSubnets) > 1 {
-			return result, errors.Errorf("multiple subnets found for address %q: %s", result.AddressValue,
-				strings.Join(transform.Slice(candidateSubnets, func(info network.SubnetInfo) string {
-					return info.CIDR
-				}), ","))
-		}
-		result.SubnetUUID = candidateSubnets[0].ID.String()
-		return result, nil
+	addr internal.ImportCloudServiceAddress,
+	spaces network.SpaceInfos,
+) (internal.ImportIPAddress, error) {
+	// Convert the address to an ImportIPAddress
+	result := internal.ImportIPAddress{
+		UUID:         addr.UUID,
+		Type:         network.AddressType(addr.Type),
+		Scope:        network.Scope(addr.Scope),
+		AddressValue: addr.Value,
+		ConfigType:   network.ConfigStatic,
+		Origin:       network.Origin(addr.Origin),
 	}
+
+	// Find the space for this address
+	space := spaces.GetByID(network.SpaceUUID(addr.SpaceID))
+	if space == nil {
+		return result, errors.Errorf("unknown space ID %q", addr.SpaceID)
+	}
+
+	// Find subnets for this address
+	candidateSubnets, err := space.Subnets.GetByAddress(addr.Value)
+	if err != nil {
+		return result, errors.Errorf("getting subnets: %w", err)
+	}
+	result.SubnetUUID, err = s.ensureOneSubnet(ctx, candidateSubnets)
+	return result, errors.Capture(err)
+}
+
+func (s *MigrationService) ensureOneSubnet(ctx context.Context, subnets network.SubnetInfos) (string, error) {
+
+	// Check if we found any subnets
+	if len(subnets) == 0 {
+		return "", errors.Errorf("no subnet found")
+	}
+
+	// Check if we found too many subnets
+	if len(subnets) > 1 {
+		cidrs := make([]string, 0, len(subnets))
+		for _, info := range subnets {
+			cidrs = append(cidrs, info.CIDR)
+		}
+		return "", errors.Errorf("multiple subnets found: %s",
+			strings.Join(cidrs, ","))
+	}
+
+	return subnets[0].ID.String(), nil
 }
