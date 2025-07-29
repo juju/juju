@@ -159,9 +159,8 @@ func (s *baseSuite) setupMachineService(c *tc.C) *machineservice.ProviderService
 	return machineservice.NewProviderService(
 		machinestate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
-		func(context.Context) (machineservice.Provider, error) {
-			return machineservice.NewNoopProvider(), nil
-		},
+		func(context.Context) (machineservice.Provider, error) { return machineservice.NewNoopProvider(), nil },
+		nil,
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

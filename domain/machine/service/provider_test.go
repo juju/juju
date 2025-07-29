@@ -34,10 +34,11 @@ import (
 type providerServiceSuite struct {
 	testhelpers.IsolationSuite
 
-	state         *MockState
-	statusHistory *MockStatusHistory
-	provider      *MockProvider
-	validator     *MockValidator
+	state              *MockState
+	statusHistory      *MockStatusHistory
+	provider           *MockProvider
+	lxdProfileProvider *MockLXDProfileProvider
+	validator          *MockValidator
 
 	service *ProviderService
 }
@@ -58,12 +59,24 @@ func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		return s.provider, nil
 	}
 
-	s.service = NewProviderService(s.state, s.statusHistory, providerGetter, clock.WallClock, loggertesting.WrapCheckLog(c))
+	lxdProfileProviderGetter := func(ctx context.Context) (LXDProfileProvider, error) {
+		return s.lxdProfileProvider, nil
+	}
+
+	s.service = NewProviderService(
+		s.state,
+		s.statusHistory,
+		providerGetter,
+		lxdProfileProviderGetter,
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	c.Cleanup(func() {
 		s.state = nil
 		s.statusHistory = nil
 		s.provider = nil
+		s.lxdProfileProvider = nil
 		s.service = nil
 	})
 
@@ -77,7 +90,9 @@ func (s *providerServiceSuite) TestAddMachineProviderNotSupported(c *tc.C) {
 		return s.provider, coreerrors.NotSupported
 	}
 
-	service := NewProviderService(s.state, s.statusHistory, providerGetter, clock.WallClock, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(
+		s.state, s.statusHistory, providerGetter, nil, clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	_, err := service.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
@@ -333,8 +348,9 @@ func (s *providerServiceSuite) expectCreateMachineStatusHistory(c *tc.C, machine
 type lxdProviderServiceSuite struct {
 	testhelpers.IsolationSuite
 
-	state    *MockState
-	provider *MockProvider
+	state              *MockState
+	provider           *MockProvider
+	lxdProfileProvider *MockLXDProfileProvider
 }
 
 func TestLXDProviderServiceSuite(t *testing.T) {
@@ -345,6 +361,7 @@ func (s *lxdProviderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.provider = NewMockProvider(ctrl)
+	s.lxdProfileProvider = NewMockLXDProfileProvider(ctrl)
 	s.state = NewMockState(ctrl)
 
 	c.Cleanup(func() {
@@ -375,20 +392,20 @@ func (s *lxdProviderServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
 	pName0 := "juju-test-ubuntu-4"
 	pName1 := "juju-test-test-8"
 	s.state.EXPECT().GetLXDProfilesForMachine(gomock.Any(), machineID).Return(result, nil)
-	s.provider.EXPECT().MaybeWriteLXDProfile(pName0, lxdprofile.Profile{
+	s.lxdProfileProvider.EXPECT().MaybeWriteLXDProfile(pName0, lxdprofile.Profile{
 		Config:      map[string]string{"foo": "bar"},
 		Description: "description",
 		Devices:     map[string]map[string]string{"gpu": {"baz": "x"}},
 	}).Return(nil)
-	s.provider.EXPECT().MaybeWriteLXDProfile(pName1, lxdprofile.Profile{
+	s.lxdProfileProvider.EXPECT().MaybeWriteLXDProfile(pName1, lxdprofile.Profile{
 		Config:      map[string]string{"foo": "baz"},
 		Description: "another",
 	}).Return(nil)
 
-	providerGetter := func(ctx context.Context) (Provider, error) {
-		return s.provider, nil
+	providerGetter := func(ctx context.Context) (LXDProfileProvider, error) {
+		return s.lxdProfileProvider, nil
 	}
-	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
 
 	// Act
 	obtainedProfileNames, err := service.UpdateLXDProfiles(c.Context(), "test", machineID)
@@ -403,10 +420,10 @@ func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesNoSupport(c *tc.C) {
 	defer ctrl.Finish()
 
 	// Arrange: the provider does not support LXDProfiles
-	providerGetter := func(ctx context.Context) (Provider, error) {
+	providerGetter := func(ctx context.Context) (LXDProfileProvider, error) {
 		return nil, coreerrors.NotSupported
 	}
-	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
 
 	// Act
 	_, err := service.UpdateLXDProfiles(c.Context(), "blue", "7")
@@ -420,10 +437,10 @@ func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesFail(c *tc.C) {
 	defer ctrl.Finish()
 
 	// Arrange
-	providerGetter := func(ctx context.Context) (Provider, error) {
+	providerGetter := func(ctx context.Context) (LXDProfileProvider, error) {
 		return nil, errors.Errorf("boom")
 	}
-	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
 
 	// Act
 	_, err := service.UpdateLXDProfiles(c.Context(), "blue", "7")
@@ -440,7 +457,7 @@ func (s *lxdProviderServiceSuite) TestGetBootstrapEnviron(c *tc.C) {
 	providerGetter := func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	}
-	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.state, nil, providerGetter, nil, nil, loggertesting.WrapCheckLog(c))
 
 	// Act
 	p, err := service.GetBootstrapEnviron(c.Context())
@@ -458,7 +475,7 @@ func (s *lxdProviderServiceSuite) TestGetBootstrapEnvironFail(c *tc.C) {
 	providerGetter := func(ctx context.Context) (Provider, error) {
 		return nil, errors.Errorf("boom")
 	}
-	service := NewProviderService(s.state, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.state, nil, providerGetter, nil, nil, loggertesting.WrapCheckLog(c))
 
 	// Act
 	_, err := service.GetBootstrapEnviron(c.Context())
