@@ -75,7 +75,8 @@ type WatcherFactory interface {
 
 // Service provides the API for working with entity removal.
 type Service struct {
-	modelState ModelDBState
+	controllerState ControllerDBState
+	modelState      ModelDBState
 
 	leadershipRevoker leadership.Revoker
 	provider          providertracker.ProviderGetter[Provider]
@@ -222,6 +223,7 @@ type WatchableService struct {
 // NewWatchableService creates a new WatchableService
 // for working with entity removal.
 func NewWatchableService(
+	controllerState ControllerDBState,
 	modelState ModelDBState,
 	watcherFactory WatcherFactory,
 	leadershipRevoker leadership.Revoker,
@@ -231,6 +233,7 @@ func NewWatchableService(
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
+			controllerState:   controllerState,
 			modelState:        modelState,
 			leadershipRevoker: leadershipRevoker,
 			provider:          provider,
