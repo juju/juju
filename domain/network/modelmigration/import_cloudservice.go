@@ -47,8 +47,12 @@ func (i *importCloudServiceOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
-// Execute the import of the spaces, subnets and link layer devices
-// contained in the model.
+// Execute runs the operation for importing cloud services into the model,
+// ensuring the model type is CAAS. If the model type is not CAAS,
+// the method exits without action.
+// Collects cloud services from the provided model and
+// imports them using MigrationService.
+// Returns an error if the collection or import process fails.
 func (i *importCloudServiceOperation) Execute(ctx context.Context, model description.Model) error {
 	if model.Type() != description.CAAS {
 		return nil
