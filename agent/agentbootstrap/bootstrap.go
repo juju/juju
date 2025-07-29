@@ -284,33 +284,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	}
 
 	b.logger.Debugf(ctx, "initializing address %v", info.Addrs)
-
-	ctrl, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: stateParams.SSHServerHostKey,
-		Clock:            clock.WallClock,
-		ControllerModelArgs: state.ModelArgs{
-			Name:            stateParams.ControllerModelConfig.Name(),
-			UUID:            coremodel.UUID(stateParams.ControllerModelConfig.UUID()),
-			Type:            modelType,
-			Owner:           b.adminUser,
-			CloudName:       stateParams.ControllerCloud.Name,
-			CloudRegion:     stateParams.ControllerCloudRegion,
-			CloudCredential: cloudCredTag,
-		},
-		StoragePools:              stateParams.StoragePools,
-		CloudName:                 stateParams.ControllerCloud.Name,
-		ControllerConfig:          stateParams.ControllerConfig,
-		ControllerInheritedConfig: stateParams.ControllerInheritedConfig,
-		RegionInheritedConfig:     stateParams.RegionInheritedConfig,
-		NewPolicy:                 b.stateNewPolicy,
-	})
-	if err != nil {
-		return errors.Errorf("failed to initialize state: %v", err)
-	}
-	b.logger.Debugf(ctx, "connected to initial state")
-	defer func() {
-		_ = ctrl.Close()
-	}()
 	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
 
 	// Create a new password. It is used down below to set  the agent's initial

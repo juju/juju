@@ -91,7 +91,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"machine-converter",
 			"storage-provisioner",
 			"termination-signal-handler",
-			"tools-version-checker",
 			"trace",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
