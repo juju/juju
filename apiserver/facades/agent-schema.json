@@ -4683,17 +4683,6 @@
                         }
                     }
                 },
-                "GetContainerInterfaceInfo": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MachineNetworkConfigResults"
-                        }
-                    }
-                },
                 "GetContainerProfileInfo": {
                     "type": "object",
                     "properties": {
