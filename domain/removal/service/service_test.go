@@ -63,7 +63,7 @@ func (s *serviceSuite) TestGetAllJobsSuccess(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(dbJobs, nil)
+	s.modelState.EXPECT().GetAllJobs(gomock.Any()).Return(dbJobs, nil)
 
 	jobs, err := s.newService(c).GetAllJobs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -73,7 +73,7 @@ func (s *serviceSuite) TestGetAllJobsSuccess(c *tc.C) {
 func (s *serviceSuite) TestGetAllJobsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(nil, errors.New("the front fell off"))
+	s.modelState.EXPECT().GetAllJobs(gomock.Any()).Return(nil, errors.New("the front fell off"))
 
 	jobs, err := s.newService(c).GetAllJobs(c.Context())
 	c.Assert(err, tc.ErrorMatches, "the front fell off")

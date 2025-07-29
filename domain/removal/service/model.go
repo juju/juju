@@ -59,7 +59,7 @@ func (s *Service) RemoveModel(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.ModelExists(ctx, modelUUID.String())
+	exists, err := s.modelState.ModelExists(ctx, modelUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if model exists: %w", err)
 	} else if !exists {
@@ -67,7 +67,7 @@ func (s *Service) RemoveModel(
 	}
 
 	// Ensure the model is not alive.
-	artifacts, err := s.st.EnsureModelNotAliveCascade(ctx, modelUUID.String(), force)
+	artifacts, err := s.modelState.EnsureModelNotAliveCascade(ctx, modelUUID.String(), force)
 	if err != nil {
 		return "", errors.Errorf("model %q: %w", modelUUID, err)
 	}
@@ -140,7 +140,7 @@ func (s *Service) modelScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.st.ModelScheduleRemoval(
+	if err := s.modelState.ModelScheduleRemoval(
 		ctx, jobUUID.String(), modelUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
 		return "", errors.Errorf("unit: %w", err)
@@ -159,7 +159,7 @@ func (s *Service) processModelRemovalJob(ctx context.Context, job removal.Job) e
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
-	l, err := s.st.GetModelLife(ctx, job.EntityUUID)
+	l, err := s.modelState.GetModelLife(ctx, job.EntityUUID)
 	if errors.Is(err, modelerrors.NotFound) {
 		// This is a programming error, as we should always have a model if
 		// we have a job for it.
@@ -176,7 +176,7 @@ func (s *Service) processModelRemovalJob(ctx context.Context, job removal.Job) e
 	// This will delete any model artifacts that are associated with the model.
 	// This will not delete the model itself, that's handled by the model
 	// undertaker.
-	if err := s.st.DeleteModelArtifacts(ctx, job.EntityUUID); errors.Is(err, modelerrors.NotFound) {
+	if err := s.modelState.DeleteModelArtifacts(ctx, job.EntityUUID); errors.Is(err, modelerrors.NotFound) {
 		// The model has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil

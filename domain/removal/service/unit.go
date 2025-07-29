@@ -68,7 +68,7 @@ func (s *Service) RemoveUnit(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.UnitExists(ctx, unitUUID.String())
+	exists, err := s.modelState.UnitExists(ctx, unitUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if unit exists: %w", err)
 	} else if !exists {
@@ -79,7 +79,7 @@ func (s *Service) RemoveUnit(
 	// then we will return the machine UUID, which will be used to schedule
 	// the removal of the machine.
 	// If the machine UUID is returned, then the machine was also set to dying.
-	machineUUID, err := s.st.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+	machineUUID, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
@@ -128,14 +128,14 @@ func (s *Service) MarkUnitAsDead(ctx context.Context, unitUUID unit.UUID) error 
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.UnitExists(ctx, unitUUID.String())
+	exists, err := s.modelState.UnitExists(ctx, unitUUID.String())
 	if err != nil {
 		return errors.Errorf("checking if unit exists: %w", err)
 	} else if !exists {
 		return errors.Errorf("unit does not exist").Add(applicationerrors.UnitNotFound)
 	}
 
-	return s.st.MarkUnitAsDead(ctx, unitUUID.String())
+	return s.modelState.MarkUnitAsDead(ctx, unitUUID.String())
 }
 
 func (s *Service) unitScheduleRemoval(
@@ -146,7 +146,7 @@ func (s *Service) unitScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.st.UnitScheduleRemoval(
+	if err := s.modelState.UnitScheduleRemoval(
 		ctx, jobUUID.String(), unitUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
 		return "", errors.Errorf("unit: %w", err)
@@ -165,7 +165,7 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
-	l, err := s.st.GetUnitLife(ctx, job.EntityUUID)
+	l, err := s.modelState.GetUnitLife(ctx, job.EntityUUID)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.
@@ -180,7 +180,7 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 
 	// If the unit is the leader of an application, we need to revoke
 	// leadership before we can delete it.
-	applicationName, unitName, err := s.st.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
+	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
 	if err != nil {
 		return errors.Errorf("getting application name and unit name: %w", err)
 	}
@@ -190,7 +190,7 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	}
 
 	// Once we've removed leadership, we can delete the unit.
-	if err := s.st.DeleteUnit(ctx, job.EntityUUID); errors.Is(err, applicationerrors.UnitNotFound) {
+	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID); errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil

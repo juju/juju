@@ -34,7 +34,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
@@ -66,7 +66,7 @@ func (s *modelSuite) TestRemoveModelForceNoWaitSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(removal.ModelArtifacts{}, nil)
 	exp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
@@ -84,7 +84,7 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(removal.ModelArtifacts{}, nil)
 
@@ -104,7 +104,7 @@ func (s *modelSuite) TestRemoveModelNotFound(c *tc.C) {
 
 	mUUID := modeltesting.GenModelUUID(c)
 
-	s.state.EXPECT().ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
+	s.modelState.EXPECT().ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
 
 	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
@@ -131,7 +131,7 @@ func (s *modelSuite) TestExecuteJobForModelNotFound(c *tc.C) {
 
 	j := newModelJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetModelLife(gomock.Any(), j.EntityUUID).Return(-1, modelerrors.NotFound)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
@@ -144,7 +144,7 @@ func (s *modelSuite) TestExecuteJobForModelError(c *tc.C) {
 
 	j := newModelJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetModelLife(gomock.Any(), j.EntityUUID).Return(-1, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -156,7 +156,7 @@ func (s *modelSuite) TestExecuteJobForModelStillAlive(c *tc.C) {
 
 	j := newModelJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetModelLife(gomock.Any(), j.EntityUUID).Return(life.Alive, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)

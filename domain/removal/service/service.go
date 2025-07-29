@@ -37,8 +37,14 @@ type Provider interface {
 	ReleaseContainerAddresses(ctx context.Context, interfaces []string) error
 }
 
-// State describes retrieval and persistence methods for entity removal.
-type State interface {
+// ControllerDBState describes retrieval and persistence methods for entity
+// removal in the controller database.
+type ControllerDBState interface {
+}
+
+// ModelDBState describes retrieval and persistence methods for entity removal
+// in the model database.
+type ModelDBState interface {
 	RelationState
 	UnitState
 	ApplicationState
@@ -69,7 +75,7 @@ type WatcherFactory interface {
 
 // Service provides the API for working with entity removal.
 type Service struct {
-	st State
+	modelState ModelDBState
 
 	leadershipRevoker leadership.Revoker
 	provider          providertracker.ProviderGetter[Provider]
@@ -82,7 +88,8 @@ type Service struct {
 func (s *Service) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	jobs, err := s.st.GetAllJobs(ctx)
+
+	jobs, err := s.modelState.GetAllJobs(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -126,7 +133,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 		return errors.Capture(err)
 	}
 
-	if err := s.st.DeleteJob(ctx, job.UUID.String()); err != nil {
+	if err := s.modelState.DeleteJob(ctx, job.UUID.String()); err != nil {
 		return errors.Errorf("completing removal %q: %w", job.UUID.String(), err)
 	}
 
@@ -215,7 +222,7 @@ type WatchableService struct {
 // NewWatchableService creates a new WatchableService
 // for working with entity removal.
 func NewWatchableService(
-	st State,
+	modelState ModelDBState,
 	watcherFactory WatcherFactory,
 	leadershipRevoker leadership.Revoker,
 	provider providertracker.ProviderGetter[Provider],
@@ -224,7 +231,7 @@ func NewWatchableService(
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			st:                st,
+			modelState:        modelState,
 			leadershipRevoker: leadershipRevoker,
 			provider:          provider,
 			clock:             clock,
@@ -237,7 +244,7 @@ func NewWatchableService(
 // WatchRemovals watches for scheduled removal jobs.
 // The returned watcher emits the UUIDs of any inserted or updated jobs.
 func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
-	w, err := s.watcherFactory.NewUUIDsWatcher(s.st.NamespaceForWatchRemovals(), changestream.Changed)
+	w, err := s.watcherFactory.NewUUIDsWatcher(s.modelState.NamespaceForWatchRemovals(), changestream.Changed)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for removals: %w", err)
 	}
@@ -246,7 +253,7 @@ func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
 
 // WatchEntityRemovals watches for scheduled removal jobs for specific entities.
 func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error) {
-	initialQuery, filterNames := s.st.NamespaceForWatchEntityRemovals()
+	initialQuery, filterNames := s.modelState.NamespaceForWatchEntityRemovals()
 
 	if len(filterNames) == 0 {
 		return nil, errors.Errorf("no filter names provided for entity removals watcher")
@@ -300,15 +307,15 @@ func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error)
 func (s *WatchableService) getEntityLife(ctx context.Context, entityType, entityUUID string) (life.Life, error) {
 	switch entityType {
 	case "relation":
-		return s.st.GetRelationLife(ctx, entityUUID)
+		return s.modelState.GetRelationLife(ctx, entityUUID)
 	case "unit":
-		return s.st.GetUnitLife(ctx, entityUUID)
+		return s.modelState.GetUnitLife(ctx, entityUUID)
 	case "machine":
-		return s.st.GetMachineLife(ctx, entityUUID)
+		return s.modelState.GetMachineLife(ctx, entityUUID)
 	case "model":
-		return s.st.GetModelLife(ctx, entityUUID)
+		return s.modelState.GetModelLife(ctx, entityUUID)
 	case "application":
-		return s.st.GetApplicationLife(ctx, entityUUID)
+		return s.modelState.GetApplicationLife(ctx, entityUUID)
 	default:
 		return -1, errors.Errorf("unknown entity type %q", entityType)
 	}
