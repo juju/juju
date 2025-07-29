@@ -40,7 +40,7 @@ func newWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (wo
 		return nil, errors.Trace(err)
 	}
 	if !isController {
-		return nil, dependency.ErrMissing
+		return nil, dependency.ErrUninstall
 	}
 
 	// 4 times a day seems a decent enough amount of checks.

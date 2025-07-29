@@ -60,7 +60,6 @@ import (
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/terminationworker"
-	"github.com/juju/juju/internal/worker/toolsversionchecker"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/upgrader"
 	"github.com/juju/juju/internal/worker/upgradestepsmachine"
@@ -385,11 +384,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
-		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		})),
-
 		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -633,7 +627,6 @@ const (
 	authenticationWorkerName = "ssh-authkeys-updater"
 	storageProvisionerName   = "storage-provisioner"
 	identityFileWriterName   = "ssh-identity-writer"
-	toolsVersionCheckerName  = "tools-version-checker"
 	machineActionName        = "machine-action-runner"
 	hostKeyReporterName      = "host-key-reporter"
 	instanceMutaterName      = "instance-mutater"
