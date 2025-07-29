@@ -6,13 +6,9 @@ package objectstoredrainer
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	stdtesting "testing"
@@ -385,67 +381,11 @@ func (s *drainerSuite) expectHashPut(c *tc.C, hash, s3Hash, content string) {
 	})
 }
 
-func (s *drainerSuite) readFile(c *tc.C, reader io.ReadCloser) string {
-	defer reader.Close()
-
-	content, err := io.ReadAll(reader)
-	c.Assert(err, tc.ErrorIsNil)
-	return string(content)
-}
-
-func (s *drainerSuite) calculateHexSHA384(c *tc.C, contents string) string {
-	hasher := sha512.New384()
-	_, err := io.Copy(hasher, strings.NewReader(contents))
-	c.Assert(err, tc.ErrorIsNil)
-	return hex.EncodeToString(hasher.Sum(nil))
-}
-
-func (s *drainerSuite) calculateHexSHA256(c *tc.C, contents string) string {
-	hasher := sha256.New()
-	_, err := io.Copy(hasher, strings.NewReader(contents))
-	c.Assert(err, tc.ErrorIsNil)
-	return hex.EncodeToString(hasher.Sum(nil))
-}
-
 func (s *drainerSuite) calculateBase64SHA256(c *tc.C, contents string) string {
 	hasher := sha256.New()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, tc.ErrorIsNil)
 	return base64.StdEncoding.EncodeToString(hasher.Sum(nil))
-}
-
-func (s *drainerSuite) createFile(c *tc.C, path, name, contents string) (int64, string, string) {
-	// Ensure the directory exists.
-	err := os.MkdirAll(path, 0755)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Create a file in a temporary directory.
-	dir := c.MkDir()
-
-	f, err := os.Create(filepath.Join(dir, name))
-	c.Assert(err, tc.ErrorIsNil)
-	defer f.Close()
-
-	// Create a hash of the contents when writing the file. The hash will
-	// be used as the file name on disk.
-	hasher384 := sha512.New384()
-	hasher256 := sha256.New()
-
-	size, err := io.Copy(f, io.TeeReader(strings.NewReader(contents), io.MultiWriter(hasher384, hasher256)))
-	c.Assert(err, tc.ErrorIsNil)
-
-	info, err := f.Stat()
-	c.Assert(err, tc.ErrorIsNil)
-
-	if info.Size() != size {
-		c.Fatalf("file size %d does not match expected size %d", info.Size(), size)
-	}
-
-	hash384 := hex.EncodeToString(hasher384.Sum(nil))
-	err = os.Rename(filepath.Join(dir, name), filepath.Join(path, hash384))
-	c.Assert(err, tc.ErrorIsNil)
-
-	return info.Size(), hash384, hex.EncodeToString(hasher256.Sum(nil))
 }
 
 func filePath(hash string) string {

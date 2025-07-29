@@ -11,13 +11,13 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/worker/v4"
 )
 
 // NewDrainerWorkerFunc is a function that creates a new drain worker.
