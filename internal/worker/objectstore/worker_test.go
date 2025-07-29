@@ -164,6 +164,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 			return newStubTrackedObjectStore(s.trackedObjectStore), nil
 		},
 		ControllerMetadataService:  s.controllerMetadataService,
+		ControllerConfigService:    s.controllerConfigService,
 		ModelMetadataServiceGetter: s.modelMetadataServiceGetter,
 		ModelServiceGetter:         s.modelServiceGetter,
 		ModelClaimGetter:           s.modelClaimGetter,
