@@ -20,14 +20,16 @@ import (
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
-	modelState *MockModelDBState
-	clock      *MockClock
-	revoker    *MockRevoker
-	provider   *MockProvider
+	controllerState *MockControllerDBState
+	modelState      *MockModelDBState
+	clock           *MockClock
+	revoker         *MockRevoker
+	provider        *MockProvider
 }
 
 func (s *baseSuite) newService(c *tc.C) *Service {
 	return &Service{
+		controllerState:   s.controllerState,
 		modelState:        s.modelState,
 		leadershipRevoker: s.revoker,
 		provider: func(ctx context.Context) (Provider, error) {
@@ -41,6 +43,7 @@ func (s *baseSuite) newService(c *tc.C) *Service {
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.controllerState = NewMockControllerDBState(ctrl)
 	s.modelState = NewMockModelDBState(ctrl)
 	s.clock = NewMockClock(ctrl)
 	s.revoker = NewMockRevoker(ctrl)

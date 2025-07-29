@@ -40,6 +40,13 @@ type Provider interface {
 // ControllerDBState describes retrieval and persistence methods for entity
 // removal in the controller database.
 type ControllerDBState interface {
+	// ModelExists returns true if a model exists with the input model
+	// UUID.
+	ModelExists(ctx context.Context, modelUUID string) (bool, error)
+
+	// EnsureModelNotAliveCascade ensures that there is no model identified
+	// by the input model UUID, that is still alive.
+	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) error
 }
 
 // ModelDBState describes retrieval and persistence methods for entity removal

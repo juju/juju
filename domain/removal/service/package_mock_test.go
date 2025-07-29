@@ -43,6 +43,83 @@ func (m *MockControllerDBState) EXPECT() *MockControllerDBStateMockRecorder {
 	return m.recorder
 }
 
+// EnsureModelNotAliveCascade mocks base method.
+func (m *MockControllerDBState) EnsureModelNotAliveCascade(arg0 context.Context, arg1 string, arg2 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureModelNotAliveCascade", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureModelNotAliveCascade indicates an expected call of EnsureModelNotAliveCascade.
+func (mr *MockControllerDBStateMockRecorder) EnsureModelNotAliveCascade(arg0, arg1, arg2 any) *MockControllerDBStateEnsureModelNotAliveCascadeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureModelNotAliveCascade", reflect.TypeOf((*MockControllerDBState)(nil).EnsureModelNotAliveCascade), arg0, arg1, arg2)
+	return &MockControllerDBStateEnsureModelNotAliveCascadeCall{Call: call}
+}
+
+// MockControllerDBStateEnsureModelNotAliveCascadeCall wrap *gomock.Call
+type MockControllerDBStateEnsureModelNotAliveCascadeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDBStateEnsureModelNotAliveCascadeCall) Return(arg0 error) *MockControllerDBStateEnsureModelNotAliveCascadeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDBStateEnsureModelNotAliveCascadeCall) Do(f func(context.Context, string, bool) error) *MockControllerDBStateEnsureModelNotAliveCascadeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDBStateEnsureModelNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool) error) *MockControllerDBStateEnsureModelNotAliveCascadeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ModelExists mocks base method.
+func (m *MockControllerDBState) ModelExists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelExists indicates an expected call of ModelExists.
+func (mr *MockControllerDBStateMockRecorder) ModelExists(arg0, arg1 any) *MockControllerDBStateModelExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExists", reflect.TypeOf((*MockControllerDBState)(nil).ModelExists), arg0, arg1)
+	return &MockControllerDBStateModelExistsCall{Call: call}
+}
+
+// MockControllerDBStateModelExistsCall wrap *gomock.Call
+type MockControllerDBStateModelExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDBStateModelExistsCall) Return(arg0 bool, arg1 error) *MockControllerDBStateModelExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDBStateModelExistsCall) Do(f func(context.Context, string) (bool, error)) *MockControllerDBStateModelExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDBStateModelExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockControllerDBStateModelExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelDBState is a mock of ModelDBState interface.
 type MockModelDBState struct {
 	ctrl     *gomock.Controller
