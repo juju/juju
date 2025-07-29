@@ -148,7 +148,7 @@ ORDER BY asd.storage_name
 }
 
 // checkFilesystemExists checks if a filesystem for the provided uuid exists.
-// Returning when this case is satisfied.
+// True is returned when the filesystem exists.
 func (st *State) checkFilesystemExists(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -190,9 +190,9 @@ func (st *State) CheckFilesystemForIDExists(
 
 	filesystemIDInput := filesystemID{ID: fsID}
 	checkQuery, err := st.Prepare(`
-SELECT &filesystemIDInput.*
+SELECT &filesystemID.*
 FROM   storage_filesystem
-WHERE  filesystem_id= $filesystem_id
+WHERE  filesystem_id=$filesystemID.filesystem_id
 `,
 		filesystemIDInput,
 	)
@@ -236,18 +236,18 @@ func (st *State) GetFilesystem(
 	}
 
 	var (
-		uuidInput = entityUUID{UUID: uuid.String()}
+		uuidInput = filesystemUUID{UUID: uuid.String()}
 		dbVal     filesystem
 	)
 
 	stmt, err := st.Prepare(`
-SELECT    &filesystem.*,
+SELECT    (sfs.filesystem_id, sv.volume_id, sfs.size_mib) AS (&filesystem.*)
 FROM      storage_filesystem sfs
 LEFT JOIN storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
 LEFT JOIN storage_instance si ON sifs.storage_instance_uuid = si.uuid
 LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
 LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-WHERE     sfs.uuid = $entityUUID.uuid
+WHERE     sfs.uuid = $filesystemUUID.uuid
 `,
 		uuidInput, dbVal,
 	)
@@ -300,7 +300,7 @@ func (st *State) GetFilesystemAttachment(
 	}
 
 	var (
-		uuidInput = entityUUID{UUID: uuid.String()}
+		uuidInput = filesystemAttachmentUUID{UUID: uuid.String()}
 		dbVal     filesystemAttachment
 	)
 
@@ -308,7 +308,7 @@ func (st *State) GetFilesystemAttachment(
 SELECT &filesystemAttachment.*
 FROM   storage_filesystem_attachment sfa
 JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
-WHERE  sfa.uuid = $entityUUID.uuid
+WHERE  sfa.uuid = $filesystemAttachmentUUID.uuid
 `,
 		uuidInput, dbVal,
 	)
@@ -320,7 +320,7 @@ WHERE  sfa.uuid = $entityUUID.uuid
 		err = tx.Query(ctx, stmt, uuidInput).Get(&dbVal)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf(
-				"filesystem attachment %q not found",
+				"filesystem attachment %q not found", uuid,
 			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
 		}
 		return err
@@ -444,14 +444,14 @@ func (st *State) GetFilesystemAttachmentLife(
 	}
 
 	var (
-		uuidInput = entityUUID{UUID: uuid.String()}
+		uuidInput = filesystemAttachmentUUID{UUID: uuid.String()}
 		lifeDBVal entityLife
 	)
 
 	lifeQuery, err := st.Prepare(`
 SELECT &entityLife.*
 FROM   storage_filesystem_attachment
-WHERE  uuid = $entityUUID.uuid
+WHERE  uuid = $filesystemAttachmentUUID.uuid
 `,
 		uuidInput, lifeDBVal,
 	)
@@ -473,7 +473,7 @@ WHERE  uuid = $entityUUID.uuid
 		return 0, errors.Capture(err)
 	}
 
-	return domainlife.Life(lifeDBVal.Life), nil
+	return domainlife.Life(lifeDBVal.LifeID), nil
 }
 
 // GetFilesystemAttachmentLifeForNetNode returns a mapping of filesystem
@@ -498,25 +498,25 @@ func (st *State) GetFilesystemAttachmentLifeForNetNode(
 func (st *State) getFilesystemAttachmentLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID domainnetwork.NetNodeUUID,
+	uuid domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
+	netNodeInput := netNodeUUID{UUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT &attachmentLife.*
 FROM            storage_filesystem_attachment
 WHERE           provision_scope_id=1
-AND             net_node_uuid=$netNodeUUIDRef.net_node_uuid
+AND             net_node_uuid=$netNodeUUID.uuid
 		`, attachmentLife{}, netNodeInput)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	var fsAttachmentLives attachmentLives
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkNetNodeExists(ctx, tx, netNodeUUID)
+		exists, err := st.checkNetNodeExists(ctx, tx, uuid)
 		if err != nil {
 			return err
 		} else if !exists {
-			return errors.Errorf("net node %q does not exist", netNodeUUID)
+			return errors.Errorf("net node %q does not exist", uuid)
 		}
 		err = tx.Query(ctx, stmt, netNodeInput).GetAll(&fsAttachmentLives)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -552,18 +552,18 @@ func (st *State) GetFilesystemAttachmentUUIDForFilesystemNetNode(
 	}
 
 	var (
-		fsUUIDInput  = entityUUID{UUID: fsUUID.String()}
-		netNodeInput = entityUUID{UUID: nodeUUID.String()}
+		fsUUIDInput  = filesystemUUID{UUID: fsUUID.String()}
+		netNodeInput = netNodeUUID{UUID: nodeUUID.String()}
 		dbVal        entityUUID
 	)
 
 	uuidQuery, err := st.Prepare(`
 SELECT &entityUUID.*
 FROM   storage_filesystem_attachment
-WHERE  storage_filesystem_uuid = $entityUUID.uuid
-AND    net_node_uuid = $entityUUID.uuid
+WHERE  storage_filesystem_uuid = $filesystemUUID.uuid
+AND    net_node_uuid = $netNodeUUID.uuid
 	`,
-		dbVal,
+		dbVal, netNodeInput, fsUUIDInput,
 	)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -625,14 +625,14 @@ func (st *State) GetFilesystemLife(
 	}
 
 	var (
-		uuidInput = entityUUID{UUID: uuid.String()}
+		uuidInput = filesystemUUID{UUID: uuid.String()}
 		lifeDBVal entityLife
 	)
 
 	lifeQuery, err := st.Prepare(`
 SELECT &entityLife.*
 FROM   storage_filesystem
-WHERE  uuid = $entityUUID.uuid
+WHERE  uuid = $filesystemUUID.uuid
 `,
 		uuidInput, lifeDBVal,
 	)
@@ -654,7 +654,7 @@ WHERE  uuid = $entityUUID.uuid
 		return 0, errors.Capture(err)
 	}
 
-	return domainlife.Life(lifeDBVal.Life), nil
+	return domainlife.Life(lifeDBVal.LifeID), nil
 }
 
 // GetFilesystemLifeForNetNode returns a mapping of filesystem ids to current
@@ -677,26 +677,26 @@ func (st *State) GetFilesystemLifeForNetNode(
 func (st *State) getFilesystemLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID domainnetwork.NetNodeUUID,
+	uuid domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
+	netNodeInput := netNodeUUID{UUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT (sf.filesystem_id, sf.life_id) AS (&filesystemLife.*)
 FROM            storage_filesystem sf
 JOIN            storage_filesystem_attachment sfa ON sf.uuid=sfa.storage_filesystem_uuid
 WHERE           sf.provision_scope_id=1
-AND             sfa.net_node_uuid=$netNodeUUIDRef.net_node_uuid
+AND             sfa.net_node_uuid=$netNodeUUID.uuid
 		`, filesystemLife{}, netNodeInput)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	var fsLives filesystemLives
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkNetNodeExists(ctx, tx, netNodeUUID)
+		exists, err := st.checkNetNodeExists(ctx, tx, uuid)
 		if err != nil {
 			return err
 		} else if !exists {
-			return errors.Errorf("net node %q does not exist", netNodeUUID)
+			return errors.Errorf("net node %q does not exist", uuid)
 		}
 		err = tx.Query(ctx, stmt, netNodeInput).GetAll(&fsLives)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -832,14 +832,14 @@ func (st *State) InitialWatchStatementMachineProvisionedFilesystemAttachments(
 func (st *State) InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
-SELECT &attachmentUUID.*
+SELECT &entityUUID.*
 FROM   storage_filesystem_attachment
 WHERE  provision_scope_id=0
-		`, attachmentUUID{})
+		`, entityUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		var fsAttachmentUUIDs []attachmentUUID
+		var fsAttachmentUUIDs []entityUUID
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			err := tx.Query(ctx, stmt).GetAll(&fsAttachmentUUIDs)
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {

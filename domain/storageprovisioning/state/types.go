@@ -30,15 +30,9 @@ func (l attachmentLives) Iter(yield func(string, life.Life) bool) {
 	}
 }
 
-// attachmentUUID represents the UUID of a storage attachment in the model. This
-// is used for either volume or filesystem attachments.
-type attachmentUUID struct {
-	UUID string `db:"uuid"`
-}
-
 // entityLife represents the current life value of a storage entity in the model.
 type entityLife struct {
-	Life int `db:"life_id"`
+	LifeID int `db:"life_id"`
 }
 
 // entityUUID represents the UUID of a storage entity in the model.
@@ -56,6 +50,10 @@ type filesystemAttachmentIDs struct {
 	MachineName  sql.NullString `db:"machine_name"`
 	UnitName     sql.NullString `db:"unit_name"`
 }
+
+// filesystemAttachmentUUID represents the UUID of a record in the
+// filesystem_attachment table.
+type filesystemAttachmentUUID entityUUID
 
 // filesystemAttachmentUUIDs represents a slice of filesystem attachment UUIDs.
 // This type exists so that we can provide sqlair with a named type to process a
@@ -89,20 +87,14 @@ func (l filesystemLives) Iter(yield func(string, life.Life) bool) {
 	}
 }
 
-// machineLife represents the current life value of a machine in the model.
-type machineLife struct {
-	LifeId int `db:"life_id"`
-}
+// filesystemUUID represents the UUID of a record in the filesystem table.
+type filesystemUUID entityUUID
 
 // machineUUID represents the UUID of a record in the machine table.
-type machineUUID struct {
-	UUID string `db:"uuid"`
-}
+type machineUUID entityUUID
 
-// unitUUID represents the UUID of a record in the unit table.
-type unitUUID struct {
-	UUID string `db:"uuid"`
-}
+// netNodeUUID represents the UUID of a record in the network node table.
+type netNodeUUID entityUUID
 
 // netNodeUUIDRef represents a reference to a network node uuid in a storage
 // entity table.
@@ -110,10 +102,8 @@ type netNodeUUIDRef struct {
 	UUID string `db:"net_node_uuid"`
 }
 
-// netNodeUUID represents the UUID of a record in the network node table.
-type netNodeUUID struct {
-	UUID string `db:"uuid"`
-}
+// unitUUID represents the UUID of a record in the unit table.
+type unitUUID entityUUID
 
 // volumeAttachmentIDs represents the ids of attachment points to a
 // volume attachment. This information includes the volume ID the
@@ -144,6 +134,10 @@ func (l volumeAttachmentPlanLives) Iter(yield func(string, life.Life) bool) {
 		}
 	}
 }
+
+// volumeAttachmentUUID represents the UUID of a record in the volume_attachment
+// table.
+type volumeAttachmentUUID entityUUID
 
 // volumeAttachmentUUIDs represents a slice of volume attachment UUIDs.
 // This type exists so that we can provide sqlair with a named type to process a

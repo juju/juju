@@ -40,23 +40,23 @@ type State interface {
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided uuid.
+	// machine exists for the provided UUID.
 	CheckMachineIsDead(context.Context, coremachine.UUID) (bool, error)
 
-	// GetMachineNetNodeUUID retrieves the net node uuid associated with provided
+	// GetMachineNetNodeUUID retrieves the net node UUID associated with provided
 	// machine.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided uuid.
+	// machine exists for the provided UUID.
 	GetMachineNetNodeUUID(context.Context, coremachine.UUID) (domainnetwork.NetNodeUUID, error)
 
-	// GetUnitNetNodeUUID returns the node uuid associated with the supplied
+	// GetUnitNetNodeUUID returns the node UUID associated with the supplied
 	// unit.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-	// unit exists for the supplied unit uuid.
+	// unit exists for the supplied unit UUID.
 	GetUnitNetNodeUUID(context.Context, coreunit.UUID) (domainnetwork.NetNodeUUID, error)
 
 	// NamespaceForWatchMachineCloudInstance returns the change stream namespace
@@ -115,7 +115,7 @@ func NewService(st State, wf WatcherFactory) *Service {
 //
 // The following errors may be returned:
 // - [machineerrors.MachineNotFound] when no machine exists for the provided
-// uuid.
+// UUID.
 // - [machineerrors.MachineIsDead] when the machine is dead meaning it is about
 // to go away.
 func (s *Service) WatchMachineCloudInstance(

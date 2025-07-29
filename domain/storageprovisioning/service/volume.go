@@ -63,13 +63,13 @@ type VolumeState interface {
 	) (map[string]domainlife.Life, error)
 
 	// GetVolumeAttachmentPlanLifeForNetNode returns a mapping of volume
-	// attachment plan volume id to the current life value for each volume
-	// attachment plan. The volume id of attachment plans is returned instead of
+	// attachment plan volume ID to the current life value for each volume
+	// attachment plan. The volume ID of attachment plans is returned instead of
 	// the uuid because the caller for the watcher works off of this
 	// information.
 	GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
 
-	// GetVolumeAttachmentUUIDForUUIDNetNode returns the volume attachment uuid
+	// GetVolumeAttachmentUUIDForVolumeNetNode returns the volume attachment uuid
 	// for the supplied volume uuid which is attached to the given net node
 	// uuid.
 	//
@@ -95,7 +95,7 @@ type VolumeState interface {
 		context.Context, storageprovisioning.VolumeUUID,
 	) (domainlife.Life, error)
 
-	// GetVolumeLifeForNetNode returns a mapping of volume id to current
+	// GetVolumeLifeForNetNode returns a mapping of volume ID to current
 	// life value for each machine provisioned volume that is to be
 	// provisioned by the machine owning the supplied net node.
 	GetVolumeLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
@@ -198,8 +198,8 @@ func (s *Service) GetVolumeAttachmentLife(
 	return life, nil
 }
 
-// GetVolumeAttachmentUUIDForIDMachine returns the volume attachment
-// uuid for the supplied volume id which is attached to the machine.
+// GetVolumeAttachmentUUIDForVolumeIDMachine returns the volume attachment
+// uuid for the supplied volume ID which is attached to the machine.
 //
 // The following errors may be returned:
 // - [corestorage.InvalidStorageID] when the provided id is not valid.
@@ -210,7 +210,7 @@ func (s *Service) GetVolumeAttachmentLife(
 // attachment exists for the supplied values.
 // - [machineerrors.MachineNotFound] when no machine exists for the provided
 // machine uuid.
-func (s *Service) GetVolumeAttachmentUUIDForIDMachine(
+func (s *Service) GetVolumeAttachmentUUIDForVolumeIDMachine(
 	ctx context.Context,
 	id corestorage.ID,
 	machineUUID coremachine.UUID,
@@ -255,8 +255,8 @@ func (s *Service) GetVolumeAttachmentUUIDForIDMachine(
 	return uuid, nil
 }
 
-// GetVolumeAttachmentUUIDForIDUnit returns the volume attachment uuid
-// for the supplied volume id which is attached to the unit.
+// GetVolumeAttachmentUUIDForVolumeUnit returns the volume attachment uuid
+// for the supplied volume ID which is attached to the unit.
 //
 // The following errors may be returned:
 // - [corestorage.InvalidStorageID] when the provided id is not valid.
@@ -267,7 +267,7 @@ func (s *Service) GetVolumeAttachmentUUIDForIDMachine(
 // attachment exists for the supplied values.
 // - [applicationerrors.UnitNotFound] when no unit exists for the provided unit
 // uuid.
-func (s *Service) GetVolumeAttachmentUUIDForIDUnit(
+func (s *Service) GetVolumeAttachmentUUIDForVolumeUnit(
 	ctx context.Context,
 	id corestorage.ID,
 	unitUUID coreunit.UUID,
@@ -474,7 +474,7 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 }
 
 // WatchVolumeAttachmentPlans returns a watcher that emits volume attachment
-// plan volume ids, whenever the given machine's volume attachment plan life
+// plan volume IDs, whenever the given machine's volume attachment plan life
 // changes.
 //
 // The following errors may be returned:

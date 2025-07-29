@@ -32,20 +32,20 @@ func (st *State) checkVolumeExists(
 	tx *sqlair.TX,
 	uuid domainstorageprovisioning.VolumeUUID,
 ) (bool, error) {
-	entityUUIDInput := entityUUID{UUID: uuid.String()}
+	volumeUUIDInput := volumeUUID{UUID: uuid.String()}
 
 	checkQuery, err := st.Prepare(`
-SELECT &entityUUID.*
+SELECT &volumeUUID.*
 FROM   storage_volume
-WHERE  uuid = $entityUUID.uuid
+WHERE  uuid = $volumeUUID.uuid
 `,
-		entityUUIDInput,
+		volumeUUIDInput,
 	)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkQuery, entityUUIDInput).Get(&entityUUIDInput)
+	err = tx.Query(ctx, checkQuery, volumeUUIDInput).Get(&volumeUUIDInput)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {
@@ -156,14 +156,14 @@ func (st *State) GetVolumeAttachmentLife(
 	}
 
 	var (
-		uuidInput = entityUUID{UUID: uuid.String()}
+		uuidInput = volumeAttachmentUUID{UUID: uuid.String()}
 		lifeDBVal entityLife
 	)
 
 	lifeQuery, err := st.Prepare(`
 SELECT &entityLife.*
 FROM   storage_volume_attachment
-WHERE  uuid = $entityUUID.uuid
+WHERE  uuid = $volumeAttachmentUUID.uuid
 `,
 		uuidInput, lifeDBVal,
 	)
@@ -185,7 +185,7 @@ WHERE  uuid = $entityUUID.uuid
 		return 0, errors.Capture(err)
 	}
 
-	return domainlife.Life(lifeDBVal.Life), nil
+	return domainlife.Life(lifeDBVal.LifeID), nil
 }
 
 // GetVolumeAttachmentLifeForNetNode returns a mapping of volume
@@ -208,25 +208,25 @@ func (st *State) GetVolumeAttachmentLifeForNetNode(
 func (st *State) getVolumeAttachmentLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID domainnetwork.NetNodeUUID,
+	uuid domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
+	netNodeInput := netNodeUUID{UUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT &attachmentLife.*
 FROM            storage_volume_attachment
 WHERE           provision_scope_id=1
-AND             net_node_uuid=$netNodeUUIDRef.net_node_uuid
+AND             net_node_uuid=$netNodeUUID.uuid
 		`, attachmentLife{}, netNodeInput)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	var volAttachmentLives attachmentLives
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkNetNodeExists(ctx, tx, netNodeUUID)
+		exists, err := st.checkNetNodeExists(ctx, tx, uuid)
 		if err != nil {
 			return err
 		} else if !exists {
-			return errors.Errorf("net node %q does not exist", netNodeUUID)
+			return errors.Errorf("net node %q does not exist", uuid)
 		}
 		err = tx.Query(ctx, stmt, netNodeInput).GetAll(&volAttachmentLives)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -261,15 +261,15 @@ func (st *State) GetVolumeAttachmentPlanLifeForNetNode(
 func (st *State) getVolumeAttachmentPlanLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID domainnetwork.NetNodeUUID,
+	uuid domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
+	netNodeInput := netNodeUUID{UUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT (sv.volume_id, svap.life_id) AS (&volumeAttachmentPlanLife.*)
 FROM            storage_volume_attachment_plan svap
 JOIN            storage_volume sv ON svap.storage_volume_uuid=sv.uuid
 WHERE           svap.provision_scope_id=1
-AND             svap.net_node_uuid=$netNodeUUIDRef.net_node_uuid
+AND             svap.net_node_uuid=$netNodeUUID.uuid
 		`, volumeAttachmentPlanLife{}, netNodeInput)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -277,11 +277,11 @@ AND             svap.net_node_uuid=$netNodeUUIDRef.net_node_uuid
 
 	var volAttachmentPlanLives volumeAttachmentPlanLives
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkNetNodeExists(ctx, tx, netNodeUUID)
+		exists, err := st.checkNetNodeExists(ctx, tx, uuid)
 		if err != nil {
 			return err
 		} else if !exists {
-			return errors.Errorf("net node %q does not exist", netNodeUUID)
+			return errors.Errorf("net node %q does not exist", uuid)
 		}
 		err = tx.Query(ctx, stmt, netNodeInput).GetAll(&volAttachmentPlanLives)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -391,14 +391,14 @@ func (st *State) GetVolumeLife(
 	}
 
 	var (
-		uuidInput = entityUUID{UUID: uuid.String()}
+		uuidInput = volumeUUID{UUID: uuid.String()}
 		lifeDBVal entityLife
 	)
 
 	lifeQuery, err := st.Prepare(`
 SELECT &entityLife.*
 FROM   storage_volume
-WHERE  uuid = $entityUUID.uuid
+WHERE  uuid = $volumeUUID.uuid
 `,
 		uuidInput, lifeDBVal,
 	)
@@ -420,7 +420,7 @@ WHERE  uuid = $entityUUID.uuid
 		return 0, errors.Capture(err)
 	}
 
-	return domainlife.Life(lifeDBVal.Life), nil
+	return domainlife.Life(lifeDBVal.LifeID), nil
 }
 
 // GetVolumeLifeForNetNode returns a mapping of volume id to current life value
@@ -442,26 +442,26 @@ func (st *State) GetVolumeLifeForNetNode(
 func (st *State) getVolumeLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
-	netNodeUUID domainnetwork.NetNodeUUID,
+	uuid domainnetwork.NetNodeUUID,
 ) (map[string]life.Life, error) {
-	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
+	netNodeInput := netNodeUUID{UUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT (sv.volume_id, sv.life_id) AS (&volumeLife.*)
 FROM            storage_volume sv
 JOIN            storage_volume_attachment sva ON sv.uuid=sva.storage_volume_uuid
 WHERE           sv.provision_scope_id=1
-AND             sva.net_node_uuid=$netNodeUUIDRef.net_node_uuid
+AND             sva.net_node_uuid=$netNodeUUID.uuid
 		`, volumeLife{}, netNodeInput)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	var volLives volumeLives
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkNetNodeExists(ctx, tx, netNodeUUID)
+		exists, err := st.checkNetNodeExists(ctx, tx, uuid)
 		if err != nil {
 			return err
 		} else if !exists {
-			return errors.Errorf("net node %q does not exist", netNodeUUID)
+			return errors.Errorf("net node %q does not exist", uuid)
 		}
 		err = tx.Query(ctx, stmt, netNodeInput).GetAll(&volLives)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -600,14 +600,14 @@ func (st *State) InitialWatchStatementModelProvisionedVolumeAttachments() (
 ) {
 	query := func(ctx context.Context, db database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
-SELECT &attachmentUUID.*
+SELECT &entityUUID.*
 FROM   storage_volume_attachment
 WHERE  provision_scope_id=0
-		`, attachmentUUID{})
+		`, entityUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		var volAttachmentUUIDs []attachmentUUID
+		var volAttachmentUUIDs []entityUUID
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			err := tx.Query(ctx, stmt).GetAll(&volAttachmentUUIDs)
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {

@@ -100,49 +100,49 @@ type StorageStatusService interface {
 // StorageProvisioningService provides methods to watch and manage storage
 // provisioning related resources.
 type StorageProvisioningService interface {
-	// CheckFilesystemForIdExists checks if a filesystem exists for the supplied
-	// filesystem id. True is returned when a filesystem exists.
+	// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
+	// filesystem ID. True is returned when a filesystem exists.
 	CheckFilesystemForIDExists(context.Context, string) (bool, error)
 
 	// GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
-	// for the supplied machine uuid and filesystem id.
+	// for the supplied machine UUID and filesystem ID.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
-	// exists for the provided filesystem id.
+	// exists for the provided filesystem ID.
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
-	// the provided filesystem id.
+	// the provided filesystem ID.
 	GetFilesystemAttachmentForMachine(
 		ctx context.Context, filesystemID string, machineUUID machine.UUID,
 	) (storageprovisioning.FilesystemAttachment, error)
 
 	// GetFilesystemAttachmentForUnit retrieves the [storageprovisioning.FilesystemAttachment]
-	// for the supplied unit uuid and filesystem id.
+	// for the supplied unit UUID and filesystem ID.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
 	// is not valid.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-	// unit exists for the supplied unit uuid.
+	// unit exists for the supplied unit UUID.
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
-	// exists for the provided filesystem id.
+	// exists for the provided filesystem ID.
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
-	// the provided filesystem id.
+	// the provided filesystem ID.
 	GetFilesystemAttachmentForUnit(
 		ctx context.Context, filesystemID string, unitUUID unit.UUID,
 	) (storageprovisioning.FilesystemAttachment, error)
 
 	// GetFilesystemAttachmentIDs returns the
 	// [storageprovisioning.FilesystemAttachmentID] information for each of the
-	// supplied filesystem attachment uuids. If a filesystem attachment does exist
-	// for a supplied uuid or if a filesystem attachment is not attached to either a
-	// machine or unit then this uuid will be left out of the final result.
+	// supplied filesystem attachment UUIDs. If a filesystem attachment does exist
+	// for a supplied UUID or if a filesystem attachment is not attached to either a
+	// machine or unit then this UUID will be left out of the final result.
 	//
-	// It is not considered an error if a filesystem attachment uuid no longer
+	// It is not considered an error if a filesystem attachment UUID no longer
 	// exists as it is expected the caller has already satisfied this requirement
 	// themselves.
 	//
@@ -157,15 +157,15 @@ type StorageProvisioningService interface {
 	) (map[string]storageprovisioning.FilesystemAttachmentID, error)
 
 	// GetFilesystemForID retrieves the [storageprovisioning.Filesystem] for the
-	// supplied filesystem id.
+	// supplied filesystem ID.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
-	// when no filesystem exists for the provided filesystem id.
+	// when no filesystem exists for the provided filesystem ID.
 	GetFilesystemForID(ctx context.Context, filesystemID string) (storageprovisioning.Filesystem, error)
 
 	// GetVolumeAttachmentIDs returns the [storageprovisioning.VolumeAttachmentID]
-	// information for each volume attachment uuid supplied. If a uuid does not
+	// information for each volume attachment UUID supplied. If a UUID does not
 	// exist or isn't attached to either a machine or a unit then it will not exist
 	// in the result.
 	GetVolumeAttachmentIDs(
@@ -176,10 +176,10 @@ type StorageProvisioningService interface {
 	// whenever the given machine's provisioned filsystem's life changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the supplied machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the supplied machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine uuid.
+	// machine exists for the provided machine UUID.
 	WatchMachineProvisionedFilesystems(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.StringsWatcher, error)
@@ -196,10 +196,10 @@ type StorageProvisioningService interface {
 	// whenever the given machine's provisioned volume life changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	WatchMachineProvisionedVolumes(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error)
 
 	// WatchVolumeAttachmentPlans returns a watcher that emits volume attachment
@@ -207,10 +207,10 @@ type StorageProvisioningService interface {
 	// changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	WatchVolumeAttachmentPlans(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error)
 
 	// WatchModelProvisionedVolumeAttachments returns a watcher that emits volume
@@ -223,10 +223,10 @@ type StorageProvisioningService interface {
 	// attachment's life changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	WatchMachineProvisionedVolumeAttachments(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.StringsWatcher, error)
@@ -241,10 +241,10 @@ type StorageProvisioningService interface {
 	// filsystem attachment's life changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	WatchMachineProvisionedFilesystemAttachments(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.StringsWatcher, error)
