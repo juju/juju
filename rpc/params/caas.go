@@ -45,21 +45,28 @@ type CAASUnitTerminationResult struct {
 
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
-	Version              version.Number               `json:"version"`
-	APIAddresses         []string                     `json:"api-addresses"`
-	CACert               string                       `json:"ca-cert"`
-	Constraints          constraints.Value            `json:"constraints"`
-	Tags                 map[string]string            `json:"tags,omitempty"`
-	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`
-	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
-	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
-	Base                 Base                         `json:"base,omitempty"`
-	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
-	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
-	CharmURL             string                       `json:"charm-url,omitempty"`
-	Trust                bool                         `json:"trust,omitempty"`
-	Scale                int                          `json:"scale,omitempty"`
-	Error                *Error                       `json:"error,omitempty"`
+	Version                   version.Number                                        `json:"version"`
+	APIAddresses              []string                                              `json:"api-addresses"`
+	CACert                    string                                                `json:"ca-cert"`
+	Constraints               constraints.Value                                     `json:"constraints"`
+	Tags                      map[string]string                                     `json:"tags,omitempty"`
+	Filesystems               []KubernetesFilesystemParams                          `json:"filesystems,omitempty"`
+	FilesystemUnitAttachments map[string][]KubernetesFilesystemUnitAttachmentParams `json:"filesystem-unit-attachments,omitempty"`
+	Volumes                   []KubernetesVolumeParams                              `json:"volumes,omitempty"`
+	Devices                   []KubernetesDeviceParams                              `json:"devices,omitempty"`
+	Base                      Base                                                  `json:"base,omitempty"`
+	ImageRepo                 DockerImageInfo                                       `json:"image-repo,omitempty"`
+	CharmModifiedVersion      int                                                   `json:"charm-modified-version,omitempty"`
+	CharmURL                  string                                                `json:"charm-url,omitempty"`
+	Trust                     bool                                                  `json:"trust,omitempty"`
+	Scale                     int                                                   `json:"scale,omitempty"`
+	Error                     *Error                                                `json:"error,omitempty"`
+}
+
+// CAASApplicationFilesystemProvisioningInfo holds info needed to provision a caas application filesystem.
+type CAASApplicationFilesystemProvisioningInfo struct {
+	Filesystems               []KubernetesFilesystemParams                          `json:"filesystems,omitempty"`
+	FilesystemUnitAttachments map[string][]KubernetesFilesystemUnitAttachmentParams `json:"filesystem-unit-attachments,omitempty"`
 }
 
 // DockerImageInfo holds the details for a Docker resource type.
@@ -196,4 +203,11 @@ type CAASApplicationProvisionerConfig struct {
 type CAASApplicationProvisionerConfigResult struct {
 	ProvisionerConfig *CAASApplicationProvisionerConfig `json:"provisioner-config,omitempty"`
 	Error             *Error                            `json:"error,omitempty"`
+}
+
+// CAASApplicationFilesystemProvisioningInfoResult is the result of getting the provisioning info for
+// a CAAS application filesystem.
+type CAASApplicationFilesystemProvisioningInfoResult struct {
+	Result *CAASApplicationFilesystemProvisioningInfo `json:"result,omitempty"`
+	Error  *Error                                     `json:"error,omitempty"`
 }

@@ -1127,7 +1127,7 @@
     {
         "Name": "Application",
         "Description": "",
-        "Version": 20,
+        "Version": 21,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -3142,6 +3142,12 @@
                 "ScaleApplicationParams": {
                     "type": "object",
                     "properties": {
+                        "AttachStorage": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "application-tag": {
                             "type": "string"
                         },
@@ -3159,7 +3165,8 @@
                     "required": [
                         "application-tag",
                         "scale",
-                        "force"
+                        "force",
+                        "AttachStorage"
                     ]
                 },
                 "ScaleApplicationResult": {
@@ -15896,7 +15903,7 @@
     {
         "Name": "Storage",
         "Description": "",
-        "Version": 6,
+        "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -16378,6 +16385,9 @@
                 "ImportStorageParams": {
                     "type": "object",
                     "properties": {
+                        "force": {
+                            "type": "boolean"
+                        },
                         "kind": {
                             "type": "integer"
                         },

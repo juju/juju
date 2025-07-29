@@ -56,6 +56,7 @@ type Application interface {
 	CharmPendingToBeDownloaded() bool
 	SetOperatorStatus(status.StatusInfo) error
 	AllUnits() ([]Unit, error)
+	GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
 	StorageConstraints() (map[string]state.StorageConstraints, error)
 	DeviceConstraints() (map[string]state.DeviceConstraints, error)
@@ -139,6 +140,10 @@ func (a *applicationShim) AllUnits() ([]Unit, error) {
 		res = append(res, unit)
 	}
 	return res, nil
+}
+
+func (a *applicationShim) GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, error) {
+	return a.Application.GetUnitAttachmentInfos()
 }
 
 // StorageBackend provides the subset of backend storage

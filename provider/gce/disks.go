@@ -363,7 +363,7 @@ func (v *volumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, e
 }
 
 // ImportVolume is specified on the storage.VolumeImporter interface.
-func (v *volumeSource) ImportVolume(ctx context.ProviderCallContext, volName string, tags map[string]string) (storage.VolumeInfo, error) {
+func (v *volumeSource) ImportVolume(ctx context.ProviderCallContext, volName string, tags map[string]string, force bool) (storage.VolumeInfo, error) {
 	zone, _, err := parseVolumeId(volName)
 	if err != nil {
 		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot get volume %q", volName)
