@@ -755,6 +755,10 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			}
 		}
 
+		if err := m.check.DestroyAllowed(ctx); err != nil {
+			return errors.Trace(err)
+		}
+
 		var argForce bool
 		if force != nil {
 			argForce = *force
