@@ -296,16 +296,16 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 // GetFilesystemTemplatesForApplication returns all the filesystem templates for
 // a given application.
 func (s *Service) GetFilesystemTemplatesForApplication(
-	ctx context.Context, appID coreapplication.ID,
+	ctx context.Context, appUUID coreapplication.ID,
 ) ([]storageprovisioning.FilesystemTemplate, error) {
-	if err := appID.Validate(); err != nil {
+	if err := appUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	fsTemplates, err := s.st.GetFilesystemTemplatesForApplication(ctx, appID)
+	fsTemplates, err := s.st.GetFilesystemTemplatesForApplication(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Errorf(
-			"getting filesystem templates for app %q: %w", appID, err,
+			"getting filesystem templates for app %q: %w", appUUID, err,
 		)
 	}
 	return fsTemplates, nil

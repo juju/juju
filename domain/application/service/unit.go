@@ -593,15 +593,16 @@ func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreap
 //   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]string, error) {
+//   - If the application UUID is not valid, [coreerrors.NotValid] is returned.
+func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context, appUUID coreapplication.ID) (map[coreunit.Name]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := appID.Validate(); err != nil {
+	if err := appUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	idMap, err := s.st.GetAllUnitCloudContainerIDsForApplication(ctx, appID)
+	idMap, err := s.st.GetAllUnitCloudContainerIDsForApplication(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

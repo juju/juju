@@ -163,8 +163,8 @@ type cloudContainer struct {
 }
 
 type unitNameCloudContainer struct {
-	Name       coreunit.Name `db:"name"`
-	ProviderID string        `db:"provider_id"`
+	Name       string `db:"name"`
+	ProviderID string `db:"provider_id"`
 }
 
 type cloudService struct {

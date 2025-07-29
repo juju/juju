@@ -9,10 +9,12 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -84,7 +86,7 @@ func (s *serviceSuite) TestGetStorageResourceTagsForApplication(c *tc.C) {
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
 	ri := storageprovisioning.ResourceTagInfo{
-		BaseResourceTags: "a=x b=y",
+		BaseResourceTags: "a=x b=y juju-drop-me=bad",
 		ModelUUID:        uuid.MustNewUUID().String(),
 		ControllerUUID:   uuid.MustNewUUID().String(),
 		ApplicationName:  "foo",
@@ -102,4 +104,31 @@ func (s *serviceSuite) TestGetStorageResourceTagsForApplication(c *tc.C) {
 		"juju-model-uuid":      ri.ModelUUID,
 		"juju-storage-owner":   ri.ApplicationName,
 	})
+}
+
+// TestGetStorageResourceTagsForApplicationErrors tests that the caller gets an
+// error if the service layer errors.
+func (s *serviceSuite) TestGetStorageResourceTagsForApplicationErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetStorageResourceTagInfoForApplication(gomock.Any(),
+		appUUID, "resource-tags").Return(storageprovisioning.ResourceTagInfo{},
+		errors.New("oops"))
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetStorageResourceTagsForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.NotNil)
+}
+
+// TestGetStorageResourceTagsForApplicationInvalidApplicationUUID tests that the
+// caller gets an error if the application uuid provided is not valid.
+func (s *serviceSuite) TestGetStorageResourceTagsForApplicationInvalidApplicationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := coreapplication.ID("$")
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetStorageResourceTagsForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.NotNil)
 }

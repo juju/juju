@@ -1761,32 +1761,32 @@ WHERE  unit_uuid = $unitWorkloadVersion.unit_uuid
 //     is returned.
 func (st *State) GetAllUnitCloudContainerIDsForApplication(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appUUID coreapplication.ID,
 ) (map[coreunit.Name]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	appUUID := applicationID{ID: appID}
+	input := applicationID{ID: appUUID}
 	query := `
 SELECT (u.name, kp.provider_id) AS (&unitNameCloudContainer.*)
 FROM unit u 
 JOIN k8s_pod kp ON u.uuid = kp.unit_uuid
 WHERE u.application_uuid = $applicationID.uuid
 `
-	stmt, err := st.Prepare(query, unitNameCloudContainer{}, appUUID)
+	stmt, err := st.Prepare(query, unitNameCloudContainer{}, input)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var result []unitNameCloudContainer
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkApplicationNotDead(ctx, tx, appID)
+		err := st.checkApplicationNotDead(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = tx.Query(ctx, stmt, appUUID).GetAll(&result)
+		err = tx.Query(ctx, stmt, input).GetAll(&result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
@@ -1798,7 +1798,7 @@ WHERE u.application_uuid = $applicationID.uuid
 
 	res := make(map[coreunit.Name]string, len(result))
 	for _, v := range result {
-		res[v.Name] = v.ProviderID
+		res[coreunit.Name(v.Name)] = v.ProviderID
 	}
 	return res, nil
 }

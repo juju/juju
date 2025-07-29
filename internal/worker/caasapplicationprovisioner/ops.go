@@ -32,7 +32,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/charm"
@@ -441,7 +440,7 @@ func updateState(
 	if svc != nil {
 		err := applicationService.UpdateCloudService(
 			ctx, appName, svc.Id, svc.Addresses)
-		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		now := clk.Now()
@@ -451,7 +450,7 @@ func updateState(
 			Data:    svc.Status.Data,
 			Since:   &now,
 		})
-		if err != nil && !errors.Is(err, statuserrors.ApplicationNotFound) {
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/resource"
-	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
+	"github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -83,7 +83,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	resourceOpenerArgs := resource.ResourceOpenerArgs{
 		ResourceService:      domainServices.Resource(),
 		ApplicationService:   domainServices.Application(),
-		CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(domainServices.Config()),
+		CharmhubClientGetter: charmhub.NewCharmHubOpener(domainServices.Config()),
 	}
 	var rog ResourceOpenerGetterFunc = func(
 		ctx context.Context, appID application.ID, appName string,

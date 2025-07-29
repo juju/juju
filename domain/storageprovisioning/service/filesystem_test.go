@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -21,6 +22,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // filesystemSuite provides a test suite for asserting the [Service] interface
@@ -400,4 +402,29 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, expectedResult)
+}
+
+// TestGetFilesystemsTemplateForApplicationErrors tests the caller gets an error when
+// the state errors.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetFilesystemTemplatesForApplication(gomock.Any(), appID).
+		Return(nil, errors.New("oops"))
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
+	c.Assert(err, tc.NotNil)
+}
+
+// TestGetFilesystemsTemplateForApplicationInvalidApplicationUUID tests the
+// caller gets an error when the application UUID is invalid.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationInvalidApplicationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := coreapplication.ID("$")
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
+	c.Assert(err, tc.NotNil)
 }

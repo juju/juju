@@ -166,7 +166,7 @@ AND    sfa.net_node_uuid = $netNodeUUIDRef.net_node_uuid
 // a given application.
 func (st *State) GetFilesystemTemplatesForApplication(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appUUID coreapplication.ID,
 ) ([]storageprovisioning.FilesystemTemplate, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -174,7 +174,7 @@ func (st *State) GetFilesystemTemplatesForApplication(
 	}
 
 	id := entityUUID{
-		UUID: appID.String(),
+		UUID: appUUID.String(),
 	}
 
 	fsTemplateQuery, err := st.Prepare(`
@@ -233,11 +233,11 @@ ORDER BY asd.storage_name
 	var fsAttributes []storageNameAttributes
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkApplicationExists(ctx, tx, appID)
+		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
 		if err != nil {
 			return err
 		} else if !exists {
-			return errors.Errorf("application %q does not exist", appID)
+			return errors.Errorf("application %q does not exist", appUUID)
 		}
 		err = tx.Query(ctx, fsTemplateQuery, id).GetAll(&fsTemplates)
 		if errors.Is(err, sqlair.ErrNoRows) {
