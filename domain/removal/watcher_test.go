@@ -26,7 +26,8 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	"github.com/juju/juju/domain/removal/service"
-	"github.com/juju/juju/domain/removal/state"
+	statecontroller "github.com/juju/juju/domain/removal/state/controller"
+	statemodel "github.com/juju/juju/domain/removal/state/model"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -74,7 +75,8 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 	log := loggertesting.WrapCheckLog(c)
 
 	svc := service.NewWatchableService(
-		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log),
+		statecontroller.NewState(func() (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
+		statemodel.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log),
 		domain.NewWatcherFactory(factory, log),
 		nil,
 		nil,
@@ -112,9 +114,10 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 
 	log := loggertesting.WrapCheckLog(c)
 
-	st := state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log)
+	modelState := statemodel.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log)
 	svc := service.NewWatchableService(
-		st,
+		statecontroller.NewState(func() (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
+		modelState,
 		domain.NewWatcherFactory(factory, log),
 		nil,
 		nil,
@@ -168,7 +171,7 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
-		err := st.DeleteUnit(c.Context(), unitUUID)
+		err := modelState.DeleteUnit(c.Context(), unitUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()

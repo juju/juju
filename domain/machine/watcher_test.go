@@ -20,7 +20,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
-	removalstate "github.com/juju/juju/domain/removal/state"
+	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaltesting "github.com/juju/juju/internal/testing"
@@ -72,7 +72,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	removalSt := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	removalSt := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Should fire when a machine is created.
 	var res0 service.AddMachineResults
@@ -212,7 +212,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) 
 }
 
 func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
-	removalSt := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	removalSt := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	watcher, err := s.svc.WatchModelMachineLifeAndStartTimes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	removalstate "github.com/juju/juju/domain/removal/state"
+	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/domain/status"
 	statusstate "github.com/juju/juju/domain/status/state"
@@ -1107,7 +1107,7 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 	u1, err := s.state.GetUnitUUIDByName(c.Context(), "foo/1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	removalState := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	removalState := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), u0.String())
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), u1.String())
