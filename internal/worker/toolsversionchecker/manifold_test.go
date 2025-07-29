@@ -55,7 +55,7 @@ func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *tc.C) {
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		mockAPICaller(model.JobHostUnits))
-	c.Assert(err, tc.Equals, dependency.ErrMissing)
+	c.Assert(err, tc.Equals, dependency.ErrUninstall)
 	c.Assert(s.newCalled, tc.IsFalse)
 }
 
