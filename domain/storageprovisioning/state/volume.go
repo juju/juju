@@ -15,11 +15,9 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -61,7 +59,7 @@ WHERE  uuid = $volumeUUID.uuid
 // in the result.
 func (st *State) GetVolumeAttachmentIDs(
 	ctx context.Context, uuids []string,
-) (map[string]storageprovisioning.VolumeAttachmentID, error) {
+) (map[string]domainstorageprovisioning.VolumeAttachmentID, error) {
 	if len(uuids) == 0 {
 		return nil, nil
 	}
@@ -121,9 +119,9 @@ SELECT &volumeAttachmentIDs.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := make(map[string]storageprovisioning.VolumeAttachmentID, len(dbVals))
+	rval := make(map[string]domainstorageprovisioning.VolumeAttachmentID, len(dbVals))
 	for _, v := range dbVals {
-		id := storageprovisioning.VolumeAttachmentID{
+		id := domainstorageprovisioning.VolumeAttachmentID{
 			VolumeID: v.VolumeID,
 		}
 		if v.MachineName.Valid {
@@ -194,7 +192,7 @@ WHERE  uuid = $volumeAttachmentUUID.uuid
 // supplied net node.
 func (st *State) GetVolumeAttachmentLifeForNetNode(
 	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
-) (map[string]life.Life, error) {
+) (map[string]domainlife.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -209,7 +207,7 @@ func (st *State) getVolumeAttachmentLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
 	uuid domainnetwork.NetNodeUUID,
-) (map[string]life.Life, error) {
+) (map[string]domainlife.Life, error) {
 	netNodeInput := netNodeUUID{UUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT &attachmentLife.*
@@ -246,7 +244,7 @@ AND             net_node_uuid=$netNodeUUID.uuid
 // the uuid because the caller for the watcher works off of this information.
 func (st *State) GetVolumeAttachmentPlanLifeForNetNode(
 	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
-) (map[string]life.Life, error) {
+) (map[string]domainlife.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -262,7 +260,7 @@ func (st *State) getVolumeAttachmentPlanLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
 	uuid domainnetwork.NetNodeUUID,
-) (map[string]life.Life, error) {
+) (map[string]domainlife.Life, error) {
 	netNodeInput := netNodeUUID{UUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT (sv.volume_id, svap.life_id) AS (&volumeAttachmentPlanLife.*)
@@ -428,7 +426,7 @@ WHERE  uuid = $volumeUUID.uuid
 // owning the supplied net node.
 func (st *State) GetVolumeLifeForNetNode(
 	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
-) (map[string]life.Life, error) {
+) (map[string]domainlife.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -443,7 +441,7 @@ func (st *State) getVolumeLifeForNetNode(
 	ctx context.Context,
 	db domain.TxnRunner,
 	uuid domainnetwork.NetNodeUUID,
-) (map[string]life.Life, error) {
+) (map[string]domainlife.Life, error) {
 	netNodeInput := netNodeUUID{UUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT (sv.volume_id, sv.life_id) AS (&volumeLife.*)
@@ -530,11 +528,11 @@ WHERE  volume_id = $volumeID.volume_id
 // supplied net node will be emitted.
 func (st *State) InitialWatchStatementMachineProvisionedVolumes(
 	netNodeUUID domainnetwork.NetNodeUUID,
-) (string, eventsource.Query[map[string]life.Life]) {
+) (string, eventsource.Query[map[string]domainlife.Life]) {
 	query := func(
 		ctx context.Context,
 		db database.TxnRunner,
-	) (map[string]life.Life, error) {
+	) (map[string]domainlife.Life, error) {
 		return st.getVolumeLifeForNetNode(ctx, db, netNodeUUID)
 	}
 	return "storage_volume_life_machine_provisioning", query
@@ -582,10 +580,10 @@ func (st *State) InitialWatchStatementModelProvisionedVolumes() (string, eventso
 // the supplied net node will be emitted.
 func (st *State) InitialWatchStatementMachineProvisionedVolumeAttachments(
 	netNodeUUID domainnetwork.NetNodeUUID,
-) (string, eventsource.Query[map[string]life.Life]) {
+) (string, eventsource.Query[map[string]domainlife.Life]) {
 	query := func(ctx context.Context,
 		db database.TxnRunner,
-	) (map[string]life.Life, error) {
+	) (map[string]domainlife.Life, error) {
 		return st.getVolumeAttachmentLifeForNetNode(ctx, db, netNodeUUID)
 	}
 	return "storage_volume_attachment_life_machine_provisioning", query
@@ -633,8 +631,8 @@ WHERE  provision_scope_id=0
 // are for the given net node uuid.
 func (st *State) InitialWatchStatementVolumeAttachmentPlans(
 	netNodeUUID domainnetwork.NetNodeUUID,
-) (string, eventsource.Query[map[string]life.Life]) {
-	query := func(ctx context.Context, db database.TxnRunner) (map[string]life.Life, error) {
+) (string, eventsource.Query[map[string]domainlife.Life]) {
+	query := func(ctx context.Context, db database.TxnRunner) (map[string]domainlife.Life, error) {
 		return st.getVolumeAttachmentPlanLifeForNetNode(ctx, db, netNodeUUID)
 	}
 	return "storage_volume_attachment_plan_life_machine_provisioning", query

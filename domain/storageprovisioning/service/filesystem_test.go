@@ -76,6 +76,7 @@ func (s *filesystemSuite) TestGetFilesystemForIDNotFound(c *tc.C) {
 	_, err := NewService(s.state, s.watcherFactory).GetFilesystemForID(
 		c.Context(), "1234",
 	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Test via other state method
 	fsUUID := domaintesting.GenFilesystemUUID(c)

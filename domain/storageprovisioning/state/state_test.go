@@ -142,7 +142,7 @@ func (s *stateSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 		c.Context(), coremachine.UUID(machineUUID),
 	)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(rval, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
+	c.Check(rval, tc.Equals, netNodeUUID)
 }
 
 // TestGetMachineNetNodeUUIDNotFound tests that asking for the net node of a
@@ -169,7 +169,7 @@ func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
 		c.Context(), coreunit.UUID(unitUUID),
 	)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(rval, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
+	c.Check(rval, tc.Equals, netNodeUUID)
 }
 
 // TestGetUnitNetNodeUUIDNotFound tests that asking for the net node of a unit
