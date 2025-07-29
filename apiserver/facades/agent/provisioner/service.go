@@ -122,8 +122,8 @@ type MachineService interface {
 	// life changes.
 	WatchMachineContainerLife(ctx context.Context, parentMachineName coremachine.Name) (watcher.StringsWatcher, error)
 
-	// GetMachinePlacement returns the placement structure as it was recorded for
-	// the given machine.
+	// GetMachinePlacementDirective returns the placement structure as it was
+	// recorded for the given machine.
 	GetMachinePlacementDirective(ctx context.Context, mName coremachine.Name) (*string, error)
 
 	// GetMachineConstraints returns the constraints for the given machine.

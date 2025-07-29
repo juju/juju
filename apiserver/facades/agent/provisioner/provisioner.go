@@ -6,7 +6,6 @@ package provisioner
 import (
 	"context"
 	"fmt"
-
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -873,8 +872,7 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
 	for i, entity := range args.Entities {
 		gTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			// TODO check if this is tested. It's a stupid obfuscation.
-			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -905,6 +903,7 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
 			ctx, hostInstanceID, gTag.Id(), preparedInfo)
 		if errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
 			api.logger.Debugf(ctx, "using DHCP allocated addresses")
+			allocatedInfo = preparedInfo
 		} else if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -914,7 +913,7 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
 
 		allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
 		api.logger.Debugf(ctx, "allocated network config: %+v", allocatedConfig)
-		result.Results[i].Config = allocatedConfig
+		results[i].Config = allocatedConfig
 	}
 
 	result.Results = results
@@ -1043,31 +1042,26 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 			mac = *netInterface.MACAddress
 		}
 
-		// Map addresses
-		var addrs network.ProviderAddresses
-		for _, addr := range netInterface.Addrs {
-			addrs = append(addrs, network.ProviderAddress{
-				MachineAddress: network.MachineAddress{
-					Value:       addr.AddressValue,
-					Type:        addr.AddressType,
-					Scope:       addr.Scope,
-					ConfigType:  addr.ConfigType,
-					IsSecondary: addr.IsSecondary,
-				},
-				SpaceName:        network.SpaceName(addr.Space),
-				ProviderID:       deref(addr.ProviderID),
-				ProviderSubnetID: deref(addr.ProviderSubnetID),
-			})
-		}
+		var (
+			addrs         network.ProviderAddresses
+			nicConfigType network.AddressConfigType
+		)
 
-		var origin network.Origin
+		// There is a single address populated for each interface.
+		// The *device* config type is populated from the address.
+		// Note that we populate the *CIDR* from the address value.
 		if len(netInterface.Addrs) > 0 {
-			origin = netInterface.Addrs[0].Origin
+			a := netInterface.Addrs[0]
+			addrs = network.ProviderAddresses{{MachineAddress: network.MachineAddress{
+				ConfigType: a.ConfigType,
+				CIDR:       a.AddressValue,
+			}}}
+			nicConfigType = a.ConfigType
 		}
 
 		res[i] = network.InterfaceInfo{
 			MACAddress:          mac,
-			ProviderId:          deref(netInterface.ProviderID),
+			ConfigType:          nicConfigType,
 			VLANTag:             int(netInterface.VLANTag),
 			InterfaceName:       netInterface.Name,
 			ParentInterfaceName: netInterface.ParentDeviceName,
@@ -1077,24 +1071,9 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 			Addresses:           addrs,
 			DNSServers:          netInterface.DNSAddresses,
 			MTU:                 mtu,
-			DNSSearchDomains:    netInterface.DNSSearchDomains,
-			GatewayAddress: network.ProviderAddress{
-				MachineAddress: network.MachineAddress{Value: deref(netInterface.GatewayAddress)},
-			},
-			IsDefaultGateway: netInterface.IsDefaultGateway,
-			VirtualPortType:  netInterface.VirtualPortType,
-			Origin:           origin,
 		}
 	}
 	return res
-}
-
-func deref[T any](v *T) T {
-	var zero T
-	if v != nil {
-		return *v
-	}
-	return zero
 }
 
 // HostChangesForContainers returns the set of changes that need to be done
