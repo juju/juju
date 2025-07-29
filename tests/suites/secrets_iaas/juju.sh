@@ -83,7 +83,14 @@ run_user_secrets() {
 	app_name='easyrsa-user-secrets'
 	juju --show-log deploy easyrsa "$app_name"
 
-	# create user secrets.
+	# first test the creation of a large secret which encodes to 1MiB in size.
+	echo "data: $(cat /dev/zero | tr '\0' A | head -c 786430)" >"${TEST_DIR}/secret.txt"
+	secret_uri=$(juju add-secret big --file "${TEST_DIR}/secret.txt")
+	secret_short_uri=${secret_uri##*:}
+	check_contains "$(juju show-secret big --reveal | yq ".${secret_short_uri}.content.key" | grep -o A | wc -l)" 786430
+	juju --show-log remove-secret big
+
+	# test user secret revisions and grants.
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
 
