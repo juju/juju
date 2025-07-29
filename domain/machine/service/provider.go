@@ -29,6 +29,10 @@ type Provider interface {
 	environs.BootstrapEnviron
 	environs.InstanceTypesFetcher
 	environs.InstancePrechecker
+}
+
+// LXDProfileProvider represents a provider that can write LXD profiles.
+type LXDProfileProvider interface {
 	environs.LXDProfiler
 }
 
@@ -37,7 +41,8 @@ type Provider interface {
 type ProviderService struct {
 	Service
 
-	providerGetter providertracker.ProviderGetter[Provider]
+	providerGetter           providertracker.ProviderGetter[Provider]
+	lxdProfileProviderGetter providertracker.ProviderGetter[LXDProfileProvider]
 }
 
 // NewProviderService creates a new ProviderService.
@@ -45,6 +50,7 @@ func NewProviderService(
 	st State,
 	statusHistory StatusHistory,
 	providerGetter providertracker.ProviderGetter[Provider],
+	lxdProfileProviderGetter providertracker.ProviderGetter[LXDProfileProvider],
 	clock clock.Clock, logger logger.Logger,
 ) *ProviderService {
 	return &ProviderService{
@@ -54,7 +60,8 @@ func NewProviderService(
 			clock:         clock,
 			logger:        logger,
 		},
-		providerGetter: providerGetter,
+		providerGetter:           providerGetter,
+		lxdProfileProviderGetter: lxdProfileProviderGetter,
 	}
 }
 
@@ -212,7 +219,7 @@ func (s *ProviderService) UpdateLXDProfiles(ctx context.Context, modelName, mach
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	provider, err := s.providerGetter(ctx)
+	provider, err := s.lxdProfileProviderGetter(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return nil, nil
 	} else if err != nil {

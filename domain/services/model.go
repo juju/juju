@@ -205,6 +205,7 @@ func (s *ModelServices) Machine() *machineservice.WatchableService {
 		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		s.modelWatcherFactory("machine"),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[machineservice.LXDProfileProvider](s.providerFactory, s.modelUUID.String()),
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
 		logger,

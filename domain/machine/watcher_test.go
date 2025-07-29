@@ -60,6 +60,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 		func(ctx context.Context) (service.Provider, error) {
 			return service.NewNoopProvider(), nil
 		},
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
