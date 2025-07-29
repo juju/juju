@@ -678,6 +678,12 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
+	var l dbModelLife
+	lStmt, err := s.Prepare(`SELECT &dbModelLife.life_id FROM model_life`, l)
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, roStmt).Get(&model)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -690,7 +696,14 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		if errors.Is(err, sql.ErrNoRows) {
 			return modelagenterrors.AgentVersionNotFound
 		} else if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("getting model agent version: %w", err)
+		}
+
+		err = tx.Query(ctx, lStmt).Get(&l)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("model life does not exist").Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf("getting model life: %w", err)
 		}
 
 		return nil
@@ -706,6 +719,13 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Errorf(
 			"parsing agent version %q: %w", agentVersion.TargetVersion.V, err,
+		)
+	}
+
+	life, err := l.Life.Value()
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Errorf(
+			"parsing model life %q: %w", l.Life, err,
 		)
 	}
 
@@ -728,6 +748,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		IsControllerModel:  model.IsControllerModel,
 		AgentVersion:       agentVersionNumber,
 		LatestAgentVersion: latestAgentVersionNumber,
+		Life:               life,
 	}
 
 	if owner := model.CredentialOwner; owner != "" {

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
@@ -67,20 +66,13 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *tc.C) {
 	watch := watchertest.NewMockStringsWatcher(ch)
 	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
-	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, tc.ErrorIsNil)
-	defer stop(c, dep)
-
+	// Assign one unit, and wait for it to be deployed.
 	u0 := mocks.NewMockUnit(ctrl)
 	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Name().Return("mysql/0").AnyTimes()
 	u0.EXPECT().Life().Return(life.Alive)
 	u0.EXPECT().SetStatus(gomock.Any(), status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
 	u0.EXPECT().SetPassword(gomock.Any(), gomock.Any()).Return(nil)
-
-	// Assign one unit, and wait for it to be deployed.
-	s.sendUnitChange(c, ch, "mysql/0")
-	s.waitFor(c, isDeployed(ctx, u0.Name()))
 
 	// Assign another unit, and wait for that to be deployed.
 	u1 := mocks.NewMockUnit(ctrl)
@@ -89,29 +81,42 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *tc.C) {
 	u1.EXPECT().Life().Return(life.Alive)
 	u1.EXPECT().SetStatus(gomock.Any(), status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
 	u1.EXPECT().SetPassword(gomock.Any(), gomock.Any()).Return(nil)
-	s.sendUnitChange(c, ch, "mysql/1")
-	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
 	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Life().Return(life.Dying)
-	s.sendUnitChange(c, ch, "mysql/1")
-	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dead, and check that it is recalled and
 	// removed from state.
 	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Life().Return(life.Dead).Times(2)
 	u0.EXPECT().Remove(gomock.Any()).Return(nil)
-	s.sendUnitChange(c, ch, "mysql/0")
-	s.waitFor(c, isDeployed(ctx, u1.Name()))
 
 	// Remove the Dying unit from the machine, and check that it is recalled...
 	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Life().Return(life.Dead).Times(2)
 	u1.EXPECT().Remove(gomock.Any()).Return(nil)
+
+	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, dep)
+
+	s.sendUnitChange(c, ch, "mysql/0")
+	s.waitFor(c, isDeployed(ctx, u0.Name()))
+
+	s.sendUnitChange(c, ch, "mysql/1")
+	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
+
+	s.sendUnitChange(c, ch, "mysql/1")
+	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
+
+	s.sendUnitChange(c, ch, "mysql/0")
+	s.waitFor(c, isDeployed(ctx, u1.Name()))
+
 	s.sendUnitChange(c, ch, "mysql/1")
 	s.waitFor(c, isDeployed(ctx))
+
+	workertest.CleanKill(c, dep)
 }
 
 func (s *deployerSuite) TestInitialStatusMessages(c *tc.C) {
@@ -131,10 +136,6 @@ func (s *deployerSuite) TestInitialStatusMessages(c *tc.C) {
 	watch := watchertest.NewMockStringsWatcher(ch)
 	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
-	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, tc.ErrorIsNil)
-	defer stop(c, dep)
-
 	u0 := mocks.NewMockUnit(ctrl)
 	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Name().Return("mysql/0").AnyTimes()
@@ -142,8 +143,14 @@ func (s *deployerSuite) TestInitialStatusMessages(c *tc.C) {
 	u0.EXPECT().SetStatus(gomock.Any(), status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
 	u0.EXPECT().SetPassword(gomock.Any(), gomock.Any()).Return(nil)
 
+	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, dep)
+
 	s.sendUnitChange(c, ch, "mysql/0")
 	s.waitFor(c, isDeployed(ctx, u0.Name()))
+
+	workertest.CleanKill(c, dep)
 }
 
 func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *tc.C) {
@@ -176,17 +183,8 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *tc.C) {
 	u1.EXPECT().Name().Return("mysql/1").AnyTimes()
 	u1.EXPECT().Life().Return(life.Dying).Times(2)
 
-	// When the deployer is started, in each case (1) no unit agent is deployed
-	// and (2) the non-Alive unit is been removed from state.
-	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
-	c.Assert(err, tc.ErrorIsNil)
-	defer stop(c, dep)
-
-	s.sendUnitChange(c, ch, "mysql/0", "mysql/1")
-
 	u0.EXPECT().Remove(gomock.Any()).Return(nil)
 	u1.EXPECT().Remove(gomock.Any()).Return(nil)
-	s.waitFor(c, isNotDeployed(ctx, "mysql/0", "mysql/1"))
 
 	// Deploy a different unit to give the test something to wait for.
 	u2 := mocks.NewMockUnit(ctrl)
@@ -196,9 +194,21 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *tc.C) {
 	u2.EXPECT().SetStatus(gomock.Any(), status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
 	u2.EXPECT().SetPassword(gomock.Any(), gomock.Any()).Return(nil)
 
+	// When the deployer is started, in each case (1) no unit agent is deployed
+	// and (2) the non-Alive unit is been removed from state.
+	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, dep)
+
+	s.sendUnitChange(c, ch, "mysql/0", "mysql/1")
+
+	s.waitFor(c, isNotDeployed(ctx, "mysql/0", "mysql/1"))
+
 	s.sendUnitChange(c, ch, "mysql/2")
 
 	s.waitFor(c, isDeployed(ctx, u2.Name()))
+
+	workertest.CleanKill(c, dep)
 }
 
 func (s *deployerSuite) waitFor(c *tc.C, t func(c *tc.C) bool) {
@@ -234,10 +244,6 @@ func isNotDeployed(ctx deployer.Context, expected ...string) func(*tc.C) bool {
 		c.Assert(err, tc.ErrorIsNil)
 		return set.NewStrings(current...).Intersection(set.NewStrings(expected...)).IsEmpty()
 	}
-}
-
-func stop(c *tc.C, w worker.Worker) {
-	c.Assert(workertest.CheckKill(c, w), tc.IsNil)
 }
 
 type fakeContext struct {
