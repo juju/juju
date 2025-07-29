@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/docker"
@@ -97,10 +96,27 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	streamsAgents coretools.List,
 ) (coretools.Versions, error) {
 	result := coretools.Versions{}
-	imageRepoDetails, err := docker.NewImageRepoDetails(args.ControllerCfg.CAASImageRepo())
+
+	broker, err := m.brokerProvider()
 	if err != nil {
-		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+		return nil, errors.Annotate(err, "getting caas client")
 	}
+
+	modelImage, err := broker.GetModelOperatorDeploymentImage()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting model operator deployment image")
+	}
+
+	modelImageRepo, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepo)
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing %s", modelImageRepo)
+	}
+
 	if imageRepoDetails.Empty() {
 		imageRepoDetails, err = docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
 		if err != nil {

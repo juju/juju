@@ -26,9 +26,10 @@ type dummyAPI struct {
 }
 
 type dummyBroker struct {
-	ensureModelOperator func(string, string, *caas.ModelOperatorConfig) error
-	modelOperator       func() (*caas.ModelOperatorConfig, error)
-	modelOperatorExists func() (bool, error)
+	ensureModelOperator             func(string, string, *caas.ModelOperatorConfig) error
+	modelOperator                   func() (*caas.ModelOperatorConfig, error)
+	modelOperatorExists             func() (bool, error)
+	getModelOperatorDeploymentImage func() (string, error)
 }
 
 type ModelOperatorManagerSuite struct{}
@@ -54,6 +55,13 @@ func (b *dummyBroker) ModelOperatorExists() (bool, error) {
 		return false, nil
 	}
 	return b.modelOperatorExists()
+}
+
+func (b *dummyBroker) GetModelOperatorDeploymentImage() (string, error) {
+	if b.getModelOperatorDeploymentImage == nil {
+		return "ghcr.io/juju/jujud-operator:3.6.9", nil
+	}
+	return b.getModelOperatorDeploymentImage()
 }
 
 func (a *dummyAPI) ModelOperatorProvisioningInfo() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
@@ -82,13 +90,13 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 	var (
 		iteration = 0 // ... n
 
-		apiAddresses = [n][]string{{"fe80:abcd::1"}, {"fe80:abcd::2"}, {"fe80:abcd::3"}}
-		imagePath    = [n]string{"juju/jujud:1", "juju/jujud:2", "juju/jujud:3"}
-		modelUUID    = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
-		ver          = [n]version.Number{version.MustParse("2.8.2"), version.MustParse("2.9.1"), version.MustParse("2.9.99")}
-
-		password   = ""
-		lastConfig = (*caas.ModelOperatorConfig)(nil)
+		apiAddresses      = [n][]string{{"fe80:abcd::1"}, {"fe80:abcd::2"}, {"fe80:abcd::3"}}
+		modelUUID         = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
+		imagePath         = [n]string{"docker.io/jujusolutions/jujud-operator:1", "docker.io/jujusolutions/jujud-operator:2", "docker.io/jujusolutions/jujud-operator:3"}
+		ver               = [n]version.Number{version.MustParse("2.8.2"), version.MustParse("2.9.1"), version.MustParse("2.9.99")}
+		expectedImagePath = [n]string{"docker.io/jujusolutions/jujud-operator:1", "docker.io/jujusolutions/jujud-operator:2.9.1", "docker.io/jujusolutions/jujud-operator:2.9.99"}
+		password          = ""
+		lastConfig        = (*caas.ModelOperatorConfig)(nil)
 	)
 
 	changed := make(chan struct{})
@@ -112,7 +120,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 			}()
 			lastConfig = conf
 
-			c.Check(conf.ImageDetails.RegistryPath, gc.Equals, imagePath[iteration])
+			c.Check(conf.ImageDetails.RegistryPath, gc.Equals, expectedImagePath[iteration])
 
 			ac, err := agent.ParseConfigData(conf.AgentConf)
 			c.Check(err, jc.ErrorIsNil)
@@ -139,6 +147,9 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 				return nil, errors.NotFoundf("model operator")
 			}
 			return lastConfig, nil
+		},
+		getModelOperatorDeploymentImage: func() (string, error) {
+			return imagePath[iteration], nil
 		},
 	}
 

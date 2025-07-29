@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
@@ -56,6 +57,15 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 	}
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
+
+	brokerProvider := func() (caas.Broker, error) {
+		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting caas client")
+		}
+		return broker, nil
+	}
+
 	return NewModelUpgraderAPI(
 		systemState.ControllerTag(),
 		statePoolShim{StatePool: pool},
@@ -66,5 +76,6 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		context.CallContext(st),
 		registry.New,
 		environscloudspecGetter,
+		brokerProvider,
 	)
 }

@@ -10,7 +10,9 @@ import (
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -49,6 +51,12 @@ type Model interface {
 	MigrationMode() state.MigrationMode
 	Type() state.ModelType
 	Life() state.Life
+	ModelTag() names.ModelTag
+	ControllerUUID() string
+	Config() (*config.Config, error)
+	Cloud() (cloud.Cloud, error)
+	CloudRegion() string
+	CloudCredential() (state.Credential, bool, error)
 }
 
 type statePoolShim struct {

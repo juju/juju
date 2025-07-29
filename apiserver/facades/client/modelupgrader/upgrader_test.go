@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
+	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/controller"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
@@ -101,6 +103,7 @@ type modelUpgradeSuite struct {
 	blockChecker     *mocks.MockBlockCheckerInterface
 	registryProvider *registrymocks.MockRegistry
 	cloudSpec        lxd.CloudSpec
+	broker           *caasmocks.MockBroker
 }
 
 var _ = gc.Suite(&modelUpgradeSuite{})
@@ -126,6 +129,7 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 	s.bootstrapEnviron = mocks.NewMockBootstrapEnviron(ctrl)
 	s.blockChecker = mocks.NewMockBlockCheckerInterface(ctrl)
 	s.registryProvider = registrymocks.NewMockRegistry(ctrl)
+	s.broker = caasmocks.NewMockBroker(ctrl)
 
 	api, err := modelupgrader.NewModelUpgraderAPI(
 		coretesting.ControllerTag,
@@ -140,6 +144,9 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 		},
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
+		},
+		func() (caas.Broker, error) {
+			return s.broker, nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -807,6 +814,7 @@ func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expec
 			ModelType: state.ModelTypeCAAS,
 			Arch:      wantArch,
 		}).Return(simpleStreams, nil),
+		s.broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:3.6.9", nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
 			image.NewImageInfo(version.MustParse("2.9.8")),
 			image.NewImageInfo(version.MustParse("2.9.9")),
@@ -851,6 +859,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 			Number:    version.MustParse("2.9.10"),
 			ModelType: state.ModelTypeCAAS,
 		}).Return(simpleStreams, nil),
+		s.broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:3.6.9", nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
 			image.NewImageInfo(version.MustParse("2.9.8")),
 			image.NewImageInfo(version.MustParse("2.9.9")),
@@ -892,6 +901,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
 			ModelType: state.ModelTypeCAAS,
 		}).Return(simpleStreams, nil),
+		s.broker.EXPECT().GetModelOperatorDeploymentImage().Return("ghcr.io/juju/jujud-operator:3.6.9", nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
 			image.NewImageInfo(version.MustParse("2.9.8")), // skip: it's not released in simplestream yet.
 			image.NewImageInfo(version.MustParse("2.9.9")),

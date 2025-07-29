@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
@@ -43,6 +44,7 @@ type ModelUpgraderAPI struct {
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
+	brokerProvider          func() (caas.Broker, error)
 }
 
 // NewModelUpgraderAPI creates a new api server endpoint for managing
@@ -57,6 +59,7 @@ func NewModelUpgraderAPI(
 	callCtx context.ProviderCallContext,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	brokerProvider func() (caas.Broker, error),
 ) (*ModelUpgraderAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -76,6 +79,7 @@ func NewModelUpgraderAPI(
 		newEnviron:              newEnviron,
 		registryAPIFunc:         registryAPIFunc,
 		environscloudspecGetter: environscloudspecGetter,
+		brokerProvider:          brokerProvider,
 	}, nil
 }
 

@@ -17,6 +17,7 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -770,4 +771,27 @@ func ensureExecRBACResources(objMeta meta.ObjectMeta, clock jujuclock.Clock, bro
 
 func modelOperatorConfigMapAgentConfKey(operatorName string) string {
 	return operatorName + "-agent.conf"
+}
+
+// GetModelOperatorDeploymentImage retrieves the container image used by the model operator deployment
+// in the configured namespace (e.g. "ghcr.io/juju/jujud-operator:3.6.9").
+// The following error types can be expected to be returned:
+// - [errors.NotFound]: When the deployment is missing or no containers can be found.
+func (k *kubernetesClient) GetModelOperatorDeploymentImage() (string, error) {
+	api := k.client().AppsV1().Deployments(k.namespace)
+	res, err := api.Get(context.Background(), modelOperatorName, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return "", errors.NewNotFound(err, fmt.Sprintf("k8s %q deployment not found", modelOperatorName))
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	containers := res.Spec.Template.Spec.Containers
+	if len(containers) == 0 {
+		return "", errors.NotFoundf("no containers found in model operator deployment %q", modelOperatorName)
+	}
+
+	image := containers[0].Image
+	logger.Tracef("model operator %q deployment image: %s", modelOperatorName, image)
+	return image, nil
 }

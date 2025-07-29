@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -19,8 +18,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.caasmodeloperator")
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
@@ -116,7 +113,7 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConf, vers)
+	registryPath, err := podcfg.GetJujuOCIImagePathFromControllerCfg(controllerConf, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -126,7 +123,6 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
 	imageInfo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
-	logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{
 		APIAddresses: apiAddresses.Result,
