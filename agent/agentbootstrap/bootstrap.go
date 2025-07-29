@@ -73,7 +73,6 @@ func CheckJWKSReachable(url string) error {
 type AgentBootstrap struct {
 	adminUser       names.UserTag
 	agentConfig     agent.ConfigSetter
-	stateNewPolicy  state.NewPolicyFunc
 	bootstrapDqlite DqliteInitializerFunc
 
 	stateInitializationParams instancecfg.StateInitializationParams
