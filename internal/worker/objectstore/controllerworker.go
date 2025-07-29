@@ -147,6 +147,20 @@ func (t *controllerWorker) Remove(ctx context.Context, path string) (err error) 
 	return nil
 }
 
+// Remove removes data for the namespaced model.
+func (t *controllerWorker) RemoveAll(ctx context.Context) (err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := t.objectStore.RemoveAll(ctx); err != nil {
+		return errors.Annotatef(err, "removing all objects")
+	}
+	return nil
+}
+
 func (t *controllerWorker) Report() map[string]any {
 	report := t.objectStore.Report()
 	report["modelUUID"] = database.ControllerNS

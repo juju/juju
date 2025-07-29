@@ -65,9 +65,11 @@ func (s *trackerWorkerSuite) TestWorkerNotFound(c *tc.C) {
 		return watchertest.NewMockNotifyWatcher(ch), nil
 	})
 	s.modelService.EXPECT().Model(gomock.Any()).DoAndReturn(func(ctx context.Context) (model.ModelInfo, error) {
-		defer close(done)
-
 		return model.ModelInfo{}, modelerrors.NotFound
+	})
+	s.trackedObjectStore.EXPECT().RemoveAll(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
+		defer close(done)
+		return nil
 	})
 
 	w, err := s.newWorker()
@@ -94,11 +96,13 @@ func (s *trackerWorkerSuite) TestWorkerDead(c *tc.C) {
 		return watchertest.NewMockNotifyWatcher(ch), nil
 	})
 	s.modelService.EXPECT().Model(gomock.Any()).DoAndReturn(func(ctx context.Context) (model.ModelInfo, error) {
-		defer close(done)
-
 		return model.ModelInfo{
 			Life: life.Dead,
 		}, nil
+	})
+	s.trackedObjectStore.EXPECT().RemoveAll(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
+		defer close(done)
+		return nil
 	})
 
 	w, err := s.newWorker()

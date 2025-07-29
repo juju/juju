@@ -18,7 +18,7 @@ type controllerWorkerSuite struct {
 	baseSuite
 }
 
-var _ objectstore.ObjectStore = (*trackerWorker)(nil)
+var _ objectstore.ObjectStore = (*controllerWorker)(nil)
 
 func TestControllerWorkerSuite(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)

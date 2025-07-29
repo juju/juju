@@ -169,7 +169,7 @@ func (t *trackerWorker) Remove(ctx context.Context, path string) (err error) {
 	return nil
 }
 
-// Remove removes data at path, namespaced to the model.
+// Remove removes data for the namespaced model.
 func (t *trackerWorker) RemoveAll(ctx context.Context) (err error) {
 	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc())
 	defer func() {
