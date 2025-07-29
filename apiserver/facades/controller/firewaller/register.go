@@ -20,7 +20,6 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFirewallerAPIV7 creates a new server-side FirewallerAPIv7 facade.
 func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
-	st := ctx.State()
 	domainServices := ctx.DomainServices()
 	controllerConfigAPI := common.NewControllerConfigAPI(
 		domainServices.ControllerConfig(),
@@ -29,9 +28,7 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		domainServices.Model(),
 	)
 
-	stShim := stateShim{State: st}
 	return NewStateFirewallerAPI(
-		stShim,
 		domainServices.Network(),
 		ctx.WatcherRegistry(),
 		ctx.Auth(),

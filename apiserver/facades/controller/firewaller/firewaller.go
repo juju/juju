@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
@@ -21,7 +22,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -52,7 +52,6 @@ type FirewallerAPI struct {
 	*common.InstanceIdGetter
 	ControllerConfigAPI
 
-	st                                       State
 	networkService                           NetworkService
 	applicationService                       ApplicationService
 	machineService                           MachineService
@@ -71,7 +70,6 @@ type FirewallerAPI struct {
 
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
 func NewStateFirewallerAPI(
-	st State,
 	networkService NetworkService,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
@@ -124,7 +122,6 @@ func NewStateFirewallerAPI(
 		ModelMachinesWatcher:                     machinesWatcher,
 		InstanceIdGetter:                         instanceIdGetter,
 		ControllerConfigAPI:                      controllerConfigAPI,
-		st:                                       st,
 		watcherRegistry:                          watcherRegistry,
 		authorizer:                               authorizer,
 		accessUnit:                               accessUnit,
@@ -260,7 +257,7 @@ func (f *FirewallerAPI) MacaroonForRelations(ctx context.Context, args params.En
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		mac, err := f.st.GetMacaroon(relationTag)
+		mac, err := f.getMacaroon(relationTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -280,15 +277,7 @@ func (f *FirewallerAPI) SetRelationsStatus(ctx context.Context, args params.SetS
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		rel, err := f.st.KeyRelation(relationTag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		err = rel.SetStatus(status.StatusInfo{
-			Status:  status.Status(entity.Status),
-			Message: entity.Info,
-		})
+		err = f.oneSetRelationStatus(ctx, relationTag, entity.Status, entity.Info)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -447,4 +436,14 @@ func setEquals(a, b set.Strings) bool {
 		return false
 	}
 	return a.Intersection(b).Size() == a.Size()
+}
+
+func (f *FirewallerAPI) getMacaroon(tag names.RelationTag) (*macaroon.Macaroon, error) {
+	return nil, jujuerrors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (f *FirewallerAPI) oneSetRelationStatus(ctx context.Context, tag names.RelationTag, s string, info string) error {
+	return jujuerrors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
