@@ -842,7 +842,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 		if v.InstanceId != "" {
 			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies instance ID")
 		}
-		if v.VolumeId == "" {
+		if v.ProviderId == "" {
 			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params does not specify volume ID")
 		}
 		volumeAttachments[i] = storage.VolumeAttachmentParams{
@@ -852,7 +852,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 				ReadOnly: v.ReadOnly,
 			},
 			Volume:   volumeTag,
-			VolumeId: v.VolumeId,
+			VolumeId: v.ProviderId,
 		}
 	}
 
@@ -1647,7 +1647,7 @@ func volumesToAPIServer(volumes []storage.Volume) []params.Volume {
 		result[i] = params.Volume{
 			VolumeTag: v.Tag.String(),
 			Info: params.VolumeInfo{
-				VolumeId:   v.VolumeId,
+				ProviderId: v.VolumeId,
 				HardwareId: v.HardwareId,
 				WWN:        v.WWN, // pool
 				Size:       v.Size,

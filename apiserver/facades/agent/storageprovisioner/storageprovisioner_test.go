@@ -126,7 +126,7 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 			{
 				Result: params.Filesystem{
 					FilesystemTag: tag.String(),
-					VolumeTag:     names.NewVolumeTag("123").String(),
+					VolumeTag:     names.NewVolumeTag("456").String(),
 					Info: params.FilesystemInfo{
 						ProviderId: "fs-1234",
 						Size:       1000,

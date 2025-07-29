@@ -412,9 +412,9 @@ func volumeDetails(t time.Time) []params.VolumeDetails {
 		{
 			VolumeTag: "volume-0-0",
 			Info: params.VolumeInfo{
-				VolumeId: "provider-supplied-volume-0-0",
-				Pool:     "radiance",
-				Size:     512,
+				ProviderId: "provider-supplied-volume-0-0",
+				Pool:       "radiance",
+				Size:       512,
 			},
 			Life:   "alive",
 			Status: createTestStatus(corestatus.Attached, "", t),
@@ -447,7 +447,7 @@ func volumeDetails(t time.Time) []params.VolumeDetails {
 		{
 			VolumeTag: "volume-1",
 			Info: params.VolumeInfo{
-				VolumeId:   "provider-supplied-volume-1",
+				ProviderId: "provider-supplied-volume-1",
 				HardwareId: "serial blah blah",
 				Persistent: true,
 				Size:       2048,
@@ -474,8 +474,8 @@ func volumeDetails(t time.Time) []params.VolumeDetails {
 		{
 			VolumeTag: "volume-2",
 			Info: params.VolumeInfo{
-				VolumeId: "provider-supplied-volume-2",
-				Size:     3,
+				ProviderId: "provider-supplied-volume-2",
+				Size:       3,
 			},
 			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
@@ -491,7 +491,7 @@ func volumeDetails(t time.Time) []params.VolumeDetails {
 		{
 			VolumeTag: "volume-4",
 			Info: params.VolumeInfo{
-				VolumeId:   "provider-supplied-volume-4",
+				ProviderId: "provider-supplied-volume-4",
 				Persistent: true,
 				Size:       1024,
 			},

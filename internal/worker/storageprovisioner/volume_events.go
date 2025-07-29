@@ -597,7 +597,7 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 		out[i] = params.Volume{
 			VolumeTag: v.Tag.String(),
 			Info: params.VolumeInfo{
-				VolumeId:   v.VolumeId,
+				ProviderId: v.VolumeId,
 				HardwareId: v.HardwareId,
 				WWN:        v.WWN,
 				Pool:       "", // pool
@@ -642,7 +642,7 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 	return storage.Volume{
 		Tag: volumeTag,
 		VolumeInfo: storage.VolumeInfo{
-			VolumeId:   in.Info.VolumeId,
+			VolumeId:   in.Info.ProviderId,
 			HardwareId: in.Info.HardwareId,
 			WWN:        in.Info.WWN,
 			Size:       in.Info.Size,
@@ -715,6 +715,6 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 			ReadOnly:   in.ReadOnly,
 		},
 		Volume:   volumeTag,
-		VolumeId: in.VolumeId,
+		VolumeId: in.ProviderId,
 	}, nil
 }

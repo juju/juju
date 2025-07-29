@@ -88,7 +88,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *tc.C) {
 	expectedVolumes := []params.Volume{{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId:   "id-1",
+			ProviderId: "id-1",
 			HardwareId: "serial-1",
 			Size:       1024,
 			Persistent: true,
@@ -96,7 +96,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *tc.C) {
 	}, {
 		VolumeTag: "volume-2",
 		Info: params.VolumeInfo{
-			VolumeId:   "id-2",
+			ProviderId: "id-2",
 			HardwareId: "serial-2",
 			Size:       1024,
 		},
@@ -589,7 +589,7 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *tc.C) {
 	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.provisionedVolumes["volume-3"] = params.Volume{
 		VolumeTag: "volume-3",
-		Info:      params.VolumeInfo{VolumeId: "vol-ume"},
+		Info:      params.VolumeInfo{ProviderId: "vol-ume"},
 	}
 
 	var validateCalls int
@@ -906,7 +906,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *tc.C) {
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
@@ -965,7 +965,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentNoStaticReattachment(c *tc
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
@@ -1403,7 +1403,7 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *tc.C) {
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
@@ -1447,7 +1447,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *tc.C) {
 	volumeAccessor.provisionedVolumes[volume.String()] = params.Volume{
 		VolumeTag: volume.String(),
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines[machine.String()] = "already-provisioned-1"
@@ -1580,7 +1580,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesNotFound(c *tc.C) {
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"

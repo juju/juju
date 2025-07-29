@@ -342,10 +342,10 @@ func partitionRemoveVolumeParams(removeTags []names.VolumeTag, removeParams []pa
 		tag := removeTags[i]
 		if args.Destroy {
 			destroyTags = append(destroyTags, tag)
-			destroyIds = append(destroyIds, args.VolumeId)
+			destroyIds = append(destroyIds, args.ProviderId)
 		} else {
 			releaseTags = append(releaseTags, tag)
-			releaseIds = append(releaseIds, args.VolumeId)
+			releaseIds = append(releaseIds, args.ProviderId)
 		}
 	}
 	return

@@ -208,7 +208,7 @@ type Volume struct {
 
 // VolumeInfo describes a storage volume in the model.
 type VolumeInfo struct {
-	VolumeId   string `json:"volume-id"`
+	ProviderId string `json:"volume-id"`
 	HardwareId string `json:"hardware-id,omitempty"`
 	WWN        string `json:"wwn,omitempty"`
 	// Pool is the name of the storage pool used to
@@ -286,8 +286,9 @@ type RemoveVolumeParams struct {
 	// Provider is the storage provider that manages the volume.
 	Provider string `json:"provider"`
 
-	// VolumeId is the storage provider's unique ID for the volume.
-	VolumeId string `json:"volume-id"`
+	// ProviderId is the storage provider's unique ID for the volume.
+	// It is named volume-id for legacy reasons.
+	ProviderId string `json:"volume-id"`
 
 	// Destroy controls whether the volume should be completely
 	// destroyed, or otherwise merely released from Juju's management.
@@ -299,7 +300,9 @@ type RemoveVolumeParams struct {
 type VolumeAttachmentParams struct {
 	VolumeTag  string `json:"volume-tag"`
 	MachineTag string `json:"machine-tag"`
-	VolumeId   string `json:"volume-id,omitempty"`
+	// ProviderId is the storage provider's unique ID for the volume.
+	// It is named volume-id for legacy reasons.
+	ProviderId string `json:"volume-id,omitempty"`
 	InstanceId string `json:"instance-id,omitempty"`
 	Provider   string `json:"provider"`
 	ReadOnly   bool   `json:"read-only,omitempty"`

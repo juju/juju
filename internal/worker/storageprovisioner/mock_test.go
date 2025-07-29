@@ -139,7 +139,7 @@ func (m *mockVolumeAccessor) provisionVolume(tag names.VolumeTag) params.Volume 
 	v := params.Volume{
 		VolumeTag: tag.String(),
 		Info: params.VolumeInfo{
-			VolumeId: "vol-" + tag.Id(),
+			ProviderId: "vol-" + tag.Id(),
 		},
 	}
 	m.provisionedVolumes[tag.String()] = v
@@ -243,9 +243,9 @@ func (v *mockVolumeAccessor) RemoveVolumeParams(_ context.Context, volumes []nam
 			continue
 		}
 		volumeParams := params.RemoveVolumeParams{
-			Provider: "dummy",
-			VolumeId: v.Info.VolumeId,
-			Destroy:  tag.Id() != releasingVolumeId,
+			Provider:   "dummy",
+			ProviderId: v.Info.ProviderId,
+			Destroy:    tag.Id() != releasingVolumeId,
 		}
 		result = append(result, params.RemoveVolumeParamsResult{Result: volumeParams})
 	}

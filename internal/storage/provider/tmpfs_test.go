@@ -107,7 +107,7 @@ func (s *tmpfsSuite) TestCreateFilesystems(c *tc.C) {
 			Tag: names.NewFilesystemTag("6"),
 			FilesystemInfo: storage.FilesystemInfo{
 				ProviderId: "filesystem-6",
-				Size:         2,
+				Size:       2,
 			},
 		},
 	}})
@@ -132,7 +132,7 @@ func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *tc.C) {
 			Tag: names.NewFilesystemTag("1"),
 			FilesystemInfo: storage.FilesystemInfo{
 				ProviderId: "filesystem-1",
-				Size:         32,
+				Size:       32,
 			},
 		},
 	}, {
@@ -140,7 +140,7 @@ func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *tc.C) {
 			Tag: names.NewFilesystemTag("2"),
 			FilesystemInfo: storage.FilesystemInfo{
 				ProviderId: "filesystem-2",
-				Size:         16,
+				Size:       16,
 			},
 		},
 	}})

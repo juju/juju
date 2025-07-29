@@ -199,7 +199,7 @@ func (s *provisionerSuite) TestVolumes(c *tc.C) {
 				Result: params.Volume{
 					VolumeTag: "volume-100",
 					Info: params.VolumeInfo{
-						VolumeId:   "volume-id",
+						ProviderId: "volume-id",
 						HardwareId: "abc",
 						Size:       1024,
 					},
@@ -219,7 +219,7 @@ func (s *provisionerSuite) TestVolumes(c *tc.C) {
 		Result: params.Volume{
 			VolumeTag: "volume-100",
 			Info: params.VolumeInfo{
-				VolumeId:   "volume-id",
+				ProviderId: "volume-id",
 				HardwareId: "abc",
 				Size:       1024,
 			},
@@ -477,9 +477,9 @@ func (s *provisionerSuite) TestRemoveVolumeParams(c *tc.C) {
 		*(result.(*params.RemoveVolumeParamsResults)) = params.RemoveVolumeParamsResults{
 			Results: []params.RemoveVolumeParamsResult{{
 				Result: params.RemoveVolumeParams{
-					Provider: "foo",
-					VolumeId: "bar",
-					Destroy:  true,
+					Provider:   "foo",
+					ProviderId: "bar",
+					Destroy:    true,
 				},
 			}},
 		}
@@ -492,9 +492,9 @@ func (s *provisionerSuite) TestRemoveVolumeParams(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(volumeParams, tc.DeepEquals, []params.RemoveVolumeParamsResult{{
 		Result: params.RemoveVolumeParams{
-			Provider: "foo",
-			VolumeId: "bar",
-			Destroy:  true,
+			Provider:   "foo",
+			ProviderId: "bar",
+			Destroy:    true,
 		},
 	}})
 }
@@ -656,7 +656,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *tc.C) {
 			Volumes: []params.Volume{{
 				VolumeTag: "volume-100",
 				Info: params.VolumeInfo{
-					VolumeId:   "123",
+					ProviderId: "123",
 					HardwareId: "abc",
 					Size:       1024,
 					Persistent: true,
@@ -676,7 +676,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *tc.C) {
 	volumes := []params.Volume{{
 		VolumeTag: "volume-100",
 		Info: params.VolumeInfo{
-			VolumeId: "123", HardwareId: "abc", Size: 1024, Persistent: true,
+			ProviderId: "123", HardwareId: "abc", Size: 1024, Persistent: true,
 		},
 	}}
 	errorResults, err := st.SetVolumeInfo(c.Context(), volumes)
