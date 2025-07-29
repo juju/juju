@@ -70,6 +70,7 @@ type API struct {
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
 	clock              clock.Clock
+	broker             caas.Broker
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
@@ -121,6 +122,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		pm,
 		registry,
 		clock.WallClock,
+		broker,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -169,6 +171,7 @@ func NewCAASApplicationProvisionerAPI(
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	clock clock.Clock,
+	broker caas.Broker,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -184,6 +187,7 @@ func NewCAASApplicationProvisionerAPI(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 		clock:              clock,
+		broker:             broker,
 	}, nil
 }
 
@@ -331,10 +335,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting juju oci image path")
-	}
+
 	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
@@ -354,7 +355,26 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Annotatef(err, "getting application config")
 	}
 	base := app.Base()
-	imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+
+	// gets the full model operator deployment image path.
+	modelImage, err := a.broker.GetModelOperatorDeploymentImage()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting model operator deployment image")
+	}
+
+	// gets the image repo from the model operator deployment image path.
+	modelImageRepo, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// gets the provisioning info image path using the model repo and agent version.
+	modelImagePath, err := podcfg.GetJujuOCIImagePathFromModelRepo(modelImageRepo, vers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepo)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
@@ -367,7 +387,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
-		ImageRepo:            params.NewDockerImageInfo(imageRepoDetails, imagePath),
+		ImageRepo:            params.NewDockerImageInfo(imageRepoDetails, modelImagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,
 		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),

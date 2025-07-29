@@ -69,5 +69,6 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 		charmInfoAPI,
 		appCharmInfoAPI,
 		clock.WallClock,
+		broker,
 	)
 }

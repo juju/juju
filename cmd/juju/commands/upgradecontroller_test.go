@@ -84,6 +84,8 @@ func (s *OldUpgradeControllerSuite) TestUpgradeWrongPermissions(c *gc.C) {
 }
 
 func (s *OldUpgradeControllerSuite) TestUpgradeDifferentUser(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	user, err := s.BackingState.AddUser("rick", "rick", "dummy-secret", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -102,10 +104,17 @@ func (s *OldUpgradeControllerSuite) TestUpgradeDifferentUser(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cmd := &upgradeControllerCommand{}
+	modelUpgraderApi := mocks.NewMockModelUpgraderAPI(ctrl)
+	modelUpgraderApi.EXPECT().Close().Return(nil)
+	modelUpgraderApi.EXPECT().UpgradeModel(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(version.MustParse("1.1.1"), nil)
+
+	cmd := &upgradeControllerCommand{
+		modelUpgraderAPI: modelUpgraderApi,
+	}
 	cmd.SetClientStore(s.ControllerStore)
 	cmdrun := modelcmd.WrapController(cmd)
 	_, err = cmdtesting.RunCommand(c, cmdrun)
+
 	c.Assert(err, jc.ErrorIsNil)
 }
 

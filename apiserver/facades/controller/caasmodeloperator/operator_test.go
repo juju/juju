@@ -60,7 +60,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 	controllerConf, err := m.state.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version)
+	imagePath, err := podcfg.GetJujuOCIImagePathFromControllerCfg(controllerConf, info.Version)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
 

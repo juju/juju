@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -28,6 +29,7 @@ type ModelOperatorBroker interface {
 	EnsureModelOperator(string, string, *caas.ModelOperatorConfig) error
 	ModelOperator() (*caas.ModelOperatorConfig, error)
 	ModelOperatorExists() (bool, error)
+	GetModelOperatorDeploymentImage() (string, error)
 }
 
 // ModelOperatorManager defines the worker used for managing model operators in
@@ -114,6 +116,25 @@ func (m *ModelOperatorManager) update() error {
 			password = prevConf.OldPassword()
 			setPassword = false
 		}
+
+		// retrieves model operator deployment image to keep model operator's image the same after migration
+		modelImage, err := m.broker.GetModelOperatorDeploymentImage()
+		if err != nil {
+			return errors.Annotate(err, "failed to get model deployment image")
+		}
+
+		modelImageRepo, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		registryPath, err := podcfg.GetJujuOCIImagePathFromModelRepo(modelImageRepo, info.Version)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		info.ImageDetails.RegistryPath = registryPath
+
 	}
 	if setPassword {
 		err := m.api.SetPassword(password)

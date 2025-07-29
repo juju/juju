@@ -25,7 +25,7 @@ const (
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
-	return GetJujuOCIImagePath(cfg.Controller, cfg.JujuVersion)
+	return GetJujuOCIImagePathFromControllerCfg(cfg.Controller, cfg.JujuVersion)
 }
 
 func (cfg *ControllerPodConfig) dbVersion() (version.Number, error) {
@@ -63,8 +63,8 @@ func IsCharmBaseImage(imagePath string) bool {
 	return strings.Contains(imagePath, CharmBaseName+":")
 }
 
-// GetJujuOCIImagePath returns the jujud oci image path.
-func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
+// GetJujuOCIImagePathFromControllerCfg constructs the full OCI image path using the given controller config and Juju version.
+func GetJujuOCIImagePathFromControllerCfg(controllerCfg controller.Config, ver version.Number) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
 	imagePath, err := RebuildOldOperatorImagePath(
 		controllerCfg.CAASOperatorImagePath(), ver,
@@ -81,6 +81,15 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (s
 		tag = ver.String()
 	}
 	return imageRepoToPath(details.Repository, tag)
+}
+
+// GetJujuOCIImagePathFromModelRepo constructs the full OCI image path using the given model image repository and Juju version.
+func GetJujuOCIImagePathFromModelRepo(modelRepo string, ver version.Number) (string, error) {
+	tag := ""
+	if ver != version.Zero {
+		tag = ver.String()
+	}
+	return imageRepoToPath(modelRepo, tag)
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.

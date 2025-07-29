@@ -20,26 +20,52 @@ type imageSuite struct {
 
 var _ = gc.Suite(&imageSuite{})
 
-func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
+func (*imageSuite) TestGetJujuOCIImagePathFromControllerCfg(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
 
 	cfg[controller.CAASImageRepo] = "testing-repo"
 	ver := version.MustParse("2.6-beta3.666")
-	path, err := podcfg.GetJujuOCIImagePath(cfg, ver)
+	path, err := podcfg.GetJujuOCIImagePathFromControllerCfg(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-repo/jujud-operator:2.6-beta3.666")
 
 	cfg[controller.CAASImageRepo] = "testing-repo:8080"
 	ver = version.MustParse("2.6-beta3.666")
-	path, err = podcfg.GetJujuOCIImagePath(cfg, ver)
+	path, err = podcfg.GetJujuOCIImagePathFromControllerCfg(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-repo:8080/jujud-operator:2.6-beta3.666")
 
+	cfg[controller.CAASImageRepo] = "ghcr.io/juju"
+	ver = version.MustParse("3.6.9")
+	path, err = podcfg.GetJujuOCIImagePathFromControllerCfg(cfg, ver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "ghcr.io/juju/jujud-operator:3.6.9")
+
 	cfg[controller.CAASOperatorImagePath] = "testing-old-repo/jujud-old-operator:1.6"
 	ver = version.MustParse("2.6-beta3")
-	path, err = podcfg.GetJujuOCIImagePath(cfg, ver)
+	path, err = podcfg.GetJujuOCIImagePathFromControllerCfg(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-old-repo/jujud-old-operator:2.6-beta3")
+}
+
+func (*imageSuite) TestGetJujuOCIImagePathFromModelRepo(c *gc.C) {
+	modelImageRepo := "testing-repo"
+	ver := version.MustParse("2.6-beta3.666")
+	path, err := podcfg.GetJujuOCIImagePathFromModelRepo(modelImageRepo, ver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "testing-repo/jujud-operator:2.6-beta3.666")
+
+	modelImageRepo = "testing-repo:8080"
+	ver = version.MustParse("2.6-beta3.666")
+	path, err = podcfg.GetJujuOCIImagePathFromModelRepo(modelImageRepo, ver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "testing-repo:8080/jujud-operator:2.6-beta3.666")
+
+	modelImageRepo = "ghcr.io/juju"
+	ver = version.MustParse("3.6.9")
+	path, err = podcfg.GetJujuOCIImagePathFromModelRepo(modelImageRepo, ver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "ghcr.io/juju/jujud-operator:3.6.9")
 }
 
 func (*imageSuite) TestRebuildOldOperatorImagePath(c *gc.C) {

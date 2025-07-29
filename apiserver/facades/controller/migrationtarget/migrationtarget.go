@@ -36,7 +36,7 @@ type API struct {
 	presence                        facade.Presence
 	getClaimer                      migration.ClaimerFunc
 	getEnviron                      stateenvirons.NewEnvironFunc
-	getCAASBroker                   stateenvirons.NewCAASBrokerFunc
+	CAASbrokerProvider              stateenvirons.NewCAASBrokerFunc
 	requiredMigrationFacadeVersions facades.FacadeVersions
 }
 
@@ -55,7 +55,7 @@ type APIV2 struct {
 func NewAPI(
 	ctx facade.Context,
 	getEnviron stateenvirons.NewEnvironFunc,
-	getCAASBroker stateenvirons.NewCAASBrokerFunc,
+	CAASbrokerProvider stateenvirons.NewCAASBrokerFunc,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
 ) (*API, error) {
 	auth := ctx.Auth()
@@ -71,7 +71,7 @@ func NewAPI(
 		presence:                        ctx.Presence(),
 		getClaimer:                      ctx.LeadershipClaimer,
 		getEnviron:                      getEnviron,
-		getCAASBroker:                   getCAASBroker,
+		CAASbrokerProvider:              CAASbrokerProvider,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 	}, nil
 }
@@ -338,7 +338,7 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 
 	var ra environs.ResourceAdopter
 	if m.Type() == state.ModelTypeCAAS {
-		ra, err = api.getCAASBroker(m)
+		ra, err = api.CAASbrokerProvider(m)
 	} else {
 		ra, err = api.getEnviron(m)
 	}

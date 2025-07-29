@@ -15,10 +15,10 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -63,6 +63,7 @@ type API struct {
 	state              CAASOperatorProvisionerState
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
+	broker             caas.Broker
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -73,6 +74,7 @@ func NewCAASOperatorProvisionerAPI(
 	st CAASOperatorProvisionerState,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
+	broker caas.Broker,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -87,6 +89,7 @@ func NewCAASOperatorProvisionerAPI(
 		state:              st,
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
+		broker:             broker,
 	}, nil
 }
 
@@ -133,28 +136,37 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		names.NewControllerTag(cfg.ControllerUUID()),
 		modelConfig,
 	)
-
-	imageRepo, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+	modelImage, err := a.broker.GetModelOperatorDeploymentImage()
 	if err != nil {
-		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+		return result, errors.Annotatef(err, "getting model operator deployment image")
 	}
-	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
+
+	modelImageRepo, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	imageInfo := params.NewDockerImageInfo(imageRepo, registryPath)
-	logger.Tracef("image info %v", imageInfo)
+
+	modelImagePath, err := podcfg.GetJujuOCIImagePathFromModelRepo(modelImageRepo, vers)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepo)
+	if err != nil {
+		return result, errors.Annotatef(err, "parsing %s", modelImageRepo)
+	}
+
+	imageInfo := params.NewDockerImageInfo(imageRepoDetails, modelImagePath)
 
 	// PodSpec charms now use focal as the operator base until PodSpec is removed.
-	baseRegistryPath, err := podcfg.ImageForBase(imageRepo.Repository, charm.Base{
+	baseRegistryPath, err := podcfg.ImageForBase(imageRepoDetails.Repository, charm.Base{
 		Name:    "ubuntu",
 		Channel: charm.Channel{Track: "20.04", Risk: charm.Stable},
 	})
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	baseImageInfo := params.NewDockerImageInfo(imageRepo, baseRegistryPath)
-	logger.Tracef("base image info %v", baseImageInfo)
+	baseImageInfo := params.NewDockerImageInfo(imageRepoDetails, baseRegistryPath)
 
 	apiAddresses, err := a.APIAddresses()
 	if err == nil && apiAddresses.Error != nil {
