@@ -457,9 +457,7 @@ On the new screen, in the top-right, click on the Menu icon, then **Dashboards**
 [Juju Controllers-1713888589960.json|attachment](https://discourse.charmhub.io/uploads/short-url/yOxvgum6eo3NmMxPaTRKLOLmbo0.json) (200.9 KB)
 
 
-On the new screen, at the very top, expand the Juju Metrics section and inspect the results. For example:
-
-![Collect metrics about a controller - Prometheus with Grafana](manage-controllers-grafana-dashboard.png)
+On the new screen, at the very top, expand the Juju Metrics section and inspect the results.
 
 Make a change to your controller (e.g., run `juju add-model test` to add another model and trigger some more API server connections) and refresh the page to view the updated results!
 
