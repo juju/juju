@@ -1,100 +1,105 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package toolsversionchecker_test
+package toolsversionchecker
 
 import (
-	"testing"
+	"context"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	gomock "go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/engine/enginetest"
-	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/worker/toolsversionchecker"
-	"github.com/juju/juju/rpc/params"
 )
 
 type ManifoldSuite struct {
 	testhelpers.IsolationSuite
-	newCalled bool
+
+	mockModelConfigService *MockModelConfigService
+	mockModelAgentService  *MockModelAgentService
+	mockMachineService     *MockMachineService
 }
 
-func TestManifoldSuite(t *testing.T) {
-	tc.Run(t, &ManifoldSuite{})
-}
-
-func (s *ManifoldSuite) SetUpTest(c *tc.C) {
-	s.newCalled = false
-	s.PatchValue(&toolsversionchecker.New,
-		func(api toolsversionchecker.Facade, params *toolsversionchecker.VersionCheckerParams) worker.Worker {
-			s.newCalled = true
-			return nil
+func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
+	return ManifoldConfig{
+		AgentName:          "agent",
+		DomainServicesName: "domain-services",
+		GetModelUUID: func(context.Context, dependency.Getter, string) (model.UUID, error) {
+			return model.UUID("123"), nil
 		},
-	)
+		GetDomainServices: func(context.Context, dependency.Getter, string, model.UUID) (domainServices, error) {
+			return domainServices{
+				config:  s.mockModelConfigService,
+				agent:   s.mockModelAgentService,
+				machine: s.mockMachineService,
+			}, nil
+		},
+		NewWorker: func(VersionCheckerParams) worker.Worker { return nil },
+		Logger:    loggertesting.WrapCheckLog(c),
+	}
 }
 
-func (s *ManifoldSuite) TestMachine(c *tc.C) {
-	config := toolsversionchecker.ManifoldConfig(enginetest.AgentAPIManifoldTestConfig())
-	_, err := enginetest.RunAgentAPIManifold(
-		toolsversionchecker.Manifold(config),
-		&fakeAgent{tag: names.NewMachineTag("42")},
-		mockAPICaller(model.JobManageModel))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.newCalled, tc.IsTrue)
+func (s *ManifoldSuite) newGetter() dependency.Getter {
+	resources := map[string]any{}
+	return dt.StubGetter(resources)
 }
 
-func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *tc.C) {
-	config := toolsversionchecker.ManifoldConfig(enginetest.AgentAPIManifoldTestConfig())
-	_, err := enginetest.RunAgentAPIManifold(
-		toolsversionchecker.Manifold(config),
-		&fakeAgent{tag: names.NewMachineTag("42")},
-		mockAPICaller(model.JobHostUnits))
-	c.Assert(err, tc.Equals, dependency.ErrUninstall)
-	c.Assert(s.newCalled, tc.IsFalse)
-}
+func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
-func (s *ManifoldSuite) TestNonMachineAgent(c *tc.C) {
-	config := toolsversionchecker.ManifoldConfig(enginetest.AgentAPIManifoldTestConfig())
-	_, err := enginetest.RunAgentAPIManifold(
-		toolsversionchecker.Manifold(config),
-		&fakeAgent{tag: names.NewUnitTag("foo/0")},
-		mockAPICaller(""))
-	c.Assert(err, tc.ErrorMatches, "this manifold may only be used inside a machine agent")
-	c.Assert(s.newCalled, tc.IsFalse)
-}
+	s.mockModelConfigService = NewMockModelConfigService(ctrl)
+	s.mockModelAgentService = NewMockModelAgentService(ctrl)
+	s.mockMachineService = NewMockMachineService(ctrl)
 
-type fakeAgent struct {
-	agent.Agent
-	tag names.Tag
-}
-
-func (a *fakeAgent) CurrentConfig() agent.Config {
-	return &fakeConfig{tag: a.tag}
-}
-
-type fakeConfig struct {
-	agent.Config
-	tag names.Tag
-}
-
-func (c *fakeConfig) Tag() names.Tag {
-	return c.tag
-}
-
-func mockAPICaller(job model.MachineJob) apitesting.APICallerFunc {
-	return apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		if res, ok := result.(*params.AgentGetEntitiesResults); ok {
-			res.Entities = []params.AgentGetEntitiesResult{
-				{Jobs: []model.MachineJob{
-					job,
-				}}}
-		}
-		return nil
+	c.Cleanup(func() {
+		s.mockModelConfigService = nil
+		s.mockModelAgentService = nil
+		s.mockMachineService = nil
 	})
+
+	return ctrl
+}
+
+func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
+	cfg := s.getConfig(c)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
+
+	cfg = s.getConfig(c)
+	cfg.AgentName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.DomainServicesName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.GetModelUUID = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.GetDomainServices = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.NewWorker = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.Logger = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+}
+
+func (s *ManifoldSuite) TestStart(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.getConfig(c)
+
+	_, err := Manifold(cfg).Start(c.Context(), s.newGetter())
+	c.Assert(err, tc.ErrorIsNil)
 }

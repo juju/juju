@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -381,7 +380,7 @@ func (l *LabelSuite) TestStorageNameFromLabels(c *tc.C) {
 	}
 }
 
-func (l *LabelSuite) TestDetectModelMetaLabelVersion(c *gc.C) {
+func (l *LabelSuite) TestDetectModelMetaLabelVersion(c *tc.C) {
 	tests := []struct {
 		LabelVersion   constants.LabelVersion
 		ModelName      string
@@ -434,15 +433,15 @@ func (l *LabelSuite) TestDetectModelMetaLabelVersion(c *gc.C) {
 		}
 		labelVersion, err := utils.MatchModelMetaLabelVersion(meta, test.ModelName, test.ModelUUID, test.ControllerUUID)
 		if test.ErrorString != "" {
-			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", t))
+			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
-		c.Check(labelVersion, gc.Equals, test.LabelVersion, gc.Commentf("test %d", t))
+		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
 }
 
-func (l *LabelSuite) TestDetectOperatorMetaLabelVersion(c *gc.C) {
+func (l *LabelSuite) TestDetectOperatorMetaLabelVersion(c *tc.C) {
 	tests := []struct {
 		LabelVersion constants.LabelVersion
 		ModelName    string
@@ -477,15 +476,15 @@ func (l *LabelSuite) TestDetectOperatorMetaLabelVersion(c *gc.C) {
 		}
 		labelVersion, err := utils.MatchOperatorMetaLabelVersion(meta, test.ModelName, test.Target)
 		if test.ErrorString != "" {
-			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", t))
+			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
-		c.Check(labelVersion, gc.Equals, test.LabelVersion, gc.Commentf("test %d", t))
+		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
 }
 
-func (l *LabelSuite) TestDetectApplicationMetaLabelVersion(c *gc.C) {
+func (l *LabelSuite) TestDetectApplicationMetaLabelVersion(c *tc.C) {
 	tests := []struct {
 		LabelVersion constants.LabelVersion
 		AppName      string
@@ -516,10 +515,10 @@ func (l *LabelSuite) TestDetectApplicationMetaLabelVersion(c *gc.C) {
 		}
 		labelVersion, err := utils.MatchApplicationMetaLabelVersion(meta, test.AppName)
 		if test.ErrorString != "" {
-			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", t))
+			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
-		c.Check(labelVersion, gc.Equals, test.LabelVersion, gc.Commentf("test %d", t))
+		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
 }
