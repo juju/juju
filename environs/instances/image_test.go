@@ -412,10 +412,10 @@ func (s *imageSuite) TestFindInstanceSpecShouldChooseNonSEV(c *gc.C) {
 		Constraints: imageCons,
 	}, iTypes)
 
-	c.Check(err, gc.IsNil)
-	c.Check(spec, gc.NotNil)
-	c.Check(spec.Image.Id, gc.Equals, imageId)
-	c.Check(spec.InstanceType, gc.DeepEquals, InstanceType{Id: "3", Name: "m1.medium", Arch: "amd64", VirtType: &hvm, Mem: 1024 * 4, RootDisk: 1024 * 60, CpuCores: 2, IsSev: false})
+	c.Assert(err, gc.IsNil)
+	c.Assert(spec, gc.NotNil)
+	c.Assert(spec.Image.Id, gc.Equals, imageId)
+	c.Assert(spec.InstanceType, gc.DeepEquals, InstanceType{Id: "3", Name: "m1.medium", Arch: "amd64", VirtType: &hvm, Mem: 1024 * 4, RootDisk: 1024 * 60, CpuCores: 2, IsSev: false})
 }
 
 var imageMatchtests = []struct {
