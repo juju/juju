@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/environs/config"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -44,7 +44,7 @@ func SetModelConfig(
 		var m coremodel.Model
 		err = controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error
-			m, err = modelstate.GetModel(ctx, tx, modelID)
+			m, err = statecontroller.GetModel(ctx, tx, modelID)
 			return err
 		})
 

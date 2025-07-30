@@ -18,7 +18,8 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
-	"github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/domain/modelagent"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -71,11 +72,11 @@ func CreateGlobalModelRecord(
 			)
 		}
 
-		activator := state.GetActivator()
+		activator := statecontroller.GetActivator()
 		return controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			modelTypeState := modelTypeStateFunc(
 				func(ctx context.Context, cloudName string) (string, error) {
-					return state.CloudType()(ctx, preparer{}, tx, cloudName)
+					return statecontroller.CloudType()(ctx, preparer{}, tx, cloudName)
 				})
 			modelType, err := service.ModelTypeForCloud(ctx, modelTypeState, args.Cloud)
 			if err != nil {
@@ -96,7 +97,7 @@ func CreateGlobalModelRecord(
 			}
 
 			if args.Credential.IsZero() {
-				supports, err := state.CloudSupportsAuthType(
+				supports, err := statecontroller.CloudSupportsAuthType(
 					ctx, preparer{}, tx, args.Cloud, cloud.EmptyAuthType,
 				)
 				if err != nil {
@@ -114,7 +115,7 @@ func CreateGlobalModelRecord(
 				}
 			}
 
-			if err := state.Create(ctx, preparer{}, tx, modelID, modelType, args); err != nil {
+			if err := statecontroller.Create(ctx, preparer{}, tx, modelID, modelType, args); err != nil {
 				return errors.Errorf("create bootstrap model %s/%s with uuid %q: %w", args.Qualifier, args.Name, modelID, err)
 			}
 
@@ -159,7 +160,7 @@ func CreateLocalModelRecordWithAgentStream(
 		var m coremodel.Model
 		err := controllerDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error
-			m, err = state.GetModel(ctx, tx, id)
+			m, err = statecontroller.GetModel(ctx, tx, id)
 			return err
 		})
 		if err != nil {
@@ -198,7 +199,7 @@ func CreateLocalModelRecordWithAgentStream(
 		}
 
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return state.InsertModelInfo(ctx, args, preparer{}, tx)
+			return statemodel.InsertModelInfo(ctx, args, preparer{}, tx)
 		})
 	}
 }
@@ -214,7 +215,7 @@ func SetModelConstraints(cons coreconstraints.Value) internaldatabase.BootstrapO
 	return func(ctx context.Context, controller, modelDB database.TxnRunner) error {
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			modelCons := constraints.DecodeConstraints(cons)
-			return state.SetModelConstraints(ctx, preparer{}, tx, modelCons)
+			return statemodel.SetModelConstraints(ctx, preparer{}, tx, modelCons)
 		})
 	}
 }

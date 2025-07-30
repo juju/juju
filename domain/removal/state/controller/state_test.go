@@ -21,7 +21,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -127,7 +127,7 @@ func (m *baseSuite) SetUpTest(c *tc.C) {
 	err = bootstrap.CreateDefaultBackends(coremodel.IAAS)(c.Context(), m.ControllerTxnRunner(), m.TxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelSt := modelstate.NewState(m.TxnRunnerFactory())
+	modelSt := statecontroller.NewState(m.TxnRunnerFactory())
 	err = modelSt.Create(
 		c.Context(),
 		m.uuid,

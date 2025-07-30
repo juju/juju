@@ -21,7 +21,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	"github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -94,7 +94,7 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := modelstate.NewState(s.TxnRunnerFactory())
+	modelSt := statecontroller.NewState(s.TxnRunnerFactory())
 	err = modelSt.Create(ctx, modelUUID, coremodel.IAAS, model.GlobalModelCreationArgs{
 		Cloud:         "test",
 		CloudRegion:   "test-region",

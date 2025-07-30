@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"context"
@@ -37,7 +37,7 @@ type ModelState struct {
 
 // NewModelState returns a new State for interacting with the underlying model
 // database state.
-func NewModelState(
+func NewState(
 	factory database.TxnRunnerFactory,
 	logger logger.Logger,
 ) *ModelState {

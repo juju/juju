@@ -24,7 +24,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
@@ -337,7 +337,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 	}
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := modelstate.NewState(s.TxnRunnerFactory())
+	modelSt := statecontroller.NewState(s.TxnRunnerFactory())
 	modelstatetesting.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 	err = modelSt.Create(

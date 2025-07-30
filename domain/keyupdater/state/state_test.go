@@ -17,7 +17,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/domain/modelagent"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -99,7 +99,7 @@ func (s *stateSuite) TestCheckMachineDoesNotExist(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetModelId(c *tc.C) {
-	mst := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	mst := statemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{

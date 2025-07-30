@@ -11,7 +11,8 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	modelservice "github.com/juju/juju/domain/model/service"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 )
@@ -42,10 +43,10 @@ func NewProviderServices(
 // Model returns the provider model service.
 func (s *ProviderServices) Model() *modelservice.ProviderService {
 	return modelservice.NewProviderService(
-		modelstate.NewState(
+		statecontroller.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
-		modelstate.NewModelState(
+		statemodel.NewState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("modelinfo"),
 		),
