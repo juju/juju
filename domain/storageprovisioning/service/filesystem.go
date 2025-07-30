@@ -455,12 +455,12 @@ func (s *Service) GetFilesystemLife(
 // - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
 // when no filesystem exists for the provided filesystem UUID.
 func (s *Service) GetFilesystemUUIDForID(
-	ctx context.Context, id string,
+	ctx context.Context, filesystemID string,
 ) (storageprovisioning.FilesystemUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.st.GetFilesystemUUIDForID(ctx, id)
+	uuid, err := s.st.GetFilesystemUUIDForID(ctx, filesystemID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

@@ -23,6 +23,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -268,6 +269,34 @@ func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities
 	results := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Entities)),
 	}
+	oneLife := func(tag names.Tag) (domainlife.Life, error) {
+		switch tag := tag.(type) {
+		case names.VolumeTag:
+			volumeUUID, err := s.storageProvisioningService.GetVolumeUUIDForID(ctx, tag.Id())
+			if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+				return -1, internalerrors.Errorf(
+					"volume not found for id %q", tag.Id(),
+				).Add(errors.NotFound)
+			} else if err != nil {
+				return -1, internalerrors.Errorf("getting volume UUID for id %q: %v", tag.Id(), err)
+			}
+			return s.storageProvisioningService.GetVolumeLife(ctx, volumeUUID)
+		case names.FilesystemTag:
+			filesystemUUID, err := s.storageProvisioningService.GetFilesystemUUIDForID(ctx, tag.Id())
+			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+				return -1, internalerrors.Errorf(
+					"filesystem not found for id %q", tag.Id(),
+				).Add(errors.NotFound)
+			} else if err != nil {
+				return -1, internalerrors.Errorf("getting filesystem UUID for id %q: %v", tag.Id(), err)
+			}
+			return s.storageProvisioningService.GetFilesystemLife(ctx, filesystemUUID)
+		default:
+			return -1, internalerrors.Errorf(
+				"invalid tag %q, expected volume or filesystem", tag,
+			).Add(errors.NotValid)
+		}
+	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
@@ -279,8 +308,14 @@ func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		// TODO:
-		results.Results[i].Life = life.Alive
+		life, err := oneLife(tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if results.Results[i].Life, err = life.Value(); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return results, nil
 }

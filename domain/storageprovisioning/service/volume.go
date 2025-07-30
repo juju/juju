@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -335,20 +334,15 @@ func (s *Service) GetVolumeLife(
 // id.
 //
 // The following errors may be returned:
-// - [corestorage.InvalidStorageID] when the provided id is not valid.
 // - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
 // when no volume exists for the provided volume uuid.
 func (s *Service) GetVolumeUUIDForID(
-	ctx context.Context, id corestorage.ID,
+	ctx context.Context, volumeID string,
 ) (storageprovisioning.VolumeUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := id.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	uuid, err := s.st.GetVolumeUUIDForID(ctx, id.String())
+	uuid, err := s.st.GetVolumeUUIDForID(ctx, volumeID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

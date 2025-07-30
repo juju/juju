@@ -102,6 +102,47 @@ type StorageStatusService interface {
 // StorageProvisioningService provides methods to watch and manage storage
 // provisioning related resources.
 type StorageProvisioningService interface {
+	// GetFilesystemUUIDForID returns the UUID for a filesystem with the supplied
+	// id.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+	// when no filesystem exists for the provided filesystem UUID.
+	GetFilesystemUUIDForID(
+		ctx context.Context, filesystemID string,
+	) (storageprovisioning.FilesystemUUID, error)
+
+	// GetVolumeUUIDForID returns the uuid for a volume with the supplied
+	// id.
+	//
+	// The following errors may be returned:
+	// - [corestorage.InvalidStorageID] when the provided id is not valid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+	// when no volume exists for the provided volume uuid.
+	GetVolumeUUIDForID(
+		ctx context.Context, volumeID string,
+	) (storageprovisioning.VolumeUUID, error)
+
+	// GetFilesystemLife returns the current life value for a filesystem UUID.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the filesystem UUID is not valid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+	// when no filesystem exists for the provided filesystem UUID.
+	GetFilesystemLife(
+		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	) (domainlife.Life, error)
+
+	// GetVolumeLife returns the current life value for a volume uuid.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the volume uuid is not valid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+	// when no volume exists for the provided volume uuid.
+	GetVolumeLife(
+		ctx context.Context, uuid storageprovisioning.VolumeUUID,
+	) (domainlife.Life, error)
+
 	// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
 	// filesystem ID. True is returned when a filesystem exists.
 	CheckFilesystemForIDExists(context.Context, string) (bool, error)
