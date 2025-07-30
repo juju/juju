@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -19,15 +18,12 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cloud"
-	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -38,9 +34,6 @@ import (
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalservices "github.com/juju/juju/internal/services"
@@ -71,8 +64,14 @@ func TestControllerSuite(t *stdtesting.T) {
 func (s *controllerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 
-- Initializing agent bootstrap
-- Initializing agent bootstrap twice - should fail
+- Hosted model config is skipped because the tests aren't wired up correctly.
+- Initiate migration.
+- Initiate migration with spec fails.
+- Initiate migration with partial failure.
+- Migration prechecks fails.
+- Watch model summaries by non admin.
+- Watch all model summaries by admin.
+- Identity provider with and without URL in config.
 `)
 }
 
@@ -322,52 +321,6 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	c.Assert(two.Qualifier, tc.Equals, "staging")
 }
 
-func (s *controllerSuite) makeCloudSpec(c *tc.C, pSpec *params.CloudSpec) environscloudspec.CloudSpec {
-	c.Assert(pSpec, tc.NotNil)
-	var credential *cloud.Credential
-	if pSpec.Credential != nil {
-		credentialValue := cloud.NewCredential(
-			cloud.AuthType(pSpec.Credential.AuthType),
-			pSpec.Credential.Attributes,
-		)
-		credential = &credentialValue
-	}
-	spec := environscloudspec.CloudSpec{
-		Type:             pSpec.Type,
-		Name:             pSpec.Name,
-		Region:           pSpec.Region,
-		Endpoint:         pSpec.Endpoint,
-		IdentityEndpoint: pSpec.IdentityEndpoint,
-		StorageEndpoint:  pSpec.StorageEndpoint,
-		Credential:       credential,
-	}
-	c.Assert(spec.Validate(), tc.ErrorIsNil)
-	return spec
-}
-
-func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	c.Skip("Hosted model config is skipped because the tests aren't wired up correctly")
-
-	// Two models should be created before assessing.
-	results, err := s.controller.HostedModelConfigs(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(len(results.Models), tc.Equals, 2)
-
-	for _, model := range results.Models {
-		c.Assert(model.Error, tc.IsNil)
-
-		cfg, err := config.New(config.NoDefaults, model.Config)
-		c.Assert(err, tc.ErrorIsNil)
-		spec := s.makeCloudSpec(c, model.CloudSpec)
-		_, err = environs.New(c.Context(), environs.OpenParams{
-			Cloud:  spec,
-			Config: cfg,
-		}, environs.NoopCredentialInvalidator())
-		c.Assert(err, tc.ErrorIsNil)
-	}
-}
-
 func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	otherDomainServices := s.DefaultModelDomainServices(c)
@@ -485,18 +438,6 @@ func (s *controllerSuite) TestRemoveBlocksNotAll(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "not supported")
 }
 
-func (s *controllerSuite) TestInitiateMigration(c *tc.C) {
-	c.Skip("re-implement test when model migrations are implemented in dqlite")
-}
-
-func (s *controllerSuite) TestInitiateMigrationSpecError(c *tc.C) {
-	c.Skip("re-implement test when model migrations are implemented in dqlite")
-}
-
-func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *tc.C) {
-	c.Skip("re-implement test when model migrations are implemented in dqlite")
-}
-
 func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -528,10 +469,6 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 	result := out.Results[0]
 	c.Check(result.ModelTag, tc.Equals, args.Specs[0].ModelTag)
 	c.Check(result.Error, tc.ErrorMatches, "invalid macaroons: .+")
-}
-
-func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *tc.C) {
-	c.Skip("re-implement test when model migrations are implemented in dqlite")
 }
 
 func randomControllerTag() string {
@@ -733,84 +670,6 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 	})
 }
 
-func (s *controllerSuite) TestIdentityProviderURL(c *tc.C) {
-	c.Skip("FIXME: This test calls setup test and tear down test... it should not.")
-	// Preserve default controller config as we will be mutating it just
-	// for this test
-	defer func(orig map[string]interface{}) {
-		s.controllerConfigAttrs = orig
-	}(s.controllerConfigAttrs)
-
-	ctrl := s.setupMocks(c)
-	// Our default test configuration does not specify an IdentityURL
-	urlRes, err := s.controller.IdentityProviderURL(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(urlRes.Result, tc.Equals, "")
-	ctrl.Finish()
-
-	// IdentityURL cannot be changed after bootstrap; we need to spin up
-	// another controller with IdentityURL pre-configured
-	s.TearDownTest(c)
-
-	expURL := "https://api.jujucharms.com/identity"
-	s.controllerConfigAttrs = map[string]any{
-		corecontroller.IdentityURL: expURL,
-	}
-
-	s.SetUpTest(c)
-	ctrl = s.setupMocks(c)
-	defer ctrl.Finish()
-
-	urlRes, err = s.controller.IdentityProviderURL(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(urlRes.Result, tc.Equals, expURL)
-}
-
-func (s *controllerSuite) newSummaryWatcherFacade(c *tc.C, id string) *apiserver.SrvModelSummaryWatcher {
-	context := s.context
-	context.ID_ = id
-	watcher, err := apiserver.NewModelSummaryWatcher(context)
-	c.Assert(err, tc.ErrorIsNil)
-	return watcher
-}
-
-func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// TODO(dqlite) - implement me
-	c.Skip("watch model summaries to be implemented")
-	// Default authorizer is an admin.
-	result, err := s.controller.WatchAllModelSummaries(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
-
-	resultC := make(chan params.SummaryWatcherNextResults)
-	go func() {
-		result, err := watcherAPI.Next(c.Context())
-		c.Assert(err, tc.ErrorIsNil)
-		resultC <- result
-	}()
-
-	select {
-	case result := <-resultC:
-		// Expect to see the initial environment be reported.
-		c.Assert(result, tc.DeepEquals, params.SummaryWatcherNextResults{
-			Models: []params.ModelAbstract{
-				{
-					UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-					Controller: "", // TODO(thumper): add controller name next branch
-					Name:       "controller",
-					Admins:     []string{"test-admin"},
-					Cloud:      "dummy",
-					Region:     "dummy-region",
-					Status:     "green",
-					Messages:   []params.ModelSummaryMessage{},
-				}}})
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-}
-
 func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *tc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewLocalUserTag("bob"),
@@ -829,46 +688,6 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *tc.C) {
 
 	_, err = endPoint.WatchAllModelSummaries(c.Context())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
-}
-
-func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// TODO(dqlite) - implement me
-	c.Skip("watch model summaries to be implemented")
-
-	// Default authorizer is an admin. As a user, admin can't see
-	// Bob's model.
-	result, err := s.controller.WatchModelSummaries(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
-
-	resultC := make(chan params.SummaryWatcherNextResults)
-	go func() {
-		result, err := watcherAPI.Next(c.Context())
-		c.Assert(err, tc.ErrorIsNil)
-		resultC <- result
-	}()
-
-	select {
-	case result := <-resultC:
-		// Expect to see the initial environment be reported.
-		c.Assert(result, tc.DeepEquals, params.SummaryWatcherNextResults{
-			Models: []params.ModelAbstract{
-				{
-					UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-					Controller: "", // TODO(thumper): add controller name next branch
-					Name:       "controller",
-					Admins:     []string{"test-admin"},
-					Cloud:      "dummy",
-					Region:     "dummy-region",
-					Status:     "green",
-					Messages:   []params.ModelSummaryMessage{},
-				}}})
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-
 }
 
 type accessSuite struct {
