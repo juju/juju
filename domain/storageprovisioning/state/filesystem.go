@@ -239,7 +239,12 @@ func (st *State) GetFilesystem(
 	)
 
 	stmt, err := st.Prepare(`
-SELECT    (sfs.filesystem_id, sv.volume_id, sfs.size_mib) AS (&filesystem.*)
+SELECT (
+  sfs.filesystem_id,
+  sfs.provider_id,
+  sv.volume_id,
+  sfs.size_mib
+) AS (&filesystem.*)
 FROM      storage_filesystem sfs
 LEFT JOIN storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
 LEFT JOIN storage_instance si ON sifs.storage_instance_uuid = si.uuid

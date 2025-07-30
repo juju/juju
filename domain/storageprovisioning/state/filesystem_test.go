@@ -13,7 +13,6 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
@@ -57,7 +56,7 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 	storageInstanceUUID := s.newStorageInstance(c)
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
-	fsUUID, fsID := s.newMachineFilesystem(c)
+	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
 	st := NewState(s.TxnRunnerFactory())
 
@@ -78,7 +77,7 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 // by id when it isn't backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 	storageInstanceUUID := s.newStorageInstance(c)
-	fsUUID, fsID := s.newMachineFilesystem(c)
+	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
 	st := NewState(s.TxnRunnerFactory())
 
@@ -112,7 +111,7 @@ func (s *filesystemSuite) TestGetFilesystemNotFoundError(c *tc.C) {
 // It just means that the filesystem is not backed by a volume in the model.
 func (s *filesystemSuite) TestGetFilesystemNotAttachedToStorageInstance(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	fsUUID, fsID := s.newMachineFilesystem(c)
+	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
 
 	fs, err := st.GetFilesystem(c.Context(), fsUUID)
 
@@ -811,11 +810,7 @@ func (s *filesystemSuite) newMachineFilesystem(c *tc.C) (
 // provision scope and the supplied size. Returned is the uuid and filesystem
 // id of the entity.
 func (s *filesystemSuite) newMachineFilesystemWithSize(
-<<<<<<< HEAD
 	c *tc.C, providerID string, size uint64,
-=======
-	c *tc.C, size uint64,
->>>>>>> a989810020 (refactor: fix static analysis issues)
 ) (domainstorageprovisioning.FilesystemUUID, string) {
 	fsUUID := domaintesting.GenFilesystemUUID(c)
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())

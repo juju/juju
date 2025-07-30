@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
