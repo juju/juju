@@ -245,6 +245,46 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 	return life, errors.Capture(err)
 }
 
+// MarkModelAsDead marks the model with the input UUID as dead.
+// If there are model dependents, then this will return an error.
+func (st *State) MarkModelAsDead(ctx context.Context, mUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	modelUUID := entityUUID{UUID: mUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE model_life
+SET    life_id = 2
+WHERE  model_uuid = $entityUUID.uuid
+AND    life_id = 1`, modelUUID)
+	if err != nil {
+		return errors.Errorf("preparing model life update: %w", err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.getModelLife(ctx, tx, mUUID); err != nil {
+			return errors.Errorf("getting model life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		err = st.checkNoModelDependents(ctx, tx)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err := tx.Query(ctx, updateStmt, modelUUID).Run()
+		if err != nil {
+			return errors.Errorf("marking model as dead: %w", err)
+		}
+
+		return nil
+	}))
+}
+
 // DeleteModelArtifacts deletes all artifacts associated with a model.
 func (st *State) DeleteModelArtifacts(ctx context.Context, mUUID string) error {
 	db, err := st.DB()
@@ -336,52 +376,14 @@ WHERE  model_uuid = $entityUUID.uuid;`, model, modelUUID)
 func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX) error {
 	var count count
 
-	// We don't care about the model, they exist in only one model database.
-	// So see if any of the following tables have any rows:
-	// - relation
-	// - machine
-	// - unit
-	// - application
-	// If any of these tables have rows, then the model cannot be removed.
-
-	relationsStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM relation`, count)
-	if err != nil {
-		return errors.Errorf("preparing relation count query: %w", err)
-	}
-
-	machinesStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM machine`, count)
-	if err != nil {
-		return errors.Errorf("preparing machine count query: %w", err)
-	}
-
-	unitsStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM unit`, count)
-	if err != nil {
-		return errors.Errorf("preparing unit count query: %w", err)
-	}
+	// We only care about applications and machines (for IAAS models). We assume
+	// that all dependant entities for each of these entities are already
+	// removed (units for applications etc). So if a model has no applications
+	// or machines, then it is empty.
 
 	applicationsStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM application`, count)
 	if err != nil {
 		return errors.Errorf("preparing application count query: %w", err)
-	}
-
-	err = tx.Query(ctx, relationsStmt).Get(&count)
-	if err != nil {
-		return errors.Errorf("getting relation count: %w", err)
-	} else if count.Count > 0 {
-		return errors.Errorf("still %d relations still exist", count.Count).Add(removalerrors.EntityStillAlive)
-	}
-
-	err = tx.Query(ctx, machinesStmt).Get(&count)
-	if err != nil {
-		return errors.Errorf("getting machine count: %w", err)
-	} else if count.Count > 0 {
-		return errors.Errorf("still %d machines still exist", count.Count).Add(removalerrors.EntityStillAlive)
-	}
-	err = tx.Query(ctx, unitsStmt).Get(&count)
-	if err != nil {
-		return errors.Errorf("getting unit count: %w", err)
-	} else if count.Count > 0 {
-		return errors.Errorf("still %d units still exist", count.Count).Add(removalerrors.EntityStillAlive)
 	}
 
 	err = tx.Query(ctx, applicationsStmt).Get(&count)
@@ -389,6 +391,18 @@ func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX) erro
 		return errors.Errorf("getting application count: %w", err)
 	} else if count.Count > 0 {
 		return errors.Errorf("still %d application still exist it", count.Count).Add(removalerrors.EntityStillAlive)
+	}
+
+	machinesStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM machine`, count)
+	if err != nil {
+		return errors.Errorf("preparing machine count query: %w", err)
+	}
+
+	err = tx.Query(ctx, machinesStmt).Get(&count)
+	if err != nil {
+		return errors.Errorf("getting machine count: %w", err)
+	} else if count.Count > 0 {
+		return errors.Errorf("still %d machines still exist", count.Count).Add(removalerrors.EntityStillAlive)
 	}
 
 	return nil

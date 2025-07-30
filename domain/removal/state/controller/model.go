@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -95,6 +96,41 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 	})
 
 	return life, errors.Capture(err)
+}
+
+// MarkModelAsDead marks the model with the input UUID as dead.
+// If there are model dependents, then this will return an error.
+func (st *State) MarkModelAsDead(ctx context.Context, mUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	modelUUID := entityUUID{UUID: mUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE model
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 1`, modelUUID)
+	if err != nil {
+		return errors.Errorf("preparing model life update: %w", err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.getModelLife(ctx, tx, mUUID); err != nil {
+			return errors.Errorf("getting model life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		err := tx.Query(ctx, updateStmt, modelUUID).Run()
+		if err != nil {
+			return errors.Errorf("marking model as dead: %w", err)
+		}
+
+		return nil
+	}))
 }
 
 func (st *State) getModelLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {
