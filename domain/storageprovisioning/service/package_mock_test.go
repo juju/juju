@@ -1333,6 +1333,44 @@ func (c *MockStateNamespaceForWatchMachineCloudInstanceCall) DoAndReturn(f func(
 	return c
 }
 
+// SetFilesystemProvisionedInfo mocks base method.
+func (m *MockState) SetFilesystemProvisionedInfo(ctx context.Context, filesystemUUID storageprovisioning.FilesystemUUID, info storageprovisioning.FilesystemProvisionedInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFilesystemProvisionedInfo", ctx, filesystemUUID, info)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFilesystemProvisionedInfo indicates an expected call of SetFilesystemProvisionedInfo.
+func (mr *MockStateMockRecorder) SetFilesystemProvisionedInfo(ctx, filesystemUUID, info any) *MockStateSetFilesystemProvisionedInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFilesystemProvisionedInfo", reflect.TypeOf((*MockState)(nil).SetFilesystemProvisionedInfo), ctx, filesystemUUID, info)
+	return &MockStateSetFilesystemProvisionedInfoCall{Call: call}
+}
+
+// MockStateSetFilesystemProvisionedInfoCall wrap *gomock.Call
+type MockStateSetFilesystemProvisionedInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetFilesystemProvisionedInfoCall) Return(arg0 error) *MockStateSetFilesystemProvisionedInfoCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetFilesystemProvisionedInfoCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID, storageprovisioning.FilesystemProvisionedInfo) error) *MockStateSetFilesystemProvisionedInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetFilesystemProvisionedInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID, storageprovisioning.FilesystemProvisionedInfo) error) *MockStateSetFilesystemProvisionedInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {
 	ctrl     *gomock.Controller

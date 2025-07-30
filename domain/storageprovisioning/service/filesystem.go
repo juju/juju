@@ -9,8 +9,10 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -163,6 +165,10 @@ type FilesystemState interface {
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates for
 	// a given application.
 	GetFilesystemTemplatesForApplication(context.Context, coreapplication.ID) ([]storageprovisioning.FilesystemTemplate, error)
+
+	// SetFilesystemProvisionedInfo sets on the provided filesystem the information
+	// about the provisioned filesystem.
+	SetFilesystemProvisionedInfo(ctx context.Context, filesystemUUID storageprovisioning.FilesystemUUID, info storageprovisioning.FilesystemProvisionedInfo) error
 }
 
 // CheckFilesystemForIDExists checks if a filesystem exists for the supplied
@@ -176,12 +182,11 @@ func (s *Service) CheckFilesystemForIDExists(
 	return s.st.CheckFilesystemForIDExists(ctx, id)
 }
 
-// GetFilesystemAttachmentForMachine retrieves the
-// [storageprovisioning.FilesystemAttachment] for the supplied filesystem ID
-// and machine UUID.
+// GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
+// for the supplied net node uuid and filesystem id.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided machine UUID
+// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
 // is not valid.
 // - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 // machine exists for the provided machine UUID.
@@ -584,6 +589,9 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 func (s *Service) GetFilesystemTemplatesForApplication(
 	ctx context.Context, appUUID coreapplication.ID,
 ) ([]storageprovisioning.FilesystemTemplate, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := appUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -607,18 +615,44 @@ func (s *Service) SetFilesystemProvisionedInfo(
 	filesystemID string,
 	info storageprovisioning.FilesystemProvisionedInfo,
 ) error {
-	return errors.New("SetFilesystemProvisionedInfo not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	filesystemUUID, err := s.st.GetFilesystemUUIDForID(ctx, filesystemID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.st.SetFilesystemProvisionedInfo(ctx, filesystemUUID, info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
-// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem the
-// information about the provisioned filesystem attachment.
+// SetFilesystemAttachmentProvisionedInfoForMachine sets on the provided
+// filesystem the information about the provisioned filesystem attachment.
 // The following errors may be returned:
 // - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
 // attachment exists for the provided filesystem id.
-func (s *Service) SetFilesystemAttachmentProvisionedInfo(
+func (s *Service) SetFilesystemAttachmentProvisionedInfoForMachine(
 	ctx context.Context,
-	filesystemAttachmentID storageprovisioning.FilesystemAttachmentID,
+	filesystemID string, machineUUID machine.UUID,
 	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
 ) error {
-	return errors.New("SetFilesystemAttachmentProvisionedInfo not implemented")
+	return errors.New("SetFilesystemAttachmentProvisionedInfoForMachine not implemented")
+}
+
+// SetFilesystemAttachmentProvisionedInfoForUnit sets on the provided filesystem
+// the information about the provisioned filesystem attachment.
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided filesystem id.
+func (s *Service) SetFilesystemAttachmentProvisionedInfoForUnit(
+	ctx context.Context,
+	filesystemID string, unitUUID unit.UUID,
+	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
+) error {
+	return errors.New("SetFilesystemAttachmentProvisionedInfoForUnit not implemented")
 }

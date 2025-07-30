@@ -521,7 +521,7 @@ func (s *Service) SetVolumeProvisionedInfo(
 // attachmentexists for the provided volume attachment id.
 func (s *Service) SetVolumeAttachmentProvisionedInfo(
 	ctx context.Context,
-	volumeAttachmentID storageprovisioning.VolumeAttachmentID,
+	volumeID string, machineUUID coremachine.UUID,
 	info storageprovisioning.VolumeAttachmentProvisionedInfo,
 ) error {
 	return errors.New("SetVolumeAttachmentProvisionedInfo not implemented")
@@ -534,7 +534,7 @@ func (s *Service) SetVolumeAttachmentProvisionedInfo(
 // attachment plan exists for the provided volume attachment id.
 func (s *Service) SetVolumeAttachmentPlanProvisionedInfo(
 	ctx context.Context,
-	volumeAttachmentID storageprovisioning.VolumeAttachmentID,
+	volumeID string, machineUUID coremachine.UUID,
 	info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
 ) error {
 	return errors.New("SetVolumeAttachmentPlanProvisionedInfo not implemented")
@@ -549,7 +549,7 @@ func (s *Service) SetVolumeAttachmentPlanProvisionedInfo(
 // for the provided block device uuuid.
 func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	ctx context.Context,
-	volumeAttachmentID storageprovisioning.VolumeAttachmentID,
+	volumeID string, machineUUID coremachine.UUID,
 	blockDeviceUUID string,
 ) error {
 	return errors.New("SetVolumeAttachmentPlanProvisionedBlockDevice not implemented")
@@ -563,7 +563,7 @@ func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
 // attachmentexists for the provided volume attachment id.
 func (s *Service) MatchOrCreateBlockDevice(
 	ctx context.Context,
-	volumeAttachmentID storageprovisioning.VolumeAttachmentID,
+	volumeID string, machineUUID coremachine.UUID,
 	blockDeviceInfo blockdevice.BlockDevice,
 ) (string, error) {
 	return "", errors.New("MatchOrCreateBlockDevice not implemented")

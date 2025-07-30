@@ -1201,10 +1201,13 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 		if len(vp.PlanInfo.DeviceAttributes) != 0 {
 			return internalerrors.New("cannot set device attributes")
 		}
-		machineName := machine.Name(machineTag.Id())
-		id := storageprovisioning.VolumeAttachmentID{
-			MachineName: &machineName,
-			VolumeID:    volumeTag.Id(),
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return internalerrors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(errors.NotFound)
+		} else if err != nil {
+			return internalerrors.Capture(err)
 		}
 		blockDeviceInfo := blockdevice.BlockDevice{
 			DeviceName:     vp.BlockDevice.DeviceName,
@@ -1221,12 +1224,12 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 			SerialId:       vp.BlockDevice.SerialId,
 		}
 		blockDeviceUUID, err := s.storageProvisioningService.MatchOrCreateBlockDevice(
-			ctx, id, blockDeviceInfo)
+			ctx, volumeTag.Id(), machineUUID, blockDeviceInfo)
 		if err != nil {
 			return internalerrors.Capture(err)
 		}
 		err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedBlockDevice(
-			ctx, id, blockDeviceUUID)
+			ctx, volumeTag.Id(), machineUUID, blockDeviceUUID)
 		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
 			return internalerrors.Errorf(
 				"volume attachment plan for machine %q and volume %q not found",
@@ -1273,10 +1276,13 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 		if !canAccess(machineTag, volumeTag) {
 			return apiservererrors.ErrPerm
 		}
-		machineName := machine.Name(machineTag.Id())
-		id := storageprovisioning.VolumeAttachmentID{
-			MachineName: &machineName,
-			VolumeID:    volumeTag.Id(),
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return internalerrors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(errors.NotFound)
+		} else if err != nil {
+			return internalerrors.Capture(err)
 		}
 		blockDeviceUUID := ""
 		if va.Info.BusAddress != "" ||
@@ -1291,7 +1297,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 					va.Info.DeviceLink)
 			}
 			blockDeviceUUID, err = s.storageProvisioningService.MatchOrCreateBlockDevice(
-				ctx, id, blockDeviceInfo)
+				ctx, volumeTag.Id(), machineUUID, blockDeviceInfo)
 			if err != nil {
 				return internalerrors.Capture(err)
 			}
@@ -1301,7 +1307,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 			ReadOnly:        va.Info.ReadOnly,
 		}
 		err = s.storageProvisioningService.SetVolumeAttachmentProvisionedInfo(
-			ctx, id, info)
+			ctx, volumeTag.Id(), machineUUID, info)
 		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
 			return internalerrors.Errorf(
 				"volume attachment for machine %q and volume %q not found",
@@ -1316,7 +1322,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 				DeviceAttributes: va.Info.PlanInfo.DeviceAttributes,
 			}
 			err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedInfo(
-				ctx, id, info)
+				ctx, volumeTag.Id(), machineUUID, info)
 			if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
 				return internalerrors.Errorf(
 					"volume attachment plan for machine %q and volume %q not found",
@@ -1365,26 +1371,43 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 			return apiservererrors.ErrPerm
 		}
 
-		id := storageprovisioning.FilesystemAttachmentID{
-			FilesystemID: filesystemTag.Id(),
-		}
-		switch tag := hostTag.(type) {
-		case names.MachineTag:
-			name := machine.Name(tag.Id())
-			id.MachineName = &name
-		case names.UnitTag:
-			name := unit.Name(tag.Id())
-			id.UnitName = &name
-		default:
-			return errors.NotValidf("filesystem attachment host tag %q", tag)
-		}
-
 		info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 			MountPoint: fa.Info.MountPoint,
 			ReadOnly:   fa.Info.ReadOnly,
 		}
-		err = s.storageProvisioningService.SetFilesystemAttachmentProvisionedInfo(
-			ctx, id, info)
+		switch tag := hostTag.(type) {
+		case names.MachineTag:
+			var machineUUID machine.UUID
+			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+			if errors.Is(err, machineerrors.MachineNotFound) {
+				return internalerrors.Errorf(
+					"machine %q not found", tag.Id(),
+				).Add(errors.NotFound)
+			} else if err != nil {
+				return internalerrors.Capture(err)
+			}
+			err = s.storageProvisioningService.SetFilesystemAttachmentProvisionedInfoForMachine(
+				ctx, filesystemTag.Id(), machineUUID, info)
+		case names.UnitTag:
+			unitName := unit.Name(tag.Id())
+			var unitUUID unit.UUID
+			unitUUID, err = s.applicationService.GetUnitUUID(ctx, unitName)
+			if errors.Is(err, coreunit.InvalidUnitName) {
+				return internalerrors.Errorf(
+					"invalid unit name %q", unitName,
+				).Add(errors.NotValid)
+			} else if errors.Is(err, applicationerrors.UnitNotFound) {
+				return internalerrors.Errorf(
+					"unit %q not found", unitName,
+				).Add(errors.NotFound)
+			} else if err != nil {
+				return internalerrors.Errorf("getting unit %q UUID: %w", unitName, err)
+			}
+			err = s.storageProvisioningService.SetFilesystemAttachmentProvisionedInfoForUnit(
+				ctx, filesystemTag.Id(), unitUUID, info)
+		default:
+			return errors.NotValidf("filesystem attachment host tag %q", tag)
+		}
 		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 			return internalerrors.Errorf(
 				"filesystem %q not found", filesystemTag.Id(),

@@ -383,12 +383,19 @@ type StorageProvisioningService interface {
 	// for the provided filesystem id.
 	SetFilesystemProvisionedInfo(ctx context.Context, filesystemID string, info storageprovisioning.FilesystemProvisionedInfo) error
 
-	// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem the
-	// information about the provisioned filesystem attachment.
+	// SetFilesystemAttachmentProvisionedInfoForMachine sets on the provided
+	// filesystem the information about the provisioned filesystem attachment.
 	// The following errors may be returned:
 	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
 	// attachment exists for the provided filesystem id.
-	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemAttachmentID storageprovisioning.FilesystemAttachmentID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
+	SetFilesystemAttachmentProvisionedInfoForMachine(ctx context.Context, filesystemID string, machineUUID machine.UUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
+
+	// SetFilesystemAttachmentProvisionedInfoForUnit sets on the provided
+	// filesystem the information about the provisioned filesystem attachment.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided filesystem id.
+	SetFilesystemAttachmentProvisionedInfoForUnit(ctx context.Context, filesystemID string, unitUUID coreunit.UUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
 
 	// SetVolumeProvisionedInfo sets on the provided volume the information about
 	// the provisioned volume.
@@ -402,14 +409,14 @@ type StorageProvisioningService interface {
 	// The following errors may be returned:
 	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 	// attachmentexists for the provided volume attachment id.
-	SetVolumeAttachmentProvisionedInfo(ctx context.Context, volumeAttachmentID storageprovisioning.VolumeAttachmentID, info storageprovisioning.VolumeAttachmentProvisionedInfo) error
+	SetVolumeAttachmentProvisionedInfo(ctx context.Context, volumeID string, machineUUID machine.UUID, info storageprovisioning.VolumeAttachmentProvisionedInfo) error
 
 	// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
 	// information about the provisioned volume attachment plan.
 	// The following errors may be returned:
 	// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
 	// attachment plan exists for the provided volume attachment id.
-	SetVolumeAttachmentPlanProvisionedInfo(ctx context.Context, volumeAttachmentID storageprovisioning.VolumeAttachmentID, info storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error
+	SetVolumeAttachmentPlanProvisionedInfo(ctx context.Context, volumeID string, machineUUID machine.UUID, info storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error
 
 	// SetVolumeAttachmentPlanProvisionedBlockDevice sets on the provided volume the
 	// information about the provisioned volume attachment.
@@ -418,7 +425,7 @@ type StorageProvisioningService interface {
 	// attachment plan exists for the provided volume attachment id.
 	// - [storageprovisioningerrors.BlockDeviceNotFound] when no block device exists
 	// for the provided block device uuuid.
-	SetVolumeAttachmentPlanProvisionedBlockDevice(ctx context.Context, volumeAttachmentID storageprovisioning.VolumeAttachmentID, blockDeviceUUID string) error
+	SetVolumeAttachmentPlanProvisionedBlockDevice(ctx context.Context, volumeID string, machineUUID machine.UUID, blockDeviceUUID string) error
 
 	// MatchOrCreateBlockDevice looks for a block device for the provided volume
 	// attachment id, or a matching block device on the machine otherwise it creates
@@ -426,5 +433,5 @@ type StorageProvisioningService interface {
 	// The following errors may be returned:
 	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 	// attachmentexists for the provided volume attachment id.
-	MatchOrCreateBlockDevice(ctx context.Context, volumeAttachmentID storageprovisioning.VolumeAttachmentID, blockDeviceInfo blockdevice.BlockDevice) (string, error)
+	MatchOrCreateBlockDevice(ctx context.Context, volumeID string, machineUUID machine.UUID, blockDeviceInfo blockdevice.BlockDevice) (string, error)
 }
