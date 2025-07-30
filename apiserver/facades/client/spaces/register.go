@@ -7,7 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -26,32 +25,23 @@ func Register(registry facade.FacadeRegistry) {
 // state.State backing.
 func newAPI(ctx facade.ModelContext) (*API, error) {
 	// Only clients can access the Spaces facade.
-	if !ctx.Auth().AuthClient() {
+	auth := ctx.Auth()
+	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-
 	domainServices := ctx.DomainServices()
 
-	stateShim, err := NewStateShim(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	check := common.NewBlockChecker(domainServices.BlockCommand())
-	auth := ctx.Auth()
 
-	return newAPIWithBacking(apiConfig{
+	return &API{
+		auth:                    auth,
 		modelTag:                names.NewModelTag(ctx.ModelUUID().String()),
-		ControllerConfigService: domainServices.ControllerConfig(),
-		NetworkService:          domainServices.Network(),
-		ApplicationService:      domainServices.Application(),
-		MachineService:          domainServices.Machine(),
-		Backing:                 stateShim,
-		Check:                   check,
-		Resources:               ctx.Resources(),
-		Authorizer:              auth,
+		controllerConfigService: domainServices.ControllerConfig(),
+		networkService:          domainServices.Network(),
+		applicationService:      domainServices.Application(),
+		machineService:          domainServices.Machine(),
+		check:                   check,
 		logger:                  ctx.Logger().Child("spaces"),
-	})
+	}, nil
 }

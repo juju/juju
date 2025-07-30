@@ -17,13 +17,3 @@ type BlockChecker interface {
 type Constraints interface {
 	ID() string
 }
-
-// Backing describes the state methods used in this package.
-type Backing interface {
-	// ConstraintsBySpaceName returns constraints found by spaceName.
-	ConstraintsBySpaceName(name string) ([]Constraints, error)
-
-	// IsController returns true if this state instance
-	// is for the controller model.
-	IsController() bool
-}

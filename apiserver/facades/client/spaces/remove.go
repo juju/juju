@@ -10,10 +10,8 @@ import (
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // RemoveSpace removes a space.
@@ -79,32 +77,19 @@ func (api *API) checkSpaceIsRemovable(
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
+
+	// TODO(gfouillet) - 2025-07-29: remove checks from here and move them into
+	//   the service layer. A space cannot be removed if:
+	//    - it is used as binding for application or endpoint
+	//    - it is used as constraint for model or application
+	//    - it is the controller management space
 	bindingTags, err := api.applicationTagsForSpace(ctx, space.ID)
 	if err != nil {
 		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
-	constraintTags, err := api.entityTagsForSpaceConstraintsBlockingRemove(space.Name)
-	if err != nil {
-		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
-		return false
-	}
-	settingMatches, err := api.getSpaceControllerSettings(context.Background(), space.Name)
-	if err != nil {
-		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
-		return false
-	}
-
-	if len(settingMatches) != 0 {
-		results.Results[index].ControllerSettings = settingMatches
-		removable = false
-	}
 	if len(bindingTags) != 0 {
 		results.Results[index].Bindings = convertTagsToEntities(bindingTags)
-		removable = false
-	}
-	if len(constraintTags) != 0 {
-		results.Results[index].Constraints = convertTagsToEntities(constraintTags)
 		removable = false
 	}
 	return removable
@@ -131,63 +116,4 @@ func convertTagsToEntities(tags []names.Tag) []params.Entity {
 	}
 
 	return entities
-}
-
-// entityTagsForSpaceConstraintsBlockingRemove returns tags for entities
-// with constraints for the input space name, that disallow removal of the
-// space. I.e. those other than units and machines.
-func (api *API) entityTagsForSpaceConstraintsBlockingRemove(spaceName network.SpaceName) ([]names.Tag, error) {
-	allTags, err := api.entityTagsForSpaceConstraints(spaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var notSkipping []names.Tag
-	for _, tag := range allTags {
-		if tag.Kind() == names.UnitTagKind {
-			continue
-		}
-		if tag.Kind() == names.MachineTagKind {
-			continue
-		}
-		notSkipping = append(notSkipping, tag)
-	}
-	return notSkipping, nil
-}
-
-// entityTagsForSpaceConstraints returns the tags for all entities
-// with constraints that refer to the input space name.
-func (api *API) entityTagsForSpaceConstraints(spaceName network.SpaceName) ([]names.Tag, error) {
-	cons, err := api.backing.ConstraintsBySpaceName(spaceName.String())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	tags := make([]names.Tag, len(cons))
-	for i, doc := range cons {
-		tag := state.TagFromDocID(doc.ID())
-		if tag == nil {
-			return nil, errors.Errorf("Could not parse id: %q", doc.ID())
-		}
-		tags[i] = tag
-	}
-	return tags, nil
-}
-
-func (api *API) getSpaceControllerSettings(ctx context.Context, spaceName network.SpaceName) ([]string, error) {
-	var matches []string
-
-	if !api.backing.IsController() {
-		return matches, nil
-	}
-
-	currentControllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return matches, errors.Trace(err)
-	}
-
-	if mgmtSpace := currentControllerConfig.JujuManagementSpace(); mgmtSpace == spaceName {
-		matches = append(matches, controller.JujuManagementSpace)
-	}
-	return matches, nil
 }
