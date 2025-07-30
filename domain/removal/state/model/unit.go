@@ -534,6 +534,7 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 		"k8s_pod_status",
 		"port_range",
 		"unit_constraint",
+		"unit_storage_directive",
 	} {
 		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $entityUUID.uuid`, table)
 		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unitUUIDRec)
