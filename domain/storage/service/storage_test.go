@@ -126,14 +126,14 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 		"juju-model-uuid":      modelUUID,
 		"juju-controller-uuid": controllerUUID,
 	}).Return(storage.FilesystemInfo{
-		FilesystemId: "filesystem-id",
-		Size:         123,
+		ProviderId: "filesystem-id",
+		Size:       123,
 	}, nil)
 
 	s.state.EXPECT().ImportFilesystem(gomock.Any(), corestorage.Name("pgdata"), domainstorage.FilesystemInfo{
 		FilesystemInfo: storage.FilesystemInfo{
-			FilesystemId: "filesystem-id",
-			Size:         123,
+			ProviderId: "filesystem-id",
+			Size:       123,
 		},
 		Pool: "elastic",
 	}).Return("pgdata/0", nil)
@@ -175,14 +175,14 @@ func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *tc.C) {
 		"juju-model-uuid":      modelUUID,
 		"juju-controller-uuid": controllerUUID,
 	}).Return(storage.FilesystemInfo{
-		FilesystemId: "provider-id",
-		Size:         123,
+		ProviderId: "provider-id",
+		Size:       123,
 	}, nil)
 
 	s.state.EXPECT().ImportFilesystem(gomock.Any(), corestorage.Name("pgdata"), domainstorage.FilesystemInfo{
 		FilesystemInfo: storage.FilesystemInfo{
-			FilesystemId: "provider-id",
-			Size:         123,
+			ProviderId: "provider-id",
+			Size:       123,
 		},
 		Pool: "fast-elastic",
 	}).Return("pgdata/0", nil)

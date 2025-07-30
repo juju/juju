@@ -810,8 +810,8 @@ type filesystemImporter struct {
 func (f filesystemImporter) ImportFilesystem(_ context.Context, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
 	f.MethodCall(f, "ImportFilesystem", providerId, tags)
 	return storage.FilesystemInfo{
-		FilesystemId: providerId,
-		Size:         123,
+		ProviderId: providerId,
+		Size:       123,
 	}, f.NextErr()
 }
 

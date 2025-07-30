@@ -124,7 +124,7 @@ func processDyingFilesystems(deps *dependencies, tags []names.FilesystemTag, fil
 func updateFilesystem(deps *dependencies, info storage.Filesystem) {
 	deps.filesystems[info.Tag] = info
 	for id, params := range deps.incompleteFilesystemAttachmentParams {
-		if params.FilesystemId == "" && id.AttachmentTag == info.Tag.String() {
+		if params.ProviderId == "" && id.AttachmentTag == info.Tag.String() {
 			updatePendingFilesystemAttachment(deps, id, params)
 		}
 	}
@@ -168,7 +168,7 @@ func updatePendingFilesystemAttachment(
 	if !ok {
 		incomplete = true
 	} else {
-		params.FilesystemId = filesystem.FilesystemId
+		params.ProviderId = filesystem.ProviderId
 		if filesystem.Volume != (names.VolumeTag{}) {
 			// The filesystem is volume-backed: if the filesystem
 			// was created in another session, then the block device
@@ -183,7 +183,7 @@ func updatePendingFilesystemAttachment(
 		watchMachine(deps, params.Machine.(names.MachineTag))
 		incomplete = true
 	}
-	if params.FilesystemId == "" {
+	if params.ProviderId == "" {
 		incomplete = true
 	}
 	if incomplete {
@@ -471,7 +471,7 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 		filesystemTag,
 		volumeTag,
 		storage.FilesystemInfo{
-			in.Info.FilesystemId,
+			in.Info.ProviderId,
 			in.Info.Size,
 		},
 	}, nil
@@ -516,8 +516,8 @@ func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) 
 			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
-		Filesystem:   filesystemTag,
-		FilesystemId: in.FilesystemId,
-		Path:         in.MountPoint,
+		Filesystem: filesystemTag,
+		ProviderId: in.ProviderId,
+		Path:       in.MountPoint,
 	}, nil
 }

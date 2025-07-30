@@ -281,10 +281,10 @@ func partitionRemoveFilesystemParams(removeTags []names.FilesystemTag, removePar
 		tag := removeTags[i]
 		if args.Destroy {
 			destroyTags = append(destroyTags, tag)
-			destroyIds = append(destroyIds, args.FilesystemId)
+			destroyIds = append(destroyIds, args.ProviderId)
 		} else {
 			releaseTags = append(releaseTags, tag)
-			releaseIds = append(releaseIds, args.FilesystemId)
+			releaseIds = append(releaseIds, args.ProviderId)
 		}
 	}
 	return
@@ -512,9 +512,9 @@ func filesystemsFromStorage(in []storage.Filesystem) []params.Filesystem {
 			FilesystemTag: f.Tag.String(),
 			VolumeTag:     "",
 			Info: params.FilesystemInfo{
-				FilesystemId: f.FilesystemId,
-				Pool:         "", // pool
-				Size:         f.Size,
+				ProviderId: f.ProviderId,
+				Pool:       "", // pool
+				Size:       f.Size,
 			},
 		}
 		if f.Volume != (names.VolumeTag{}) {

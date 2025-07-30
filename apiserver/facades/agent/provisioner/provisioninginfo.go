@@ -284,7 +284,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		volumeAttachmentParams := params.VolumeAttachmentParams{
 			VolumeTag:  volumeTag.String(),
 			MachineTag: names.NewMachineTag(machineName.String()).String(),
-			VolumeId:   volumeInfo.VolumeId,
+			ProviderId: volumeInfo.VolumeId,
 			Provider:   volumeParams.Provider,
 			ReadOnly:   stateVolumeAttachmentParams.ReadOnly,
 		}

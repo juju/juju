@@ -40,8 +40,11 @@ type Filesystem struct {
 	// a volume in the model.
 	BackingVolume *FilesystemBackingVolume
 
-	// FilesystemID is the ID of the filesystem resource that the attachment is for.
+	// FilesystemID is the ID of the filesystem.
 	FilesystemID string
+
+	// ProviderID is the ID of the filesystem from the storage provider.
+	ProviderID string
 
 	// Size is the size of the filesystem in MiB.
 	Size uint64

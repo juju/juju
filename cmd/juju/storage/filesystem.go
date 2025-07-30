@@ -103,7 +103,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 	}
 
 	var info FilesystemInfo
-	info.ProviderFilesystemId = details.Info.FilesystemId
+	info.ProviderFilesystemId = details.Info.ProviderId
 	info.Pool = details.Info.Pool
 	info.Size = details.Info.Size
 	info.Life = string(details.Life)

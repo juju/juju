@@ -208,7 +208,7 @@ type Volume struct {
 
 // VolumeInfo describes a storage volume in the model.
 type VolumeInfo struct {
-	VolumeId   string `json:"volume-id"`
+	ProviderId string `json:"volume-id"`
 	HardwareId string `json:"hardware-id,omitempty"`
 	WWN        string `json:"wwn,omitempty"`
 	// Pool is the name of the storage pool used to
@@ -286,8 +286,9 @@ type RemoveVolumeParams struct {
 	// Provider is the storage provider that manages the volume.
 	Provider string `json:"provider"`
 
-	// VolumeId is the storage provider's unique ID for the volume.
-	VolumeId string `json:"volume-id"`
+	// ProviderId is the storage provider's unique ID for the volume.
+	// It is named volume-id for legacy reasons.
+	ProviderId string `json:"volume-id"`
 
 	// Destroy controls whether the volume should be completely
 	// destroyed, or otherwise merely released from Juju's management.
@@ -299,7 +300,9 @@ type RemoveVolumeParams struct {
 type VolumeAttachmentParams struct {
 	VolumeTag  string `json:"volume-tag"`
 	MachineTag string `json:"machine-tag"`
-	VolumeId   string `json:"volume-id,omitempty"`
+	// ProviderId is the storage provider's unique ID for the volume.
+	// It is named volume-id for legacy reasons.
+	ProviderId string `json:"volume-id,omitempty"`
 	InstanceId string `json:"instance-id,omitempty"`
 	Provider   string `json:"provider"`
 	ReadOnly   bool   `json:"read-only,omitempty"`
@@ -397,7 +400,8 @@ type Filesystem struct {
 
 // FilesystemInfo describes a storage filesystem in the model.
 type FilesystemInfo struct {
-	FilesystemId string `json:"filesystem-id"`
+	// ProviderId is called the filesystem-id over the wire.
+	ProviderId string `json:"filesystem-id"`
 	// Pool is the name of the storage pool used to
 	// allocate the filesystem. Juju controllers older
 	// than 2.2 do not populate this field, so it may
@@ -447,8 +451,9 @@ type RemoveFilesystemParams struct {
 	// Provider is the storage provider that manages the filesystem.
 	Provider string `json:"provider"`
 
-	// FilesystemId is the storage provider's unique ID for the filesystem.
-	FilesystemId string `json:"filesystem-id"`
+	// ProviderId is the storage provider's unique ID for the filesystem.
+	// It is named filesystem-id for legacy reasons.
+	ProviderId string `json:"filesystem-id"`
 
 	// Destroy controls whether the filesystem should be completely
 	// destroyed, or otherwise merely released from Juju's management.
@@ -460,11 +465,13 @@ type RemoveFilesystemParams struct {
 type FilesystemAttachmentParams struct {
 	FilesystemTag string `json:"filesystem-tag"`
 	MachineTag    string `json:"machine-tag"`
-	FilesystemId  string `json:"filesystem-id,omitempty"`
-	InstanceId    string `json:"instance-id,omitempty"`
-	Provider      string `json:"provider"`
-	MountPoint    string `json:"mount-point,omitempty"`
-	ReadOnly      bool   `json:"read-only,omitempty"`
+	// ProviderId is the storage provider's unique ID for the filesystem.
+	// It is named filesystem-id for legacy reasons.
+	ProviderId string `json:"filesystem-id,omitempty"`
+	InstanceId string `json:"instance-id,omitempty"`
+	Provider   string `json:"provider"`
+	MountPoint string `json:"mount-point,omitempty"`
+	ReadOnly   bool   `json:"read-only,omitempty"`
 }
 
 // FilesystemAttachmentResult holds the details of a single filesystem attachment,

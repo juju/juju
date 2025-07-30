@@ -1292,7 +1292,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *t
 					MachineTag: "machine-0",
 					Provider:   "static",
 					ReadOnly:   true,
-					VolumeId:   "666",
+					ProviderId: "666",
 				}},
 			},
 		}}}, nil)

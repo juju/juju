@@ -121,7 +121,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 	}
 
 	var info VolumeInfo
-	info.ProviderVolumeId = details.Info.VolumeId
+	info.ProviderVolumeId = details.Info.ProviderId
 	info.HardwareId = details.Info.HardwareId
 	info.WWN = details.Info.WWN
 	info.Pool = details.Info.Pool
