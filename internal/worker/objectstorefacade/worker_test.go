@@ -25,6 +25,9 @@ type workerSuite struct {
 	baseSuite
 }
 
+var _ coreobjectstore.ObjectStore = (*objectStoreFacade)(nil)
+var _ coreobjectstore.ObjectStoreRemover = (*objectStoreFacade)(nil)
+
 func TestWorkerSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 

@@ -41,6 +41,8 @@ func TestFileObjectStoreSuite(t *testing.T) {
 	tc.Run(t, &fileObjectStoreSuite{})
 }
 
+var _ TrackedObjectStore = (*fileObjectStore)(nil)
+
 func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

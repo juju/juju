@@ -277,44 +277,6 @@ func (c *MockObjectStoreRemoveCall) DoAndReturn(f func(context.Context, string) 
 	return c
 }
 
-// RemoveAll mocks base method.
-func (m *MockObjectStore) RemoveAll(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveAll", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveAll indicates an expected call of RemoveAll.
-func (mr *MockObjectStoreMockRecorder) RemoveAll(arg0 any) *MockObjectStoreRemoveAllCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAll", reflect.TypeOf((*MockObjectStore)(nil).RemoveAll), arg0)
-	return &MockObjectStoreRemoveAllCall{Call: call}
-}
-
-// MockObjectStoreRemoveAllCall wrap *gomock.Call
-type MockObjectStoreRemoveAllCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockObjectStoreRemoveAllCall) Return(arg0 error) *MockObjectStoreRemoveAllCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockObjectStoreRemoveAllCall) Do(f func(context.Context) error) *MockObjectStoreRemoveAllCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStoreRemoveAllCall) DoAndReturn(f func(context.Context) error) *MockObjectStoreRemoveAllCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockObjectStoreGetter is a mock of ObjectStoreGetter interface.
 type MockObjectStoreGetter struct {
 	ctrl     *gomock.Controller

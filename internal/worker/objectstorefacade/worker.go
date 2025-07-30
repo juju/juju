@@ -265,8 +265,13 @@ func (o objectStoreFacade) RemoveAll(ctx context.Context) error {
 	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
 	defer cancel()
 
+	store, ok := o.ObjectStore.(coreobjectstore.ObjectStoreRemover)
+	if !ok {
+		return errors.NotSupportedf("object store %T does not support RemoveAll", o.ObjectStore)
+	}
+
 	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
-		return o.ObjectStore.RemoveAll(ctx)
+		return store.RemoveAll(ctx)
 	}); errors.Is(visitErr, fortress.ErrAborted) {
 		return coreobjectstore.ErrTimeoutWaitingForDraining
 	} else if visitErr != nil {

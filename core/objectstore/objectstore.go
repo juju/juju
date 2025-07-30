@@ -130,7 +130,17 @@ type WriteObjectStore interface {
 
 	// Remove removes data at path, namespaced to the model.
 	Remove(ctx context.Context, path string) error
+}
 
+// ObjectStoreRemover is an interface that provides a method to remove all
+// data for the namespaced model. It is destructive and should be used with
+// caution. No objects will be retrievable after this call. This is expected
+// to be used when the model is being removed or when the object store has
+// been drained and is no longer needed.
+//
+// It is typically implemented by object stores that support the
+// RemoveAll method.
+type ObjectStoreRemover interface {
 	// RemoveAll removes all data for the namespaced model. It is destructive
 	// and should be used with caution. No objects will be retrievable after
 	// this call. This is expected to be used when the model is being removed or
