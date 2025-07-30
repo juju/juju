@@ -192,16 +192,14 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	return artifacts, nil
 }
 
-// ModelScheduleRemoval schedules two removal jobs, one for setting the model to
-// dead and another one for deleting the model. It will use the input UUID,
-// qualified with the input force boolean.
+// ModelScheduleRemoval schedules the removal job for a model.
 //
 // We don't care if the model does not exist at this point because:
 // - it should have been validated prior to calling this method,
 // - the removal job executor will handle that fact.
 func (st *State) ModelScheduleRemoval(
 	ctx context.Context,
-	deadRemovalUUID, deleteRemovalUUID, modelUUID string,
+	removalUUID, modelUUID string,
 	force bool, when time.Time,
 ) error {
 	db, err := st.DB()
@@ -209,37 +207,22 @@ func (st *State) ModelScheduleRemoval(
 		return errors.Capture(err)
 	}
 
-	deadRemovalRec := removalJob{
-		UUID:          deadRemovalUUID,
+	removalDoc := removalJob{
+		UUID:          removalUUID,
 		RemovalTypeID: 4,
 		EntityUUID:    modelUUID,
 		Force:         force,
 		ScheduledFor:  when,
 	}
-	deleteRemovalRec := removalJob{
-		UUID:          deleteRemovalUUID,
-		RemovalTypeID: 5,
-		EntityUUID:    modelUUID,
-		Force:         force,
-		ScheduledFor:  when,
-	}
 
-	deadStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", deadRemovalRec)
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalDoc)
 	if err != nil {
-		return errors.Errorf("preparing model dead removal: %w", err)
-	}
-
-	deleteStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", deleteRemovalRec)
-	if err != nil {
-		return errors.Errorf("preparing model dead removal: %w", err)
+		return errors.Errorf("preparing model  removal: %w", err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, deadStmt, deadRemovalRec).Run(); err != nil {
-			return errors.Errorf("scheduling model dead removal: %w", err)
-		}
-		if err := tx.Query(ctx, deleteStmt, deleteRemovalRec).Run(); err != nil {
-			return errors.Errorf("scheduling model delete removal: %w", err)
+		if err := tx.Query(ctx, stmt, removalDoc).Run(); err != nil {
+			return errors.Errorf("scheduling model  removal: %w", err)
 		}
 		return nil
 	}))

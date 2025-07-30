@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/loggo/v2"
 )
 
 // ModelState describes methods for interacting with model state.
@@ -34,7 +33,7 @@ type ModelState interface {
 	// - the removal job executor will handle that fact.
 	ModelScheduleRemoval(
 		ctx context.Context,
-		removalDeadUUID, removalDeleteUUID, modelUUID string,
+		removalDeadUUID, modelUUID string,
 		force bool, when time.Time,
 	) error
 
@@ -121,7 +120,7 @@ func (s *Service) RemoveModel(
 			// schedule a normal removal job immediately. This will cause the
 			// earliest removal of the unit if the normal destruction
 			// workflows complete within the the wait duration.
-			if _, _, err := s.modelScheduleRemoval(ctx, modelUUID, false, 0); err != nil {
+			if _, err := s.modelScheduleRemoval(ctx, modelUUID, false, 0); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
@@ -132,7 +131,7 @@ func (s *Service) RemoveModel(
 		}
 	}
 
-	modelJobUUID, _, err := s.modelScheduleRemoval(ctx, modelUUID, force, wait)
+	modelJobUUID, err := s.modelScheduleRemoval(ctx, modelUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
 	} else if artifacts.Empty() {
@@ -177,37 +176,32 @@ func (s *Service) RemoveModel(
 
 func (s *Service) modelScheduleRemoval(
 	ctx context.Context, modelUUID model.UUID, force bool, wait time.Duration,
-) (removal.UUID, removal.UUID, error) {
-	jobDeadUUID, err := removal.NewUUID()
+) (removal.UUID, error) {
+	jobUUID, err := removal.NewUUID()
 	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	jobDeleteUUID, err := removal.NewUUID()
-	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	if err := s.modelState.ModelScheduleRemoval(
 		ctx,
-		jobDeadUUID.String(), jobDeleteUUID.String(),
+		jobUUID.String(),
 		modelUUID.String(),
 		force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
-		return "", "", errors.Errorf("model: %w", err)
+		return "", errors.Errorf("model: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q and %q", jobDeadUUID, jobDeleteUUID)
-	return jobDeadUUID, jobDeleteUUID, nil
+	s.logger.Infof(ctx, "scheduled removal job %q and %q", jobUUID)
+	return jobUUID, nil
 }
 
-// processModelDeadJob sets the model to dead if it meets the requirements.
+// processModelJob sets the model to dead if it meets the requirements.
 // Note that we do not need transactionality here:
 //   - Life can only advance - it cannot become alive if dying or dead.
 //   - All artifacts associated with the model will also have to be removed.
-func (s *Service) processModelDeadJob(ctx context.Context, job removal.Job) error {
-	if job.RemovalType != removal.ModelDeadJob {
-		return errors.Errorf("job type: %q not valid for model dead removal", job.RemovalType).Add(
+func (s *Service) processModelJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.ModelJob {
+		return errors.Errorf("job type: %q not valid for model removal", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
@@ -239,49 +233,6 @@ func (s *Service) processModelDeadJob(ctx context.Context, job removal.Job) erro
 	}
 
 	s.logger.Infof(ctx, "model %q marked as dead", job.EntityUUID)
-
-	return nil
-}
-
-func (s *Service) processModelDeleteJob(ctx context.Context, job removal.Job) error {
-	if job.RemovalType != removal.ModelDeleteJob {
-		return errors.Errorf("job type: %q not valid for model delete removal", job.RemovalType).Add(
-			removalerrors.RemovalJobTypeNotValid)
-	}
-
-	controllerLife, err := s.controllerState.GetModelLife(ctx, job.EntityUUID)
-	if err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return errors.Errorf("getting controller model %q life: %w", job.EntityUUID, err)
-	}
-
-	// We should ensure that the model is dead before we delete it.
-	modelLife, err := s.modelState.GetModelLife(ctx, job.EntityUUID)
-	if err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return errors.Errorf("getting model %q life: %w", job.EntityUUID, err)
-	}
-
-	loggo.GetLogger("***").Criticalf("model %q life: %s, controller life: %s", job.EntityUUID, modelLife, controllerLife)
-
-	if modelLife == life.Alive || controllerLife == life.Alive {
-		return errors.Errorf("model %q is still alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
-	} else if modelLife == life.Dying || controllerLife == life.Dying {
-		return errors.Errorf("model %q is dying", job.EntityUUID).Add(removalerrors.RemovalJobIncomplete)
-	}
-
-	loggo.GetLogger("***").Criticalf("Model %q is dead, proceeding with deletion", job.EntityUUID)
-
-	// Both the controller and model are dead, so we can delete the model
-	// artifacts.
-
-	if err := s.modelState.DeleteModelArtifacts(ctx, job.EntityUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return errors.Errorf("deleting model %q artifacts: %w", job.EntityUUID, err)
-	}
-
-	if err := s.controllerState.DeleteModel(ctx, job.EntityUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return errors.Errorf("deleting controller model %q: %w", job.EntityUUID, err)
-	}
-
-	s.logger.Infof(ctx, "model %q deleted", job.EntityUUID)
 
 	return nil
 }

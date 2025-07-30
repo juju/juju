@@ -20,10 +20,8 @@ const (
 	ApplicationJob
 	// MachineJob indicates a job to remove a machine.
 	MachineJob
-	// ModelDeadJob indicates a job to set a model as dead.
-	ModelDeadJob
-	// ModelDeleteJob indicates a job to delete a model.
-	ModelDeleteJob
+	// ModelJob indicates a job to set a model.
+	ModelJob
 )
 
 func (t JobType) String() string {
@@ -36,10 +34,8 @@ func (t JobType) String() string {
 		return "application"
 	case MachineJob:
 		return "machine"
-	case ModelDeadJob:
-		return "model-dead"
-	case ModelDeleteJob:
-		return "model-delete"
+	case ModelJob:
+		return "model"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}
