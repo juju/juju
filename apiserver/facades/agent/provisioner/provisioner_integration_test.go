@@ -23,7 +23,7 @@ func (s *provisionerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 
  - Calling AvailabilityZones with machines that have populated, empty, and nil AZ
- - Calling KeepInstance with variaety of results - true, false, not found, unauthorised.
+ - Calling KeepInstance with variety of results - true, false, not found, unauthorised.
  - Test the distribution group is correctly distributed
  - Test the distribution group is correctly distributed are grouped by machine ids
  - Test provisioner fails with non machine agent and non controller user

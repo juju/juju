@@ -95,7 +95,8 @@ func (s *ProviderService) AllocateContainerAddresses(ctx context.Context,
 		return nil, domainerrors.ContainerAddressesNotSupported
 	}
 
-	return provider.AllocateContainerAddresses(ctx, hostInstanceID, containerName, preparedInfo)
+	newInfo, err := provider.AllocateContainerAddresses(ctx, hostInstanceID, containerName, preparedInfo)
+	return newInfo, errors.Capture(err)
 }
 
 // DevicesForGuest returns the network devices that should be configured in the
