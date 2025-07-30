@@ -68,6 +68,14 @@ func TestControllerSuite(t *stdtesting.T) {
 	tc.Run(t, &controllerSuite{})
 }
 
+func (s *controllerSuite) TestStub(c *tc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+
+- Initializing agent bootstrap
+- Initializing agent bootstrap twice - should fail
+`)
+}
+
 func (s *controllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = mocks.NewMockModelService(ctrl)

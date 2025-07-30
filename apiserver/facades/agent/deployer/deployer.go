@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corestatus "github.com/juju/juju/core/status"
@@ -134,10 +133,6 @@ type DeployerAPI struct {
 
 	getAuth common.GetAuthFunc
 
-	// Deprecated: This modelUUID is only needed for the ModelUUID() method,
-	// which should be removed once the facade version is bumped.
-	modelUUID model.UUID
-
 	controllerConfigGetter ControllerConfigGetter
 	applicationService     ApplicationService
 	removalService         RemovalService
@@ -157,7 +152,6 @@ func NewDeployerAPI(
 	controllerNodeService ControllerNodeService,
 	statusService StatusService,
 	removalService RemovalService,
-	modelUUID model.UUID,
 	authorizer facade.Authorizer,
 	store objectstore.ObjectStore,
 	leadershipRevoker leadership.Revoker,
@@ -200,7 +194,6 @@ func NewDeployerAPI(
 		authorizer:             authorizer,
 		getCanWatch:            getCanWatch,
 		watcherRegistry:        watcherRegistry,
-		modelUUID:              modelUUID,
 	}, nil
 }
 
@@ -275,7 +268,7 @@ func (d *DeployerAPI) SetStatus(ctx context.Context, args params.SetStatus) (par
 // embedded APIAddresser *without* bumping the facade version.
 // It should be blanked when this facade version is next incremented.
 func (d *DeployerAPI) ModelUUID() params.StringResult {
-	return params.StringResult{Result: d.modelUUID.String()}
+	return params.StringResult{Result: ""}
 }
 
 // Life returns the life of the specified units.

@@ -42,7 +42,6 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 		domainServices.ControllerNode(),
 		domainServices.Status(),
 		domainServices.Removal(),
-		ctx.ModelUUID(),
 		authorizer,
 		ctx.ObjectStore(),
 		leadershipRevoker,

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
@@ -79,7 +78,7 @@ type ModelService interface {
 	// GetControllerModelUUID returns the model uuid for the controller model.
 	// If no controller model exists then an error satisfying
 	// [modelerrors.NotFound] is returned.
-	GetControllerModelUUID(context.Context) (model.UUID, error)
+	GetControllerModelUUID(context.Context) (coremodel.UUID, error)
 }
 
 type MacaroonService interface {

@@ -98,14 +98,9 @@ func makeFacade(
 	facadeVersions facades.FacadeVersions,
 ) (*API, error) {
 	domainServices := ctx.DomainServices()
-	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(stdCtx)
-	if err != nil {
-		return nil, errors.Errorf("retrieving controller config: %w", err)
-	}
 
-	controllerTag := controllerConfig.ControllerUUID()
 	auth := ctx.Auth()
-	if err := checkAuth(stdCtx, auth, names.NewControllerTag(controllerTag)); err != nil {
+	if err := checkAuth(stdCtx, auth, names.NewControllerTag(ctx.ControllerUUID())); err != nil {
 		return nil, err
 	}
 

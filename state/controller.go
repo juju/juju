@@ -10,10 +10,3 @@ package state
 // in the yet to be hooked up controller worker.
 type Controller struct {
 }
-
-// NewController returns a controller object that doesn't own
-// the state pool it has been given. This is for convenience
-// at this time to get access to controller methods.
-func NewController() *Controller {
-	return &Controller{}
-}
