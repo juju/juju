@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -36,29 +37,71 @@ func GetJujuAdminServiceAccountResolver(clock jujuclock.Clock) K8sCredentialReso
 	}
 }
 
+// deduplicate returns a new slice with duplicates removed, preserving order.
+func deduplicate(s []string) []string {
+	seen := make(map[string]struct{})
+	var unique []string
+	for _, v := range s {
+		if _, ok := seen[v]; !ok {
+			seen[v] = struct{}{}
+			unique = append(unique, v)
+		}
+	}
+	return unique
+}
+
+// currentMigrationRules returns a map that holds the history of recommended home directories used in previous versions.
+// Any future changes to RecommendedHomeFile and related are expected to add a migration rule here, in order to make
+// sure existing config files are migrated to their new locations properly.
+// Kubernetes previously stored kubeconfig in ~/.kube/.kubeconfig, but standardized it to ~/.kube/config.
+// The migration rule ensures that older config files are automatically copied to the new location for backward compatibility.
+//
+// We re-implement this logic instead of relying directly on upstream to account for
+// snap confinement scenarios where HOME may differ from the standard environment used by Kubernetes.
+//
+// link: https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go
+func currentMigrationRules() map[string]string {
+	var oldRecommendedHomeFileName string
+	if runtime.GOOS == "windows" {
+		oldRecommendedHomeFileName = clientcmd.RecommendedFileName
+	} else {
+		oldRecommendedHomeFileName = ".kubeconfig"
+	}
+	return map[string]string{
+		clientcmd.RecommendedHomeFile: filepath.Join(os.Getenv("HOME"), clientcmd.RecommendedHomeDir, oldRecommendedHomeFileName),
+	}
+}
+
+// newDefaultClientConfigLoadingRules returns a ClientConfigLoadingRules object with default fields filled in.
+// We re-implement this logic to add the real home path instead of snap home path for confined snap environments.
+//
+// link: https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go
+func newDefaultClientConfigLoadingRules() *clientcmd.ClientConfigLoadingRules {
+	chain := []string{}
+	warnIfAllMissing := false
+
+	envVarFiles := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
+	if len(envVarFiles) != 0 {
+		fileList := filepath.SplitList(envVarFiles)
+		// prevents the same path from loading multiple times
+		chain = append(chain, deduplicate(fileList)...)
+		warnIfAllMissing = true
+	} else {
+		realHome := filepath.Join(utils.Home(), clientcmd.RecommendedHomeDir, clientcmd.RecommendedFileName)
+		chain = append(chain, realHome)
+	}
+
+	return &clientcmd.ClientConfigLoadingRules{
+		Precedence:       chain,
+		MigrationRules:   currentMigrationRules(),
+		WarnIfAllMissing: warnIfAllMissing,
+	}
+}
+
 // GetLocalKubeConfig attempts to load up the current users local Kubernetes
 // configuration.
 func GetLocalKubeConfig() (*clientcmdapi.Config, error) {
-	// Confined snaps mess with the home path so ensure we
-	// include that in the config loader.
-	possibleRealHome := filepath.Join(utils.Home(),
-		clientcmd.RecommendedHomeDir, clientcmd.RecommendedFileName)
-	loader := clientcmd.NewDefaultClientConfigLoadingRules()
-	realHomeUsed := false
-	for i, opt := range loader.Precedence {
-		// Insert the real home before the sandboxed snap home.
-		if opt == clientcmd.RecommendedHomeFile {
-			precedence := append([]string{}, loader.Precedence[:i]...)
-			precedence = append(precedence, possibleRealHome)
-			precedence = append(precedence, loader.Precedence[i:]...)
-			loader.Precedence = precedence
-			realHomeUsed = true
-			break
-		}
-	}
-	if !realHomeUsed {
-		loader.Precedence = append(loader.Precedence, possibleRealHome)
-	}
+	loader := newDefaultClientConfigLoadingRules()
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		loader,
 		&clientcmd.ConfigOverrides{},
