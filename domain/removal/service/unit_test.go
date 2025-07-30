@@ -36,7 +36,7 @@ func (s *unitSuite) TestRemoveUnitNoForceSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String()).Return("some-machine-id", nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
@@ -59,7 +59,7 @@ func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String()).Return("", nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC()).Return(nil)
@@ -77,7 +77,7 @@ func (s *unitSuite) TestRemoveUnitForceWaitSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String()).Return("", nil)
 
@@ -97,7 +97,7 @@ func (s *unitSuite) TestRemoveUnitNotFound(c *tc.C) {
 
 	uUUID := unittesting.GenUnitUUID(c)
 
-	s.state.EXPECT().UnitExists(gomock.Any(), uUUID.String()).Return(false, nil)
+	s.modelState.EXPECT().UnitExists(gomock.Any(), uUUID.String()).Return(false, nil)
 
 	_, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -119,7 +119,7 @@ func (s *unitSuite) TestExecuteJobForUnitNotFound(c *tc.C) {
 
 	j := newUnitJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(-1, applicationerrors.UnitNotFound)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
@@ -132,7 +132,7 @@ func (s *unitSuite) TestExecuteJobForUnitError(c *tc.C) {
 
 	j := newUnitJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(-1, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -144,7 +144,7 @@ func (s *unitSuite) TestExecuteJobForUnitStillAlive(c *tc.C) {
 
 	j := newUnitJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Alive, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -156,7 +156,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnit(c *tc.C) {
 
 	j := newUnitJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
@@ -173,7 +173,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitError(c *tc.C) {
 
 	j := newUnitJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
@@ -189,7 +189,7 @@ func (s *unitSuite) TestExecuteJobForUnitRevokingUnitError(c *tc.C) {
 
 	j := newUnitJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 
@@ -204,7 +204,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitClaimNotHeldError(c *tc.
 
 	j := newUnitJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
@@ -221,7 +221,7 @@ func (s *unitSuite) TestMarkUnitAsDead(c *tc.C) {
 
 	uUUID := unittesting.GenUnitUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
 	exp.MarkUnitAsDead(gomock.Any(), uUUID.String()).Return(nil)
 
@@ -234,7 +234,7 @@ func (s *unitSuite) TestMarkUnitAsDeadUnitDoesNotExist(c *tc.C) {
 
 	uUUID := unittesting.GenUnitUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(false, nil)
 
 	err := s.newService(c).MarkUnitAsDead(c.Context(), uUUID)
@@ -246,7 +246,7 @@ func (s *unitSuite) TestMarkUnitAsDeadError(c *tc.C) {
 
 	uUUID := unittesting.GenUnitUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(false, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).MarkUnitAsDead(c.Context(), uUUID)

@@ -71,7 +71,7 @@ func (s *Service) RemoveRelation(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.RelationExists(ctx, relUUID.String())
+	exists, err := s.modelState.RelationExists(ctx, relUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if relation %q exists: %w", relUUID, err)
 	}
@@ -79,7 +79,7 @@ func (s *Service) RemoveRelation(
 		return "", errors.Errorf("relation %q does not exist", relUUID).Add(relationerrors.RelationNotFound)
 	}
 
-	if err := s.st.EnsureRelationNotAlive(ctx, relUUID.String()); err != nil {
+	if err := s.modelState.EnsureRelationNotAlive(ctx, relUUID.String()); err != nil {
 		return "", errors.Errorf("relation %q: %w", relUUID, err)
 	}
 
@@ -114,7 +114,7 @@ func (s *Service) relationScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.st.RelationScheduleRemoval(
+	if err := s.modelState.RelationScheduleRemoval(
 		ctx, jobUUID.String(), relUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
 		return "", errors.Errorf("relation %q: %w", relUUID, err)
@@ -143,7 +143,7 @@ func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
-	l, err := s.st.GetRelationLife(ctx, job.EntityUUID)
+	l, err := s.modelState.GetRelationLife(ctx, job.EntityUUID)
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		// The relation has already been removed.
 		// Indicate success so that this job will be deleted.
@@ -157,7 +157,7 @@ func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job
 		return errors.Errorf("relation %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	inScope, err := s.st.UnitNamesInScope(ctx, job.EntityUUID)
+	inScope, err := s.modelState.UnitNamesInScope(ctx, job.EntityUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -175,12 +175,12 @@ func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job
 		s.logger.Infof(ctx, "removal job %q for relation %q forcefully removing units from scope",
 			job.UUID, job.EntityUUID)
 
-		if err := s.st.DeleteRelationUnits(ctx, job.EntityUUID); err != nil {
+		if err := s.modelState.DeleteRelationUnits(ctx, job.EntityUUID); err != nil {
 			return errors.Errorf("departing units from relation %q scope: %w", job.EntityUUID, err)
 		}
 	}
 
-	if err := s.st.DeleteRelation(ctx, job.EntityUUID); err != nil {
+	if err := s.modelState.DeleteRelation(ctx, job.EntityUUID); err != nil {
 		return errors.Errorf("deleting relation %q: %w", job.EntityUUID, err)
 	}
 	return nil

@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"context"
@@ -411,7 +411,7 @@ WHERE  uuid = $entityUUID.uuid;`, unitLife, unitUUID)
 		return -1, errors.Errorf("running unit life query: %w", err)
 	}
 
-	return unitLife.Life, errors.Capture(err)
+	return life.Life(unitLife.Life), nil
 }
 
 func (st *State) deleteUnitAnnotations(ctx context.Context, tx *sqlair.TX, uUUID string) error {

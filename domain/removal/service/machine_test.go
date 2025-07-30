@@ -35,7 +35,7 @@ func (s *machineSuite) TestRemoveMachineNoForceSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), false).Return([]string{"some-unit-id"}, []string{"some-machine-id"}, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
@@ -59,7 +59,7 @@ func (s *machineSuite) TestRemoveMachineForceNoWaitSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil, nil, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
@@ -77,7 +77,7 @@ func (s *machineSuite) TestRemoveMachineForceWaitSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil, nil, nil)
 
@@ -97,7 +97,7 @@ func (s *machineSuite) TestRemoveMachineNotFound(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
+	s.modelState.EXPECT().MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
 
 	_, err := s.newService(c).RemoveMachine(c.Context(), mUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
@@ -108,7 +108,7 @@ func (s *machineSuite) TestMarkMachineAsDead(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.MarkMachineAsDead(gomock.Any(), mUUID.String()).Return(nil)
 
@@ -121,7 +121,7 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineDoesNotExist(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
 
 	err := s.newService(c).MarkMachineAsDead(c.Context(), mUUID)
@@ -133,7 +133,7 @@ func (s *machineSuite) TestMarkMachineAsDeadError(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).MarkMachineAsDead(c.Context(), mUUID)
@@ -145,7 +145,7 @@ func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.DeleteMachine(gomock.Any(), mUUID.String()).Return(nil)
 
@@ -158,7 +158,7 @@ func (s *machineSuite) TestDeleteMachineMachineDoesNotExist(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
 
 	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
@@ -170,7 +170,7 @@ func (s *machineSuite) TestDeleteMachineError(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
@@ -182,7 +182,7 @@ func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	exp.MarkInstanceAsDead(gomock.Any(), mUUID.String()).Return(nil)
 
@@ -195,7 +195,7 @@ func (s *machineSuite) TestMarkInstanceAsDeadMachineDoesNotExist(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
 
 	err := s.newService(c).MarkInstanceAsDead(c.Context(), mUUID)
@@ -207,7 +207,7 @@ func (s *machineSuite) TestMarkInstanceAsDeadError(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).MarkInstanceAsDead(c.Context(), mUUID)
@@ -230,7 +230,7 @@ func (s *machineSuite) TestExecuteJobForMachineNotFound(c *tc.C) {
 
 	j := newMachineJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(-1, machineerrors.MachineNotFound)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
@@ -243,7 +243,7 @@ func (s *machineSuite) TestExecuteJobForMachineError(c *tc.C) {
 
 	j := newMachineJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(-1, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -255,7 +255,7 @@ func (s *machineSuite) TestExecuteJobForMachineStillAlive(c *tc.C) {
 
 	j := newMachineJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Alive, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -267,7 +267,7 @@ func (s *machineSuite) TestExecuteJobForMachineInstanceDying(c *tc.C) {
 
 	j := newMachineJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 
@@ -280,7 +280,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddresses(c *tc.C) {
 
 	j := newMachineJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return(nil, machineerrors.MachineNotFound)
@@ -296,7 +296,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddressesNotSupported
 
 	j := newMachineJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
@@ -314,7 +314,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingDeleteMachine(c *tc.C) {
 
 	j := newMachineJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)

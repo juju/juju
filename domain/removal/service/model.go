@@ -59,18 +59,55 @@ func (s *Service) RemoveModel(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.ModelExists(ctx, modelUUID.String())
+	// We have to perform the following steps in the following order, to ensure
+	// that we can be reentrant during the removal process:
+	// 1. Check the model exists in the controller database. If it does not,
+	//    then log that fact and continue onwards. The model might have been
+	//    removed in the controller database, but still exist in the
+	//    model database.
+	// 2. Cascade the model removal in the controller database by setting it
+	//    to "dying", any associated artifacts will also be set to "dying".
+	// 3. Check the model exists in the model database. If it does not, and
+	//    the controller model doesn't exist, then we can return early.
+	// 4. Ensure the model is not alive in the model database and return any
+	//    artifacts that were transitioned from alive to dying.
+	// 5. Schedule the model removal job in the model database.
+	// 6. If there are any relations, units, machines or applications that
+	//    were transitioned from alive to dying, schedule their removal
+	//    as well.
+
+	controllerModelExists, err := s.controllerState.ModelExists(ctx, modelUUID.String())
+	if err != nil {
+		return "", errors.Errorf("checking if controller model exists: %w", err)
+	} else if !controllerModelExists {
+		s.logger.Infof(ctx, "model %q does not exist in controller database", modelUUID)
+	}
+
+	// If the model doesn't exist we can still run this, it just will be a
+	// no-op.
+	if err := s.controllerState.EnsureModelNotAliveCascade(ctx, modelUUID.String(), force); err != nil {
+		return "", errors.Errorf("ensuring model %q is not alive: %w", modelUUID, err)
+	}
+
+	// Now check that the model exists in the model database. If it doesn't
+	// exist and the controller model exists, then we can return early. We've
+	// successfully removed the model from the database.
+	modelExists, err := s.modelState.ModelExists(ctx, modelUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if model exists: %w", err)
-	} else if !exists {
+	} else if !modelExists && !controllerModelExists {
 		return "", errors.Errorf("model does not exist").Add(modelerrors.NotFound)
 	}
 
-	// Ensure the model is not alive.
-	artifacts, err := s.st.EnsureModelNotAliveCascade(ctx, modelUUID.String(), force)
+	// Either the model in the controller database or the model database exists,
+	// so we can proceed with the removal.
+	artifacts, err := s.modelState.EnsureModelNotAliveCascade(ctx, modelUUID.String(), force)
 	if err != nil {
 		return "", errors.Errorf("model %q: %w", modelUUID, err)
 	}
+
+	// From here on, we can assume that the model and any associated model
+	// artifacts (machines, applications, units, etc) are not alive.
 
 	if force {
 		if wait > 0 {
@@ -140,7 +177,7 @@ func (s *Service) modelScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.st.ModelScheduleRemoval(
+	if err := s.modelState.ModelScheduleRemoval(
 		ctx, jobUUID.String(), modelUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
 		return "", errors.Errorf("unit: %w", err)
@@ -159,7 +196,7 @@ func (s *Service) processModelRemovalJob(ctx context.Context, job removal.Job) e
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
-	l, err := s.st.GetModelLife(ctx, job.EntityUUID)
+	l, err := s.modelState.GetModelLife(ctx, job.EntityUUID)
 	if errors.Is(err, modelerrors.NotFound) {
 		// This is a programming error, as we should always have a model if
 		// we have a job for it.
@@ -176,7 +213,7 @@ func (s *Service) processModelRemovalJob(ctx context.Context, job removal.Job) e
 	// This will delete any model artifacts that are associated with the model.
 	// This will not delete the model itself, that's handled by the model
 	// undertaker.
-	if err := s.st.DeleteModelArtifacts(ctx, job.EntityUUID); errors.Is(err, modelerrors.NotFound) {
+	if err := s.modelState.DeleteModelArtifacts(ctx, job.EntityUUID); errors.Is(err, modelerrors.NotFound) {
 		// The model has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil

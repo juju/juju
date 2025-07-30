@@ -63,7 +63,7 @@ func (s *Service) RemoveApplication(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.ApplicationExists(ctx, appUUID.String())
+	exists, err := s.modelState.ApplicationExists(ctx, appUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if application %q exists: %w", appUUID, err)
 	} else if !exists {
@@ -71,7 +71,7 @@ func (s *Service) RemoveApplication(
 	}
 
 	// Ensure the application is not alive.
-	unitUUIDs, machineUUIDs, err := s.st.EnsureApplicationNotAliveCascade(ctx, appUUID.String())
+	unitUUIDs, machineUUIDs, err := s.modelState.EnsureApplicationNotAliveCascade(ctx, appUUID.String())
 	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}
@@ -126,7 +126,7 @@ func (s *Service) applicationScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.st.ApplicationScheduleRemoval(
+	if err := s.modelState.ApplicationScheduleRemoval(
 		ctx, jobUUID.String(), appUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
@@ -145,7 +145,7 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
-	l, err := s.st.GetApplicationLife(ctx, job.EntityUUID)
+	l, err := s.modelState.GetApplicationLife(ctx, job.EntityUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// The application has already been removed.
 		// Indicate success so that this job will be deleted.
@@ -158,7 +158,7 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("application %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	if err := s.st.DeleteApplication(ctx, job.EntityUUID); errors.Is(err, applicationerrors.ApplicationNotFound) {
+	if err := s.modelState.DeleteApplication(ctx, job.EntityUUID); errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// The application has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil

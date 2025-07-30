@@ -13,22 +13,24 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/removal/service State,Provider
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/removal/service ControllerDBState,ModelDBState,Provider
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leadership_mock_test.go github.com/juju/juju/core/leadership Revoker
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination clock_mock_test.go github.com/juju/clock Clock
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
-	state    *MockState
-	clock    *MockClock
-	revoker  *MockRevoker
-	provider *MockProvider
+	controllerState *MockControllerDBState
+	modelState      *MockModelDBState
+	clock           *MockClock
+	revoker         *MockRevoker
+	provider        *MockProvider
 }
 
 func (s *baseSuite) newService(c *tc.C) *Service {
 	return &Service{
-		st:                s.state,
+		controllerState:   s.controllerState,
+		modelState:        s.modelState,
 		leadershipRevoker: s.revoker,
 		provider: func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
@@ -41,13 +43,14 @@ func (s *baseSuite) newService(c *tc.C) *Service {
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockState(ctrl)
+	s.controllerState = NewMockControllerDBState(ctrl)
+	s.modelState = NewMockModelDBState(ctrl)
 	s.clock = NewMockClock(ctrl)
 	s.revoker = NewMockRevoker(ctrl)
 	s.provider = NewMockProvider(ctrl)
 
 	c.Cleanup(func() {
-		s.state = nil
+		s.modelState = nil
 		s.clock = nil
 		s.revoker = nil
 		s.provider = nil

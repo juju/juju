@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"context"
@@ -139,8 +139,11 @@ WHERE  uuid = $entityUUID.uuid`, relationLife, relationUUID)
 
 		return nil
 	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
 
-	return relationLife.Life, errors.Capture(err)
+	return life.Life(relationLife.Life), nil
 }
 
 // UnitNamesInScope returns the names of units in

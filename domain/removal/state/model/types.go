@@ -1,13 +1,11 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"database/sql"
 	"time"
-
-	"github.com/juju/juju/domain/life"
 )
 
 // removalJob represents a record in the removal table
@@ -71,7 +69,7 @@ type unitMachineLifeSummary struct {
 
 // entityLife holds an entity's life in integer
 type entityLife struct {
-	Life life.Life `db:"life_id"`
+	Life int `db:"life_id"`
 }
 
 // unitUUID holds a unit UUID in string form.

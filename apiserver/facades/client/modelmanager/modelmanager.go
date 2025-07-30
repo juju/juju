@@ -739,9 +739,8 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 	return result, nil
 }
 
-// DestroyModels will try to destroy the specified models.
-// If there is a block on destruction, this method will return an error.
-// From ModelManager v7 onwards, DestroyModels gains 'force' and 'max-wait' parameters.
+// DestroyModels will try to destroy the specified models. If there is a block
+// on destruction, this method will return an error.
 func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.DestroyModelsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Models)),

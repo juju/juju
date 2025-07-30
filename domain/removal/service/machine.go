@@ -77,7 +77,7 @@ func (s *Service) RemoveMachine(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.MachineExists(ctx, machineUUID.String())
+	exists, err := s.modelState.MachineExists(ctx, machineUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if machine exists: %w", err)
 	} else if !exists {
@@ -85,7 +85,7 @@ func (s *Service) RemoveMachine(
 	}
 
 	// Ensure the machine is not alive.
-	unitUUIDs, machineUUIDs, err := s.st.EnsureMachineNotAliveCascade(ctx, machineUUID.String(), force)
+	unitUUIDs, machineUUIDs, err := s.modelState.EnsureMachineNotAliveCascade(ctx, machineUUID.String(), force)
 	if err != nil {
 		return "", errors.Errorf("machine %q: %w", machineUUID, err)
 	}
@@ -148,14 +148,14 @@ func (s *Service) MarkMachineAsDead(ctx context.Context, machineUUID machine.UUI
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.MachineExists(ctx, machineUUID.String())
+	exists, err := s.modelState.MachineExists(ctx, machineUUID.String())
 	if err != nil {
 		return errors.Errorf("checking if machine exists: %w", err)
 	} else if !exists {
 		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
 	}
 
-	return s.st.MarkMachineAsDead(ctx, machineUUID.String())
+	return s.modelState.MarkMachineAsDead(ctx, machineUUID.String())
 }
 
 // DeleteMachine attempts to delete the specified machine from state entirely.
@@ -163,14 +163,14 @@ func (s *Service) DeleteMachine(ctx context.Context, machineUUID machine.UUID) e
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.MachineExists(ctx, machineUUID.String())
+	exists, err := s.modelState.MachineExists(ctx, machineUUID.String())
 	if err != nil {
 		return errors.Errorf("checking if machine exists: %w", err)
 	} else if !exists {
 		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
 	}
 
-	return s.st.DeleteMachine(ctx, machineUUID.String())
+	return s.modelState.DeleteMachine(ctx, machineUUID.String())
 }
 
 // MarkInstanceAsDead marks the machine's cloud instance as dead. It will not
@@ -186,14 +186,14 @@ func (s *Service) MarkInstanceAsDead(ctx context.Context, machineUUID machine.UU
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	exists, err := s.st.MachineExists(ctx, machineUUID.String())
+	exists, err := s.modelState.MachineExists(ctx, machineUUID.String())
 	if err != nil {
 		return errors.Errorf("checking if machine exists: %w", err)
 	} else if !exists {
 		return errors.Errorf("machine does not exist").Add(machineerrors.MachineNotFound)
 	}
 
-	return s.st.MarkInstanceAsDead(ctx, machineUUID.String())
+	return s.modelState.MarkInstanceAsDead(ctx, machineUUID.String())
 }
 
 func (s *Service) machineScheduleRemoval(
@@ -204,7 +204,7 @@ func (s *Service) machineScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.st.MachineScheduleRemoval(
+	if err := s.modelState.MachineScheduleRemoval(
 		ctx, jobUUID.String(), machineUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
 		return "", errors.Errorf("unit: %w", err)
@@ -223,7 +223,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
-	l, err := s.st.GetMachineLife(ctx, job.EntityUUID)
+	l, err := s.modelState.GetMachineLife(ctx, job.EntityUUID)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		// The machine has already been removed.
 		// Indicate success so that this job will be deleted.
@@ -236,7 +236,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("machine %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	l, err = s.st.GetInstanceLife(ctx, job.EntityUUID)
+	l, err = s.modelState.GetInstanceLife(ctx, job.EntityUUID)
 	if err != nil && !errors.Is(err, machineerrors.MachineNotFound) {
 		return errors.Errorf("getting instance %q life: %w", job.EntityUUID, err)
 	}
@@ -254,7 +254,7 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("releasing addresses for machine %q: %w", job.EntityUUID, err)
 	}
 
-	if err := s.st.DeleteMachine(ctx, job.EntityUUID); errors.Is(err, machineerrors.MachineNotFound) {
+	if err := s.modelState.DeleteMachine(ctx, job.EntityUUID); errors.Is(err, machineerrors.MachineNotFound) {
 		// The machine has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil
@@ -277,7 +277,7 @@ func (s *Service) releaseContainerAddresses(ctx context.Context, machineUUID str
 
 	// Get all the machines network interfaces, so that we can release them
 	// to the provider. This will only work on container machines.
-	addresses, err := s.st.GetMachineNetworkInterfaces(ctx, machineUUID)
+	addresses, err := s.modelState.GetMachineNetworkInterfaces(ctx, machineUUID)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil
 	} else if err != nil {

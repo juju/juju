@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"context"
@@ -440,12 +440,12 @@ func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.ID, 
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) checkApplicationLife(c *tc.C, appUUID string, expectedLife int) {
+func (s *baseSuite) checkApplicationLife(c *tc.C, appUUID string, expectedLife life.Life) {
 	row := s.DB().QueryRow("SELECT life_id FROM application WHERE uuid = ?", appUUID)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Life) {
@@ -453,12 +453,12 @@ func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Li
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife int) {
+func (s *baseSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife life.Life) {
 	row := s.DB().QueryRow("SELECT life_id FROM unit WHERE uuid = ?", unitUUID)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
@@ -466,12 +466,12 @@ func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLif
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife int) {
+func (s *baseSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife life.Life) {
 	row := s.DB().QueryRow("SELECT life_id FROM machine WHERE uuid = ?", machineUUID)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceInstanceLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
@@ -479,17 +479,25 @@ func (s *baseSuite) advanceInstanceLife(c *tc.C, machineUUID machine.UUID, newLi
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife int) {
+func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife life.Life) {
 	row := s.DB().QueryRow("SELECT life_id FROM machine_cloud_instance WHERE machine_uuid = ?", machineUUID)
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE model_life SET life_id = ? WHERE model_uuid = ?", newLife, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife life.Life) {
+	row := s.DB().QueryRow("SELECT life_id FROM model_life WHERE model_uuid = ?", modelUUID)
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 type stubCharm struct {

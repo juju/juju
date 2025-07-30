@@ -34,7 +34,7 @@ import (
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
-	removalstate "github.com/juju/juju/domain/removal/state"
+	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	"github.com/juju/juju/domain/resolve"
 	resolvestate "github.com/juju/juju/domain/resolve/state"
 	"github.com/juju/juju/domain/status"
@@ -1052,7 +1052,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
+	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
 	res0, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
@@ -1152,7 +1152,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
+	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
 	res0, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
@@ -1276,7 +1276,7 @@ func (s *watcherSuite) TestWatchApplications(c *tc.C) {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
-	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
+	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplications(ctx)
@@ -1435,7 +1435,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	}
 	statusState := statusstate.NewModelState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 	resolveState := resolvestate.NewState(modelDB)
-	removalSt := removalstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
+	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
 	alternateCharmID, _, err := svc.SetCharm(c.Context(), charm.SetCharmArgs{
 		Charm:         &stubCharm{},

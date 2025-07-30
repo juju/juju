@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"context"
@@ -80,10 +80,11 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 	c.Check(len(artifacts.MachineUUIDs), tc.Equals, 1)
 	c.Check(len(artifacts.RelationUUIDs), tc.Equals, 0)
 
-	s.checkUnitLife(c, artifacts.UnitUUIDs[0], 1)
-	s.checkMachineLife(c, artifacts.MachineUUIDs[0], 1)
-	s.checkInstanceLife(c, artifacts.MachineUUIDs[0], 1)
-	s.checkApplicationLife(c, artifacts.ApplicationUUIDs[0], 1)
+	s.checkModelLife(c, modelUUID, life.Dying)
+	s.checkUnitLife(c, artifacts.UnitUUIDs[0], life.Dying)
+	s.checkMachineLife(c, artifacts.MachineUUIDs[0], life.Dying)
+	s.checkInstanceLife(c, artifacts.MachineUUIDs[0], life.Dying)
+	s.checkApplicationLife(c, artifacts.ApplicationUUIDs[0], life.Dying)
 }
 
 func (s *modelSuite) TestEnsureModelNotAliveCascadeEmpty(c *tc.C) {

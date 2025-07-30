@@ -135,8 +135,9 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		}
 	}
 
-	// TODO: update model DB drop detection logic. Currently, statusService.GetModelStatusInfo does not
-	// return NotFound because model data is read from the cache within the same DB connection.
+	// TODO: update model DB drop detection logic. Currently,
+	// statusService.GetModelStatusInfo does not return NotFound because model
+	// data is read from the cache within the same DB connection.
 	statusService, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
