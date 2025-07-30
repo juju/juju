@@ -844,29 +844,14 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
 ) (params.MachineNetworkConfigResults, error) {
 	result := params.MachineNetworkConfigResults{}
 
-	canAccess, err := api.getAuthFunc(ctx)
+	hostUUID, hostName, err := api.getAuthedCallerMachine(ctx)
 	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	hostAuthTag := api.authorizer.GetAuthTag()
-	if hostAuthTag == nil {
-		return result, apiservererrors.ErrPerm
-	}
-
-	if !canAccess(hostAuthTag) {
-		return result, apiservererrors.ErrPerm
-	}
-
-	hostName := coremachine.Name(hostAuthTag.Id())
-	hostUUID, err := api.machineService.GetMachineUUID(ctx, hostName)
-	if errors.Is(err, machineerrors.MachineNotFound) {
-		return result, apiservererrors.ServerError(errors.NotFoundf("machine %q", hostName))
+		return result, err
 	}
 
 	hostInstanceID, err := api.machineService.GetInstanceID(ctx, hostUUID)
 	if errors.Is(err, machineerrors.NotProvisioned) {
-		return result, apiservererrors.ServerError(errors.NotProvisionedf("host machine %q", hostName.String()))
+		return result, apiservererrors.ServerError(errors.NotProvisionedf("host machine %q", hostName))
 	}
 
 	results := make([]params.MachineNetworkConfigResult, len(args.Entities))
@@ -1040,7 +1025,7 @@ func (api *ProvisionerAPI) HostChangesForContainers(
 ) (params.HostNetworkChangeResults, error) {
 	result := params.HostNetworkChangeResults{}
 
-	hostUUID, err := api.getAuthedCallerMachineUUID(ctx)
+	hostUUID, _, err := api.getAuthedCallerMachine(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -1086,32 +1071,33 @@ func (api *ProvisionerAPI) HostChangesForContainers(
 	return result, nil
 }
 
-func (api *ProvisionerAPI) getAuthedCallerMachineUUID(ctx context.Context) (coremachine.UUID, error) {
+func (api *ProvisionerAPI) getAuthedCallerMachine(ctx context.Context) (coremachine.UUID, coremachine.Name, error) {
 	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 
 	hostAuthTag := api.authorizer.GetAuthTag()
 	if hostAuthTag == nil {
-		return "", apiservererrors.ErrPerm
+		return "", "", apiservererrors.ErrPerm
 	}
 
 	if !canAccess(hostAuthTag) {
-		return "", apiservererrors.ErrPerm
+		return "", "", apiservererrors.ErrPerm
 	}
 
 	hostTag, err := names.ParseMachineTag(hostAuthTag.String())
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+	hostName := coremachine.Name(hostTag.Id())
 
-	hostUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(hostTag.Id()))
+	hostUUID, err := api.machineService.GetMachineUUID(ctx, hostName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		return "", apiservererrors.ErrPerm
+		return "", "", apiservererrors.ErrPerm
 	}
 
-	return hostUUID, err
+	return hostUUID, hostName, err
 }
 
 type containerProfileHandler struct {
