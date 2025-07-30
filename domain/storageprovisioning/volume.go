@@ -52,3 +52,17 @@ type VolumeProvisionedInfo struct {
 	// Persistent is true if the volume is persistent.
 	Persistent bool
 }
+
+// VolumeAttachmentProvisionedInfo is information set by the storage provisioner
+// for volume attachments it has provisioned.
+type VolumeAttachmentProvisionedInfo struct {
+	ReadOnly        bool
+	BlockDeviceUUID string
+}
+
+// VolumeAttachmentPlanProvisionedInfo is information set by the storage
+// provisioner for volume attachments it has provisioned.
+type VolumeAttachmentPlanProvisionedInfo struct {
+	DeviceType       string
+	DeviceAttributes map[string]string
+}

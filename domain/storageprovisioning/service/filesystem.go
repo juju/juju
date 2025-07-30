@@ -607,5 +607,18 @@ func (s *Service) SetFilesystemProvisionedInfo(
 	filesystemID string,
 	info storageprovisioning.FilesystemProvisionedInfo,
 ) error {
-	return errors.New("set filesystem provisioned info not implemented")
+	return errors.New("SetFilesystemProvisionedInfo not implemented")
+}
+
+// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem the
+// information about the provisioned filesystem attachment.
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided filesystem id.
+func (s *Service) SetFilesystemAttachmentProvisionedInfo(
+	ctx context.Context,
+	filesystemAttachmentID storageprovisioning.FilesystemAttachmentID,
+	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
+) error {
+	return errors.New("SetFilesystemAttachmentProvisionedInfo not implemented")
 }

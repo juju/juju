@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	blockdevice "github.com/juju/juju/core/blockdevice"
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	machine "github.com/juju/juju/core/machine"
@@ -1029,6 +1030,83 @@ func (c *MockStorageProvisioningServiceGetVolumeUUIDForIDCall) DoAndReturn(f fun
 	return c
 }
 
+// MatchOrCreateBlockDevice mocks base method.
+func (m *MockStorageProvisioningService) MatchOrCreateBlockDevice(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentID, arg2 blockdevice.BlockDevice) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MatchOrCreateBlockDevice", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MatchOrCreateBlockDevice indicates an expected call of MatchOrCreateBlockDevice.
+func (mr *MockStorageProvisioningServiceMockRecorder) MatchOrCreateBlockDevice(arg0, arg1, arg2 any) *MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MatchOrCreateBlockDevice", reflect.TypeOf((*MockStorageProvisioningService)(nil).MatchOrCreateBlockDevice), arg0, arg1, arg2)
+	return &MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall{Call: call}
+}
+
+// MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall wrap *gomock.Call
+type MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall) Return(arg0 string, arg1 error) *MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentID, blockdevice.BlockDevice) (string, error)) *MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentID, blockdevice.BlockDevice) (string, error)) *MockStorageProvisioningServiceMatchOrCreateBlockDeviceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetFilesystemAttachmentProvisionedInfo mocks base method.
+func (m *MockStorageProvisioningService) SetFilesystemAttachmentProvisionedInfo(arg0 context.Context, arg1 storageprovisioning.FilesystemAttachmentID, arg2 storageprovisioning.FilesystemAttachmentProvisionedInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFilesystemAttachmentProvisionedInfo", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFilesystemAttachmentProvisionedInfo indicates an expected call of SetFilesystemAttachmentProvisionedInfo.
+func (mr *MockStorageProvisioningServiceMockRecorder) SetFilesystemAttachmentProvisionedInfo(arg0, arg1, arg2 any) *MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFilesystemAttachmentProvisionedInfo", reflect.TypeOf((*MockStorageProvisioningService)(nil).SetFilesystemAttachmentProvisionedInfo), arg0, arg1, arg2)
+	return &MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall{Call: call}
+}
+
+// MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall wrap *gomock.Call
+type MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall) Return(arg0 error) *MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall) Do(f func(context.Context, storageprovisioning.FilesystemAttachmentID, storageprovisioning.FilesystemAttachmentProvisionedInfo) error) *MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemAttachmentID, storageprovisioning.FilesystemAttachmentProvisionedInfo) error) *MockStorageProvisioningServiceSetFilesystemAttachmentProvisionedInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetFilesystemProvisionedInfo mocks base method.
 func (m *MockStorageProvisioningService) SetFilesystemProvisionedInfo(arg0 context.Context, arg1 string, arg2 storageprovisioning.FilesystemProvisionedInfo) error {
 	m.ctrl.T.Helper()
@@ -1063,6 +1141,120 @@ func (c *MockStorageProvisioningServiceSetFilesystemProvisionedInfoCall) Do(f fu
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStorageProvisioningServiceSetFilesystemProvisionedInfoCall) DoAndReturn(f func(context.Context, string, storageprovisioning.FilesystemProvisionedInfo) error) *MockStorageProvisioningServiceSetFilesystemProvisionedInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetVolumeAttachmentPlanProvisionedBlockDevice mocks base method.
+func (m *MockStorageProvisioningService) SetVolumeAttachmentPlanProvisionedBlockDevice(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentID, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetVolumeAttachmentPlanProvisionedBlockDevice", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetVolumeAttachmentPlanProvisionedBlockDevice indicates an expected call of SetVolumeAttachmentPlanProvisionedBlockDevice.
+func (mr *MockStorageProvisioningServiceMockRecorder) SetVolumeAttachmentPlanProvisionedBlockDevice(arg0, arg1, arg2 any) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVolumeAttachmentPlanProvisionedBlockDevice", reflect.TypeOf((*MockStorageProvisioningService)(nil).SetVolumeAttachmentPlanProvisionedBlockDevice), arg0, arg1, arg2)
+	return &MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall{Call: call}
+}
+
+// MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall wrap *gomock.Call
+type MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall) Return(arg0 error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentID, string) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentID, string) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetVolumeAttachmentPlanProvisionedInfo mocks base method.
+func (m *MockStorageProvisioningService) SetVolumeAttachmentPlanProvisionedInfo(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentID, arg2 storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetVolumeAttachmentPlanProvisionedInfo", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetVolumeAttachmentPlanProvisionedInfo indicates an expected call of SetVolumeAttachmentPlanProvisionedInfo.
+func (mr *MockStorageProvisioningServiceMockRecorder) SetVolumeAttachmentPlanProvisionedInfo(arg0, arg1, arg2 any) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVolumeAttachmentPlanProvisionedInfo", reflect.TypeOf((*MockStorageProvisioningService)(nil).SetVolumeAttachmentPlanProvisionedInfo), arg0, arg1, arg2)
+	return &MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall{Call: call}
+}
+
+// MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall wrap *gomock.Call
+type MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall) Return(arg0 error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentID, storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentID, storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetVolumeAttachmentProvisionedInfo mocks base method.
+func (m *MockStorageProvisioningService) SetVolumeAttachmentProvisionedInfo(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentID, arg2 storageprovisioning.VolumeAttachmentProvisionedInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetVolumeAttachmentProvisionedInfo", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetVolumeAttachmentProvisionedInfo indicates an expected call of SetVolumeAttachmentProvisionedInfo.
+func (mr *MockStorageProvisioningServiceMockRecorder) SetVolumeAttachmentProvisionedInfo(arg0, arg1, arg2 any) *MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVolumeAttachmentProvisionedInfo", reflect.TypeOf((*MockStorageProvisioningService)(nil).SetVolumeAttachmentProvisionedInfo), arg0, arg1, arg2)
+	return &MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall{Call: call}
+}
+
+// MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall wrap *gomock.Call
+type MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall) Return(arg0 error) *MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentID, storageprovisioning.VolumeAttachmentProvisionedInfo) error) *MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentID, storageprovisioning.VolumeAttachmentProvisionedInfo) error) *MockStorageProvisioningServiceSetVolumeAttachmentProvisionedInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

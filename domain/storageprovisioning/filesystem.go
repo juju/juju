@@ -116,3 +116,13 @@ type FilesystemProvisionedInfo struct {
 	// SizeMiB is the size of the filesystem in MiB.
 	SizeMiB uint64
 }
+
+// FilesystemAttachmentProvisionedInfo is information set by the storage
+// provisioner for filesystems attachments it has provisioned.
+type FilesystemAttachmentProvisionedInfo struct {
+	// MountPoint is the path where the filesystem is mounted.
+	MountPoint string
+
+	// ReadOnly is true if the filesystem is mounted read-only.
+	ReadOnly bool
+}

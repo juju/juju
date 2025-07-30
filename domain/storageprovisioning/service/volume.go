@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -510,5 +511,60 @@ func (s *Service) SetVolumeProvisionedInfo(
 	volumeID string,
 	info storageprovisioning.VolumeProvisionedInfo,
 ) error {
-	return errors.New("set volume provisioned info not implemented")
+	return errors.New("SetVolumeProvisionedInfo not implemented")
+}
+
+// SetVolumeAttachmentProvisionedInfo sets on the provided volume the information
+// about the provisioned volume attachment.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachmentexists for the provided volume attachment id.
+func (s *Service) SetVolumeAttachmentProvisionedInfo(
+	ctx context.Context,
+	volumeAttachmentID storageprovisioning.VolumeAttachmentID,
+	info storageprovisioning.VolumeAttachmentProvisionedInfo,
+) error {
+	return errors.New("SetVolumeAttachmentProvisionedInfo not implemented")
+}
+
+// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
+// information about the provisioned volume attachment plan.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the provided volume attachment id.
+func (s *Service) SetVolumeAttachmentPlanProvisionedInfo(
+	ctx context.Context,
+	volumeAttachmentID storageprovisioning.VolumeAttachmentID,
+	info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
+) error {
+	return errors.New("SetVolumeAttachmentPlanProvisionedInfo not implemented")
+}
+
+// SetVolumeAttachmentPlanProvisionedBlockDevice sets on the provided volume the
+// information about the provisioned volume attachment.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the provided volume attachment id.
+// - [storageprovisioningerrors.BlockDeviceNotFound] when no block device exists
+// for the provided block device uuuid.
+func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
+	ctx context.Context,
+	volumeAttachmentID storageprovisioning.VolumeAttachmentID,
+	blockDeviceUUID string,
+) error {
+	return errors.New("SetVolumeAttachmentPlanProvisionedBlockDevice not implemented")
+}
+
+// MatchOrCreateBlockDevice looks for a block device for the provided volume
+// attachment id, or a matching block device on the machine otherwise it creates
+// one.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachmentexists for the provided volume attachment id.
+func (s *Service) MatchOrCreateBlockDevice(
+	ctx context.Context,
+	volumeAttachmentID storageprovisioning.VolumeAttachmentID,
+	blockDeviceInfo blockdevice.BlockDevice,
+) (string, error) {
+	return "", errors.New("MatchOrCreateBlockDevice not implemented")
 }
