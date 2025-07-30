@@ -1060,9 +1060,40 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 
 // SetVolumeInfo records the details of newly provisioned volumes.
 func (s *StorageProvisionerAPIv4) SetVolumeInfo(ctx context.Context, args params.Volumes) (params.ErrorResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Volumes)),
+	}
+	one := func(vol params.Volume) error {
+		volumeTag, err := names.ParseVolumeTag(vol.VolumeTag)
+		if err != nil {
+			return internalerrors.Errorf(
+				"parsing volume tag %q: %w", vol.VolumeTag, err,
+			)
+		}
+		if vol.Info.Pool != "" {
+			return internalerrors.New("pool cannot be set")
+		}
+		info := storageprovisioning.VolumeProvisionedInfo{
+			ProviderID: vol.Info.ProviderId,
+			SizeMiB:    vol.Info.Size,
+			HardwareID: vol.Info.HardwareId,
+			WWN:        vol.Info.WWN,
+			Persistent: vol.Info.Persistent,
+		}
+		err = s.storageProvisioningService.SetVolumeProvisionedInfo(
+			ctx, volumeTag.Id(), info)
+		if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+			return internalerrors.Errorf(
+				"volume %q not found", volumeTag.Id(),
+			).Add(errors.NotFound)
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		}
+		return nil
+	}
+	for i, vol := range args.Volumes {
+		err := one(vol)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -1071,6 +1102,44 @@ func (s *StorageProvisionerAPIv4) SetVolumeInfo(ctx context.Context, args params
 func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args params.Filesystems) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Filesystems)),
+	}
+	one := func(fs params.Filesystem) error {
+		filesystemTag, err := names.ParseFilesystemTag(fs.FilesystemTag)
+		if err != nil {
+			return internalerrors.Errorf(
+				"parsing filesystem tag %q: %w", fs.FilesystemTag, err,
+			)
+		}
+		if fs.Info.Pool != "" {
+			return internalerrors.New("pool cannot be set")
+		}
+		if fs.VolumeTag != "" {
+			// TODO(storage): once volumes are implemented, we need to check that
+			// the volume referenced here is provisioned, attached and owned by
+			// the same storage instance. This could be pushed into the
+			// storageprovisioning service, but that would require it to
+			// understand the provisioned status of a volume.
+			return internalerrors.New("volume backed filesystem not implemented").
+				Add(errors.NotImplemented)
+		}
+		info := storageprovisioning.FilesystemProvisionedInfo{
+			ProviderID: fs.Info.ProviderId,
+			SizeMiB:    fs.Info.Size,
+		}
+		err = s.storageProvisioningService.SetFilesystemProvisionedInfo(
+			ctx, filesystemTag.Id(), info)
+		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+			return internalerrors.Errorf(
+				"filesystem %q not found", filesystemTag.Id(),
+			).Add(errors.NotFound)
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		}
+		return nil
+	}
+	for i, fs := range args.Filesystems {
+		err := one(fs)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }

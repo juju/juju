@@ -375,4 +375,18 @@ type StorageProvisioningService interface {
 	WatchMachineProvisionedFilesystemAttachments(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.StringsWatcher, error)
+
+	// SetFilesystemProvisionedInfo sets on the provided filesystem the information
+	// about the provisioned filesystem.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+	// for the provided filesystem id.
+	SetFilesystemProvisionedInfo(ctx context.Context, filesystemID string, info storageprovisioning.FilesystemProvisionedInfo) error
+
+	// SetVolumeProvisionedInfo sets on the provided volume the information about
+	// the provisioned volume.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+	// provided volume id.
+	SetVolumeProvisionedInfo(ctx context.Context, volumeID string, info storageprovisioning.VolumeProvisionedInfo) error
 }

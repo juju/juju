@@ -1825,3 +1825,215 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeNotFound2(c 
 	r := result.Results[0]
 	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
 }
+
+func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+
+	info := storageprovisioning.FilesystemProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(nil)
+
+	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
+		Filesystems: []params.Filesystem{
+			{
+				FilesystemTag: tag.String(),
+				Info: params.FilesystemInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetFilesystemInfoWithBackingVolume(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	fsTag := names.NewFilesystemTag("123")
+	volTag := names.NewVolumeTag("456")
+
+	info := storageprovisioning.FilesystemProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(nil)
+
+	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
+		Filesystems: []params.Filesystem{
+			{
+				FilesystemTag: fsTag.String(),
+				VolumeTag:     volTag.String(),
+				Info: params.FilesystemInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetFilesystemInfoNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	info := storageprovisioning.FilesystemProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+	}
+
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(
+		storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
+		Filesystems: []params.Filesystem{
+			{
+				FilesystemTag: tag.String(),
+				Info: params.FilesystemInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestSetFilesystemInfoNoPool(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+
+	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
+		Filesystems: []params.Filesystem{
+			{
+				FilesystemTag: tag.String(),
+				Info: params.FilesystemInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+					Pool:       "not allowed",
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeInfo(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	info := storageprovisioning.VolumeProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+		HardwareID: "abc",
+		WWN:        "xyz",
+		Persistent: true,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetVolumeProvisionedInfo(gomock.Any(), "123", info).Return(nil)
+
+	result, err := s.api.SetVolumeInfo(c.Context(), params.Volumes{
+		Volumes: []params.Volume{
+			{
+				VolumeTag: tag.String(),
+				Info: params.VolumeInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+					HardwareId: "abc",
+					WWN:        "xyz",
+					Persistent: true,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeInfoNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	info := storageprovisioning.VolumeProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+		HardwareID: "abc",
+		WWN:        "xyz",
+		Persistent: true,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetVolumeProvisionedInfo(gomock.Any(), "123", info).Return(
+		storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.SetVolumeInfo(c.Context(), params.Volumes{
+		Volumes: []params.Volume{
+			{
+				VolumeTag: tag.String(),
+				Info: params.VolumeInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+					HardwareId: "abc",
+					WWN:        "xyz",
+					Persistent: true,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestSetVolumeInfoNoPool(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	result, err := s.api.SetVolumeInfo(c.Context(), params.Volumes{
+		Volumes: []params.Volume{
+			{
+				VolumeTag: tag.String(),
+				Info: params.VolumeInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+					HardwareId: "abc",
+					WWN:        "xyz",
+					Persistent: true,
+					Pool:       "not allowed",
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+}
