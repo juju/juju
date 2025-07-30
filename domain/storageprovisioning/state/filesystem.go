@@ -19,7 +19,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -29,7 +29,7 @@ import (
 func (st *State) GetFilesystemTemplatesForApplication(
 	ctx context.Context,
 	appUUID coreapplication.ID,
-) ([]domainstorageprovisioning.FilesystemTemplate, error) {
+) ([]storageprovisioning.FilesystemTemplate, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -129,9 +129,9 @@ ORDER BY asd.storage_name
 		storageAttrs[attr.Key] = attr.Value
 	}
 
-	r := make([]domainstorageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
+	r := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
 	for _, v := range fsTemplates {
-		r = append(r, domainstorageprovisioning.FilesystemTemplate{
+		r = append(r, storageprovisioning.FilesystemTemplate{
 			StorageName:  v.StorageName,
 			Count:        v.Count,
 			MaxCount:     v.MaxCount,
@@ -150,7 +150,7 @@ ORDER BY asd.storage_name
 func (st *State) checkFilesystemExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid domainstorageprovisioning.FilesystemUUID,
+	uuid storageprovisioning.FilesystemUUID,
 ) (bool, error) {
 	entityUUIDInput := entityUUID{UUID: uuid.String()}
 
@@ -226,11 +226,11 @@ WHERE  filesystem_id=$filesystemID.filesystem_id
 // exists for the provided filesystem uuid.
 func (st *State) GetFilesystem(
 	ctx context.Context,
-	uuid domainstorageprovisioning.FilesystemUUID,
-) (domainstorageprovisioning.Filesystem, error) {
+	uuid storageprovisioning.FilesystemUUID,
+) (storageprovisioning.Filesystem, error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
+		return storageprovisioning.Filesystem{}, errors.Capture(err)
 	}
 
 	var (
@@ -255,7 +255,7 @@ WHERE     sfs.uuid = $filesystemUUID.uuid
 		uuidInput, dbVal,
 	)
 	if err != nil {
-		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
+		return storageprovisioning.Filesystem{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -268,17 +268,17 @@ WHERE     sfs.uuid = $filesystemUUID.uuid
 	})
 
 	if err != nil {
-		return domainstorageprovisioning.Filesystem{}, errors.Capture(err)
+		return storageprovisioning.Filesystem{}, errors.Capture(err)
 	}
 
-	var backingVolume *domainstorageprovisioning.FilesystemBackingVolume
+	var backingVolume *storageprovisioning.FilesystemBackingVolume
 	if dbVal.VolumeID.Valid {
-		backingVolume = &domainstorageprovisioning.FilesystemBackingVolume{
+		backingVolume = &storageprovisioning.FilesystemBackingVolume{
 			VolumeID: dbVal.VolumeID.V,
 		}
 	}
 
-	return domainstorageprovisioning.Filesystem{
+	return storageprovisioning.Filesystem{
 		BackingVolume: backingVolume,
 		FilesystemID:  dbVal.FilesystemID,
 		ProviderID:    dbVal.ProviderID,
@@ -295,11 +295,11 @@ WHERE     sfs.uuid = $filesystemUUID.uuid
 // attachment exists for the provided filesystem attachment uuid.
 func (st *State) GetFilesystemAttachment(
 	ctx context.Context,
-	uuid domainstorageprovisioning.FilesystemAttachmentUUID,
-) (domainstorageprovisioning.FilesystemAttachment, error) {
+	uuid storageprovisioning.FilesystemAttachmentUUID,
+) (storageprovisioning.FilesystemAttachment, error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
 
 	var (
@@ -316,7 +316,7 @@ WHERE  sfa.uuid = $filesystemAttachmentUUID.uuid
 		uuidInput, dbVal,
 	)
 	if err != nil {
-		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -329,9 +329,9 @@ WHERE  sfa.uuid = $filesystemAttachmentUUID.uuid
 		return err
 	})
 	if err != nil {
-		return domainstorageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
-	return domainstorageprovisioning.FilesystemAttachment{
+	return storageprovisioning.FilesystemAttachment{
 		FilesystemID: dbVal.FilesystemID,
 		MountPoint:   dbVal.MountPoint,
 		ReadOnly:     dbVal.ReadOnly,
@@ -352,7 +352,7 @@ WHERE  sfa.uuid = $filesystemAttachmentUUID.uuid
 // filled out in the [domainstorageprovisioning.FilesystemAttachmentID] struct.
 func (st *State) GetFilesystemAttachmentIDs(
 	ctx context.Context, uuids []string,
-) (map[string]domainstorageprovisioning.FilesystemAttachmentID, error) {
+) (map[string]storageprovisioning.FilesystemAttachmentID, error) {
 	if len(uuids) == 0 {
 		return nil, nil
 	}
@@ -412,9 +412,9 @@ SELECT &filesystemAttachmentIDs.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := make(map[string]domainstorageprovisioning.FilesystemAttachmentID, len(dbVals))
+	rval := make(map[string]storageprovisioning.FilesystemAttachmentID, len(dbVals))
 	for _, v := range dbVals {
-		id := domainstorageprovisioning.FilesystemAttachmentID{
+		id := storageprovisioning.FilesystemAttachmentID{
 			FilesystemID: v.FilesystemID,
 		}
 		if v.MachineName.Valid {
@@ -439,7 +439,7 @@ SELECT &filesystemAttachmentIDs.* FROM (
 // attachment exists for the provided uuid.
 func (st *State) GetFilesystemAttachmentLife(
 	ctx context.Context,
-	uuid domainstorageprovisioning.FilesystemAttachmentUUID,
+	uuid storageprovisioning.FilesystemAttachmentUUID,
 ) (domainlife.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -546,9 +546,9 @@ AND             net_node_uuid=$netNodeUUID.uuid
 // attachment exists for the supplied values.
 func (st *State) GetFilesystemAttachmentUUIDForFilesystemNetNode(
 	ctx context.Context,
-	fsUUID domainstorageprovisioning.FilesystemUUID,
+	fsUUID storageprovisioning.FilesystemUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
-) (domainstorageprovisioning.FilesystemAttachmentUUID, error) {
+) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -610,7 +610,7 @@ AND    net_node_uuid = $netNodeUUID.uuid
 		return "", errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.FilesystemAttachmentUUID(dbVal.UUID), nil
+	return storageprovisioning.FilesystemAttachmentUUID(dbVal.UUID), nil
 }
 
 // GetFilesystemLife returns the current life value for a filesystem uuid.
@@ -620,7 +620,7 @@ AND    net_node_uuid = $netNodeUUID.uuid
 // for the provided uuid.
 func (st *State) GetFilesystemLife(
 	ctx context.Context,
-	uuid domainstorageprovisioning.FilesystemUUID,
+	uuid storageprovisioning.FilesystemUUID,
 ) (domainlife.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -721,7 +721,7 @@ AND             sfa.net_node_uuid=$netNodeUUID.uuid
 // for the provided filesystem id.
 func (st *State) GetFilesystemUUIDForID(
 	ctx context.Context, fsID string,
-) (domainstorageprovisioning.FilesystemUUID, error) {
+) (storageprovisioning.FilesystemUUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -756,7 +756,7 @@ WHERE  filesystem_id = $filesystemID.filesystem_id
 		return "", errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.FilesystemUUID(dbVal.UUID), nil
+	return storageprovisioning.FilesystemUUID(dbVal.UUID), nil
 }
 
 // InitialWatchStatementMachineProvisionedFilesystems returns both the
@@ -860,4 +860,98 @@ WHERE  provision_scope_id=0
 		return rval, nil
 	}
 	return "storage_filesystem_attachment_life_model_provisioning", query
+}
+
+// SetFilesystemProvisionedInfo sets on the provided filesystem the
+// information about the provisioned filesystem.
+func (st *State) SetFilesystemProvisionedInfo(
+	ctx context.Context,
+	filesystemUUID storageprovisioning.FilesystemUUID,
+	info storageprovisioning.FilesystemProvisionedInfo,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	fs := filesystemProvisionedInfo{
+		UUID:       filesystemUUID.String(),
+		ProviderID: info.ProviderID,
+		SizeMiB:    info.SizeMiB,
+	}
+	stmt, err := st.Prepare(`
+UPDATE storage_filesystem
+SET    provider_id = $filesystemProvisionedInfo.provider_id,
+       size_mib = $filesystemProvisionedInfo.size_mib
+WHERE  uuid = $filesystemProvisionedInfo.uuid
+`, fs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, fs).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem
+// attachment information about the provisoned filesystem attachment.
+func (st *State) SetFilesystemAttachmentProvisionedInfo(
+	ctx context.Context,
+	filesystemUUID storageprovisioning.FilesystemUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	fs := filesystemAttachmentProvisionedInfo{
+		FilesystemUUID: filesystemUUID.String(),
+		NetNodeUUID:    netNodeUUID.String(),
+		MountPoint:     info.MountPoint,
+		ReadOnly:       info.ReadOnly,
+	}
+	stmt, err := st.Prepare(`
+UPDATE storage_filesystem_attachment
+SET    mount_point = $filesystemAttachmentProvisionedInfo.mount_point,
+       read_only = $filesystemAttachmentProvisionedInfo.read_only
+WHERE  storage_filesystem_uuid = $filesystemAttachmentProvisionedInfo.filesystem_uuid AND
+       net_node_uuid = $filesystemAttachmentProvisionedInfo.net_node_uuid
+`, fs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		err := tx.Query(ctx, stmt, fs).Get(&outcome)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		result := outcome.Result()
+		if affected, err := result.RowsAffected(); err != nil {
+			return errors.Errorf("getting number of affected rows: %w", err)
+		} else if affected == 0 {
+			return errors.Errorf(
+				"filesystem attachment for filesystem %q and net node %s not found",
+				filesystemUUID, netNodeUUID,
+			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }

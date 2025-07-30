@@ -13,6 +13,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
@@ -765,6 +766,78 @@ func (s *filesystemSuite) TestGetFilesystemUUIDForID(c *tc.C) {
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(gotUUID.String(), tc.Equals, fsUUID.String())
+}
+
+// TestSetFilesystemProvisionedInfo checks if SetFilesystemProvisionedInfo only
+// affects the specified filesystem.
+func (s *filesystemSuite) TestSetFilesystemProvisionedInfo(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	fsUUID, _ := s.newModelFilesystem(c)
+	fsOtherUUID, _ := s.newModelFilesystem(c)
+
+	info := storageprovisioning.FilesystemProvisionedInfo{
+		ProviderID: "xyz",
+		SizeMiB:    123,
+	}
+	err := st.SetFilesystemProvisionedInfo(c.Context(), fsUUID, info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fs, err := st.GetFilesystem(c.Context(), fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fs.ProviderID, tc.Equals, "xyz")
+	c.Check(fs.SizeMiB, tc.Equals, uint64(123))
+
+	otherFs, err := st.GetFilesystem(c.Context(), fsOtherUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(otherFs.ProviderID, tc.Not(tc.Equals), "xyz")
+	c.Check(otherFs.SizeMiB, tc.Not(tc.Equals), uint64(123))
+}
+
+// TestSetFilesystemAttachmentProvisionedInfo checks that a call to
+// SetFilesystemAttachmentProvisionedInfo sets the info on the specified
+// filesystem attachment.
+func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfo(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	fsUUID, _ := s.newModelFilesystem(c)
+	netNodeUUID := s.newNetNode(c)
+	s.newMachineWithNetNode(c, netNodeUUID)
+	fsAttachmentUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
+
+	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
+		MountPoint: "x/y/z",
+		ReadOnly:   true,
+	}
+	err := st.SetFilesystemAttachmentProvisionedInfo(c.Context(), fsUUID,
+		domainnetwork.NetNodeUUID(netNodeUUID), info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsAttachment, err := st.GetFilesystemAttachment(c.Context(),
+		fsAttachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fsAttachment.MountPoint, tc.Equals, "x/y/z")
+	c.Check(fsAttachment.ReadOnly, tc.IsTrue)
+}
+
+// TestSetFilesystemAttachmentProvisionedInfoNotFound checks that a call to
+// SetFilesystemAttachmentProvisionedInfo where no filesystem attachent exists
+// for the supplied machine and filesystem, an error is returned.
+func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	fsUUID, _ := s.newModelFilesystem(c)
+	netNodeUUID := s.newNetNode(c)
+	s.newMachineWithNetNode(c, netNodeUUID)
+
+	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
+		MountPoint: "x/y/z",
+		ReadOnly:   true,
+	}
+	err := st.SetFilesystemAttachmentProvisionedInfo(c.Context(), fsUUID,
+		domainnetwork.NetNodeUUID(netNodeUUID), info)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
 // changeFilesystemLife is a utility function for updating the life value of a

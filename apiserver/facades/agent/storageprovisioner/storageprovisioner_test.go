@@ -20,7 +20,6 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -2263,7 +2262,7 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoUnit(c *tc.C) {
 	unitTag := names.NewUnitTag("app/5")
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(),
-		unit.Name(unitTag.Id())).Return(unitUUID, nil)
+		coreunit.Name(unitTag.Id())).Return(unitUUID, nil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
@@ -2298,7 +2297,7 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoUnitErrors(c *tc.C) {
 	unitTag := names.NewUnitTag("app/5")
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(),
-		unit.Name(unitTag.Id())).Return(unitUUID, nil)
+		coreunit.Name(unitTag.Id())).Return(unitUUID, nil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",

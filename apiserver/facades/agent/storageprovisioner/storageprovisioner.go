@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -1389,8 +1388,8 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 			err = s.storageProvisioningService.SetFilesystemAttachmentProvisionedInfoForMachine(
 				ctx, filesystemTag.Id(), machineUUID, info)
 		case names.UnitTag:
-			unitName := unit.Name(tag.Id())
-			var unitUUID unit.UUID
+			unitName := coreunit.Name(tag.Id())
+			var unitUUID coreunit.UUID
 			unitUUID, err = s.applicationService.GetUnitUUID(ctx, unitName)
 			if errors.Is(err, coreunit.InvalidUnitName) {
 				return internalerrors.Errorf(

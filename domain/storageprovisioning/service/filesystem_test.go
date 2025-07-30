@@ -15,7 +15,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -596,7 +595,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnitInval
 		MountPoint: "x",
 		ReadOnly:   true,
 	}
-	unitUUID := unit.UUID("$")
+	unitUUID := coreunit.UUID("$")
 
 	svc := NewService(s.state, s.watcherFactory)
 	err := svc.SetFilesystemAttachmentProvisionedInfoForUnit(c.Context(),

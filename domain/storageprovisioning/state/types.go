@@ -213,3 +213,20 @@ type resourceTagInfo struct {
 	ControllerUUID  string `db:"controller_uuid"`
 	ApplicationName string `db:"application_name"`
 }
+
+// filesystemProvisionedInfo is used to set the provisioned info for a
+// filesystem.
+type filesystemProvisionedInfo struct {
+	UUID       string `db:"uuid"`
+	ProviderID string `db:"provider_id"`
+	SizeMiB    uint64 `db:"size_mib"`
+}
+
+// filesystemAttachmentProvisionedInfo is used to set the provisioned info for
+// a filesystem attachment.
+type filesystemAttachmentProvisionedInfo struct {
+	FilesystemUUID string `db:"filesystem_uuid"`
+	NetNodeUUID    string `db:"net_node_uuid"`
+	MountPoint     string `db:"mount_point"`
+	ReadOnly       bool   `db:"read_only"`
+}
