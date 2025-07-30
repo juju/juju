@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state"
 )
 
 var (
@@ -39,10 +38,6 @@ func NewErrRoot(err error) *errRoot {
 }
 
 type testingAPIRootHandler struct{}
-
-func (testingAPIRootHandler) State() *state.State {
-	return nil
-}
 
 func (testingAPIRootHandler) DomainServices() services.DomainServices {
 	return nil

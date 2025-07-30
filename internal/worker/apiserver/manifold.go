@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
-	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/jujuclient"
 )
@@ -68,7 +67,6 @@ type ManifoldConfig struct {
 	AuthenticatorName      string
 	ClockName              string
 	MuxName                string
-	StateName              string
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
@@ -104,9 +102,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
-	}
-	if config.StateName == "" {
-		return errors.NotValidf("empty StateName")
 	}
 	if config.UpgradeGateName == "" {
 		return errors.NotValidf("empty UpgradeGateName")
@@ -172,7 +167,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuthenticatorName,
 			config.ClockName,
 			config.MuxName,
-			config.StateName,
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
@@ -212,11 +206,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	var macaroonAuthenticator macaroon.LocalMacaroonAuthenticator
 	if err := getter.Get(config.AuthenticatorName, &macaroonAuthenticator); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var stTracker workerstate.StateTracker
-	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -301,18 +290,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return cmd.Main(jujuCmd, ctx, strings.Split(cmdPlusARgs, " "))
 	}
 
-	// Get the state pool after grabbing dependencies so we don't need
-	// to remember to call Done on it if they're not running yet.
-	statePool, _, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w, err := config.NewWorker(ctx, Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
 		Mux:                               mux,
-		StatePool:                         statePool,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
@@ -335,7 +316,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes
 		// the state pool and the metrics collector.
-		_ = stTracker.Done()
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
 
 		return nil, errors.Trace(err)
@@ -346,7 +326,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 		// Ensure we clean up the resources we've registered with. This includes
 		// the state pool and the metrics collector.
-		_ = stTracker.Done()
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
 	}), nil
 }

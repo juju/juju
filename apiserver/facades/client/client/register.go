@@ -33,8 +33,7 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	st := ctx.State()
-	storageAccessor, err := getStorageState(st)
+	storageAccessor, err := getStorageState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -7,6 +7,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/names/v6"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/model"
@@ -95,13 +97,12 @@ func makeFacade(
 	ctx facade.MultiModelContext,
 	facadeVersions facades.FacadeVersions,
 ) (*API, error) {
+	domainServices := ctx.DomainServices()
+
 	auth := ctx.Auth()
-	st := ctx.State()
-	if err := checkAuth(stdCtx, auth, st); err != nil {
+	if err := checkAuth(stdCtx, auth, names.NewControllerTag(ctx.ControllerUUID())); err != nil {
 		return nil, err
 	}
-
-	domainServices := ctx.DomainServices()
 
 	modelMigrationServiceGetter := func(c context.Context, modelId model.UUID) (ModelMigrationService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelId)

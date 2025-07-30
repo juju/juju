@@ -217,7 +217,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	modelConfig *config.Config,
 	modelUUID model.UUID,
 ) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
-	sb, err := state.NewStorageBackend(api.st)
+	sb, err := state.NewStorageBackend()
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}

@@ -69,8 +69,6 @@ func (s *destroyControllerSuite) SetUpTest(c *tc.C) {
 	}
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			State_:          nil,
-			StatePool_:      s.StatePool(),
 			Resources_:      s.resources,
 			Auth_:           s.authorizer,
 			DomainServices_: s.ControllerDomainServices(c),

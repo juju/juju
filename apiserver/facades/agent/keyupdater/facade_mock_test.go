@@ -22,7 +22,6 @@ import (
 	model "github.com/juju/juju/core/model"
 	objectstore "github.com/juju/juju/core/objectstore"
 	services "github.com/juju/juju/internal/services"
-	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -1040,82 +1039,6 @@ func (c *MockModelContextSingularClaimerCall) Do(f func() (lease.Claimer, error)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelContextSingularClaimerCall) DoAndReturn(f func() (lease.Claimer, error)) *MockModelContextSingularClaimerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// State mocks base method.
-func (m *MockModelContext) State() *state.State {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "State")
-	ret0, _ := ret[0].(*state.State)
-	return ret0
-}
-
-// State indicates an expected call of State.
-func (mr *MockModelContextMockRecorder) State() *MockModelContextStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockModelContext)(nil).State))
-	return &MockModelContextStateCall{Call: call}
-}
-
-// MockModelContextStateCall wrap *gomock.Call
-type MockModelContextStateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelContextStateCall) Return(arg0 *state.State) *MockModelContextStateCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelContextStateCall) Do(f func() *state.State) *MockModelContextStateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextStateCall) DoAndReturn(f func() *state.State) *MockModelContextStateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// StatePool mocks base method.
-func (m *MockModelContext) StatePool() *state.StatePool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StatePool")
-	ret0, _ := ret[0].(*state.StatePool)
-	return ret0
-}
-
-// StatePool indicates an expected call of StatePool.
-func (mr *MockModelContextMockRecorder) StatePool() *MockModelContextStatePoolCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatePool", reflect.TypeOf((*MockModelContext)(nil).StatePool))
-	return &MockModelContextStatePoolCall{Call: call}
-}
-
-// MockModelContextStatePoolCall wrap *gomock.Call
-type MockModelContextStatePoolCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelContextStatePoolCall) Return(arg0 *state.StatePool) *MockModelContextStatePoolCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelContextStatePoolCall) Do(f func() *state.StatePool) *MockModelContextStatePoolCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextStatePoolCall) DoAndReturn(f func() *state.StatePool) *MockModelContextStatePoolCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

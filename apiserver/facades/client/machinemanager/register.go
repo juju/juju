@@ -35,7 +35,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
 	domainServices := ctx.DomainServices()
 
 	logger := ctx.Logger().Child("machinemanager")
@@ -48,7 +47,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		)
 	}
 
-	storageAccess, err := getStorageState(st, modelType)
+	storageAccess, err := getStorageState(modelType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

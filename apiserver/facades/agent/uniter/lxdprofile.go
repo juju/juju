@@ -24,7 +24,6 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // LXDProfileMachine describes machine-receiver state methods
@@ -67,7 +66,6 @@ func NewLXDProfileAPI(
 
 // NewExternalLXDProfileAPI can be used for API registration.
 func NewExternalLXDProfileAPI(
-	st *state.State,
 	machineService MachineService,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,

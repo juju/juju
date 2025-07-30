@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination clock_mock_test.go github.com/juju/clock Clock
@@ -92,7 +91,7 @@ func (s *uniterSuiteBase) SetUpTest(c *tc.C) {
 	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.leadershipChecker = &fakeLeadershipChecker{false}
-	s.uniter = s.newUniterAPI(c, nil, s.authorizer)
+	s.uniter = s.newUniterAPI(c, s.authorizer)
 	s.PatchValue(&k8s.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
@@ -103,8 +102,6 @@ func (s *uniterSuiteBase) setupState(c *tc.C) {}
 
 func (s *uniterSuiteBase) facadeContext(c *tc.C) facadetest.ModelContext {
 	return facadetest.ModelContext{
-		State_:             nil,
-		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,
 		WatcherRegistry_:   s.watcherRegistry,
 		Auth_:              s.authorizer,
@@ -115,9 +112,8 @@ func (s *uniterSuiteBase) facadeContext(c *tc.C) facadetest.ModelContext {
 	}
 }
 
-func (s *uniterSuiteBase) newUniterAPI(c *tc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
+func (s *uniterSuiteBase) newUniterAPI(c *tc.C, auth facade.Authorizer) *uniter.UniterAPI {
 	facadeContext := s.facadeContext(c)
-	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
 	uniterAPI, err := uniter.NewUniterAPI(c.Context(), facadeContext)
@@ -125,9 +121,8 @@ func (s *uniterSuiteBase) newUniterAPI(c *tc.C, st *state.State, auth facade.Aut
 	return uniterAPI
 }
 
-func (s *uniterSuiteBase) newUniterAPIv19(c *tc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPIv19 {
+func (s *uniterSuiteBase) newUniterAPIv19(c *tc.C, auth facade.Authorizer) *uniter.UniterAPIv19 {
 	facadeContext := s.facadeContext(c)
-	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
 	uniterAPI, err := uniter.NewUniterAPIv19(c.Context(), facadeContext)

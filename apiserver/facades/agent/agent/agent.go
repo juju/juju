@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // AgentPasswordService defines the methods required to set an agent password
@@ -169,7 +168,6 @@ type AgentAPI struct {
 	controllerConfigService ControllerConfigService
 	applicationService      ApplicationService
 	machineService          MachineService
-	st                      *state.State
 	auth                    facade.Authorizer
 	resources               facade.Resources
 }
@@ -178,7 +176,6 @@ type AgentAPI struct {
 func NewAgentAPI(
 	auth facade.Authorizer,
 	resources facade.Resources,
-	st *state.State,
 	agentPasswordService AgentPasswordService,
 	controllerService ControllerService,
 	controllerConfigService ControllerConfigService,
@@ -208,7 +205,6 @@ func NewAgentAPI(
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
 		machineService:          machineService,
-		st:                      st,
 		auth:                    auth,
 		resources:               resources,
 	}

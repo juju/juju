@@ -24,8 +24,8 @@ type StorageInterface interface {
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)
 }
 
-var getStorageState = func(st *state.State) (StorageInterface, error) {
-	sb, err := state.NewStorageBackend(st)
+var getStorageState = func() (StorageInterface, error) {
+	sb, err := state.NewStorageBackend()
 	if err != nil {
 		return nil, err
 	}
