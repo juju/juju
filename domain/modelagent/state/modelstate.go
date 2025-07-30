@@ -1434,7 +1434,7 @@ SET    latest_version = $latestAgentVersion.latest_version
 		if currentTargetVersion.Compare(version) == 1 {
 			return errors.Errorf(
 				"unable to update latest agent version to %q. The current agent version is %q", version, currentTargetVersion,
-			)
+			).Add(modelagenterrors.LatestVersionDowngradeNotSupported)
 		}
 
 		currentLatestVersion, err := semversion.Parse(agentVersionInfo.LatestVersion)
@@ -1443,10 +1443,13 @@ SET    latest_version = $latestAgentVersion.latest_version
 				"parsing latest agent version: %w", err,
 			)
 		}
-		if currentLatestVersion.Compare(version) == 1 {
+		if res := currentLatestVersion.Compare(version); res == 1 {
 			return errors.Errorf(
 				"unable to update latest agent version to %q. The current latest agent version is %q", version, currentLatestVersion,
-			)
+			).Add(modelagenterrors.LatestVersionDowngradeNotSupported)
+		} else if res == 0 {
+			// Nothing to do.
+			return nil
 		}
 
 		return tx.Query(ctx, stmt, modelAgentLatestVersion).Run()

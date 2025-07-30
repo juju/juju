@@ -917,8 +917,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:          agentName,
+			DomainServicesName: domainServicesName,
+			GetModelUUID:       toolsversionchecker.GetModelUUID,
+			GetDomainServices:  toolsversionchecker.GetModelDomainServices,
+			NewWorker:          toolsversionchecker.New,
+			Logger:             internallogger.GetLogger("juju.worker.toolsversionchecker"),
 		})),
 
 		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{

@@ -1506,7 +1506,7 @@ func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentLatest(c *t
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("4.1.0"))
-	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorIs, modelagenterrors.LatestVersionDowngradeNotSupported)
 }
 
 func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentTarget(c *tc.C) {
@@ -1514,5 +1514,5 @@ func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentTarget(c *t
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("4.1.0"))
-	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorIs, modelagenterrors.LatestVersionDowngradeNotSupported)
 }
