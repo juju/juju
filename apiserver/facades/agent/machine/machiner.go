@@ -85,9 +85,12 @@ type MachineService interface {
 	GetMachineLife(ctx context.Context, name machine.Name) (life.Value, error)
 	// SetMachineHostname sets the hostname for the given machine.
 	SetMachineHostname(ctx context.Context, mUUID machine.UUID, hostname string) error
-	// WatchMachineLife returns a watcher that observes the changes to life of
-	// one machine.
-	WatchMachineLife(ctx context.Context, name machine.Name) (watcher.NotifyWatcher, error)
+	// WatchMachineAndMachineUnitLife returns a NotifyWatcher that is subscribed to
+	// the changes in the machine and machine unit lifecycle tables in the model,
+	// for the given machine name. It emits changes for both machine and the
+	// machine unit lifecycle events, so it can be used to track the lifecycle of
+	// a machine and its units together.
+	WatchMachineAndMachineUnitLife(ctx context.Context, machineName machine.Name) (watcher.NotifyWatcher, error)
 }
 
 // ApplicationService defines the methods that the facade assumes from the
@@ -448,7 +451,9 @@ func (api *MachinerAPI) Watch(ctx context.Context, args params.Entities) (params
 }
 
 func (api *MachinerAPI) watchMachine(ctx context.Context, machineName machine.Name) (string, error) {
-	watch, err := api.machineService.WatchMachineLife(ctx, machineName)
+	// Yes this is correct. Turns out the machiner worker needs to also watch
+	// the machine unit lifecycle events that live in the machine as well.
+	watch, err := api.machineService.WatchMachineAndMachineUnitLife(ctx, machineName)
 	if err != nil {
 		return "", err
 	}

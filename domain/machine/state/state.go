@@ -1493,6 +1493,13 @@ func (*State) NamespaceForMachineLife() string {
 	return "custom_machine_name_lifecycle"
 }
 
+// NamespaceForMachineAndMachineUnitLife returns the namespace string used
+// for tracking machine and machine unit lifecycle events in the model.
+func (*State) NamespaceForMachineAndMachineUnitLife() (string, string) {
+	return "custom_machine_name_lifecycle",
+		"custom_machine_unit_name_lifecycle"
+}
+
 // InitialWatchModelMachinesStatement returns the table and the initial watch
 // statement for watching life changes of non-container machines.
 func (*State) InitialWatchModelMachinesStatement() (string, string) {
