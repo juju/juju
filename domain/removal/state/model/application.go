@@ -205,8 +205,11 @@ WHERE  uuid = $entityUUID.uuid;`, applicationLife, applicationUUID)
 
 		return nil
 	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
 
-	return applicationLife.Life, errors.Capture(err)
+	return life.Life(applicationLife.Life), nil
 }
 
 // DeleteApplication removes a application from the database completely.
@@ -653,5 +656,5 @@ WHERE  uuid = $entityUUID.uuid;`, applicationLife, applicationUUID)
 		return -1, errors.Errorf("running application life query: %w", err)
 	}
 
-	return applicationLife.Life, errors.Capture(err)
+	return life.Life(applicationLife.Life), nil
 }

@@ -157,7 +157,7 @@ func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Lif
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife int) {
+func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife life.Life) {
 	row := s.DB().QueryRow("SELECT life_id FROM model WHERE uuid = ?", modelUUID)
 	var lifeID int
 	err := row.Scan(&lifeID)

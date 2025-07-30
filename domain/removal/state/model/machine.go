@@ -603,7 +603,7 @@ WHERE  uuid = $entityUUID.uuid;`, machineLife, machineUUID)
 		return -1, errors.Errorf("running machine life query: %w", err)
 	}
 
-	return machineLife.Life, errors.Capture(err)
+	return life.Life(machineLife.Life), nil
 }
 
 func (st *State) getInstanceLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {
@@ -625,5 +625,5 @@ WHERE  machine_uuid = $entityUUID.uuid;`, instance, machineUUID)
 		return -1, errors.Errorf("running machine instance life query: %w", err)
 	}
 
-	return instance.Life, errors.Capture(err)
+	return life.Life(instance.Life), nil
 }

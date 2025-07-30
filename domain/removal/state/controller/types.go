@@ -3,8 +3,6 @@
 
 package controller
 
-import "github.com/juju/juju/domain/life"
-
 // entityUUID holds a UUID in string form.
 type entityUUID struct {
 	// UUID uniquely identifies a domain entity.
@@ -13,5 +11,5 @@ type entityUUID struct {
 
 // entityLife holds an entity's life in integer
 type entityLife struct {
-	Life life.Life `db:"life_id"`
+	Life int `db:"life_id"`
 }

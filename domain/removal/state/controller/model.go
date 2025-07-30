@@ -116,5 +116,5 @@ WHERE  uuid = $entityUUID.uuid;`, model, modelUUID)
 		return -1, errors.Errorf("running model life query: %w", err)
 	}
 
-	return model.Life, errors.Capture(err)
+	return life.Life(model.Life), nil
 }
