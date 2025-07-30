@@ -123,19 +123,6 @@ func (m ModelArgs) Validate() error {
 	return nil
 }
 
-// NewModel creates a new model with its own UUID and
-// prepares it for use. Model and State instances for the new
-// model are returned.
-//
-// The controller model's UUID is attached to the new
-// model's document. Having the server UUIDs stored with each
-// model document means that we have a way to represent external
-// models, perhaps for future use around cross model
-// relations.
-func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
-	return &Model{st: &State{}}, &State{}, nil
-}
-
 // Tag returns a name identifying the model.
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.

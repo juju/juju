@@ -128,7 +128,7 @@ func NewStateAuthenticator(
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	controllerModelUUID, err := modelService.GetControllerModelUUID(context.TODO())
+	controllerModelUUID, err := modelService.GetControllerModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -38,14 +38,6 @@ func (p OpenParams) Validate() error {
 	return nil
 }
 
-// OpenController connects to the server with the given parameters, waits for it
-// to be initialized, and returns a new Controller instance.
-//
-// OpenController returns unauthorizedError if access is unauthorized.
-func OpenController(args OpenParams) (*Controller, error) {
-	return &Controller{}, nil
-}
-
 func open(
 	controllerTag names.ControllerTag,
 	controllerModelTag names.ModelTag,
