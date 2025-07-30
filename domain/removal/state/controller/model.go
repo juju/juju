@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -133,6 +134,83 @@ AND    life_id = 1`, modelUUID)
 	}))
 }
 
+// DeleteModel deletes all artifacts associated with a model.
+func (st *State) DeleteModel(ctx context.Context, mUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	modelUUIDParam := entityUUID{UUID: mUUID}
+
+	// Prepare query for deleting model row.
+	deleteModelStmt, err := st.Prepare(`
+DELETE FROM model 
+WHERE uuid = $entityUUID.uuid;
+`, modelUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete the model from the namespace list. This prevents the model from
+	// coming back alive again. The DB accessor should ensure that if it's
+	// not in the namespace list, then it cannot be created again.
+	deleteNamespaceStmt, err := st.Prepare(`
+DELETE FROM namespace_list
+WHERE namespace = $entityUUID.uuid;
+`, modelUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deletePermissionsStmt, err := st.Prepare(`
+DELETE FROM permission
+WHERE grant_on = $entityUUID.uuid;
+`, modelUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		mLife, err := st.getModelLife(ctx, tx, modelUUIDParam.UUID)
+		if err != nil {
+			return errors.Errorf("getting model life: %w", err)
+		} else if mLife == life.Alive {
+			return errors.Errorf("cannot delete model %q, model is still alive", modelUUIDParam.UUID).
+				Add(removalerrors.EntityStillAlive)
+		} else if mLife == life.Dying {
+			return errors.Errorf("waiting for model to be removed before deletion").
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
+		// Delete the model's basic data in one shot.
+		if err := st.removeBasicModelData(ctx, tx, modelUUIDParam.UUID); err != nil {
+			return errors.Errorf("removing basic model data: %w", err)
+		}
+
+		// Delete the model permissions.
+		if err := tx.Query(ctx, deletePermissionsStmt, modelUUIDParam).Run(); err != nil {
+			return errors.Errorf("deleting model permissions: %w", err)
+		}
+
+		// Delete the model row.
+		if err := tx.Query(ctx, deleteModelStmt, modelUUIDParam).Run(); err != nil {
+			return errors.Errorf("deleting model: %w", err)
+		}
+
+		// Ensure the model is dead and can't come back alive.
+		if err := tx.Query(ctx, deleteNamespaceStmt, modelUUIDParam).Run(); err != nil {
+			return errors.Errorf("deleting model from namespace list: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("deleting model: %w", err)
+	}
+	return nil
+}
+
 func (st *State) getModelLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {
 	var model entityLife
 	modelUUID := entityUUID{UUID: mUUID}
@@ -153,4 +231,28 @@ WHERE  uuid = $entityUUID.uuid;`, model, modelUUID)
 	}
 
 	return life.Life(model.Life), nil
+}
+
+func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID string) error {
+	modelUUIDRec := entityUUID{UUID: mUUID}
+
+	tables := []string{
+		"model_secret_backend",
+		"secret_backend_reference",
+		"model_authorized_keys",
+		"model_last_login",
+	}
+
+	for _, table := range tables {
+		query := fmt.Sprintf("DELETE FROM %s WHERE model_uuid = $entityUUID.uuid", table)
+		stmt, err := st.Prepare(query, modelUUIDRec)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, stmt, modelUUIDRec).Run(); err != nil {
+			return errors.Errorf("deleting reference to model in table %q: %w", table, err)
+		}
+	}
+	return nil
 }

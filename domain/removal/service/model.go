@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/loggo/v2"
 )
 
 // ModelState describes methods for interacting with model state.
@@ -206,7 +207,7 @@ func (s *Service) modelScheduleRemoval(
 //   - All artifacts associated with the model will also have to be removed.
 func (s *Service) processModelDeadJob(ctx context.Context, job removal.Job) error {
 	if job.RemovalType != removal.ModelDeadJob {
-		return errors.Errorf("job type: %q not valid for model removal", job.RemovalType).Add(
+		return errors.Errorf("job type: %q not valid for model dead removal", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
@@ -238,6 +239,49 @@ func (s *Service) processModelDeadJob(ctx context.Context, job removal.Job) erro
 	}
 
 	s.logger.Infof(ctx, "model %q marked as dead", job.EntityUUID)
+
+	return nil
+}
+
+func (s *Service) processModelDeleteJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.ModelDeleteJob {
+		return errors.Errorf("job type: %q not valid for model delete removal", job.RemovalType).Add(
+			removalerrors.RemovalJobTypeNotValid)
+	}
+
+	controllerLife, err := s.controllerState.GetModelLife(ctx, job.EntityUUID)
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("getting controller model %q life: %w", job.EntityUUID, err)
+	}
+
+	// We should ensure that the model is dead before we delete it.
+	modelLife, err := s.modelState.GetModelLife(ctx, job.EntityUUID)
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("getting model %q life: %w", job.EntityUUID, err)
+	}
+
+	loggo.GetLogger("***").Criticalf("model %q life: %s, controller life: %s", job.EntityUUID, modelLife, controllerLife)
+
+	if modelLife == life.Alive || controllerLife == life.Alive {
+		return errors.Errorf("model %q is still alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	} else if modelLife == life.Dying || controllerLife == life.Dying {
+		return errors.Errorf("model %q is dying", job.EntityUUID).Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	loggo.GetLogger("***").Criticalf("Model %q is dead, proceeding with deletion", job.EntityUUID)
+
+	// Both the controller and model are dead, so we can delete the model
+	// artifacts.
+
+	if err := s.modelState.DeleteModelArtifacts(ctx, job.EntityUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("deleting model %q artifacts: %w", job.EntityUUID, err)
+	}
+
+	if err := s.controllerState.DeleteModel(ctx, job.EntityUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("deleting controller model %q: %w", job.EntityUUID, err)
+	}
+
+	s.logger.Infof(ctx, "model %q deleted", job.EntityUUID)
 
 	return nil
 }
