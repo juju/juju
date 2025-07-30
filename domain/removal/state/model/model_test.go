@@ -104,28 +104,35 @@ func (s *modelSuite) TestModelRemovalNormalSuccess(c *tc.C) {
 
 	when := time.Now().UTC()
 	err := st.ModelScheduleRemoval(
-		c.Context(), "removal-uuid", modelUUID, false, when,
+		c.Context(),
+		"removal-dead-uuid", "removal-delete-uuid",
+		modelUUID, false, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We should have a removal job scheduled immediately.
-	row := s.DB().QueryRow(
-		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
-		"removal-uuid",
-	)
-	var (
-		removalTypeID int
-		rUUID         string
-		force         bool
-		scheduledFor  time.Time
-	)
-	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
-	c.Assert(err, tc.ErrorIsNil)
+	ensureRemovalJob := func(removalUUID string, idType int) {
+		row := s.DB().QueryRow(
+			"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
+			removalUUID,
+		)
+		var (
+			removalTypeID int
+			rUUID         string
+			force         bool
+			scheduledFor  time.Time
+		)
+		err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+		c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(removalTypeID, tc.Equals, 4)
-	c.Check(rUUID, tc.Equals, modelUUID)
-	c.Check(force, tc.Equals, false)
-	c.Check(scheduledFor, tc.Equals, when)
+		c.Check(removalTypeID, tc.Equals, idType)
+		c.Check(rUUID, tc.Equals, modelUUID)
+		c.Check(force, tc.Equals, false)
+		c.Check(scheduledFor, tc.Equals, when)
+	}
+
+	ensureRemovalJob("removal-dead-uuid", 4)
+	ensureRemovalJob("removal-delete-uuid", 5)
 }
 
 func (s *modelSuite) TestModelRemovalNotExistsSuccess(c *tc.C) {
@@ -133,32 +140,38 @@ func (s *modelSuite) TestModelRemovalNotExistsSuccess(c *tc.C) {
 
 	when := time.Now().UTC()
 	err := st.ModelScheduleRemoval(
-		c.Context(), "removal-uuid", "some-model-uuid", true, when,
+		c.Context(),
+		"removal-dead-uuid", "removal-delete-uuid",
+		"some-model-uuid", true, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// We should have a removal job scheduled immediately.
-	// It doesn't matter that the machine does not exist.
+	// We should have two removal jobs scheduled immediately.
+	// It doesn't matter that the model does not exist.
 	// We rely on the worker to handle that fact.
-	row := s.DB().QueryRow(`
+	ensureRemovalJob := func(removalUUID, nameType string) {
+		row := s.DB().QueryRow(`
 SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
 FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
-where  r.uuid = ?`, "removal-uuid",
-	)
+where  r.uuid = ?`, removalUUID,
+		)
 
-	var (
-		removalType  string
-		rUUID        string
-		force        bool
-		scheduledFor time.Time
-	)
-	err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
-	c.Assert(err, tc.ErrorIsNil)
+		var (
+			removalType  string
+			rUUID        string
+			force        bool
+			scheduledFor time.Time
+		)
+		err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
+		c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(removalType, tc.Equals, "model")
-	c.Check(rUUID, tc.Equals, "some-model-uuid")
-	c.Check(force, tc.Equals, true)
-	c.Check(scheduledFor, tc.Equals, when)
+		c.Check(removalType, tc.Equals, "model-"+nameType)
+		c.Check(rUUID, tc.Equals, "some-model-uuid")
+		c.Check(force, tc.Equals, true)
+		c.Check(scheduledFor, tc.Equals, when)
+	}
+	ensureRemovalJob("removal-dead-uuid", "dead")
+	ensureRemovalJob("removal-delete-uuid", "delete")
 }
 
 func (s *modelSuite) TestDeleteModel(c *tc.C) {

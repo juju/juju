@@ -1341,17 +1341,17 @@ func (c *MockModelDBStateModelExistsCall) DoAndReturn(f func(context.Context, st
 }
 
 // ModelScheduleRemoval mocks base method.
-func (m *MockModelDBState) ModelScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+func (m *MockModelDBState) ModelScheduleRemoval(arg0 context.Context, arg1, arg2, arg3 string, arg4 bool, arg5 time.Time) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "ModelScheduleRemoval", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ModelScheduleRemoval indicates an expected call of ModelScheduleRemoval.
-func (mr *MockModelDBStateMockRecorder) ModelScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockModelDBStateModelScheduleRemovalCall {
+func (mr *MockModelDBStateMockRecorder) ModelScheduleRemoval(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockModelDBStateModelScheduleRemovalCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelScheduleRemoval", reflect.TypeOf((*MockModelDBState)(nil).ModelScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelScheduleRemoval", reflect.TypeOf((*MockModelDBState)(nil).ModelScheduleRemoval), arg0, arg1, arg2, arg3, arg4, arg5)
 	return &MockModelDBStateModelScheduleRemovalCall{Call: call}
 }
 
@@ -1367,13 +1367,13 @@ func (c *MockModelDBStateModelScheduleRemovalCall) Return(arg0 error) *MockModel
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateModelScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateModelScheduleRemovalCall {
+func (c *MockModelDBStateModelScheduleRemovalCall) Do(f func(context.Context, string, string, string, bool, time.Time) error) *MockModelDBStateModelScheduleRemovalCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateModelScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateModelScheduleRemovalCall {
+func (c *MockModelDBStateModelScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, string, bool, time.Time) error) *MockModelDBStateModelScheduleRemovalCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

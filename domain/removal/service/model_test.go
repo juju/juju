@@ -46,7 +46,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 		MachineUUIDs:     []string{"some-machine-id"},
 		ApplicationUUIDs: []string{"some-application-id"},
 	}, nil)
-	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
 	// We don't want to create all the machine, unit, relation and application
 	// expectations here, so we'll assume that the
@@ -77,7 +77,7 @@ func (s *modelSuite) TestRemoveModelForceNoWaitSuccess(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(removal.ModelArtifacts{}, nil)
-	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -101,10 +101,10 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(removal.ModelArtifacts{}, nil)
 
 	// The first normal removal scheduled immediately.
-	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
 	// The forced removal scheduled after the wait duration.
-	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, time.Minute)
 	c.Assert(err, tc.ErrorIsNil)
@@ -126,7 +126,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInModelButInController(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(removal.ModelArtifacts{}, nil)
-	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
 	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -147,7 +147,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInControllerButInModel(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(removal.ModelArtifacts{}, nil)
-	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
 	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)

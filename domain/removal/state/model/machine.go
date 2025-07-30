@@ -224,7 +224,7 @@ AND    life_id = 0;`, uuids{})
 
 // MachineScheduleRemoval schedules a removal job for the machine with the
 // input UUID, qualified with the input force boolean.
-// We don't care if the unit does not exist at this point because:
+// We don't care if the machine does not exist at this point because:
 // - it should have been validated prior to calling this method,
 // - the removal job executor will handle that fact.
 func (st *State) MachineScheduleRemoval(

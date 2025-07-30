@@ -207,7 +207,7 @@ func (s *Service) machineScheduleRemoval(
 	if err := s.modelState.MachineScheduleRemoval(
 		ctx, jobUUID.String(), machineUUID.String(), force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
-		return "", errors.Errorf("unit: %w", err)
+		return "", errors.Errorf("machine: %w", err)
 	}
 
 	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)

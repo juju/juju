@@ -32,7 +32,9 @@ type ModelState interface {
 	// - it should have been validated prior to calling this method,
 	// - the removal job executor will handle that fact.
 	ModelScheduleRemoval(
-		ctx context.Context, removalUUID, modelUUID string, force bool, when time.Time,
+		ctx context.Context,
+		removalDeadUUID, removalDeleteUUID, modelUUID string,
+		force bool, when time.Time,
 	) error
 
 	// GetModelLife retrieves the life state of a model.
@@ -118,7 +120,7 @@ func (s *Service) RemoveModel(
 			// schedule a normal removal job immediately. This will cause the
 			// earliest removal of the unit if the normal destruction
 			// workflows complete within the the wait duration.
-			if _, err := s.modelScheduleRemoval(ctx, modelUUID, false, 0); err != nil {
+			if _, _, err := s.modelScheduleRemoval(ctx, modelUUID, false, 0); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
@@ -129,7 +131,7 @@ func (s *Service) RemoveModel(
 		}
 	}
 
-	modelJobUUID, err := s.modelScheduleRemoval(ctx, modelUUID, force, wait)
+	modelJobUUID, _, err := s.modelScheduleRemoval(ctx, modelUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
 	} else if artifacts.Empty() {
@@ -174,20 +176,28 @@ func (s *Service) RemoveModel(
 
 func (s *Service) modelScheduleRemoval(
 	ctx context.Context, modelUUID model.UUID, force bool, wait time.Duration,
-) (removal.UUID, error) {
-	jobUUID, err := removal.NewUUID()
+) (removal.UUID, removal.UUID, error) {
+	jobDeadUUID, err := removal.NewUUID()
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
+	}
+
+	jobDeleteUUID, err := removal.NewUUID()
+	if err != nil {
+		return "", "", errors.Capture(err)
 	}
 
 	if err := s.modelState.ModelScheduleRemoval(
-		ctx, jobUUID.String(), modelUUID.String(), force, s.clock.Now().UTC().Add(wait),
+		ctx,
+		jobDeadUUID.String(), jobDeleteUUID.String(),
+		modelUUID.String(),
+		force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
-		return "", errors.Errorf("unit: %w", err)
+		return "", "", errors.Errorf("model: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)
-	return jobUUID, nil
+	s.logger.Infof(ctx, "scheduled removal job %q and %q", jobDeadUUID, jobDeleteUUID)
+	return jobDeadUUID, jobDeleteUUID, nil
 }
 
 // processModelDeadJob sets the model to dead if it meets the requirements.

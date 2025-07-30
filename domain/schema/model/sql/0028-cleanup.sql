@@ -11,7 +11,8 @@ INSERT INTO removal_type VALUES
 (1, 'unit'),
 (2, 'application'),
 (3, 'machine'),
-(4, 'model');
+(4, 'model-dead'),
+(5, 'model-delete');
 
 CREATE TABLE removal (
     uuid TEXT NOT NULL PRIMARY KEY,
