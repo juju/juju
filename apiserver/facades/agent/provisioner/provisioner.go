@@ -6,7 +6,6 @@ package provisioner
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -20,10 +19,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/caas"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
@@ -33,15 +30,14 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
@@ -58,7 +54,6 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 
 	networkService            NetworkService
-	st                        *state.State
 	controllerConfigService   ControllerConfigService
 	cloudImageMetadataService CloudImageMetadataService
 	agentProvisionerService   AgentProvisionerService
@@ -84,9 +79,6 @@ type ProvisionerAPI struct {
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
 	controllerUUID string
-
-	// Used for MaybeWriteLXDProfile()
-	mu sync.Mutex
 }
 
 // MakeProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -129,36 +121,36 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	getAuthOwner := func(context.Context) (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	st := ctx.State()
-	model, err := st.Model()
+	domainServices := ctx.DomainServices()
+
+	agentBinaryService := domainServices.AgentBinary()
+	agentPasswordService := domainServices.AgentPassword()
+	agentProvisionerService := domainServices.AgentProvisioner()
+	agentService := domainServices.Agent()
+	applicationService := domainServices.Application()
+	cloudImageMetadataService := domainServices.CloudImageMetadata()
+	cloudService := domainServices.Cloud()
+	controllerNodeService := domainServices.ControllerNode()
+	controllerConfigService := domainServices.ControllerConfig()
+	credentialService := domainServices.Credential()
+	externalControllerService := domainServices.ExternalController()
+	keyUpdaterService := domainServices.KeyUpdater()
+	machineService := domainServices.Machine()
+	modelConfigService := domainServices.Config()
+	modelInfoService := domainServices.ModelInfo()
+	modelService := domainServices.Model()
+	networkService := domainServices.Network()
+	removalService := domainServices.Removal()
+	statusService := domainServices.Status()
+	storageService := domainServices.Storage()
+
+	storageRegisty, err := storageService.GetStorageRegistry(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	domainServices := ctx.DomainServices()
-
-	agentService := domainServices.Agent()
-	agentBinaryService := domainServices.AgentBinary()
-	applicationService := domainServices.Application()
-	removalService := domainServices.Removal()
-	machineService := domainServices.Machine()
-	statusService := domainServices.Status()
-	modelInfoService := domainServices.ModelInfo()
-	cloudService := domainServices.Cloud()
-	credentialService := domainServices.Credential()
-	modelConfigService := domainServices.Config()
-	controllerNodeService := domainServices.ControllerNode()
-	agentPasswordService := domainServices.AgentPassword()
-	controllerConfigService := domainServices.ControllerConfig()
-	networkService := domainServices.Network()
-	storageService := domainServices.Storage()
-	keyUpdaterService := domainServices.KeyUpdater()
-	cloudImageMetadataService := domainServices.CloudImageMetadata()
-	agentProvisionerService := domainServices.AgentProvisioner()
-	externalControllerService := domainServices.ExternalController()
-	modelService := domainServices.Model()
 
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model:              model,
+		ModelInfoService:   modelInfoService,
 		CloudService:       cloudService,
 		CredentialService:  credentialService,
 		ModelConfigService: modelConfigService,
@@ -169,17 +161,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return nil, errors.Trace(err)
 	}
 	isCaasModel := modelInfo.Type == coremodel.CAAS
-
-	var env storage.ProviderRegistry
-	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, cloudService, credentialService, modelConfigService)
-	} else {
-		env, err = environs.GetEnviron(stdCtx, configGetter, environs.NoopCredentialInvalidator(), environs.New)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	storageProviderRegistry := provider.NewStorageProviderRegistry(env)
 
 	controllerNodeServices := domainServices.ControllerNode()
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), controllerNodeServices)
@@ -194,7 +175,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		LifeGetter:           common.NewLifeGetter(applicationService, machineService, getAuthFunc, ctx.Logger()),
 		APIAddresser:         common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		ModelConfigWatcher:   modelConfigWatcher,
-		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(st, machineService, watcherRegistry, authorizer),
+		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(machineService, watcherRegistry, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			controllerConfigService,
 			controllerNodeServices,
@@ -202,7 +183,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 			modelService,
 		),
 		networkService:            networkService,
-		st:                        st,
 		controllerConfigService:   controllerConfigService,
 		agentProvisionerService:   agentProvisionerService,
 		cloudImageMetadataService: cloudImageMetadataService,
@@ -216,7 +196,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		resources:                 resources,
 		authorizer:                authorizer,
 		configGetter:              configGetter,
-		storageProviderRegistry:   storageProviderRegistry,
+		storageProviderRegistry:   storageRegisty,
 		storagePoolGetter:         storageService,
 		getAuthFunc:               getAuthFunc,
 		getCanModify:              getCanModify,
@@ -232,11 +212,11 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	api.InstanceIdGetter = common.NewInstanceIdGetter(machineService, getAuthFunc)
 
 	api.toolsFinder = common.NewToolsFinder(
-		st, urlGetter,
+		urlGetter,
 		ctx.ControllerObjectStore(),
 		agentBinaryService,
 	)
-	api.ToolsGetter = common.NewToolsGetter(agentService, st, urlGetter, api.toolsFinder, getAuthOwner)
+	api.ToolsGetter = common.NewToolsGetter(agentService, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }
 
@@ -247,10 +227,10 @@ type ProvisionerAPIV11 struct {
 }
 
 // getInstanceID returns the instance ID for the given machine.
-func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineID string) (instance.Id, error) {
-	machineUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
+func (api *ProvisionerAPI) getInstanceID(ctx context.Context, machineName coremachine.Name) (instance.Id, error) {
+	machineUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		return "", apiservererrors.ServerError(err)
+		return "", apiservererrors.ServerError(errors.NotFoundf("machine %q", machineName))
 	}
 	if err != nil {
 		return "", err
@@ -504,16 +484,17 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 	if err != nil {
 		return results, err
 	}
-	// TODO (wallyworld) - add state.State API for more efficient machines query
-	machines, err := api.st.AllMachines()
+	// TODO(jack-w-shaw): Push this into the service layer.
+	machineNames, err := api.machineService.AllMachineNames(ctx)
 	if err != nil {
-		return results, err
+		return results, errors.Annotate(err, "getting all machine names")
 	}
-	for _, machine := range machines {
-		if !canAccessFunc(machine.Tag()) {
+	for _, machineName := range machineNames {
+		machineTag := names.NewMachineTag(machineName.String())
+		if !canAccessFunc(machineTag) {
 			continue
 		}
-		_, err = api.getInstanceID(ctx, machine.Tag().Id())
+		_, err = api.getInstanceID(ctx, machineName)
 		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return results, err
 		}
@@ -522,7 +503,6 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 			// status to Started yet.
 			continue
 		}
-		machineName := coremachine.Name(machine.Tag().Id())
 		statusInfo, err := api.statusService.GetInstanceStatus(ctx, machineName)
 		if err != nil {
 			continue
@@ -539,8 +519,12 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (par
 		if transient, ok := result.Data["transient"].(bool); !ok || !transient {
 			continue
 		}
-		result.Id = machine.Id()
-		result.Life = life.Value(machine.Life().String())
+		machineLife, err := api.machineService.GetMachineLife(ctx, machineName)
+		if err != nil {
+			return results, err
+		}
+		result.Id = machineName.String()
+		result.Life = machineLife
 		results.Results = append(results.Results, result)
 	}
 	return results, nil
@@ -655,12 +639,14 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineNa
 		}
 
 		appName := unitName.Application()
-		machineIDs, err := state.ApplicationMachines(api.st, appName)
-		if err != nil {
-			return nil, err
+		machineNames, err := api.applicationService.GetMachinesForApplication(ctx, appName)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return nil, errors.NotFoundf("application %q", appName)
+		} else if err != nil {
+			return nil, errors.Trace(err)
 		}
-		for _, machineID := range machineIDs {
-			instanceId, err := api.getInstanceID(ctx, machineID)
+		for _, machineName := range machineNames {
+			instanceId, err := api.getInstanceID(ctx, machineName)
 			if errors.Is(err, machineerrors.NotProvisioned) {
 				continue
 			}
@@ -703,7 +689,7 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 		}
 
 		machineName := coremachine.Name(tag.Id())
-		result.Results[i].Result, err = api.commonApplicationMachineId(ctx, api.st, machineName)
+		result.Results[i].Result, err = api.commonApplicationMachineId(ctx, machineName)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -711,7 +697,7 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, arg
 
 // commonApplicationMachineId returns a slice of machine.Ids with
 // applications in common with the specified machine.
-func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, st *state.State, mName coremachine.Name) ([]string, error) {
+func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, mName coremachine.Name) ([]string, error) {
 	applications, err := api.machineService.GetMachinePrincipalApplications(ctx, mName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.NotFoundf("machine %q", mName)
@@ -721,11 +707,13 @@ func (api *ProvisionerAPI) commonApplicationMachineId(ctx context.Context, st *s
 
 	union := set.NewStrings()
 	for _, app := range applications {
-		machines, err := state.ApplicationMachines(st, app)
+		machines, err := api.applicationService.GetMachinesForApplication(ctx, app)
 		if err != nil {
 			return nil, err
 		}
-		union = union.Union(set.NewStrings(machines...))
+		for _, machine := range machines {
+			union.Add(machine.String())
+		}
 	}
 	union.Remove(mName.String())
 	return union.SortedValues(), nil
@@ -847,24 +835,71 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(ctx context.Context, args p
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(ctx context.Context, args params.Entities) (
-	params.MachineNetworkConfigResults,
-	error,
-) {
-	return api.prepareOrGetContainerInterfaceInfo(ctx, args, false)
-}
+func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
+	ctx context.Context, args params.Entities,
+) (params.MachineNetworkConfigResults, error) {
+	result := params.MachineNetworkConfigResults{}
 
-// TODO (manadart 2020-07-23): This method is not used and can be removed when
-// next this facade version is bumped.
-// We then don't need the parameterised prepareOrGet...
+	hostUUID, hostName, err := api.getAuthedCallerMachine(ctx)
+	if err != nil {
+		return result, err
+	}
 
-// GetContainerInterfaceInfo returns information to configure networking for a
-// container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) GetContainerInterfaceInfo(ctx context.Context, args params.Entities) (
-	params.MachineNetworkConfigResults,
-	error,
-) {
-	return api.prepareOrGetContainerInterfaceInfo(ctx, args, true)
+	hostInstanceID, err := api.machineService.GetInstanceID(ctx, hostUUID)
+	if errors.Is(err, machineerrors.NotProvisioned) {
+		return result, apiservererrors.ServerError(errors.NotProvisionedf("host machine %q", hostName))
+	}
+
+	results := make([]params.MachineNetworkConfigResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		gTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		guestUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(gTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			results[i].Error = apiservererrors.ServerError(errors.NotFoundf("machine %q", hostName))
+			continue
+		}
+
+		devsForGuest, err := api.networkService.DevicesForGuest(ctx, hostUUID, guestUUID)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// TODO (manadart 2025-07-23): I so, so do not want to use
+		//  InterfaceInfos anymore, but changing it would flow deep into the
+		//  MAAS provider, which is not going to be undertaken under the Dqlite
+		//  rewrite. Ideally we would use NetInterface from the network domain
+		//  everywhere. Anyone who reads this and wants to be a hero...
+		//  If we *did* change the provider to use NetInterface, the correct
+		//  thing to do would be to push the logic for
+		//  AllocateContainerAddresses into DevicesForGuest - choreography for
+		//  these concerns is business logic and should not be in the facade.
+		preparedInfo := toInterfaceInfos(devsForGuest)
+
+		allocatedInfo, err := api.networkService.AllocateContainerAddresses(
+			ctx, hostInstanceID, gTag.Id(), preparedInfo)
+		if errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
+			api.logger.Debugf(ctx, "using DHCP allocated addresses")
+			allocatedInfo = preparedInfo
+		} else if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else {
+			api.logger.Debugf(ctx, "got allocated info from provider: %+v", allocatedInfo)
+		}
+
+		allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
+		api.logger.Debugf(ctx, "allocated network config: %+v", allocatedConfig)
+		results[i].Config = allocatedConfig
+	}
+
+	result.Results = results
+	return result, nil
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -873,20 +908,14 @@ type perContainerHandler interface {
 	// ProcessOneContainer is called once we've assured ourselves that all of
 	// the access permissions are correct and the container is ready to be
 	// processed.
-	// env is the Environment you are working, idx is the index for this
-	// container (used for deciding where to store results), host is the
-	// machine that is hosting the container.
+	// idx is the index for this, hostInstanceID is the machine that is hosting
+	// the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
 		ctx context.Context,
-		env environs.Environ,
 		idx int,
-		hostIsManual bool,
 		guestMachineName coremachine.Name,
-		preparedInfo network.InterfaceInfos,
-		hostInstanceID, guestInstanceID instance.Id,
-		allSubnets network.SubnetInfos,
 	) error
 
 	// SetError will be called whenever there is a problem with the a given
@@ -908,34 +937,6 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 	if hostAuthTag == nil {
 		return errors.Errorf("authenticated entity tag is nil")
 	}
-	hostTag, err := names.ParseMachineTag(hostAuthTag.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	env, err := environs.GetEnviron(ctx, api.configGetter, environs.NoopCredentialInvalidator(), environs.New)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	hostInstanceID, err := api.getInstanceID(ctx, hostTag.Id())
-	if errors.Is(err, machineerrors.NotProvisioned) {
-		return errors.NotProvisionedf("cannot prepare container %s config: host machine %q",
-			handler.ConfigType(), hostTag.Id())
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	hostIsManual, err := api.machineService.IsMachineManuallyProvisioned(ctx, coremachine.Name(hostTag.Id()))
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	allSubnets, err := api.networkService.GetAllSubnets(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	for i, entity := range args.Entities {
 		guestTag, err := names.ParseMachineTag(entity.Tag)
@@ -954,33 +955,10 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 			handler.SetError(i, err)
 			continue
 		}
-		guestInstanceID, err := api.getInstanceID(ctx, guestTag.Id())
-		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
-			return errors.Trace(err)
-		}
-		guestUUID, err := api.machineService.GetMachineUUID(ctx, guestMachineName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		hostMachineName := coremachine.Name(hostTag.Id())
-		hostUUID, err := api.machineService.GetMachineUUID(ctx, hostMachineName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		preparedInfo, err := api.networkService.DevicesForGuest(ctx, hostUUID, guestUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		mappedPreparedInfo := toInterfaceInfos(preparedInfo)
 		if err := handler.ProcessOneContainer(
 			ctx,
-			env, i,
-			hostIsManual,
+			i,
 			coremachine.Name(guestTag.Id()),
-			mappedPreparedInfo,
-			hostInstanceID,
-			guestInstanceID,
-			allSubnets,
 		); err != nil {
 			handler.SetError(i, err)
 			continue
@@ -1001,31 +979,26 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 			mac = *netInterface.MACAddress
 		}
 
-		// Map addresses
-		var addrs network.ProviderAddresses
-		for _, addr := range netInterface.Addrs {
-			addrs = append(addrs, network.ProviderAddress{
-				MachineAddress: network.MachineAddress{
-					Value:       addr.AddressValue,
-					Type:        addr.AddressType,
-					Scope:       addr.Scope,
-					ConfigType:  addr.ConfigType,
-					IsSecondary: addr.IsSecondary,
-				},
-				SpaceName:        network.SpaceName(addr.Space),
-				ProviderID:       deref(addr.ProviderID),
-				ProviderSubnetID: deref(addr.ProviderSubnetID),
-			})
-		}
+		var (
+			addrs         network.ProviderAddresses
+			nicConfigType network.AddressConfigType
+		)
 
-		var origin network.Origin
+		// There is a single address populated for each interface.
+		// The *device* config type is populated from the address.
+		// Note that we populate the *CIDR* from the address value.
 		if len(netInterface.Addrs) > 0 {
-			origin = netInterface.Addrs[0].Origin
+			a := netInterface.Addrs[0]
+			addrs = network.ProviderAddresses{{MachineAddress: network.MachineAddress{
+				ConfigType: a.ConfigType,
+				CIDR:       a.AddressValue,
+			}}}
+			nicConfigType = a.ConfigType
 		}
 
 		res[i] = network.InterfaceInfo{
 			MACAddress:          mac,
-			ProviderId:          deref(netInterface.ProviderID),
+			ConfigType:          nicConfigType,
 			VLANTag:             int(netInterface.VLANTag),
 			InterfaceName:       netInterface.Name,
 			ParentInterfaceName: netInterface.ParentDeviceName,
@@ -1035,104 +1008,9 @@ func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.Interf
 			Addresses:           addrs,
 			DNSServers:          netInterface.DNSAddresses,
 			MTU:                 mtu,
-			DNSSearchDomains:    netInterface.DNSSearchDomains,
-			GatewayAddress:      network.ProviderAddress{MachineAddress: network.MachineAddress{Value: deref(netInterface.GatewayAddress)}},
-			IsDefaultGateway:    netInterface.IsDefaultGateway,
-			VirtualPortType:     netInterface.VirtualPortType,
-			Origin:              origin,
 		}
 	}
 	return res
-}
-
-func deref[T any](v *T) T {
-	var zero T
-	if v != nil {
-		return *v
-	}
-	return zero
-}
-
-type prepareOrGetHandler struct {
-	result   params.MachineNetworkConfigResults
-	maintain bool
-	logger   logger.Logger
-}
-
-// SetError implements perContainerHandler.SetError
-func (h *prepareOrGetHandler) SetError(idx int, err error) {
-	h.result.Results[idx].Error = apiservererrors.ServerError(err)
-}
-
-// ConfigType implements perContainerHandler.ConfigType
-func (h *prepareOrGetHandler) ConfigType() string {
-	return "network"
-}
-
-// ProcessOneContainer implements perContainerHandler.ProcessOneContainer
-func (h *prepareOrGetHandler) ProcessOneContainer(
-	ctx context.Context,
-	env environs.Environ,
-	idx int,
-	hostIsManual bool,
-	guestMachineName coremachine.Name,
-	preparedInfo network.InterfaceInfos,
-	hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
-) error {
-	if h.maintain {
-		if guestInstanceID != "" {
-			// Since we want to configure and create NICs on the
-			// container before it starts, it must also be not
-			// provisioned yet.
-			return errors.Errorf("container %q already provisioned as %q", guestMachineName, guestInstanceID)
-		}
-	}
-
-	// We do not ask the provider to allocate addresses for manually provisioned
-	// machines as we do not expect such machines to be recognised (LP:1796106).
-	var askProviderForAddress bool
-	if !hostIsManual {
-		askProviderForAddress = environs.SupportsContainerAddresses(ctx, env)
-	}
-
-	allocatedInfo := preparedInfo
-	if askProviderForAddress {
-		guestMachineTag := names.NewMachineTag(guestMachineName.String())
-		// supportContainerAddresses already checks that we can cast to an environ.Networking
-		networking := env.(environs.Networking)
-		var err error
-		allocatedInfo, err = networking.AllocateContainerAddresses(
-			ctx, hostInstanceID, guestMachineTag, preparedInfo)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		h.logger.Debugf(ctx, "got allocated info from provider: %+v", allocatedInfo)
-	} else {
-		h.logger.Debugf(ctx, "using dhcp allocated addresses")
-	}
-
-	allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
-	h.logger.Debugf(ctx, "allocated network config: %+v", allocatedConfig)
-	h.result.Results[idx].Config = allocatedConfig
-	return nil
-}
-
-func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
-	ctx context.Context,
-	args params.Entities, maintain bool,
-) (params.MachineNetworkConfigResults, error) {
-	c := &prepareOrGetHandler{
-		result: params.MachineNetworkConfigResults{
-			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
-		},
-		maintain: maintain,
-		logger:   api.logger,
-	}
-
-	if err := api.processEachContainer(ctx, args, c); err != nil {
-		return c.result, errors.Trace(err)
-	}
-	return c.result, nil
 }
 
 // HostChangesForContainers returns the set of changes that need to be done
@@ -1143,7 +1021,7 @@ func (api *ProvisionerAPI) HostChangesForContainers(
 ) (params.HostNetworkChangeResults, error) {
 	result := params.HostNetworkChangeResults{}
 
-	hostUUID, err := api.getAuthedCallerMachineUUID(ctx)
+	hostUUID, _, err := api.getAuthedCallerMachine(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -1189,32 +1067,33 @@ func (api *ProvisionerAPI) HostChangesForContainers(
 	return result, nil
 }
 
-func (api *ProvisionerAPI) getAuthedCallerMachineUUID(ctx context.Context) (coremachine.UUID, error) {
+func (api *ProvisionerAPI) getAuthedCallerMachine(ctx context.Context) (coremachine.UUID, coremachine.Name, error) {
 	canAccess, err := api.getAuthFunc(ctx)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 
 	hostAuthTag := api.authorizer.GetAuthTag()
 	if hostAuthTag == nil {
-		return "", apiservererrors.ErrPerm
+		return "", "", apiservererrors.ErrPerm
 	}
 
 	if !canAccess(hostAuthTag) {
-		return "", apiservererrors.ErrPerm
+		return "", "", apiservererrors.ErrPerm
 	}
 
 	hostTag, err := names.ParseMachineTag(hostAuthTag.String())
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+	hostName := coremachine.Name(hostTag.Id())
 
-	hostUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(hostTag.Id()))
+	hostUUID, err := api.machineService.GetMachineUUID(ctx, hostName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		return "", apiservererrors.ErrPerm
+		return "", "", apiservererrors.ErrPerm
 	}
 
-	return hostUUID, err
+	return hostUUID, hostName, err
 }
 
 type containerProfileHandler struct {
@@ -1227,11 +1106,8 @@ type containerProfileHandler struct {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
-	_ environs.Environ, idx int,
-	_ bool,
+	idx int,
 	guestMachineName coremachine.Name,
-	preparedInfo network.InterfaceInfos,
-	_, _ instance.Id, _ network.SubnetInfos,
 ) error {
 	unitNames, err := h.applicationService.GetUnitNamesOnMachine(ctx, guestMachineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {

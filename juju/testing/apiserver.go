@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"sync"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -56,19 +54,14 @@ import (
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 const AdminSecret = "dummy-secret"
@@ -100,12 +93,7 @@ var (
 type ApiServerSuite struct {
 	servicefactorytesting.DomainServicesSuite
 
-	// MgoSuite is needed until we finally can
-	// represent the model fully in dqlite.
-	mgotesting.MgoSuite
-
-	apiInfo    api.Info
-	controller *state.Controller
+	apiInfo api.Info
 
 	// apiConns are opened api.Connections to close on teardown
 	apiConns []api.Connection
@@ -133,9 +121,8 @@ type ApiServerSuite struct {
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
 
-	WithLeaseManager        bool
-	WithControllerModelType state.ModelType
-	WithEmbeddedCLICommand  func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusArgs string) int
+	WithLeaseManager       bool
+	WithEmbeddedCLICommand func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusArgs string) int
 
 	// These can be set prior to login being called.
 
@@ -180,24 +167,8 @@ func leaseManager(c *tc.C, controllerUUID string, db database.DBGetter, clock cl
 }
 
 func (s *ApiServerSuite) SetUpSuite(c *tc.C) {
-	s.MgoSuite.SetUpSuite(c)
 	s.DomainServicesSuite.SetUpSuite(c)
 	s.ControllerSuite.SetUpSuite(c)
-}
-
-func mongoInfo() mongo.MongoInfo {
-	if mgotesting.MgoServer.Addr() == "" {
-		panic("ApiServer tests must be run with MgoTestPackage/MgoTestMain")
-	}
-	mongoPort := strconv.Itoa(mgotesting.MgoServer.Port())
-	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
-	return mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:      addrs,
-			CACert:     coretesting.CACert,
-			DisableTLS: !mgotesting.MgoServer.SSLEnabled(),
-		},
-	}
 }
 
 func (s *ApiServerSuite) setupHttpServer(c *tc.C) {
@@ -228,10 +199,7 @@ func (s *ApiServerSuite) setupHttpServer(c *tc.C) {
 }
 
 func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.Config) {
-	session, err := mongo.DialWithInfo(mongoInfo(), mongotest.DialOpts())
-	c.Assert(err, tc.ErrorIsNil)
-	defer session.Close()
-
+	var err error
 	apiPort := s.httpServer.Listener.Addr().(*net.TCPAddr).Port
 	controllerCfg[controller.APIPort] = apiPort
 
@@ -247,52 +215,8 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 	s.DomainServicesSuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
 	s.DomainServicesSuite.SetUpTest(c)
 
-	modelType := state.ModelTypeIAAS
-	if s.WithControllerModelType == state.ModelTypeCAAS {
-		modelType = s.WithControllerModelType
-	}
-
 	// modelUUID param is not used so can pass in anything.
 	domainServices := s.ControllerDomainServices(c)
-
-	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
-		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(c.Context(), modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return svc.Storage(), nil
-	}
-	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
-		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(c.Context(), modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return svc.Application(), nil
-	}
-	ctrl, err := state.Initialize(state.InitializeParams{
-		Clock: clock.WallClock,
-		// Pass the minimal controller config needed for bootstrap, the rest
-		// should be added through the controller config service.
-		ControllerConfig: controller.Config{
-			controller.ControllerUUIDKey: controllerCfg.ControllerUUID(),
-		},
-		ControllerModelArgs: state.ModelArgs{
-			Name:            controllerModelCfg.Name(),
-			UUID:            coremodel.UUID(controllerModelCfg.UUID()),
-			Type:            modelType,
-			Owner:           AdminUser,
-			CloudName:       DefaultCloud.Name,
-			CloudRegion:     DefaultCloudRegion,
-			CloudCredential: DefaultCredentialTag,
-		},
-		CloudName:          DefaultCloud.Name,
-		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
-		CharmServiceGetter: charmServiceGetter,
-		SSHServerHostKey:   coretesting.SSHServerHostKey,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.controller = ctrl
 
 	// Set the api host ports in state.
 	apiAddrArgs := controllernode.SetAPIAddressArgs{
@@ -329,7 +253,6 @@ func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config
 	cfg.DBDeleter = stubDBDeleter{}
 	cfg.DomainServicesGetter = s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 	cfg.ControllerConfigService = s.ControllerDomainServices(c).ControllerConfig()
-	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
 	cfg.UpgradeComplete = func() bool {
@@ -407,7 +330,6 @@ func (s agentPasswordServiceGetter) GetAgentPasswordServiceForModel(ctx context.
 }
 
 func (s *ApiServerSuite) SetUpTest(c *tc.C) {
-	s.MgoSuite.SetUpTest(c)
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())
@@ -433,7 +355,6 @@ func (s *ApiServerSuite) TearDownTest(c *tc.C) {
 	s.WithUpgrading = false
 	s.WithIntrospection = nil
 	s.WithEmbeddedCLICommand = nil
-	s.WithControllerModelType = ""
 
 	s.tearDownConn(c)
 	if s.Server != nil {
@@ -458,7 +379,6 @@ func (s *ApiServerSuite) TearDownTest(c *tc.C) {
 	s.objectStoresMutex.Unlock()
 
 	s.DomainServicesSuite.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 }
 
 // InsertDummyCloudType is a db bootstrap option which inserts the dummy cloud type.
@@ -539,74 +459,17 @@ func (s *ApiServerSuite) OpenModelAPI(c *tc.C, modelUUID string) api.Connection 
 	return s.openAPIAs(c, AdminUser, AdminSecret, "", modelUUID)
 }
 
-// StatePool returns the server's state pool.
-func (s *ApiServerSuite) StatePool() *state.StatePool {
-	return s.controller.StatePool()
-}
-
-// NewFactory returns a factory for the given model.
-func (s *ApiServerSuite) NewFactory(c *tc.C, modelUUID string) (*factory.Factory, func() bool) {
-	var (
-		st       *state.State
-		releaser func() bool
-		err      error
-	)
-	if modelUUID == s.DomainServicesSuite.ControllerModelUUID.String() {
-		st, err = s.controller.SystemState()
-		c.Assert(err, tc.ErrorIsNil)
-		releaser = func() bool { return true }
-	} else {
-		pooledSt, err := s.controller.GetState(names.NewModelTag(modelUUID))
-		c.Assert(err, tc.ErrorIsNil)
-		releaser = pooledSt.Release
-		st = pooledSt.State
-	}
-
-	modelDomainServices, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), servicefactorytesting.TestingLeaseManager{}).ServicesForModel(c.Context(), coremodel.UUID(modelUUID))
-	c.Assert(err, tc.ErrorIsNil)
-
-	applicationService := modelDomainServices.Application()
-	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
-		WithApplicationService(applicationService), releaser
-}
-
 // ControllerModelUUID returns the controller model uuid.
 func (s *ApiServerSuite) ControllerModelUUID() string {
 	return s.DomainServicesSuite.ControllerModelUUID.String()
 }
 
-// ControllerModel returns the controller model.
-func (s *ApiServerSuite) ControllerModel(c *tc.C) *state.Model {
-	st, err := s.controller.SystemState()
-	c.Assert(err, tc.ErrorIsNil)
-	m, err := st.Model()
-	c.Assert(err, tc.ErrorIsNil)
-	return m
-}
-
-// Model returns the specified model.
-func (s *ApiServerSuite) Model(c *tc.C, uuid string) (*state.Model, func() bool) {
-	m, helper, err := s.controller.StatePool().GetModel(uuid)
-	c.Assert(err, tc.ErrorIsNil)
-	return m, helper.Release
-}
-
 func (s *ApiServerSuite) tearDownConn(c *tc.C) {
-	testServer := mgotesting.MgoServer.Addr()
-	serverDead := testServer == "" || s.Server == nil
-
 	// Close any api connections we know about first.
 	for _, st := range s.apiConns {
-		err := st.Close()
-		if !serverDead {
-			c.Check(err, tc.ErrorIsNil)
-		}
+		st.Close()
 	}
 	s.apiConns = nil
-	if s.controller != nil {
-		err := s.controller.Close()
-		c.Check(err, tc.ErrorIsNil)
-	}
 }
 
 func (s *ApiServerSuite) SeedCAASCloud(c *tc.C) {
@@ -669,7 +532,6 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		DomainServicesGetter:       nil,
 		TracerGetter:               &stubTracerGetter{},
 		ObjectStoreGetter:          &stubObjectStoreGetter{},
-		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
 		GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },

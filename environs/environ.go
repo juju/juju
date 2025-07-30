@@ -10,7 +10,6 @@ import (
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // EnvironConfigGetter exposes a model configuration to its clients.
@@ -24,7 +23,7 @@ type EnvironConfigGetter interface {
 	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
 
 	// ControllerUUID returns the UUID of the controller.
-	ControllerUUID() uuid.UUID
+	ControllerUUID(context.Context) (string, error)
 }
 
 // CredentialInvalidReason is an enumeration of reasons why credentials
@@ -43,13 +42,6 @@ type CredentialInvalidator interface {
 // returns an Environ. This will typically be environs.New.
 type NewEnvironFunc func(context.Context, OpenParams, CredentialInvalidator) (Environ, error)
 
-// GetEnviron returns the environs.Environ ("provider") associated
-// with the model.
-func GetEnviron(ctx context.Context, st EnvironConfigGetter, invalidator CredentialInvalidator, newEnviron NewEnvironFunc) (Environ, error) {
-	env, _, err := GetEnvironAndCloud(ctx, st, invalidator, newEnviron)
-	return env, err
-}
-
 // GetEnvironAndCloud returns the environs.Environ ("provider") and cloud associated
 // with the model.
 func GetEnvironAndCloud(ctx context.Context, getter EnvironConfigGetter, invalidator CredentialInvalidator, newEnviron NewEnvironFunc) (Environ, *environscloudspec.CloudSpec, error) {
@@ -64,10 +56,15 @@ func GetEnvironAndCloud(ctx context.Context, getter EnvironConfigGetter, invalid
 			err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}
 
+	controllerUUID, err := getter.ControllerUUID(ctx)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	env, err := newEnviron(ctx, OpenParams{
 		Cloud:          cloudSpec,
 		Config:         modelConfig,
-		ControllerUUID: getter.ControllerUUID().String(),
+		ControllerUUID: controllerUUID,
 	}, invalidator)
 	if err != nil {
 		return nil, nil, errors.Annotatef(

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/clock"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -18,17 +19,16 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state"
 )
 
 var (
 	MaxClientPingInterval = maxClientPingInterval
 )
 
-func APIHandlerWithEntity(entity state.Entity) *apiHandler {
+func APIHandlerWithEntity(tag names.Tag) *apiHandler {
 	return &apiHandler{
 		authInfo: authentication.AuthInfo{
-			Entity: entity,
+			Tag: tag,
 		},
 	}
 }
@@ -38,10 +38,6 @@ func NewErrRoot(err error) *errRoot {
 }
 
 type testingAPIRootHandler struct{}
-
-func (testingAPIRootHandler) State() *state.State {
-	return nil
-}
 
 func (testingAPIRootHandler) DomainServices() services.DomainServices {
 	return nil

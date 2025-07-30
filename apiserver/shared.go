@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
-	"github.com/juju/juju/state"
 )
 
 // sharedServerContext contains a number of components that are unchangeable in the API server.
@@ -33,7 +32,6 @@ import (
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	statePool          *state.StatePool
 	leaseManager       lease.Manager
 	logger             corelogger.Logger
 	charmhubHTTPClient facade.HTTPClient
@@ -74,7 +72,6 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	statePool           *state.StatePool
 	leaseManager        lease.Manager
 	controllerUUID      string
 	controllerModelUUID model.UUID
@@ -94,9 +91,6 @@ type sharedServerConfig struct {
 }
 
 func (c *sharedServerConfig) validate() error {
-	if c.statePool == nil {
-		return errors.NotValidf("nil statePool")
-	}
 	if c.leaseManager == nil {
 		return errors.NotValidf("nil leaseManager")
 	}
@@ -135,7 +129,6 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		return nil, errors.Trace(err)
 	}
 	ctx := &sharedServerContext{
-		statePool:               config.statePool,
 		leaseManager:            config.leaseManager,
 		logger:                  config.logger,
 		controllerUUID:          config.controllerUUID,

@@ -18,7 +18,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -51,11 +50,6 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		return result, errors.Capture(err)
 	}
 
-	env, err := environs.GetEnviron(ctx, api.configGetter, environs.NoopCredentialInvalidator(), environs.New)
-	if err != nil {
-		return result, errors.Errorf("retrieving environ: %w", err)
-	}
-
 	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return result, errors.Errorf("getting all space infos: %w", err)
@@ -68,7 +62,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 			continue
 		}
 		machineName := coremachine.Name(tag.Id())
-		result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, nil, env, allSpaces)
+		result.Results[i].Result, err = api.getProvisioningInfo(ctx, machineName, allSpaces)
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -78,8 +72,6 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 func (api *ProvisionerAPI) getProvisioningInfo(
 	ctx context.Context,
 	machineName coremachine.Name,
-	m *state.Machine,
-	env environs.Environ,
 	allSpaces network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
 	// Cache information about the model for the duration of this facade call
@@ -108,7 +100,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	}
 
 	var result params.ProvisioningInfo
-	if result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, m, env, spaceBindings, modelConfig, modelInfo); err != nil {
+	if result, err = api.getProvisioningInfoBase(ctx, machineName, unitNames, spaceBindings, modelConfig, modelInfo); err != nil {
 		return nil, errors.Capture(err)
 	}
 
@@ -128,8 +120,6 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	ctx context.Context,
 	machineName coremachine.Name,
 	unitNames []coreunit.Name,
-	m *state.Machine,
-	env environs.Environ,
 	endpointBindings map[string]string,
 	modelConfig *config.Config,
 	modelInfo model.ModelInfo,
@@ -180,15 +170,15 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		}
 	}
 
-	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, machineName, m, env, modelConfig, modelInfo.UUID); err != nil {
+	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, machineName, modelConfig, modelInfo.UUID); err != nil {
 		return result, errors.Capture(err)
 	}
 
-	if result.CharmLXDProfiles, err = api.machineLXDProfileNames(ctx, unitNames, env, modelInfo.Name); err != nil {
+	if result.CharmLXDProfiles, err = api.machineService.UpdateLXDProfiles(ctx, modelInfo.Name, machineName.String()); err != nil {
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
 	}
 
-	if result.ImageMetadata, err = api.availableImageMetadata(ctx, machineName, env, modelConfig.ImageStream()); err != nil {
+	if result.ImageMetadata, err = api.availableImageMetadata(ctx, machineName, modelInfo, modelConfig.ImageStream()); err != nil {
 		return result, errors.Errorf("cannot get available image metadata: %w", err)
 	}
 
@@ -224,12 +214,10 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 func (api *ProvisionerAPI) machineVolumeParams(
 	ctx context.Context,
 	machineName coremachine.Name,
-	m *state.Machine,
-	env environs.Environ,
 	modelConfig *config.Config,
 	modelUUID model.UUID,
 ) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
-	sb, err := state.NewStorageBackend(api.st)
+	sb, err := state.NewStorageBackend()
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -267,13 +255,15 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		if err != nil {
 			return nil, nil, errors.Errorf("getting volume %q parameters: %w", volumeTag.Id(), err)
 		}
-		if _, err := env.StorageProvider(storage.ProviderType(volumeParams.Provider)); errors.Is(err, jujuerrors.NotFound) {
+
+		_, err = api.storageProviderRegistry.StorageProvider(storage.ProviderType(volumeParams.Provider))
+		if errors.Is(err, jujuerrors.NotFound) {
 			// This storage type is not managed by the environ
 			// provider, so ignore it. It'll be managed by one
 			// of the storage provisioners.
 			continue
 		} else if err != nil {
-			return nil, nil, errors.Errorf("getting storage provider: %w", err)
+			return nil, nil, errors.Errorf("checking storage provider: %w", err)
 		}
 
 		var volumeProvisioned bool
@@ -294,7 +284,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		volumeAttachmentParams := params.VolumeAttachmentParams{
 			VolumeTag:  volumeTag.String(),
 			MachineTag: names.NewMachineTag(machineName.String()).String(),
-			VolumeId:   volumeInfo.VolumeId,
+			ProviderId: volumeInfo.VolumeId,
 			Provider:   volumeParams.Provider,
 			ReadOnly:   stateVolumeAttachmentParams.ReadOnly,
 		}
@@ -482,54 +472,6 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(
 	return subnetsToZones, nil
 }
 
-// machineLXDProfileNames give the environ info to write lxd profiles needed for
-// the given machine and returns the names of profiles. Unlike
-// containerLXDProfilesInfo which returns the info necessary to write lxd profiles
-// via the lxd broker.
-func (api *ProvisionerAPI) machineLXDProfileNames(
-	ctx context.Context,
-	unitNames []coreunit.Name,
-	env environs.Environ,
-	modelName string,
-) ([]string, error) {
-	profileEnv, ok := env.(environs.LXDProfiler)
-	if !ok {
-		api.logger.Tracef(ctx, "LXDProfiler not implemented by environ")
-		return nil, nil
-	}
-
-	var pNames []string
-	for _, unitName := range unitNames {
-		appName := unitName.Application()
-		locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-
-		profile, revision, err := api.applicationService.GetCharmLXDProfile(ctx, locator)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		if profile.Empty() {
-			continue
-		}
-		pName := lxdprofile.Name(modelName, appName, revision)
-		// Lock here, we get a new env for every call to ProvisioningInfo().
-		api.mu.Lock()
-		if err := profileEnv.MaybeWriteLXDProfile(pName, lxdprofile.Profile{
-			Description: profile.Description,
-			Config:      profile.Config,
-			Devices:     profile.Devices,
-		}); err != nil {
-			api.mu.Unlock()
-			return nil, errors.Capture(err)
-		}
-		api.mu.Unlock()
-		pNames = append(pNames, pName)
-	}
-	return pNames, nil
-}
-
 func (api *ProvisionerAPI) machineEndpointBindings(ctx context.Context, unitNames []coreunit.Name) (map[string]map[string]network.SpaceUUID, error) {
 	endpointBindings := make(map[string]map[string]network.SpaceUUID)
 	for _, unitName := range unitNames {
@@ -587,15 +529,15 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 func (api *ProvisionerAPI) availableImageMetadata(
 	ctx context.Context,
 	machineName coremachine.Name,
-	env environs.Environ,
+	modelInfo model.ModelInfo,
 	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
-	imageConstraint, err := api.constructImageConstraint(ctx, machineName, env, imageStream)
+	imageConstraint, err := api.constructImageConstraint(ctx, machineName, modelInfo, imageStream)
 	if err != nil {
 		return nil, errors.Errorf("could not construct image constraint: %w", err)
 	}
 
-	data, err := api.findImageMetadata(ctx, imageConstraint, env, imageStream)
+	data, err := api.findImageMetadata(ctx, imageConstraint, imageStream)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -610,7 +552,7 @@ func (api *ProvisionerAPI) availableImageMetadata(
 func (api *ProvisionerAPI) constructImageConstraint(
 	ctx context.Context,
 	machineName coremachine.Name,
-	env environs.Environ,
+	modelInfo model.ModelInfo,
 	imageStream string,
 ) (*imagemetadata.ImageConstraint, error) {
 	machineBase, err := api.machineService.GetMachineBase(ctx, machineName)
@@ -641,16 +583,12 @@ func (api *ProvisionerAPI) constructImageConstraint(
 		lookup.Arches = []string{*cons.Arch}
 	}
 
-	if hasRegion, ok := env.(simplestreams.HasRegion); ok {
-		// We can determine current region; we want only
-		// metadata specific to this region.
-		spec, err := hasRegion.Region()
-		if err != nil {
-			// can't really find images if we cannot determine cloud region
-			// TODO (anastasiamac 2015-12-03) or can we?
-			return nil, errors.Errorf("getting provider region information (cloud spec): %w", err)
+	if modelInfo.CloudRegion != "" {
+		lookup.CloudSpec = simplestreams.CloudSpec{
+			// Only the region name is required to create an image
+			// constraint.
+			Region: modelInfo.CloudRegion,
 		}
-		lookup.CloudSpec = spec
 	}
 
 	return imagemetadata.NewImageConstraint(lookup)
@@ -662,7 +600,6 @@ func (api *ProvisionerAPI) constructImageConstraint(
 func (api *ProvisionerAPI) findImageMetadata(
 	ctx context.Context,
 	imageConstraint *imagemetadata.ImageConstraint,
-	env environs.Environ,
 	imageStream string,
 ) ([]params.CloudImageMetadata, error) {
 	// Look for image metadata in the service (cached or custom metadata).
@@ -682,7 +619,7 @@ func (api *ProvisionerAPI) findImageMetadata(
 	// Currently, an image metadata worker picks up this metadata periodically (daily),
 	// and stores it. So potentially, this data could be different
 	// to what is cached.
-	dsMetadata, err := api.imageMetadataFromDataSources(ctx, env, imageConstraint, imageStream)
+	dsMetadata, err := api.imageMetadataFromDataSources(ctx, imageConstraint, imageStream)
 	if err != nil {
 		if !errors.Is(err, jujuerrors.NotFound) {
 			return nil, errors.Capture(err)
@@ -734,10 +671,13 @@ func (api *ProvisionerAPI) imageMetadataFromService(ctx context.Context, constra
 // imageMetadataFromDataSources finds image metadata that match specified criteria in existing data sources.
 func (api *ProvisionerAPI) imageMetadataFromDataSources(
 	ctx context.Context,
-	env environs.Environ,
 	constraint *imagemetadata.ImageConstraint,
 	defaultImageStream string,
 ) ([]params.CloudImageMetadata, error) {
+	env, err := api.machineService.GetBootstrapEnviron(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	sources, err := environs.ImageMetadataSources(env, fetcher)
 	if err != nil {

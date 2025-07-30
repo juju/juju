@@ -64,7 +64,8 @@ import (
 	relationservice "github.com/juju/juju/domain/relation/service"
 	relationstate "github.com/juju/juju/domain/relation/state"
 	removalservice "github.com/juju/juju/domain/removal/service"
-	removalstate "github.com/juju/juju/domain/removal/state"
+	removalstatecontroller "github.com/juju/juju/domain/removal/state/controller"
+	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	resolveservice "github.com/juju/juju/domain/resolve/service"
 	resolveState "github.com/juju/juju/domain/resolve/state"
 	resourceservice "github.com/juju/juju/domain/resource/service"
@@ -205,6 +206,7 @@ func (s *ModelServices) Machine() *machineservice.WatchableService {
 		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		s.modelWatcherFactory("machine"),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[machineservice.LXDProfileProvider](s.providerFactory, s.modelUUID.String()),
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
 		logger,
@@ -489,7 +491,8 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 	log := s.logger.Child("removal")
 
 	return removalservice.NewWatchableService(
-		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		removalstatecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
+		removalstatemodel.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		s.modelWatcherFactory("removal"),
 		domain.NewLeaseService(s.leaseManager),
 		providertracker.ProviderRunner[removalservice.Provider](s.providerFactory, s.modelUUID.String()),

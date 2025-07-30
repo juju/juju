@@ -3,7 +3,7 @@
 
 > See also: {ref}`storage-pool`
 
-This document shows how to work with storage pools. 
+This document shows how to work with storage pools.
 
 ## Create a storage pool
 
@@ -36,7 +36,7 @@ The name given to a default storage pool will often be the same as the name of t
 
 ```
 
-````{dropdown} Expand to view a sample output for a newly-added `aws` model
+````{dropdown} Expand to view a sample output for a newly-added aws model
 
 ```text
 Name     Provider  Attributes
@@ -59,7 +59,7 @@ To find out the default storage pool for your block-type / filesystem-type, run 
 juju model-config storage-default-block-source
 ```
 
-> See more: {ref}`command-juju-model-config`, {ref}`storage-default-block-source`, {ref}`storage-default-filesystem-source` 
+> See more: {ref}`command-juju-model-config`, {ref}`storage-default-block-source`, {ref}`storage-default-filesystem-source`
 
 
 ## Update a storage pool

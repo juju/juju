@@ -133,7 +133,7 @@ Examples:
 
 - [Traefik k8s](https://charmhub.io/traefik-k8s)
 
-(podspec-charm)
+(podspec-charm)=
 #### Podspec
 
 > Superseded by {ref}`sidecar charms <sidecar-charm>`. Also deprecated in Juju 3+.
@@ -144,7 +144,7 @@ In {ref}`Kubernetes charms <kubernetes-charm>`, a **podspec** charm is a {ref}`K
 (charm-taxonomy-by-generation)=
 ### By generation
 
-Charm development has been going on for years, so naturally many attempts have been made at making the development easier. The 'raw' API Juju exposes can be interacted with directly, but most people will want to use (at least) the Bash scripts that come by default with every charm deployment, called {ref}`'hook commands' (or 'hook tools') <hook-command>`. If your charm only uses those, then you're writing a 'bare' charm. If you fancy using a higher-level, object-oriented Python library to interact with the juju model, then you should be using Ops. There exists another python framework that also wraps the hook tools but offers a different (less OOP, less idiomatic) interface, called `reactive`. This framework is deprecated and no longer maintained, mentioned here only for historical reasons.
+Charm development has been going on for years, so naturally many attempts have been made at making the development easier. The 'raw' API Juju exposes can be interacted with directly, but most people will want to use (at least) the Bash scripts that come by default with every charm deployment, that is, {ref}`'hook commands' (or 'hook tools') <hook-command>`. If your charm only uses those, then you're writing a 'bare' charm. If you would prefer to use a higher-level, object-oriented Python library to interact with the Juju model, then you should be using [Ops](https://ops.readthedocs.io/en/latest/). There exists another Python framework that also wraps the hook tools but offers a different (less OOP, less idiomatic) interface, called `reactive`. This framework is deprecated and no longer maintained; it is mentioned here only for historical reasons.
 
 
 (ops-charm)=
@@ -164,9 +164,9 @@ Examples:
 (12-factor-app-charm)=
 #### 12-Factor app charm
 
-A **12-Factor app charm** is a charm that has been created using certain coordinated pairs of [Rockcraft](https://documentation.ubuntu.com/rockcraft/en/latest/index.html) and [Charmcraft](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/) profiles designed to give you most of the content you will need to generate a [rock^](https://documentation.ubuntu.com/rockcraft/en/latest/explanation/rocks/) for a charm, and then the charm itself, for a particular type of workload (e.g., an application developed with Flask).
+A **12-Factor app charm** is a charm that has been created using certain coordinated pairs of [Rockcraft](https://documentation.ubuntu.com/rockcraft/en/latest/index.html) and [Charmcraft](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/) profiles designed to give you most of the content you will need to generate a [rock](https://documentation.ubuntu.com/rockcraft/en/latest/explanation/rocks/) for a charm, and then the charm itself, for a particular type of workload (e.g., an application developed with Flask).
 
-When you initialise a rock with a 12-Factor-app-charm-geared profile, the initialisation will generate all the basic structure and content you'll need for the rock, including a [`rockcraft.yaml`^](https://canonical-rockcraft.readthedocs-hosted.com/en/latest/reference/rockcraft.yaml/#) prepopulated with an extension matching the profile. Similarly, when you initialise a charm with a 12-Factor-app-charm-geared profile, that will generate all the basic structure content you'll need for the charm, including a `charmcraft.yaml` pre-populated with an extension matching the profile as well as a `src/charm.py` pre-loaded with a library (`paas_charm`) with constructs matching the profile and the extension.
+When you initialise a rock with a 12-Factor-app-charm-geared profile, the initialisation will generate all the basic structure and content you'll need for the rock, including a [`rockcraft.yaml`](https://canonical-rockcraft.readthedocs-hosted.com/en/latest/reference/rockcraft.yaml/#) file pre-populated with an extension matching the profile. Similarly, when you initialise a charm with a 12-Factor-app-charm-geared profile, that will generate all the basic structure content you'll need for the charm, including a `charmcraft.yaml` pre-populated with an extension matching the profile as well as a `src/charm.py` pre-loaded with a library (`paas_charm`) with constructs matching the profile and the extension.
 
 > See more:
 > - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Django app <write-your-first-kubernetes-charm-for-a-django-app>`

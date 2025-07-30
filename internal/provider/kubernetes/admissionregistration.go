@@ -22,7 +22,7 @@ func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(ctx context.Contex
 	api := k.client().AdmissionregistrationV1().MutatingWebhookConfigurations()
 	out, err := api.Create(ctx, cfg, metav1.CreateOptions{})
 	if err == nil {
-		logger.Debugf(context.TODO(), "MutatingWebhookConfiguration %q created", out.GetName())
+		logger.Debugf(ctx, "MutatingWebhookConfiguration %q created", out.GetName())
 		cleanUp = func() {
 			_ = api.Delete(ctx, out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
 		}
@@ -32,23 +32,21 @@ func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(ctx context.Contex
 		return cleanUp, errors.Trace(err)
 	}
 
-	existingItems, err := api.List(ctx, metav1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(cfg.GetLabels()).String(),
-	})
-	if k8serrors.IsNotFound(err) || existingItems == nil || len(existingItems.Items) == 0 {
-		// cfg.Name is already used for an existing MutatingWebhookConfiguration.
-		return cleanUp, errors.AlreadyExistsf("MutatingWebhookConfiguration %q", cfg.GetName())
-	}
+	existing, err := api.Get(ctx, cfg.GetName(), metav1.GetOptions{})
 	if err != nil {
 		return cleanUp, errors.Trace(err)
 	}
-	existingCfg, err := api.Get(ctx, cfg.GetName(), metav1.GetOptions{})
+	existingLabelVersion, err := utils.MatchModelMetaLabelVersion(existing.ObjectMeta, k.modelName, k.modelUUID, k.controllerUUID)
 	if err != nil {
-		return cleanUp, errors.Trace(err)
+		return nil, errors.Annotatef(err, "ensuring MutatingWebhookConfiguration %q with labels %v ", cfg.GetName(), existing.Labels)
 	}
-	cfg.SetResourceVersion(existingCfg.GetResourceVersion())
+	if existingLabelVersion < k.labelVersion {
+		logger.Warningf(ctx, "updating label version for existing MutatingWebhookConfiguration %q from %d to %d ", cfg.GetName(), existingLabelVersion, k.labelVersion)
+	}
+
+	cfg.SetResourceVersion(existing.GetResourceVersion())
 	_, err = api.Update(ctx, cfg, metav1.UpdateOptions{})
-	logger.Debugf(context.TODO(), "updating MutatingWebhookConfiguration %q", cfg.GetName())
+	logger.Debugf(ctx, "updating MutatingWebhookConfiguration %q", cfg.GetName())
 	return cleanUp, errors.Trace(err)
 }
 

@@ -14,8 +14,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -44,19 +42,14 @@ func makeAPI(ctx context.Context, modelctx facade.ModelContext) (*API, error) {
 		return nil, err
 	}
 
-	st := modelctx.State()
-	model, err := st.Model()
 	domainServices := modelctx.DomainServices()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newEnviron := func() (environs.Environ, error) {
-		return stateenvirons.GetNewEnvironFunc(environs.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-	}
+
 	return newAPI(
 		domainServices.CloudImageMetadata(),
 		domainServices.Config(),
 		domainServices.ModelInfo(),
-		newEnviron,
 	), nil
 }

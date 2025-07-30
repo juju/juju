@@ -32,3 +32,77 @@ type FilesystemAttachmentID struct {
 	// one of these values to be set.
 	UnitName *coreunit.Name
 }
+
+// Filesystem is a struct that provides the information about a filesystem.
+type Filesystem struct {
+	// BackingVolume contains information about the volume that is used to back
+	// this filesystem. If this value is nil, this filesystem is not backed by
+	// a volume in the model.
+	BackingVolume *FilesystemBackingVolume
+
+	// FilesystemID is the ID of the filesystem.
+	FilesystemID string
+
+	// ProviderID is the ID of the filesystem from the storage provider.
+	ProviderID string
+
+	// Size is the size of the filesystem in MiB.
+	Size uint64
+}
+
+// FilesystemBackingVolume contains information about the volume that is used
+// to back a filesystem.
+type FilesystemBackingVolume struct {
+	// VolumeID is the ID of the volume that the filesystem is created on.
+	VolumeID string
+}
+
+// FilesystemAttachment is a struct that provides the information about a
+// filesystem attachment.
+type FilesystemAttachment struct {
+	// FilesystemID is the ID of the filesystem resource that the attachment is for.
+	FilesystemID string
+
+	// MountPoint is the path at which the filesystem is mounted on the
+	// machine. MountPoint may be empty, meaning that the filesystem is
+	// not mounted yet.
+	MountPoint string
+
+	// ReadOnly indicates whether the filesystem is mounted read-only.
+	ReadOnly bool
+}
+
+// FilesystemTemplate represents the required information to supply a Kubernetes
+// PVC template/Pod template, such that the required Filsystems for a new unit
+// of the supplied application are created and mounted correctly.
+type FilesystemTemplate struct {
+	// StorageName is the name of the storage as defined in the charm for this
+	// application.
+	StorageName string
+
+	// Count is the number of filesystem(s) to mount for this storage.
+	Count int
+
+	// MaxCount is the maxium number of filesystems for this storage.
+	MaxCount int
+
+	// SizeMiB is the number of mebibytes to allocate for this filesystem or
+	// each of these filesystems.
+	SizeMiB uint64
+
+	// ProviderType is the name of the provider to be used to provision this
+	// filesystem(s).
+	ProviderType string
+
+	// ReadOnly is true if this filesystem(s) or the mount should be read-only.
+	ReadOnly bool
+
+	// Location is a path to hint where the filesystem(s) should be mounted for
+	// the charm to access. It is not the exact path the filesystem(s) will be
+	// mounted.
+	Location string
+
+	// Attributes are a set of key value pairs that are supplied to the provider
+	// or provisioner to facilitate this filesystem(s).
+	Attributes map[string]string
+}

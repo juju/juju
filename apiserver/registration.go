@@ -19,9 +19,9 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	proxyerrors "github.com/juju/juju/domain/proxy/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // registerUserHandler is an http.Handler for the "/register" endpoint. This is
@@ -40,14 +40,6 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		}
 		return
 	}
-	st, err := h.ctxt.stateForRequestUnauthenticated(req.Context())
-	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf(req.Context(), "%v", err)
-		}
-		return
-	}
-	defer st.Release()
 
 	// TODO (stickupkid): Remove this nonsense, we should be able to get the
 	// domain services from the handler.
@@ -60,7 +52,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	}
 	userTag, response, err := h.processPost(
 		req,
-		st.State,
+		domainServices.ModelInfo(),
 		domainServices.Proxy(),
 		domainServices.ControllerConfig(),
 		domainServices.Access(),
@@ -115,7 +107,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 // be revealed.
 func (h *registerUserHandler) processPost(
 	req *http.Request,
-	st *state.State,
+	modelInfoService ModelInfoService,
 	proxyService ProxyService,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
@@ -151,7 +143,7 @@ func (h *registerUserHandler) processPost(
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// activation key.
-	responsePayload, err := h.getSecretKeyLoginResponsePayload(req.Context(), st, proxyService, controllerConfigService)
+	responsePayload, err := h.getSecretKeyLoginResponsePayload(req.Context(), modelInfoService, proxyService, controllerConfigService)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -179,12 +171,16 @@ func (h *registerUserHandler) processPost(
 // client to login to the controller securely.
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	ctx context.Context,
-	st *state.State,
+	modelInfoService ModelInfoService,
 	proxyService ProxyService,
 	controllerConfigService ControllerConfigService,
 ) (*params.SecretKeyLoginResponsePayload, error) {
-	if !st.IsController() {
-		return nil, errors.New("state is not for a controller")
+	modelInfo, err := modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	if !modelInfo.IsControllerModel {
+		return nil, internalerrors.Capture(errors.New("model is not a controller"))
 	}
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {

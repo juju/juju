@@ -179,8 +179,13 @@ func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, get
 			return nil, cloudspec.CloudSpec{}, errors.Trace(err)
 		}
 
+		controllerUUID, err := getter.ControllerUUID(ctx)
+		if err != nil {
+			return nil, cloudspec.CloudSpec{}, errors.Trace(err)
+		}
+
 		broker, err := newProvider(ctx, environs.OpenParams{
-			ControllerUUID: getter.ControllerUUID().String(),
+			ControllerUUID: controllerUUID,
 			Cloud:          cloudSpec,
 			Config:         cfg,
 		}, invalidator)

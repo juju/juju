@@ -43,13 +43,11 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
+	controllerUUID  string
 	modelUUID       coremodel.UUID
-	st              Backend
 	storageAccess   StorageInterface
-	pool            Pool
 	authorizer      Authorizer
 	check           *common.BlockChecker
-	resources       facade.Resources
 	controllerStore objectstore.ObjectStore
 	clock           clock.Clock
 
@@ -71,25 +69,21 @@ type MachineManagerAPI struct {
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
+	controllerUUID string,
 	modelUUID coremodel.UUID,
-	backend Backend,
 	controllerStore objectstore.ObjectStore,
 	storageAccess StorageInterface,
-	pool Pool,
 	auth Authorizer,
-	resources facade.Resources,
 	logger corelogger.Logger,
 	clock clock.Clock,
 	services Services,
 ) *MachineManagerAPI {
 	api := &MachineManagerAPI{
+		controllerUUID:  controllerUUID,
 		modelUUID:       modelUUID,
-		st:              backend,
 		controllerStore: controllerStore,
-		pool:            pool,
 		authorizer:      auth,
 		check:           common.NewBlockChecker(services.BlockCommandService),
-		resources:       resources,
 		storageAccess:   storageAccess,
 		clock:           clock,
 		logger:          logger,
@@ -230,10 +224,6 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	}
 
 	var result params.ProvisioningScriptResult
-	st, err := mm.pool.SystemState()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
 
 	services := InstanceConfigServices{
 		CloudService:            mm.cloudService,
@@ -247,12 +237,12 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		AgentPasswordService:    mm.agentPasswordService,
 	}
 
+	machineName := coremachine.Name(args.MachineId)
 	icfg, err := InstanceConfig(
 		ctx,
+		mm.controllerUUID,
 		mm.modelUUID,
-		mm.machineService.GetBootstrapEnviron,
-		st,
-		mm.st, services, args.MachineId, args.Nonce, args.DataDir)
+		services, machineName, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
@@ -303,7 +293,7 @@ func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.Ret
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	result := params.ErrorResults{}
-	machines, err := mm.st.AllMachines()
+	machineNames, err := mm.machineService.AllMachineNames(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -316,11 +306,10 @@ func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.Ret
 		}
 		wanted.Add(tag.Id())
 	}
-	for _, m := range machines {
-		if !p.All && !wanted.Contains(m.Id()) {
+	for _, machineName := range machineNames {
+		if !p.All && !wanted.Contains(machineName.String()) {
 			continue
 		}
-		machineName := coremachine.Name(m.Id())
 		if err := mm.maybeUpdateInstanceStatus(ctx, p.All, machineName, map[string]interface{}{"transient": true}); err != nil {
 			result.Results = append(result.Results, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 		}

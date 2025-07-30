@@ -823,7 +823,7 @@ func copyMachineStorageIds(src []params.MachineStorageId) []watcher.MachineStora
 
 func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.MachineStorageId) error {
 	changes := copyMachineStorageIds(initialChanges)
-	w.newResult = func() interface{} { return new(params.MachineStorageIdsWatchResult) }
+	w.newResult = func() any { return new(params.MachineStorageIdsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, facade, w.machineAttachmentsWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()

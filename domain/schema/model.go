@@ -41,6 +41,11 @@ const (
 	customNamespaceStorageVolumeAttachmentLifeMachineProvisioning
 	customNamespaceStorageVolumeAttachmentLifeModelProvisioning
 	customNamespaceStorageVolumeAttachmentPlanLifeMachineProvisioning
+	customNamespaceUnitRemovalLifecycle
+	customNamespaceMachineRemovalLifecycle
+	customNamespaceApplicationRemovalLifecycle
+	customNamespaceRelationRemovalLifecycle
+	customNamespaceModelLifeRemovalLifecycle
 )
 
 const (
@@ -211,6 +216,12 @@ func ModelDDL() *schema.Schema {
 		// operations for entities.
 		triggerEntityLifecycleByNameForTable("unit", customNamespaceUnitLifecycle),
 		triggerEntityLifecycleByNameForTable("machine", customNamespaceMachineLifecycle),
+
+		triggerEntityLifecycleByFieldForTable("application", "uuid", customNamespaceApplicationRemovalLifecycle),
+		triggerEntityLifecycleByFieldForTable("machine", "uuid", customNamespaceMachineRemovalLifecycle),
+		triggerEntityLifecycleByFieldForTable("unit", "uuid", customNamespaceUnitRemovalLifecycle),
+		triggerEntityLifecycleByFieldForTable("relation", "uuid", customNamespaceRelationRemovalLifecycle),
+		triggerEntityLifecycleByFieldForTable("model_life", "model_uuid", customNamespaceModelLifeRemovalLifecycle),
 	)
 
 	patches = append(patches, func() schema.Patch {

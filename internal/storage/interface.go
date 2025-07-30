@@ -335,9 +335,9 @@ type FilesystemAttachmentParams struct {
 	// should be attached/detached.
 	Filesystem names.FilesystemTag
 
-	// FilesystemId is the unique provider-supplied ID for the filesystem that
+	// ProviderId is the unique provider-supplied ID for the filesystem that
 	// should be attached/detached.
-	FilesystemId string
+	ProviderId string
 
 	// Path is the path at which the filesystem is to be mounted on the machine that
 	// this attachment corresponds to.

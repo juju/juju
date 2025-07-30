@@ -16,37 +16,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// DeleteImportedLinkLayerDevices is part of the [service.LinkLayerDeviceState]
-// interface.
-func (st *State) DeleteImportedLinkLayerDevices(ctx context.Context) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	tables := []string{
-		"provider_link_layer_device",
-		"link_layer_device_parent",
-		"link_layer_device",
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, table := range tables {
-			stmt, err := st.Prepare(fmt.Sprintf(`DELETE FROM %s`, table))
-			if err != nil {
-				return errors.Capture(err)
-			}
-
-			if err = tx.Query(ctx, stmt).Run(); err != nil {
-				return errors.Errorf("deleting table %q: %w", table, err)
-			}
-		}
-
-		return nil
-	})
-	return errors.Capture(err)
-}
-
 // ImportLinkLayerDevices is part of the [service.LinkLayerDeviceState]
 // interface.
 func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error {
@@ -56,15 +25,17 @@ func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.Im
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		deviceTypeMap, err := typeNameToIDMap[network.LinkLayerDeviceType](ctx, st, tx, "link_layer_device_type")
+		lookups, err := st.getNetConfigLookups(ctx, tx)
+		if err != nil {
+		}
+
+		llds, parents, providers, err := transformImportData(input, lookups.deviceType, lookups.virtualPortType)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		portTypeMap, err := typeNameToIDMap[network.VirtualPortType](ctx, st, tx, "virtual_port_type")
-		if err != nil {
-			return errors.Capture(err)
-		}
-		llds, parents, providers, err := transformImportData(input, deviceTypeMap, portTypeMap)
+
+		addresses, providerAddresses, err := transformAddressesFromImportData(input,
+			lookups.addrType, lookups.addrConfigType, lookups.origin, lookups.scope)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -75,6 +46,12 @@ func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.Im
 			return errors.Capture(err)
 		}
 		if err := st.importProviderLinkLayerDevice(ctx, tx, providers); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.importIpAddresses(ctx, tx, addresses); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.importProviderIpAddresses(ctx, tx, providerAddresses); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -141,13 +118,49 @@ INSERT INTO link_layer_device_parent (*) VALUES ($linkLayerDeviceParent.*)
 	return nil
 }
 
+func (st *State) importIpAddresses(ctx context.Context, tx *sqlair.TX, addresses []ipAddressDML) error {
+	if len(addresses) == 0 {
+		return nil
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO ip_address (*) VALUES ($ipAddressDML.*)`, ipAddressDML{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	for _, address := range addresses {
+		err = tx.Query(ctx, stmt, address).Run()
+		if err != nil {
+			return errors.Errorf("ip addresses: %w", err)
+		}
+	}
+	return nil
+}
+
+func (st *State) importProviderIpAddresses(ctx context.Context, tx *sqlair.TX, addresses []providerIpAddressDML) error {
+	if len(addresses) == 0 {
+		return nil
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO provider_ip_address (*) VALUES ($providerIpAddressDML.*)`, providerIpAddressDML{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	for _, address := range addresses {
+		err = tx.Query(ctx, stmt, address).Run()
+		if err != nil {
+			return errors.Errorf("ip address provider ids: %w", err)
+		}
+	}
+	return nil
+}
+
 // transformImportData transform the initial import data into the different
 // structures for insertion into the database. A LinkLayerDeviceUUID is created
 // at this time.
 func transformImportData(
 	in []internal.ImportLinkLayerDevice,
-	deviceTypeMap map[network.LinkLayerDeviceType]int,
-	portTypeMap map[network.VirtualPortType]int,
+	deviceTypeLookup map[network.LinkLayerDeviceType]int,
+	portTypeLookup map[network.VirtualPortType]int,
 ) ([]linkLayerDevice, []linkLayerDeviceParent, []providerLinkLayerDevice, error) {
 	llds := make([]linkLayerDevice, len(in))
 	parents := make([]linkLayerDeviceParent, 0)
@@ -158,12 +171,12 @@ func transformImportData(
 
 	// Fill in the linkLayerDevice and providerLinkLayerDevice structures.
 	for i, l := range in {
-		devTypeID, ok := deviceTypeMap[l.Type]
+		devTypeID, ok := deviceTypeLookup[l.Type]
 		if !ok {
 			return nil, nil, nil, errors.Errorf("unknown device type %q", l.Type)
 		}
 
-		portTypeID, ok := portTypeMap[l.VirtualPortType]
+		portTypeID, ok := portTypeLookup[l.VirtualPortType]
 		if !ok {
 			return nil, nil, nil, errors.Errorf("unknown port type %q", l.VirtualPortType)
 		}
@@ -220,6 +233,60 @@ func transformImportData(
 	}
 
 	return llds, parents, providers, nil
+}
+
+func transformAddressesFromImportData(input []internal.ImportLinkLayerDevice,
+	typeMap map[network.AddressType]int,
+	configTypeMap map[network.AddressConfigType]int,
+	originTypeMap map[network.Origin]int,
+	scopeTypeMap map[network.Scope]int,
+) ([]ipAddressDML, []providerIpAddressDML, error) {
+	var providerIds []providerIpAddressDML
+	var addresses []ipAddressDML
+
+	for _, lld := range input {
+		for _, address := range lld.Addresses {
+
+			typeID, ok := typeMap[address.Type]
+			if !ok {
+				return nil, nil, errors.Errorf("unknown address type %q", address.Type)
+			}
+			configTypeID, ok := configTypeMap[address.ConfigType]
+			if !ok {
+				return nil, nil, errors.Errorf("unknown address config type %q", address.ConfigType)
+			}
+			originID, ok := originTypeMap[address.Origin]
+			if !ok {
+				return nil, nil, errors.Errorf("unknown address origin %q", address.Origin)
+			}
+			scopeID, ok := scopeTypeMap[address.Scope]
+			if !ok {
+				return nil, nil, errors.Errorf("unknown address scope %q", address.Scope)
+			}
+
+			addresses = append(addresses, ipAddressDML{
+				UUID:         address.UUID,
+				NodeUUID:     lld.NetNodeUUID,
+				DeviceUUID:   lld.UUID,
+				AddressValue: address.AddressValue,
+				SubnetUUID:   nilZeroPtr(address.SubnetUUID),
+				TypeID:       typeID,
+				ConfigTypeID: configTypeID,
+				OriginID:     originID,
+				ScopeID:      scopeID,
+				IsSecondary:  address.IsSecondary,
+				IsShadow:     address.IsShadow,
+			})
+			if address.ProviderID != nil {
+				providerIds = append(providerIds, providerIpAddressDML{
+					AddressUUID: address.UUID,
+					ProviderID:  *address.ProviderID,
+				})
+			}
+		}
+	}
+
+	return addresses, providerIds, nil
 }
 
 // AllMachinesAndNetNodes is part of the [service.LinkLayerDeviceState]

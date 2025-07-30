@@ -15,11 +15,13 @@ import (
 	"github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	"github.com/juju/juju/domain/machine/internal"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
@@ -32,10 +34,11 @@ import (
 type providerServiceSuite struct {
 	testhelpers.IsolationSuite
 
-	state         *MockState
-	statusHistory *MockStatusHistory
-	provider      *MockProvider
-	validator     *MockValidator
+	state              *MockState
+	statusHistory      *MockStatusHistory
+	provider           *MockProvider
+	lxdProfileProvider *MockLXDProfileProvider
+	validator          *MockValidator
 
 	service *ProviderService
 }
@@ -56,12 +59,24 @@ func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		return s.provider, nil
 	}
 
-	s.service = NewProviderService(s.state, s.statusHistory, providerGetter, clock.WallClock, loggertesting.WrapCheckLog(c))
+	lxdProfileProviderGetter := func(ctx context.Context) (LXDProfileProvider, error) {
+		return s.lxdProfileProvider, nil
+	}
+
+	s.service = NewProviderService(
+		s.state,
+		s.statusHistory,
+		providerGetter,
+		lxdProfileProviderGetter,
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	c.Cleanup(func() {
 		s.state = nil
 		s.statusHistory = nil
 		s.provider = nil
+		s.lxdProfileProvider = nil
 		s.service = nil
 	})
 
@@ -75,7 +90,9 @@ func (s *providerServiceSuite) TestAddMachineProviderNotSupported(c *tc.C) {
 		return s.provider, coreerrors.NotSupported
 	}
 
-	service := NewProviderService(s.state, s.statusHistory, providerGetter, clock.WallClock, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(
+		s.state, s.statusHistory, providerGetter, nil, clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	_, err := service.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
@@ -326,4 +343,143 @@ func (s *providerServiceSuite) expectCreateMachineStatusHistory(c *tc.C, machine
 			c.Check(si.Status, tc.Equals, status.Pending)
 			return nil
 		})
+}
+
+type lxdProviderServiceSuite struct {
+	testhelpers.IsolationSuite
+
+	state              *MockState
+	provider           *MockProvider
+	lxdProfileProvider *MockLXDProfileProvider
+}
+
+func TestLXDProviderServiceSuite(t *testing.T) {
+	tc.Run(t, &lxdProviderServiceSuite{})
+}
+
+func (s *lxdProviderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.provider = NewMockProvider(ctrl)
+	s.lxdProfileProvider = NewMockLXDProfileProvider(ctrl)
+	s.state = NewMockState(ctrl)
+
+	c.Cleanup(func() {
+		s.provider = nil
+		s.state = nil
+	})
+
+	return ctrl
+}
+
+func (s *lxdProviderServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	machineID := "7"
+	result := []internal.CreateLXDProfileDetails{
+		{
+			ApplicationName: "ubuntu",
+			CharmRevision:   4,
+			LXDProfile:      []byte(`{"config": {"foo":"bar"}, "description": "description", "devices": {"gpu":{"baz": "x"}}}`),
+		}, {
+			ApplicationName: "test",
+			CharmRevision:   8,
+			LXDProfile:      []byte(`{"config": {"foo":"baz"}, "description": "another"}`),
+		},
+	}
+	pName0 := "juju-test-ubuntu-4"
+	pName1 := "juju-test-test-8"
+	s.state.EXPECT().GetLXDProfilesForMachine(gomock.Any(), machineID).Return(result, nil)
+	s.lxdProfileProvider.EXPECT().MaybeWriteLXDProfile(pName0, lxdprofile.Profile{
+		Config:      map[string]string{"foo": "bar"},
+		Description: "description",
+		Devices:     map[string]map[string]string{"gpu": {"baz": "x"}},
+	}).Return(nil)
+	s.lxdProfileProvider.EXPECT().MaybeWriteLXDProfile(pName1, lxdprofile.Profile{
+		Config:      map[string]string{"foo": "baz"},
+		Description: "another",
+	}).Return(nil)
+
+	providerGetter := func(ctx context.Context) (LXDProfileProvider, error) {
+		return s.lxdProfileProvider, nil
+	}
+	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+
+	// Act
+	obtainedProfileNames, err := service.UpdateLXDProfiles(c.Context(), "test", machineID)
+
+	// Assert:
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtainedProfileNames, tc.SameContents, []string{pName0, pName1})
+}
+
+func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesNoSupport(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange: the provider does not support LXDProfiles
+	providerGetter := func(ctx context.Context) (LXDProfileProvider, error) {
+		return nil, coreerrors.NotSupported
+	}
+	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+
+	// Act
+	_, err := service.UpdateLXDProfiles(c.Context(), "blue", "7")
+
+	// Assert: no work is done and the method doesn't fail
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesFail(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	providerGetter := func(ctx context.Context) (LXDProfileProvider, error) {
+		return nil, errors.Errorf("boom")
+	}
+	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+
+	// Act
+	_, err := service.UpdateLXDProfiles(c.Context(), "blue", "7")
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "getting provider: boom")
+}
+
+func (s *lxdProviderServiceSuite) TestGetBootstrapEnviron(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	providerGetter := func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}
+	service := NewProviderService(s.state, nil, providerGetter, nil, nil, loggertesting.WrapCheckLog(c))
+
+	// Act
+	p, err := service.GetBootstrapEnviron(c.Context())
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(p, tc.NotNil)
+}
+
+func (s *lxdProviderServiceSuite) TestGetBootstrapEnvironFail(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	providerGetter := func(ctx context.Context) (Provider, error) {
+		return nil, errors.Errorf("boom")
+	}
+	service := NewProviderService(s.state, nil, providerGetter, nil, nil, loggertesting.WrapCheckLog(c))
+
+	// Act
+	_, err := service.GetBootstrapEnviron(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

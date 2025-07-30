@@ -323,7 +323,7 @@ pre_bootstrap() {
 
 	if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-metadata-url=https://ci-run-streams.s3.amazonaws.com/builds/build-${SHORT_GIT_COMMIT}/"
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=build-${SHORT_GIT_COMMIT}"
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=testing"
 	fi
 
 	if [[ -n ${BOOTSTRAP_ARCH} ]]; then

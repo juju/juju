@@ -88,7 +88,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *tc.C) {
 	expectedVolumes := []params.Volume{{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId:   "id-1",
+			ProviderId: "id-1",
 			HardwareId: "serial-1",
 			Size:       1024,
 			Persistent: true,
@@ -96,7 +96,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *tc.C) {
 	}, {
 		VolumeTag: "volume-2",
 		Info: params.VolumeInfo{
-			VolumeId:   "id-2",
+			ProviderId: "id-2",
 			HardwareId: "serial-2",
 			Size:       1024,
 		},
@@ -361,7 +361,7 @@ func (s *storageProvisionerSuite) TestFilesystemChannelReceivedOrder(c *tc.C) {
 	fileSystem := params.Filesystem{
 		FilesystemTag: "filesystem-1",
 		Info: params.FilesystemInfo{
-			FilesystemId: "1/1",
+			ProviderId: "1/1",
 		},
 	}
 
@@ -589,7 +589,7 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *tc.C) {
 	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	volumeAccessor.provisionedVolumes["volume-3"] = params.Volume{
 		VolumeTag: "volume-3",
-		Info:      params.VolumeInfo{VolumeId: "vol-ume"},
+		Info:      params.VolumeInfo{ProviderId: "vol-ume"},
 	}
 
 	var validateCalls int
@@ -683,7 +683,7 @@ func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *tc.C) {
 	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
 	filesystemAccessor.provisionedFilesystems["filesystem-3"] = params.Filesystem{
 		FilesystemTag: "filesystem-3",
-		Info:          params.FilesystemInfo{FilesystemId: "fs-id"},
+		Info:          params.FilesystemInfo{ProviderId: "fs-id"},
 	}
 
 	var validateCalls int
@@ -776,14 +776,14 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *tc.C) {
 	expectedFilesystems := []params.Filesystem{{
 		FilesystemTag: "filesystem-1",
 		Info: params.FilesystemInfo{
-			FilesystemId: "id-1",
-			Size:         1024,
+			ProviderId: "id-1",
+			Size:       1024,
 		},
 	}, {
 		FilesystemTag: "filesystem-2",
 		Info: params.FilesystemInfo{
-			FilesystemId: "id-2",
-			Size:         1024,
+			ProviderId: "id-2",
+			Size:       1024,
 		},
 	}}
 
@@ -906,7 +906,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *tc.C) {
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
@@ -965,7 +965,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentNoStaticReattachment(c *tc
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
@@ -1029,7 +1029,7 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *tc.C) {
 	filesystemAccessor.provisionedFilesystems["filesystem-1"] = params.Filesystem{
 		FilesystemTag: "filesystem-1",
 		Info: params.FilesystemInfo{
-			FilesystemId: "fs-123",
+			ProviderId: "fs-123",
 		},
 	}
 	filesystemAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
@@ -1108,8 +1108,8 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *tc.C) {
 	c.Assert(filesystemInfo, tc.DeepEquals, []params.Filesystem{{
 		FilesystemTag: "filesystem-0-0",
 		Info: params.FilesystemInfo{
-			FilesystemId: "xvdf1",
-			Size:         123,
+			ProviderId: "xvdf1",
+			Size:       123,
 		},
 	}})
 
@@ -1131,8 +1131,8 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *tc.C) {
 	c.Assert(filesystemInfo, tc.DeepEquals, []params.Filesystem{{
 		FilesystemTag: "filesystem-0-1",
 		Info: params.FilesystemInfo{
-			FilesystemId: "xvdf2",
-			Size:         246,
+			ProviderId: "xvdf2",
+			Size:       246,
 		},
 	}})
 }
@@ -1158,8 +1158,8 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *tc.C) {
 		FilesystemTag: "filesystem-0-0",
 		VolumeTag:     "volume-0-0",
 		Info: params.FilesystemInfo{
-			FilesystemId: "whatever",
-			Size:         123,
+			ProviderId: "whatever",
+			Size:       123,
 		},
 	}
 	filesystemAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
@@ -1403,7 +1403,7 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *tc.C) {
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
@@ -1447,7 +1447,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *tc.C) {
 	volumeAccessor.provisionedVolumes[volume.String()] = params.Volume{
 		VolumeTag: volume.String(),
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines[machine.String()] = "already-provisioned-1"
@@ -1580,7 +1580,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesNotFound(c *tc.C) {
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		Info: params.VolumeInfo{
-			VolumeId: "vol-123",
+			ProviderId: "vol-123",
 		},
 	}
 	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
@@ -1684,7 +1684,7 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *tc.C) {
 	filesystemAccessor.provisionedFilesystems["filesystem-1"] = params.Filesystem{
 		FilesystemTag: "filesystem-1",
 		Info: params.FilesystemInfo{
-			FilesystemId: "fs-id",
+			ProviderId: "fs-id",
 		},
 	}
 	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
@@ -1764,7 +1764,7 @@ func (s *storageProvisionerSuite) TestDetachFilesystemsNotFound(c *tc.C) {
 	filesystemAccessor.provisionedFilesystems["filesystem-1"] = params.Filesystem{
 		FilesystemTag: "filesystem-1",
 		Info: params.FilesystemInfo{
-			FilesystemId: "fs-id",
+			ProviderId: "fs-id",
 		},
 	}
 	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"

@@ -134,7 +134,7 @@ func VolumeToState(v params.Volume) (names.VolumeTag, state.VolumeInfo, error) {
 		v.Info.WWN,
 		v.Info.Size,
 		"", // pool is set by state
-		v.Info.VolumeId,
+		v.Info.ProviderId,
 		v.Info.Persistent,
 	}, nil
 }

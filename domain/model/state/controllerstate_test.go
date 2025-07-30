@@ -362,6 +362,7 @@ func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *tc.C) {
 		Name:            "my-amazing-model",
 		Qualifier:       "prod",
 		Type:            coremodel.IAAS,
+		Life:            corelife.Alive,
 	})
 }
 
@@ -390,6 +391,7 @@ func (m *stateSuite) TestGetModelSeedInformationActivated(c *tc.C) {
 		Name:            "my-test-model",
 		Qualifier:       "prod",
 		Type:            coremodel.IAAS,
+		Life:            corelife.Alive,
 	})
 }
 

@@ -179,14 +179,14 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := state.SetModelSecretBackend(c.Context(), modelUUID, vaultBackendName)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(wc watchertest.WatcherC[struct{}]) {
 		wc.AssertChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := state.SetModelSecretBackend(c.Context(), modelUUID, internalBackendName)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(wc watchertest.WatcherC[struct{}]) {

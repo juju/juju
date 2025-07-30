@@ -44,7 +44,7 @@ import (
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
-	removalstate "github.com/juju/juju/domain/removal/state"
+	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -215,21 +215,22 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 // setModelTargetAgentVersion is a testing utility for establishing an initial
 // target agent version for the model.
 func (s *modelStateSuite) setModelTargetAgentVersion(c *tc.C, vers string) {
-	s.setModelTargetAgentVersionAndStream(c, vers, modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, vers, vers, modelagent.AgentStreamReleased)
 }
 
 // setModelTargetAgentVersion is a testing utility for establishing an initial
 // target agent version and stream for the model.
-func (s *modelStateSuite) setModelTargetAgentVersionAndStream(
-	c *tc.C, vers string, stream modelagent.AgentStream,
+func (s *modelStateSuite) setModelTargetAgentVersionInfo(
+	c *tc.C, latestVersion, targetVersion string, stream modelagent.AgentStream,
 ) {
 	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB()
 	c.Assert(err, tc.ErrorIsNil)
 
-	q := "INSERT INTO agent_version (*) VALUES ($M.stream_id, $M.target_version)"
+	q := "INSERT INTO agent_version (*) VALUES ($M.stream_id, $M.target_version, $M.latest_version)"
 
 	args := sqlair.M{
-		"target_version": vers,
+		"latest_version": latestVersion,
+		"target_version": targetVersion,
 		"stream_id":      int(stream),
 	}
 	stmt, err := sqlair.Prepare(q, args)
@@ -570,7 +571,7 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionMachineNotFound
 func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *tc.C) {
 	machineUUID, _ := s.addMachine(c)
 
-	removalSt := removalstate.NewState(
+	removalSt := removalstatemodel.NewState(
 		s.TxnRunnerFactory(),
 		loggertesting.WrapCheckLog(c),
 	)
@@ -1073,6 +1074,64 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c
 	c.Check(len(data), tc.Equals, 0)
 }
 
+func (s *modelStateSuite) TestGetMachineAgentBinaryMetadataMachineNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetMachineAgentBinaryMetadata(c.Context(), "0")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *modelStateSuite) TestGetMachineAgentBinaryMetadata(c *tc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	versionARM64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.ARM64,
+	}
+
+	metaAMD64 := s.registerAgentBinary(c, versionAMD64)
+	metaARM64 := s.registerAgentBinary(c, versionARM64)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	amdMachineUUID, amdMachineName := s.addMachine(c)
+	err := st.SetMachineRunningAgentBinaryVersion(
+		c.Context(), amdMachineUUID.String(), versionAMD64,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	armMachineUUID, armMachineName := s.addMachine(c)
+	err = st.SetMachineRunningAgentBinaryVersion(
+		c.Context(), armMachineUUID.String(), versionARM64,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	amdMeta, err := st.GetMachineAgentBinaryMetadata(c.Context(), amdMachineName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(amdMeta, tc.DeepEquals, metaAMD64)
+
+	armMeta, err := st.GetMachineAgentBinaryMetadata(c.Context(), armMachineName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(armMeta, tc.DeepEquals, metaARM64)
+}
+
+func (s *modelStateSuite) TestGetMachineAgentBinaryMetadataMachineNotSet(c *tc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	s.registerAgentBinary(c, versionAMD64)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, machineName := s.addMachine(c)
+
+	_, err := st.GetMachineAgentBinaryMetadata(c.Context(), machineName.String())
+	c.Assert(err, tc.ErrorIs, modelagenterrors.AgentVersionNotSet)
+}
+
 // TestGetUnitAgentBinaryMetadata tests the happy path of
 // [State.GetUnitsAgentBinaryMetadata]. We assert that with multiple units on
 // different agent binaries the each unit is correctly associated.
@@ -1195,7 +1254,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *tc
 func (s *modelStateSuite) TestSetAgentVersionStream(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertStmt := `
-INSERT INTO agent_version (stream_id, target_version) VALUES (1, '4.1.1')
+INSERT INTO agent_version (stream_id, target_version, latest_version) VALUES (1, '4.1.1', '4.1.1')
 `
 		_, err := tx.ExecContext(ctx, insertStmt)
 		return err
@@ -1359,7 +1418,7 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamPreconditionFai
 	c.Assert(err, tc.ErrorIsNil)
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
-	s.setModelTargetAgentVersionAndStream(c, "4.1.1", modelagent.AgentStreamTesting)
+	s.setModelTargetAgentVersionInfo(c, "4.1.1", "4.1.1", modelagent.AgentStreamTesting)
 	st := NewState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
@@ -1383,7 +1442,7 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStream(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
-	s.setModelTargetAgentVersionAndStream(c, "4.1.0", modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", modelagent.AgentStreamReleased)
 	st := NewState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
@@ -1409,7 +1468,7 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamNoStreamChange(
 	c.Assert(err, tc.ErrorIsNil)
 	toVersion, err := semversion.Parse("4.2.0")
 	c.Assert(err, tc.ErrorIsNil)
-	s.setModelTargetAgentVersionAndStream(c, "4.1.0", modelagent.AgentStreamReleased)
+	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", modelagent.AgentStreamReleased)
 	st := NewState(s.TxnRunnerFactory())
 
 	err = st.SetModelTargetAgentVersionAndStream(
@@ -1424,4 +1483,36 @@ func (s *modelStateSuite) TestSetModelTargetAgentVersionAndStreamNoStreamChange(
 	stream, err := st.GetModelAgentStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(stream, tc.Equals, modelagent.AgentStreamReleased)
+}
+
+func (s *modelStateSuite) TestUpdateLatestAgentVersion(c *tc.C) {
+	s.setModelTargetAgentVersionInfo(c, "4.1.0", "4.1.0", modelagent.AgentStreamReleased)
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("9.10.11"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	var latestAgentVersion string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `SELECT latest_version FROM agent_version`
+		return tx.QueryRowContext(ctx, stmt).Scan(&latestAgentVersion)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(latestAgentVersion, tc.Equals, "9.10.11")
+}
+
+func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentLatest(c *tc.C) {
+	s.setModelTargetAgentVersionInfo(c, "4.2.0", "4.0.0", modelagent.AgentStreamReleased)
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("4.1.0"))
+	c.Assert(err, tc.ErrorIs, modelagenterrors.LatestVersionDowngradeNotSupported)
+}
+
+func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentTarget(c *tc.C) {
+	s.setModelTargetAgentVersionInfo(c, "4.0.0", "4.2.0", modelagent.AgentStreamReleased)
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("4.1.0"))
+	c.Assert(err, tc.ErrorIs, modelagenterrors.LatestVersionDowngradeNotSupported)
 }

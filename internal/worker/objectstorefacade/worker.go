@@ -256,3 +256,26 @@ func (o objectStoreFacade) Remove(ctx context.Context, path string) error {
 	}
 	return nil
 }
+
+// RemoveAll removes all the data at path, namespaced to the model.
+// The method will block until the fortress is drained or the context
+// is cancelled. If the fortress is draining, the method will return
+// [objectstore.ErrTimeoutWaitingForDraining] error.
+func (o objectStoreFacade) RemoveAll(ctx context.Context) error {
+	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
+	defer cancel()
+
+	store, ok := o.ObjectStore.(coreobjectstore.ObjectStoreRemover)
+	if !ok {
+		return errors.NotSupportedf("object store %T does not support RemoveAll", o.ObjectStore)
+	}
+
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
+		return store.RemoveAll(ctx)
+	}); errors.Is(visitErr, fortress.ErrAborted) {
+		return coreobjectstore.ErrTimeoutWaitingForDraining
+	} else if visitErr != nil {
+		return errors.Trace(visitErr)
+	}
+	return nil
+}

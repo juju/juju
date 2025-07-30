@@ -4,38 +4,12 @@
 package application
 
 import (
-	"github.com/juju/schema"
-
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/state"
 )
-
-// Backend defines the state functionality required by the application
-// facade. For details on the methods, see the methods on state.State
-// with the same names.
-type Backend interface {
-	Application(string) (Application, error)
-	ApplyOperation(state.ModelOperation) error
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-}
-
-// Application defines a subset of the functionality provided by the
-// state.Application type, as required by the application facade. For
-// details on the methods, see the methods on state.Application with
-// the same names.
-type Application interface {
-	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
-	SetConstraints(constraints.Value) error
-	UpdateCharmConfig(charm.Settings) error
-	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, configschema.Fields, schema.Defaults) error
-}
 
 // Bindings defines a subset of the functionality provided by the
 // state.Bindings type, as required by the application facade. For
@@ -45,36 +19,20 @@ type Bindings interface {
 	Map() map[string]network.SpaceUUID
 }
 
-// Charm defines a subset of the functionality provided by the
-// state.Charm type, as required by the application facade. For
-// details on the methods, see the methods on state.Charm with
-// the same names.
-type Charm interface {
-	CharmMeta
-	Config() *charm.Config
-	Actions() *charm.Actions
-	Revision() int
-	URL() string
-	Version() string
-}
-
 // CharmMeta describes methods that inform charm operation.
 type CharmMeta interface {
 	Manifest() *charm.Manifest
 	Meta() *charm.Meta
 }
 
-type stateShim struct {
-	*state.State
-}
 type StorageInterface interface {
 	storagecommon.StorageAccess
 	VolumeAccess() storagecommon.VolumeAccess
 	FilesystemAccess() storagecommon.FilesystemAccess
 }
 
-var getStorageState = func(st *state.State, modelType coremodel.ModelType) (StorageInterface, error) {
-	sb, err := state.NewStorageBackend(st)
+var getStorageState = func(modelType coremodel.ModelType) (StorageInterface, error) {
+	sb, err := state.NewStorageBackend()
 	if err != nil {
 		return nil, err
 	}
@@ -102,31 +60,4 @@ func (s *storageShim) VolumeAccess() storagecommon.VolumeAccess {
 
 func (s *storageShim) FilesystemAccess() storagecommon.FilesystemAccess {
 	return s.fa
-}
-
-func (s stateShim) Application(name string) (Application, error) {
-	a, err := s.State.Application(name)
-	if err != nil {
-		return nil, err
-	}
-	return stateApplicationShim{
-		Application: a,
-		st:          s.State,
-	}, nil
-}
-
-func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(args, store)
-	if err != nil {
-		return nil, err
-	}
-	return stateApplicationShim{
-		Application: a,
-		st:          s.State,
-	}, nil
-}
-
-type stateApplicationShim struct {
-	*state.Application
-	st *state.State
 }

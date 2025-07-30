@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type objectKey struct {
@@ -50,7 +49,6 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state   *state.State
 	rpcConn *rpc.Conn
 
 	// TODO (stickupkid): The "shared" concept is an abomination, we should
@@ -133,7 +131,6 @@ var (
 func newAPIHandler(
 	ctx context.Context,
 	srv *Server,
-	st *state.State,
 	rpcConn *rpc.Conn,
 	domainServices services.DomainServices,
 	domainServicesGetter services.DomainServicesGetter,
@@ -169,7 +166,6 @@ func newAPIHandler(
 	}
 
 	r := &apiHandler{
-		state:                 st,
 		domainServices:        domainServices,
 		domainServicesGetter:  domainServicesGetter,
 		tracer:                tracer,
@@ -199,11 +195,6 @@ func (r *apiHandler) Resources() *common.Resources {
 // API calls.
 func (r *apiHandler) WatcherRegistry() facade.WatcherRegistry {
 	return r.watcherRegistry
-}
-
-// State returns the underlying state.
-func (r *apiHandler) State() *state.State {
-	return r.state
 }
 
 // DomainServices returns the domain services.
@@ -314,10 +305,7 @@ func (r *apiHandler) AuthClient() bool {
 
 // GetAuthTag returns the tag of the authenticated entity, if any.
 func (r *apiHandler) GetAuthTag() names.Tag {
-	if r.authInfo.Entity == nil {
-		return nil
-	}
-	return r.authInfo.Entity.Tag()
+	return r.authInfo.Tag
 }
 
 // HasPermission is responsible for reporting if the logged in user is
@@ -394,8 +382,6 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 
 type apiRootHandler interface {
 	rpc.Killer
-	// State returns the underlying state.
-	State() *state.State
 	// DomainServices returns the domain services.
 	DomainServices() services.DomainServices
 	// DomainServicesGetter returns the domain services getter.
@@ -427,7 +413,6 @@ type apiRootHandler interface {
 type apiRoot struct {
 	rpc.Killer
 	clock                 clock.Clock
-	state                 *state.State
 	domainServices        services.DomainServices
 	domainServicesGetter  services.DomainServicesGetter
 	tracer                trace.Tracer
@@ -463,7 +448,6 @@ func newAPIRoot(
 	return &apiRoot{
 		Killer:                root,
 		clock:                 clock,
-		state:                 root.State(),
 		domainServices:        root.DomainServices(),
 		domainServicesGetter:  root.DomainServicesGetter(),
 		tracer:                root.Tracer(),
@@ -733,16 +717,6 @@ func (ctx *facadeContext) Resources() facade.Resources {
 // WatcherRegistry is part of the facade.ModelContext interface.
 func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
 	return ctx.r.watcherRegistry
-}
-
-// State is part of the facade.ModelContext interface.
-func (ctx *facadeContext) State() *state.State {
-	return ctx.r.state
-}
-
-// StatePool is part of the facade.ModelContext interface.
-func (ctx *facadeContext) StatePool() *state.StatePool {
-	return ctx.r.shared.statePool
 }
 
 // ControllerUUID returns the controller unique identifier.

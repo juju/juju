@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ModelImporter defines an interface for importing models.
@@ -170,6 +169,11 @@ type APIV4 struct {
 
 // APIV5 implements the APIV5.
 type APIV5 struct {
+	*APIV6
+}
+
+// APIV6 implements the APIV6.
+type APIV6 struct {
 	*API
 }
 
@@ -229,14 +233,14 @@ func NewAPI(
 	}, nil
 }
 
-func checkAuth(ctx context.Context, authorizer facade.Authorizer, st *state.State) error {
+func checkAuth(ctx context.Context, authorizer facade.Authorizer, controllerTag names.Tag) error {
 	if !authorizer.AuthClient() {
 		return errors.New(
 			"client does not have permission for migration target facade",
 		).Add(apiservererrors.ErrPerm)
 	}
 
-	return authorizer.HasPermission(ctx, permission.SuperuserAccess, st.ControllerTag())
+	return authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
 }
 
 // Prechecks ensure that the target controller is ready to accept a

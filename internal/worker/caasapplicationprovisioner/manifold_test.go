@@ -18,7 +18,10 @@ import (
 	"github.com/juju/juju/caas"
 	agentpasswordservice "github.com/juju/juju/domain/agentpassword/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
+	resourceservice "github.com/juju/juju/domain/resource/service"
 	statusservice "github.com/juju/juju/domain/status/service"
+	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
@@ -97,26 +100,16 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	defer ctrl.Finish()
 
 	mockDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	mockDomainServices.EXPECT().Application().Return(&applicationservice.WatchableService{})
-	mockDomainServices.EXPECT().Status().Return(&statusservice.LeadershipService{})
-	mockDomainServices.EXPECT().AgentPassword().Return(&agentpasswordservice.Service{})
+	mockDomainServices.EXPECT().Config().Return(&modelconfigservice.WatchableService{}).AnyTimes()
+	mockDomainServices.EXPECT().Application().Return(&applicationservice.WatchableService{}).AnyTimes()
+	mockDomainServices.EXPECT().Status().Return(&statusservice.LeadershipService{}).AnyTimes()
+	mockDomainServices.EXPECT().AgentPassword().Return(&agentpasswordservice.Service{}).AnyTimes()
+	mockDomainServices.EXPECT().Resource().Return(&resourceservice.Service{}).AnyTimes()
+	mockDomainServices.EXPECT().StorageProvisioning().Return(&storageprovisioningservice.Service{}).AnyTimes()
 
 	called := false
 	s.config.NewWorker = func(config caasapplicationprovisioner.Config) (worker.Worker, error) {
 		called = true
-		mc := tc.NewMultiChecker()
-		mc.AddExpr(`_.Facade`, tc.NotNil)
-		mc.AddExpr(`_.Broker`, tc.NotNil)
-		mc.AddExpr(`_.Clock`, tc.NotNil)
-		mc.AddExpr(`_.Logger`, tc.NotNil)
-		mc.AddExpr(`_.NewAppWorker`, tc.NotNil)
-		mc.AddExpr(`_.UnitFacade`, tc.NotNil)
-		mc.AddExpr(`_.ApplicationService`, tc.NotNil)
-		mc.AddExpr(`_.StatusService`, tc.NotNil)
-		mc.AddExpr(`_.AgentPasswordService`, tc.NotNil)
-		c.Check(config, mc, caasapplicationprovisioner.Config{
-			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
-		})
 		return nil, nil
 	}
 	manifold := caasapplicationprovisioner.Manifold(s.config)

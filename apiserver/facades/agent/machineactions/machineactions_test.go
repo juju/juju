@@ -8,12 +8,9 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-
-	"github.com/juju/juju/internal/testhelpers"
 )
 
 type FacadeSuite struct {
-	testhelpers.IsolationSuite
 }
 
 func TestFacadeSuite(t *testing.T) {

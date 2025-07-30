@@ -89,8 +89,8 @@ func (st *State) DeleteMachine(ctx context.Context, mName machine.Name) error {
 
 	// Prepare query for machine uuid.
 	machineNameParam := machineName{Name: mName}
-	machineUUIDParam := machineUUID{}
-	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
+	machineUUIDParam := entityUUID{}
+	queryMachine := `SELECT uuid AS &entityUUID.* FROM machine WHERE name = $machineName.name`
 	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, machineUUIDParam)
 	if err != nil {
 		return errors.Capture(err)
@@ -149,7 +149,7 @@ DELETE FROM net_node WHERE uuid IN
 	return nil
 }
 
-func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, machineUUID machineUUID) error {
+func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, machineUUID entityUUID) error {
 	tables := []string{
 		"machine_status",
 		"machine_cloud_instance_status",
@@ -166,7 +166,7 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mach
 	}
 
 	for _, table := range tables {
-		query := fmt.Sprintf("DELETE FROM %s WHERE machine_uuid = $machineUUID.uuid", table)
+		query := fmt.Sprintf("DELETE FROM %s WHERE machine_uuid = $entityUUID.uuid", table)
 		stmt, err := st.Prepare(query, machineUUID)
 		if err != nil {
 			return errors.Errorf("preparing delete statement for %q: %w", table, err)
@@ -344,9 +344,9 @@ func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (b
 	query := `
 SELECT COUNT(*) AS &count.count
 FROM   v_machine_is_controller
-WHERE  machine_uuid = $machineUUID.uuid
+WHERE  machine_uuid = $entityUUID.uuid
 `
-	queryStmt, err := st.Prepare(query, machineUUID{}, result)
+	queryStmt, err := st.Prepare(query, entityUUID{}, result)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -385,9 +385,9 @@ func (st *State) IsMachineManuallyProvisioned(ctx context.Context, mName machine
 SELECT     COUNT(m.uuid) AS &count.count
 FROM       machine AS m
 JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
-WHERE      m.uuid = $machineUUID.uuid
+WHERE      m.uuid = $entityUUID.uuid
 `
-	queryStmt, err := st.Prepare(query, machineUUID{}, count{})
+	queryStmt, err := st.Prepare(query, entityUUID{}, count{})
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -410,21 +410,21 @@ WHERE      m.uuid = $machineUUID.uuid
 	return result.Count == 1, nil
 }
 
-func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (machineUUID, error) {
+func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (entityUUID, error) {
 	machineNameParam := machineName{Name: mName}
-	machineUUIDoutput := machineUUID{}
-	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
-	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDoutput)
+	machineUUIDOutput := entityUUID{}
+	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE name = $machineName.name`
+	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDOutput)
 	if err != nil {
-		return machineUUID{}, errors.Capture(err)
+		return entityUUID{}, errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput); errors.Is(err, sqlair.ErrNoRows) {
-		return machineUUID{}, errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+	if err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDOutput); errors.Is(err, sqlair.ErrNoRows) {
+		return entityUUID{}, errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
 	} else if err != nil {
-		return machineUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
+		return entityUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
 	}
-	return machineUUIDoutput, nil
+	return machineUUIDOutput, nil
 }
 
 // AllMachineNames retrieves the names of all machines in the model.
@@ -471,8 +471,8 @@ func (st *State) GetMachineParentUUID(ctx context.Context, uuid string) (machine
 	}
 
 	// Prepare query for checking that the machine exists.
-	currentMachineUUID := machineUUID{UUID: uuid}
-	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE uuid = $machineUUID.uuid`
+	currentMachineUUID := entityUUID{UUID: uuid}
+	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE uuid = $entityUUID.uuid`
 	queryStmt, err := st.Prepare(query, currentMachineUUID)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -483,7 +483,7 @@ func (st *State) GetMachineParentUUID(ctx context.Context, uuid string) (machine
 	parentUUIDParam := machineParent{}
 	parentQuery := `
 SELECT parent_uuid AS &machineParent.parent_uuid
-FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
+FROM machine_parent WHERE machine_uuid = $entityUUID.uuid`
 	parentQueryStmt, err := st.Prepare(parentQuery, currentMachineUUID, parentUUIDParam)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -491,7 +491,7 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine UUID.
-		outUUID := machineUUID{} // This value doesn't really matter, it is just a way to check existence
+		outUUID := entityUUID{} // This value doesn't really matter, it is just a way to check existence
 		err := tx.Query(ctx, queryStmt, currentMachineUUID).Get(&outUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine %q: %w", uuid, machineerrors.MachineNotFound)
@@ -527,9 +527,9 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (machine
 		return "", errors.Capture(err)
 	}
 
-	var uuid machineUUID
+	var uuid entityUUID
 	currentMachineName := machineName{Name: name}
-	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
+	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE name = $machineName.name`
 	queryStmt, err := st.Prepare(query, uuid, currentMachineName)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -598,10 +598,10 @@ func (st *State) SetKeepInstance(ctx context.Context, mName machine.Name, keep b
 	}
 
 	// Prepare query for machine uuid.
-	machineUUID := machineUUID{}
+	machineUUID := entityUUID{}
 	machineNameParam := machineName{Name: mName}
 	machineExistsQuery := `
-SELECT uuid AS &machineUUID.uuid
+SELECT uuid AS &entityUUID.uuid
 FROM   machine
 WHERE  name = $machineName.name`
 	machineExistsStmt, err := st.Prepare(machineExistsQuery, machineUUID, machineNameParam)
@@ -709,11 +709,11 @@ func (st *State) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, pr
 		return errors.Errorf("cannot get database to set lxd profiles %v for machine %q: %w", profileNames, mUUID, err)
 	}
 
-	queryMachineUUID := machineUUID{UUID: mUUID}
+	queryMachineUUID := entityUUID{UUID: mUUID}
 	checkMachineExistsStmt, err := st.Prepare(`
-SELECT uuid AS &machineUUID.uuid
+SELECT uuid AS &entityUUID.uuid
 FROM   machine
-WHERE  machine.uuid = $machineUUID.uuid`, queryMachineUUID)
+WHERE  machine.uuid = $entityUUID.uuid`, queryMachineUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -738,8 +738,8 @@ ORDER BY array_index ASC`, queryLXDProfile)
 	}
 
 	removePreviousProfilesStmt, err := st.Prepare(
-		`DELETE FROM machine_lxd_profile WHERE machine_uuid = $machineUUID.uuid`,
-		machineUUID{},
+		`DELETE FROM machine_lxd_profile WHERE machine_uuid = $entityUUID.uuid`,
+		entityUUID{},
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -753,7 +753,7 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var machineExists machineUUID
+		var machineExists entityUUID
 		err = tx.Query(ctx, checkMachineExistsStmt, queryMachineUUID).Get(&machineExists)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return machineerrors.MachineNotFound
@@ -922,8 +922,8 @@ func (st *State) SetMachineHostname(ctx context.Context, mUUID string, hostname 
 		return errors.Capture(err)
 	}
 
-	currentMachineUUID := machineUUID{UUID: mUUID}
-	query := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE uuid = $machineUUID.uuid`
+	currentMachineUUID := entityUUID{UUID: mUUID}
+	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE uuid = $entityUUID.uuid`
 	queryStmt, err := st.Prepare(query, currentMachineUUID)
 	if err != nil {
 		return errors.Capture(err)
@@ -942,7 +942,7 @@ func (st *State) SetMachineHostname(ctx context.Context, mUUID string, hostname 
 	updateQuery := `
 UPDATE machine
 SET    hostname = $machineHostName.hostname, agent_started_at = $machineHostName.agent_started_at
-WHERE  uuid = $machineUUID.uuid`
+WHERE  uuid = $entityUUID.uuid`
 	updateStmt, err := st.Prepare(updateQuery, currentMachineUUID, currentMachineHostName)
 	if err != nil {
 		return errors.Capture(err)
@@ -974,13 +974,13 @@ func (st *State) GetSupportedContainersTypes(ctx context.Context, mUUID string) 
 		return nil, errors.Capture(err)
 	}
 
-	currentMachineUUID := machineUUID{UUID: mUUID}
+	currentMachineUUID := entityUUID{UUID: mUUID}
 	query := `
 SELECT ct.value AS &containerType.container_type
 FROM machine AS m
 LEFT JOIN machine_container_type AS mct ON m.uuid = mct.machine_uuid
 LEFT JOIN container_type AS ct ON mct.container_type_id = ct.id
-WHERE uuid = $machineUUID.uuid
+WHERE uuid = $entityUUID.uuid
 `
 	queryStmt, err := st.Prepare(query, currentMachineUUID, containerType{})
 	if err != nil {
@@ -1016,12 +1016,12 @@ func (st *State) GetMachineContainers(ctx context.Context, mUUID string) ([]stri
 		return nil, errors.Capture(err)
 	}
 
-	ident := machineUUID{UUID: mUUID}
+	ident := entityUUID{UUID: mUUID}
 	query := `
 SELECT &machineName.*
 FROM machine
 JOIN machine_parent ON machine.uuid = machine_parent.machine_uuid
-WHERE parent_uuid = $machineUUID.uuid`
+WHERE parent_uuid = $entityUUID.uuid`
 	queryStmt, err := st.Prepare(query, machineName{}, ident)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1057,21 +1057,21 @@ func (st *State) GetMachinePrincipalApplications(ctx context.Context, mName mach
 	}
 
 	principalQuery := `
-SELECT a.name AS &appName.name
+SELECT a.name AS &entityName.name
 FROM machine AS m
 JOIN net_node AS nn ON m.net_node_uuid = nn.uuid
 LEFT JOIN unit AS u ON u.net_node_uuid = nn.uuid
 LEFT JOIN application AS a ON u.application_uuid = a.uuid
 LEFT JOIN charm AS c ON a.charm_uuid = c.uuid
 LEFT JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
-WHERE m.uuid = $machineUUID.uuid AND cm.subordinate = FALSE
+WHERE m.uuid = $entityUUID.uuid AND cm.subordinate = FALSE
 ORDER BY a.name ASC
 `
-	principalQueryStmt, err := st.Prepare(principalQuery, machineUUID{}, appName{})
+	principalQueryStmt, err := st.Prepare(principalQuery, entityUUID{}, entityName{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	var appNames []appName
+	var appNames []entityName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		machineUUID, err := st.getMachineUUIDFromName(ctx, tx, mName)
 		if err != nil {
@@ -1110,8 +1110,8 @@ func (st *State) GetMachinePlacementDirective(ctx context.Context, mName string)
 	stmt, err := st.Prepare(`
 SELECT &placementDirective.*
 FROM machine_placement
-WHERE machine_uuid = $machineUUID.uuid
-`, placementDirective{}, machineUUID{})
+WHERE machine_uuid = $entityUUID.uuid
+`, placementDirective{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1153,8 +1153,8 @@ func (st *State) GetMachineConstraints(ctx context.Context, mName string) (const
 	stmt, err := st.Prepare(`
 SELECT &machineConstraint.*
 FROM v_machine_constraint
-WHERE machine_uuid = $machineUUID.uuid;
-`, machineConstraint{}, machineUUID{})
+WHERE machine_uuid = $entityUUID.uuid;
+`, machineConstraint{}, entityUUID{})
 	if err != nil {
 		return constraints.Constraints{}, errors.Capture(err)
 	}
@@ -1307,8 +1307,8 @@ func (st *State) GetMachineBase(ctx context.Context, mName string) (base.Base, e
 	stmt, err := st.Prepare(`
 SELECT &machinePlatform.*
 FROM v_machine_platform
-WHERE machine_uuid = $machineUUID.uuid
-`, machinePlatform{}, machineUUID{})
+WHERE machine_uuid = $entityUUID.uuid
+`, machinePlatform{}, entityUUID{})
 	if err != nil {
 		return base.Base{}, errors.Capture(err)
 	}
@@ -1338,12 +1338,12 @@ func (st *State) CountMachinesInSpace(ctx context.Context, spUUID string) (int64
 		return 0, errors.Capture(err)
 	}
 
-	ident := spaceUUID{UUID: spUUID}
+	ident := entityUUID{UUID: spUUID}
 	stmt, err := st.Prepare(`
 SELECT COUNT(DISTINCT net_node_uuid) AS &count.count
 FROM ip_address AS ip
 JOIN v_space_subnet AS sp ON ip.subnet_uuid = sp.subnet_uuid
-WHERE sp.uuid = $spaceUUID.uuid
+WHERE sp.uuid = $entityUUID.uuid
 `, count{}, ident)
 	if err != nil {
 		return 0, errors.Capture(err)
@@ -1371,11 +1371,11 @@ func (st *State) GetSSHHostKeys(ctx context.Context, mUUID string) ([]string, er
 		return nil, errors.Capture(err)
 	}
 
-	machineUUID := machineUUID{UUID: mUUID}
+	machineUUID := entityUUID{UUID: mUUID}
 
 	query := `SELECT &sshHostKey.*
 FROM machine_ssh_host_key
-WHERE machine_uuid = $machineUUID.uuid`
+WHERE machine_uuid = $entityUUID.uuid`
 	queryStmt, err := st.Prepare(query, sshHostKey{}, machineUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1420,11 +1420,11 @@ func (st *State) SetSSHHostKeys(ctx context.Context, mUUID string, sshHostKeys [
 		return errors.Capture(err)
 	}
 
-	machineUUID := machineUUID{UUID: mUUID}
+	machineUUID := entityUUID{UUID: mUUID}
 
 	removePreviousKeysStmt, err := st.Prepare(`
 DELETE FROM machine_ssh_host_key
-WHERE  machine_uuid = $machineUUID.uuid`, machineUUID)
+WHERE  machine_uuid = $entityUUID.uuid`, machineUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1490,13 +1490,13 @@ func (*State) NamespaceForWatchMachineReboot() string {
 // NamespaceForMachineLife returns the namespace string used for
 // tracking machine lifecycle changes in the model.
 func (*State) NamespaceForMachineLife() string {
-	return "custom_machine_lifecycle"
+	return "custom_machine_name_lifecycle"
 }
 
 // InitialWatchModelMachinesStatement returns the table and the initial watch
 // statement for watching life changes of non-container machines.
 func (*State) InitialWatchModelMachinesStatement() (string, string) {
-	return "custom_machine_lifecycle", "SELECT name FROM machine WHERE name NOT LIKE '%/%'"
+	return "custom_machine_name_lifecycle", "SELECT name FROM machine WHERE name NOT LIKE '%/%'"
 }
 
 // InitialWatchModelMachineLifeAndStartTimesStatement returns the namespace and the initial watch
@@ -1508,7 +1508,7 @@ func (*State) InitialWatchModelMachineLifeAndStartTimesStatement() (string, stri
 // InitialMachineContainerLifeStatement returns the table and the initial watch
 // statement for watching life changes of container machines.
 func (*State) InitialMachineContainerLifeStatement() (string, string, func(string) string) {
-	return "custom_machine_lifecycle", "SELECT name FROM machine WHERE name LIKE ?", func(prefix string) string {
+	return "custom_machine_name_lifecycle", "SELECT name FROM machine WHERE name LIKE ?", func(prefix string) string {
 		return prefix + "%"
 	}
 }

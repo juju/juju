@@ -58,7 +58,6 @@ import (
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/state"
 )
 
 // ErrAPIServerDying is used to indicate to *third parties* that the
@@ -161,12 +160,6 @@ type ServerConfig struct {
 	// provider.
 	JWTAuthenticator jwt.Authenticator
 
-	// StatePool is the StatePool used for looking up State
-	// to pass to facades. StatePool will not be closed by the
-	// server; it is the callers responsibility to close it
-	// after the apiserver has exited.
-	StatePool *state.StatePool
-
 	// UpgradeComplete is a function that reports whether or not
 	// the if the agent running the API server has completed
 	// running upgrade steps. This is used by the API server to
@@ -242,9 +235,6 @@ type ServerConfig struct {
 
 // Validate validates the API server configuration.
 func (c ServerConfig) Validate() error {
-	if c.StatePool == nil {
-		return errors.NotValidf("missing StatePool")
-	}
 	if c.Mux == nil {
 		return errors.NotValidf("missing Mux")
 	}
@@ -342,7 +332,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator, cfg.JWTAuthenticator}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
-		statePool:               cfg.StatePool,
 		leaseManager:            cfg.LeaseManager,
 		controllerUUID:          cfg.ControllerUUID,
 		controllerModelUUID:     cfg.ControllerModelUUID,
@@ -776,12 +765,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 
 	resourceAuthFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
-		_, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return entity.Tag(), nil
+		return httpCtxt.authenticatedTagFromRequest(req, tagKinds...)
 	}
 	resourceChangeAllowedFunc := func(ctx context.Context) error {
 		serviceFactory, err := httpCtxt.domainServicesForRequest(ctx)
@@ -803,11 +787,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logger,
 	), "applications")
 	unitResourceNewOpenerFunc := resourceOpenerGetter(func(req *http.Request, tagKinds ...string) (coreresource.Opener, error) {
-		modelUUID, ok := httpcontext.RequestModelUUID(req.Context())
-		if !ok {
-			return nil, errors.Errorf("missing model UUID")
-		}
-
 		tagStr := req.URL.Query().Get(":unit")
 		tag, err := names.ParseUnitTag(tagStr)
 		if err != nil {
@@ -823,7 +802,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			return nil, errors.Trace(errors.Annotate(err, "cannot get domain services for unit resource request"))
 		}
 		args := resource.ResourceOpenerArgs{
-			ModelUUID:          modelUUID,
 			ApplicationService: domainServices.Application(),
 			ResourceService:    domainServices.Resource(),
 			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(
@@ -1120,29 +1098,21 @@ func (srv *Server) serveConn(
 		return errors.Annotatef(err, "getting domain services for model %q", modelUUID)
 	}
 
-	var handler *apiHandler
-	var stateClosing <-chan struct{}
-	st, err := srv.shared.statePool.Get(modelUUID.String())
-	if err == nil {
-		defer st.Release()
-		stateClosing = st.Removing()
-		handler, err = newAPIHandler(
-			ctx,
-			srv,
-			st.State,
-			conn,
-			domainServices,
-			srv.shared.domainServicesGetter,
-			tracer,
-			objectStore,
-			srv.shared.objectStoreGetter,
-			controllerObjectStore,
-			modelUUID,
-			controllerOnlyLogin,
-			connectionID,
-			host,
-		)
-	}
+	handler, err := newAPIHandler(
+		ctx,
+		srv,
+		conn,
+		domainServices,
+		srv.shared.domainServicesGetter,
+		tracer,
+		objectStore,
+		srv.shared.objectStoreGetter,
+		controllerObjectStore,
+		modelUUID,
+		controllerOnlyLogin,
+		connectionID,
+		host,
+	)
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 	}
@@ -1164,7 +1134,6 @@ func (srv *Server) serveConn(
 	select {
 	case <-conn.Dead():
 	case <-srv.catacomb.Dying():
-	case <-stateClosing:
 	}
 	return conn.Close()
 }

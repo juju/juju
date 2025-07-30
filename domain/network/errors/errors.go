@@ -6,6 +6,10 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// ContainerAddressesNotSupported is returned when the provider
+	// returns false to SupportsContainerAddresses.
+	ContainerAddressesNotSupported = errors.ConstError("container addressing not supported")
+
 	// SpaceAlreadyExists is returned when a space already exists.
 	SpaceAlreadyExists = errors.ConstError("space already exists")
 

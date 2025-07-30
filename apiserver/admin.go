@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
@@ -207,7 +206,7 @@ func (a *admin) getAuditRecorder(
 		observer.NewAuditLogFilter(cfg.Target, filter),
 		a.srv.clock,
 		auditlog.ConversationArgs{
-			Who:          a.root.authInfo.Entity.Tag().Id(),
+			Who:          a.root.authInfo.Tag.Id(),
 			What:         req.CLIArgs,
 			ModelName:    modelName,
 			ModelUUID:    a.root.modelUUID.String(),
@@ -314,7 +313,15 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 			return nil, fmt.Errorf("failed to authenticate request: %w", errors.Unauthorized)
 		}
 
-		if result.controllerMachineLogin && !a.root.state.IsController() {
+		isController, err := a.root.domainServices.ModelInfo().IsControllerModel(ctx)
+		if errors.Is(err, modelerrors.NotFound) {
+			return nil, errors.NotFoundf("controller model")
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if result.controllerMachineLogin && !isController {
 			// We only need to run a pinger for controller machine
 			// agents when logging into the controller model.
 			startPinger = false
@@ -330,12 +337,12 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
 	if !result.anonymousLogin {
 		tag := names.NewModelTag(a.root.modelUUID.String())
-		a.apiObserver.Login(ctx, a.root.authInfo.Entity.Tag(), tag, a.root.modelUUID, controllerConn, req.UserData)
+		a.apiObserver.Login(ctx, a.root.authInfo.Tag, tag, a.root.modelUUID, controllerConn, req.UserData)
 	}
 	a.loggedIn = true
 
 	if startPinger {
-		if err := setupPingTimeoutDisconnect(ctx, a.srv.pingClock, a.root, a.root.authInfo.Entity); err != nil {
+		if err := setupPingTimeoutDisconnect(ctx, a.srv.pingClock, a.root, a.root.authInfo.Tag); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -443,13 +450,13 @@ func (a *admin) fillLoginDetails(ctx context.Context, authInfo authentication.Au
 		if result.anonymousLogin {
 			logger.Debugf(ctx, " anonymous controller login")
 		} else {
-			logger.Debugf(ctx, "controller login: %s", a.root.authInfo.Entity.Tag())
+			logger.Debugf(ctx, "controller login: %s", a.root.authInfo.Tag)
 		}
 	} else {
 		if result.anonymousLogin {
 			logger.Debugf(ctx, "anonymous model login")
 		} else {
-			logger.Debugf(ctx, "model login: %s for model %s", a.root.authInfo.Entity.Tag(), a.root.modelUUID)
+			logger.Debugf(ctx, "model login: %s for model %s", a.root.authInfo.Tag, a.root.modelUUID)
 		}
 	}
 	return nil
@@ -460,7 +467,7 @@ func (a *admin) checkUserPermissions(
 	authInfo authentication.AuthInfo,
 	controllerOnlyLogin bool,
 ) (*params.AuthUserInfo, error) {
-	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
 		return nil, fmt.Errorf("establishing user tag from authenticated user entity")
 	}
@@ -542,8 +549,7 @@ type PingRootHandler interface {
 	CloseConn() error
 }
 
-func setupPingTimeoutDisconnect(ctx context.Context, clock clock.Clock, root PingRootHandler, entity state.Entity) error {
-	tag := entity.Tag()
+func setupPingTimeoutDisconnect(ctx context.Context, clock clock.Clock, root PingRootHandler, tag names.Tag) error {
 	if tag.Kind() == names.UserTagKind {
 		return nil
 	}

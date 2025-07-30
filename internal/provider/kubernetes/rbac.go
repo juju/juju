@@ -70,23 +70,35 @@ func (k *kubernetesClient) updateServiceAccount(ctx context.Context, sa *core.Se
 func (k *kubernetesClient) ensureServiceAccount(ctx context.Context, sa *core.ServiceAccount) (out *core.ServiceAccount, cleanups []func(), err error) {
 	out, err = k.createServiceAccount(ctx, sa)
 	if err == nil {
-		logger.Debugf(context.TODO(), "service account %q created", out.GetName())
+		logger.Debugf(ctx, "service account %q created", out.GetName())
 		cleanups = append(cleanups, func() { _ = k.deleteServiceAccount(ctx, out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
-	if !errors.Is(err, errors.AlreadyExists) {
+	if !errors.IsAlreadyExists(err) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listServiceAccount(ctx, sa.GetLabels())
+
+	existing, err := k.getServiceAccount(ctx, sa.GetName())
 	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			// sa.Name is already used for an existing service account.
-			return nil, cleanups, errors.AlreadyExistsf("service account %q", sa.GetName())
-		}
 		return nil, cleanups, errors.Trace(err)
 	}
+
+	var existingLabelVersion constants.LabelVersion
+	switch name := sa.GetName(); name {
+	case ExecRBACResourceName, modelOperatorName:
+		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	default:
+		existingLabelVersion, err = utils.MatchApplicationMetaLabelVersion(existing.ObjectMeta, name)
+	}
+	if err != nil {
+		return nil, cleanups, errors.Annotatef(err, "ensuring ServiceAccount %q with labels %v ", sa.GetName(), existing.Labels)
+	}
+	if existingLabelVersion < k.labelVersion {
+		logger.Warningf(ctx, "updating label version for existing ServiceAccount %q from %d to %d ", sa.GetName(), existingLabelVersion, k.labelVersion)
+	}
+
 	out, err = k.updateServiceAccount(ctx, sa)
-	logger.Debugf(context.TODO(), "updating service account %q", sa.GetName())
+	logger.Debugf(ctx, "updating service account %q", sa.GetName())
 	return out, cleanups, errors.Trace(err)
 }
 
@@ -110,23 +122,6 @@ func (k *kubernetesClient) deleteServiceAccount(ctx context.Context, name string
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) listServiceAccount(ctx context.Context, labels map[string]string) ([]core.ServiceAccount, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(labels).String(),
-	}
-	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(ctx, listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(saList.Items) == 0 {
-		return nil, errors.NotFoundf("service account with labels %v", labels)
-	}
-	return saList.Items, nil
 }
 
 func (k *kubernetesClient) createRole(ctx context.Context, role *rbacv1.Role) (*rbacv1.Role, error) {
@@ -155,24 +150,47 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 func (k *kubernetesClient) ensureRole(ctx context.Context, role *rbacv1.Role) (out *rbacv1.Role, cleanups []func(), err error) {
 	out, err = k.createRole(ctx, role)
 	if err == nil {
-		logger.Debugf(context.TODO(), "role %q created", out.GetName())
+		logger.Debugf(ctx, "role %q created", out.GetName())
 		cleanups = append(cleanups, func() { _ = k.deleteRole(ctx, out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
 	if !errors.Is(err, errors.AlreadyExists) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listRoles(ctx, utils.LabelsToSelector(role.GetLabels()))
+
+	existing, err := k.getRole(ctx, role.GetName())
 	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			// role.Name is already used for an existing role.
-			return nil, cleanups, errors.AlreadyExistsf("role %q", role.GetName())
-		}
 		return nil, cleanups, errors.Trace(err)
 	}
+
+	var existingLabelVersion constants.LabelVersion
+	switch name := role.GetName(); name {
+	case ExecRBACResourceName, modelOperatorName:
+		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	default:
+		existingLabelVersion, err = utils.MatchApplicationMetaLabelVersion(existing.ObjectMeta, name)
+	}
+	if err != nil {
+		return nil, cleanups, errors.Annotatef(err, "ensuring Role %q with labels %v ", role.GetName(), existing.Labels)
+	}
+	if existingLabelVersion < k.labelVersion {
+		logger.Warningf(ctx, "updating label version for existing Role %q from %d to %d ", role.GetName(), existingLabelVersion, k.labelVersion)
+	}
+
 	out, err = k.updateRole(ctx, role)
-	logger.Debugf(context.TODO(), "updating role %q", role.GetName())
+	logger.Debugf(ctx, "updating role %q", role.GetName())
 	return out, cleanups, errors.Trace(err)
+}
+
+func (k *kubernetesClient) getRole(ctx context.Context, name string) (*rbacv1.Role, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+	out, err := k.client().RbacV1().Roles(k.namespace).Get(ctx, name, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("role %q", name)
+	}
+	return out, errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteRole(ctx context.Context, name string, uid types.UID) error {
@@ -184,23 +202,6 @@ func (k *kubernetesClient) deleteRole(ctx context.Context, name string, uid type
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) listRoles(ctx context.Context, selector k8slabels.Selector) ([]rbacv1.Role, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	listOps := v1.ListOptions{
-		LabelSelector: selector.String(),
-	}
-	rList, err := k.client().RbacV1().Roles(k.namespace).List(ctx, listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(rList.Items) == 0 {
-		return nil, errors.NotFoundf("role with selector %q", selector)
-	}
-	return rList.Items, nil
 }
 
 func (k *kubernetesClient) deleteClusterRoles(ctx context.Context, selector k8slabels.Selector) error {
@@ -321,7 +322,7 @@ func (k *kubernetesClient) ensureRoleBinding(ctx context.Context, rb *rbacv1.Rol
 		// only do cleanup for the first time, don't do this for existing deployments.
 		cleanups = append(cleanups, func() { _ = k.deleteRoleBinding(ctx, out.GetName(), out.GetUID()) })
 	}
-	logger.Debugf(context.TODO(), "role binding %q created", rb.GetName())
+	logger.Debugf(ctx, "role binding %q created", rb.GetName())
 	return out, cleanups, nil
 }
 

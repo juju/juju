@@ -27,7 +27,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
@@ -132,8 +131,7 @@ type DeployerAPI struct {
 	*common.APIAddresser
 	unitStatusSetter *common.UnitStatusSetter
 
-	canRead  func(tag names.Tag) bool
-	canWrite func(tag names.Tag) bool
+	getAuth common.GetAuthFunc
 
 	controllerConfigGetter ControllerConfigGetter
 	applicationService     ApplicationService
@@ -141,7 +139,6 @@ type DeployerAPI struct {
 	leadershipRevoker      leadership.Revoker
 
 	store           objectstore.ObjectStore
-	st              *state.State
 	authorizer      facade.Authorizer
 	getCanWatch     common.GetAuthFunc
 	watcherRegistry facade.WatcherRegistry
@@ -156,7 +153,6 @@ func NewDeployerAPI(
 	statusService StatusService,
 	removalService RemovalService,
 	authorizer facade.Authorizer,
-	st *state.State,
 	store objectstore.ObjectStore,
 	leadershipRevoker leadership.Revoker,
 	watcherRegistry facade.WatcherRegistry,
@@ -184,10 +180,6 @@ func NewDeployerAPI(
 	getCanWatch := func(context.Context) (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	auth, err := getAuthFunc(context.TODO())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	return &DeployerAPI{
 		PasswordChanger:        common.NewPasswordChanger(agentPasswordService, getAuthFunc),
@@ -197,10 +189,8 @@ func NewDeployerAPI(
 		applicationService:     applicationService,
 		removalService:         removalService,
 		leadershipRevoker:      leadershipRevoker,
-		canRead:                auth,
-		canWrite:               auth,
+		getAuth:                getAuthFunc,
 		store:                  store,
-		st:                     st,
 		authorizer:             authorizer,
 		getCanWatch:            getCanWatch,
 		watcherRegistry:        watcherRegistry,
@@ -278,7 +268,7 @@ func (d *DeployerAPI) SetStatus(ctx context.Context, args params.SetStatus) (par
 // embedded APIAddresser *without* bumping the facade version.
 // It should be blanked when this facade version is next incremented.
 func (d *DeployerAPI) ModelUUID() params.StringResult {
-	return params.StringResult{Result: d.st.ModelUUID()}
+	return params.StringResult{Result: ""}
 }
 
 // Life returns the life of the specified units.
@@ -289,13 +279,19 @@ func (d *DeployerAPI) Life(ctx context.Context, args params.Entities) (params.Li
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+	canRead, err := d.getAuth(ctx)
+	if err != nil {
+		return params.LifeResults{}, errors.Trace(err)
+	}
+
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if !d.canRead(tag) {
+
+		if !canRead(tag) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
@@ -323,6 +319,10 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+	canWrite, err := d.getAuth(ctx)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
@@ -330,7 +330,7 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if !d.canWrite(tag) {
+		if !canWrite(tag) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}

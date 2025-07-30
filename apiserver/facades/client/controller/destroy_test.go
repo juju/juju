@@ -13,19 +13,16 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/blockcommand"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // NOTE: the testing of the general model destruction code
@@ -41,8 +38,6 @@ type destroyControllerSuite struct {
 	resources  *common.Resources
 	controller *controller.ControllerAPI
 
-	otherState           *state.State
-	otherModel           *state.Model
 	otherModelOwner      names.UserTag
 	otherModelUUID       string
 	context              facadetest.MultiModelContext
@@ -74,8 +69,6 @@ func (s *destroyControllerSuite) SetUpTest(c *tc.C) {
 	}
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			State_:          s.ControllerModel(c).State(),
-			StatePool_:      s.StatePool(),
 			Resources_:      s.resources,
 			Auth_:           s.authorizer,
 			DomainServices_: s.ControllerDomainServices(c),
@@ -84,23 +77,8 @@ func (s *destroyControllerSuite) SetUpTest(c *tc.C) {
 		DomainServicesForModel_: s.DefaultModelDomainServices(c),
 	}
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
 	s.otherModelOwner = names.NewUserTag("jess@dummy")
-	s.otherState = f.MakeModel(c, &factory.ModelParams{
-		Name:  "dummytoo",
-		Owner: s.otherModelOwner,
-		ConfigAttrs: testing.Attrs{
-			"controller": false,
-		},
-		UUID: s.DefaultModelUUID,
-	})
-	s.AddCleanup(func(c *tc.C) { s.otherState.Close() })
 	s.otherModelUUID = s.DefaultModelUUID.String()
-
-	var err error
-	s.otherModel, err = s.otherState.Model()
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 // controllerAPI sets up and returns a new instance of the controller API,
@@ -110,10 +88,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 	stdCtx := c.Context()
 	ctx := s.context
 	var (
-		st             = ctx.State()
 		authorizer     = ctx.Auth()
-		pool           = ctx.StatePool()
-		resources      = ctx.Resources()
 		domainServices = ctx.DomainServices()
 	)
 
@@ -197,10 +172,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
-		st,
-		pool,
 		authorizer,
-		resources,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
@@ -258,7 +230,10 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWith
 	})
 	c.Assert(err, tc.ErrorMatches, "found blocks in controller models")
 
-	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Alive)
+	ctrlLife, err := s.ControllerDomainServices(c).Model().GetModelLife(c.Context(),
+		coremodel.UUID(s.ControllerModelUUID()))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctrlLife, tc.Equals, life.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *tc.C) {
@@ -303,41 +278,27 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	domainServices := s.DefaultModelDomainServices(c)
 	s.mockModelService.EXPECT().ListModelUUIDs(gomock.Any()).Return(
 		[]coremodel.UUID{
 			coremodel.UUID(s.ControllerUUID),
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
-	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
-
-	err := model.DestroyModel(
-		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), s.mockModelInfoService,
-		nil, nil, nil, nil,
-	)
-	c.Assert(err, tc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
+	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
 	c.Assert(err, tc.ErrorMatches, "found blocks in controller models")
-	c.Assert(s.ControllerModel(c).Life(), tc.Equals, state.Alive)
+	ctrlLife, err := s.ControllerDomainServices(c).Model().GetModelLife(c.Context(), coremodel.UUID(s.ControllerModelUUID()))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctrlLife, tc.Equals, life.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	domainServices := s.DefaultModelDomainServices(c)
 
-	err := model.DestroyModel(
-		c.Context(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
-		domainServices.BlockCommand(), domainServices.ModelInfo(),
-		nil, nil, nil, nil,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
@@ -347,7 +308,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 			coremodel.UUID(s.otherModelUUID),
 		}, nil,
 	)
-	err = s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
+	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
 	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
 
 	numBlocks, err := domainServices.BlockCommand().GetBlocks(c.Context())

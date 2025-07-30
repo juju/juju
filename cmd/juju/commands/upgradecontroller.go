@@ -204,7 +204,7 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *upgradeControllerCommand) uploadTools(
-	ctx context.Context, modelUpgrader ModelUpgraderAPI, buildAgent bool, agentVersion semversion.Number, dryRun bool,
+	ctx context.Context, modelUpgrader ModelUpgraderAPI, buildAgent, officialOnly bool, agentVersion semversion.Number, dryRun bool,
 ) (targetVersion semversion.Number, err error) {
 	builtTools, err := sync.BuildAgentTarball(
 		buildAgent, "upgrade",
@@ -222,8 +222,12 @@ func (c *upgradeControllerCommand) uploadTools(
 	}
 	defer os.RemoveAll(builtTools.Dir)
 
+	if !builtTools.Official && officialOnly {
+		return targetVersion, errors.NotSupportedf("non official build")
+	}
+
 	if dryRun {
-		logger.Debugf(context.TODO(), "dryrun, skipping upload agent binary")
+		logger.Debugf(ctx, "dryrun, skipping upload agent binary")
 		return targetVersion, nil
 	}
 
@@ -231,7 +235,7 @@ func (c *upgradeControllerCommand) uploadTools(
 	uploadToolsVersion.Number = targetVersion
 
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
-	logger.Infof(context.TODO(), "uploading agent binary %v (%dkB) to Juju controller", targetVersion, (builtTools.Size+512)/1024)
+	logger.Infof(ctx, "uploading agent binary %v (%dkB) to Juju controller", targetVersion, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)
 	if err != nil {
 		return targetVersion, errors.Trace(err)
@@ -253,26 +257,26 @@ func (c *upgradeControllerCommand) upgradeWithTargetVersion(
 	if err == nil {
 		// All good!
 		// Upgraded to the provided target version.
-		logger.Debugf(context.TODO(), "upgraded to the provided target version %q", targetVersion)
+		logger.Debugf(ctx, "upgraded to the provided target version %q", targetVersion)
 		return chosenVersion, nil
 	}
-	if !errors.Is(err, errors.NotFound) {
+	if !errors.Is(err, errors.NotFound) && !errors.Is(err, errUpToDate) {
 		return chosenVersion, err
 	}
 
 	// If target version is the current local binary version, then try to upload.
 	canImplicitUpload := CheckCanImplicitUpload(
-		modelType, isOfficialClient(), jujuversion.Current, agentVersion,
+		ctx, modelType, isOfficialClient(), jujuversion.Current, jujuversion.Grade, agentVersion,
 	)
 	if !canImplicitUpload {
 		// expecting to upload a local binary but we are not allowed to upload, so pretend there
 		// is no more recent version available.
-		logger.Debugf(context.TODO(), "no available binary found, and we are not allowed to upload, err %v", err)
+		logger.Debugf(ctx, "no available binary found, and we are not allowed to upload, err %v", err)
 		return chosenVersion, errUpToDate
 	}
 
 	if targetVersion.Compare(jujuversion.Current.ToPatch()) != 0 {
-		logger.Warningf(context.TODO(),
+		logger.Warningf(ctx,
 			"try again with --agent-version=%s if you want to upgrade using the local packaged jujud from the snap",
 			jujuversion.Current.ToPatch(),
 		)
@@ -280,7 +284,7 @@ func (c *upgradeControllerCommand) upgradeWithTargetVersion(
 	}
 
 	// found a best target version but a local binary is required to be uploaded.
-	if chosenVersion, err = c.uploadTools(ctx, modelUpgrader, false, agentVersion, dryRun); err != nil {
+	if chosenVersion, err = c.uploadTools(ctx, modelUpgrader, false, true, agentVersion, dryRun); err != nil {
 		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
 	}
 	fmt.Fprintf(ctx.Stdout,
@@ -319,7 +323,7 @@ func (c *upgradeControllerCommand) upgradeController(
 			err = nil
 		}
 		if err != nil {
-			logger.Debugf(context.TODO(), "upgradeController failed %v", err)
+			logger.Debugf(ctx, "upgradeController failed %v", err)
 		}
 	}()
 
@@ -350,7 +354,7 @@ func (c *upgradeControllerCommand) upgradeController(
 		return errors.New("incomplete model configuration")
 	}
 
-	if c.Version == agentVersion {
+	if c.Version == agentVersion && jujuversion.Grade != jujuversion.GradeDevel {
 		return errUpToDate
 	}
 
@@ -369,7 +373,7 @@ func (c *upgradeControllerCommand) upgradeController(
 		return err
 	}
 	if c.BuildAgent {
-		if targetVersion, err = c.uploadTools(ctx, modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+		if targetVersion, err = c.uploadTools(ctx, modelUpgrader, c.BuildAgent, false, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := " (built from source)"
@@ -390,7 +394,7 @@ func (c *upgradeControllerCommand) upgradeController(
 	if err == nil {
 		// All good!
 		// Upgraded to a next stable version or the newest stable version.
-		logger.Debugf(context.TODO(), "upgraded to a next version or latest stable version")
+		logger.Debugf(ctx, "upgraded to a next version or latest stable version")
 		return nil
 	}
 	if errors.Is(err, errors.NotFound) {
@@ -424,29 +428,31 @@ func (c *upgradeControllerCommand) notifyControllerUpgrade(
 var CheckCanImplicitUpload = checkCanImplicitUpload
 
 func checkCanImplicitUpload(
+	ctx context.Context,
 	modelType model.ModelType, isOfficialClient bool,
-	clientVersion, agentVersion semversion.Number,
+	clientVersion semversion.Number, clientGrade string, agentVersion semversion.Number,
 ) bool {
 	if modelType != model.IAAS {
-		logger.Tracef(context.TODO(), "the model is not IAAS model")
+		logger.Tracef(ctx, "the model is not IAAS model")
 		return false
 	}
 
 	if !isOfficialClient {
-		logger.Tracef(context.TODO(), "the client is not an official client")
+		logger.Tracef(ctx, "the client is not an official client")
 		// For non official (under $GOPATH) client, always use --build-agent explicitly.
 		return false
 	}
 	newerClient := clientVersion.Compare(agentVersion.ToPatch()) >= 0
-	if !newerClient {
-		logger.Tracef(context.TODO(),
+	if !newerClient && clientGrade != jujuversion.GradeDevel {
+		logger.Tracef(ctx,
 			"the client version(%s) is not newer than agent version(%s)",
 			clientVersion, agentVersion.ToPatch(),
 		)
 		return false
 	}
 
-	if agentVersion.Build > 0 || clientVersion.Build > 0 {
+	logger.Tracef(ctx, "the client version(%s) the agent version(%s)", clientVersion, agentVersion)
+	if agentVersion.Build > 0 || clientVersion.Build > 0 || clientGrade == jujuversion.GradeDevel {
 		return true
 	}
 	return false

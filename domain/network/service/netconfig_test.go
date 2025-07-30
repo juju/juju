@@ -14,7 +14,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
-	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -40,73 +39,6 @@ func (s *netConfigSuite) service(c *tc.C) *Service {
 
 func TestNetConfigSuite(t *testing.T) {
 	tc.Run(t, &netConfigSuite{})
-}
-
-func (s *netConfigSuite) TestImportLinkLayerDevices(c *tc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	netNodeUUID := uuid.MustNewUUID().String()
-	nameMap := map[string]string{
-		"88": netNodeUUID,
-	}
-	args := []internal.ImportLinkLayerDevice{
-		{MachineID: "88"},
-	}
-	expectedArgs := args
-	expectedArgs[0].NetNodeUUID = netNodeUUID
-	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), args).Return(nil)
-
-	// Act
-	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
-
-	// Assert:
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *netConfigSuite) TestImportLinkLayerDevicesMachines(c *tc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nil, errors.New("boom"))
-	args := []internal.ImportLinkLayerDevice{
-		{
-			MachineID: "88",
-		},
-	}
-
-	// Act
-	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
-
-	// Assert: error from AllMachinesAndNetNodes returned.
-	c.Assert(err, tc.ErrorMatches, "boom")
-}
-
-func (s *netConfigSuite) TestImportLinkLayerDevicesNoContent(c *tc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-
-	// Act
-	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), []internal.ImportLinkLayerDevice{})
-
-	// Assert: no failure if no data provided.
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *netConfigSuite) TestDeleteImportedLinkLayerDevices(c *tc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	s.st.EXPECT().DeleteImportedLinkLayerDevices(gomock.Any()).Return(errors.New("boom"))
-
-	// Act
-	err := s.migrationService(c).DeleteImportedLinkLayerDevices(c.Context())
-
-	// Assert: the error from DeleteImportedLinkLayerDevices is passed
-	// through to the caller.
-	c.Assert(err, tc.ErrorMatches, "boom")
-}
-
-func (s *netConfigSuite) migrationService(c *tc.C) *MigrationService {
-	return NewMigrationService(s.st, loggertesting.WrapCheckLog(c))
 }
 
 func (s *netConfigSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {

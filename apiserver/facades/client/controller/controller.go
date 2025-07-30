@@ -42,7 +42,6 @@ import (
 	interrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ModelExporter exports a model to a description.Model.
@@ -64,11 +63,8 @@ type ControllerAPI struct {
 	*common.ControllerConfigAPI
 	*commonmodel.ModelStatusAPI
 
-	state                       Backend
-	statePool                   *state.StatePool
 	authorizer                  facade.Authorizer
 	apiUser                     names.UserTag
-	resources                   facade.Resources
 	controllerConfigService     ControllerConfigService
 	accessService               ControllerAccessService
 	modelService                ModelService
@@ -101,10 +97,7 @@ var LatestAPI = makeControllerAPI
 // on a controller.
 func NewControllerAPI(
 	ctx context.Context,
-	st *state.State,
-	pool *state.StatePool,
 	authorizer facade.Authorizer,
-	resources facade.Resources,
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
@@ -138,11 +131,6 @@ func NewControllerAPI(
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			controllerConfigService,
@@ -151,8 +139,8 @@ func NewControllerAPI(
 			modelService,
 		),
 		ModelStatusAPI: commonmodel.NewModelStatusAPI(
-			commonmodel.NewModelManagerBackend(model, pool),
 			controllerUUID,
+			controllerModelUUID.String(),
 			modelService,
 			func(ctx context.Context, uuid coremodel.UUID) (commonmodel.MachineService, error) {
 				return machineServiceGetter(ctx, uuid)
@@ -163,11 +151,8 @@ func NewControllerAPI(
 			authorizer,
 			apiUser,
 		),
-		state:                       st,
-		statePool:                   pool,
 		authorizer:                  authorizer,
 		apiUser:                     apiUser,
-		resources:                   resources,
 		logger:                      logger,
 		controllerConfigService:     controllerConfigService,
 		accessService:               accessService,
@@ -580,6 +565,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		User:            authTag.Id(),
 		Password:        specTarget.Password,
 		Macaroons:       macs,
+		SkipUserChecks:  specTarget.SkipUserChecks,
 		Token:           specTarget.Token,
 	}
 
@@ -775,12 +761,14 @@ func (c *ControllerAPI) runMigrationPrechecks(
 	}
 	defer targetConn.Close()
 
-	dstUserList, err := getTargetControllerUsers(ctx, targetConn)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
-		return errors.Trace(err)
+	if !targetInfo.SkipUserChecks {
+		dstUserList, err := getTargetControllerUsers(ctx, targetConn)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	client := migrationtarget.NewClient(targetConn)

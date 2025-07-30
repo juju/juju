@@ -34,7 +34,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
@@ -52,7 +52,7 @@ func (s *applicationSuite) TestRemoveApplicationForceNoWaitSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC()).Return(nil)
@@ -70,7 +70,7 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSuccess(c *tc.C) {
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(nil, nil, nil)
 
@@ -90,7 +90,7 @@ func (s *applicationSuite) TestRemoveApplicationNotFound(c *tc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().ApplicationExists(gomock.Any(), appUUID.String()).Return(false, nil)
+	s.modelState.EXPECT().ApplicationExists(gomock.Any(), appUUID.String()).Return(false, nil)
 
 	_, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -104,7 +104,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnits(c *tc.C)
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return([]string{"unit-1", "unit-2"}, nil, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
@@ -128,7 +128,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithMachines(c *tc
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(nil, []string{"machine-1", "machine-2"}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
@@ -160,7 +160,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationNotFound(c *tc.C) {
 
 	j := newApplicationJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(-1, applicationerrors.ApplicationNotFound)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
@@ -173,7 +173,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationError(c *tc.C) {
 
 	j := newApplicationJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(-1, errors.Errorf("the front fell off"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -185,7 +185,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationStillAlive(c *tc.C) {
 
 	j := newApplicationJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Alive, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -197,7 +197,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 
 	j := newApplicationJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
@@ -211,7 +211,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplicationErr
 
 	j := newApplicationJob(c)
 
-	exp := s.state.EXPECT()
+	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
 

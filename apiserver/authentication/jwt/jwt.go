@@ -54,28 +54,22 @@ type PermissionDelegator struct {
 	Token jwt.Token
 }
 
-// TokenEntity represents the entity found within a JWT token and conforms to
-// state.Entity
-type TokenEntity struct {
-	User names.UserTag
-}
-
 // Authenticate implements EntityAuthenticator
-func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, TokenEntity, error) {
+func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, names.Tag, error) {
 	token, err := j.parser.Parse(ctx, tok)
 	if err != nil {
 		// Return a not implemented error if the parser is not configured.
 		// so that other authenticators are tried by the API server.
 		if errors.Is(err, errors.NotProvisioned) {
-			return nil, TokenEntity{}, errors.Trace(errors.NotImplemented)
+			return nil, nil, errors.Trace(errors.NotImplemented)
 		}
-		return nil, TokenEntity{}, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	entity, err := userFromToken(token)
+	userTag, err := userFromToken(token)
 	if err != nil {
-		return nil, TokenEntity{}, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return token, entity, nil
+	return token, userTag, nil
 }
 
 // Authenticate implements EntityAuthenticator
@@ -96,13 +90,13 @@ func (j *JWTAuthenticator) Authenticate(req *http.Request) (authentication.AuthI
 		return authentication.AuthInfo{}, errors.NotFoundf("authorization header format")
 	}
 
-	token, entity, err := j.Parse(req.Context(), rawToken)
+	token, userTag, err := j.Parse(req.Context(), rawToken)
 	if err != nil {
 		return authentication.AuthInfo{}, fmt.Errorf("parsing jwt: %w", err)
 	}
 
 	return authentication.AuthInfo{
-		Entity:    entity,
+		Tag:       userTag,
 		Delegator: &PermissionDelegator{token},
 	}, nil
 }
@@ -118,20 +112,15 @@ func (j *JWTAuthenticator) AuthenticateLoginRequest(
 		return authentication.AuthInfo{}, fmt.Errorf("auth token %w", errors.NotSupported)
 	}
 
-	token, entity, err := j.Parse(ctx, authParams.Token)
+	token, userTag, err := j.Parse(ctx, authParams.Token)
 	if err != nil {
 		return authentication.AuthInfo{}, fmt.Errorf("parsing login access token: %w", err)
 	}
 
 	return authentication.AuthInfo{
-		Entity:    entity,
+		Tag:       userTag,
 		Delegator: &PermissionDelegator{token},
 	}, nil
-}
-
-// Tag implements state.Entity
-func (t TokenEntity) Tag() names.Tag {
-	return t.User
 }
 
 // SubjectPermissions implements PermissionDelegator
@@ -145,13 +134,13 @@ func (p *PermissionDelegator) SubjectPermissions(
 		// The everyone@external will be never included in the JWT token at least for now.
 		return permission.NoAccess, nil
 	}
-	tokenEntity, err := userFromToken(p.Token)
+	userTag, err := userFromToken(p.Token)
 	if err != nil {
 		return permission.NoAccess, errors.Trace(err)
 	}
 	// We need to make very sure that the entity the request pertains to
 	// is the same entity this function was seeded with.
-	if tokenEntity.Tag().String() != names.NewUserTag(userName).String() {
+	if userTag.String() != names.NewUserTag(userName).String() {
 		err = fmt.Errorf(
 			"%w to use token permissions for one entity on another",
 			apiservererrors.ErrPerm,
@@ -173,12 +162,12 @@ func (p *PermissionDelegator) PermissionError(
 	}
 }
 
-func userFromToken(token jwt.Token) (TokenEntity, error) {
+func userFromToken(token jwt.Token) (names.UserTag, error) {
 	userTag, err := names.ParseUserTag(token.Subject())
 	if err != nil {
-		return TokenEntity{}, errors.Annotate(err, "invalid user tag in authToken")
+		return names.UserTag{}, errors.Annotate(err, "invalid user tag in authToken")
 	}
-	return TokenEntity{userTag}, nil
+	return userTag, nil
 }
 
 // PermissionFromToken will extract the permission a jwt token has for the

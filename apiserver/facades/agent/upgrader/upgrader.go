@@ -27,7 +27,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ControllerConfigGetter defines a method for getting the controller config.
@@ -56,7 +55,6 @@ type MachineService interface {
 type UpgraderAPI struct {
 	*common.ToolsGetter
 
-	st              *state.State
 	authorizer      facade.Authorizer
 	logger          corelogger.Logger
 	watcherRegistry facade.WatcherRegistry
@@ -69,7 +67,6 @@ type UpgraderAPI struct {
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
 func NewUpgraderAPI(
 	toolsGetter *common.ToolsGetter,
-	st *state.State,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	watcherRegistry facade.WatcherRegistry,
@@ -79,7 +76,6 @@ func NewUpgraderAPI(
 ) *UpgraderAPI {
 	return &UpgraderAPI{
 		ToolsGetter:           toolsGetter,
-		st:                    st,
 		authorizer:            authorizer,
 		logger:                logger,
 		watcherRegistry:       watcherRegistry,

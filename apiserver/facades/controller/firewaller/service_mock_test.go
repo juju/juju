@@ -492,6 +492,45 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
+// AllMachineNames mocks base method.
+func (m *MockMachineService) AllMachineNames(arg0 context.Context) ([]machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachineNames", arg0)
+	ret0, _ := ret[0].([]machine.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachineNames indicates an expected call of AllMachineNames.
+func (mr *MockMachineServiceMockRecorder) AllMachineNames(arg0 any) *MockMachineServiceAllMachineNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachineNames", reflect.TypeOf((*MockMachineService)(nil).AllMachineNames), arg0)
+	return &MockMachineServiceAllMachineNamesCall{Call: call}
+}
+
+// MockMachineServiceAllMachineNamesCall wrap *gomock.Call
+type MockMachineServiceAllMachineNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceAllMachineNamesCall) Return(arg0 []machine.Name, arg1 error) *MockMachineServiceAllMachineNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceAllMachineNamesCall) Do(f func(context.Context) ([]machine.Name, error)) *MockMachineServiceAllMachineNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceAllMachineNamesCall) DoAndReturn(f func(context.Context) ([]machine.Name, error)) *MockMachineServiceAllMachineNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetHardwareCharacteristics mocks base method.
 func (m *MockMachineService) GetHardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
@@ -688,6 +727,45 @@ func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetSupportedContainersTypes mocks base method.
+func (m *MockMachineService) GetSupportedContainersTypes(arg0 context.Context, arg1 machine.UUID) ([]instance.ContainerType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSupportedContainersTypes", arg0, arg1)
+	ret0, _ := ret[0].([]instance.ContainerType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSupportedContainersTypes indicates an expected call of GetSupportedContainersTypes.
+func (mr *MockMachineServiceMockRecorder) GetSupportedContainersTypes(arg0, arg1 any) *MockMachineServiceGetSupportedContainersTypesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSupportedContainersTypes", reflect.TypeOf((*MockMachineService)(nil).GetSupportedContainersTypes), arg0, arg1)
+	return &MockMachineServiceGetSupportedContainersTypesCall{Call: call}
+}
+
+// MockMachineServiceGetSupportedContainersTypesCall wrap *gomock.Call
+type MockMachineServiceGetSupportedContainersTypesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceGetSupportedContainersTypesCall) Return(arg0 []instance.ContainerType, arg1 error) *MockMachineServiceGetSupportedContainersTypesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceGetSupportedContainersTypesCall) Do(f func(context.Context, machine.UUID) ([]instance.ContainerType, error)) *MockMachineServiceGetSupportedContainersTypesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceGetSupportedContainersTypesCall) DoAndReturn(f func(context.Context, machine.UUID) ([]instance.ContainerType, error)) *MockMachineServiceGetSupportedContainersTypesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsMachineManuallyProvisioned mocks base method.
 func (m *MockMachineService) IsMachineManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (bool, error) {
 	m.ctrl.T.Helper()
@@ -723,6 +801,45 @@ func (c *MockMachineServiceIsMachineManuallyProvisionedCall) Do(f func(context.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceIsMachineManuallyProvisionedCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceIsMachineManuallyProvisionedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchModelMachineLifeAndStartTimes mocks base method.
+func (m *MockMachineService) WatchModelMachineLifeAndStartTimes(arg0 context.Context) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchModelMachineLifeAndStartTimes", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchModelMachineLifeAndStartTimes indicates an expected call of WatchModelMachineLifeAndStartTimes.
+func (mr *MockMachineServiceMockRecorder) WatchModelMachineLifeAndStartTimes(arg0 any) *MockMachineServiceWatchModelMachineLifeAndStartTimesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachineLifeAndStartTimes", reflect.TypeOf((*MockMachineService)(nil).WatchModelMachineLifeAndStartTimes), arg0)
+	return &MockMachineServiceWatchModelMachineLifeAndStartTimesCall{Call: call}
+}
+
+// MockMachineServiceWatchModelMachineLifeAndStartTimesCall wrap *gomock.Call
+type MockMachineServiceWatchModelMachineLifeAndStartTimesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceWatchModelMachineLifeAndStartTimesCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockMachineServiceWatchModelMachineLifeAndStartTimesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceWatchModelMachineLifeAndStartTimesCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineServiceWatchModelMachineLifeAndStartTimesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceWatchModelMachineLifeAndStartTimesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineServiceWatchModelMachineLifeAndStartTimesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

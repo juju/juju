@@ -55,7 +55,7 @@ type ModelService interface {
 type ModelStatusAPI struct {
 	authorizer        facade.Authorizer
 	apiUser           names.UserTag
-	backend           ModelManagerBackend
+	modelTag          names.ModelTag
 	controllerTag     names.ControllerTag
 	modelService      ModelService
 	getMachineService MachineServiceGetter
@@ -64,8 +64,8 @@ type ModelStatusAPI struct {
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
 func NewModelStatusAPI(
-	backend ModelManagerBackend,
 	controllerUUID string,
+	modelUUID string,
 	modelService ModelService,
 	getMachineService MachineServiceGetter,
 	getStatusService StatusServiceGetter,
@@ -73,11 +73,12 @@ func NewModelStatusAPI(
 	apiUser names.UserTag,
 ) *ModelStatusAPI {
 	controllerTag := names.NewControllerTag(controllerUUID)
+	modelTag := names.NewModelTag(modelUUID)
 	return &ModelStatusAPI{
 		authorizer:        authorizer,
 		apiUser:           apiUser,
-		backend:           backend,
 		controllerTag:     controllerTag,
+		modelTag:          modelTag,
 		modelService:      modelService,
 		getMachineService: getMachineService,
 		getStatusService:  getStatusService,
@@ -114,11 +115,9 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		return status, apiservererrors.ErrPerm
 	}
 
-	st := c.backend
-
 	modelUUID := coremodel.UUID(modelTag.Id())
 
-	if modelTag != c.backend.ModelTag() {
+	if modelTag != c.modelTag {
 		modelRedirection, err := c.modelService.ModelRedirection(ctx, modelUUID)
 		if err == nil {
 			hps, mErr := network.ParseProviderHostPorts(modelRedirection.Addresses...)
@@ -131,20 +130,14 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 				ControllerTag:   names.NewControllerTag(modelRedirection.ControllerUUID),
 				ControllerAlias: modelRedirection.ControllerAlias,
 			}
-		} else if err != nil && !errors.Is(err, modelerrors.ModelNotRedirected) {
+		} else if !errors.Is(err, modelerrors.ModelNotRedirected) {
 			return status, errors.Trace(err)
 		}
-
-		otherSt, releaser, err := c.backend.GetBackend(modelTag.Id())
-		if err != nil {
-			return status, errors.Trace(err)
-		}
-		defer releaser()
-		st = otherSt
 	}
 
-	// TODO: update model DB drop detection logic. Currently, statusService.GetModelStatusInfo does not
-	// return NotFound because model data is read from the cache within the same DB connection.
+	// TODO: update model DB drop detection logic. Currently,
+	// statusService.GetModelStatusInfo does not return NotFound because model
+	// data is read from the cache within the same DB connection.
 	statusService, err := c.getStatusService(ctx, modelUUID)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -179,22 +172,16 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	modelMachines, err := ModelMachineInfo(ctx, st, machineService, statusService)
+	modelMachines, err := ModelMachineInfo(ctx, machineService, statusService)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
-	volumes, err := st.AllVolumes()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	modelVolumes := ModelVolumeInfo(volumes)
+	// TODO(gfouillet) - 2025-07-25: Implements listing volume from domain dqlite
+	var modelVolumes []params.ModelVolumeInfo
 
-	filesystems, err := st.AllFilesystems()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	modelFilesystems := ModelFilesystemInfo(filesystems)
+	// TODO(gfouillet) - 2025-07-25: Implements listing filesystem from domain dqlite
+	var modelFilesystems []params.ModelFilesystemInfo
 
 	// TODO: add life and qualifier values when they are supported in model DB
 	result := params.ModelStatus{

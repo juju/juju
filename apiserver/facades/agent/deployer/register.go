@@ -27,7 +27,6 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
 	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
@@ -44,7 +43,6 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 		domainServices.Status(),
 		domainServices.Removal(),
 		authorizer,
-		st,
 		ctx.ObjectStore(),
 		leadershipRevoker,
 		watcherRegistry,

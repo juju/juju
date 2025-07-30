@@ -22,39 +22,12 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // httpContext provides context for HTTP handlers.
 type httpContext struct {
 	// srv holds the API server instance.
 	srv *Server
-}
-
-// stateForRequestUnauthenticated returns a state instance appropriate for
-// using for the model implicit in the given context supplied from a request
-// without checking any authentication information.
-func (ctxt *httpContext) stateForRequestUnauthenticated(ctx context.Context) (*state.PooledState, error) {
-	modelUUID, valid := httpcontext.RequestModelUUID(ctx)
-	if !valid {
-		return nil, errors.Trace(apiservererrors.ErrPerm)
-	}
-	st, err := ctxt.statePool().Get(modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, nil
-}
-
-// controllerObjectStoreForRequest returns an object store instance
-// appropriate for using for the controller model without checking
-// any authentication information.
-func (ctxt *httpContext) controllerObjectStoreForRequest(ctx context.Context) (objectstore.ObjectStore, error) {
-	st, err := ctxt.statePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(ctx, st.ControllerModelUUID())
 }
 
 // domainServicesForRequest returns a domain services appropriate for using
@@ -79,30 +52,6 @@ func (ctxt *httpContext) objectStoreForRequest(ctx context.Context) (objectstore
 	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID)
 }
 
-// statePool returns the StatePool for this controller.
-func (ctxt *httpContext) statePool() *state.StatePool {
-	return ctxt.srv.shared.statePool
-}
-
-// stateForRequestAuthenticated returns a state instance appropriate for
-// using for the model implicit in the given request.
-// It also returns the authenticated entity.
-func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
-	resultSt *state.PooledState,
-	resultEntity state.Entity,
-	err error,
-) {
-	authInfo, ok := httpcontext.RequestAuthInfo(r.Context())
-	if !ok {
-		return nil, nil, apiservererrors.ErrPerm
-	}
-	st, err := ctxt.stateForRequestUnauthenticated(r.Context())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return st, authInfo.Entity, nil
-}
-
 // checkPermissions verifies that given tag passes authentication check.
 // For example, if only user tags are accepted, all other tags will be denied access.
 func checkPermissions(ctx context.Context, tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error) {
@@ -116,41 +65,41 @@ func checkPermissions(ctx context.Context, tag names.Tag, acceptFunc common.GetA
 	return false, errors.NotValidf("tag kind %v", tag.Kind())
 }
 
-// stateAndEntityForRequestAuthenticatedUser is like stateForRequestAuthenticated
+// authenticatedUserFromRequest is like authenticatedTagFromRequest
 // except that it also verifies that the authenticated entity is a user.
-func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Request) (
-	*state.PooledState, state.Entity, error,
+func (ctxt *httpContext) authenticatedUserFromRequest(r *http.Request) (
+	names.Tag, error,
 ) {
-	return ctxt.stateForRequestAuthenticatedTag(r, names.UserTagKind)
+	return ctxt.authenticatedTagFromRequest(r, names.UserTagKind)
 }
 
-// stateForRequestAuthenticatedAgent is like stateForRequestAuthenticated
+// authenticatedAgentFromRequest is like authenticatedTagFromRequest
 // except that it also verifies that the authenticated entity is an agent.
-func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (
-	*state.PooledState, state.Entity, error,
+func (ctxt *httpContext) authenticatedAgentFromRequest(r *http.Request) (
+	names.Tag, error,
 ) {
-	return ctxt.stateForRequestAuthenticatedTag(r, stateauthenticator.AgentTags...)
+	return ctxt.authenticatedTagFromRequest(r, stateauthenticator.AgentTags...)
 }
 
-// stateForRequestAuthenticatedTag checks that the request is
-// correctly authenticated, and that the authenticated entity making
-// the request is of one of the specified kinds.
-func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds ...string) (
-	*state.PooledState, state.Entity, error,
+// authenticatedTagFromRequest checks that the request is correctly authenticated,
+// and that the authenticated entity making the request is of one of the
+// specified kinds.
+func (ctxt *httpContext) authenticatedTagFromRequest(r *http.Request, kinds ...string) (
+	names.Tag, error,
 ) {
 	funcs := make([]common.GetAuthFunc, len(kinds))
 	for i, kind := range kinds {
 		funcs[i] = common.AuthFuncForTagKind(kind)
 	}
-	st, entity, err := ctxt.stateForRequestAuthenticated(r)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+	authInfo, ok := httpcontext.RequestAuthInfo(r.Context())
+	if !ok {
+		return nil, apiservererrors.ErrPerm
 	}
-	if ok, err := checkPermissions(r.Context(), entity.Tag(), common.AuthAny(funcs...)); !ok {
-		st.Release()
-		return nil, nil, err
+	authTag := authInfo.Tag
+	if ok, err := checkPermissions(r.Context(), authTag, common.AuthAny(funcs...)); !ok {
+		return nil, err
 	}
-	return st, entity, nil
+	return authTag, nil
 }
 
 // domainServicesDuringMigrationForRequest returns the domain services for the
@@ -183,7 +132,7 @@ type tagKindAuthorizer []string
 
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a tagKindAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
-	tagKind := authInfo.Entity.Tag().Kind()
+	tagKind := authInfo.Tag.Kind()
 	for _, kind := range a {
 		if tagKind == kind {
 			return nil
@@ -198,9 +147,9 @@ type controllerAdminAuthorizer struct {
 
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
-	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
-		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
+		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Tag))
 	}
 
 	has, err := common.HasPermission(ctx,
@@ -213,7 +162,7 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 		return errors.Trace(err)
 	}
 	if !has {
-		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Entity.Tag()))
+		return errors.Errorf("%s is not a controller admin", names.ReadableString(authInfo.Tag))
 	}
 	return nil
 }
@@ -226,9 +175,9 @@ type modelPermissionAuthorizer struct {
 
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
-	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
+	userTag, ok := authInfo.Tag.(names.UserTag)
 	if !ok {
-		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
+		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Tag))
 	}
 	if !names.IsValidModel(authInfo.ModelTag.Id()) {
 		return errors.Errorf("%q is not a valid model", authInfo.ModelTag.Id())
@@ -243,7 +192,7 @@ func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authe
 		return errors.Trace(err)
 	}
 	if !has {
-		return errors.Errorf("%s does not have %q permission", names.ReadableString(authInfo.Entity.Tag()), a.perm)
+		return errors.Errorf("%s does not have %q permission", names.ReadableString(authInfo.Tag), a.perm)
 	}
 	return nil
 }

@@ -20,7 +20,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application Backend,Application,CaasBrokerInterface
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
@@ -56,7 +56,6 @@ type baseSuite struct {
 	modelType model.ModelType
 
 	// Legacy types that we're transitioning away from.
-	backend           *MockBackend
 	deployApplication DeployApplicationFunc
 	providerRegistry  *MockProviderRegistry
 	caasBroker        *MockCaasBrokerInterface
@@ -82,7 +81,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.leadershipReader = NewMockLeadership(ctrl)
 	s.deployFromRepo = NewMockDeployFromRepository(ctrl)
 
-	s.backend = NewMockBackend(ctrl)
 	s.providerRegistry = NewMockProviderRegistry(ctrl)
 
 	s.charmRepository = NewMockRepository(ctrl)
@@ -107,10 +105,6 @@ func (s *baseSuite) expectHasIncorrectPermission() {
 
 func (s *baseSuite) expectAnyPermissions() {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-}
-
-func (s *baseSuite) expectAllowBlockChange() {
-	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 }
 
 func (s *baseSuite) expectDisallowBlockChange() {
@@ -139,7 +133,6 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 	s.modelType = modelType
 	var err error
 	s.api, err = NewAPIBase(
-		s.backend,
 		Services{
 			NetworkService:     s.networkService,
 			ModelConfigService: s.modelConfigService,

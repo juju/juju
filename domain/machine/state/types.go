@@ -124,10 +124,6 @@ type machineName struct {
 	Name machine.Name `db:"name"`
 }
 
-type machineUUID struct {
-	UUID string `db:"uuid"`
-}
-
 type machineInstanceUUID struct {
 	MachineUUID string `db:"machine_uuid"`
 	LifeID      int64  `db:"life_id"`
@@ -153,11 +149,19 @@ func (s machineName) nameSliceTransform() machine.Name {
 }
 
 // lxdProfile represents the struct to be used for the sqlair statements on the
-// lxd_profile table.
+// machine_lxd_profile table.
 type lxdProfile struct {
 	MachineUUID string `db:"machine_uuid"`
 	Name        string `db:"name"`
 	Index       int    `db:"array_index"`
+}
+
+// lxdProfileAndName represents data to construct a profile name
+// and the profile itself.
+type lxdProfileAndName struct {
+	AppName    string `db:"name"`
+	LXDProfile []byte `db:"lxd_profile"`
+	Revision   int    `db:"revision"`
 }
 
 type machineNonce struct {
@@ -184,10 +188,6 @@ type machinePlatformUUID struct {
 	OSID           sql.Null[int64]  `db:"os_id"`
 	Channel        sql.Null[string] `db:"channel"`
 	ArchitectureID int              `db:"architecture_id"`
-}
-
-type netNodeUUID struct {
-	NetNodeUUID string `db:"uuid"`
 }
 
 type machineNameWithNetNodeUUID struct {
@@ -225,10 +225,6 @@ type containerType struct {
 type machineContainerType struct {
 	MachineUUID     string `db:"machine_uuid"`
 	ContainerTypeID int    `db:"container_type_id"`
-}
-
-type appName struct {
-	Name string `db:"name"`
 }
 
 type insertMachineAndNetNodeArgs struct {
@@ -333,14 +329,6 @@ type containerTypeID struct {
 
 type containerTypeVal struct {
 	Value string `db:"value"`
-}
-
-type spaceUUID struct {
-	UUID string `db:"uuid"`
-}
-
-type spaceName struct {
-	Name string `db:"name"`
 }
 
 // dbConstraint represents a single row within the v_model_constraint view.
@@ -463,6 +451,10 @@ type dbConstraintZone struct {
 
 type entityUUID struct {
 	UUID string `db:"uuid"`
+}
+
+type entityName struct {
+	Name string `db:"name"`
 }
 
 type sshHostKey struct {

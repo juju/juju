@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -69,9 +68,8 @@ type Networking interface {
 	ProviderSpaceInfo(ctx context.Context, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
 
 	// SupportsContainerAddresses returns true if the current environment is
-	// able to allocate addresses for containers. If returning false, we also
-	// return an IsNotSupported error.
-	SupportsContainerAddresses(ctx context.Context) (bool, error)
+	// able to allocate addresses for containers.
+	SupportsContainerAddresses() bool
 
 	// AllocateContainerAddresses allocates a static address for each of the
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
@@ -79,7 +77,7 @@ type Networking interface {
 	AllocateContainerAddresses(
 		ctx context.Context,
 		hostInstanceID instance.Id,
-		containerTag names.MachineTag,
+		containerName string,
 		preparedInfo network.InterfaceInfos,
 	) (network.InterfaceInfos, error)
 
@@ -131,14 +129,14 @@ type NoContainerAddressesEnviron struct{}
 
 // SupportsContainerAddresses (Networking) indicates that this provider does not
 // support container addresses.
-func (*NoContainerAddressesEnviron) SupportsContainerAddresses(context.Context) (bool, error) {
-	return false, nil
+func (*NoContainerAddressesEnviron) SupportsContainerAddresses() bool {
+	return false
 }
 
 // AllocateContainerAddresses (Networking) indicates that this provider does
 // not support allocating container addresses.
 func (*NoContainerAddressesEnviron) AllocateContainerAddresses(
-	context.Context, instance.Id, names.MachineTag, network.InterfaceInfos,
+	context.Context, instance.Id, string, network.InterfaceInfos,
 ) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("AllocateContainerAddresses")
 }
@@ -157,23 +155,6 @@ func SupportsSpaces(env NetworkingEnviron) bool {
 	if err != nil {
 		if !errors.Is(err, errors.NotSupported) {
 			logger.Errorf(context.TODO(), "checking model spaces support failed with: %v", err)
-		}
-		return false
-	}
-	return ok
-}
-
-// SupportsContainerAddresses checks if the environment will let us allocate
-// addresses for containers from the host ranges.
-func SupportsContainerAddresses(ctx context.Context, env BootstrapEnviron) bool {
-	netEnv, ok := supportsNetworking(env)
-	if !ok {
-		return false
-	}
-	ok, err := netEnv.SupportsContainerAddresses(ctx)
-	if err != nil {
-		if !errors.Is(err, errors.NotSupported) {
-			logger.Errorf(ctx, "checking model container address support failed with: %v", err)
 		}
 		return false
 	}

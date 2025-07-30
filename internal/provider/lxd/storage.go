@@ -290,8 +290,8 @@ func (s *lxdFilesystemSource) createFilesystem(
 	filesystem := storage.Filesystem{
 		Tag: arg.Tag,
 		FilesystemInfo: storage.FilesystemInfo{
-			FilesystemId: filesystemId,
-			Size:         arg.Size,
+			ProviderId: filesystemId,
+			Size:       arg.Size,
 		},
 	}
 	return &filesystem, nil
@@ -473,7 +473,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 		return nil, errors.NotFoundf("instance %q", arg.InstanceId)
 	}
 
-	poolName, volumeName, err := parseFilesystemId(arg.FilesystemId)
+	poolName, volumeName, err := parseFilesystemId(arg.ProviderId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -606,7 +606,7 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 	}
 
 	return storage.FilesystemInfo{
-		FilesystemId: filesystemId,
-		Size:         size,
+		ProviderId: filesystemId,
+		Size:       size,
 	}, nil
 }

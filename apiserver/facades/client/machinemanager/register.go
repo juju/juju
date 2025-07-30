@@ -35,13 +35,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
 	domainServices := ctx.DomainServices()
-
-	backend := &stateShim{
-		State: st,
-	}
-	pool := &poolShim{ctx.StatePool()}
 
 	logger := ctx.Logger().Child("machinemanager")
 
@@ -53,7 +47,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		)
 	}
 
-	storageAccess, err := getStorageState(st, modelType)
+	storageAccess, err := getStorageState(modelType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,16 +69,14 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	}
 
 	return NewMachineManagerAPI(
+		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
-		backend,
 		ctx.ControllerObjectStore(),
 		storageAccess,
-		pool,
 		ModelAuthorizer{
 			ModelTag:   names.NewModelTag(ctx.ModelUUID().String()),
 			Authorizer: ctx.Auth(),
 		},
-		ctx.Resources(),
 		logger,
 		ctx.Clock(),
 		services,

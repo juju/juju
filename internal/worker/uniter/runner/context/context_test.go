@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
 	coresecrets "github.com/juju/juju/core/secrets"
-	status2 "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -206,12 +206,12 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *tc.C) {
 	defer ctrl.Finish()
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	s.unit.EXPECT().SetUnitStatus(gomock.Any(), status2.Maintenance, "doing work", nil).Return(nil)
-	status := jujuc.StatusInfo{
+	s.unit.EXPECT().SetUnitStatus(gomock.Any(), status.Maintenance, "doing work", nil).Return(nil)
+	statusInfo := jujuc.StatusInfo{
 		Status: "maintenance",
 		Info:   "doing work",
 	}
-	err := ctx.SetUnitStatus(c.Context(), status)
+	err := ctx.SetUnitStatus(c.Context(), statusInfo)
 	c.Check(err, tc.ErrorIsNil)
 
 	s.unit.EXPECT().UnitStatus(gomock.Any()).Return(params.StatusResult{
@@ -232,12 +232,12 @@ func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *tc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), tc.IsFalse)
-	status := jujuc.StatusInfo{
+	statusInfo := jujuc.StatusInfo{
 		Status: "maintenance",
 		Info:   "doing work",
 	}
-	s.unit.EXPECT().SetUnitStatus(gomock.Any(), status2.Maintenance, "doing work", nil).Return(nil)
-	err := ctx.SetUnitStatus(c.Context(), status)
+	s.unit.EXPECT().SetUnitStatus(gomock.Any(), status.Maintenance, "doing work", nil).Return(nil)
+	err := ctx.SetUnitStatus(c.Context(), statusInfo)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), tc.IsTrue)
 }

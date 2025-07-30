@@ -14,6 +14,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/containermanager"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
@@ -71,6 +72,33 @@ func (s *Service) DevicesToBridge(
 	return toBridge, errors.Capture(err)
 }
 
+// AllocateContainerAddresses allocates a static address for each of the
+// container NICs in preparedInfo, hosted by the hostInstanceID, if the
+// provider supports it. Returns the network config including all allocated
+// addresses on success.
+// Returns [domainerrors.ContainerAddressesNotSupported] if the provider
+// does not support container addressing.
+func (s *ProviderService) AllocateContainerAddresses(ctx context.Context,
+	hostInstanceID instance.Id,
+	containerName string,
+	preparedInfo corenetwork.InterfaceInfos,
+) (corenetwork.InterfaceInfos, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	provider, err := s.providerWithNetworking(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if !provider.SupportsContainerAddresses() {
+		return nil, domainerrors.ContainerAddressesNotSupported
+	}
+
+	newInfo, err := provider.AllocateContainerAddresses(ctx, hostInstanceID, containerName, preparedInfo)
+	return newInfo, errors.Capture(err)
+}
+
 // DevicesForGuest returns the network devices that should be configured in the
 // guest machine with the input UUID, based on the host machine's bridges.
 func (s *ProviderService) DevicesForGuest(
@@ -122,6 +150,7 @@ func (s *Service) spacesAndDevicesForMachine(
 		return "", nil, nil, errors.Errorf("retrieving NICs for machine %q: %w", hostUUID, err)
 	}
 
+	s.logger.Debugf(ctx, "devices by space for machine %q: %#v", guestUUID, nics)
 	return nodeUUID, spaceUUIDs, nics, nil
 }
 
@@ -326,7 +355,7 @@ func (s *ProviderService) guestDevices(
 	// each device's address will be obtained downstream, and we indicate
 	// that said address is configured statically.
 	configMethod := corenetwork.ConfigDHCP
-	if providerAllocatesAddress, _ := networkingProvider.SupportsContainerAddresses(ctx); providerAllocatesAddress {
+	if networkingProvider.SupportsContainerAddresses() {
 		configMethod = corenetwork.ConfigStatic
 	}
 

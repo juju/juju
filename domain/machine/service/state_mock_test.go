@@ -21,6 +21,7 @@ import (
 	constraints "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
 	machine0 "github.com/juju/juju/domain/machine"
+	internal "github.com/juju/juju/domain/machine/internal"
 	statushistory "github.com/juju/juju/internal/statushistory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -511,6 +512,45 @@ func (c *MockStateGetInstanceIDAndNameCall) Do(f func(context.Context, string) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetInstanceIDAndNameCall) DoAndReturn(f func(context.Context, string) (string, string, error)) *MockStateGetInstanceIDAndNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetLXDProfilesForMachine mocks base method.
+func (m *MockState) GetLXDProfilesForMachine(ctx context.Context, mName string) ([]internal.CreateLXDProfileDetails, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLXDProfilesForMachine", ctx, mName)
+	ret0, _ := ret[0].([]internal.CreateLXDProfileDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLXDProfilesForMachine indicates an expected call of GetLXDProfilesForMachine.
+func (mr *MockStateMockRecorder) GetLXDProfilesForMachine(ctx, mName any) *MockStateGetLXDProfilesForMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLXDProfilesForMachine", reflect.TypeOf((*MockState)(nil).GetLXDProfilesForMachine), ctx, mName)
+	return &MockStateGetLXDProfilesForMachineCall{Call: call}
+}
+
+// MockStateGetLXDProfilesForMachineCall wrap *gomock.Call
+type MockStateGetLXDProfilesForMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetLXDProfilesForMachineCall) Return(arg0 []internal.CreateLXDProfileDetails, arg1 error) *MockStateGetLXDProfilesForMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetLXDProfilesForMachineCall) Do(f func(context.Context, string) ([]internal.CreateLXDProfileDetails, error)) *MockStateGetLXDProfilesForMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetLXDProfilesForMachineCall) DoAndReturn(f func(context.Context, string) ([]internal.CreateLXDProfileDetails, error)) *MockStateGetLXDProfilesForMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

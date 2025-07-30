@@ -1224,6 +1224,31 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	c.Assert(netNodeUUID, tc.SameContents, []string{"machine-net-node-uuid"})
 }
 
+func (s *unitStateSuite) GetAllUnitCloudContainerIDsForApplication(c *tc.C) {
+	appID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "a",
+		},
+	}, application.AddCAASUnitArg{
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "b",
+		},
+	})
+
+	_ = s.createCAASApplication(c, "bar", life.Alive, application.AddCAASUnitArg{
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "c",
+		},
+	})
+
+	result, err := s.state.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, map[coreunit.Name]string{
+		"foo/0": "a",
+		"foo/1": "b",
+	})
+}
+
 type applicationSpace struct {
 	SpaceName    string `db:"space"`
 	SpaceExclude bool   `db:"exclude"`
@@ -1360,7 +1385,8 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	s.assertUnitPrincipal(c, pUnitName, sUnitName)
 	s.assertUnitMachinesMatch(c, pUnitName, sUnitName)
 
-	c.Assert(machineNames, tc.HasLen, 0)
+	c.Assert(machineNames, tc.HasLen, 1)
+	c.Check(machineNames[0], tc.Equals, coremachine.Name("0"))
 }
 
 // TestAddIAASSubordinateUnitSecondSubordinate tests that a second subordinate unit
@@ -1394,7 +1420,8 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitSecondSubordinate(
 	s.assertUnitPrincipal(c, pUnitName2, sUnitName2)
 	s.assertUnitMachinesMatch(c, pUnitName2, sUnitName2)
 
-	c.Assert(machineNames, tc.HasLen, 0)
+	c.Assert(machineNames, tc.HasLen, 1)
+	c.Check(machineNames[0], tc.Equals, coremachine.Name("1"))
 }
 
 func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitTwiceToSameUnit(c *tc.C) {

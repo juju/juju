@@ -125,11 +125,25 @@ type WriteObjectStore interface {
 	Put(ctx context.Context, path string, r io.Reader, size int64) (UUID, error)
 
 	// PutAndCheckHash stores data from reader at path, namespaced to the model.
-	// It also ensures the stored data has the correct sha384
-	// The following errors can be expected:
-	// - [ErrHashMismatch] when the binary data hash does not match that of the sha384 sum.
+	// It also ensures the stored data has the correct sha384.
 	PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, sha384 string) (UUID, error)
 
 	// Remove removes data at path, namespaced to the model.
 	Remove(ctx context.Context, path string) error
+}
+
+// ObjectStoreRemover is an interface that provides a method to remove all
+// data for the namespaced model. It is destructive and should be used with
+// caution. No objects will be retrievable after this call. This is expected
+// to be used when the model is being removed or when the object store has
+// been drained and is no longer needed.
+//
+// It is typically implemented by object stores that support the
+// RemoveAll method.
+type ObjectStoreRemover interface {
+	// RemoveAll removes all data for the namespaced model. It is destructive
+	// and should be used with caution. No objects will be retrievable after
+	// this call. This is expected to be used when the model is being removed or
+	// when the object store has been drained and is no longer needed.
+	RemoveAll(ctx context.Context) error
 }

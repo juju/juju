@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
-	"github.com/juju/juju/state"
 )
 
 type workerFixture struct {
@@ -83,7 +82,6 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 		LocalMacaroonAuthenticator:        s.authenticator,
 		Clock:                             s.clock,
 		Mux:                               s.mux,
-		StatePool:                         &state.StatePool{},
 		LeaseManager:                      s.leaseManager,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		UpgradeComplete:                   func() bool { return true },
@@ -142,9 +140,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.Mux = nil },
 		"nil Mux not valid",
-	}, {
-		func(cfg *apiserver.Config) { cfg.StatePool = nil },
-		"nil StatePool not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.MetricsCollector = nil },
 		"nil MetricsCollector not valid",

@@ -6,8 +6,10 @@ package service
 import (
 	"context"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/life"
@@ -19,6 +21,26 @@ import (
 // FilesystemState defines the interface required for performing filesystem
 // provisioning operations in the model.
 type FilesystemState interface {
+	// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
+	// supplied filesystem id.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
+	// exists for the provided filesystem id.
+	GetFilesystem(ctx context.Context, filesystemID string) (storageprovisioning.Filesystem, error)
+
+	// GetFilesystemAttachment retrieves the [storageprovisioning.FilesystemAttachment]
+	// for the supplied net node uuid and filesystem id.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem attachment
+	// exists for the provided filesystem id.
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists for
+	// the provided filesystem id.
+	GetFilesystemAttachment(
+		ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID, filesystemID string,
+	) (storageprovisioning.FilesystemAttachment, error)
+
 	// GetFilesystemAttachmentIDs returns the
 	// [storageprovisioning.FilesystemAttachmentID] information for each
 	// filesystem attachment uuid supplied. If a uuid does not exist or isn't
@@ -77,6 +99,77 @@ type FilesystemState interface {
 	// filesystem attachment is model provisioned and the initial query for
 	// getting the current set of model provisioned filesystem attachments.
 	InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery)
+
+	// GetFilesystemTemplatesForApplication returns all the filesystem templates for
+	// a given application.
+	GetFilesystemTemplatesForApplication(context.Context, coreapplication.ID) ([]storageprovisioning.FilesystemTemplate, error)
+}
+
+// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
+// supplied filesystem id.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem
+// exists for the provided filesystem id.
+func (s *Service) GetFilesystem(
+	ctx context.Context,
+	filesystemID string,
+) (storageprovisioning.Filesystem, error) {
+	return s.st.GetFilesystem(ctx, filesystemID)
+}
+
+// GetFilesystemAttachmentForUnit retrieves the [storageprovisioning.FilesystemAttachment]
+// for the supplied unit uuid and filesystem id.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+// is not valid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+// unit exists for the supplied unit uuid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
+// exists for the provided filesystem id.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
+// the provided filesystem id.
+func (s *Service) GetFilesystemAttachmentForUnit(
+	ctx context.Context,
+	unitUUID unit.UUID,
+	filesystemID string,
+) (storageprovisioning.FilesystemAttachment, error) {
+	if err := unitUUID.Validate(); err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+	return s.st.GetFilesystemAttachment(ctx, netNodeUUID, filesystemID)
+}
+
+// GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
+// for the supplied net node uuid and filesystem id.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
+// is not valid.
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+// machine exists for the provided machine UUUID.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
+// exists for the provided filesystem id.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
+// the provided filesystem id.
+func (s *Service) GetFilesystemAttachmentForMachine(
+	ctx context.Context,
+	machineUUID machine.UUID,
+	filesystemID string,
+) (storageprovisioning.FilesystemAttachment, error) {
+	if err := machineUUID.Validate(); err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+	return s.st.GetFilesystemAttachment(ctx, netNodeUUID, filesystemID)
 }
 
 // GetFilesystemAttachmentIDs returns the
@@ -198,4 +291,22 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 	}
 
 	return w, nil
+}
+
+// GetFilesystemTemplatesForApplication returns all the filesystem templates for
+// a given application.
+func (s *Service) GetFilesystemTemplatesForApplication(
+	ctx context.Context, appUUID coreapplication.ID,
+) ([]storageprovisioning.FilesystemTemplate, error) {
+	if err := appUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	fsTemplates, err := s.st.GetFilesystemTemplatesForApplication(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting filesystem templates for app %q: %w", appUUID, err,
+		)
+	}
+	return fsTemplates, nil
 }

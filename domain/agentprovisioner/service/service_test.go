@@ -113,7 +113,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderSupports(c *tc.C) {
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
 		config.ContainerNetworkingMethodKey: "", // auto-configure
 	}, nil)
-	s.provider.EXPECT().SupportsContainerAddresses(gomock.Any()).Return(true, nil)
+	s.provider.EXPECT().SupportsContainerAddresses().Return(true)
 
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(c.Context())
@@ -130,24 +130,7 @@ func (s *suite) TestDetermineNetworkingMethodProviderDoesntSupport(c *tc.C) {
 	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
 		config.ContainerNetworkingMethodKey: "", // auto-configure
 	}, nil)
-	s.provider.EXPECT().SupportsContainerAddresses(gomock.Any()).Return(false, nil)
-
-	service := NewService(s.state, s.providerGetter)
-	method, err := service.ContainerNetworkingMethod(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
-}
-
-// TestDetermineNetworkingMethodProviderDoesntSupport tests that if the
-// provider returns an [errors.NotSupported] from SupportsContainerAddresses,
-// the container networking method will be set to "local".
-func (s *suite) TestDetermineNetworkingMethodProviderReturnsNotSupported(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
-		config.ContainerNetworkingMethodKey: "", // auto-configure
-	}, nil)
-	s.provider.EXPECT().SupportsContainerAddresses(gomock.Any()).Return(false, errors.Errorf("container addresses %w", coreerrors.NotSupported))
+	s.provider.EXPECT().SupportsContainerAddresses().Return(false)
 
 	service := NewService(s.state, s.providerGetter)
 	method, err := service.ContainerNetworkingMethod(c.Context())

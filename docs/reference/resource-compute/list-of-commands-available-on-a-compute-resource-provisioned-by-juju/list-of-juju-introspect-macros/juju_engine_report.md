@@ -3,10 +3,10 @@
 
 The engine report is a window into the internals of the agent. This is primarily useful to developers to help debug problems that may be occurring in deployed systems.
 
-In order to manage complexity in the juju agents, there are *workers* that have very distinct and limited purpose. Workers can have dependencies on other workers. The [dependency engine](https://godoc.org/gopkg.in/juju/worker.v1/dependency) is the entity that runs the workers and deals with those dependencies. The `juju_engine_report` is the current view into the dependency engine running the agent's workers.
+In order to manage complexity in the Juju agents, there are *workers* that have very distinct and limited purpose. Workers can have dependencies on other workers. The [dependency engine](https://godoc.org/gopkg.in/juju/worker.v1/dependency) is the entity that runs the workers and deals with those dependencies. The `juju_engine_report` is the current view into the dependency engine running the agent's workers.
 
 ## Usage
-Can be run on any juju machine, expected state is different for controller machines, ha, and machines running workloads.
+Can be run on any Juju machine, expected state is different for controller machines, ha, and machines running workloads.
 ```code
 juju_engine_report
 ```

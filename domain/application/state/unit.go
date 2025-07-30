@@ -218,7 +218,7 @@ func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.
 // query for unit insert and deletes events on a specific net node, as well as
 // the watcher namespace to watch.
 func (st *State) InitialWatchStatementUnitInsertDeleteOnNetNode(netNodeUUID string) (string, eventsource.NamespaceQuery) {
-	return "custom_unit_lifecycle", func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+	return "custom_unit_name_lifecycle", func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		var unitNames []coreunit.Name
 		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error
@@ -1842,6 +1842,55 @@ WHERE  unit_uuid = $unitWorkloadVersion.unit_uuid
 		return "", errors.Capture(err)
 	}
 	return version.Version, nil
+}
+
+// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
+// and their cloud container provider IDs for the given application.
+//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+//     is returned.
+func (st *State) GetAllUnitCloudContainerIDsForApplication(
+	ctx context.Context,
+	appUUID coreapplication.ID,
+) (map[coreunit.Name]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	input := applicationID{ID: appUUID}
+	query := `
+SELECT (u.name, kp.provider_id) AS (&unitNameCloudContainer.*)
+FROM unit u 
+JOIN k8s_pod kp ON u.uuid = kp.unit_uuid
+WHERE u.application_uuid = $applicationID.uuid
+`
+	stmt, err := st.Prepare(query, unitNameCloudContainer{}, input)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []unitNameCloudContainer
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkApplicationNotDead(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, stmt, input).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	res := make(map[coreunit.Name]string, len(result))
+	for _, v := range result {
+		res[coreunit.Name(v.Name)] = v.ProviderID
+	}
+	return res, nil
 }
 
 // newUnitName returns a new name for the unit. It increments the unit counter

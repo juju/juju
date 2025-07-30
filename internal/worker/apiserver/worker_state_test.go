@@ -19,12 +19,10 @@ import (
 	"github.com/juju/juju/internal/jwtparser"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type WorkerStateSuite struct {
 	workerFixture
-	statetesting.StateSuite
 }
 
 func TestWorkerStateSuite(t *testing.T) {
@@ -33,18 +31,14 @@ func TestWorkerStateSuite(t *testing.T) {
 
 func (s *WorkerStateSuite) SetUpSuite(c *tc.C) {
 	s.workerFixture.SetUpSuite(c)
-	s.StateSuite.SetUpSuite(c)
 }
 
 func (s *WorkerStateSuite) TearDownSuite(c *tc.C) {
-	s.StateSuite.TearDownSuite(c)
 	s.workerFixture.TearDownSuite(c)
 }
 
 func (s *WorkerStateSuite) SetUpTest(c *tc.C) {
 	s.workerFixture.SetUpTest(c)
-	s.StateSuite.SetUpTest(c)
-	s.config.StatePool = s.StatePool
 	s.config.GetAuditConfig = func() auditlog.Config {
 		return auditlog.Config{
 			Enabled:        true,
@@ -58,7 +52,6 @@ func (s *WorkerStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *WorkerStateSuite) TearDownTest(c *tc.C) {
-	s.StateSuite.TearDownTest(c)
 	s.workerFixture.TearDownTest(c)
 }
 
@@ -122,7 +115,6 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
 
 	c.Assert(config, tc.DeepEquals, coreapiserver.ServerConfig{
-		StatePool:                  s.StatePool,
 		LocalMacaroonAuthenticator: s.authenticator,
 		Mux:                        s.mux,
 		Clock:                      s.clock,

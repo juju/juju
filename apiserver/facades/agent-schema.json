@@ -2144,6 +2144,92 @@
         }
     },
     {
+        "Name": "FilesystemAttachmentsWatcher",
+        "Description": "",
+        "Version": 2,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Next": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/MachineStorageIdsWatchResult"
+                        }
+                    }
+                },
+                "Stop": {
+                    "type": "object"
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "MachineStorageId": {
+                    "type": "object",
+                    "properties": {
+                        "attachment-tag": {
+                            "type": "string"
+                        },
+                        "machine-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-tag",
+                        "attachment-tag"
+                    ]
+                },
+                "MachineStorageIdsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MachineStorageId"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "HostKeyReporter",
         "Description": "",
         "Version": 1,
@@ -4594,17 +4680,6 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/FindToolsResult"
-                        }
-                    }
-                },
-                "GetContainerInterfaceInfo": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MachineNetworkConfigResults"
                         }
                     }
                 },
@@ -13466,6 +13541,178 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "Name": "VolumeAttachmentPlansWatcher",
+        "Description": "",
+        "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Next": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/MachineStorageIdsWatchResult"
+                        }
+                    }
+                },
+                "Stop": {
+                    "type": "object"
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "MachineStorageId": {
+                    "type": "object",
+                    "properties": {
+                        "attachment-tag": {
+                            "type": "string"
+                        },
+                        "machine-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-tag",
+                        "attachment-tag"
+                    ]
+                },
+                "MachineStorageIdsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MachineStorageId"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "Name": "VolumeAttachmentsWatcher",
+        "Description": "",
+        "Version": 2,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Next": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/MachineStorageIdsWatchResult"
+                        }
+                    }
+                },
+                "Stop": {
+                    "type": "object"
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "MachineStorageId": {
+                    "type": "object",
+                    "properties": {
+                        "attachment-tag": {
+                            "type": "string"
+                        },
+                        "machine-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-tag",
+                        "attachment-tag"
+                    ]
+                },
+                "MachineStorageIdsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MachineStorageId"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
                     ]
                 }
             }

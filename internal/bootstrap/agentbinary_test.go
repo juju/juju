@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,12 +13,12 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/internal/errors"
 )
 
 type agentBinarySuite struct {
@@ -51,16 +50,10 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *tc.C) {
 
 	s.writeAgentBinary(c, toolsPath, current)
 
-	s.storage.EXPECT().Add(gomock.Any(), gomock.Any(), binarystorage.Metadata{
-		Version: current.String(),
-		Size:    size,
-		SHA256:  "sha256",
-	}).Return(nil)
-
 	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
 		gomock.Any(),
 		gomock.Any(),
-		coreagentbinary.Version{
+		agentbinary.Version{
 			Arch:   current.Arch,
 			Number: current.Number,
 		},
@@ -68,7 +61,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *tc.C) {
 		"sha256",
 	).Return(nil)
 
-	cleanup, err := PopulateAgentBinary(c.Context(), dir, s.storage, s.agentBinaryStore, s.logger)
+	cleanup, err := PopulateAgentBinary(c.Context(), dir, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 	cleanup()
 
@@ -96,13 +89,14 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *tc.C) {
 
 	s.writeAgentBinary(c, toolsPath, current)
 
-	s.storage.EXPECT().Add(gomock.Any(), gomock.Any(), binarystorage.Metadata{
-		Version: current.String(),
-		Size:    size,
-		SHA256:  "sha256",
-	}).Return(errors.New("boom"))
+	binVer := agentbinary.Version{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+	}
+	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
+		gomock.Any(), gomock.Any(), binVer, size, "sha256").Return(errors.New("boom"))
 
-	_, err := PopulateAgentBinary(c.Context(), dir, s.storage, s.agentBinaryStore, s.logger)
+	_, err := PopulateAgentBinary(c.Context(), dir, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorMatches, "boom")
 
 	s.expectTools(c, toolsPath)
@@ -119,7 +113,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *tc.C)
 
 	dir, _ := s.ensureDirs(c, current)
 
-	_, err := PopulateAgentBinary(c.Context(), dir, s.storage, s.agentBinaryStore, s.logger)
+	_, err := PopulateAgentBinary(c.Context(), dir, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }
 
@@ -142,7 +136,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *tc.C) {
 		Size:    size,
 	})
 
-	_, err := PopulateAgentBinary(c.Context(), dir, s.storage, s.agentBinaryStore, s.logger)
+	_, err := PopulateAgentBinary(c.Context(), dir, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }
 

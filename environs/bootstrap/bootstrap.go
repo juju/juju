@@ -520,8 +520,8 @@ func bootstrapIAAS(
 			version := builtTools.Version
 			version.Release = tool.Version.Release
 			version.Arch = tool.Version.Arch
-			// But if not an official build, use the forced version.
-			if !builtTools.Official {
+			// But if not an official build or is the edge snap, use the forced version.
+			if !builtTools.Official || jujuversion.Grade == jujuversion.GradeDevel {
 				version.Number = forceVersion
 			}
 			tool.Version = version

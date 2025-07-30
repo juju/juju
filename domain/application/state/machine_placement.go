@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	coremachine "github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -122,11 +123,11 @@ WHERE  machine_uuid = $entityUUID.uuid
 	return result.Count == 1, nil
 }
 
-func (s *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName string) (entityUUID, error) {
+func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName string) (entityUUID, error) {
 	machineNameParam := entityName{Name: mName}
 	machineUUIDoutput := entityUUID{}
 	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE name = $entityName.name`
-	queryStmt, err := s.Prepare(query, machineNameParam, machineUUIDoutput)
+	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDoutput)
 	if err != nil {
 		return entityUUID{}, errors.Capture(err)
 	}
@@ -137,4 +138,60 @@ func (s *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName
 		return entityUUID{}, errors.Errorf("querying UUID for machine %q: %w", mName, err)
 	}
 	return machineUUIDoutput, nil
+}
+
+// GetMachinesForApplication returns the names of the machines which have a unit.
+// of the specified application deployed to it.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist.
+func (st *State) GetMachinesForApplication(ctx context.Context, appUUID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Errorf("cannot get database find names for machines %q: %w", appUUID, err)
+	}
+
+	ident := entityUUID{UUID: appUUID}
+
+	checkAppExistsStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM application
+WHERE uuid = $entityUUID.uuid
+`, count{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	selectMachinesStmt, err := st.Prepare(`
+SELECT machine.name AS  &entityName.name
+FROM machine
+JOIN unit ON machine.net_node_uuid = unit.net_node_uuid
+WHERE unit.application_uuid = $entityUUID.uuid
+`, entityName{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var machineNames []entityName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var count count
+		err := tx.Query(ctx, checkAppExistsStmt, ident).Get(&count)
+		if err != nil {
+			return errors.Errorf("checking if application %q exists: %w", appUUID, err)
+		}
+		if count.Count == 0 {
+			return errors.Errorf("application %q does not exist", appUUID).Add(applicationerrors.ApplicationNotFound)
+		}
+
+		err = tx.Query(ctx, selectMachinesStmt, ident).GetAll(&machineNames)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying machine names for application %q: %w", appUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting machine names for application %q: %w", appUUID, err)
+	}
+	return transform.Slice(machineNames, func(v entityName) string {
+		return v.Name
+	}), nil
 }

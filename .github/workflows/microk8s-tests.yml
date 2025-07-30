@@ -5,7 +5,7 @@ name: Test Kubeflow
 on: workflow_dispatch
 
 env:
-  DOCKER_USERNAME: docker.io/jujuqabot
+  OCI_REGISTRY_USERNAME: docker.io/jujuqabot
   JUJU_BUILD_NUMBER: 888
 
 permissions:
@@ -66,7 +66,7 @@ jobs:
       run: |
         sg microk8s <<EOF
           set -eux
-          JUJU_BUILD_NUMBER=$JUJU_BUILD_NUMBER DOCKER_USERNAME=$DOCKER_USERNAME make microk8s-operator-update
+          JUJU_BUILD_NUMBER=$JUJU_BUILD_NUMBER OCI_REGISTRY_USERNAME=$OCI_REGISTRY_USERNAME make microk8s-operator-update
           microk8s.ctr images list | grep juju
           juju version --all
 
@@ -81,7 +81,7 @@ jobs:
           set -eux
 
           microk8s kubectl wait --for=condition=available -nkube-system deployment/coredns deployment/hostpath-provisioner --timeout=10m
-          juju bootstrap microk8s --debug uk8s --config=caas-image-repo=$DOCKER_USERNAME --config test-mode=true --model-default test-mode=true
+          juju bootstrap microk8s --debug uk8s --config=caas-image-repo=$OCI_REGISTRY_USERNAME --config test-mode=true --model-default test-mode=true
 
           juju add-model kubeflow microk8s --config logging-config="<root>=DEBUG;unit=DEBUG"
           juju deploy kubeflow-lite --trust --revision 60

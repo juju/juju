@@ -34,6 +34,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -199,10 +200,12 @@ type versionDetail struct {
 	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
 	// Compiler reported by runtime.Compiler
 	Compiler string `json:"compiler" yaml:"compiler"`
-	// OfficialBuild is a monotonic integer set by Jenkins.
-	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
 	// GoBuildTags is the build tags used to build the binary.
 	GoBuildTags string `json:"go-build-tags,omitempty" yaml:"go-build-tags,omitempty"`
+	// Official is true if this is an official build.
+	Official bool `json:"official" yaml:"official"`
+	// Grade reflects the snap grade value.
+	Grade string `json:"grade,omitempty" yaml:"grade,omitempty"`
 }
 
 // Main registers subcommands for the jujud executable, and hands over control
@@ -236,6 +239,8 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		GitTreeState: jujuversion.GitTreeState,
 		Compiler:     jujuversion.Compiler,
 		GoBuildTags:  jujuversion.GoBuildTags,
+		Official:     isOfficial(),
+		Grade:        jujuversion.Grade,
 	}
 
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
@@ -277,6 +282,17 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
+}
+
+func isOfficial() bool {
+	// If there's an error getting jujud version, play it safe.
+	// We pretend it's not official.
+	jujudPath, err := tools.ExistingJujuLocation()
+	if err != nil {
+		return false
+	}
+	_, err = tools.GetVersionFromFile(jujudPath)
+	return err == nil
 }
 
 // Main is not redundant with main(), because it provides an entry point

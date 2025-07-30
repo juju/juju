@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
@@ -18,8 +19,271 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
+// supplied filesystem id.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
+// exists for the provided filesystem id.
+func (st *State) GetFilesystem(
+	ctx context.Context,
+	filesystemID string,
+) (storageprovisioning.Filesystem, error) {
+	db, err := st.DB()
+	if err != nil {
+		return storageprovisioning.Filesystem{}, errors.Capture(err)
+	}
+
+	fs := filesystem{FilesystemID: filesystemID}
+	stmt, err := st.Prepare(`
+SELECT (
+	sfs.filesystem_id,
+	sfs.provider_id,
+	sv.volume_id,
+	sfs.size_mib
+) AS (&filesystem.*)
+FROM      storage_filesystem sfs
+LEFT JOIN storage_instance_filesystem sifs ON sfs.uuid = sifs.storage_filesystem_uuid
+LEFT JOIN storage_instance si ON sifs.storage_instance_uuid = si.uuid
+LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+WHERE     sfs.filesystem_id=$filesystem.filesystem_id
+`,
+		fs,
+	)
+	if err != nil {
+		return storageprovisioning.Filesystem{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, fs).Get(&fs)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("filesystem %q not found", filesystemID).
+				Add(storageprovisioningerrors.FilesystemNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return storageprovisioning.Filesystem{}, errors.Capture(err)
+	}
+
+	var backingVolume *storageprovisioning.FilesystemBackingVolume
+	if fs.VolumeID.Valid {
+		backingVolume = &storageprovisioning.FilesystemBackingVolume{
+			VolumeID: fs.VolumeID.V,
+		}
+	}
+
+	return storageprovisioning.Filesystem{
+		BackingVolume: backingVolume,
+		FilesystemID:  fs.FilesystemID,
+		ProviderID:    fs.ProviderID,
+		Size:          fs.Size,
+	}, nil
+}
+
+// GetFilesystemAttachment retrieves the [storageprovisioning.FilesystemAttachment]
+// for the supplied net node uuid and filesystem id.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem attachment
+// exists for the provided filesystem id.
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists for
+// the provided filesystem id.
+func (st *State) GetFilesystemAttachment(
+	ctx context.Context,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	filesystemIDStr string,
+) (storageprovisioning.FilesystemAttachment, error) {
+	db, err := st.DB()
+	if err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+
+	fs := filesystemID{ID: filesystemIDStr}
+	checkFilesystemExistsStmt, err := st.Prepare(`
+SELECT &filesystemID.*
+FROM   storage_filesystem
+WHERE  filesystem_id = $filesystemID.filesystem_id`, fs)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+
+	netNodeInput := netNodeUUIDRef{UUID: netNodeUUID.String()}
+	attachment := filesystemAttachment{
+		FilesystemID: filesystemIDStr,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &filesystemAttachment.*
+FROM   storage_filesystem_attachment sfa
+JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+WHERE  sf.filesystem_id = $filesystemAttachment.filesystem_id
+AND    sfa.net_node_uuid = $netNodeUUIDRef.net_node_uuid
+`, attachment, netNodeInput)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkNetNodeExists(ctx, tx, netNodeUUID)
+		if err != nil {
+			return errors.Capture(err)
+		} else if !exists {
+			return errors.Errorf("net node %q does not exist", netNodeUUID)
+		}
+
+		err = tx.Query(ctx, checkFilesystemExistsStmt, fs).Get(&fs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("filesystem %q not found", filesystemIDStr).
+				Add(storageprovisioningerrors.FilesystemNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, stmt, attachment, netNodeInput).Get(&attachment)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf(
+				"filesystem attachment for filesystem %q on net node %q not found",
+				filesystemIDStr, netNodeUUID,
+			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
+	}
+	return storageprovisioning.FilesystemAttachment{
+		FilesystemID: attachment.FilesystemID,
+		MountPoint:   attachment.MountPoint,
+		ReadOnly:     attachment.ReadOnly,
+	}, nil
+}
+
+// GetFilesystemTemplatesForApplication returns all the filesystem templates for
+// a given application.
+func (st *State) GetFilesystemTemplatesForApplication(
+	ctx context.Context,
+	appUUID coreapplication.ID,
+) ([]storageprovisioning.FilesystemTemplate, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	id := entityUUID{
+		UUID: appUUID.String(),
+	}
+
+	fsTemplateQuery, err := st.Prepare(`
+WITH
+	app_fs_template_with_type AS (	
+		SELECT asd.storage_name,
+			asd.size_mib,
+			asd.count,
+			asd.storage_type,
+			cs.read_only,
+			cs.location,
+			cs.count_max
+		FROM application_storage_directive asd
+		JOIN charm_storage cs ON asd.charm_uuid = cs.charm_uuid AND asd.storage_name = cs.name
+		WHERE application_uuid = $entityUUID.uuid
+		AND asd.storage_pool_uuid IS NULL
+	),
+	app_fs_template_from_pool AS (
+		SELECT asd.storage_name,
+			asd.size_mib,
+			asd.count,
+			sp.type AS storage_type,
+			cs.read_only,
+			cs.location,
+			cs.count_max
+		FROM application_storage_directive asd
+		JOIN storage_pool sp ON asd.storage_pool_uuid = sp.uuid
+		JOIN charm_storage cs ON asd.charm_uuid = cs.charm_uuid AND asd.storage_name = cs.name
+		WHERE application_uuid = $entityUUID.uuid
+		AND asd.storage_type IS NULL
+	),
+	app_fs_template AS (
+		SELECT * FROM app_fs_template_with_type 
+		UNION
+		SELECT * FROM app_fs_template_from_pool
+	)
+SELECT &filesystemTemplate.* FROM app_fs_template
+`, filesystemTemplate{}, id)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	fsAttributeQuery, err := st.Prepare(`
+SELECT (asd.storage_name, key, value) AS (&storageNameAttributes.*) 
+FROM storage_pool_attribute spa
+JOIN storage_pool sp ON spa.storage_pool_uuid = sp.uuid
+JOIN application_storage_directive asd ON sp.uuid = asd.storage_pool_uuid
+WHERE application_uuid = $entityUUID.uuid
+ORDER BY asd.storage_name
+`, storageNameAttributes{}, id)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var fsTemplates []filesystemTemplate
+	var fsAttributes []storageNameAttributes
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf("application %q does not exist", appUUID)
+		}
+		err = tx.Query(ctx, fsTemplateQuery, id).GetAll(&fsTemplates)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		err = tx.Query(ctx, fsAttributeQuery, id).GetAll(&fsAttributes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	attrs := map[string]map[string]string{}
+	for _, attr := range fsAttributes {
+		storageAttrs := attrs[attr.StorageName]
+		if storageAttrs == nil {
+			storageAttrs = map[string]string{}
+			attrs[attr.StorageName] = storageAttrs
+		}
+		storageAttrs[attr.Key] = attr.Value
+	}
+
+	r := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
+	for _, v := range fsTemplates {
+		r = append(r, storageprovisioning.FilesystemTemplate{
+			StorageName:  v.StorageName,
+			Count:        v.Count,
+			MaxCount:     v.MaxCount,
+			SizeMiB:      v.SizeMiB,
+			ProviderType: v.ProviderType,
+			ReadOnly:     v.ReadOnly,
+			Location:     v.Location,
+			Attributes:   attrs[v.StorageName],
+		})
+	}
+	return r, nil
+}
 
 // GetFilesystemAttachmentIDs returns the
 // [storageprovisioning.FilesystemAttachmentID] information for each

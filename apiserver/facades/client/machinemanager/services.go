@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
@@ -88,13 +89,13 @@ type MachineService interface {
 	// on the placement.
 	// It returns the net node UUID for the machine and a list of child
 	// machine names that were created as part of the placement.
-	AddMachine(ctx context.Context, args domainmachine.AddMachineArgs) (machineservice.AddMachineResults, error)
+	AddMachine(context.Context, domainmachine.AddMachineArgs) (machineservice.AddMachineResults, error)
 
 	// DeleteMachine deletes a machine with the given name.
 	DeleteMachine(context.Context, coremachine.Name) error
 
-	// GetBootstrapEnviron returns the bootstrap environ.
-	GetBootstrapEnviron(context.Context) (environs.BootstrapEnviron, error)
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(context.Context) ([]coremachine.Name, error)
 
 	// GetInstanceTypesFetcher returns the instance types fetcher.
 	GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error)
@@ -120,6 +121,9 @@ type MachineService interface {
 	// GetMachineContainers returns the names of the machines which have as parent
 	// the specified machine.
 	GetMachineContainers(context.Context, coremachine.Name) ([]coremachine.Name, error)
+
+	// GetMachineBase returns the base for the given machine.
+	GetMachineBase(context.Context, coremachine.Name) (base.Base, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status

@@ -62,7 +62,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"removal",
 		"secrets-pruner",
 		"storage-provisioner",
-		"undertaker",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
@@ -105,7 +104,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"remote-relations",
 		"removal",
 		"secrets-pruner",
-		"undertaker",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
@@ -370,15 +368,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"http-client": {},
 
-	"undertaker": {
-		"agent",
-		"api-caller",
-		"domain-services",
-		"is-responsible-flag",
-		"lease-manager",
-		"not-alive-flag",
-	},
-
 	"valid-credential-flag": {"agent", "api-caller"},
 }
 
@@ -571,15 +560,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-service-factories",
 		"provider-tracker",
 		"valid-credential-flag",
-	},
-
-	"undertaker": {
-		"agent",
-		"api-caller",
-		"domain-services",
-		"is-responsible-flag",
-		"lease-manager",
-		"not-alive-flag",
 	},
 
 	"valid-credential-flag": {"agent", "api-caller"},

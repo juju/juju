@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/state"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -171,17 +170,6 @@ type ModelContext interface {
 
 	// Clock returns a instance of the clock.
 	Clock() clock.Clock
-
-	// State returns, /sigh, a *State. As yet, there is no way
-	// around this; in the not-too-distant future, we hope, its
-	// capabilities will migrate towards access via Resources.
-	// Deprecated: This is being removed.
-	State() *state.State
-
-	// StatePool returns the state pool used by the apiserver to minimise the
-	// creation of the expensive *State instances.
-	// Deprecated: This is being removed.
-	StatePool() *state.StatePool
 }
 
 // ModelExporter defines a interface for exporting models.

@@ -152,9 +152,16 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+const (
+	// provider version 1 introduces tags to security groups.
+	providerVersion1 = 1
+
+	currentProviderVersion = providerVersion1
+)
+
 // Version is part of the EnvironProvider interface.
 func (EnvironProvider) Version() int {
-	return 0
+	return currentProviderVersion
 }
 
 func (p EnvironProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
@@ -306,7 +313,7 @@ type Environ struct {
 	cloudUnlocked   environscloudspec.CloudSpec
 	clientUnlocked  client.AuthenticatingClient
 	novaUnlocked    *nova.Client
-	neutronUnlocked *neutron.Client
+	neutronUnlocked NetworkingNeutron
 	volumeURL       *url.URL
 
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
@@ -556,7 +563,7 @@ func (e *Environ) nova() *nova.Client {
 	return nova
 }
 
-func (e *Environ) neutron() *neutron.Client {
+func (e *Environ) neutron() NetworkingNeutron {
 	e.ecfgMutex.Lock()
 	neutron := e.neutronUnlocked
 	e.ecfgMutex.Unlock()

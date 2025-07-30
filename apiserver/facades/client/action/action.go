@@ -58,7 +58,6 @@ type ModelInfoService interface {
 type ActionAPI struct {
 	modelTag           names.ModelTag
 	modelInfoService   ModelInfoService
-	resources          facade.Resources
 	authorizer         facade.Authorizer
 	check              *common.BlockChecker
 	leadership         leadership.Reader
@@ -71,7 +70,6 @@ type APIv7 struct {
 }
 
 func newActionAPI(
-	resources facade.Resources,
 	authorizer facade.Authorizer,
 	getLeadershipReader func() (leadership.Reader, error),
 	applicationService ApplicationService,
@@ -93,7 +91,6 @@ func newActionAPI(
 	return &ActionAPI{
 		modelTag:           modelTag,
 		modelInfoService:   modelInfoService,
-		resources:          resources,
 		authorizer:         authorizer,
 		check:              common.NewBlockChecker(blockCommandService),
 		leadership:         leaders,

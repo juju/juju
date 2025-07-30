@@ -13,15 +13,11 @@ import (
 	commonnetwork "github.com/juju/juju/apiserver/common/network"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/credential"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/environs/config"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -35,74 +31,58 @@ type ControllerConfigService interface {
 // network spaces/subnets.
 type NetworkService interface {
 	// AddSpace creates and returns a new space.
-	AddSpace(ctx context.Context, space network.SpaceInfo) (network.SpaceUUID, error)
+	AddSpace(context.Context, network.SpaceInfo) (network.SpaceUUID, error)
+
 	// SpaceByName returns a space from state that matches the input name. If
 	// the space is not found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
+	SpaceByName(context.Context, network.SpaceName) (*network.SpaceInfo, error)
+
 	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	GetAllSpaces(context.Context) (network.SpaceInfos, error)
+
 	// UpdateSpace updates the space name identified by the passed uuid. If
 	// the space is not found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	UpdateSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName) error
+	UpdateSpace(context.Context, network.SpaceUUID, network.SpaceName) error
+
 	// RemoveSpace deletes a space identified by its uuid. If the space is not
 	// found, an error is returned satisfying
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	RemoveSpace(ctx context.Context, uuid network.SpaceUUID) error
+	RemoveSpace(context.Context, network.SpaceUUID) error
+
 	// ReloadSpaces loads spaces and subnets from the provider into state.
-	ReloadSpaces(ctx context.Context) error
+	ReloadSpaces(context.Context) error
+
 	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+	GetAllSubnets(context.Context) (network.SubnetInfos, error)
+
 	// SubnetsByCIDR returns the subnets matching the input CIDRs.
 	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
+
 	// Subnet returns the subnet identified by the input UUID,
 	// or an error if it is not found.
 	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
-	// UpdateSubnet updates the spaceUUID of the subnet identified by the input
-	// UUID.
-	UpdateSubnet(ctx context.Context, uuid string, spaceUUID network.SpaceUUID) error
+	// MoveSubnetsToSpace moves a list of subnets identified by their UUIDs to a
+	// specified network space.
+	// It validates input, computes a new topology, checks its integrity, and
+	// applies changes if valid.
+	// Returns the list of moved subnets or an error if any step fails.
+	MoveSubnetsToSpace(ctx context.Context,
+		subnets []domainnetwork.SubnetUUID, space network.SpaceName, force bool) ([]domainnetwork.MovedSubnets, error)
 	// SupportsSpaces returns whether the current environment supports spaces.
-	SupportsSpaces(ctx context.Context) (bool, error)
+	SupportsSpaces(context.Context) (bool, error)
+
 	// SupportsSpaceDiscovery returns whether the current environment supports
 	// discovering spaces from the provider.
-	SupportsSpaceDiscovery(ctx context.Context) (bool, error)
-}
-
-// ModelConfigService is an interface that provides access to the
-// model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-}
-
-// CredentialService provides access to credentials.
-type CredentialService interface {
-	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(context.Context, credential.Key) (cloud.Credential, error)
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+	SupportsSpaceDiscovery(context.Context) (bool, error)
 }
 
 // ApplicationService provides access to applications.
 type ApplicationService interface {
-	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
-	// The following errors may be returned:
-	// - [applicationerrors.MachineNotFound] if the machine does not exist
-	GetUnitNamesOnMachine(context.Context, machine.Name) ([]unit.Name, error)
-
-	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
-	// endpoints are indexed by the application name for the application which they
-	// belong to.
-	GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error)
-
 	// GetApplicationsBoundToSpace returns the names of the applications bound to
 	// the given space.
-	GetApplicationsBoundToSpace(ctx context.Context, uuid network.SpaceUUID) ([]string, error)
+	GetApplicationsBoundToSpace(context.Context, network.SpaceUUID) ([]string, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine
@@ -112,7 +92,7 @@ type MachineService interface {
 	// space. This method counts the distinct occurrences of net nodes of the
 	// addresses, meaning that if a machine has multiple addresses in the same
 	// subnet it will be counted only once.
-	CountMachinesInSpace(ctx context.Context, spaceID network.SpaceUUID) (int64, error)
+	CountMachinesInSpace(context.Context, network.SpaceUUID) (int64, error)
 }
 
 // API provides the spaces API facade for version 6.
@@ -124,47 +104,10 @@ type API struct {
 
 	modelTag names.ModelTag
 
-	backing   Backing
-	resources facade.Resources
-	auth      facade.Authorizer
+	auth facade.Authorizer
 
 	check  BlockChecker
 	logger corelogger.Logger
-}
-
-type apiConfig struct {
-	modelTag                names.ModelTag
-	NetworkService          NetworkService
-	ControllerConfigService ControllerConfigService
-	ApplicationService      ApplicationService
-	MachineService          MachineService
-	Backing                 Backing
-	Check                   BlockChecker
-	Resources               facade.Resources
-	Authorizer              facade.Authorizer
-	logger                  corelogger.Logger
-}
-
-// newAPIWithBacking creates a new server-side Spaces API facade with
-// the given Backing.
-func newAPIWithBacking(cfg apiConfig) (*API, error) {
-	// Only clients can access the Spaces facade.
-	if !cfg.Authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	return &API{
-		modelTag:                cfg.modelTag,
-		networkService:          cfg.NetworkService,
-		controllerConfigService: cfg.ControllerConfigService,
-		applicationService:      cfg.ApplicationService,
-		machineService:          cfg.MachineService,
-		auth:                    cfg.Authorizer,
-		backing:                 cfg.Backing,
-		resources:               cfg.Resources,
-		check:                   cfg.Check,
-		logger:                  cfg.logger,
-	}, nil
 }
 
 // CreateSpaces creates a new Juju network space, associating the

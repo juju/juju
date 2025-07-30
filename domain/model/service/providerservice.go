@@ -6,16 +6,18 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/changestream"
 	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 )
 
 // ProviderModelState is the model state required by the provide service.
 type ProviderModelState interface {
-	// GetModel returns a the model info.
+	// GetModel returns the model info.
 	GetModel(context.Context) (coremodel.ModelInfo, error)
 }
 
@@ -70,5 +72,16 @@ func (s *ProviderService) Model(ctx context.Context) (coremodel.ModelInfo, error
 func (s *ProviderService) WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	return watchModelCloudCredential(ctx, s.controllerSt, s.watcherFactory, modelUUID)
+}
+
+// WatchModel returns a watcher that emits an event if the model changes.
+func (s ProviderService) WatchModel(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter("model", changestream.All, eventsource.AlwaysPredicate),
+	)
 }

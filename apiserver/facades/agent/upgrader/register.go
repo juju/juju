@@ -49,8 +49,6 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-
 	domainServices := ctx.DomainServices()
 	modelType, err := domainServices.ModelInfo().GetModelType(stdCtx)
 	if err != nil {
@@ -61,7 +59,6 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 
 	if tag.Kind() == names.UnitTagKind && modelType != coremodel.CAAS {
 		return NewUnitUpgraderAPI(
-			st,
 			auth,
 			domainServices.Agent(),
 			domainServices.Application(),
@@ -75,14 +72,13 @@ func newUpgraderFacade(stdCtx context.Context, ctx facade.ModelContext) (Upgrade
 
 	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), domainServices.ControllerNode())
 	toolsFinder := common.NewToolsFinder(
-		st, urlGetter, ctx.ControllerObjectStore(),
+		urlGetter, ctx.ControllerObjectStore(),
 		domainServices.AgentBinary(),
 	)
-	toolsGetter := common.NewToolsGetter(domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
+	toolsGetter := common.NewToolsGetter(domainServices.Agent(), urlGetter, toolsFinder, getCanReadWrite)
 
 	return NewUpgraderAPI(
 		toolsGetter,
-		st,
 		auth,
 		ctx.Logger().Child("upgrader"),
 		ctx.WatcherRegistry(),

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modeldefaults"
+	"github.com/juju/juju/domain/removal"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/services"
@@ -54,6 +56,9 @@ type ModelDomainServices interface {
 
 	// Status returns the status service.
 	Status() StatusService
+
+	// Removal returns the removal service.
+	RemovalService() RemovalService
 }
 
 // DomainServicesGetter is a factory for creating model services.
@@ -277,20 +282,37 @@ type NetworkService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(context.Context) ([]machine.Name, error)
+
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	GetMachineLife(context.Context, machine.Name) (life.Value, error)
+
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
+	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
+
 	// GetInstanceIDAndName returns the cloud specific instance ID and display
 	// name for this machine.
-	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
+	GetInstanceIDAndName(context.Context, machine.UUID) (instance.Id, string, error)
+
 	// GetHardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	GetHardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
+	GetHardwareCharacteristics(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)
+
+	// GetSupportedContainersTypes returns the supported container types for the
+	// provider.
+	GetSupportedContainersTypes(context.Context, machine.UUID) ([]instance.ContainerType, error)
+
 	// WatchModelMachines watches for additions or updates to non-container
 	// machines. It is used by workers that need to factor life value changes,
 	// and so does not factor machine removals, which are considered to be
 	// after their transition to the dead state.
 	// It emits machine names rather than UUIDs.
-	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
+	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
+
+	// WatchModelMachineLifeAndStartTimes returns a string watcher that emits machine names
+	// for changes to machine life or agent start times.
+	WatchModelMachineLifeAndStartTimes(context.Context) (watcher.StringsWatcher, error)
 }
 
 // StatusService returns the status of a applications, and units and machines.
@@ -330,6 +352,19 @@ type ApplicationService interface {
 	GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error)
 }
 
+// RemovalService defines operations for removing juju entities.
+type RemovalService interface {
+	// RemoveModel checks if a model with the input name exists.
+	// If it does, the model is guaranteed after this call to be:
+	// - No longer alive.
+	// - Removed or scheduled to be removed with the input force qualification.
+	// The input wait duration is the time that we will give for the normal
+	// life-cycle advancement and removal to finish before forcefully removing the
+	// model. This duration is ignored if the force argument is false.
+	// The UUID for the scheduled removal job is returned.
+	RemoveModel(ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration) (removal.UUID, error)
+}
+
 // Services holds the services needed by the model manager api.
 type Services struct {
 	// DomainServicesGetter is an interface for interacting with a factory for
@@ -361,6 +396,8 @@ type Services struct {
 	// ModelAgentService is an interface for interacting with the model agent
 	// service.
 	ModelAgentService ModelAgentService
+	// RemovalService is an interface for interacting with the removal service.
+	RemovalService RemovalService
 }
 
 // BlockCommandService defines methods for interacting with block commands.
@@ -415,4 +452,8 @@ func (s domainServices) BlockCommand() BlockCommandService {
 
 func (s domainServices) Status() StatusService {
 	return s.domainServices.Status()
+}
+
+func (s domainServices) RemovalService() RemovalService {
+	return s.domainServices.Removal()
 }

@@ -44,6 +44,45 @@ func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 	return m.recorder
 }
 
+// GetMachineAgentBinaryMetadata mocks base method.
+func (m *MockModelAgentService) GetMachineAgentBinaryMetadata(arg0 context.Context, arg1 machine.Name) (agentbinary.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineAgentBinaryMetadata", arg0, arg1)
+	ret0, _ := ret[0].(agentbinary.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineAgentBinaryMetadata indicates an expected call of GetMachineAgentBinaryMetadata.
+func (mr *MockModelAgentServiceMockRecorder) GetMachineAgentBinaryMetadata(arg0, arg1 any) *MockModelAgentServiceGetMachineAgentBinaryMetadataCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineAgentBinaryMetadata", reflect.TypeOf((*MockModelAgentService)(nil).GetMachineAgentBinaryMetadata), arg0, arg1)
+	return &MockModelAgentServiceGetMachineAgentBinaryMetadataCall{Call: call}
+}
+
+// MockModelAgentServiceGetMachineAgentBinaryMetadataCall wrap *gomock.Call
+type MockModelAgentServiceGetMachineAgentBinaryMetadataCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelAgentServiceGetMachineAgentBinaryMetadataCall) Return(arg0 agentbinary.Metadata, arg1 error) *MockModelAgentServiceGetMachineAgentBinaryMetadataCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelAgentServiceGetMachineAgentBinaryMetadataCall) Do(f func(context.Context, machine.Name) (agentbinary.Metadata, error)) *MockModelAgentServiceGetMachineAgentBinaryMetadataCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelAgentServiceGetMachineAgentBinaryMetadataCall) DoAndReturn(f func(context.Context, machine.Name) (agentbinary.Metadata, error)) *MockModelAgentServiceGetMachineAgentBinaryMetadataCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelTargetAgentVersion mocks base method.
 func (m *MockModelAgentService) GetModelTargetAgentVersion(arg0 context.Context) (semversion.Number, error) {
 	m.ctrl.T.Helper()

@@ -91,32 +91,36 @@ CREATE TRIGGER trg_%[1]s_guard_update
 }
 
 func triggerEntityLifecycleByNameForTable(tableName string, namespace int) func() schema.Patch {
+	return triggerEntityLifecycleByFieldForTable(tableName, "name", namespace)
+}
+
+func triggerEntityLifecycleByFieldForTable(tableName, field string, namespace int) func() schema.Patch {
 	return func() schema.Patch {
 		stmt := fmt.Sprintf(`
-INSERT INTO change_log_namespace VALUES (%[1]d, 'custom_%[2]s_lifecycle', 'Changes to the lifecycle of %[2]s entities');
+INSERT INTO change_log_namespace VALUES (%[1]d, 'custom_%[2]s_%[3]s_lifecycle', 'Changes to the lifecycle of %[2]s (%[3]s) entities');
 
-CREATE TRIGGER trg_log_custom_%[2]s_lifecycle_insert
+CREATE TRIGGER trg_log_custom_%[2]s_%[3]s_lifecycle_insert
 AFTER INSERT ON %[2]s FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[1]d, NEW.name, DATETIME('now'));
+    VALUES (1, %[1]d, NEW.%[3]s, DATETIME('now'));
 END;
 
-CREATE TRIGGER trg_log_custom_%[2]s_lifecycle_update
+CREATE TRIGGER trg_log_custom_%[2]s_%[3]s_lifecycle_update
 AFTER UPDATE ON %[2]s FOR EACH ROW
 WHEN 
 	NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[1]d, OLD.name, DATETIME('now'));
+    VALUES (2, %[1]d, OLD.%[3]s, DATETIME('now'));
 END;
 
-CREATE TRIGGER trg_log_custom_%[2]s_lifecycle_delete
+CREATE TRIGGER trg_log_custom_%[2]s_%[3]s_lifecycle_delete
 AFTER DELETE ON %[2]s FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[1]d, OLD.name, DATETIME('now'));
- END;`[1:], namespace, tableName)
+    VALUES (4, %[1]d, OLD.%[3]s, DATETIME('now'));
+ END;`[1:], namespace, tableName, field)
 		return schema.MakePatch(stmt)
 	}
 }

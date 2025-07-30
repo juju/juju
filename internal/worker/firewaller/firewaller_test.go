@@ -361,8 +361,6 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 		unitsCh <- nil
 	}
 
-	// Add a machine.
-	s.machinesCh <- []string{id}
 	return m, unitsCh
 }
 
@@ -644,7 +642,8 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *tc.C) {
 	defer workertest.CleanKill(c, fw)
 
 	app := s.addApplication(ctrl, "wordpress", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachineFlush(c)
 }
 
@@ -681,7 +680,8 @@ func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *t
 	defer workertest.CleanKill(c, fw)
 
 	app := s.addApplication(ctrl, "wordpress", false)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachineFlush(c)
 }
 
@@ -935,7 +935,8 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *tc.C) {
 	// Wait for controller (started by setUpTest)
 	s.waitForMachine(c, "0")
 
-	s.addModelMachine(ctrl, true)
+	m, _ := s.addModelMachine(ctrl, true)
+	s.machinesCh <- []string{m.Tag().Id()}
 
 	select {
 	case tag := <-s.watchingMachine:
@@ -943,20 +944,40 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *tc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	m, _ := s.addMachine(ctrl)
+	m, _ = s.addMachine(ctrl)
+	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachine(c, machine.Name(m.Tag().Id()))
 }
 
 func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *tc.C, ctrl *gomock.Controller) *mocks.MockMachine {
-	// Create an app.
-	app := s.addApplication(ctrl, "wordpress", false)
-	_, m, _ := s.addUnit(c, ctrl, app)
+	// Create a new machine.
+	id := strconv.Itoa(s.nextMachineId)
+	s.nextMachineId++
+
+	m := mocks.NewMockMachine(ctrl)
+	tag := names.NewMachineTag(id)
+	s.firewaller.EXPECT().Machine(gomock.Any(), machine.Name(m.Tag().Id())).Return(m, nil).MinTimes(1)
+	m.EXPECT().Tag().Return(tag).MinTimes(1)
+	m.EXPECT().Life().DoAndReturn(func() life.Value {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.deadMachines.Contains(id) {
+			return life.Dead
+		}
+		return life.Alive
+	}).MinTimes(1)
+	m.EXPECT().IsManual(gomock.Any()).Return(false, nil).MinTimes(1)
+
+	// Add a machine.
+	s.machinesCh <- []string{tag.Id()}
 
 	instId := instance.Id("inst-" + m.Tag().Id())
 	m.EXPECT().InstanceId(gomock.Any()).Return(instId, nil).AnyTimes()
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).Times(1)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).Times(1)
+
+	s.machinesCh <- []string{m.Tag().Id()}
 
 	s.firewaller.EXPECT().ModelFirewallRules(gomock.Any()).MinTimes(1).MaxTimes(2).DoAndReturn(func(_ context.Context) (firewall.IngressRules, error) {
 		s.mu.Lock()
@@ -1401,7 +1422,8 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C)
 
 	published := make(chan bool)
 	app := s.addApplication(ctrl, "wordpress", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
 
 	// Have a unit on the consuming app enter the relation scope.
@@ -1455,7 +1477,8 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *tc.C) {
 
 	published := make(chan bool)
 	app := s.addApplication(ctrl, "wordpress", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
 
 	// Have a unit on the consuming app enter the relation scope.
@@ -1504,7 +1527,8 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 	defer workertest.CleanKill(c, fw)
 
 	app := s.addApplication(ctrl, "mysql", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1583,7 +1607,8 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	defer workertest.CleanKill(c, fw)
 
 	app := s.addApplication(ctrl, "mysql", true)
-	s.addUnit(c, ctrl, app)
+	_, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)

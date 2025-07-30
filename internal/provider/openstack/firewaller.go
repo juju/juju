@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/common"
 )
 
@@ -230,20 +231,6 @@ func (c *firewallerBase) jujuGroupName(controllerUUID string) string {
 	return fmt.Sprintf("juju-%v-%v", controllerUUID, cfg.UUID())
 }
 
-func (c *firewallerBase) jujuControllerGroupPrefix(controllerUUID string) string {
-	return fmt.Sprintf("juju-%v-", controllerUUID)
-}
-
-func (c *firewallerBase) jujuGroupPrefixRegexp() string {
-	cfg := c.environ.Config()
-	return fmt.Sprintf("juju-.*-%v", cfg.UUID())
-}
-
-func (c *firewallerBase) machineGroupRegexp(machineID string) string {
-	// we are only looking to match 1 machine
-	return fmt.Sprintf("%s-%s$", c.jujuGroupPrefixRegexp(), machineID)
-}
-
 type neutronFirewaller struct {
 	firewallerBase
 }
@@ -260,16 +247,19 @@ type neutronFirewaller struct {
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
 func (c *neutronFirewaller) SetUpGroups(ctx context.Context, controllerUUID, machineID string) ([]string, error) {
-	jujuGroup, err := c.ensureGroup(c.jujuGroupName(controllerUUID), true)
+	tags := []string{fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+		fmt.Sprintf("%s=%s", tags.JujuModel, c.environ.modelUUID),
+	}
+	jujuGroup, err := c.ensureGroup(c.jujuGroupName(controllerUUID), true, tags)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var machineGroup neutron.SecurityGroupV2
 	switch c.environ.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = c.ensureGroup(c.machineGroupName(controllerUUID, machineID), false)
+		machineGroup, err = c.ensureGroup(c.machineGroupName(controllerUUID, machineID), false, tags)
 	case config.FwGlobal:
-		machineGroup, err = c.ensureGroup(c.globalGroupName(controllerUUID), false)
+		machineGroup, err = c.ensureGroup(c.globalGroupName(controllerUUID), false, tags)
 	}
 	if err != nil {
 		return nil, c.environ.HandleCredentialError(ctx, err)
@@ -287,7 +277,7 @@ var zeroGroup neutron.SecurityGroupV2
 // ensureGroup returns the security group with name and rules.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to rules.
-func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool) (neutron.SecurityGroupV2, error) {
+func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool, tags []string) (neutron.SecurityGroupV2, error) {
 	// Due to parallelization of the provisioner, it's possible that we try
 	// to create the model security group a second time before the first time
 	// is complete causing failures.
@@ -307,7 +297,7 @@ func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool) (neutron
 	} else if err != nil && strings.Contains(err.Error(), "failed to find security group") {
 		// TODO(hml): We should use a typed error here.  SecurityGroupByNameV2
 		// doesn't currently return one for this case.
-		g, err := neutronClient.CreateSecurityGroupV2(name, "juju group")
+		g, err := neutronClient.CreateSecurityGroupV2(name, "juju group", tags)
 		if err != nil {
 			return zeroGroup, err
 		}
@@ -339,7 +329,7 @@ func (c *neutronFirewaller) ensureGroup(name string, isModelGroup bool) (neutron
 	return groupsFound[0], nil
 }
 
-func (c *neutronFirewaller) ensureInternalRules(neutronClient *neutron.Client, group neutron.SecurityGroupV2) error {
+func (c *neutronFirewaller) ensureInternalRules(neutronClient NetworkingNeutron, group neutron.SecurityGroupV2) error {
 	rules := []neutron.RuleInfoV2{
 		{
 			Direction:     "ingress",
@@ -426,34 +416,14 @@ func (c *neutronFirewaller) DeleteGroups(ctx context.Context, names ...string) e
 	return c.deleteSecurityGroups(ctx, groupsToDelete)
 }
 
-func (c *neutronFirewaller) listAndFilterSecurityGroups(ctx context.Context, re *regexp.Regexp) ([]neutron.SecurityGroupV2, error) {
-	neutronClient := c.environ.neutron()
-	securityGroups, err := neutronClient.ListSecurityGroupsV2()
-	var securityGroupsToDelete []neutron.SecurityGroupV2
-	if err != nil {
-		return securityGroupsToDelete, errors.Annotate(c.environ.HandleCredentialError(ctx, err), "cannot list security groups")
-	}
-
-	for _, group := range securityGroups {
-		if re.MatchString(group.Name) {
-			securityGroupsToDelete = append(securityGroupsToDelete, group)
-		}
-	}
-
-	return securityGroupsToDelete, nil
-}
-
 // DeleteAllControllerGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.Context, controllerUUID string) error {
-	controllerGroupPrefix := c.jujuControllerGroupPrefix(controllerUUID)
-	re, err := regexp.Compile("^" + controllerGroupPrefix)
+	neutronClient := c.environ.neutron()
+	tags := []string{fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID)}
+	query := neutron.ListSecurityGroupsV2Query{Tags: tags}
+	securityGroups, err := neutronClient.ListSecurityGroupsV2(query)
 	if err != nil {
-		return errors.Trace(err)
-	}
-
-	securityGroups, err := c.listAndFilterSecurityGroups(ctx, re)
-	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(c.environ.HandleCredentialError(ctx, err), "cannot list security groups")
 	}
 
 	return c.deleteSecurityGroups(ctx, securityGroups)
@@ -461,15 +431,12 @@ func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.Context, contr
 
 // DeleteAllModelGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteAllModelGroups(ctx context.Context) error {
-	jujuGroupPrefixRegex := c.jujuGroupPrefixRegexp()
-	re, err := regexp.Compile("^" + jujuGroupPrefixRegex)
+	neutronClient := c.environ.neutron()
+	tags := []string{fmt.Sprintf("%s=%s", tags.JujuModel, c.environ.modelUUID)}
+	query := neutron.ListSecurityGroupsV2Query{Tags: tags}
+	securityGroups, err := neutronClient.ListSecurityGroupsV2(query)
 	if err != nil {
-		return errors.Trace(err)
-	}
-
-	securityGroups, err := c.listAndFilterSecurityGroups(ctx, re)
-	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(c.environ.HandleCredentialError(ctx, err), "cannot list security groups")
 	}
 
 	return c.deleteSecurityGroups(ctx, securityGroups)
@@ -491,20 +458,15 @@ func (c *neutronFirewaller) DeleteMachineGroup(ctx context.Context, machineID st
 // UpdateGroupController implements Firewaller interface.
 func (c *neutronFirewaller) UpdateGroupController(ctx context.Context, controllerUUID string) error {
 	neutronClient := c.environ.neutron()
-	groups, err := neutronClient.ListSecurityGroupsV2()
-	if err != nil {
-		return c.environ.HandleCredentialError(ctx, err)
-	}
-	re, err := regexp.Compile(c.jujuGroupPrefixRegexp())
+	tags := []string{fmt.Sprintf("%s=%s", tags.JujuModel, c.environ.modelUUID)}
+	query := neutron.ListSecurityGroupsV2Query{Tags: tags}
+	groups, err := neutronClient.ListSecurityGroupsV2(query)
 	if err != nil {
 		return c.environ.HandleCredentialError(ctx, err)
 	}
 
 	var failed []string
 	for _, group := range groups {
-		if !re.MatchString(group.Name) {
-			continue
-		}
 		err := c.updateGroupControllerUUID(&group, controllerUUID)
 		if err != nil {
 			logger.Errorf(ctx, "error updating controller for security group %s: %v", group.Id, err)
@@ -513,7 +475,6 @@ func (c *neutronFirewaller) UpdateGroupController(ctx context.Context, controlle
 				// No need to continue here since we will 100% fail with an invalid credential.
 				break
 			}
-
 		}
 	}
 	if len(failed) != 0 {
@@ -528,7 +489,19 @@ func (c *neutronFirewaller) updateGroupControllerUUID(group *neutron.SecurityGro
 		return errors.Trace(err)
 	}
 	client := c.environ.neutron()
-	_, err = client.UpdateSecurityGroupV2(group.Id, newName, group.Description)
+	var updatedTags = []string{
+		fmt.Sprintf("%s=%s", tags.JujuController, controllerUUID),
+	}
+
+	for _, tag := range group.Tags {
+		// Skip old controller tags.
+		skipOldControllerTags := strings.HasPrefix(tag, fmt.Sprintf("%s=", tags.JujuController))
+		if skipOldControllerTags {
+			continue
+		}
+		updatedTags = append(updatedTags, tag)
+	}
+	_, err = client.UpdateSecurityGroupV2(group.Id, newName, group.Description, updatedTags)
 	return errors.Trace(err)
 }
 

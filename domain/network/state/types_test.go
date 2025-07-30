@@ -162,37 +162,29 @@ func getNetAddr() network.NetAddr {
 
 // getNetAddressTypes returns the minimal config needed
 // for these tests.
-func getNetAddressTypes() nameToIDTable {
-	return nameToIDTable{
-		DeviceMap: map[corenetwork.LinkLayerDeviceType]int{
+func getNetAddressTypes() netConfigLookups {
+	return netConfigLookups{
+		deviceType: map[corenetwork.LinkLayerDeviceType]int{
 			corenetwork.EthernetDevice: 2,
 		},
-		PortMap: map[corenetwork.VirtualPortType]int{
+		virtualPortType: map[corenetwork.VirtualPortType]int{
 			corenetwork.OvsPort: 1,
 		},
-		AddrMap: map[corenetwork.AddressType]int{
+		addrType: map[corenetwork.AddressType]int{
 			corenetwork.IPv4Address: 0,
 		},
-		AddrConfigMap: map[corenetwork.AddressConfigType]int{
+		addrConfigType: map[corenetwork.AddressConfigType]int{
 			corenetwork.ConfigDHCP: 1,
 		},
-		OriginMap: map[corenetwork.Origin]int{
+		origin: map[corenetwork.Origin]int{
 			corenetwork.OriginMachine: 0,
 		},
-		ScopeMap: map[corenetwork.Scope]int{
+		scope: map[corenetwork.Scope]int{
 			corenetwork.ScopeCloudLocal: 2,
 		},
 	}
 }
 
 func ptr[T any](v T) *T {
-	return &v
-}
-
-func nilZeroPtr[T comparable](v T) *T {
-	var zero T
-	if v == zero {
-		return nil
-	}
 	return &v
 }

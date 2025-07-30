@@ -22,6 +22,16 @@ type agentVersionTarget struct {
 	TargetVersion string `db:"target_version"`
 }
 
+// latestAgentVersion represents a row from the latest_agent_version table.
+type latestAgentVersion struct {
+	Version string `db:"latest_version"`
+}
+
+type agentVersionInfo struct {
+	TargetVersion string `db:"target_version"`
+	LatestVersion string `db:"latest_version"`
+}
+
 // architectureMap provides a way to exchange one architecture value
 // for the other the database. i.e transfer from name to ID etc.
 type architectureMap struct {
@@ -73,6 +83,14 @@ type setAgentVersionTargetStream struct {
 // the value of a count().
 type rowCount struct {
 	Count int `db:"count"`
+}
+
+type agentBinaryMetadata struct {
+	Version      string         `db:"version"`
+	Architecture string         `db:"architecture_name"`
+	Size         sql.NullInt64  `db:"size"`
+	SHA256       sql.NullString `db:"sha_256"`
+	SHA384       sql.NullString `db:"sha_384"`
 }
 
 // machineAgentBinaryMetadata represents information about a machine and the

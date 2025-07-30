@@ -40,11 +40,6 @@ func (s *unitStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *unitStateSuite) assertBackendApi(c *tc.C) *gomock.Controller {
-	resources := common.NewResources()
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag: s.unitTag1,
-	}
-
 	ctrl := gomock.NewController(c)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigService(ctrl)
 	s.unitStateService = mocks.NewMockUnitStateService(ctrl)
@@ -61,8 +56,6 @@ func (s *unitStateSuite) assertBackendApi(c *tc.C) *gomock.Controller {
 	s.api = common.NewUnitStateAPI(
 		s.controllerConfigGetter,
 		s.unitStateService,
-		resources,
-		authorizer,
 		unitAuthFunc,
 		loggertesting.WrapCheckLog(c),
 	)

@@ -14,15 +14,30 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("StorageProvisioner", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacadeV4(stdCtx, ctx)
-	}, reflect.TypeOf((*StorageProvisionerAPIv4)(nil)))
+	registry.MustRegister(
+		"StorageProvisioner", 4,
+		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+			return newFacadeV4(stdCtx, ctx)
+		},
+		reflect.TypeOf((*StorageProvisionerAPIv4)(nil)),
+	)
+
+	registry.MustRegister(
+		"VolumeAttachmentsWatcher", 2,
+		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+	)
+	registry.MustRegister(
+		"VolumeAttachmentPlansWatcher", 1,
+		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+	)
+	registry.MustRegister(
+		"FilesystemAttachmentsWatcher", 2,
+		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+	)
 }
 
 // newFacadeV4 provides the signature required for facade registration.
 func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv4, error) {
-	st := ctx.State()
-
 	domainServices := ctx.DomainServices()
 	storageService := domainServices.Storage()
 
@@ -37,20 +52,13 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		return nil, errors.Trace(err)
 	}
 
-	backend, storageBackend, err := NewStateBackends(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return NewStorageProvisionerAPIv4(
 		stdCtx,
 		ctx.WatcherRegistry(),
 		ctx.Clock(),
-		backend,
-		storageBackend,
 		domainServices.BlockDevice(),
 		domainServices.Config(),
 		domainServices.Machine(),
-		ctx.Resources(),
 		domainServices.Application(),
 		ctx.Auth(),
 		registry,

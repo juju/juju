@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	stdtesting "testing"
 	"time"
 
@@ -37,11 +36,12 @@ const (
 type s3ObjectStoreSuite struct {
 	baseSuite
 
-	states                 chan string
-	session                *MockSession
-	hashFileSystemAccessor *MockHashFileSystemAccessor
-	client                 *client
+	states  chan string
+	session *MockSession
+	client  *client
 }
+
+var _ TrackedObjectStore = (*s3ObjectStore)(nil)
 
 func TestS3ObjectStoreSuite(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
@@ -703,293 +703,6 @@ func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 	workertest.CleanKill(c, store)
 }
 
-func (s *s3ObjectStoreSuite) TestDrainFilesWithNoFiles(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
-	s.expectListMetadata([]objectstore.Metadata{})
-
-	store := s.newDrainingS3ObjectStore(c)
-	defer workertest.DirtyKill(c, store)
-
-	s.expectDrain(c)
-	s.expectStartup(c)
-
-	workertest.CleanKill(c, store)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFiles(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test that we can drain files from the object store.
-	// We expect that the draining tests will be covered by the drainFile
-	// tests.
-
-	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
-
-	s.expectListMetadata([]objectstore.Metadata{{
-		SHA384: "foo",
-		SHA256: "foo",
-		Path:   "foo",
-		Size:   12,
-	}})
-	s.expectHashToExistError("foo", errors.NotFound)
-
-	store := s.newDrainingS3ObjectStore(c)
-	defer workertest.DirtyKill(c, store)
-
-	s.expectFileDrained(c, "foo")
-	s.expectDrain(c)
-	s.expectStartup(c)
-
-	workertest.CleanKill(c, store)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFilesWithError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test that we can drain files from the object store.
-	// We expect that the draining tests will be covered by the drainFile
-	// tests.
-	// The drain state shouldn't be reached if there's an error.
-
-	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
-	s.expectListMetadata([]objectstore.Metadata{{
-		SHA384: "foo",
-		SHA256: "foo",
-		Path:   "foo",
-		Size:   12,
-	}})
-	done := s.expectHashToExistError("foo", errors.Errorf("boom"))
-
-	store := s.newDrainingS3ObjectStore(c)
-	defer workertest.DirtyKill(c, store)
-
-	// Note: the drained state is never reached because of the error.
-
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for drain")
-	}
-
-	err := workertest.CheckKill(c, store)
-	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFileDoesNotExist(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	store := &s3ObjectStore{
-		fileSystemAccessor: s.hashFileSystemAccessor,
-		allowDraining:      true,
-	}
-
-	s.expectHashToExistError("foo", errors.NotFound)
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFileObjectError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	store := &s3ObjectStore{
-		rootBucket:         defaultBucketName,
-		namespace:          "inferi",
-		fileSystemAccessor: s.hashFileSystemAccessor,
-		client:             s.client,
-		allowDraining:      true,
-	}
-
-	s.expectHashToExist("foo")
-	s.expectObjectExistsError("foo", errors.Errorf("boom"))
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFileObjectAlreadyExists(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	store := &s3ObjectStore{
-		baseObjectStore: baseObjectStore{
-			logger: loggertesting.WrapCheckLog(c),
-		},
-		rootBucket:         defaultBucketName,
-		namespace:          "inferi",
-		fileSystemAccessor: s.hashFileSystemAccessor,
-		client:             s.client,
-		allowDraining:      true,
-	}
-
-	s.expectHashToExist("foo")
-	s.expectObjectExists("foo")
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFileObjectGetHashReturnsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test what happens when the object does not exist in the object store
-	// and doesn't exist in the hash file system.
-	// In this case we should just return nil.
-
-	store := &s3ObjectStore{
-		baseObjectStore: baseObjectStore{
-			logger: loggertesting.WrapCheckLog(c),
-		},
-		rootBucket:         defaultBucketName,
-		namespace:          "inferi",
-		fileSystemAccessor: s.hashFileSystemAccessor,
-		client:             s.client,
-		allowDraining:      true,
-	}
-
-	s.expectHashToExist("foo")
-	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
-	s.expectGetByHashError("foo", errors.NotFoundf("not found"))
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFileSizeDoNotMatch(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test what happens when the size of the file in the object store
-	// does not match the size of the file in the hash file system.
-	// In this case we should just return nil, otherwise we'll end up
-	// crashing the worker.
-
-	store := &s3ObjectStore{
-		baseObjectStore: baseObjectStore{
-			logger: loggertesting.WrapCheckLog(c),
-		},
-		rootBucket:         defaultBucketName,
-		namespace:          "inferi",
-		fileSystemAccessor: s.hashFileSystemAccessor,
-		client:             s.client,
-		allowDraining:      true,
-	}
-
-	reader := &readCloser{Reader: strings.NewReader("some content")}
-	size := int64(666)
-
-	s.expectHashToExist("foo")
-	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
-	s.expectGetByHash("foo", reader, size)
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(reader.Closed(), tc.IsTrue)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFilePut(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	store := &s3ObjectStore{
-		baseObjectStore: baseObjectStore{
-			logger: loggertesting.WrapCheckLog(c),
-		},
-		rootBucket:         defaultBucketName,
-		namespace:          "inferi",
-		fileSystemAccessor: s.hashFileSystemAccessor,
-		client:             s.client,
-		allowDraining:      true,
-	}
-
-	reader := &readCloser{Reader: strings.NewReader("some content")}
-	size := int64(12)
-
-	s.expectHashToExist("foo")
-	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
-	s.expectGetByHash("foo", reader, size)
-	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
-	s.expectDeleteHash("foo")
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(reader.Closed(), tc.IsTrue)
-}
-
-func (s *s3ObjectStoreSuite) TestDrainFileDeleteError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test that we can handle an error when we try to delete the hash
-	// from the file system.
-	// In this case we should just return nil, otherwise we'll end up
-	// crashing the worker.
-
-	store := &s3ObjectStore{
-		baseObjectStore: baseObjectStore{
-			logger: loggertesting.WrapCheckLog(c),
-		},
-		rootBucket:         defaultBucketName,
-		namespace:          "inferi",
-		fileSystemAccessor: s.hashFileSystemAccessor,
-		client:             s.client,
-		allowDraining:      true,
-	}
-
-	reader := &readCloser{Reader: strings.NewReader("some content")}
-	size := int64(12)
-
-	s.expectHashToExist("foo")
-	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
-	s.expectGetByHash("foo", reader, size)
-	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
-	s.expectDeleteHashError("foo", errors.Errorf("boom"))
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(reader.Closed(), tc.IsTrue)
-}
-
-func (s *s3ObjectStoreSuite) TestComputeS3Hash(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test that we can compute the hash without having to perform
-	// an intermediary step. This will use the Seeker interface, to rewind
-	// the reader to the start of the file.
-
-	content := "some content"
-	expectedHash := s.calculateBase64SHA256(c, content)
-
-	store := &s3ObjectStore{}
-
-	reader, hash, err := store.computeS3Hash(strings.NewReader(content))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hash, tc.Equals, expectedHash)
-
-	bytes, err := io.ReadAll(reader)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(string(bytes), tc.Equals, content)
-}
-
-func (s *s3ObjectStoreSuite) TestComputeS3HashNoSeekerReader(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test that we can compute the hash even if we don't have a Seeker
-	// interface. Hopefully this won't be the case for most paths, but
-	// we require that the reader is rewound to the start of the file.
-
-	content := "some content"
-	expectedHash := s.calculateBase64SHA256(c, content)
-
-	store := &s3ObjectStore{}
-
-	reader, hash, err := store.computeS3Hash(blockSeek{Reader: strings.NewReader(content)})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(hash, tc.Equals, expectedHash)
-
-	bytes, err := io.ReadAll(reader)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(string(bytes), tc.Equals, content)
-}
-
 func (s *s3ObjectStoreSuite) TestPersistTmpFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1020,14 +733,12 @@ func (s *s3ObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.states = make(chan string, 3)
 
 	s.session = NewMockSession(ctrl)
-	s.hashFileSystemAccessor = NewMockHashFileSystemAccessor(ctrl)
 	s.client = &client{session: s.session}
 
 	c.Cleanup(func() {
 		s.states = nil
 
 		s.session = nil
-		s.hashFileSystemAccessor = nil
 		s.client = nil
 	})
 
@@ -1043,24 +754,6 @@ func (s *s3ObjectStoreSuite) expectStartup(c *tc.C) {
 	}
 }
 
-func (s *s3ObjectStoreSuite) expectDrain(c *tc.C) {
-	select {
-	case state := <-s.states:
-		c.Assert(state, tc.Equals, stateDrained)
-	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for drained")
-	}
-}
-
-func (s *s3ObjectStoreSuite) expectFileDrained(c *tc.C, hash string) {
-	select {
-	case state := <-s.states:
-		c.Assert(state, tc.Equals, fmt.Sprintf(stateFileDrained, hash))
-	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for file drained")
-	}
-}
-
 func (s *s3ObjectStoreSuite) expectFailure(fileName string, err error) {
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{}, err)
 }
@@ -1073,76 +766,16 @@ func (s *s3ObjectStoreSuite) expectBySHA256PrefixFailure(sha string, err error) 
 	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), sha).Return(objectstore.Metadata{}, err)
 }
 
-func (s *s3ObjectStoreSuite) expectListMetadata(metadata []objectstore.Metadata) {
-	s.service.EXPECT().ListMetadata(gomock.Any()).Return(metadata, nil)
-}
-
-func (s *s3ObjectStoreSuite) expectHashToExist(hash string) {
-	s.hashFileSystemAccessor.EXPECT().HashExists(gomock.Any(), hash).Return(nil)
-}
-
-func (s *s3ObjectStoreSuite) expectHashToExistError(hash string, err error) <-chan struct{} {
-	ch := make(chan struct{})
-	s.hashFileSystemAccessor.EXPECT().HashExists(gomock.Any(), hash).DoAndReturn(func(ctx context.Context, hash string) error {
-		close(ch)
-		return err
-	})
-	return ch
-}
-
-func (s *s3ObjectStoreSuite) expectDeleteHash(hash string) {
-	s.hashFileSystemAccessor.EXPECT().DeleteByHash(gomock.Any(), hash).Return(nil)
-}
-
-func (s *s3ObjectStoreSuite) expectDeleteHashError(hash string, err error) {
-	s.hashFileSystemAccessor.EXPECT().DeleteByHash(gomock.Any(), hash).Return(err)
-}
-
-func (s *s3ObjectStoreSuite) expectObjectExists(hash string) {
-	s.session.EXPECT().ObjectExists(gomock.Any(), defaultBucketName, filePath(hash)).Return(nil)
-}
-
-func (s *s3ObjectStoreSuite) expectObjectExistsError(hash string, err error) {
-	s.session.EXPECT().ObjectExists(gomock.Any(), defaultBucketName, filePath(hash)).Return(err)
-}
-
-func (s *s3ObjectStoreSuite) expectGetByHash(hash string, reader io.ReadCloser, size int64) {
-	s.hashFileSystemAccessor.EXPECT().GetByHash(gomock.Any(), hash).Return(reader, size, nil)
-}
-
-func (s *s3ObjectStoreSuite) expectGetByHashError(hash string, err error) {
-	s.hashFileSystemAccessor.EXPECT().GetByHash(gomock.Any(), hash).Return(nil, int64(0), err)
-}
-
-func (s *s3ObjectStoreSuite) expectHashPut(c *tc.C, hash, s3Hash, content string) {
-	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(hash), gomock.Any(), s3Hash).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
-		bytes, err := io.ReadAll(body)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(string(bytes), tc.Equals, content)
-		return nil
-	})
-}
-
 func (s *s3ObjectStoreSuite) newS3ObjectStore(c *tc.C) TrackedObjectStore {
-	return s.newS3ObjectStoreConfig(c, false)
-}
-
-func (s *s3ObjectStoreSuite) newDrainingS3ObjectStore(c *tc.C) TrackedObjectStore {
-	return s.newS3ObjectStoreConfig(c, true)
-}
-
-func (s *s3ObjectStoreSuite) newS3ObjectStoreConfig(c *tc.C, allowDraining bool) TrackedObjectStore {
 	store, err := newS3ObjectStore(S3ObjectStoreConfig{
-		RootBucket:             defaultBucketName,
-		Namespace:              "inferi",
-		RootDir:                c.MkDir(),
-		Client:                 s.client,
-		MetadataService:        s.service,
-		Claimer:                s.claimer,
-		Logger:                 loggertesting.WrapCheckLog(c),
-		Clock:                  clock.WallClock,
-		HashFileSystemAccessor: s.hashFileSystemAccessor,
-		AllowDraining:          allowDraining,
+		RootBucket:      defaultBucketName,
+		Namespace:       "inferi",
+		RootDir:         c.MkDir(),
+		Client:          s.client,
+		MetadataService: s.service,
+		Claimer:         s.claimer,
+		Logger:          loggertesting.WrapCheckLog(c),
+		Clock:           clock.WallClock,
 	}, s.states)
 	c.Assert(err, tc.IsNil)
 	return store
@@ -1158,28 +791,4 @@ func (c *client) Session(ctx context.Context, f func(context.Context, objectstor
 
 func filePath(hash string) string {
 	return fmt.Sprintf("inferi/%s", hash)
-}
-
-type blockSeek struct {
-	io.Reader
-}
-
-type readCloser struct {
-	io.Reader
-
-	mu     sync.Mutex
-	closed bool
-}
-
-func (r *readCloser) Close() error {
-	r.mu.Lock()
-	r.closed = true
-	r.mu.Unlock()
-	return nil
-}
-
-func (r *readCloser) Closed() bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.closed
 }

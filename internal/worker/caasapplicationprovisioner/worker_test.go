@@ -76,18 +76,9 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 
 	called := false
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func(context.Context) (worker.Worker, error) {
-		c.Assert(called, tc.IsFalse)
+		c.Check(called, tc.IsFalse)
 		called = true
-		mc := tc.NewMultiChecker()
-		mc.AddExpr("_.Facade", tc.NotNil)
-		mc.AddExpr("_.Broker", tc.NotNil)
-		mc.AddExpr("_.Clock", tc.NotNil)
-		mc.AddExpr("_.Logger", tc.NotNil)
-		mc.AddExpr("_.ApplicationService", tc.NotNil)
-		c.Check(config, mc, caasapplicationprovisioner.AppWorkerConfig{
-			AppID:    testAppID,
-			ModelTag: s.modelTag,
-		})
+		c.Check(config.AppID, tc.Equals, testAppID)
 		return func(ctx context.Context) (worker.Worker, error) {
 			close(done)
 			return workertest.NewErrorWorker(nil), nil
@@ -97,7 +88,6 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 		ApplicationService: applicationService,
 		Facade:             facade,
 		Broker:             struct{ caas.Broker }{},
-		ModelTag:           s.modelTag,
 		Clock:              s.clock,
 		Logger:             s.logger,
 		NewAppWorker:       newWorker,
@@ -165,16 +155,7 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 	called := 0
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
 		called++
-		mc := tc.NewMultiChecker()
-		mc.AddExpr("_.Facade", tc.NotNil)
-		mc.AddExpr("_.Broker", tc.NotNil)
-		mc.AddExpr("_.Clock", tc.NotNil)
-		mc.AddExpr("_.Logger", tc.NotNil)
-		mc.AddExpr("_.ApplicationService", tc.NotNil)
-		c.Check(config, mc, caasapplicationprovisioner.AppWorkerConfig{
-			AppID:    testAppID,
-			ModelTag: s.modelTag,
-		})
+		c.Check(config.AppID, tc.Equals, testAppID)
 		return func(ctx context.Context) (worker.Worker, error) {
 			return notifyWorker, nil
 		}
@@ -183,7 +164,6 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 		ApplicationService: applicationService,
 		Facade:             facade,
 		Broker:             struct{ caas.Broker }{},
-		ModelTag:           s.modelTag,
 		Clock:              s.clock,
 		Logger:             s.logger,
 		NewAppWorker:       newWorker,

@@ -408,20 +408,13 @@ func (r *rootSuite) TestDescribeFacades(c *tc.C) {
 	c.Check(clientVersions[0], tc.Equals, clientFacadeVersion)
 }
 
-type stubStateEntity struct{ tag names.Tag }
-
-func (e *stubStateEntity) Tag() names.Tag { return e.tag }
-
 func (r *rootSuite) TestAuthOwner(c *tc.C) {
-
 	tag, err := names.ParseUnitTag("unit-postgresql-0")
 	if err != nil {
 		c.Errorf("error parsing unit tag for test: %s", err)
 	}
 
-	entity := &stubStateEntity{tag}
-
-	apiHandler := apiserver.APIHandlerWithEntity(entity)
+	apiHandler := apiserver.APIHandlerWithEntity(tag)
 	authorized := apiHandler.AuthOwner(tag)
 
 	c.Check(authorized, tc.IsTrue)

@@ -29,6 +29,7 @@ type MetadataService interface {
 type TrackedObjectStore interface {
 	worker.Worker
 	objectstore.ObjectStore
+	objectstore.ObjectStoreRemover
 	Report() map[string]any
 }
 
@@ -190,9 +191,6 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Claimer:         opts.claimer,
 			Logger:          opts.logger,
 			Clock:           opts.clock,
-			AllowDraining:   opts.allowDraining,
-
-			HashFileSystemAccessor: newHashFileSystemAccessor(namespace, opts.rootDir, opts.logger),
 		})
 	default:
 		return nil, errors.Errorf("backend type %q: %w", backendType, jujuerrors.NotValid)

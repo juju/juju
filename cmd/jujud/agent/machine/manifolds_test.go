@@ -91,7 +91,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"machine-converter",
 			"storage-provisioner",
 			"termination-signal-handler",
-			"tools-version-checker",
 			"trace",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
@@ -635,18 +634,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"termination-signal-handler": {},
-
-	"tools-version-checker": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
 
 	"upgrade-check-flag": {"upgrade-check-gate"},
 

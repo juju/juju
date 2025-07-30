@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	removalstate "github.com/juju/juju/domain/removal/state"
+	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/domain/status"
 	statusstate "github.com/juju/juju/domain/status/state"
@@ -1036,7 +1036,7 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 	// Arrange: an application with some dying units
 	_, units := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 3)
 
-	removalState := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	removalState := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := removalState.EnsureUnitNotAliveCascade(c.Context(), units[0].String())
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), units[1].String())

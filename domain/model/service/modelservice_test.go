@@ -981,16 +981,17 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 		Type:           coremodel.IAAS,
 	}, nil)
 	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
-		UUID:           modelUUID,
-		ControllerUUID: controllerUUID,
-		Name:           "my-awesome-model",
-		Qualifier:      "prod",
-		Type:           coremodel.IAAS,
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
-		AgentStream:    modelagent.AgentStreamReleased,
-		AgentVersion:   jujuversion.Current,
+		UUID:               modelUUID,
+		ControllerUUID:     controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
 	}).Return(nil)
 
 	s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
@@ -1027,16 +1028,17 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 		Type:           coremodel.IAAS,
 	}, nil)
 	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
-		UUID:           modelUUID,
-		ControllerUUID: controllerUUID,
-		Name:           "my-awesome-model",
-		Qualifier:      "prod",
-		Type:           coremodel.IAAS,
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
-		AgentStream:    modelagent.AgentStreamReleased,
-		AgentVersion:   jujuversion.Current,
+		UUID:               modelUUID,
+		ControllerUUID:     controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
 	}).Return(modelerrors.AlreadyExists)
 
 	svc := NewProviderModelService(

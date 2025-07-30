@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
@@ -85,6 +87,13 @@ type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
 
+	// GetMachineLife returns the GetMachineLife status of the specified machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	GetMachineLife(context.Context, coremachine.Name) (life.Value, error)
+
+	// AllMachineNames returns the names of all machines in the model.
+	AllMachineNames(context.Context) ([]coremachine.Name, error)
+
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
 	// lxd_profile table for the given machine. This method will overwrite the
 	// list of profiles for the given machine without any checks.
@@ -96,10 +105,6 @@ type MachineService interface {
 
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)
-
-	// IsMachineManuallyProvisioned returns whether the machine is a manual
-	// machine.
-	IsMachineManuallyProvisioned(ctx context.Context, machineName coremachine.Name) (bool, error)
 
 	// GetSupportedContainersTypes returns the supported container types for the
 	// provider.
@@ -117,8 +122,8 @@ type MachineService interface {
 	// life changes.
 	WatchMachineContainerLife(ctx context.Context, parentMachineName coremachine.Name) (watcher.StringsWatcher, error)
 
-	// GetMachinePlacement returns the placement structure as it was recorded for
-	// the given machine.
+	// GetMachinePlacementDirective returns the placement structure as it was
+	// recorded for the given machine.
 	GetMachinePlacementDirective(ctx context.Context, mName coremachine.Name) (*string, error)
 
 	// GetMachineConstraints returns the constraints for the given machine.
@@ -128,6 +133,15 @@ type MachineService interface {
 
 	// GetMachineBase returns the base for the given machine.
 	GetMachineBase(ctx context.Context, mName coremachine.Name) (base.Base, error)
+
+	// UpdateLXDProfiles writes LXD Profiles to LXC for applications on the
+	// given machine if the providers supports it. A slice of profile names
+	// is returned. If the provider does not support LXDProfiles, no error
+	// is returned.
+	UpdateLXDProfiles(ctx context.Context, modelName, machineID string) ([]string, error)
+
+	// GetBootstrapEnviron returns the bootstrap environ.
+	GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status
@@ -153,15 +167,28 @@ type StoragePoolGetter interface {
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 }
 
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
+// NetworkService provides functionality for working with the network topology,
+// setting machine network configuration, and determining container devices
+// and addresses.
 type NetworkService interface {
+	// AllocateContainerAddresses allocates a static address for each of the
+	// container NICs in preparedInfo, hosted by the hostInstanceID, if the
+	// provider supports it. Returns the network config including all allocated
+	// addresses on success.
+	// Returns [networkerrors.ContainerAddressesNotSupported] if the provider
+	// does not support container addressing.
+	AllocateContainerAddresses(ctx context.Context,
+		hostInstanceID instance.Id,
+		containerName string,
+		preparedInfo network.InterfaceInfos,
+	) (network.InterfaceInfos, error)
+
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 
 	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
+	// An error is returned that satisfies errors.NotFound if there is no
+	// such space.
 	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
 
 	// GetAllSubnets returns all the subnets for the model.
@@ -171,15 +198,18 @@ type NetworkService interface {
 	// the machine with the input UUID.
 	SetMachineNetConfig(ctx context.Context, mUUID coremachine.UUID, nics []domainnetwork.NetInterface) error
 
-	// DevicesToBridge accepts the UUID of a host machine and a guest container/VM.
-	// It returns the information needed for creating network bridges that will be
-	// parents of the guest's virtual network devices.
-	// This determination is made based on the guest's space constraints, bindings
-	// of applications to run on the guest, and any host bridges that already exist.
+	// DevicesToBridge accepts the UUID of a host machine and a guest
+	// container/VM.
+	// It returns the information needed for creating network bridges that
+	// will be parents of the guest's virtual network devices.
+	// This determination is made based on the guest's space constraints,
+	// bindings of applications to run on the guest, and any host bridges
+	// that already exist.
 	DevicesToBridge(ctx context.Context, hostUUID, guestUUID coremachine.UUID) ([]domainnetwork.DeviceToBridge, error)
 
-	// DevicesForGuest returns the network devices that should be configured in the
-	// guest machine with the input UUID, based on the host machine's bridges.
+	// DevicesForGuest returns the network devices that should be configured
+	// in the guest machine with the input UUID, based on the host machine's
+	// bridges.
 	DevicesForGuest(ctx context.Context, hostUUID, guestUUID coremachine.UUID) ([]domainnetwork.NetInterface, error)
 }
 
@@ -214,6 +244,10 @@ type ApplicationService interface {
 	// the space ID it is bound to (or empty if unspecified). When no bindings are
 	// stored for the application, defaults are returned.
 	GetApplicationEndpointBindings(ctx context.Context, appName string) (map[string]network.SpaceUUID, error)
+
+	// GetMachinesForApplication returns the names of the machines which have a unit.
+	// of the specified application deployed to it.
+	GetMachinesForApplication(ctx context.Context, appName string) ([]coremachine.Name, error)
 }
 
 // RemovalService provides access to the removal service.

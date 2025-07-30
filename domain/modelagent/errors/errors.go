@@ -37,6 +37,11 @@ const (
 	// an agent version is attempted, but the model does not support downgrades.
 	DowngradeNotSupported = errors.ConstError("downgrade not supported")
 
+	// LatestVersionDowngradeNotSupported describes an error that occurs when a
+	// client attempts to set the latest agent version marker to a version that
+	// is lower than the current agent version or current latest agent version.
+	LatestVersionDowngradeNotSupported = errors.ConstError("latest version downgrade not supported")
+
 	// MissingAgentBinaries describes an error that occurs when agent binaries
 	// are missing for a given entity that runs agent binaries within the
 	// model, eg units and machines. When agent binaries are missing, it

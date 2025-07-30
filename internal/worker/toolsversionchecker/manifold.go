@@ -8,44 +8,116 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/engine"
-	apiagent "github.com/juju/juju/api/agent/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/agenttools"
+	coredependency "github.com/juju/juju/core/dependency"
+	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/services"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig engine.AgentAPIManifoldConfig
+type ManifoldConfig struct {
+	AgentName          string
+	DomainServicesName string
+	Logger             logger.Logger
+
+	GetModelUUID      func(context.Context, dependency.Getter, string) (model.UUID, error)
+	GetDomainServices func(context.Context, dependency.Getter, string, model.UUID) (domainServices, error)
+	NewWorker         func(VersionCheckerParams) worker.Worker
+}
+
+func (cfg ManifoldConfig) Validate() error {
+	if cfg.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if cfg.GetModelUUID == nil {
+		return errors.NotValidf("nil GetModelUUID")
+	}
+	if cfg.GetDomainServices == nil {
+		return errors.NotValidf("nil GetDomainServices")
+	}
+	if cfg.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
+	return nil
+}
 
 // Manifold returns a dependency manifold that runs a toolsversionchecker worker,
 // using the api connection resource named in the supplied config.
-func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentAPIManifoldConfig(config)
-	return engine.AgentAPIManifold(typedConfig, newWorker)
+func Manifold(cfg ManifoldConfig) dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{
+			cfg.AgentName,
+			cfg.DomainServicesName,
+		},
+		Start: cfg.start,
+	}
 }
 
-func newWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	tag := a.CurrentConfig().Tag()
-	if tag.Kind() != names.MachineTagKind {
-		return nil, errors.New("this manifold may only be used inside a machine agent")
+func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	isController, err := apiagent.IsController(ctx, apiCaller, tag)
+	modelUUID, err := cfg.GetModelUUID(ctx, getter, cfg.AgentName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !isController {
-		return nil, dependency.ErrMissing
+
+	domainServices, err := cfg.GetDomainServices(ctx, getter, cfg.DomainServicesName, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	// 4 times a day seems a decent enough amount of checks.
 	checkerParams := VersionCheckerParams{
-		CheckInterval: time.Hour * 6,
+		// 4 times a day seems a decent enough amount of checks.
+		checkInterval:  time.Hour * 6,
+		logger:         cfg.Logger,
+		domainServices: domainServices,
+		findTools:      tools.FindTools,
 	}
-	return New(agenttools.NewFacade(apiCaller), &checkerParams), nil
+	return cfg.NewWorker(checkerParams), nil
+}
+
+type domainServices struct {
+	config  ModelConfigService
+	agent   ModelAgentService
+	machine MachineService
+}
+
+// GetModelUUID returns the model UUID for the agent running the manifold
+func GetModelUUID(ctx context.Context, getter dependency.Getter, agentName string) (model.UUID, error) {
+	return coredependency.GetDependencyByName(getter, agentName, func(a agent.Agent) model.UUID {
+		return model.UUID(a.CurrentConfig().Model().Id())
+	})
+}
+
+// GetModelDomainServices returns the model domain services for the given model UUID
+func GetModelDomainServices(ctx context.Context, getter dependency.Getter, domainServicesName string, modelUUID model.UUID) (domainServices, error) {
+	domainServicesGetter, err := coredependency.GetDependencyByName(getter, domainServicesName, func(s services.DomainServicesGetter) services.DomainServicesGetter {
+		return s
+	})
+	if err != nil {
+		return domainServices{}, errors.Trace(err)
+	}
+
+	ds, err := domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return domainServices{}, errors.Trace(err)
+	}
+	return domainServices{
+		config:  ds.Config(),
+		agent:   ds.Agent(),
+		machine: ds.Machine(),
+	}, nil
 }

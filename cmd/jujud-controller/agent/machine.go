@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/lumberjack/v2"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
@@ -59,7 +57,6 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/service"
@@ -110,27 +107,6 @@ var (
 	caasMachineManifolds = machine.CAASManifolds
 	iaasMachineManifolds = machine.IAASManifolds
 )
-
-// ProductionMongoWriteConcern is provided to override in tests, default is true
-var ProductionMongoWriteConcern = true
-
-func init() {
-	stateWorkerDialOpts = mongo.DefaultDialOpts()
-	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
-		safe := mgo.Safe{}
-		if ProductionMongoWriteConcern {
-			safe.J = true
-			_, err := mongo.CurrentReplicasetConfig(session)
-			if err == nil {
-				// set mongo to write-majority (writes only returned after
-				// replicated to a majority of replica-set members).
-				safe.WMode = "majority"
-			}
-		}
-		session.SetSafe(&safe)
-		return nil
-	}
-}
 
 type machineAgentFactoryFnType func(names.Tag, bool) (*MachineAgent, error)
 
@@ -716,44 +692,12 @@ func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.API
 	return errors.Trace(err)
 }
 
-func mongoDialOptions(
-	baseOpts mongo.DialOpts,
-	agentConfig agent.Config,
-) (mongo.DialOpts, error) {
-	dialOpts := baseOpts
-	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
-		limit, err := strconv.Atoi(limitStr)
-		if err != nil {
-			return mongo.DialOpts{}, errors.Errorf("invalid mongo socket pool limit %q", limitStr)
-		}
-		logger.Infof(context.TODO(), "using mongo socker pool limit = %d", limit)
-		dialOpts.PoolLimit = limit
-	}
-	if dialOpts.PostDialServer != nil {
-		return mongo.DialOpts{}, errors.New("did not expect PostDialServer to be set")
-	}
-	return dialOpts, nil
-}
-
 func (a *MachineAgent) initState(
 	ctx context.Context, agentConfig agent.Config,
 	domainServicesGetter services.DomainServicesGetter,
 ) (*state.StatePool, error) {
-	// Start MongoDB server and dial.
-	if err := a.ensureMongoServer(ctx, agentConfig); err != nil {
-		return nil, err
-	}
-
-	dialOpts, err := mongoDialOptions(
-		stateWorkerDialOpts,
-		agentConfig,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	pool, err := openStatePool(
 		agentConfig,
-		dialOpts,
 		domainServicesGetter,
 	)
 	if err != nil {
@@ -871,58 +815,10 @@ func (m *modelWorker) Wait() error {
 	return err
 }
 
-// stateWorkerDialOpts is a mongo.DialOpts suitable
-// for use by StateWorker to dial mongo.
-//
-// This must be overridden in tests, as it assumes
-// journaling is enabled.
-var stateWorkerDialOpts mongo.DialOpts
-
-// ensureMongoServer ensures that mongo is installed and running,
-// and ready for opening a state connection.
-func (a *MachineAgent) ensureMongoServer(ctx context.Context, agentConfig agent.Config) (err error) {
-	a.mongoInitMutex.Lock()
-	defer a.mongoInitMutex.Unlock()
-	if a.mongoInitialized {
-		logger.Debugf(context.TODO(), "mongo is already initialized")
-		return nil
-	}
-	defer func() {
-		if err == nil {
-			a.mongoInitialized = true
-		}
-	}()
-
-	if a.isCaasAgent {
-		return nil
-	}
-	// EnsureMongoServerInstalled installs/upgrades the init config as necessary.
-	ensureServerParams, err := cmdutil.NewEnsureMongoParams(agentConfig)
-	if err != nil {
-		return err
-	}
-	if err := cmdutil.EnsureMongoServerInstalled(ctx, ensureServerParams); err != nil {
-		return err
-	}
-	logger.Debugf(context.TODO(), "mongodb service is installed")
-	return nil
-}
-
 func openStatePool(
 	agentConfig agent.Config,
-	dialOpts mongo.DialOpts,
 	domainServicesGetter services.DomainServicesGetter,
 ) (_ *state.StatePool, err error) {
-	info, ok := agentConfig.MongoInfo()
-	if !ok {
-		return nil, errors.Errorf("no state info available")
-	}
-	session, err := mongo.DialWithInfo(*info, dialOpts)
-	if err != nil {
-		return nil, errors.Annotatef(err, "open state pool")
-	}
-	defer session.Close()
-
 	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
 		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
 		if err != nil {
@@ -930,21 +826,12 @@ func openStatePool(
 		}
 		return svc.Storage(), nil
 	}
-	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
-		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
-		if err != nil {
-			return nil, err
-		}
-		return svc.Application(), nil
-	}
 
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
-		MongoSession:       session,
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
-		CharmServiceGetter: charmServiceGetter,
 	})
 	if err != nil {
 		pool.Close()

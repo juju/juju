@@ -20,20 +20,17 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
+	modelservice "github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type ManifoldSuite struct {
-	statetesting.StateSuite
-
 	config         httpserverargs.ManifoldConfig
 	manifold       dependency.Manifold
 	getter         dependency.Getter
@@ -50,12 +47,8 @@ func TestManifoldSuite(t *testing.T) {
 }
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
-	s.StateSuite.SetUpTest(c)
-
 	s.clock = testclock.NewClock(time.Time{})
-	s.stateTracker = stubStateTracker{
-		pool: s.StatePool,
-	}
+	s.stateTracker = stubStateTracker{}
 	s.domainServices = stubDomainServices{}
 	s.stub.ResetCalls()
 
@@ -84,15 +77,15 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 func (s *ManifoldSuite) newStateAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
-	modelUUID model.UUID,
 	controllerConfig httpserverargs.ControllerConfigService,
 	agentPasswordServiceGetter httpserverargs.AgentPasswordServiceGetter,
 	accessService httpserverargs.AccessService,
+	modelService httpserverargs.ModelService,
 	macaroonService httpserverargs.MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	s.stub.MethodCall(s, "NewStateAuthenticator", ctx, modelUUID)
+	s.stub.MethodCall(s, "NewStateAuthenticator", ctx, "")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -253,5 +246,10 @@ func (s *stubDomainServices) Access() *accessservice.Service {
 
 func (s *stubDomainServices) Macaroon() *macaroonservice.Service {
 	s.MethodCall(s, "Macaroon")
+	return nil
+}
+
+func (s *stubDomainServices) Model() *modelservice.WatchableService {
+	s.MethodCall(s, "Model")
 	return nil
 }

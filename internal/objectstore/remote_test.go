@@ -28,6 +28,8 @@ type remoteFileObjectStoreSuite struct {
 	reader io.ReadCloser
 }
 
+var _ TrackedObjectStore = (*remoteFileObjectStore)(nil)
+
 func TestRemoteFileObjectStoreSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &remoteFileObjectStoreSuite{})

@@ -7,28 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/uuid"
 )
-
-type baseModel interface {
-	CloudName() string
-	CloudRegion() string
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-}
-
-// Model exposes the methods needed for an EnvironConfigGetter.
-type Model interface {
-	baseModel
-	ControllerUUID() string
-}
 
 // ModelConfigService is an interface that provides access to the
 // model configuration.
@@ -47,11 +34,15 @@ type CloudService interface {
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
+type ModelInfoService interface {
+	// GetModelInfo returns the readonly model information for the model in
+	// question.
+	GetModelInfo(ctx context.Context) (model.ModelInfo, error)
+}
+
 // EnvironConfigGetter implements environs.EnvironConfigGetter
 // in terms of a Model.
 type EnvironConfigGetter struct {
-	Model
-
 	// NewContainerBroker is a func that returns a caas container broker
 	// for the relevant model.
 	NewContainerBroker caas.NewContainerBrokerFunc
@@ -63,12 +54,17 @@ type EnvironConfigGetter struct {
 
 	// CloudService provides access to clouds.
 	CloudService CloudService
+
+	ModelInfoService ModelInfoService
 }
 
 // ControllerUUID returns the universally unique identifier of the controller.
-func (g EnvironConfigGetter) ControllerUUID() uuid.UUID {
-	u, _ := uuid.UUIDFromString(g.Model.ControllerUUID())
-	return u
+func (g EnvironConfigGetter) ControllerUUID(ctx context.Context) (string, error) {
+	modelInfo, err := g.ModelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return modelInfo.ControllerUUID.String(), nil
 }
 
 // ModelConfig implements environs.EnvironConfigGetter.
@@ -78,58 +74,47 @@ func (g EnvironConfigGetter) ModelConfig(ctx context.Context) (*config.Config, e
 
 // CloudSpec implements environs.EnvironConfigGetter.
 func (g EnvironConfigGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
-	return CloudSpecForModel(ctx, g.Model, g.CloudService, g.CredentialService)
+	return CloudSpecForModel(ctx, g.ModelInfoService, g.CloudService, g.CredentialService)
 }
 
 // CloudSpecForModel returns a CloudSpec for the specified model.
 func CloudSpecForModel(
-	ctx context.Context, m baseModel,
+	ctx context.Context,
+	modelInfoService ModelInfoService,
 	cloudService CloudService,
 	credentialService CredentialService,
 ) (environscloudspec.CloudSpec, error) {
-	cld, err := cloudService.Cloud(ctx, m.CloudName())
+	modelInfo, err := modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	regionName := m.CloudRegion()
-	tag, ok := m.CloudCredentialTag()
-	var cred cloud.Credential
-	if ok {
-		cred, err = credentialService.CloudCredential(ctx, credential.KeyFromTag(tag))
-		if err != nil {
-			return environscloudspec.CloudSpec{}, errors.Trace(err)
-		}
+
+	cld, err := cloudService.Cloud(ctx, modelInfo.Cloud)
+	if err != nil {
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
+	}
+	regionName := modelInfo.CloudRegion
+	credentialKey := credential.Key{
+		Cloud: modelInfo.Cloud,
+		Owner: model.ControllerModelOwnerUsername,
+		Name:  modelInfo.CredentialName,
+	}
+	cred, err := credentialService.CloudCredential(ctx, credentialKey)
+	if err != nil {
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
 	return environscloudspec.MakeCloudSpec(*cld, regionName, &cred)
 }
 
-// NewEnvironFunc aliases a function that, given a Model,
-// returns a new Environ.
-type NewEnvironFunc = func(Model, CloudService, CredentialService, ModelConfigService) (environs.Environ, error)
-
-// GetNewEnvironFunc returns a NewEnvironFunc, that constructs Environs
-// using the given environs.NewEnvironFunc.
-func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
-	return func(m Model, cloudService CloudService, credentialService CredentialService, modelConfigService ModelConfigService) (environs.Environ, error) {
-		g := EnvironConfigGetter{
-			Model:              m,
-			CloudService:       cloudService,
-			CredentialService:  credentialService,
-			ModelConfigService: modelConfigService,
-		}
-		return environs.GetEnviron(context.TODO(), g, environs.NoopCredentialInvalidator(), newEnviron)
-	}
-}
-
 // NewCAASBrokerFunc aliases a function that, given a state.State,
 // returns a new CAAS broker.
-type NewCAASBrokerFunc = func(Model, CloudService, CredentialService, ModelConfigService) (caas.Broker, error)
+type NewCAASBrokerFunc = func(ModelInfoService, CloudService, CredentialService, ModelConfigService) (caas.Broker, error)
 
 // GetNewCAASBrokerFunc returns a NewCAASBrokerFunc, that constructs CAAS brokers
 // using the given caas.NewContainerBrokerFunc.
 func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFunc {
-	return func(m Model, cloudService CloudService, credentialService CredentialService, modelConfigService ModelConfigService) (caas.Broker, error) {
-		g := EnvironConfigGetter{Model: m, CloudService: cloudService, CredentialService: credentialService, ModelConfigService: modelConfigService}
+	return func(modelInfoService ModelInfoService, cloudService CloudService, credentialService CredentialService, modelConfigService ModelConfigService) (caas.Broker, error) {
+		g := EnvironConfigGetter{ModelInfoService: modelInfoService, CloudService: cloudService, CredentialService: credentialService, ModelConfigService: modelConfigService}
 		cloudSpec, err := g.CloudSpec(context.TODO())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -138,8 +123,12 @@ func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFu
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		modelInfo, err := modelInfoService.GetModelInfo(context.TODO())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return newBroker(context.TODO(), environs.OpenParams{
-			ControllerUUID: m.ControllerUUID(),
+			ControllerUUID: modelInfo.ControllerUUID.String(),
 			Cloud:          cloudSpec,
 			Config:         cfg,
 		}, environs.NoopCredentialInvalidator())

@@ -80,7 +80,7 @@ func FilesystemToState(v params.Filesystem) (names.FilesystemTag, state.Filesyst
 	return filesystemTag, state.FilesystemInfo{
 		v.Info.Size,
 		"", // pool is set by state
-		v.Info.FilesystemId,
+		v.Info.ProviderId,
 	}, nil
 }
 

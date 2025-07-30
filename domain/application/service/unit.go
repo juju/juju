@@ -161,6 +161,13 @@ type UnitState interface {
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
+
+	// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
+	// and their cloud container provider IDs for the given application.
+	//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+	//     is returned.
+	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]string, error)
 }
 
 func (s *Service) makeIAASUnitArgs(
@@ -358,8 +365,11 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	return nil
 }
 
-// GetUnitUUID returns the UUID for the named unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// GetUnitUUID returns the UUID for the named unit.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/unit.InvalidUnitName] if the unit name is invalid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the unit doesn't exist.
 func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -601,4 +611,25 @@ func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreap
 		}
 	}
 	return namesAndCoreLives, nil
+}
+
+// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
+// and their cloud container provider IDs for the given application.
+//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+//     is returned.
+//   - If the application UUID is not valid, [coreerrors.NotValid] is returned.
+func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context, appUUID coreapplication.ID) (map[coreunit.Name]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	idMap, err := s.st.GetAllUnitCloudContainerIDsForApplication(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return idMap, nil
 }

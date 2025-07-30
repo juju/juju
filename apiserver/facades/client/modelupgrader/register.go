@@ -33,16 +33,13 @@ func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-	pool := ctx.StatePool()
-
 	domainServices := ctx.DomainServices()
 	controllerConfigService := domainServices.ControllerConfig()
 	controllerAgentService := domainServices.Agent()
 
 	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), domainServices.ControllerNode())
 	toolsFinder := common.NewToolsFinder(
-		st, urlGetter,
+		urlGetter,
 		ctx.ControllerObjectStore(),
 		domainServices.AgentBinary(),
 	)
@@ -64,7 +61,6 @@ func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 
 	return NewModelUpgraderAPI(
 		ctx.ControllerUUID(),
-		statePoolShim{StatePool: pool},
 		toolsFinder,
 		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
@@ -76,6 +72,7 @@ func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 		domainServices.Agent(),
 		domainServices.Machine(),
 		domainServices.ModelInfo(),
+		domainServices.Model(),
 		domainServices.Upgrade(),
 		ctx.Logger().Child("modelupgrader"),
 	)

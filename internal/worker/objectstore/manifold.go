@@ -33,6 +33,20 @@ type MetadataServiceGetter interface {
 	ForModelUUID(model.UUID) MetadataService
 }
 
+// ModelServiceGetter is the interface that is used to get the ModelService
+// for a given model UUID.
+type ModelServiceGetter interface {
+	// ForModelUUID returns the ModelService for the given model UUID.
+	ForModelUUID(model.UUID) ModelServices
+}
+
+// ModelServices is the interface that provides model services for a given model
+// UUID.
+type ModelServices interface {
+	// ModelService returns the ModelService for the given model UUID.
+	ModelService() ModelService
+}
+
 // ModelClaimGetter is the interface that is used to get a model claimer.
 type ModelClaimGetter interface {
 	ForModelUUID(model.UUID) (objectstore.Claimer, error)
@@ -188,19 +202,26 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			dataDir := a.CurrentConfig().DataDir()
 
 			w, err := NewWorker(WorkerConfig{
-				TracerGetter:               tracerGetter,
-				RootDir:                    dataDir,
-				RootBucket:                 rootBucketName,
-				Clock:                      config.Clock,
-				Logger:                     config.Logger,
-				NewObjectStoreWorker:       config.NewObjectStoreWorker,
-				ObjectStoreType:            controllerConfig.ObjectStoreType(),
-				S3Client:                   s3Client,
-				APIRemoteCaller:            apiRemoteCaller,
-				ControllerMetadataService:  metadataService,
-				ModelMetadataServiceGetter: modelMetadataServiceGetter{servicesGetter: objectStoreServicesGetter},
-				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
-				AllowDraining:              AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
+				TracerGetter:              tracerGetter,
+				RootDir:                   dataDir,
+				RootBucket:                rootBucketName,
+				Clock:                     config.Clock,
+				Logger:                    config.Logger,
+				NewObjectStoreWorker:      config.NewObjectStoreWorker,
+				ObjectStoreType:           controllerConfig.ObjectStoreType(),
+				S3Client:                  s3Client,
+				APIRemoteCaller:           apiRemoteCaller,
+				ControllerMetadataService: metadataService,
+				ModelServiceGetter: modelServiceGetter{
+					servicesGetter: objectStoreServicesGetter,
+				},
+				ModelMetadataServiceGetter: modelMetadataServiceGetter{
+					servicesGetter: objectStoreServicesGetter,
+				},
+				ModelClaimGetter: modelClaimGetter{
+					manager: leaseManager,
+				},
+				AllowDraining: AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
 			})
 			return w, errors.Trace(err)
 		},
@@ -257,6 +278,24 @@ type modelMetadataService struct {
 // ObjectStore returns the object store metadata for the given model UUID
 func (s modelMetadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
 	return s.factory.ObjectStore()
+}
+
+type modelServiceGetter struct {
+	servicesGetter services.ObjectStoreServicesGetter
+}
+
+// ForModelUUID returns the MetadataService for the given model UUID.
+func (s modelServiceGetter) ForModelUUID(modelUUID model.UUID) ModelServices {
+	return modelService{factory: s.servicesGetter.ServicesForModel(modelUUID)}
+}
+
+type modelService struct {
+	factory services.ObjectStoreServices
+}
+
+// ModelService returns the object store metadata for the given model UUID
+func (s modelService) ModelService() ModelService {
+	return s.factory.Model()
 }
 
 type modelClaimGetter struct {

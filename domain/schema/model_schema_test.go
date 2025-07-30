@@ -76,6 +76,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		// Model
 		"model",
 		"model_agent",
+		"model_life",
 		"agent_stream",
 		"agent_version",
 
@@ -567,13 +568,33 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_removal_insert",
 		"trg_log_removal_update",
 
-		"trg_log_custom_unit_lifecycle_insert",
-		"trg_log_custom_unit_lifecycle_update",
-		"trg_log_custom_unit_lifecycle_delete",
+		"trg_log_custom_unit_name_lifecycle_insert",
+		"trg_log_custom_unit_name_lifecycle_update",
+		"trg_log_custom_unit_name_lifecycle_delete",
 
-		"trg_log_custom_machine_lifecycle_insert",
-		"trg_log_custom_machine_lifecycle_update",
-		"trg_log_custom_machine_lifecycle_delete",
+		"trg_log_custom_machine_name_lifecycle_insert",
+		"trg_log_custom_machine_name_lifecycle_update",
+		"trg_log_custom_machine_name_lifecycle_delete",
+
+		"trg_log_custom_unit_uuid_lifecycle_insert",
+		"trg_log_custom_unit_uuid_lifecycle_update",
+		"trg_log_custom_unit_uuid_lifecycle_delete",
+
+		"trg_log_custom_machine_uuid_lifecycle_insert",
+		"trg_log_custom_machine_uuid_lifecycle_update",
+		"trg_log_custom_machine_uuid_lifecycle_delete",
+
+		"trg_log_custom_application_uuid_lifecycle_insert",
+		"trg_log_custom_application_uuid_lifecycle_update",
+		"trg_log_custom_application_uuid_lifecycle_delete",
+
+		"trg_log_custom_relation_uuid_lifecycle_insert",
+		"trg_log_custom_relation_uuid_lifecycle_update",
+		"trg_log_custom_relation_uuid_lifecycle_delete",
+
+		"trg_log_custom_model_life_model_uuid_lifecycle_insert",
+		"trg_log_custom_model_life_model_uuid_lifecycle_update",
+		"trg_log_custom_model_life_model_uuid_lifecycle_delete",
 
 		"trg_log_machine_insert_life_start_time",
 		"trg_log_machine_update_life_start_time",

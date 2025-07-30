@@ -171,7 +171,7 @@ func newK8sBroker(
 
 	labelVersion := constants.LastLabelVersion
 	if namespace != "" {
-		labelVersion, err = utils.DetectModelLabelVersion(
+		labelVersion, err = utils.MatchModelLabelVersion(
 			ctx, namespace, modelName, modelUUID, controllerUUID, k8sClient.CoreV1().Namespaces())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -448,7 +448,7 @@ func (k *kubernetesClient) validateControllerWorkloadStorage(ctx context.Context
 	return storageClass, errors.Trace(err)
 }
 
-// Bootstrap deploys controller with mongoDB together into k8s cluster.
+// Bootstrap deploys a controller into k8s cluster.
 func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 
 	if !args.BootstrapBase.Empty() {

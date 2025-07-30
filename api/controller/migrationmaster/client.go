@@ -120,6 +120,7 @@ func (c *Client) MigrationStatus(ctx context.Context) (migration.MigrationStatus
 			Password:       target.Password,
 			Macaroons:      macs,
 			Token:          target.Token,
+			SkipUserChecks: target.SkipUserChecks,
 		},
 	}, nil
 }

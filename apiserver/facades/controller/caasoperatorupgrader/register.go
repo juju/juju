@@ -24,12 +24,8 @@ func Register(registry facade.FacadeRegistry) {
 // newStateCAASOperatorUpgraderAPI provides the signature required for facade registration.
 func newStateCAASOperatorUpgraderAPI(ctx facade.ModelContext) (*API, error) {
 	authorizer := ctx.Auth()
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	domainServices := ctx.DomainServices()
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(domainServices.ModelInfo(), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}

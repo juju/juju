@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // UniterAPI implements the latest version (v21) of the Uniter API.
@@ -62,7 +61,6 @@ type UniterAPI struct {
 	modelType model.ModelType
 
 	lxdProfileAPI           *LXDProfileAPI
-	st                      *state.State
 	clock                   clock.Clock
 	auth                    facade.Authorizer
 	resources               facade.Resources
@@ -1145,84 +1143,54 @@ func (u *UniterAPI) Relation(ctx context.Context, args params.RelationUnits) (pa
 
 // ActionStatus returns the status of Actions by Tags passed in.
 func (u *UniterAPI) ActionStatus(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
 
-	results := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	for k, entity := range args.Entities {
-		action, err := actionFn(entity.Tag)
-		if err != nil {
-			results.Results[k].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[k].Result = string(action.Status())
-	}
-
-	return results, nil
+	return params.StringResults{}, nil
 }
 
 // Actions returns the Actions by Tags passed and ensures that the Unit asking
 // for them is the same Unit that has the Actions.
 func (u *UniterAPI) Actions(ctx context.Context, args params.Entities) (params.ActionResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ActionResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.Actions(args, actionFn), nil
+	return params.ActionResults{}, nil
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
 func (u *UniterAPI) BeginActions(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.BeginActions(args, actionFn), nil
+	return params.ErrorResults{}, nil
 }
 
 // FinishActions saves the result of a completed Action
 func (u *UniterAPI) FinishActions(ctx context.Context, args params.ActionExecutionResults) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.FinishActions(args, actionFn), nil
+	return params.ErrorResults{}, nil
 }
 
 // LogActionsMessages records the log messages against the specified actions.
 func (u *UniterAPI) LogActionsMessages(ctx context.Context, args params.ActionMessageParams) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit(ctx)
+	_, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
-	}
-	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-
-	oneActionMessage := func(actionTag string, message string) error {
-		action, err := actionFn(actionTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return action.Log(message)
 	}
 
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Messages)),
-	}
-	for i, actionMessage := range args.Messages {
-		result.Results[i].Error = apiservererrors.ServerError(
-			oneActionMessage(actionMessage.Tag, actionMessage.Value))
 	}
 	return result, nil
 }
@@ -2725,8 +2693,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	changes params.CommitHookChangesArg,
 	canAccessUnit, canAccessApp common.AuthFunc,
 ) error {
-	var modelOps []state.ModelOperation
-
 	if changes.UpdateNetworkInfo {
 		err := u.setUnitRelationNetworks(ctx, coreunit.Name(unitTag.Id()))
 		if err != nil {
@@ -2841,11 +2807,12 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Trace(err)
 		}
 
-		modelOp, err := u.addStorageToOneUnitOperation(unitTag, addParams, curCons)
+		// TODO(storage): This operation is no longer applied on the legacy
+		// state, this functionality must be migrated to dqlite.
+		_, err = u.addStorageToOneUnitOperation(unitTag, addParams, curCons)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		modelOps = append(modelOps, modelOp)
 	}
 
 	// TODO - do in txn once we have support for that
@@ -2911,9 +2878,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Annotate(err, "removing secrets")
 		}
 	}
-
-	// Apply all changes in a single transaction.
-	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
+	return nil
 }
 
 func (u *UniterAPI) setUnitRelationNetworks(ctx context.Context, name coreunit.Name) error {

@@ -257,14 +257,14 @@ func (st *State) insertManualMachine(
 ) error {
 	setManualStmt, err := st.Prepare(`
 INSERT INTO machine_manual (machine_uuid)
-VALUES ($machineUUID.uuid)
+VALUES ($entityUUID.uuid)
 ON CONFLICT (machine_uuid) DO NOTHING
-`, machineUUID{})
+`, entityUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, setManualStmt, machineUUID{
+	if err := tx.Query(ctx, setManualStmt, entityUUID{
 		UUID: mUUID,
 	}).Run(); err != nil {
 		return errors.Errorf("inserting machine manual entry for machine %q: %w", mUUID, err)
@@ -288,9 +288,9 @@ func (st *State) DeleteMachineCloudInstance(
 	// Prepare query for deleting machine cloud instance.
 	deleteInstanceQuery := `
 DELETE FROM machine_cloud_instance
-WHERE machine_uuid=$machineUUID.uuid
+WHERE machine_uuid=$entityUUID.uuid
 `
-	machineUUIDParam := machineUUID{
+	machineUUIDParam := entityUUID{
 		UUID: mUUID,
 	}
 	deleteInstanceStmt, err := st.Prepare(deleteInstanceQuery, machineUUIDParam)
@@ -301,7 +301,7 @@ WHERE machine_uuid=$machineUUID.uuid
 	// Prepare query for deleting instance tags.
 	deleteInstanceTagsQuery := `
 DELETE FROM instance_tag
-WHERE machine_uuid=$machineUUID.uuid
+WHERE machine_uuid=$entityUUID.uuid
 `
 	deleteInstanceTagStmt, err := st.Prepare(deleteInstanceTagsQuery, machineUUIDParam)
 	if err != nil {
@@ -309,7 +309,7 @@ WHERE machine_uuid=$machineUUID.uuid
 	}
 
 	// Prepare query for deleting cloud instance status.
-	deleteInstanceStatusQuery := `DELETE FROM machine_cloud_instance_status WHERE machine_uuid=$machineUUID.uuid`
+	deleteInstanceStatusQuery := `DELETE FROM machine_cloud_instance_status WHERE machine_uuid=$entityUUID.uuid`
 	deleteInstanceStatusStmt, err := st.Prepare(deleteInstanceStatusQuery, machineUUIDParam)
 	if err != nil {
 		return errors.Capture(err)
@@ -361,11 +361,11 @@ func (st *State) GetInstanceID(ctx context.Context, mUUID string) (string, error
 }
 
 func (st *State) getInstanceID(ctx context.Context, tx *sqlair.TX, mUUID string) (string, error) {
-	mUUIDParam := machineUUID{UUID: mUUID}
+	mUUIDParam := entityUUID{UUID: mUUID}
 	query := `
 SELECT &instanceID.instance_id
 FROM   machine_cloud_instance
-WHERE  machine_uuid = $machineUUID.uuid;`
+WHERE  machine_uuid = $entityUUID.uuid;`
 	queryStmt, err := st.Prepare(query, mUUIDParam, instanceID{})
 	if err != nil {
 		return "", errors.Capture(err)
@@ -392,11 +392,11 @@ func (st *State) GetInstanceIDAndName(ctx context.Context, mUUID string) (string
 		return "", "", errors.Capture(err)
 	}
 
-	mUUIDParam := machineUUID{UUID: mUUID}
+	mUUIDParam := entityUUID{UUID: mUUID}
 	query := `
 SELECT &instanceIDAndDisplayName.*
 FROM   machine_cloud_instance
-WHERE  machine_uuid = $machineUUID.uuid;`
+WHERE  machine_uuid = $entityUUID.uuid;`
 	queryStmt, err := st.Prepare(query, mUUIDParam, instanceIDAndDisplayName{})
 	if err != nil {
 		return "", "", errors.Capture(err)

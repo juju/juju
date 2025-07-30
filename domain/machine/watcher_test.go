@@ -20,7 +20,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
-	removalstate "github.com/juju/juju/domain/removal/state"
+	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaltesting "github.com/juju/juju/internal/testing"
@@ -60,6 +60,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 		func(ctx context.Context) (service.Provider, error) {
 			return service.NewNoopProvider(), nil
 		},
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
@@ -71,11 +72,11 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	removalSt := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	removalSt := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Should fire when a machine is created.
 	var res0 service.AddMachineResults
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		res0, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
@@ -88,7 +89,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{res0.MachineName.String()}))
 	})
 	var res1 service.AddMachineResults
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		res1, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
@@ -101,7 +102,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{res1.MachineName.String()}))
 	})
 	// Should fire when the machine life changes.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		mUUID, err := s.svc.GetMachineUUID(c.Context(), res1.MachineName)
 		c.Assert(err, tc.ErrorIsNil)
 		_, _, err = removalSt.EnsureMachineNotAliveCascade(c.Context(), mUUID.String(), true)
@@ -110,7 +111,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{res1.MachineName.String()}))
 	})
 	// Should not fire on containers.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
@@ -127,7 +128,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 		w.AssertNoChange()
 	})
 	// Should fire on machine deletes.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.DeleteMachine(c.Context(), "1")
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -211,14 +212,14 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) 
 }
 
 func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
-	removalSt := removalstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	removalSt := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	watcher, err := s.svc.WatchModelMachineLifeAndStartTimes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	var res service.AddMachineResults
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		var err error
 		res, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
@@ -232,7 +233,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{res.MachineName.String()}))
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		mUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
 		c.Assert(err, tc.ErrorIsNil)
 		_, _, err = removalSt.EnsureMachineNotAliveCascade(c.Context(), mUUID.String(), true)
@@ -241,7 +242,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{res.MachineName.String()}))
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, "UPDATE machine SET agent_started_at = DATETIME('2022-02-02')")
 			return err
@@ -251,7 +252,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{"0"}))
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = s.svc.DeleteMachine(c.Context(), "0")
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -284,7 +285,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when the machine cloud instance is set.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "42", "", "nonce", hc)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -320,7 +321,7 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when the machine cloud instance is deleted.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = s.svc.DeleteMachineCloudInstance(c.Context(), machineUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -360,7 +361,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Should notify when a new profile is added.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(c.Context(), machineUUIDm0, []string{"profile-0"})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -368,7 +369,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 	})
 
 	// Should notify when profiles are overwritten.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(c.Context(), machineUUIDm0, []string{"profile-0", "profile-1", "profile-2"})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -377,7 +378,7 @@ func (s *watcherSuite) TestWatchLXDProfiles(c *tc.C) {
 
 	// Nothing to notify when the lxd profiles are set on the other (non
 	// watched) machine.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.SetAppliedLXDProfileNames(c.Context(), machineUUIDm1, []string{"profile-0"})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -435,7 +436,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Ensure that the watcher is not notified when a sibling is asked for reboot
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(c.Context(), controlUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -443,7 +444,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	})
 
 	// Ensure that the watcher is notified when the child is directly asked for reboot
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(c.Context(), childUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -451,7 +452,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	})
 
 	// Ensure that the watcher is notified when the parent is required for reboot
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.RequireMachineReboot(c.Context(), parentUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -459,7 +460,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	})
 
 	// Ensure that the watcher is not notified when a sibling is cleared from reboot
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(c.Context(), controlUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -467,7 +468,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	})
 
 	// Ensure that the watcher is notified when the child is directly cleared from reboot
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(c.Context(), childUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -475,7 +476,7 @@ func (s *watcherSuite) TestWatchMachineForReboot(c *tc.C) {
 	})
 
 	// Ensure that the watcher is notified when the parent is cleared from reboot
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err := s.svc.ClearMachineReboot(c.Context(), parentUUID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -493,7 +494,7 @@ func (s *watcherSuite) TestWatchMachineLife(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
@@ -506,7 +507,7 @@ func (s *watcherSuite) TestWatchMachineLife(c *tc.C) {
 	})
 
 	// Create a second machine, make sure it doesn't trigger a change.
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
@@ -597,7 +598,7 @@ func (s *watcherSuite) TestWatchMachineContainerLife(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
@@ -609,7 +610,7 @@ func (s *watcherSuite) TestWatchMachineContainerLife(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
@@ -636,7 +637,7 @@ func (s *watcherSuite) TestWatchMachineContainerLifeNoDispatch(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		var err error
 		_, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
@@ -649,7 +650,7 @@ func (s *watcherSuite) TestWatchMachineContainerLifeNoDispatch(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		_, err = s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",

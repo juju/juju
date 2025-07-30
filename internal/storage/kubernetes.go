@@ -32,7 +32,8 @@ type KubernetesFilesystemParams struct {
 // KubernetesFilesystemAttachmentParams is a set of parameters for filesystem attachment
 // or detachment.
 type KubernetesFilesystemAttachmentParams struct {
-	AttachmentParams
+	// ReadOnly indicates that the storage should be attached as read-only.
+	ReadOnly bool
 
 	// Path is the path at which the filesystem is to be mounted on the pod that
 	// this attachment corresponds to.

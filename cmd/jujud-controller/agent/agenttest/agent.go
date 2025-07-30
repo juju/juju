@@ -5,9 +5,9 @@ package agenttest
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/juju/clock"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/controllernode"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -29,21 +28,17 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/mongo/mongotest"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	testing.ApiServerSuite
 
-	Environ environs.Environ
 	DataDir string
 	LogDir  string
 }
@@ -51,20 +46,8 @@ type AgentSuite struct {
 func (s *AgentSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	domainServices := s.ControllerDomainServices(c)
-
-	var err error
-	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(
-		s.ControllerModel(c), domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-	c.Assert(err, tc.ErrorIsNil)
-
 	s.DataDir = c.MkDir()
 	s.LogDir = c.MkDir()
-}
-
-func mongoInfo() *mongo.MongoInfo {
-	info := statetesting.NewMongoInfo()
-	return info
 }
 
 // PrimeAgent writes the configuration file and tools for an agent
@@ -93,7 +76,6 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tools1, tc.DeepEquals, agentTools)
 
-	stateInfo := mongoInfo()
 	apiInfo := s.ControllerModelApiInfo()
 
 	paths := agent.DefaultPaths
@@ -102,7 +84,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
 
-	dqlitePort := mgotesting.FindTCPPort()
+	dqlitePort := findTCPPort()
 
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -112,7 +94,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 			Password:          password,
 			Nonce:             agent.BootstrapNonce,
 			APIAddresses:      apiInfo.Addrs,
-			CACert:            stateInfo.CACert,
+			CACert:            coretesting.CACert,
 			Controller:        coretesting.ControllerTag,
 			Model:             apiInfo.ModelTag,
 
@@ -183,9 +165,8 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	modelTag names.ModelTag,
 	apiPort int,
 ) agent.ConfigSetterWriter {
-	stateInfo := mongoInfo()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
-	dqlitePort := mgotesting.FindTCPPort()
+	dqlitePort := findTCPPort()
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
 			Paths: agent.NewPathsWithDefaults(agent.Paths{
@@ -197,8 +178,8 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Password:              password,
 			Nonce:                 agent.BootstrapNonce,
 			APIAddresses:          apiAddr,
-			CACert:                stateInfo.CACert,
-			Controller:            s.ControllerModel(c).ControllerTag(),
+			CACert:                coretesting.CACert,
+			Controller:            names.NewControllerTag(s.ControllerUUID),
 			Model:                 modelTag,
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
@@ -265,18 +246,10 @@ func (s *AgentSuite) AssertCanOpenState(c *tc.C, tag names.Tag, dataDir string) 
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, tc.ErrorIsNil)
 
-	info, ok := config.MongoInfo()
-	c.Assert(ok, tc.IsTrue)
-
-	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
-	c.Assert(err, tc.ErrorIsNil)
-	defer session.Close()
-
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
-		MongoSession:       session,
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -289,4 +262,18 @@ func (s *AgentSuite) AssertCannotOpenState(c *tc.C, tag names.Tag, dataDir strin
 
 	_, ok := config.MongoInfo()
 	c.Assert(ok, tc.IsFalse)
+}
+
+// findTCPPort finds an unused TCP port and returns it.
+// Use of this function has an inherent race condition - another
+// process may claim the port before we try to use it.
+// We hope that the probability is small enough during
+// testing to be negligible.
+func findTCPPort() int {
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		panic(err)
+	}
+	l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }

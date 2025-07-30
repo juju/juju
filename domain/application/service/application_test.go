@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
+	machine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -1290,6 +1291,19 @@ func (s *applicationServiceSuite) TestIsControllerApplication(c *tc.C) {
 	isController, err = s.service.IsControllerApplication(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isController, tc.IsTrue)
+}
+
+func (s *applicationWatcherServiceSuite) TestGetMachinesForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetMachinesForApplication(gomock.Any(), appUUID.String()).Return([]string{"0", "1"}, nil)
+
+	results, err := s.service.GetMachinesForApplication(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, []machine.Name{"0", "1"})
 }
 
 type applicationWatcherServiceSuite struct {

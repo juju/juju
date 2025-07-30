@@ -189,8 +189,8 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 		params.Tag,
 		names.VolumeTag{},
 		storage.FilesystemInfo{
-			FilesystemId: params.Tag.Id(),
-			Size:         sizeInMiB,
+			ProviderId: params.Tag.Id(),
+			Size:       sizeInMiB,
 		},
 	}, nil
 }

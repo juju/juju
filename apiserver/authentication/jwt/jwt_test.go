@@ -54,7 +54,7 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 	authInfo, err := authenticator.Authenticate(req)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
+	c.Assert(authInfo.Tag.String(), tc.Equals, "user-fred")
 	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
@@ -122,7 +122,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
+	c.Assert(authInfo.Tag.String(), tc.Equals, "user-fred")
 	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
@@ -171,10 +171,8 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
 
-	badUser := jwt.TokenEntity{
-		User: names.NewUserTag("wallyworld"),
-	}
-	perm, err := authInfo.Delegator.SubjectPermissions(c.Context(), badUser.User.Id(), permission.ID{
+	badUser := names.NewUserTag("wallyworld")
+	perm, err := authInfo.Delegator.SubjectPermissions(c.Context(), badUser.Id(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
@@ -182,10 +180,8 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
 	c.Assert(perm, tc.Equals, permission.NoAccess)
 
-	badUser = jwt.TokenEntity{
-		User: names.NewUserTag(permission.EveryoneUserName.Name()),
-	}
-	perm, err = authInfo.Delegator.SubjectPermissions(c.Context(), badUser.User.Id(), permission.ID{
+	badUser = names.NewUserTag(permission.EveryoneUserName.Name())
+	perm, err = authInfo.Delegator.SubjectPermissions(c.Context(), badUser.Id(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
 	})
@@ -212,7 +208,7 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *tc.C) {
 	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(authInfo.Entity.Tag().String(), tc.Equals, "user-fred")
+	c.Assert(authInfo.Tag.String(), tc.Equals, "user-fred")
 
 	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Controller,

@@ -153,7 +153,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 
 	harness := watchertest.NewHarness(idler, watchertest.NewWatcherC(c, watcher))
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = keyManagerSvc.AddPublicKeysForUser(
 			ctx,
 			s.userID,
@@ -165,7 +165,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = keyManagerSvc.DeleteKeysForUser(
 			ctx,
 			s.userID,
@@ -180,14 +180,14 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 		accessstate.NewUserState(s.ControllerSuite.TxnRunnerFactory()),
 	)
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = userSvc.DisableUserAuthentication(ctx, user.AdminUserName)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(len(keys), tc.Equals, 0)
@@ -195,14 +195,14 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = userSvc.EnableUserAuthentication(ctx, user.AdminUserName)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(keys, tc.DeepEquals, []string{
@@ -212,14 +212,14 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		err = userSvc.RemoveUser(ctx, user.AdminUserName)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *tc.C) {
+	harness.AddTest(c, func(c *tc.C) {
 		keys, err := svc.GetAuthorisedKeysForMachine(ctx, machine.Name("0"))
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(len(keys), tc.Equals, 0)

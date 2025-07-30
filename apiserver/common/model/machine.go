@@ -8,32 +8,32 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ModelMachineInfo returns information about machine hardware for
 // alive top level machines (not containers).
-func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineService MachineService, statusService StatusService) (machineInfo []params.ModelMachineInfo, _ error) {
-	machines, err := st.AllMachines()
+func ModelMachineInfo(ctx context.Context, machineService MachineService, statusService StatusService) (machineInfo []params.ModelMachineInfo, _ error) {
+	machineNames, err := machineService.AllMachineNames(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	machineStatuses, err := statusService.GetAllMachineStatuses(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	for _, m := range machines {
-		if m.Life() != state.Alive {
+	for _, machineName := range machineNames {
+		if life, err := machineService.GetMachineLife(ctx, machineName); errors.Is(err, machineerrors.MachineNotFound) {
+			return nil, errors.NotFoundf("machine %q", machineName)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		} else if life != corelife.Alive {
 			continue
 		}
-		machineName := machine.Name(m.Id())
 
 		var aStatus string
 		var statusMessage string
@@ -46,13 +46,13 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 		}
 
 		mInfo := params.ModelMachineInfo{
-			Id:      m.Id(),
+			Id:      machineName.String(),
 			Status:  aStatus,
 			Message: statusMessage,
 		}
-		machineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(m.Id()))
+		machineUUID, err := machineService.GetMachineUUID(ctx, machineName)
 		if errors.Is(err, machineerrors.MachineNotFound) {
-			return nil, errors.NotFoundf("machine %q", m.Id())
+			return nil, errors.NotFoundf("machine %q", machineName)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -62,20 +62,27 @@ func ModelMachineInfo(ctx context.Context, st ModelManagerBackend, machineServic
 			mInfo.InstanceId = instanceID.String()
 			mInfo.DisplayName = displayName
 		case errors.Is(err, machineerrors.MachineNotFound):
-			return nil, errors.NotFoundf("machine %q", m.Id())
+			return nil, errors.NotFoundf("machine %q", machineName)
 		case errors.Is(err, machineerrors.NotProvisioned):
 			// ok, but no instance ID to get.
 		default:
 			return nil, errors.Trace(err)
 		}
-		if m.ContainerType() != "" && m.ContainerType() != instance.NONE {
+		supportedContainerTypes, err := machineService.GetSupportedContainersTypes(ctx, machineUUID)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return nil, errors.NotFoundf("machine %q", machineName)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(supportedContainerTypes) > 0 {
 			machineInfo = append(machineInfo, mInfo)
 			continue
 		}
+
 		// Only include cores for physical machines.
 		hw, err := machineService.GetHardwareCharacteristics(ctx, machineUUID)
 		if errors.Is(err, machineerrors.MachineNotFound) {
-			return nil, errors.NotFoundf("machine %q", m.Id())
+			return nil, errors.NotFoundf("machine %q", machineName)
 		} else if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
 			return nil, errors.Trace(err)
 		}

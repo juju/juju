@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
-	"github.com/juju/juju/state"
 )
 
 // Config is the configuration required for running an API server worker.
@@ -35,7 +34,6 @@ type Config struct {
 	Mux                               *apiserverhttp.Mux
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
 	JWTParser                         *jwtparser.Parser
-	StatePool                         *state.StatePool
 	LeaseManager                      lease.Manager
 	LogSink                           corelogger.ModelLogger
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -71,9 +69,6 @@ func (config Config) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
-	}
-	if config.StatePool == nil {
-		return errors.NotValidf("nil StatePool")
 	}
 	if config.Mux == nil {
 		return errors.NotValidf("nil Mux")
@@ -161,7 +156,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	}
 
 	serverConfig := apiserver.ServerConfig{
-		StatePool:                     config.StatePool,
 		Clock:                         config.Clock,
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),

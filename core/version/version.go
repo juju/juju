@@ -34,6 +34,11 @@ const (
 	TreeStateArchive = "archive"
 )
 
+const (
+	// GradeDevel reflects the snap "devel" grade value.
+	GradeDevel = "devel"
+)
+
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = semversion.MustParse("1.19.9")
 
@@ -42,6 +47,9 @@ var switchOverVersion = semversion.MustParse("1.19.9")
 // NOTE: This is injected by the build system. In Makefile, we override
 // this value with the value of the JUJU_BUILD_NUMBER environment variable.
 var build string
+
+// Grade reflects the snap grade value.
+var Grade string
 
 // OfficialBuild is a monotonic number injected by Jenkins.
 var OfficialBuild = mustParseBuildInt(build)
