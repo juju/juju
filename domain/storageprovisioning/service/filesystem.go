@@ -162,13 +162,17 @@ type FilesystemState interface {
 	// getting the current set of model provisioned filesystem attachments.
 	InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery)
 
-	// GetFilesystemTemplatesForApplication returns all the filesystem templates for
-	// a given application.
+	// GetFilesystemTemplatesForApplication returns all the filesystem templates
+	// for a given application.
 	GetFilesystemTemplatesForApplication(context.Context, coreapplication.ID) ([]storageprovisioning.FilesystemTemplate, error)
 
 	// SetFilesystemProvisionedInfo sets on the provided filesystem the information
 	// about the provisioned filesystem.
 	SetFilesystemProvisionedInfo(ctx context.Context, filesystemUUID storageprovisioning.FilesystemUUID, info storageprovisioning.FilesystemProvisionedInfo) error
+
+	// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem
+	// attachment information about the provisoned filesystem attachment.
+	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemUUID storageprovisioning.FilesystemUUID, netNodeUUID domainnetwork.NetNodeUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
 }
 
 // CheckFilesystemForIDExists checks if a filesystem exists for the supplied
@@ -641,7 +645,29 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForMachine(
 	filesystemID string, machineUUID machine.UUID,
 	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
 ) error {
-	return errors.New("SetFilesystemAttachmentProvisionedInfoForMachine not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineUUID.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	filesystemUUID, err := s.st.GetFilesystemUUIDForID(ctx, filesystemID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.st.SetFilesystemAttachmentProvisionedInfo(ctx, filesystemUUID,
+		netNodeUUID, info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // SetFilesystemAttachmentProvisionedInfoForUnit sets on the provided filesystem
@@ -654,5 +680,24 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForUnit(
 	filesystemID string, unitUUID unit.UUID,
 	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
 ) error {
-	return errors.New("SetFilesystemAttachmentProvisionedInfoForUnit not implemented")
+	if err := unitUUID.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	filesystemUUID, err := s.st.GetFilesystemUUIDForID(ctx, filesystemID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.st.SetFilesystemAttachmentProvisionedInfo(ctx, filesystemUUID,
+		netNodeUUID, info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
