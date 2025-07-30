@@ -59,10 +59,10 @@ func (s *workerConfigSuite) TestMissing(c *tc.C) {
 		expected string
 	}{{
 		fn: func(cfg workerConfig) workerConfig {
-			cfg.statePool = nil
+			cfg.clock = nil
 			return cfg
 		},
-		expected: "empty statePool",
+		expected: "empty clock",
 	}}
 	for _, test := range tests {
 		cfg := test.fn(s.config)
@@ -75,6 +75,7 @@ type workerSuite struct {
 	domainServicesGetter    *MockDomainServicesGetter
 	controllerConfigService *MockControllerConfigService
 	accessService           *MockAccessService
+	modelService            *MockModelService
 
 	stateAuthFunc NewStateAuthenticatorFunc
 }
@@ -87,10 +88,10 @@ func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 	return func(
 		ctx context.Context,
 		statePool *state.StatePool,
-		controllerModelUUID model.UUID,
 		controllerConfigService ControllerConfigService,
 		agentPasswordServiceGetter AgentPasswordServiceGetter,
 		accessService AccessService,
+		modelService ModelService,
 		macaroonService MacaroonService,
 		mux *apiserverhttp.Mux,
 		clock clock.Clock,
@@ -103,6 +104,10 @@ func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 func (s *workerSuite) TestWorkerStarted(c *tc.C) {
 	started := make(chan struct{})
 	s.stateAuthFunc = startedAuthFunc(started)
+
+	controllerModelUUID, err := model.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.modelService.EXPECT().GetControllerModelUUID(gomock.Any()).Return(controllerModelUUID, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -229,11 +234,13 @@ func (s *workerSuite) newWorkerConfig(c *tc.C) workerConfig {
 		domainServicesGetter:    s.domainServicesGetter,
 		controllerConfigService: s.controllerConfigService,
 		accessService:           s.accessService,
+		modelService:            s.modelService,
 	}
 	return workerConfig{
 		domainServicesGetter:    services,
 		controllerConfigService: services,
 		accessService:           services,
+		modelService:            services.modelService,
 		mux:                     &apiserverhttp.Mux{},
 		clock:                   clock.WallClock,
 		newStateAuthenticatorFn: s.stateAuthFunc,
@@ -246,6 +253,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.accessService = NewMockAccessService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
 
 	return ctrl
 }

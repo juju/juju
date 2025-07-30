@@ -996,7 +996,7 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *tc.C) {
 
 func (s *accessSuite) TestAllModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	testAdmin := names.NewUserTag("test-admin")
+	testAdmin := names.NewUserTag("owner")
 
 	models := []model.Model{
 		{
@@ -1024,7 +1024,7 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 		models, nil,
 	)
 
-	// api user owner is "test-admin"
+	// api user owner is "owner"
 	s.accessService.EXPECT().LastModelLogin(gomock.Any(), user.NameFromTag(testAdmin), gomock.Any()).Times(4)
 
 	response, err := s.controllerAPI(c).AllModels(c.Context())

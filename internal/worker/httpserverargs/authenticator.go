@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
@@ -73,6 +74,14 @@ type AccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target permission.ID) (permission.Access, error)
 }
 
+// ModelService is the interface that the worker uses to get model information.
+type ModelService interface {
+	// GetControllerModelUUID returns the model uuid for the controller model.
+	// If no controller model exists then an error satisfying
+	// [modelerrors.NotFound] is returned.
+	GetControllerModelUUID(context.Context) (model.UUID, error)
+}
+
 type MacaroonService interface {
 	dbrootkeystore.ContextBacking
 	BakeryConfigService
@@ -96,10 +105,10 @@ type BakeryConfigService interface {
 type NewStateAuthenticatorFunc func(
 	ctx context.Context,
 	statePool *state.StatePool,
-	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
+	modelService ModelService,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
@@ -112,14 +121,19 @@ type NewStateAuthenticatorFunc func(
 func NewStateAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
-	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
+	modelService ModelService,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 ) (macaroon.LocalMacaroonAuthenticator, error) {
+	controllerModelUUID, err := modelService.GetControllerModelUUID(context.TODO())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	passwordService, err := agentPasswordServiceGetter.GetAgentPasswordServiceForModel(ctx, controllerModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)

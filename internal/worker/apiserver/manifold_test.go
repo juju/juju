@@ -101,7 +101,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		AuthenticatorName:                 "authenticator",
 		ClockName:                         "clock",
 		MuxName:                           "mux",
-		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",
 		LeaseManagerName:                  "lease-manager",
@@ -174,7 +173,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "mux",
-	"state", "upgrade", "auditconfig-updater", "lease-manager",
+	"upgrade", "auditconfig-updater", "lease-manager",
 	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink", "db-accessor",
 	"jwt-parser",

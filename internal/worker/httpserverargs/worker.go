@@ -33,15 +33,13 @@ type workerConfig struct {
 	controllerConfigService ControllerConfigService
 	accessService           AccessService
 	macaroonService         MacaroonService
+	modelService            ModelService
 	mux                     *apiserverhttp.Mux
 	clock                   clock.Clock
 	newStateAuthenticatorFn NewStateAuthenticatorFunc
 }
 
 func (w workerConfig) Validate() error {
-	if w.statePool == nil {
-		return errors.NotValidf("empty statePool")
-	}
 	if w.domainServicesGetter == nil {
 		return errors.NotValidf("empty domainServicesGetter")
 	}
@@ -81,6 +79,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 			cfg.controllerConfigService,
 			cfg.accessService,
 			cfg.macaroonService,
+			cfg.modelService,
 		),
 	}
 
@@ -95,19 +94,13 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	systemState, err := w.cfg.statePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerModelUUID := systemState.ModelUUID()
-
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
 		w.catacomb.Context(context.Background()),
 		w.cfg.statePool,
-		coremodel.UUID(controllerModelUUID),
 		w.managedServices,
 		w.managedServices,
 		w.managedServices,
+		cfg.modelService,
 		w.managedServices,
 		w.cfg.mux,
 		w.cfg.clock,
@@ -146,6 +139,7 @@ type managedServices struct {
 	controllerConfigService ControllerConfigService
 	accessService           AccessService
 	macaroonService         MacaroonService
+	modelService            ModelService
 }
 
 func newManagedServices(
@@ -153,12 +147,14 @@ func newManagedServices(
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
 	macaroonService MacaroonService,
+	modelService ModelService,
 ) *managedServices {
 	w := &managedServices{
 		domainServicesGetter:    domainServicesGetter,
 		controllerConfigService: controllerConfigService,
 		accessService:           accessService,
 		macaroonService:         macaroonService,
+		modelService:            modelService,
 	}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()

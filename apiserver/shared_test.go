@@ -24,15 +24,6 @@ type sharedServerContextSuite struct {
 func TestSharedServerContextSuite(t *stdtesting.T) {
 	tc.Run(t, &sharedServerContextSuite{})
 }
-func (s *sharedServerContextSuite) TestConfigNoStatePool(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := s.newConfig(c)
-
-	err := config.validate()
-	c.Check(err, tc.ErrorIs, errors.NotValid)
-	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
-}
 
 func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -54,17 +45,6 @@ func (s *sharedServerContextSuite) TestConfigNoControllerConfig(c *tc.C) {
 	err := config.validate()
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 	c.Check(err, tc.ErrorMatches, "nil controllerConfig not valid")
-}
-
-func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := s.newConfig(c)
-
-	ctx, err := newSharedServerContext(config)
-	c.Check(err, tc.ErrorIs, errors.NotValid)
-	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
-	c.Check(ctx, tc.IsNil)
 }
 
 func (s *sharedServerContextSuite) TestValidConfig(c *tc.C) {

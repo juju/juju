@@ -560,7 +560,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
-			StateName:              stateName,
 			LogSinkName:            logSinkName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
