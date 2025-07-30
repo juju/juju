@@ -292,7 +292,12 @@ This section describes the workflows and associated hook events which are import
 ### Relation hooks
 
 When an application becomes involved in a relation, each one of its units will start to receive relevant hook events
-for that relation.
+for that relation. From the moment the relation is created, any unit involved in it can interact with it.
+In practice, that means using one of the following hook commands that the Juju unit agent exposes to the charm:
+- `relation-ids`
+- `relation-list`
+- `relation-get`
+- `relation-set`
 
 For every endpoint defined by a charm, relation hook events are named after the charm endpoint:
 
@@ -320,7 +325,13 @@ The `relation-created` hook always runs once when the relation is first created,
 The `relation-joined` hook always runs once when a related unit is first seen.
 As related applications are scaled up, each unit will receive `<endpoint>-relation-joined`, once for each related unit being added.
 
-The `relation-changed` hook for a given unit always runs once immediately following the relation-joined hook for that unit, and subsequently whenever the related unit changes its settings (by calling relation-set and exiting without error).
+The `relation-changed` hook for a given unit always runs once immediately following the `relation-joined` hook for that unit,
+and subsequently whenever any related unit for which this unit has read access changes its settings (by calling the `relation-set` hook command and exiting without error).
+
+<!--
+TODO - confirm this:
+For example, if the `wordpress/0*` leader uses `relation-set` to write to its local *unit* databag, its peers and the `mysql/0*` leader will receive `http-relation-changed`, because they can access that data (by calling `relation-get`), but the other mysql units will not be notified.
+-->
 
 ```{note}
 "Immediately" only applies within the context of this particular relation - that is, when
@@ -329,11 +340,13 @@ the next hook to be run *in relation id "foo:123"* will be "foo-relation-changed
 Non-relation hooks may intervene, as may hooks for other relations, and even for other "foo" relations.
 ```
 
-The `relation-departed` hook for a given unit always runs once when a related unit is no longer related.
-Any time a related applications is scaled down, each unit will receive `<endpoint>-relation-departed`, once for each related unit being removed.
-After the `relation-departed` hook has run, no further notifications will be received from that unit; however, its settings will remain accessible
-via relation-get for the complete lifetime of the relation. It's also still possible to call `relation-set`.
-This hook also sets an additional environment variable:
+A unit will depart a relation when either the relation or the unit itself is marked for termination. When this happens,
+for every known related unit (those which have joined and not yet departed), the `relation-departed` hook is run.
+After the `relation-departed` hook has run for a given unit, no further notifications will be received from that unit;
+however, its settings will remain accessible via the `relation-get` hook command for the complete lifetime of the relation.
+It's also still possible to call the `relation-set` hook command.
+
+The `relation-departed` hook also sets an additional environment variable:
 
 * JUJU_DEPARTING_UNIT holds the name of the related unit departing the relation.
 
@@ -708,7 +721,8 @@ TBA
 
 Emitted when a unit departs from an existing relation.
 
-The `relation-departed` hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
+The `relation-departed` hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run,
+no further notifications will be received from that unit; however, its settings will remain accessible via the `relation-get` hook command for the complete lifetime of the relation.
 
 
 `relation-departed` is a {ref}`teardown <teardown-phase>` hook, emitted when a remote unit departs a relation.
@@ -747,7 +761,7 @@ A unit's relation settings persist beyond its own departure from the relation; t
 `relation-changed` is *not* fired for removed relations.
 If you want to know when to remove a unit from your data, that would be `relation-departed`.
 
-> During a `relation-departed` hook, relation settings can still be read (with relation-get) and a relation can even still be set (with relation-set), by  explicitly providing the relation ID. All units will still be able to see all other units, and any unit can call relation-set to update their own published set of data on the relation. However, data updated by the departing unit will not be published to the remaining units. This is true even if there are no units on the other side of the relation to be notified of the change.
+> During a `relation-departed` hook, relation settings can still be read (with relation-get) and a relation can even still be set (with relation-set), by  explicitly providing the relation ID. All units will still be able to see all other units, and any unit can call the `relation-set` hook command to update their own published set of data on the relation. However, data updated by the departing unit will not be published to the remaining units. This is true even if there are no units on the other side of the relation to be notified of the change.
 
 If any affected unit publishes new data on the relation during the `relation-departed` hooks, the new data will *not* be seen by the departing unit (it will *not* receive a `relation-changed` hook; only the remaining units will).
 
