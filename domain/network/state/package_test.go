@@ -70,6 +70,13 @@ func (s *linkLayerBaseSuite) addApplication(c *tc.C, charmUUID, spaceUUID string
 	return appUUID
 }
 
+func (s *linkLayerBaseSuite) addApplicationWithName(c *tc.C, charmUUID, spaceUUID, appName string) string {
+	appUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appName, life.Alive, charmUUID, spaceUUID)
+	return appUUID
+}
+
 // addApplicationEndpoint inserts a new application endpoint into the
 // database with the specified UUIDs. Returns the endpoint uuid.
 func (s *linkLayerBaseSuite) addApplicationEndpoint(

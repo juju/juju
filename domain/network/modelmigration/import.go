@@ -48,9 +48,8 @@ type MigrationService interface {
 	// the model.
 	ImportLinkLayerDevices(ctx context.Context, data []internal.ImportLinkLayerDevice) error
 
-	// DeleteImportedLinkLayerDevices removes all link layer device data
-	// imported via the ImportLinkLayerDevices method.
-	DeleteImportedLinkLayerDevices(ctx context.Context) error
+	// ImportCloudServices imports cloud service metadata into the model using the provided context and service data.
+	ImportCloudServices(ctx context.Context, services []internal.ImportCloudService) error
 }
 
 type importOperation struct {
@@ -89,22 +88,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 	if err := i.importLinkLayerDevices(ctx, model.LinkLayerDevices(), model.IPAddresses()); err != nil {
 		return errors.Capture(err)
-	}
-	return nil
-}
-
-// Rollback the resource import operation by deleting all data imported
-// within the network domain.
-func (i *importOperation) Rollback(ctx context.Context, model description.Model) error {
-	// TODO: 21-May-2025 hml
-	// Implement rollback for spaces and subnets.
-
-	if len(model.LinkLayerDevices()) == 0 {
-		return nil
-	}
-	err := i.migrationService.DeleteImportedLinkLayerDevices(ctx)
-	if err != nil {
-		return errors.Errorf("link layer device import rollback failed: %w", err)
 	}
 	return nil
 }

@@ -200,40 +200,40 @@ func (c *MockStateAllSubnetsQueryCall) DoAndReturn(f func(context.Context, datab
 	return c
 }
 
-// DeleteImportedLinkLayerDevices mocks base method.
-func (m *MockState) DeleteImportedLinkLayerDevices(arg0 context.Context) error {
+// CreateCloudServices mocks base method.
+func (m *MockState) CreateCloudServices(arg0 context.Context, arg1 []internal.ImportCloudService) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteImportedLinkLayerDevices", arg0)
+	ret := m.ctrl.Call(m, "CreateCloudServices", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteImportedLinkLayerDevices indicates an expected call of DeleteImportedLinkLayerDevices.
-func (mr *MockStateMockRecorder) DeleteImportedLinkLayerDevices(arg0 any) *MockStateDeleteImportedLinkLayerDevicesCall {
+// CreateCloudServices indicates an expected call of CreateCloudServices.
+func (mr *MockStateMockRecorder) CreateCloudServices(arg0, arg1 any) *MockStateCreateCloudServicesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteImportedLinkLayerDevices", reflect.TypeOf((*MockState)(nil).DeleteImportedLinkLayerDevices), arg0)
-	return &MockStateDeleteImportedLinkLayerDevicesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCloudServices", reflect.TypeOf((*MockState)(nil).CreateCloudServices), arg0, arg1)
+	return &MockStateCreateCloudServicesCall{Call: call}
 }
 
-// MockStateDeleteImportedLinkLayerDevicesCall wrap *gomock.Call
-type MockStateDeleteImportedLinkLayerDevicesCall struct {
+// MockStateCreateCloudServicesCall wrap *gomock.Call
+type MockStateCreateCloudServicesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteImportedLinkLayerDevicesCall) Return(arg0 error) *MockStateDeleteImportedLinkLayerDevicesCall {
+func (c *MockStateCreateCloudServicesCall) Return(arg0 error) *MockStateCreateCloudServicesCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteImportedLinkLayerDevicesCall) Do(f func(context.Context) error) *MockStateDeleteImportedLinkLayerDevicesCall {
+func (c *MockStateCreateCloudServicesCall) Do(f func(context.Context, []internal.ImportCloudService) error) *MockStateCreateCloudServicesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteImportedLinkLayerDevicesCall) DoAndReturn(f func(context.Context) error) *MockStateDeleteImportedLinkLayerDevicesCall {
+func (c *MockStateCreateCloudServicesCall) DoAndReturn(f func(context.Context, []internal.ImportCloudService) error) *MockStateCreateCloudServicesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
