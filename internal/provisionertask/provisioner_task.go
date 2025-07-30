@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -130,6 +131,7 @@ type TaskConfig struct {
 	RetryStartInstanceStrategy   RetryStrategy
 	NumProvisionWorkers          int
 	EventProcessedCb             func(string)
+	Clock                        clock.Clock
 }
 
 // NewProvisionerTask creates a new ProvisionerTask instance. The
@@ -161,6 +163,7 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		availabilityZoneMachines:     make([]*AvailabilityZoneMachine, 0),
 		imageStream:                  cfg.ImageStream,
 		retryStartInstanceStrategy:   cfg.RetryStartInstanceStrategy,
+		clock:                        cfg.Clock,
 		wp:                           workerpool.NewWorkerPool(cfg.Logger, cfg.NumProvisionWorkers),
 		wpSizeChan:                   make(chan int, 1),
 		eventProcessedCb:             cfg.EventProcessedCb,
@@ -200,6 +203,7 @@ type provisionerTask struct {
 	catacomb                     catacomb.Catacomb
 	imageStream                  string
 	retryStartInstanceStrategy   RetryStrategy
+	clock                        clock.Clock
 
 	machinesMutex            sync.RWMutex
 	machines                 map[string]apiprovisioner.MachineProvisioner // machine ID -> machine
@@ -1413,7 +1417,7 @@ func (task *provisionerTask) doStartMachine(
 		select {
 		case <-task.catacomb.Dying():
 			return task.catacomb.ErrDying()
-		case <-time.After(task.retryStartInstanceStrategy.RetryDelay):
+		case <-task.clock.After(task.retryStartInstanceStrategy.RetryDelay):
 		}
 	}
 
