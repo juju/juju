@@ -1110,3 +1110,718 @@ func (s *provisionerSuite) TestLifeForFilesystemWithFilesystemNotFound(c *tc.C) 
 	r := result.Results[0]
 	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
 }
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachine(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return(filesystemAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
+		Return(domainlife.Alive, nil)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{
+				Life: corelife.Alive,
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithMachineNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return("", machineerrors.MachineNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemAttachmentNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return("", storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return("", storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemAttachmentNotFound2(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return(filesystemAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
+		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemNotFound2(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return(filesystemAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
+		Return(-1, storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnit(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return(filesystemAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
+		Return(domainlife.Alive, nil)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{
+				Life: corelife.Alive,
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithUnitNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return("", applicationerrors.UnitNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemAttachmentNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return("", storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return(filesystemAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
+		Return(-1, storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemAttachmentNotFound2(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return(filesystemAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
+		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemNotFound2(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return(filesystemAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
+		Return(-1, storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeMachine(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return(volumeAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
+		Return(domainlife.Alive, nil)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{
+				Life: corelife.Alive,
+			},
+		},
+	})
+}
+func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithMachineNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return("", machineerrors.MachineNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeAttachmentNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return("", storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeAttachmentNotFound2(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return(volumeAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
+		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeNotFound2(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+		gomock.Any(), tag.Id(), machineUUID,
+	).Return(volumeAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
+		Return(-1, storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeUnit(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return(volumeAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
+		Return(domainlife.Alive, nil)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{
+				Life: corelife.Alive,
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithUnitNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return("", applicationerrors.UnitNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeAttachmentNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return(volumeAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
+		Return(-1, storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeAttachmentNotFound2(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return(volumeAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
+		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeNotFound2(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	unitTag := names.NewUnitTag("mysql/666")
+	unitUUID := unittesting.GenUnitUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
+		gomock.Any(), tag.Id(), unitUUID,
+	).Return(volumeAttachmentUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
+		Return(-1, storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    unitTag.String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}

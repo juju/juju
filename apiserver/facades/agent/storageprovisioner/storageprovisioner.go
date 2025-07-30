@@ -1318,37 +1318,37 @@ func (s *StorageProvisionerAPIv4) AttachmentLife(ctx context.Context, args param
 	results := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Ids)),
 	}
-	one := func(arg params.MachineStorageId) (life.Value, error) {
+	oneLife := func(arg params.MachineStorageId) (life.Value, error) {
 		hostTag, err := names.ParseTag(arg.MachineTag)
 		if err != nil {
 			return "", err
 		}
 
-		attachmentTag, err := names.ParseTag(arg.AttachmentTag)
+		tag, err := names.ParseTag(arg.AttachmentTag)
 		if err != nil {
 			return "", err
 		}
-		if !canAccess(hostTag, attachmentTag) {
+		if !canAccess(hostTag, tag) {
 			return "", apiservererrors.ErrPerm
 		}
-		switch attachmentTag := attachmentTag.(type) {
+		switch tag := tag.(type) {
 		case names.VolumeTag:
-			return s.volumeAttachmentLife(ctx, attachmentTag, hostTag)
+			return s.volumeAttachmentLife(ctx, tag, hostTag)
 		case names.FilesystemTag:
-			return s.filesystemAttachmentLife(ctx, attachmentTag, hostTag)
+			return s.filesystemAttachmentLife(ctx, tag, hostTag)
 		default:
 			return "", internalerrors.Errorf(
-				"attachment tag %q is not a valid", attachmentTag.String(),
+				"attachment tag %q is not a valid", tag.String(),
 			).Add(errors.NotValid)
 		}
 	}
 	for i, arg := range args.Ids {
-		life, err := one(arg)
+		life, err := oneLife(arg)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
-		} else {
-			results.Results[i].Life = life
+			continue
 		}
+		results.Results[i].Life = life
 	}
 	return results, nil
 }
