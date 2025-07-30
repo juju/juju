@@ -183,6 +183,9 @@ type filesystemAttachment struct {
 	ReadOnly     bool   `db:"read_only"`
 }
 
+// volumeUUID represents the UUID of a record in the volume table.
+type volumeUUID entityUUID
+
 // filesystemTemplate represents the combination of storage directives, charm
 // storage and provider type.
 type filesystemTemplate struct {

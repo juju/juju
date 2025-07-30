@@ -29,7 +29,7 @@ import (
 func (st *State) GetFilesystemTemplatesForApplication(
 	ctx context.Context,
 	appUUID coreapplication.ID,
-) ([]storageprovisioning.FilesystemTemplate, error) {
+) ([]domainstorageprovisioning.FilesystemTemplate, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -129,9 +129,9 @@ ORDER BY asd.storage_name
 		storageAttrs[attr.Key] = attr.Value
 	}
 
-	r := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
+	r := make([]domainstorageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
 	for _, v := range fsTemplates {
-		r = append(r, storageprovisioning.FilesystemTemplate{
+		r = append(r, domainstorageprovisioning.FilesystemTemplate{
 			StorageName:  v.StorageName,
 			Count:        v.Count,
 			MaxCount:     v.MaxCount,
@@ -218,7 +218,7 @@ WHERE  filesystem_id=$filesystemID.filesystem_id
 	return exists, nil
 }
 
-// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
+// GetFilesystem retrieves the [domainstorageprovisioning.Filesystem] for the
 // supplied filesystem uuid.
 //
 // The following errors may be returned:
@@ -282,7 +282,7 @@ WHERE     sfs.uuid = $filesystemUUID.uuid
 }
 
 // GetFilesystemAttachment retrieves the
-// [storageprovisioning.FilesystemAttachment] for the supplied filesystem
+// [domainstorageprovisioning.FilesystemAttachment] for the supplied filesystem
 // attachment uuid.
 //
 // The following errors may be returned:

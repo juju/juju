@@ -202,7 +202,6 @@ func (s *Service) GetVolumeAttachmentLife(
 // uuid for the supplied volume ID which is attached to the machine.
 //
 // The following errors may be returned:
-// - [corestorage.InvalidStorageID] when the provided id is not valid.
 // - [coreerrors.NotValid] when the provided machine uuid is not valid.
 // - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
 // supplied id.
@@ -212,15 +211,12 @@ func (s *Service) GetVolumeAttachmentLife(
 // machine uuid.
 func (s *Service) GetVolumeAttachmentUUIDForVolumeIDMachine(
 	ctx context.Context,
-	id corestorage.ID,
+	volumeID string,
 	machineUUID coremachine.UUID,
 ) (storageprovisioning.VolumeAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := id.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
 	if err := machineUUID.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -230,10 +226,10 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDMachine(
 		return "", errors.Capture(err)
 	}
 
-	vUUID, err := s.st.GetVolumeUUIDForID(ctx, id.String())
+	vUUID, err := s.st.GetVolumeUUIDForID(ctx, volumeID)
 	if err != nil {
 		return "", errors.Errorf(
-			"getting volume uuid for id %q: %w", id.String(), err,
+			"getting volume uuid for id %q: %w", volumeID, err,
 		)
 	}
 
@@ -246,7 +242,7 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDMachine(
 		).Add(machineerrors.MachineNotFound)
 	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
 		return "", errors.Errorf(
-			"volume %q does not exist", id.String(),
+			"volume %q does not exist", volumeID,
 		).Add(storageprovisioningerrors.VolumeNotFound)
 	} else if err != nil {
 		return "", errors.Capture(err)
@@ -255,7 +251,7 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDMachine(
 	return uuid, nil
 }
 
-// GetVolumeAttachmentUUIDForVolumeUnit returns the volume attachment uuid
+// GetVolumeAttachmentUUIDForVolumeIDUnit returns the volume attachment uuid
 // for the supplied volume ID which is attached to the unit.
 //
 // The following errors may be returned:
@@ -267,17 +263,14 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDMachine(
 // attachment exists for the supplied values.
 // - [applicationerrors.UnitNotFound] when no unit exists for the provided unit
 // uuid.
-func (s *Service) GetVolumeAttachmentUUIDForVolumeUnit(
+func (s *Service) GetVolumeAttachmentUUIDForVolumeIDUnit(
 	ctx context.Context,
-	id corestorage.ID,
+	volumeID string,
 	unitUUID coreunit.UUID,
 ) (storageprovisioning.VolumeAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := id.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
 	if err := unitUUID.Validate(); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -287,10 +280,10 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeUnit(
 		return "", errors.Capture(err)
 	}
 
-	vUUID, err := s.st.GetVolumeUUIDForID(ctx, id.String())
+	vUUID, err := s.st.GetVolumeUUIDForID(ctx, volumeID)
 	if err != nil {
 		return "", errors.Errorf(
-			"getting volume uuid for id %q: %w", id.String(), err,
+			"getting volume uuid for id %q: %w", volumeID, err,
 		)
 	}
 
@@ -303,7 +296,7 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeUnit(
 		).Add(applicationerrors.UnitNotFound)
 	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
 		return "", errors.Errorf(
-			"volume %q does not exist", id.String(),
+			"volume %q does not exist", volumeID,
 		).Add(storageprovisioningerrors.VolumeNotFound)
 	} else if err != nil {
 		return "", errors.Capture(err)

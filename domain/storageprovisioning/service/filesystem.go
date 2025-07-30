@@ -228,7 +228,7 @@ func (s *Service) GetFilesystemAttachmentForUnit(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.GetFilesystemAttachmentUUIDForIDUnit(
+	uuid, err := s.GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		ctx, filesystemID, unitUUID,
 	)
 	if err != nil {
@@ -290,7 +290,7 @@ func (s *Service) GetFilesystemAttachmentLife(
 	return life, nil
 }
 
-// GetFilesystemAttachmentUUIDForIDMachine returns the filesystem attachment
+// GetFilesystemAttachmentUUIDForFilesystemIDMachine returns the filesystem attachment
 // UUID for the supplied filesystem ID which is attached to the machine.
 //
 // The following errors may be returned:
@@ -303,7 +303,7 @@ func (s *Service) GetFilesystemAttachmentLife(
 // machine UUID.
 func (s *Service) GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 	ctx context.Context,
-	id string,
+	filesystemID string,
 	machineUUID coremachine.UUID,
 ) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -313,10 +313,10 @@ func (s *Service) GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		return "", errors.Capture(err)
 	}
 
-	fsUUID, err := s.st.GetFilesystemUUIDForID(ctx, id)
+	fsUUID, err := s.st.GetFilesystemUUIDForID(ctx, filesystemID)
 	if err != nil {
 		return "", errors.Errorf(
-			"getting filesystem uuid for id %q: %w", id, err,
+			"getting filesystem uuid for id %q: %w", filesystemID, err,
 		)
 	}
 
@@ -334,7 +334,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		).Add(machineerrors.MachineNotFound)
 	} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 		return "", errors.Errorf(
-			"filesystem %q does not exist", id,
+			"filesystem %q does not exist", filesystemID,
 		).Add(storageprovisioningerrors.FilesystemNotFound)
 	} else if err != nil {
 		return "", errors.Capture(err)
@@ -343,7 +343,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 	return uuid, nil
 }
 
-// GetFilesystemAttachmentUUIDForIDUnit returns the filesystem attachment UUID
+// GetFilesystemAttachmentUUIDForFilesystemIDUnit returns the filesystem attachment UUID
 // for the supplied filesystem ID which is attached to the unit.
 //
 // The following errors may be returned:
@@ -354,9 +354,9 @@ func (s *Service) GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 // attachment exists for the supplied values.
 // - [applicationerrors.UnitNotFound] when no unit exists for the provided unit
 // UUID.
-func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
+func (s *Service) GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 	ctx context.Context,
-	id string,
+	filesystemID string,
 	unitUUID coreunit.UUID,
 ) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -371,7 +371,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 		return "", errors.Capture(err)
 	}
 
-	fsUUID, err := s.st.GetFilesystemUUIDForID(ctx, id)
+	fsUUID, err := s.st.GetFilesystemUUIDForID(ctx, filesystemID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -385,7 +385,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForIDUnit(
 		).Add(applicationerrors.UnitNotFound)
 	} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 		return "", errors.Errorf(
-			"filesystem %q does not exist", id,
+			"filesystem %q does not exist", filesystemID,
 		).Add(storageprovisioningerrors.FilesystemNotFound)
 	} else if err != nil {
 		return "", errors.Capture(err)
