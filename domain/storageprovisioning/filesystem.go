@@ -106,3 +106,13 @@ type FilesystemTemplate struct {
 	// or provisioner to facilitate this filesystem(s).
 	Attributes map[string]string
 }
+
+// FilesystemProvisionedInfo is information set by the storage provisioner for
+// filesystems it has provisioned.
+type FilesystemProvisionedInfo struct {
+	// ProviderID is the ID of the filesystem from the storage provider.
+	ProviderID string
+
+	// SizeMiB is the size of the filesystem in MiB.
+	SizeMiB uint64
+}

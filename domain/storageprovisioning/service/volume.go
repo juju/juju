@@ -499,3 +499,16 @@ func (s *Service) WatchVolumeAttachmentPlans(
 
 	return w, nil
 }
+
+// SetVolumeProvisionedInfo sets on the provided volume the information about
+// the provisioned volume.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided volume id.
+func (s *Service) SetVolumeProvisionedInfo(
+	ctx context.Context,
+	volumeID string,
+	info storageprovisioning.VolumeProvisionedInfo,
+) error {
+	return errors.New("set volume provisioned info not implemented")
+}

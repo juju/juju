@@ -596,3 +596,16 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 	}
 	return fsTemplates, nil
 }
+
+// SetFilesystemProvisionedInfo sets on the provided filesystem the information
+// about the provisioned filesystem.
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the provided filesystem id.
+func (s *Service) SetFilesystemProvisionedInfo(
+	ctx context.Context,
+	filesystemID string,
+	info storageprovisioning.FilesystemProvisionedInfo,
+) error {
+	return errors.New("set filesystem provisioned info not implemented")
+}
