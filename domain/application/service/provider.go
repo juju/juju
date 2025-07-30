@@ -585,20 +585,21 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 		return application.RegisterUnitStorageArg{}, errors.Errorf(
 			"checking if unit %q already exists: %w", unitName, err,
 		)
-	} else if err == nil {
+	}
+
+	if unitUUID != "" {
 		// If the unit exists, we will get the already established storage
 		// directives including and storage that the unit currently owns.
 		directivesToFollow, existingUnitStorage, err = s.getUnitStorageInfo(
 			ctx, unitUUID,
 		)
-
 		if err != nil {
 			return application.RegisterUnitStorageArg{}, errors.Errorf(
 				"getting existing unit %q storage information for registration: %w",
 				unitUUID, err,
 			)
 		}
-	} else if errors.Is(err, applicationerrors.UnitNotFound) {
+	} else {
 		// If the unit does not exist, we will instead get and follow the
 		// storage directives of the application.
 		directivesToFollow, err = s.st.GetApplicationStorageDirectives(

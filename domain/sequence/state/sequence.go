@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/canonical/sqlair"
 
@@ -56,7 +55,7 @@ SELECT &sequence.value FROM sequence WHERE namespace = $sequence.namespace
 
 	// Read the new value to return.
 	err = tx.Query(ctx, nextStmt, seq).Get(&seq)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
 		return 0, errors.Errorf("reading sequence number for namespace %q: %w", namespace, err)
 	}
 	result := seq.Value
@@ -122,7 +121,7 @@ SELECT &sequence.value FROM sequence WHERE namespace = $sequence.namespace
 
 	// Read the new value to return.
 	err = tx.Query(ctx, latestValStmt, seq).Get(&seq)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
 		return nil, errors.Errorf("reading sequence number for namespace %q: %w", namespace, err)
 	}
 

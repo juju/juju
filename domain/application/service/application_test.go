@@ -1511,13 +1511,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 		s.watcherFactory = nil
 	})
 
-	c.Cleanup(func() {
-		s.state = nil
-		s.charm = nil
-		s.storageValidator = nil
-		s.watcherFactory = nil
-	})
-
 	return ctrl
 }
 

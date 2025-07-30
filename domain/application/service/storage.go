@@ -451,7 +451,8 @@ func makeUnitStorageArgs(
 		})
 
 		existingStorageUUIDs := existingStorage[sd.Name]
-		if len(existingStorageUUIDs) > int(sd.Count) {
+		numExistingStorage := uint32(len(existingStorageUUIDs))
+		if numExistingStorage > sd.Count {
 			// A storage directive only supports n number of storage instances
 			// per directive. If there exists more existing storage for this
 			// directive than supported, we return an error.
@@ -459,17 +460,16 @@ func makeUnitStorageArgs(
 			// This is undefined behaviour in the Juju modeling.
 			return application.CreateUnitStorageArg{}, errors.Errorf(
 				"unable to use %d existing storage instances for directive %q, greater than supported count %d",
-				len(existingStorageUUIDs), sd.Name, sd.Count,
+				numExistingStorage, sd.Name, sd.Count,
 			)
 		}
+		// Remove the already existing storage instances from the count.
+		sd.Count -= numExistingStorage
 
 		// Add the existing storage matching this directive to the list of
 		// attachments.
 		rvalToAttach = append(rvalToAttach, existingStorageUUIDs...)
 		rvalToOwn = append(rvalToOwn, existingStorageUUIDs...)
-
-		// Remove the already existing storage instances from the count.
-		sd.Count -= uint32(len(existingStorageUUIDs))
 
 		instArgs, err := makeUnitStorageInstancesFromDirective(sd)
 		if err != nil {
