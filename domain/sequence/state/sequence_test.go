@@ -133,6 +133,19 @@ func (s *sequenceSuite) TestSequenceNValues(c *tc.C) {
 	c.Check(next, tc.SameContents, []uint64{10, 11, 12})
 }
 
+// TestSequenceNValuesOne tests that the [NextNValues] can be used to generate 1
+// number of new sequence numbers.
+func (s *sequenceSuite) TestSequenceNValuesOne(c *tc.C) {
+	var next []uint64
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		next, err = NextNValues(ctx, s.state, tx, 1, domainsequence.StaticNamespace("foo"))
+		return err
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(next, tc.SameContents, []uint64{0})
+}
+
 // TestSequenceNValuesZero tests that [NextNValues] when called with a zero
 // value does not use up an sequence numbers in the namespace.
 func (s *sequenceSuite) TestSequenceNValuesZero(c *tc.C) {
