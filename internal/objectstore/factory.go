@@ -29,6 +29,7 @@ type MetadataService interface {
 type TrackedObjectStore interface {
 	worker.Worker
 	objectstore.ObjectStore
+	objectstore.ObjectStoreRemover
 	Report() map[string]any
 }
 

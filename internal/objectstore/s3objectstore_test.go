@@ -41,6 +41,8 @@ type s3ObjectStoreSuite struct {
 	client  *client
 }
 
+var _ TrackedObjectStore = (*s3ObjectStore)(nil)
+
 func TestS3ObjectStoreSuite(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &s3ObjectStoreSuite{})

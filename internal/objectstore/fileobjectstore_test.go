@@ -41,6 +41,8 @@ func TestFileObjectStoreSuite(t *testing.T) {
 	tc.Run(t, &fileObjectStoreSuite{})
 }
 
+var _ TrackedObjectStore = (*fileObjectStore)(nil)
+
 func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -971,6 +973,46 @@ func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
 	s.expectFileDoesExist(c, path, hash384)
 
 	err = store.Remove(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.expectFileDoesNotExist(c, path, hash384)
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *fileObjectStoreSuite) TestRemoveAll(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := s.expectWatch()
+
+	hash384 := s.calculateHexSHA384(c, "some content")
+	hash256 := s.calculateHexSHA256(c, "some content")
+
+	s.expectClaim(hash384, 1)
+	s.expectRelease(hash384, 1)
+
+	path := c.MkDir()
+
+	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
+	}).Return("", nil)
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+
+	_, err := store.Put(c.Context(), "foo", strings.NewReader("some content"), 12)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.expectFileDoesExist(c, path, hash384)
+
+	store.Kill()
+
+	err = store.RemoveAll(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectFileDoesNotExist(c, path, hash384)

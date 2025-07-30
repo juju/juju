@@ -431,6 +431,11 @@ func (TestingObjectStore) Remove(ctx context.Context, path string) error {
 	return nil
 }
 
+// RemoveAll removes data at path, namespaced to the model.
+func (TestingObjectStore) RemoveAll(ctx context.Context) error {
+	return nil
+}
+
 // TestingLeaseManager is a testing implementation of the lease.Checker
 // interface. It returns canned responses for the methods.
 type TestingLeaseManager struct{}
