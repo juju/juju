@@ -169,7 +169,10 @@ func (t *trackerWorker) Remove(ctx context.Context, path string) (err error) {
 	return nil
 }
 
-// Remove removes data for the namespaced model.
+// RemoveAll removes all data for the namespaced model. It is destructive and
+// should be used with caution. No objects will be retrievable after this call.
+// This is expected to be used when the model is being removed or when the
+// object store has been drained and is no longer needed.
 func (t *trackerWorker) RemoveAll(ctx context.Context) (err error) {
 	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc())
 	defer func() {

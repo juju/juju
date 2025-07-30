@@ -355,8 +355,10 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
-// RemoveAll removes all data in the object store, namespaced to the model.
-// This is a destructive operation and should be used with caution.
+// RemoveAll removes all data for the namespaced model. It is destructive and
+// should be used with caution. No objects will be retrievable after this call.
+// This is expected to be used when the model is being removed or when the
+// object store has been drained and is no longer needed.
 func (t *fileObjectStore) RemoveAll(ctx context.Context) error {
 	// This will remove all the files in the namespaced directory.
 	if err := os.RemoveAll(t.path); err != nil {

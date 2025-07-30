@@ -316,8 +316,10 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
-// RemoveAll removes all data in the object store, namespaced to the model.
-// This is a destructive operation and should be used with caution.
+// RemoveAll removes all data for the namespaced model. It is destructive and
+// should be used with caution. No objects will be retrievable after this call.
+// This is expected to be used when the model is being removed or when the
+// object store has been drained and is no longer needed.
 func (t *s3ObjectStore) RemoveAll(ctx context.Context) error {
 	select {
 	case <-t.catacomb.Dying():
