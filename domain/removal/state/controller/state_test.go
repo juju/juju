@@ -162,5 +162,5 @@ func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife life.
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }

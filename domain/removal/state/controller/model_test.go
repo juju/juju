@@ -67,7 +67,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 	err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.checkModelLife(c, modelUUID, 1)
+	s.checkModelLife(c, modelUUID, life.Dying)
 }
 
 func (s *modelSuite) getModelUUID(c *tc.C) string {

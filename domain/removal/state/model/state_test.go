@@ -445,7 +445,7 @@ func (s *baseSuite) checkApplicationLife(c *tc.C, appUUID string, expectedLife l
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceUnitLife(c *tc.C, unitUUID unit.UUID, newLife life.Life) {
@@ -458,7 +458,7 @@ func (s *baseSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife life.Li
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
@@ -471,7 +471,7 @@ func (s *baseSuite) checkMachineLife(c *tc.C, machineUUID string, expectedLife l
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceInstanceLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
@@ -484,7 +484,7 @@ func (s *baseSuite) checkInstanceLife(c *tc.C, machineUUID string, expectedLife 
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Life) {
@@ -497,7 +497,7 @@ func (s *baseSuite) checkModelLife(c *tc.C, modelUUID string, expectedLife life.
 	var lifeID int
 	err := row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, expectedLife)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
 type stubCharm struct {

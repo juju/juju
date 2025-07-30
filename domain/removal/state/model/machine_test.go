@@ -257,9 +257,9 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 	c.Check(len(units), tc.Equals, 1)
 	c.Check(len(childMachines), tc.Equals, 0)
 
-	s.checkUnitLife(c, units[0], 1)
-	s.checkMachineLife(c, machineUUID.String(), 1)
-	s.checkInstanceLife(c, machineUUID.String(), 1)
+	s.checkUnitLife(c, units[0], life.Dying)
+	s.checkMachineLife(c, machineUUID.String(), life.Dying)
+	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
@@ -285,12 +285,12 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 	c.Check(len(childMachines), tc.Equals, 0)
 
 	// The unit should now be "dying".
-	s.checkUnitLife(c, units[0], 1)
-	s.checkUnitLife(c, units[1], 1)
+	s.checkUnitLife(c, units[0], life.Dying)
+	s.checkUnitLife(c, units[1], life.Dying)
 
 	// The last machine had life "alive" and should now be "dying".
-	s.checkMachineLife(c, parentMachineUUID.String(), 1)
-	s.checkInstanceLife(c, parentMachineUUID.String(), 1)
+	s.checkMachineLife(c, parentMachineUUID.String(), life.Dying)
+	s.checkInstanceLife(c, parentMachineUUID.String(), life.Dying)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
@@ -315,15 +315,15 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 	c.Check(len(units), tc.Equals, 2, tc.Commentf("this should return 2 units, one on the parent machine and one on the child machine"))
 	c.Check(len(childMachines), tc.Equals, 1, tc.Commentf("this should return 1 child machine, the one that was created for the second unit"))
 
-	s.checkUnitLife(c, units[0], 1)
-	s.checkUnitLife(c, units[1], 1)
+	s.checkUnitLife(c, units[0], life.Dying)
+	s.checkUnitLife(c, units[1], life.Dying)
 
 	// The last machine had life "alive" and should now be "dying".
-	s.checkMachineLife(c, parentMachineUUID.String(), 1)
-	s.checkMachineLife(c, childMachines[0], 1)
+	s.checkMachineLife(c, parentMachineUUID.String(), life.Dying)
+	s.checkMachineLife(c, childMachines[0], life.Dying)
 
-	s.checkInstanceLife(c, parentMachineUUID.String(), 1)
-	s.checkInstanceLife(c, childMachines[0], 1)
+	s.checkInstanceLife(c, parentMachineUUID.String(), life.Dying)
+	s.checkInstanceLife(c, childMachines[0], life.Dying)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDying(c *tc.C) {
@@ -342,12 +342,12 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDyi
 	c.Check(len(units), tc.Equals, 1)
 	c.Check(len(childMachines), tc.Equals, 0)
 
-	s.checkMachineLife(c, machineUUID0.String(), 1)
-	s.checkInstanceLife(c, machineUUID0.String(), 1)
+	s.checkMachineLife(c, machineUUID0.String(), life.Dying)
+	s.checkInstanceLife(c, machineUUID0.String(), life.Dying)
 
 	// The other machine should not be affected.
-	s.checkMachineLife(c, machineUUID1.String(), 0)
-	s.checkInstanceLife(c, machineUUID1.String(), 0)
+	s.checkMachineLife(c, machineUUID1.String(), life.Alive)
+	s.checkInstanceLife(c, machineUUID1.String(), life.Alive)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCasscadeWithoutForceSucceedsForEmptyMachine(c *tc.C) {
@@ -369,8 +369,8 @@ func (s *machineSuite) TestEnsureMachineNotAliveCasscadeWithoutForceSucceedsForE
 	c.Assert(units, tc.HasLen, 0)
 	c.Assert(childMachines, tc.HasLen, 0)
 
-	s.checkMachineLife(c, uuid.String(), 1)
-	s.checkInstanceLife(c, uuid.String(), 1)
+	s.checkMachineLife(c, uuid.String(), life.Dying)
+	s.checkInstanceLife(c, uuid.String(), life.Dying)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachineHostingContainer(c *tc.C) {
@@ -405,10 +405,10 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachi
 	_, _, err = st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
 	c.Assert(err, tc.ErrorIs, removalerrors.MachineHasContainers)
 
-	s.checkMachineLife(c, machineUUID.String(), 0)
-	s.checkInstanceLife(c, machineUUID.String(), 0)
-	s.checkMachineLife(c, containerUUID.String(), 0)
-	s.checkInstanceLife(c, containerUUID.String(), 0)
+	s.checkMachineLife(c, machineUUID.String(), life.Alive)
+	s.checkInstanceLife(c, machineUUID.String(), life.Alive)
+	s.checkMachineLife(c, containerUUID.String(), life.Alive)
+	s.checkInstanceLife(c, containerUUID.String(), life.Alive)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachineHostingUnits(c *tc.C) {
@@ -422,8 +422,8 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachi
 	_, _, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
 	c.Assert(err, tc.ErrorIs, removalerrors.MachineHasUnits)
 
-	s.checkMachineLife(c, machineUUID.String(), 0)
-	s.checkInstanceLife(c, machineUUID.String(), 0)
+	s.checkMachineLife(c, machineUUID.String(), life.Alive)
+	s.checkInstanceLife(c, machineUUID.String(), life.Alive)
 }
 
 func (s *machineSuite) TestMachineRemovalNormalSuccess(c *tc.C) {
@@ -517,7 +517,7 @@ func (s *machineSuite) TestMarkMachineAsDead(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The machine should now be dead.
-	s.checkMachineLife(c, machineUUID.String(), 2)
+	s.checkMachineLife(c, machineUUID.String(), life.Dead)
 }
 
 func (s *machineSuite) TestMarkMachineAsDeadNotFound(c *tc.C) {
@@ -559,7 +559,7 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasContainers(c *tc.C) {
 	err = st.MarkMachineAsDead(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
 
-	s.checkMachineLife(c, machineUUID.String(), 1)
+	s.checkMachineLife(c, machineUUID.String(), life.Dying)
 }
 
 func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
@@ -575,7 +575,7 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
 	err := st.MarkMachineAsDead(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIs, removalerrors.MachineHasUnits)
 
-	s.checkMachineLife(c, machineUUID.String(), 1)
+	s.checkMachineLife(c, machineUUID.String(), life.Dying)
 }
 
 func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
@@ -597,7 +597,7 @@ func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
 	err = st.MarkInstanceAsDead(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.checkInstanceLife(c, machineUUID.String(), 2)
+	s.checkInstanceLife(c, machineUUID.String(), life.Dead)
 }
 
 func (s *machineSuite) TestMarkInstanceAsDeadNotFound(c *tc.C) {
@@ -639,7 +639,7 @@ func (s *machineSuite) TestMarkInstanceAsDeadMachineHasContainers(c *tc.C) {
 	err = st.MarkInstanceAsDead(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
 
-	s.checkInstanceLife(c, machineUUID.String(), 1)
+	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
 }
 
 func (s *machineSuite) TestMarkInstanceAsDeadMachineHasUnits(c *tc.C) {
@@ -655,7 +655,7 @@ func (s *machineSuite) TestMarkInstanceAsDeadMachineHasUnits(c *tc.C) {
 	err := st.MarkInstanceAsDead(c.Context(), machineUUID.String())
 	c.Check(err, tc.ErrorIs, removalerrors.MachineHasUnits)
 
-	s.checkInstanceLife(c, machineUUID.String(), 1)
+	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
 }
 
 func (s *machineSuite) TestDeleteMachine(c *tc.C) {
