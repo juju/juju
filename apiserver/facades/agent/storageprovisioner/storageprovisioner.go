@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/container"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
@@ -280,7 +281,19 @@ func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities
 			} else if err != nil {
 				return -1, internalerrors.Errorf("getting volume UUID for id %q: %v", tag.Id(), err)
 			}
-			return s.storageProvisioningService.GetVolumeLife(ctx, volumeUUID)
+			life, err := s.storageProvisioningService.GetVolumeLife(ctx, volumeUUID)
+			if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+				return -1, internalerrors.Errorf(
+					"volume not found for id %q", tag.Id(),
+				).Add(errors.NotFound)
+			} else if errors.Is(err, coreerrors.NotValid) {
+				return -1, internalerrors.Errorf(
+					"volume uuid for %q is not valid: %v", tag.Id(), err,
+				).Add(errors.NotValid)
+			} else if err != nil {
+				return -1, internalerrors.Errorf("getting volume life for id %q: %v", tag.Id(), err)
+			}
+			return life, nil
 		case names.FilesystemTag:
 			filesystemUUID, err := s.storageProvisioningService.GetFilesystemUUIDForID(ctx, tag.Id())
 			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
@@ -290,7 +303,19 @@ func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities
 			} else if err != nil {
 				return -1, internalerrors.Errorf("getting filesystem UUID for id %q: %v", tag.Id(), err)
 			}
-			return s.storageProvisioningService.GetFilesystemLife(ctx, filesystemUUID)
+			life, err := s.storageProvisioningService.GetFilesystemLife(ctx, filesystemUUID)
+			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+				return -1, internalerrors.Errorf(
+					"filesystem not found for id %q", tag.Id(),
+				).Add(errors.NotFound)
+			} else if errors.Is(err, coreerrors.NotValid) {
+				return -1, internalerrors.Errorf(
+					"filesystem uuid for %q is not valid: %v", tag.Id(), err,
+				).Add(errors.NotValid)
+			} else if err != nil {
+				return -1, internalerrors.Errorf("getting filesystem life for id %q: %v", tag.Id(), err)
+			}
+			return life, nil
 		default:
 			return -1, internalerrors.Errorf(
 				"invalid tag %q, expected volume or filesystem", tag,

@@ -14,6 +14,7 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
@@ -22,9 +23,11 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -944,4 +947,166 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForModel(c *tc.C) {
 			AttachmentTag: names.NewFilesystemTag("2").String(),
 		},
 	})
+}
+
+func (s *provisionerSuite) TestLifeForVolume(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
+
+	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(volumeUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeLife(
+		gomock.Any(), volumeUUID,
+	).Return(domainlife.Alive, nil)
+
+	result, err := s.api.Life(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{
+				Life: corelife.Alive,
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestLifeForVolumeWithUUIDNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return("", storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.Life(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestLifeForVolumeWithVolumeNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
+
+	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(volumeUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeLife(
+		gomock.Any(), volumeUUID,
+	).Return(-1, storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.Life(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestLifeForFilesystem(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+
+	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+		gomock.Any(), tag.Id(),
+	).Return(true, nil)
+
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(filesystemUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemLife(
+		gomock.Any(), filesystemUUID,
+	).Return(domainlife.Alive, nil)
+
+	result, err := s.api.Life(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{
+				Life: corelife.Alive,
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestLifeForFilesystemWithUUIDNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+
+	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+		gomock.Any(), tag.Id(),
+	).Return(true, nil)
+
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return("", storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.Life(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestLifeForFilesystemWithFilesystemNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+
+	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+		gomock.Any(), tag.Id(),
+	).Return(true, nil)
+
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(filesystemUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemLife(
+		gomock.Any(), filesystemUUID,
+	).Return(-1, storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.Life(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
 }
