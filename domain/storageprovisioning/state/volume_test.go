@@ -173,7 +173,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeForNetNode(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	lives, err := st.GetVolumeAttachmentLifeForNetNode(
-		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
+		c.Context(), netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.DeepEquals, map[string]domainlife.Life{
@@ -186,7 +186,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeForNetNode(c *tc.C) {
 	// out.
 	s.changeVolumeAttachmentLife(c, vsaUUID1, domainlife.Dying)
 	lives, err = st.GetVolumeAttachmentLifeForNetNode(
-		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
+		c.Context(), netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.DeepEquals, map[string]domainlife.Life{
@@ -202,7 +202,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeNoResults(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	st := NewState(s.TxnRunnerFactory())
 	lives, err := st.GetVolumeAttachmentLifeForNetNode(
-		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
+		c.Context(), netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.HasLen, 0)
@@ -226,7 +226,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlanLifeForNetNode(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	lives, err := st.GetVolumeAttachmentPlanLifeForNetNode(
-		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
+		c.Context(), netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.DeepEquals, map[string]domainlife.Life{
@@ -239,7 +239,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlanLifeForNetNode(c *tc.C) {
 	// out.
 	s.changeVolumeAttachmentPlanLife(c, vsapOneUUID, domainlife.Dying)
 	lives, err = st.GetVolumeAttachmentPlanLifeForNetNode(
-		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
+		c.Context(), netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.DeepEquals, map[string]domainlife.Life{
@@ -255,7 +255,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlanLifeNoResults(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	st := NewState(s.TxnRunnerFactory())
 	lives, err := st.GetVolumeAttachmentPlanLifeForNetNode(
-		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
+		c.Context(), netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(lives, tc.HasLen, 0)
@@ -283,7 +283,7 @@ func (s *volumeSuite) TestGetVolumeLifeForNetNode(c *tc.C) {
 	_ = s.newMachineVolumeAttachment(c, vsIDOtherMachine, s.newNetNode(c))
 
 	vsUUIDs, err := st.GetVolumeLifeForNetNode(
-		c.Context(), domainnetwork.NetNodeUUID(netNodeUUID),
+		c.Context(), netNodeUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(vsUUIDs, tc.DeepEquals, map[string]domainlife.Life{
@@ -311,7 +311,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumes(c *tc.C
 	_ = s.newMachineVolumeAttachment(c, vsIDOtherMachine, s.newNetNode(c))
 
 	ns, initialQuery := st.InitialWatchStatementMachineProvisionedVolumes(
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		netNodeUUID,
 	)
 	c.Check(ns, tc.Equals, "storage_volume_life_machine_provisioning")
 
@@ -339,7 +339,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumesNone(c *
 	s.newMachineVolumeAttachment(c, vsIDOtherMachine, s.newNetNode(c))
 
 	ns, initialQuery := st.InitialWatchStatementMachineProvisionedVolumes(
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		netNodeUUID,
 	)
 	c.Check(ns, tc.Equals, "storage_volume_life_machine_provisioning")
 
@@ -359,7 +359,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumesNetNodeM
 	c.Assert(err, tc.ErrorIsNil)
 
 	ns, initialQuery := st.InitialWatchStatementMachineProvisionedVolumes(
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		netNodeUUID,
 	)
 	c.Check(ns, tc.Equals, "storage_volume_life_machine_provisioning")
 
@@ -419,7 +419,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumeAttachmen
 
 	st := NewState(s.TxnRunnerFactory())
 	ns, initialQuery := st.InitialWatchStatementMachineProvisionedVolumeAttachments(
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		netNodeUUID,
 	)
 	c.Check(ns, tc.Equals, "storage_volume_attachment_life_machine_provisioning")
 
@@ -446,7 +446,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumeAttachmen
 
 	st := NewState(s.TxnRunnerFactory())
 	ns, initialQuery := st.InitialWatchStatementMachineProvisionedVolumeAttachments(
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		netNodeUUID,
 	)
 	c.Check(ns, tc.Equals, "storage_volume_attachment_life_machine_provisioning")
 
@@ -538,7 +538,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumeAttachmen
 
 	st := NewState(s.TxnRunnerFactory())
 	ns, initialQuery := st.InitialWatchStatementVolumeAttachmentPlans(
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		netNodeUUID,
 	)
 	c.Check(ns, tc.Equals, "storage_volume_attachment_plan_life_machine_provisioning")
 
@@ -563,7 +563,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumeAttachmen
 
 	st := NewState(s.TxnRunnerFactory())
 	ns, initialQuery := st.InitialWatchStatementVolumeAttachmentPlans(
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		netNodeUUID,
 	)
 	c.Check(ns, tc.Equals, "storage_volume_attachment_plan_life_machine_provisioning")
 

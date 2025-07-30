@@ -13,7 +13,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -166,7 +165,7 @@ func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	rval, err := st.GetUnitNetNodeUUID(
-		c.Context(), coreunit.UUID(unitUUID),
+		c.Context(), unitUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, netNodeUUID)

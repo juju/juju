@@ -254,7 +254,6 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDMachine(
 // for the supplied volume ID which is attached to the unit.
 //
 // The following errors may be returned:
-// - [corestorage.InvalidStorageID] when the provided id is not valid.
 // - [coreerrors.NotValid] when the provided unit uuid is not valid.
 // - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
 // supplied id.

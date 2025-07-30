@@ -97,6 +97,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnit(c *tc.C) {
 
 	unitUUID := unittesting.GenUnitUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
 	fsUUID := domaintesting.GenFilesystemUUID(c)
 	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
 	c.Assert(err, tc.ErrorIsNil)
