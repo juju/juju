@@ -34,7 +34,6 @@ import (
 
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
-	*common.LifeGetter
 	*common.InstanceIdGetter
 
 	watcherRegistry facade.WatcherRegistry
@@ -50,6 +49,7 @@ type StorageProvisionerAPIv4 struct {
 	applicationService         ApplicationService
 	getScopeAuthFunc           common.GetAuthFunc
 	getStorageEntityAuthFunc   common.GetAuthFunc
+	getLifeAuthFunc            common.GetAuthFunc
 	getMachineAuthFunc         common.GetAuthFunc
 	getBlockDevicesAuthFunc    common.GetAuthFunc
 	getAttachmentAuthFunc      func(context.Context) (func(names.Tag, names.Tag) bool, error)
@@ -231,7 +231,6 @@ func NewStorageProvisionerAPIv4(
 		}, nil
 	}
 	return &StorageProvisionerAPIv4{
-		LifeGetter:       common.NewLifeGetter(applicationService, machineService, getLifeAuthFunc, logger),
 		InstanceIdGetter: common.NewInstanceIdGetter(machineService, getMachineAuthFunc),
 
 		watcherRegistry: watcherRegistry,
@@ -246,6 +245,7 @@ func NewStorageProvisionerAPIv4(
 		applicationService:         applicationService,
 		getScopeAuthFunc:           getScopeAuthFunc,
 		getStorageEntityAuthFunc:   getStorageEntityAuthFunc,
+		getLifeAuthFunc:            getLifeAuthFunc,
 		getAttachmentAuthFunc:      getAttachmentAuthFunc,
 		getMachineAuthFunc:         getMachineAuthFunc,
 		getBlockDevicesAuthFunc:    getBlockDevicesAuthFunc,
@@ -256,6 +256,33 @@ func NewStorageProvisionerAPIv4(
 		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
 	}, nil
+}
+
+// Life returns the life of the entities passed in.
+// The entities are expected to be either filesystems or volumes tags.
+func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+	canAccess, err := s.getLifeAuthFunc(ctx)
+	if err != nil {
+		return params.LifeResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+	results := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if !canAccess(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		// TODO:
+		results.Results[i].Life = life.Alive
+	}
+	return results, nil
 }
 
 // EnsureDead ensures that the specified entities are dead.
@@ -1062,7 +1089,7 @@ func (s *StorageProvisionerAPIv4) filesystemAttachmentLife(
 		} else if err != nil {
 			return "", internalerrors.Capture(err)
 		}
-		fsAttachmentUUID, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForIDMachine(
+		fsAttachmentUUID, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 			ctx, fsTag.Id(), machineUUID,
 		)
 		if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
@@ -1088,7 +1115,7 @@ func (s *StorageProvisionerAPIv4) filesystemAttachmentLife(
 		if err != nil {
 			return "", internalerrors.Capture(err)
 		}
-		fsAttachmentUUID, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForIDUnit(
+		fsAttachmentUUID, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 			ctx, fsTag.Id(), unitUUID,
 		)
 		if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
