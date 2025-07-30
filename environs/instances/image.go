@@ -5,6 +5,7 @@ package instances
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/juju/errors"
@@ -109,7 +110,18 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		specs = partialSpecs
 	}
 	if len(specs) > 0 {
-		sort.Sort(byArch(specs))
+		var specsWithoutSev []*InstanceSpec
+		var specsWithSev []*InstanceSpec
+		for _, spec := range specs {
+			if spec.InstanceType.IsSev {
+				specsWithSev = append(specsWithSev, spec)
+			} else {
+				specsWithoutSev = append(specsWithoutSev, spec)
+			}
+		}
+		sort.Sort(byArch(specsWithoutSev))
+		sort.Sort(byArch(specsWithSev))
+		specs = slices.Concat(specsWithoutSev, specsWithSev)
 		logger.Infof("find instance - using %v image of type %v with id: %v", specs[0].Image.Arch, specs[0].InstanceType.Name, specs[0].Image.Id)
 		return specs[0], nil
 	}

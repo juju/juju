@@ -371,6 +371,53 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 	}
 }
 
+func (s *imageSuite) TestFindInstanceSpecShouldChooseNonSEV(c *gc.C) {
+	imageCons := constraints.MustParse("mem=4G cores=2 root-disk=20G")
+	imageId := "ami-00000035"
+	iTypes := []InstanceType{
+		{Id: "1", Name: "m1.medium-sev", Arch: "amd64", VirtType: &hvm, Mem: 1024 * 4, RootDisk: 1024 * 60, CpuCores: 2, IsSev: true},
+		{Id: "2", Name: "m1.large-sev", Arch: "amd64", VirtType: &hvm, Mem: 1024 * 8, RootDisk: 1024 * 90, CpuCores: 4, IsSev: true},
+		{Id: "3", Name: "m1.medium", Arch: "amd64", VirtType: &hvm, Mem: 1024 * 4, RootDisk: 1024 * 60, CpuCores: 2, IsSev: false},
+		{Id: "4", Name: "m1.large", Arch: "amd64", VirtType: &hvm, Mem: 1024 * 8, RootDisk: 1024 * 90, CpuCores: 4, IsSev: false},
+		{Id: "5", Name: "m1.small", Arch: "amd64", VirtType: &hvm, Mem: 1024 * 2, RootDisk: 1024 * 30, CpuCores: 1, IsSev: false},
+	}
+
+	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{"test", "ep"},
+		Releases:  []string{"12.04"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	dataSource := simplestreams.NewDataSource(simplestreams.Config{
+		Description:          "test",
+		BaseURL:              "some-url",
+		HostnameVerification: true,
+		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+	})
+	imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), dataSource, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	var images []Image
+	for _, imageMetadata := range imageMeta {
+		im := *imageMetadata
+		images = append(images, Image{
+			Id:       im.Id,
+			VirtType: im.VirtType,
+			Arch:     im.Arch,
+		})
+	}
+
+	spec, err := FindInstanceSpec(images, &InstanceConstraint{
+		Base:        corebase.MakeDefaultBase("ubuntu", "12.04"),
+		Region:      "test",
+		Arch:        "amd64",
+		Constraints: imageCons,
+	}, iTypes)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(spec, gc.NotNil)
+	c.Assert(spec.Image.Id, gc.Equals, imageId)
+	c.Assert(spec.InstanceType, gc.DeepEquals, InstanceType{Id: "3", Name: "m1.medium", Arch: "amd64", VirtType: &hvm, Mem: 1024 * 4, RootDisk: 1024 * 60, CpuCores: 2, IsSev: false})
+}
+
 var imageMatchtests = []struct {
 	image Image
 	itype InstanceType

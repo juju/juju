@@ -271,8 +271,8 @@ github.com/go-chi/chi/v5 v5.2.1/go.mod h1:L2yAIGWB3H+phAw1NxKwWM+7eUH/lU8pOMm5hH
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/go-goose/goose/v5 v5.1.1 h1:CJP9uXXEunlYwIzhqW6NnkLPDyB1eUQUV5EAlSHYmcE=
-github.com/go-goose/goose/v5 v5.1.1/go.mod h1:BxICmnmP7QlxZhKP2BHkpWQS0tbb3LrsrLtd9TQyyms=
+github.com/go-goose/goose/v5 v5.1.2 h1:6+0GDLE4FMsvukk2SqTsl+AipzMvQDUQmMENZdCm+38=
+github.com/go-goose/goose/v5 v5.1.2/go.mod h1:BxICmnmP7QlxZhKP2BHkpWQS0tbb3LrsrLtd9TQyyms=
 github.com/go-jose/go-jose/v3 v3.0.3 h1:fFKWeig/irsp7XD2zBxvnmA/XaRWp5V3CBsZXJF7G7k=
 github.com/go-jose/go-jose/v3 v3.0.3/go.mod h1:5b+7YgP7ZICgJDBdfjZaIt+H/9L9T/YQrVfLAMboGkQ=
 github.com/go-jose/go-jose/v4 v4.0.5 h1:M6T8+mKZl/+fNNuFHvGIzDz7BTLQPIounk/b9dw3AaE=
