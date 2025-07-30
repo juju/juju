@@ -152,19 +152,19 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentNotFound(c *tc.C) {
 // TestGetFilesystemTemplatesForApplication checks that both a storage backed by
 // a pool and a storage backed by a provider both return the relevant information.
 func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
-	uuid := s.newApplication(c, "foo")
+	appUUID, charmUUID := s.newApplication(c, "foo")
 
 	spUUID := s.newStoragePool(c, "water", "magic", map[string]string{
 		"a": "b",
 		"c": "d",
 	})
-	s.newCharmStorage(c, uuid, "x", "filesystem", true, "/a/x")
-	s.newCharmStorage(c, uuid, "y", "filesystem", true, "/a/y")
-	s.newApplicationStorageDirective(c, uuid, uuid, "x", spUUID, "", 123, 2)
-	s.newApplicationStorageDirective(c, uuid, uuid, "y", "", "rootfs", 456, 1)
+	s.newCharmStorage(c, charmUUID, "x", "filesystem", true, "/a/x")
+	s.newCharmStorage(c, charmUUID, "y", "filesystem", true, "/a/y")
+	s.newApplicationStorageDirective(c, appUUID, charmUUID, "x", spUUID, "", 123, 2)
+	s.newApplicationStorageDirective(c, appUUID, charmUUID, "y", "", "rootfs", 456, 1)
 
 	st := NewState(s.TxnRunnerFactory())
-	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.ID(uuid))
+	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.ID(appUUID))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []domainstorageprovisioning.FilesystemTemplate{{
 		StorageName:  "x",
@@ -194,7 +194,7 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 // reported.
 func (s *filesystemSuite) TestGetFilesystemAttachmentIDsOnlyUnits(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 	_, unitName := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	fsUUID, fsID := s.newMachineFilesystem(c)
@@ -241,7 +241,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentIDsOnlyMachines(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemAttachmentIDsMachineNotUnit(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	_, machineName := s.newMachineWithNetNode(c, netNodeUUID)
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	fsUUID, fsID := s.newMachineFilesystem(c)
@@ -266,7 +266,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentIDsMixed(c *tc.C) {
 	netNodeUUID1 := s.newNetNode(c)
 	netNodeUUID2 := s.newNetNode(c)
 	_, machineName := s.newMachineWithNetNode(c, netNodeUUID1)
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 	_, unitName := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID2)
 
 	fs1UUID, fsID1 := s.newMachineFilesystem(c)

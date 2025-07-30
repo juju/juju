@@ -51,7 +51,7 @@ func (s *baseSuite) changeMachineLife(c *tc.C, machineUUID string, lifeID domain
 
 // newApplication creates a new application in the model returning the uuid of
 // the new application.
-func (s *baseSuite) newApplication(c *tc.C, name string) string {
+func (s *baseSuite) newApplication(c *tc.C, name string) (string, string) {
 	appUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -65,7 +65,7 @@ VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpace
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return appUUID.String()
+	return appUUID.String(), charmUUID
 }
 
 // newCharm creates a new charm in the model and returns the uuid for it.

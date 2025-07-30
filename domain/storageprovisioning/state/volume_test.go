@@ -32,7 +32,7 @@ func TestVolumeSuite(t *testing.T) {
 // reported.
 func (s *volumeSuite) TestGetVolumeAttachmentIDsOnlyUnits(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 	_, unitName := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	vsUUID, vsID := s.newMachineVolume(c)
@@ -79,7 +79,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentIDsOnlyMachines(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentIDsMachineNotUnit(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	_, machineName := s.newMachineWithNetNode(c, netNodeUUID)
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	vsUUID, vsID := s.newMachineVolume(c)
@@ -104,7 +104,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentIDsMixed(c *tc.C) {
 	netNodeUUID1 := s.newNetNode(c)
 	netNodeUUID2 := s.newNetNode(c)
 	_, machineName := s.newMachineWithNetNode(c, netNodeUUID1)
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 	_, unitName := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID2)
 
 	vsOneUUID, vsOneID := s.newMachineVolume(c)

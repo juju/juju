@@ -161,7 +161,7 @@ func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
 // TestGetUnitNetNodeUUID tests the happy path of [State.GetUnitNetNodeUUID].
 func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -187,7 +187,7 @@ func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
 // are obtained from model info, model config and application.
 func (s *stateSuite) TestGetStorageResourceTagInfoForApplication(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID().String()
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 
 	_, err := s.DB().ExecContext(c.Context(),
 		`INSERT INTO model_config (key, value) VALUES (?, ?)`, "resource_tags", "a=x b=y")

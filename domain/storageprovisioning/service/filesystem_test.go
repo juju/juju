@@ -76,17 +76,20 @@ func (s *filesystemSuite) TestGetFilesystemForIDNotFound(c *tc.C) {
 	_, err := NewService(s.state, s.watcherFactory).GetFilesystemForID(
 		c.Context(), "1234",
 	)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
 
-	// Test via other state method
+func (s *filesystemSuite) TestGetFilesystemForIDNotFound2(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	fsUUID := domaintesting.GenFilesystemUUID(c)
 	s.state.EXPECT().GetFilesystemUUIDForID(c.Context(), "1234").Return(fsUUID, nil)
 	s.state.EXPECT().GetFilesystem(c.Context(), fsUUID).Return(
 		storageprovisioning.Filesystem{}, storageprovisioningerrors.FilesystemNotFound,
 	)
 
-	_, err = NewService(s.state, s.watcherFactory).GetFilesystemForID(c.Context(), "1234")
-	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+	_, err := NewService(s.state, s.watcherFactory).GetFilesystemForID(c.Context(), "1234")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
 }
 
 func (s *filesystemSuite) TestGetFilesystemAttachmentForUnit(c *tc.C) {
