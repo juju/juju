@@ -69,7 +69,7 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 		},
 		FilesystemID: fsID,
 		ProviderID:   "fs-123",
-		Size:         100,
+		SizeMiB:      100,
 	})
 }
 
@@ -87,7 +87,7 @@ func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 	c.Assert(result, tc.DeepEquals, domainstorageprovisioning.Filesystem{
 		FilesystemID: fsID,
 		ProviderID:   "fs-123",
-		Size:         100,
+		SizeMiB:      100,
 	})
 }
 
@@ -118,7 +118,7 @@ func (s *filesystemSuite) TestGetFilesystemNotAttachedToStorageInstance(c *tc.C)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(fs.FilesystemID, tc.Equals, fsID)
 	c.Check(fs.ProviderID, tc.Equals, "fs-123")
-	c.Check(fs.Size, tc.Equals, uint64(100))
+	c.Check(fs.SizeMiB, tc.Equals, uint64(100))
 }
 
 func (s *filesystemSuite) TestGetFilesystemAttachment(c *tc.C) {

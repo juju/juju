@@ -174,7 +174,7 @@ type filesystem struct {
 	FilesystemID string           `db:"filesystem_id"`
 	ProviderID   string           `db:"provider_id"`
 	VolumeID     sql.Null[string] `db:"volume_id"`
-	Size         uint64           `db:"size_mib"`
+	SizeMiB      uint64           `db:"size_mib"`
 }
 
 type filesystemAttachment struct {

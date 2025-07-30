@@ -57,7 +57,7 @@ func (s *filesystemSuite) TestGetFilesystemForID(c *tc.C) {
 		},
 		FilesystemID: "123",
 		ProviderID:   "fs-1234",
-		Size:         100,
+		SizeMiB:      100,
 	}
 	fsUUID := domaintesting.GenFilesystemUUID(c)
 	s.state.EXPECT().GetFilesystemUUIDForID(c.Context(), "1234").Return(fsUUID, nil)

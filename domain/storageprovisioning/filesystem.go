@@ -46,8 +46,8 @@ type Filesystem struct {
 	// ProviderID is the ID of the filesystem from the storage provider.
 	ProviderID string
 
-	// Size is the size of the filesystem in MiB.
-	Size uint64
+	// SizeMiB is the size of the filesystem in MiB.
+	SizeMiB uint64
 }
 
 // FilesystemBackingVolume contains information about the volume that is used

@@ -811,7 +811,7 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 				"getting filesystem %q: %v", tag.Id(), err,
 			)
 		}
-		if fs.Size == 0 {
+		if fs.SizeMiB == 0 {
 			// TODO: We think that a filesystem with size 0 is not provisioned.
 			// The size is set when the storage provisioner worker calls SetFilesystemInfo.
 			// This is a temporary workaround for checking the provision state of the filesystem.
@@ -825,7 +825,7 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 			FilesystemTag: tag.String(),
 			Info: params.FilesystemInfo{
 				ProviderId: fs.ProviderID,
-				Size:       fs.Size,
+				Size:       fs.SizeMiB,
 			},
 		}
 		if fs.BackingVolume == nil {

@@ -282,7 +282,7 @@ WHERE     sfs.uuid = $filesystemUUID.uuid
 		BackingVolume: backingVolume,
 		FilesystemID:  dbVal.FilesystemID,
 		ProviderID:    dbVal.ProviderID,
-		Size:          dbVal.Size,
+		SizeMiB:       dbVal.SizeMiB,
 	}, nil
 }
 

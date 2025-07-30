@@ -111,7 +111,7 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 		},
 		FilesystemID: "123",
 		ProviderID:   "fs-1234",
-		Size:         1000,
+		SizeMiB:      1000,
 	}
 
 	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
