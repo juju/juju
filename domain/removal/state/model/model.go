@@ -305,9 +305,7 @@ WHERE uuid = $entityUUID.uuid;
 	}
 
 	// Once we get to this point, the model is hosed. We don't expect the
-	// model to be in use. The model migration will reinforce the schema once
-	// the migration is tried again. Failure to do that will result in the
-	// model being deleted unexpected scenarios.
+	// model to be in use.
 	modelTriggerStmt, err := st.Prepare(`DROP TRIGGER IF EXISTS trg_model_immutable_delete;`)
 	if err != nil {
 		return errors.Capture(err)
