@@ -48,7 +48,6 @@ type ManifoldSuite struct {
 	logger logger.Logger
 
 	state *state.State
-	pool  *state.StatePool
 
 	stub testhelpers.Stub
 }
@@ -67,7 +66,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.state = &state.State{}
-	s.pool = &state.StatePool{}
 
 	s.leaseManager = stubLeaseManager{}
 	s.domainServicesGetter = stubDomainServicesGetter{}

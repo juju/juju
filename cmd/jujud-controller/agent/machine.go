@@ -540,10 +540,6 @@ func (a *MachineAgent) makeEngineCreator(
 			})
 		}
 
-		// statePoolReporter is an introspection.IntrospectionReporter,
-		// which is set to the current StatePool managed by the state
-		// tracker in controller agents.
-		var statePoolReporter statePoolIntrospectionReporter
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
@@ -559,7 +555,6 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeStepsLock:                  a.upgradeStepsLock,
 			UpgradeCheckLock:                  a.initialUpgradeCheckComplete,
 			NewDBWorkerFunc:                   a.newDBWorkerFunc,
-			OpenStatePool:                     a.initState,
 			PreUpgradeSteps:                   a.preUpgradeSteps,
 			UpgradeSteps:                      a.upgradeSteps,
 			LogSink:                           logSink,
@@ -572,7 +567,6 @@ func (a *MachineAgent) makeEngineCreator(
 			ControllerLeaseDuration:           time.Minute,
 			TransactionPruneInterval:          time.Hour,
 			MachineLock:                       a.machineLock,
-			SetStatePool:                      statePoolReporter.Set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			MuxShutdownWait:                   1 * time.Minute,
@@ -603,7 +597,6 @@ func (a *MachineAgent) makeEngineCreator(
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
 			AgentDir:           agentConfig.Dir(),
 			Engine:             eng,
-			StatePoolReporter:  &statePoolReporter,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,
@@ -690,32 +683,6 @@ func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.API
 		_, err = facade.Machine(ctx, a.agentTag.(names.MachineTag))
 	}
 	return errors.Trace(err)
-}
-
-func (a *MachineAgent) initState(
-	ctx context.Context, agentConfig agent.Config,
-	domainServicesGetter services.DomainServicesGetter,
-) (*state.StatePool, error) {
-	pool, err := openStatePool(
-		agentConfig,
-		domainServicesGetter,
-	)
-	if err != nil {
-		// On error, force a mongo refresh.
-		a.mongoInitMutex.Lock()
-		a.mongoInitialized = false
-		a.mongoInitMutex.Unlock()
-		return nil, err
-	}
-	logger.Infof(context.TODO(), "juju database opened")
-
-	systemState, err := pool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	reportOpenedState(systemState)
-
-	return pool, nil
 }
 
 // startModelWorkers starts the set of workers that run for every model

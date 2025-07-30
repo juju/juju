@@ -22,7 +22,6 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/state"
 )
 
 // ControllerConfigService is an interface that can be implemented by
@@ -103,7 +102,6 @@ type BakeryConfigService interface {
 // NewStateAuthenticator.
 type NewStateAuthenticatorFunc func(
 	ctx context.Context,
-	statePool *state.StatePool,
 	controllerConfigService ControllerConfigService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
@@ -119,7 +117,6 @@ type NewStateAuthenticatorFunc func(
 // local macaroon logins.
 func NewStateAuthenticator(
 	ctx context.Context,
-	statePool *state.StatePool,
 	controllerConfigService ControllerConfigService,
 	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,

@@ -43,7 +43,6 @@ type Reporter interface {
 type Config struct {
 	SocketName         string
 	DepEngine          DepEngineReporter
-	StatePool          Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 }
@@ -64,7 +63,6 @@ type socketListener struct {
 	tomb               tomb.Tomb
 	listener           net.Listener
 	depEngine          DepEngineReporter
-	statePool          Reporter
 	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
 	done               chan struct{}
@@ -92,7 +90,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &socketListener{
 		listener:           l,
 		depEngine:          config.DepEngine,
-		statePool:          config.StatePool,
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
 		done:               make(chan struct{}),
@@ -166,15 +163,6 @@ func (w *socketListener) RegisterHTTPHandlers(
 	// the introspection endpoint directly.
 	handle("/metrics/", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 
-	// Only machine or controller agents support the following.
-	if w.statePool != nil {
-		handle("/statepool", introspectionReporterHandler{
-			name:     "State Pool Report",
-			reporter: w.statePool,
-		})
-	} else {
-		handle("/statepool", notSupportedHandler{"State Pool"})
-	}
 	// TODO(leases) - add metrics
 	handle("/leases", notSupportedHandler{"Leases"})
 }

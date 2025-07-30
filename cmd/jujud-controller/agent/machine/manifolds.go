@@ -42,7 +42,6 @@ import (
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/s3client"
-	"github.com/juju/juju/internal/services"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/upgrades"
 	jupgradesteps "github.com/juju/juju/internal/upgradesteps"
@@ -105,7 +104,6 @@ import (
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/sshserver"
-	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/storageregistry"
@@ -168,10 +166,6 @@ type ManifoldsConfig struct {
 	// NewDBWorkerFunc returns a tracked db worker.
 	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
-	// OpenStatePool is function used by the state manifold to create a
-	// *state.StatePool.
-	OpenStatePool func(context.Context, coreagent.Config, services.DomainServicesGetter) (*state.StatePool, error)
-
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
@@ -214,11 +208,6 @@ type ManifoldsConfig struct {
 	// TransactionPruneInterval defines how frequently mgo/txn transactions
 	// are pruned from the database.
 	TransactionPruneInterval time.Duration
-
-	// SetStatePool is used by the state worker for informing the agent of
-	// the StatePool that it creates, so we can pass it to the introspection
-	// worker running outside of the dependency engine.
-	SetStatePool func(*state.StatePool)
 
 	// RegisterIntrospectionHTTPHandlers is a function that calls the
 	// supplied function to register introspection HTTP handlers. The
@@ -358,17 +347,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
 		}),
-
-		// The state manifold creates a *state.State and makes it
-		// available to other manifolds. It pings the mongodb session
-		// regularly and will die if pings fail.
-		stateName: ifDatabaseUpgradeComplete(workerstate.Manifold(workerstate.ManifoldConfig{
-			AgentName:              agentName,
-			StateConfigWatcherName: stateConfigWatcherName,
-			DomainServicesName:     domainServicesName,
-			OpenStatePool:          config.OpenStatePool,
-			SetStatePool:           config.SetStatePool,
-		})),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -526,14 +504,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		httpServerArgsName: ifBootstrapComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
-			StateName:             stateName,
 			DomainServicesName:    domainServicesName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
 		})),
 
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
 			AuthorityName:        certificateWatcherName,
-			StateName:            stateName,
 			DomainServicesName:   domainServicesName,
 			MuxName:              httpServerArgsName,
 			APIServerName:        apiServerName,
@@ -886,7 +862,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
 			AgentName:               agentName,
-			StateName:               stateName,
 			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
@@ -1109,7 +1084,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
 			AgentName:               agentName,
-			StateName:               stateName,
 			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
@@ -1264,7 +1238,6 @@ const (
 	agentConfigUpdaterName = "agent-config-updater"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
-	stateName              = "state"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	clockName              = "clock"
