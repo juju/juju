@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -811,7 +812,7 @@ func validateApplicationStorageDirective(
 	if charmStorageDef.CountMin > 0 {
 		minCount = uint32(charmStorageDef.CountMin)
 	}
-	maxCount := uint32(0)
+	maxCount := uint32(math.MaxUint32)
 	if charmStorageDef.CountMax > 0 {
 		maxCount = uint32(charmStorageDef.CountMax)
 	}

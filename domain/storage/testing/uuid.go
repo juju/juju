@@ -4,8 +4,9 @@
 package testing
 
 import (
-	"github.com/juju/juju/domain/storage"
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/domain/storage"
 )
 
 // GenStorageInstanceUUID generates a new [storage.StorageInstanceUUID] for

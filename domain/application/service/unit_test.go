@@ -5,12 +5,10 @@ package service
 
 import (
 	"context"
-	"reflect"
 	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/caas"
@@ -27,6 +25,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -60,28 +59,12 @@ func (s *unitServiceSuite) TestGetUnitUUIDErrors(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-type registerArgMatcher struct {
-	arg application.RegisterCAASUnitArg
-}
-
-func (m registerArgMatcher) Matches(x interface{}) bool {
-	obtained, ok := x.(application.RegisterCAASUnitArg)
-	if !ok {
-		return false
-	}
-
-	obtained.PasswordHash = ""
-	m.arg.PasswordHash = ""
-	return reflect.DeepEqual(obtained, m.arg)
-}
-
-func (m registerArgMatcher) String() string {
-	return pretty.Sprint(m.arg)
-}
-
 func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	unitUUID := unittesting.GenUnitUUID(c)
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().Units().Return([]caas.Unit{{
@@ -94,6 +77,16 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	}}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").
+		Return(appUUID, nil)
+	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), appUUID,
+		gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).
+		Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).
+		Return(nil, nil)
+	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).
+		Return(nil, nil)
 	arg := application.RegisterCAASUnitArg{
 		UnitName:     "foo/666",
 		PasswordHash: "secret",
@@ -102,8 +95,16 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 		Ports:        ptr([]string{"8080"}),
 		OrderedScale: true,
 		OrderedId:    666,
+		RegisterUnitStorageArg: application.RegisterUnitStorageArg{
+			FilesystemProviderIDs: map[storageprovisioning.FilesystemUUID]string{},
+		},
 	}
-	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), "foo", registerArgMatcher{arg: arg})
+	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, rca application.RegisterCAASUnitArg) error {
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_.PasswordHash`, tc.Ignore)
+		c.Assert(rca, mc, arg)
+		return nil
+	})
 
 	p := application.RegisterCAASUnitParams{
 		ApplicationName: "foo",
@@ -129,9 +130,14 @@ func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
 	app := NewMockApplication(ctrl)
 	app.EXPECT().Units().Return([]caas.Unit{}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").
+		Return(appUUID, nil)
 
 	p := application.RegisterCAASUnitParams{
 		ApplicationName: "foo",

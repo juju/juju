@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
-	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
@@ -154,7 +153,7 @@ WHERE  suo.unit_uuid = $entityUUID.uuid
 		exists, err := st.checkUnitExists(ctx, tx, unitUUID)
 		if err != nil {
 			return errors.Errorf(
-				"checking unit %q existS: %w", unitUUID, err,
+				"checking unit %q exists: %w", unitUUID, err,
 			)
 		}
 		if !exists {
@@ -171,6 +170,14 @@ WHERE  suo.unit_uuid = $entityUUID.uuid
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
+	rval := make(map[domainstorage.Name][]domainstorage.StorageInstanceUUID,
+		len(dbVals))
+	for _, v := range dbVals {
+		k := domainstorage.Name(v.StorageName)
+		rval[k] = append(rval[k], domainstorage.StorageInstanceUUID(v.UUID))
+	}
+	return rval, nil
 }
 
 func (st *State) GetUnitStorageDirectives(
@@ -459,12 +466,12 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 		})
 
 		rval = append(rval, unitStorageDirective{
-			CharmUUID:       charmUUID,
+			CharmUUID:       charmUUID.String(),
 			Count:           arg.Count,
-			Name:            arg.Name.String(),
+			StorageName:     arg.Name.String(),
 			StoragePoolUUID: storagePoolUUIDVal,
-			StorageProvider: storageTypeVal,
-			Size:            arg.Size,
+			StorageType:     storageTypeVal,
+			SizeMiB:         arg.Size,
 		})
 	}
 
@@ -840,7 +847,7 @@ WHERE storage_instance_uuid IN ($S[:])
 		}
 
 		rval = append(rval, insertStorageFilesystemAttachment{
-			LifeID:                int(domainlife.Alive),
+			LifeID:                int(life.Alive),
 			NetNodeUUID:           netNodeUUID.String(),
 			StorageFilesystemUUID: val.UUID,
 			UUID:                  uuid.String(),
@@ -864,7 +871,7 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 
 	directiveMap := make(map[domainstorage.Name]unitStorageDirective, len(directives))
 	for _, directive := range directives {
-		directiveMap[domainstorage.Name(directive.Name)] = directive
+		directiveMap[domainstorage.Name(directive.StorageName)] = directive
 	}
 
 	storageInstancesRval := make([]insertStorageInstance, 0, len(args))
@@ -882,21 +889,10 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 			corestorage.Name(arg.Name), id,
 		).String()
 
-		storagePoolVal := sql.Null[string]{}
-		if directive.StoragePoolUUID != nil {
-			storagePoolVal.V = *directive.StoragePoolUUID
-			storagePoolVal.Valid = true
-		}
-		storageTypeVal := sql.Null[string]{}
-		if directive.StorageProvider != nil {
-			storageTypeVal.V = *directive.StorageProvider
-			storageTypeVal.Valid = true
-		}
-
 		storageInstancesRval = append(storageInstancesRval, insertStorageInstance{
-			CharmUUID:       directive.CharmUUID.String(),
+			CharmUUID:       directive.CharmUUID,
 			LifeID:          int(life.Alive),
-			RequestSizeMiB:  directive.Size,
+			RequestSizeMiB:  directive.SizeMiB,
 			StorageID:       storageID,
 			StorageName:     arg.Name.String(),
 			StoragePoolUUID: directive.StoragePoolUUID,
@@ -918,7 +914,7 @@ func makeInsertUnitStorageAttachmentArgs(
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, instUUID := range storageToAttach {
 		rval = append(rval, insertStorageInstanceAttachment{
-			LifeID:              int(domainlife.Alive),
+			LifeID:              int(life.Alive),
 			StorageInstanceUUID: instUUID.String(),
 			UnitUUID:            unitUUID.String(),
 		})
@@ -1062,7 +1058,7 @@ WHERE storage_instance_uuid IN ($S[:])
 		}
 
 		rval = append(rval, insertStorageVolumeAttachment{
-			LifeID:            int(domainlife.Alive),
+			LifeID:            int(life.Alive),
 			NetNodeUUID:       netNodeUUID.String(),
 			StorageVolumeUUID: val.UUID,
 			UUID:              uuid.String(),

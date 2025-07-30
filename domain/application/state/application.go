@@ -53,10 +53,10 @@ func (st *State) checkApplicationExists(
 	tx *sqlair.TX,
 	appUUID coreapplication.ID,
 ) (bool, error) {
-	uuidInput := entityUUID{UUID: appUUID}
+	uuidInput := entityUUID{UUID: appUUID.String()}
 
 	checkStmt, err := st.Prepare(`
-SELECT entityUUID.*
+SELECT &entityUUID.*
 FROM   application
 WHERE  uuid = $entityUUID.uuid
 	`,

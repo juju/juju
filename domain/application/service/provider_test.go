@@ -489,14 +489,14 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 			Name:  "ubuntu",
 			RunAs: "default",
 			Storage: map[string]applicationcharm.Storage{
-				"foo-data": applicationcharm.Storage{
+				"foo-data": {
 					Name:        "foo-data",
 					Type:        applicationcharm.StorageBlock,
 					CountMin:    2,
 					CountMax:    -1,
 					MinimumSize: 2048,
 				},
-				"bar-data": applicationcharm.Storage{
+				"bar-data": {
 					Name:        "bar-data",
 					Type:        applicationcharm.StorageFilesystem,
 					CountMin:    1,
@@ -561,7 +561,16 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 		Placement: "zone=default",
 	}).Return(nil)
 
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(
+			`_.BaseAddApplicationArg.StorageDirectives`,
+			tc.UnorderedMatch[[]application.CreateApplicationStorageDirectiveArg](tc.DeepEquals),
+			tc.ExpectedValue,
+		)
+		c.Assert(a, mc, app)
+		return id, nil, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -578,6 +587,22 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 	}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "ubuntu",
+		Storage: map[string]charm.Storage{
+			"foo-data": {
+				Name:        "foo-data",
+				Type:        charm.StorageBlock,
+				CountMin:    2,
+				CountMax:    -1,
+				MinimumSize: 2048,
+			},
+			"bar-data": {
+				Name:        "bar-data",
+				Type:        charm.StorageFilesystem,
+				CountMin:    1,
+				CountMax:    1,
+				MinimumSize: 4096,
+			},
+		},
 	}).MinTimes(1)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
@@ -618,14 +643,14 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 			Name:  "ubuntu",
 			RunAs: "default",
 			Storage: map[string]applicationcharm.Storage{
-				"foo-data": applicationcharm.Storage{
+				"foo-data": {
 					Name:        "foo-data",
 					Type:        applicationcharm.StorageBlock,
 					CountMin:    2,
 					CountMax:    -1,
 					MinimumSize: 2048,
 				},
-				"bar-data": applicationcharm.Storage{
+				"bar-data": {
 					Name:        "bar-data",
 					Type:        applicationcharm.StorageFilesystem,
 					CountMin:    1,
@@ -658,15 +683,15 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 			},
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
-				Name:         "foo-data",
-				Count:        2,
-				ProviderType: ptr("a-blockdevice-provider"),
-				Size:         2048,
+				Name:     "foo-data",
+				Count:    2,
+				PoolUUID: &blockDeviceStoragePoolUUID,
+				Size:     2048,
 			}, {
-				Name:         "bar-data",
-				Count:        1,
-				ProviderType: ptr("a-filesystem-provider"),
-				Size:         4096,
+				Name:     "bar-data",
+				Count:    1,
+				PoolUUID: &filesystemStoragePoolUUID,
+				Size:     4096,
 			}},
 		},
 	}
@@ -690,7 +715,16 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 		Placement: "zone=default",
 	}).Return(nil)
 
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(
+			`_.BaseAddApplicationArg.StorageDirectives`,
+			tc.UnorderedMatch[[]application.CreateApplicationStorageDirectiveArg](tc.DeepEquals),
+			tc.ExpectedValue,
+		)
+		c.Assert(a, mc, app)
+		return id, nil, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -707,6 +741,22 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 	}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "ubuntu",
+		Storage: map[string]charm.Storage{
+			"foo-data": {
+				Name:        "foo-data",
+				Type:        charm.StorageBlock,
+				CountMin:    2,
+				CountMax:    -1,
+				MinimumSize: 2048,
+			},
+			"bar-data": {
+				Name:        "bar-data",
+				Type:        charm.StorageFilesystem,
+				CountMin:    1,
+				CountMax:    1,
+				MinimumSize: 4096,
+			},
+		},
 	}).MinTimes(1)
 
 	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
@@ -729,10 +779,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 		CharmObjectStoreUUID: objectStoreUUID,
 		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
 		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
-			"foo-data": ApplicationStorageDirectiveOverride{
+			"foo-data": {
 				PoolUUID: &blockDeviceStoragePoolUUID,
 			},
-			"bar-data": ApplicationStorageDirectiveOverride{
+			"bar-data": {
 				ProviderType: ptr("special-filesystem-provider"),
 			},
 		},
@@ -1217,6 +1267,16 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 					Since:   now,
 				},
 			},
+			CreateUnitStorageArg: application.CreateUnitStorageArg{
+				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+					{
+						Count:        1,
+						Name:         "data",
+						ProviderType: ptr("rootfs"),
+						Size:         10,
+					},
+				},
+			},
 		},
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
@@ -1284,7 +1344,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 			BlockdeviceProviderType: ptr("rootfs"),
 		}, nil,
 	)
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+		c.Assert(a, tc.DeepEquals, app)
+		c.Assert(u, tc.DeepEquals, us)
+		return id, nil, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -1341,6 +1405,16 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 					Status:  status.WorkloadStatusWaiting,
 					Message: corestatus.MessageWaitForMachine,
 					Since:   now,
+				},
+			},
+			CreateUnitStorageArg: application.CreateUnitStorageArg{
+				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+					{
+						Name:         "data",
+						Count:        3,
+						Size:         10,
+						ProviderType: ptr("fast"),
+					},
 				},
 			},
 		},
@@ -1411,7 +1485,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 			BlockdeviceProviderType: ptr("fast"),
 		}, nil,
 	)
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+		c.Assert(a, tc.DeepEquals, app)
+		c.Assert(u, tc.DeepEquals, us)
+		return id, nil, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -1470,6 +1548,16 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 					Status:  status.WorkloadStatusWaiting,
 					Message: "waiting for machine",
 					Since:   now,
+				},
+			},
+			CreateUnitStorageArg: application.CreateUnitStorageArg{
+				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+					{
+						Name:         "data",
+						Count:        1,
+						Size:         10,
+						ProviderType: ptr("rootfs"),
+					},
 				},
 			},
 		},
@@ -1540,7 +1628,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 			FilesystemProviderType: ptr("rootfs"),
 		}, nil,
 	)
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+		c.Assert(a, tc.DeepEquals, app)
+		c.Assert(u, tc.DeepEquals, us)
+		return id, nil, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -1596,6 +1688,16 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 					Status:  status.WorkloadStatusWaiting,
 					Message: "waiting for machine",
 					Since:   now,
+				},
+			},
+			CreateUnitStorageArg: application.CreateUnitStorageArg{
+				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+					{
+						Name:         "data",
+						Count:        2,
+						Size:         10,
+						ProviderType: ptr("fast"),
+					},
 				},
 			},
 		},
@@ -1666,7 +1768,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 			FilesystemProviderType: ptr("fast"),
 		}, nil,
 	)
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+		c.Assert(a, tc.DeepEquals, app)
+		c.Assert(u, tc.DeepEquals, us)
+		return id, nil, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -1789,7 +1895,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 			FilesystemProviderType: ptr("fast"),
 		}, nil,
 	)
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", app, us).Return(id, nil, nil)
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+		c.Assert(a, tc.DeepEquals, app)
+		c.Assert(u, tc.DeepEquals, us)
+		return id, nil, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -2119,6 +2229,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 		},
 	}
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
+	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{

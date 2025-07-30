@@ -50,7 +50,7 @@ func (st *State) checkUnitExists(
 	uuidInput := entityUUID{UUID: unitUUID.String()}
 
 	checkStmt, err := st.Prepare(`
-SELECT entityUUID.*
+SELECT &entityUUID.*
 FROM   unit
 WHERE  uuid = $entityUUID.uuid
 	`,

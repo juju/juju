@@ -811,7 +811,7 @@ func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C)
 		{
 			AddUnitArg: application.AddUnitArg{
 				CreateUnitStorageArg: application.CreateUnitStorageArg{
-					StorageDirectives: []application.CreateUnitStorageDirectiveArg(directives),
+					StorageDirectives: directives,
 					StorageInstances:  storageInstances,
 					StorageToAttach:   storageToAttach,
 				},

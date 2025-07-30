@@ -4,8 +4,9 @@
 package testing
 
 import (
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/domain/storageprovisioning"
 )
 
 // GenFilesystemUUID generates a new [storageprovisioning.FilesystemUUID] for
