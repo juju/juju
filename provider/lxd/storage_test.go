@@ -484,7 +484,7 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	c.Assert(results, gc.HasLen, 3)
 	c.Assert(results[0], jc.ErrorIsNil)
 	c.Assert(results[1], jc.ErrorIsNil)
-	c.Assert(results[2], jc.ErrorIsNil)
+	c.Assert(results[2], gc.ErrorMatches, `detaching filesystem 2: instance "inst-42" not found`)
 
 	// TODO (manadart 2018-06-25) We need to check the container config to
 	// ensure it represents the removed device.
