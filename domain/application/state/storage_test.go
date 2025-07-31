@@ -1083,3 +1083,62 @@ func (s *storageSuite) TestGetProviderTypeOfPool(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(pType, tc.Equals, "ptype")
 }
+
+func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
+	poolUUID := s.createStoragePoolWithType(c, "ptype")
+
+	st := NewState(
+		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
+	db := s.DB()
+
+	res, err := st.GetDefaultStorageProvisioners(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{})
+
+	_, err = db.Exec("INSERT INTO model_config(key, value) VALUES (?, ?)", application.StorageDefaultBlockSourceKey, "test-pool")
+	c.Assert(err, tc.ErrorIsNil)
+	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+		BlockdevicePoolUUID: &poolUUID,
+	})
+
+	_, err = db.Exec("INSERT INTO model_config(key, value) VALUES (?, ?)", application.StorageDefaultFilesystemSourceKey, "test-pool")
+	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+		BlockdevicePoolUUID: &poolUUID,
+		FilesystemPoolUUID:  &poolUUID,
+	})
+
+	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "", application.StorageDefaultBlockSourceKey)
+	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+		FilesystemPoolUUID: &poolUUID,
+	})
+
+	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "blockprovider", application.StorageDefaultBlockSourceKey)
+	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+		BlockdeviceProviderType: ptr("blockprovider"),
+		FilesystemPoolUUID:      &poolUUID,
+	})
+
+	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "", application.StorageDefaultFilesystemSourceKey)
+	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+		BlockdeviceProviderType: ptr("blockprovider"),
+	})
+
+	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "filesystemprovider", application.StorageDefaultFilesystemSourceKey)
+	res, err = st.GetDefaultStorageProvisioners(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+		BlockdeviceProviderType: ptr("blockprovider"),
+		FilesystemProviderType:  ptr("filesystemprovider"),
+	})
+}

@@ -1248,12 +1248,72 @@ AND    cs.name = $unitCharmStorage.name
 func (st *State) GetDefaultStorageProvisioners(
 	ctx context.Context,
 ) (application.DefaultStorageProvisioners, error) {
-	// TODO (tlm) get the default storage provisioners for the model.
-	defaultProviderType := "loop"
-	return application.DefaultStorageProvisioners{
-		BlockdeviceProviderType: &defaultProviderType,
-		FilesystemProviderType:  &defaultProviderType,
-	}, nil
+	db, err := st.DB()
+	if err != nil {
+		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+	}
+
+	storageModelConfigKeys := storageModelConfigKeys{
+		BlockDeviceKey: application.StorageDefaultBlockSourceKey,
+		FilesystemKey:  application.StorageDefaultFilesystemSourceKey,
+	}
+
+	stmt, err := st.Prepare(`
+WITH 	blockdevice_pool_name AS (
+			SELECT "blockdevice" AS type,
+			       value AS name
+			FROM   model_config
+			WHERE  key=$storageModelConfigKeys.blockdevice_key
+		),
+		filesystem_pool_name AS (
+			SELECT "filesystem" AS type,
+			       value AS name
+			FROM   model_config
+			WHERE  key=$storageModelConfigKeys.filesystem_key
+		),
+		pool_names AS (
+			SELECT * FROM blockdevice_pool_name
+			UNION
+			SELECT * FROM filesystem_pool_name
+		)
+SELECT pn.type AS &storageProvisioners.storage_type,
+       NULLIF(pn.name, sp.name) AS &storageProvisioners.provider_type,
+       sp.uuid AS &storageProvisioners.storage_pool_uuid
+FROM pool_names pn
+LEFT JOIN storage_pool sp ON pn.name=sp.name
+`, storageModelConfigKeys, storageProvisioners{})
+	if err != nil {
+		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+	}
+
+	var dbVals []storageProvisioners
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, storageModelConfigKeys).GetAll(&dbVals)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+	}
+
+	res := application.DefaultStorageProvisioners{}
+	for _, v := range dbVals {
+		switch {
+		case v.StorageType == "blockdevice" && v.ProviderType != "":
+			res.BlockdeviceProviderType = &v.ProviderType
+		case v.StorageType == "filesystem" && v.ProviderType != "":
+			res.FilesystemProviderType = &v.ProviderType
+		case v.StorageType == "blockdevice" && v.StoragePoolUUID != "":
+			poolUUID := domainstorage.StoragePoolUUID(v.StoragePoolUUID)
+			res.BlockdevicePoolUUID = &poolUUID
+		case v.StorageType == "filesystem" && v.StoragePoolUUID != "":
+			poolUUID := domainstorage.StoragePoolUUID(v.StoragePoolUUID)
+			res.FilesystemPoolUUID = &poolUUID
+		}
+	}
+	return res, nil
 }
 
 // ensureCharmStorageCountChange checks that the charm storage can change by

@@ -135,3 +135,18 @@ type unitOwnedStorage struct {
 	UUID        string `db:"uuid"`
 	StorageName string `db:"storage_name"`
 }
+
+// storageModelConfigKeys is used to get model config to select the storage pool
+// or storage provider type.
+type storageModelConfigKeys struct {
+	BlockDeviceKey string `db:"blockdevice_key"`
+	FilesystemKey  string `db:"filesystem_key"`
+}
+
+// storageProvisioners is used to get the default storage provisioners, either
+// a pool or a provider.
+type storageProvisioners struct {
+	StorageType     string `db:"storage_type"`
+	ProviderType    string `db:"provider_type"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+}
