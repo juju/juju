@@ -10,6 +10,7 @@ import (
 	"github.com/juju/description/v10"
 
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	corestatus "github.com/juju/juju/core/status"
@@ -35,6 +36,14 @@ func RegisterExport(
 // ExportService provides a subset of the status domain
 // service methods needed for status export.
 type ExportService interface {
+	// ExportMachineStatuses returns the statuses of all the machines and their
+	// instances in the model, indexed by machine name.
+	ExportMachineStatuses(ctx context.Context) (
+		machineStatuses map[coremachine.Name]corestatus.StatusInfo,
+		instanceStatuses map[coremachine.Name]corestatus.StatusInfo,
+		err error,
+	)
+
 	// ExportUnitStatuses returns the workload and agent statuses of all the units in
 	// in the model, indexed by unit name.
 	ExportUnitStatuses(ctx context.Context) (map[coreunit.Name]corestatus.StatusInfo, map[coreunit.Name]corestatus.StatusInfo, error)
@@ -90,7 +99,12 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 	modelUUID := model.UUID(m.UUID())
 	service := e.serviceGetter(modelUUID)
 
-	err := e.exportApplicationAndUnitStatus(ctx, service, m)
+	err := e.exportMachineStatuses(ctx, service, m)
+	if err != nil {
+		return errors.Errorf("exporting machine statuses: %w", err)
+	}
+
+	err = e.exportApplicationAndUnitStatus(ctx, service, m)
 	if err != nil {
 		return errors.Errorf("exporting application and unit status: %w", err)
 	}
@@ -98,6 +112,36 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 	err = e.exportRelationStatus(ctx, service, m)
 	if err != nil {
 		return errors.Errorf("exporting reltaion status: %w", err)
+	}
+
+	return nil
+}
+
+func (e *exportOperation) exportMachineStatuses(
+	ctx context.Context,
+	service ExportService,
+	m description.Model,
+) error {
+	machineStatuses, instanceStatuses, err := service.ExportMachineStatuses(ctx)
+	if err != nil {
+		return errors.Errorf("retrieving machine statuses: %w", err)
+	}
+
+	for _, machine := range m.Machines() {
+		instance := machine.Instance()
+		machineName := coremachine.Name(machine.Id())
+
+		machineStatus, ok := machineStatuses[machineName]
+		if !ok {
+			return errors.Errorf("machine %q has no status", machineName)
+		}
+		instanceStatus, ok := instanceStatuses[machineName]
+		if !ok {
+			return errors.Errorf("machine %q has no instance status", machineName)
+		}
+
+		machine.SetStatus(e.exportStatus(machineStatus))
+		instance.SetStatus(e.exportStatus(instanceStatus))
 	}
 
 	return nil

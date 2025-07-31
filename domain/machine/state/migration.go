@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	corebase "github.com/juju/juju/core/base"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -22,14 +23,12 @@ func (st *State) GetMachinesForExport(ctx context.Context) ([]machine.ExportMach
 	}
 
 	query := `
-SELECT m.name AS &exportMachine.name,
-	   m.uuid AS &exportMachine.uuid,
-	   m.life_id AS &exportMachine.life_id,  
-	   m.nonce AS &exportMachine.nonce
-FROM machine AS m
-JOIN machine_cloud_instance mci ON m.uuid = mci.machine_uuid
-WHERE mci.instance_id IS NOT NULL AND mci.instance_id != '';`
-
+SELECT    &exportMachine.*
+FROM      machine AS m
+JOIN      machine_cloud_instance mci ON m.uuid = mci.machine_uuid
+LEFT JOIN machine_placement AS mp ON m.uuid = mp.machine_uuid
+LEFT JOIN v_machine_platform AS mpl ON m.uuid = mpl.machine_uuid
+WHERE     mci.instance_id IS NOT NULL AND mci.instance_id != '';`
 	stmt, err := st.Prepare(query, exportMachine{})
 	if err != nil {
 		return nil, errors.Errorf("preparing query for machine export: %w", err)
@@ -50,10 +49,18 @@ WHERE mci.instance_id IS NOT NULL AND mci.instance_id != '';`
 
 	result := make([]machine.ExportMachine, len(machines))
 	for i, m := range machines {
+		base, err := corebase.ParseBase(m.OSName, m.Channel)
+		if err != nil {
+			return nil, errors.Errorf("parsing base: %w", err)
+		}
 		result[i] = machine.ExportMachine{
-			Name:  coremachine.Name(m.Name),
-			UUID:  coremachine.UUID(m.UUID),
-			Nonce: m.Nonce,
+			Name:         coremachine.Name(m.Name),
+			UUID:         coremachine.UUID(m.UUID),
+			Nonce:        m.Nonce,
+			PasswordHash: m.PasswordHash,
+			Placement:    m.PlacementDirective,
+			Base:         base.String(),
+			InstanceID:   m.InstanceID,
 		}
 	}
 	return result, nil

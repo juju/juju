@@ -14,9 +14,13 @@ const ManualInstancePrefix = "manual:"
 // ExportMachine represents a machine that is being exported to another
 // controller.
 type ExportMachine struct {
-	Name  machine.Name
-	UUID  machine.UUID
-	Nonce string
+	Name         machine.Name
+	UUID         machine.UUID
+	Nonce        string
+	PasswordHash string
+	Placement    string
+	Base         string
+	InstanceID   string
 }
 
 // CreateMachineArgs contains arguments for creating a machine.
