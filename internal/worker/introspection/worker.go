@@ -229,21 +229,3 @@ func (h machineLockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, content)
 }
-
-type introspectionReporterHandler struct {
-	name     string
-	reporter Reporter
-}
-
-// ServeHTTP is part of the http.Handler interface.
-func (h introspectionReporterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.reporter == nil {
-		http.Error(w, fmt.Sprintf("%s: missing reporter", h.name), http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-
-	fmt.Fprintf(w, "%s:\n\n", h.name)
-	fmt.Fprint(w, h.reporter.IntrospectionReport())
-}

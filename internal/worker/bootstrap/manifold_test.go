@@ -146,7 +146,6 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 
 var expectedInputs = []string{
 	"agent",
-	"state",
 	"object-store",
 	"bootstrap-gate",
 	"domain-services",

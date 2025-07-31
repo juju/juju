@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -60,7 +59,6 @@ import (
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/service"
-	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage/looputil"
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
@@ -76,7 +74,6 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type (
@@ -99,8 +96,7 @@ var (
 	// be expressed as explicit dependencies, but nobody has yet had
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
-	reportOpenedState = func(*state.State) {}
-	getHostname       = os.Hostname
+	getHostname = os.Hostname
 
 	caasModelManifolds   = model.CAASManifolds
 	iaasModelManifolds   = model.IAASManifolds
@@ -352,9 +348,6 @@ type MachineAgent struct {
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
 	initialUpgradeCheckComplete gate.Lock
-
-	mongoInitMutex   sync.Mutex
-	mongoInitialized bool
 
 	loopDeviceManager  looputil.LoopDeviceManager
 	prometheusRegistry *prometheus.Registry
@@ -782,31 +775,6 @@ func (m *modelWorker) Wait() error {
 	return err
 }
 
-func openStatePool(
-	agentConfig agent.Config,
-	domainServicesGetter services.DomainServicesGetter,
-) (_ *state.StatePool, err error) {
-	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
-		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
-		if err != nil {
-			return nil, err
-		}
-		return svc.Storage(), nil
-	}
-
-	pool, err := state.OpenStatePool(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      agentConfig.Controller(),
-		ControllerModelTag: agentConfig.Model(),
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
-	})
-	if err != nil {
-		pool.Close()
-		return nil, err
-	}
-	return pool, nil
-}
-
 // WorkersStarted returns a channel that's closed once all top level workers
 // have been started. This is provided for testing purposes.
 func (a *MachineAgent) WorkersStarted() <-chan struct{} {
@@ -923,27 +891,4 @@ func (a *MachineAgent) recordAgentStartInformation(ctx context.Context, apiConn 
 		return errors.Annotate(err, "cannot record agent start information")
 	}
 	return nil
-}
-
-// statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
-// calling its IntrospectionReport method or returning a message if it
-// is nil.
-type statePoolIntrospectionReporter struct {
-	mu   sync.Mutex
-	pool *state.StatePool
-}
-
-func (h *statePoolIntrospectionReporter) Set(pool *state.StatePool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.pool = pool
-}
-
-func (h *statePoolIntrospectionReporter) IntrospectionReport() string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.pool == nil {
-		return "agent has no pool set"
-	}
-	return h.pool.IntrospectionReport()
 }
