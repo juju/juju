@@ -26,7 +26,7 @@ run_upgrade_charm_with_bind() {
 	# shellcheck disable=SC2046
 	juju deploy $charm --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}"
 	unit_index=$(get_unit_index "space-defender")
-	wait_for "space-defender" "$(idle_condition "space-defender" 0 "${unit_index}")"
+	wait_for "space-defender" "$(idle_condition "space-defender" "${unit_index}")"
 
 	assert_net_iface_for_endpoint_matches "space-defender" "defend-a" "${primary_iface}"
 	assert_net_iface_for_endpoint_matches "space-defender" "defend-b" "${hotplug_iface}"
@@ -38,7 +38,7 @@ run_upgrade_charm_with_bind() {
 	# Upgrade the space-defender charm and modify its bindings
 	# shellcheck disable=SC2046
 	juju refresh space-defender --bind "defend-a=alpha defend-b=alpha" --path $charm
-	wait_for "space-defender" "$(idle_condition "space-defender" 0 "${unit_index}")"
+	wait_for "space-defender" "$(idle_condition "space-defender" "${unit_index}")"
 
 	# After the upgrade, defend-a should remain attached to ens5 but
 	# defend-b which has now been bound to alpha should also get ens5

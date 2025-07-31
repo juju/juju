@@ -13,7 +13,7 @@ enable_microceph_backed_storage() {
 
 	juju deploy ceph-radosgw --channel "reef/stable"
 
-	wait_for "microceph" "$(idle_condition "microceph" 2)"
+	wait_for "microceph" "$(idle_condition "microceph")"
 
 	juju add-storage microceph/0 osd-standalone="loop,2G,3"
 	juju integrate microceph ceph-radosgw

@@ -9,7 +9,7 @@ run_prometheus() {
 
 	juju deploy prometheus-k8s --channel 1/stable --trust
 	juju relate prometheus-k8s controller.controller
-	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 0 0)"
+	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 0)"
 	retry 'check_prometheus_targets prometheus-k8s 0' 30
 
 	juju remove-relation prometheus-k8s controller
@@ -36,16 +36,16 @@ run_prometheus_multiple_units() {
 
 	juju deploy prometheus-k8s --channel 1/stable p1 --trust
 	juju relate p1 controller.controller
-	wait_for "p1" "$(active_idle_condition "p1" 0 0)"
+	wait_for "p1" "$(active_idle_condition "p1" 0)"
 	retry 'check_prometheus_targets p1 0' 30
 
 	juju deploy prometheus-k8s --channel 1/stable p2 --trust
 	juju relate p2 controller.controller
-	wait_for "p2" "$(active_idle_condition "p2" 1 0)"
+	wait_for "p2" "$(active_idle_condition "p2" 0)"
 	retry 'check_prometheus_targets p2 0' 30
 
 	juju add-unit p1
-	wait_for "p1" "$(active_idle_condition "p1" 0 1)"
+	wait_for "p1" "$(active_idle_condition "p1" 1)"
 	retry 'check_prometheus_targets p1 1' 30
 
 	juju remove-unit p1 --num-units 1
@@ -101,7 +101,7 @@ run_prometheus_cross_controller() {
 
 	juju deploy prometheus-k8s --channel 1/stable --trust
 	juju relate prometheus-k8s "${CONTROLLER_NAME}:controller.controller"
-	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 0 0)"
+	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 0)"
 	retry 'check_prometheus_targets prometheus-k8s 0' 30
 
 	juju remove-relation prometheus-k8s controller

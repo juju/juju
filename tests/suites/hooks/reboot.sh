@@ -86,7 +86,7 @@ run_reboot_monitor_state_cleanup() {
 	juju deploy juju-qa-test --base ubuntu@22.04
 	juju deploy juju-qa-dummy-subordinate
 	juju integrate juju-qa-test dummy-subordinate
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test")"
 
 	# Check that the reboot flag files have been created for both the charm and
@@ -104,7 +104,7 @@ run_reboot_monitor_state_cleanup() {
 	# Remove subordinate and ensure that the state file for its monitor got purged
 	echo "[+] Verifying that reboot monitor state files are removed once a subordinate gets removed"
 	juju remove-relation juju-qa-test dummy-subordinate
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	wait_for_subordinate_count "juju-qa-test"
 	num_files=$(juju ssh juju-qa-test/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")

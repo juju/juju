@@ -18,8 +18,8 @@ run_relation_list_app() {
 	echo "Establish relation"
 	juju relate dummy-sink dummy-source
 
-	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 0)"
-	wait_for "dummy-source" "$(idle_condition "dummy-source" 1 0)"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
+	wait_for "dummy-source" "$(idle_condition "dummy-source" 0)"
 
 	echo "Figure out the right relation IDs to use for our hook tool invocations"
 	sink_rel_id=$(juju exec --unit dummy-source/0 "relation-ids sink" | cut -d':' -f2)

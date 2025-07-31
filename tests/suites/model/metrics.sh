@@ -14,8 +14,8 @@ run_model_metrics() {
 	juju deploy ntp # ntp currently only works on 22.04 and before.
 	juju relate ntp app-one
 
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
-	wait_for "app-one" "$(idle_condition "app-one" 0)"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	wait_for "app-one" "$(idle_condition "app-one")"
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "app-one" 0)"
 
 	juju relate ntp:juju-info juju-qa-test:juju-info
@@ -104,8 +104,8 @@ run_model_metrics_disabled() {
 	ensure "${testname}" "${file}"
 
 	juju deploy ubuntu -n 2
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 1)"
 	juju model-config disable-telemetry=true
 	juju model-config -m controller logging-config="<root>=INFO;#charmhub=TRACE"
 

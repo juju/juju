@@ -25,7 +25,7 @@ run_juju_bind() {
 	# shellcheck disable=SC2046
 	juju deploy $(pack_charm ./testcharms/charms/space-defender) --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}"
 	unit_index=$(get_unit_index "space-defender")
-	wait_for "space-defender" "$(idle_condition "space-defender" 0 "${unit_index}")"
+	wait_for "space-defender" "$(idle_condition "space-defender" "${unit_index}")"
 
 	assert_net_iface_for_endpoint_matches "space-defender" "defend-a" "${primary_iface}"
 	assert_net_iface_for_endpoint_matches "space-defender" "defend-b" "${hotplug_iface}"

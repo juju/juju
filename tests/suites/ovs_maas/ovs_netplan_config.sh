@@ -9,7 +9,7 @@ run_ovs_netplan_config() {
 	juju switch controller
 	juju deploy juju-qa-space-invader --base ubuntu@20.04 --constraints='tags=ovs' --to lxd:0 --bind 'space1 invade-b=space2'
 	unit_index=$(get_unit_index "space-invader")
-	wait_for "space-invader" "$(idle_condition "space-invader" 0 "${unit_index}")"
+	wait_for "space-invader" "$(idle_condition "space-invader" "${unit_index}")"
 
 	# Check that the merged netplan configuration (/etc/netplan/99-juju.yaml)
 	# that Juju generated because we asked for two spaces to be available to the

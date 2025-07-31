@@ -8,7 +8,7 @@ run_non_root_charm() {
 	# shellcheck disable=SC2046
 	juju deploy $(pack_charm ./testcharms/charms/sidecar-non-root) --resource ubuntu=public.ecr.aws/ubuntu/ubuntu:22.04
 
-	wait_for "sidecar-non-root" "$(idle_condition "sidecar-non-root" 0 0)"
+	wait_for "sidecar-non-root" "$(idle_condition "sidecar-non-root" 0)"
 	sleep 10 # wait for logs
 
 	output=$(juju debug-log --replay)
@@ -30,7 +30,7 @@ run_sudoer_charm() {
 	# shellcheck disable=SC2046
 	juju deploy $(pack_charm ./testcharms/charms/sidecar-sudoer) --resource ubuntu=public.ecr.aws/ubuntu/ubuntu:22.04
 
-	wait_for "sidecar-sudoer" "$(idle_condition "sidecar-sudoer" 0 0)"
+	wait_for "sidecar-sudoer" "$(idle_condition "sidecar-sudoer" 0)"
 	sleep 10 # wait for logs
 
 	output=$(juju debug-log --replay)

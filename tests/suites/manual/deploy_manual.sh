@@ -55,7 +55,7 @@ manual_deploy() {
 
 	juju deploy ubuntu --to=0 --base="${machine_base}"
 
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 1)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	juju remove-application ubuntu
 

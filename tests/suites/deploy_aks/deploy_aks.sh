@@ -12,8 +12,8 @@ run_deploy_aks_charms() {
 
 	juju relate dummy-sink dummy-source
 
-	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
-	wait_for "dummy-source" "$(idle_condition "dummy-source" 1)"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	echo "Verify application"
 	juju config dummy-source token=yeah-boi
