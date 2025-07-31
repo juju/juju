@@ -54,7 +54,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
-		"not-alive-flag",
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
@@ -97,7 +96,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
-		"not-alive-flag",
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
@@ -116,7 +114,6 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 		"api-config-watcher",
 		"clock",
 		"is-responsible-flag",
-		"not-alive-flag",
 		"not-dead-flag",
 		"provider-service-factories",
 		// model upgrade manifolds are run on all
@@ -332,10 +329,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 	},
 
-	"not-alive-flag": {
-		"domain-services",
-	},
-
 	"not-dead-flag": {
 		"domain-services",
 	},
@@ -510,10 +503,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"lease-manager",
 		"migration-fortress",
 		"not-dead-flag",
-	},
-
-	"not-alive-flag": {
-		"domain-services",
 	},
 
 	"not-dead-flag": {
