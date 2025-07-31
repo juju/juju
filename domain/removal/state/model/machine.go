@@ -453,6 +453,14 @@ DELETE FROM net_node WHERE uuid IN
 		return errors.Capture(err)
 	}
 
+	deleteMachineParentStmt := `
+DELETE FROM machine_parent WHERE parent_uuid = $entityUUID.uuid;
+`
+	deleteMachineParent, err := st.Prepare(deleteMachineParentStmt, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		mLife, err := st.getMachineLife(ctx, tx, machineUUIDParam.UUID)
 		if err != nil {
@@ -492,6 +500,11 @@ DELETE FROM net_node WHERE uuid IN
 		// removal logic into this package.
 		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUIDParam.UUID); err != nil {
 			return errors.Errorf("deleting block devices: %w", err)
+		}
+
+		// Remove the machine parent relationship.
+		if err := tx.Query(ctx, deleteMachineParent, machineUUIDParam).Run(); err != nil {
+			return errors.Errorf("deleting machine parent relationship: %w", err)
 		}
 
 		if err := tx.Query(ctx, deleteMachineStmt, machineUUIDParam).Run(); err != nil {
@@ -557,18 +570,23 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 	machineUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
+		"machine_volume",
+		"machine_filesystem",
+		"machine_manual",
+		"machine_agent_version",
+		"instance_tag",
 		"machine_status",
 		"machine_cloud_instance_status",
 		"machine_cloud_instance",
+		"machine_container_type",
 		"machine_platform",
 		"machine_agent_version",
 		"machine_constraint",
-		"machine_volume",
-		"machine_filesystem",
 		"machine_requires_reboot",
 		"machine_lxd_profile",
 		"machine_agent_presence",
 		"machine_container_type",
+		"machine_ssh_host_key",
 	}
 
 	for _, table := range tables {
