@@ -1105,6 +1105,7 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	})
 
 	_, err = db.Exec("INSERT INTO model_config(key, value) VALUES (?, ?)", application.StorageDefaultFilesystemSourceKey, "test-pool")
+	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
@@ -1113,6 +1114,7 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	})
 
 	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "", application.StorageDefaultBlockSourceKey)
+	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
@@ -1120,6 +1122,7 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	})
 
 	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "blockprovider", application.StorageDefaultBlockSourceKey)
+	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
@@ -1128,6 +1131,7 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	})
 
 	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "", application.StorageDefaultFilesystemSourceKey)
+	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
@@ -1135,6 +1139,7 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	})
 
 	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "filesystemprovider", application.StorageDefaultFilesystemSourceKey)
+	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{

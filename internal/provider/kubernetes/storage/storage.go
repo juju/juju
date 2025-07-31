@@ -229,8 +229,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 
 // PersistentVolumeClaimSpec returns k8s PVC spec.
 func PersistentVolumeClaimSpec(params VolumeParams) *corev1.PersistentVolumeClaimSpec {
-	return &corev1.PersistentVolumeClaimSpec{
-		StorageClassName: &params.StorageConfig.StorageClass,
+	spec := &corev1.PersistentVolumeClaimSpec{
 		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: params.Size,
@@ -238,6 +237,10 @@ func PersistentVolumeClaimSpec(params VolumeParams) *corev1.PersistentVolumeClai
 		},
 		AccessModes: []corev1.PersistentVolumeAccessMode{params.AccessMode},
 	}
+	if params.StorageConfig.StorageClass != "" {
+		spec.StorageClassName = &params.StorageConfig.StorageClass
+	}
+	return spec
 }
 
 // StorageProvisioner returns storage provisioner.
