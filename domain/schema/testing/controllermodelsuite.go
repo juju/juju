@@ -20,7 +20,7 @@ type ControllerModelSuite struct {
 // ModelTxnRunner returns a transaction runner on to the model database for the
 // provided model uuid.
 func (s *ControllerModelSuite) ModelTxnRunner(c *tc.C, modelUUID string) coredatabase.TxnRunner {
-	txnRunner, _ := s.DqliteSuite.OpenDBForNamespace(c, modelUUID, true)
+	txnRunner, _ := s.OpenDBForNamespace(c, modelUUID, true)
 	s.DqliteSuite.ApplyDDLForRunner(c, &SchemaApplier{
 		Schema:  schema.ModelDDL(),
 		Verbose: s.Verbose,
