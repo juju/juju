@@ -11,49 +11,130 @@ Imagine your business needs a chat service such as Mattermost backed up by a dat
 
 - Plan, deploy, and maintain a chat service based on Mattermost and backed by PostgreSQL on a local Kubernetes cloud with Juju.
 
-
 ## Set up an isolated test environment
 
+When you're trying things out it's nice to work in an isolated test environment. Let's spin up an Ubuntu virtual machine (VM) with Multipass!
 
-See {ref}`Set up your deployment – local testing and development <set-things-up>`.
+First, [install Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/).
 
-```{important}
-We strongly recommend you follow the automatic path where you use a Multipass VM based on the `charm-dev` blueprint.
+Now, launch an Ubuntu VM:
 
-If you however decide to follow the manual path: Please make sure to stay very close to [the definition of the `charm-dev` blueprint](https://github.com/canonical/multipass-blueprints/blob/ae90147b811a79eaf4508f4776390141e0195fe7/v1/charm-dev.yaml#L134).
+```text
+multipass launch --cpus 4 --memory 8G --disk 50G --name my-juju-vm
+```
 
-You only need to go up to the point where you have Juju, a cloud, a controller
+Finally, open a shell in the VM:
+
+```text
+multipass shell my-juju-vm
+```
+
+Anything you type after the VM shell prompt will run on the VM.
+
+```{dropdown} Tips for usage
+
+At any point:
+- To exit the shell, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`C`) or type `exit`.
+- To stop the VM after exiting the VM shell, run `multipass stop charm-dev-vm`.
+- To restart the VM and re-open a shell into it, type `multipass shell charm-dev-vm`.
+
+```
+```{dropdown} Tips for troubleshooting
+If the VM launch fails, run `multipass delete --purge my-juju-vm` to clean up, then try the launch line again.
 
 ```
 
-## Plan
+## Set up Juju
+
+### Prepare a cloud
+
+To Juju a cloud is anything that has an API where you can request compute, storage, and networking. This includes traditional machine clouds (Amazon AWS, Google GCE, Microsoft Azure, but also Equinix Metal, MAAS, OpenStack, Oracle OCI, and LXD) as well as Kubernetes clusters (Amazon EKS, Google GKE, Microsoft AKS but also Canonical Kubernetes or MicroK8s). Among these is MicroK8s, a low-ops, minimal production Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster ([see more](https://documentation.ubuntu.com/juju/3.6/reference/cloud/list-of-supported-clouds/the-microk8s-cloud-and-juju/)). Let's set it up on your VM:
+
+```text
+# Install MicroK8s package:
+sudo snap install microk8s --channel 1.28-strict
+
+# Add your user to the `microk8s` group for unprivileged access:
+sudo adduser $USER snap_microk8s
+
+# Give your user permissions to read the ~/.kube directory:
+sudo chown -f -R $USER ~/.kube
+
+# Wait for MicroK8s to finish initialising:
+sudo microk8s status --wait-ready
+
+# Enable the 'storage' and 'dns' addons:
+# (required for the Juju controller)
+sudo microk8s enable hostpath-storage dns
+
+# Alias kubectl so it interacts with MicroK8s by default:
+sudo snap alias microk8s.kubectl kubectl
+
+# Ensure your new group membership is apparent in the current terminal:
+# (Not required once you have logged out and back in again)
+newgrp snap_microk8s
+
+# Since the juju package is strictly confined, you also need to manually create a path:
+mkdir -p ~/.local/share
+
+```
+
+Congratulations, your cloud is ready!
 
 
-In this tutorial your goal is to set up a chat service on a cloud.
-
-First, decide which cloud (i.e., anything that provides storage, compute, and networking) you want to use. Juju supports a long list of clouds; in this tutorial we will use a low-ops, minimal production Kubernetes called 'MicroK8s'. In a terminal, open a shell into your VM and verify that you already have MicroK8s installed (`microk8s version`).
-
-> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`
 
 
-Next, decide which charms (i.e., software operators) you want to use. Charmhub provides a large collection. For this tutorial we will use `mattermost-k8s`  for the chat service,  `postgresql-k8s` for its backing database, and `self-signed-certificates` to TLS-encrypt traffic from PostgreSQL.
+In your VM, ensure that the client knows about your cloud (for your localhost MicroK8s from a strictly installed snap this should happen automatically), then use it to bootstrap a controller into the cloud:
 
+```text
+juju clouds --client
+juju credentials --client
+juju bootstrap microk8s my-first-controller
+```
 
-> See more: {ref}`charm`, [Charmhub](https://charmhub.io/), Charmhub | [`mattermost-k8s`](https://charmhub.io/mattermost-k8s), [`postgresql-k8s`](https://charmhub.io/postgresql-k8s), [`self-signed-certificates`](https://charmhub.io/self-signed-certificates)
+This will create a Juju controller (i.e., control plane; here: 'my-first-controller') implicitly connected to the MicroK8s cloud and holding a single Juju model (i.e., workspace; here: the 'controller' model) implicitly associated with the MicroK8s cloud to which a single Juju charm (i.e., software operator; here: the `juju-controller` charm) has been deployed as a single Juju application (i.e., whatever the charm deploys; here: the 'controller' application) with a single Juju unit (i.e., application replicae, here: the 'controller/0' unit). On Kubernetes, so, in our MicroK8s cloud this unit corresponds to a pod which, in this case, holds 3 containers which include, respectively, the following:
 
+1. A Juju unit agent and `juju-controller` charm code.
+1. The process supervisor Pebble and the controller agent running, among other things, the Juju API server.
+1. A copy of `juju-db`, Juju's internal database, which stores all of the information that the controller knows about, including clouds, models, applications, as well as application units and -- as we shall see shortly -- application configurations, application integrations, etc.
 
-## Deploy
+Take some time to explore:
 
+- Switch to the controller: `juju switch my-first-controller`.
+- On the current controller, switch to the 'controller' model: `juju switch controller`
+- On the current model, view the status of all of its contents: `juju status`.
 
-You will need to install a Juju client; on the client, add your cloud and cloud credentials; on the cloud, bootstrap a controller (i.e., control plane); on the controller, add a model (i.e., canvas to deploy things on; namespace); on the model, deploy, configure, and integrate the charms that make up your chat service.
+<!--
+```{dropdown} What exactly does this do?
+When you use the `juju` CLI client to bootstrap a Juju controller into a Kubernetes cloud this, all of the following happens:
 
-The blueprint used to launch your VM has ensured that most of these things are already in place for you -- verify that you have a Juju client, that it knows about your MicroK8s cloud and cloud credentials, that the MicroK8s cloud already has a controller bootstrapped on it, and that the Microk8s controller already has a model on it.
+1. On the cluster / cloud side:
+    1. The client will create a namespace and, in this namespace, resources for the controller.
+    1. The cluster will provision pods by pulling the specified container images etc.
+1. On the Juju side: This creates a 'controller' model (Kubernetes 'namespace'); verify: `juju models`. The model contains a 'controller' application (Kubernetes 'service') consisting of one 'controller/0' unit (a running instance of the application which, on Kubernets, is deployed to its own separate pod); verify: `juju status`. In the cloud this unit (pod) consists of three containers, one of which holds a Juju unit agent and the Juju controller charm code, one of which holds Pebble and the controller agent (that contains Juju's API server), and one of which holds Juju's internal database. You'll encounter the same basic setup when you deploy charmed applications too, as in its essence the 'controller' application is just a special kind of charmed application.
+```
+-->
 
-Just for practice, bootstrap a new controller and model with more informative names -- a controller called `31microk8s` (reflecting the version of Juju that came with your VM and the cloud that the controller lives on) and a model called `chat` (reflecting the fact that we intend to use it for applications related to a chat service).
+Congratulations, your Juju client and controller are ready!
 
-Finally, go ahead and deploy, configure, and integrate your charms.
+### Get acquainted with Charmhub
 
-Sample session (yours should look very similar):
+### Set up the `juju` CLI client
+
+Juju is a distributed system that consists of one or more clients, one or more controllers, and one or more agents, where the client is typically on your workstation, the controller is something you bootstrap into a cloud using the client, and the agents are something you deploy implicitly every time you provision infrastructure or deploya applications with Juju. Let's install the `juju` CLI client and use it with our MicroK8s cloud to bootstrap a controller!
+
+In your VM, install the `juju` CLI client:
+
+```text
+sudo snap install juju
+```
+
+Needs access to a cloud and Charmhub. Happens automatically:
+
+```text
+juju clouds --client
+juju find ...
+```
 
 
 ```{tip}
@@ -61,67 +142,41 @@ Split your terminal window into three. In all, access your Multipass VM shell (`
 
 **Shell 1:** Keep using it as you've already been doing so far, namely to type the commands in this tutorial.
 
-**Shell 2:**  Run `juju status --relations --watch 1s` to watch your deployment status evolve. (Things are all right if your `App Status` and your `Unit - Workload` reach `active` and your `Unit - Agent` reaches `idle`. See more: {ref}`status`.
+**Shell 2:** Run `juju status --relations --color --watch 1s` to watch your deployment status evolve. (Things are all right if your `App Status` and your `Unit - Workload` reach `active` and your `Unit - Agent` reaches `idle`.)
 
 **Shell 3:** Run `juju debug-log` to watch all the details behind your deployment status. (Especially useful when things don't evolve as expected. In that case, please get in touch.)
 ```
 
+### Set up a Juju controller
+
+Needs to live on a cloud resource:
 
 ```text
-# Verify that you have the juju client installed:
-ubuntu@my-juju-vm:~$ juju version
-3.1.8-genericlinux-amd64
+juju credentials --client
+juju bootstrap microk8s my-first-controller
+```
 
-# Verify that the client already knows about your microk8s cloud:
-ubuntu@my-juju-vm:~$ juju clouds
-# (Ignore the client-controller distinction for now --it'll make sense in a bit.)
-Only clouds with registered credentials are shown.
-There are more clouds, use --all to see them.
+Like anything deployed with Juju, it is represented in Juju's database on a model with a unit... [need to be careful here to keep things simple -- this should be just a preview of the basic Juju machinery, no more]
 
-Clouds available on the controller:
-Cloud     Regions  Default    Type
-microk8s  1        localhost  k8s
+Tip: That means you can also for the most part treat it like any other application you deploy with Juju, e.g., you can observe it with COS.
 
-Clouds available on the client:
-Cloud      Regions  Default    Type  Credentials  Source    Description
-localhost  1        localhost  lxd   1            built-in  LXD Container Hypervisor
-microk8s   1        localhost  k8s   1            built-in  A Kubernetes Cluster
+Needs access to a cloud and Charmhub. Happens implicitly:
+
+## Handle authentication and authorization
+
+Your client and controller can already talk to a cloud and Charmhub, but they don't run on their own -- enter the user! In Juju, the user is any entity that can log in to a controller, and what they can be controlled at the level of the controller or at the level of the clouds, models, or application offer associated with that controller.
+
+Verify that you're the `admin` user.... Verify that you have controller superuser access.
+
+## Provision infrastructure and deploy, configure, integrate, scale, etc. applications
+
+Add a model for your chat applications.
+
+Deploy Mattermost. Mattermost needs a PostgreSQL database, and traffic from this database needs to be TLS-encrypted, so let's also deploy ... A database failure can be costly, so let
 
 
-# Verify that the client already knows about your microk8s credentials:
-ubuntu@my-juju-vm:~$ juju credentials
-# (Ignore the client-controller distinction for now --it'll make sense in a bit.)
-Controller Credentials:
-Cloud     Credentials
-microk8s  microk8s
 
-Client Credentials:
-Cloud      Credentials
-localhost  localhost*
-microk8s   microk8s*
-ubuntu@my-juju-vm:~$ juju controllers
-Use --refresh option with this command to see the latest information.
-
-Controller  Model        User   Access     Cloud/Region         Models  Nodes    HA  Version
-lxd         welcome-lxd  admin  superuser  localhost/localhost       2      1  none  3.1.8
-microk8s*   welcome-k8s  admin  superuser  microk8s/localhost        2      1     -  3.1.8
-ubuntu@my-juju-vm:~$
-
-# Bootstrap a new controller:
-ubuntu@my-juju-vm:~$ juju bootstrap microk8s 31microk8s
-Creating Juju controller "31microk8s" on microk8s/localhost
-Bootstrap to Kubernetes cluster identified as microk8s/localhost
-Creating k8s resources for controller "controller-31microk8s"
-Starting controller pod
-Bootstrap agent now started
-Contacting Juju controller at 10.152.183.71 to verify accessibility...
-
-Bootstrap complete, controller "31microk8s" is now available in namespace "controller-31microk8s"
-
-Now you can run
-	juju add-model <model-name>
-to create a new model to deploy k8s workloads.
-
+```text
 # Create a new model:
 ubuntu@my-juju-vm:~$ juju add-model chat
 Added 'chat' model on microk8s/localhost with credential 'microk8s' for user 'admin'
@@ -186,56 +241,42 @@ ubuntu@my-juju-vm:~$ curl 10.1.32.155:8065/api/v4/system/ping
 
 Congratulations, your chat service is up and running!
 
-
-## Maintain
-
-
-### Scale
-
-
-A database failure can be very costly. Let's scale it!
-
-Sample session:
-
-```text
-ubuntu@my-juju-vm:~$ juju scale-application postgresql-k8s 3
-postgresql-k8s scaled to 3 units
-
-# Wait a minute for things to settle down, then check the result:
-ubuntu@my-juju-vm:~$ juju status
-Model  Controller  Cloud/Region        Version  SLA          Timestamp
-chat   31microk8s  microk8s/localhost  3.1.8    unsupported  15:41:34+02:00
-
-App                       Version                         Status  Scale  Charm                     Channel    Rev  Address         Exposed  Message
-mattermost-k8s            .../mattermost:v8.1.3-20.04...  active      1  mattermost-k8s            stable      27  10.152.183.131  no
-postgresql-k8s            14.10                           active      3  postgresql-k8s            14/stable  193  10.152.183.56   no
-self-signed-certificates                                  active      1  self-signed-certificates  stable      72  10.152.183.119  no
-
-Unit                         Workload  Agent      Address      Ports     Message
-mattermost-k8s/0*            active    idle       10.1.32.155  8065/TCP
-postgresql-k8s/0*            active    idle       10.1.32.152            Primary
-postgresql-k8s/1             active    idle       10.1.32.158
-postgresql-k8s/2             active    executing  10.1.32.159
-self-signed-certificates/0*  active    idle       10.1.32.154
-
-```
-
-As you might have guessed, the result of scaling an application is that you have multiple running instances of your application -- that is, multiple units.
-
 ```{caution} In a production scenario:
-You'll want to make sure that they are also properly distributed over multiple nodes. Our localhost MicroK8s doesn't allow us to do this (because we only have 1 node) but, if you clusterise MicroK8s, you can use it to explore this too!
+You'll want to make sure that the units are also properly distributed over multiple nodes. Our localhost MicroK8s doesn't allow us to do this (because we only have 1 node) but, if you clusterise MicroK8s, you can use it to explore this too!
 > See more: [MicroK8s | Create a multi-node cluster](https://microk8s.io/docs/clustering)
 ```
 
 > See more: {ref}`manage-applications` > Scale
 
 
+## Tear down your Juju deployment
+
+Follow the steps below, for practice, or skip to the next section to tear all down simply by deleting your Multipass VM.
+
+```text
+# Destroy any models you've created:
+$ juju destroy-model my-model
+
+# Destroy any controllers you've created:
+$ juju destroy-controller my-controller
+
+# Uninstall juju. For example:
+$ sudo snap remove juju
+```
+
+```text
+# Reset Microk8s:
+$ sudo microk8s reset
+
+# Uninstall Microk8s:
+$ sudo snap remove microk8s
+
+# Remove your user from the snap_microk8s group:
+$ sudo gpasswd -d $USER snap_microk8s
+```
 
 ## Tear down your test environment
 
-
-To tear things down, remove your entire Multipass Ubuntu VM, then uninstall Multipass.
-
-> See more: {ref}`tear-things-down`
+To remove any trace of this tutorial, remove your entire Multipass Ubuntu VM (`multipass delete --purge my-charm-vm`, then [uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall).
 
 
