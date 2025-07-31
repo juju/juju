@@ -66,6 +66,17 @@ type providerSubnet struct {
 	ProviderID corenetwork.Id `db:"provider_id"`
 }
 
+// providerSubnetCIDR represents subnet data needed to merge link
+// layer devices.
+type providerSubnetCIDR struct {
+	// CIDR is the CIDR of the subnet.
+	CIDR string `db:"cidr"`
+	// SubnetUUID is the UUID of the subnet.
+	SubnetUUID string `db:"subnet_uuid"`
+	// ProviderID is the provider-specific subnet ID.
+	ProviderID string `db:"provider_id"`
+}
+
 // providerNetwork represents a single row from the provider_network table.
 type providerNetwork struct {
 	// ProviderNetworkUUID is the provider network UUID.

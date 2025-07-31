@@ -91,7 +91,7 @@ func (s *containerSuite) TestGetMachineAppBindings(c *tc.C) {
 	_ = s.addUnit(c, "app1/0", appUUID, cUUID, nUUID)
 
 	dUUID := s.addLinkLayerDevice(c, nUUID, "eth0", "mac-address", corenetwork.EthernetDevice)
-	addrUUID := s.addIPAddress(c, dUUID, nUUID, "192.168.10.10/24")
+	addrUUID := s.addIPAddress(c, dUUID, nUUID, "192.168.10.10/24", 0)
 
 	ctx := c.Context()
 
@@ -125,8 +125,8 @@ func (s *containerSuite) TestNICsInSpaces(c *tc.C) {
 	dUUID1 := s.addLinkLayerDevice(c, nUUID, eth, ethMAC, corenetwork.EthernetDevice)
 	_ = s.addLinkLayerDevice(c, nUUID, bond, bondMAC, corenetwork.BondDevice)
 
-	addrUUID1 := s.addIPAddress(c, dUUID1, nUUID, "192.168.10.10/24")
-	addrUUID2 := s.addIPAddress(c, dUUID1, nUUID, "192.168.20.20/24")
+	addrUUID1 := s.addIPAddress(c, dUUID1, nUUID, "192.168.10.10/24", 0)
+	addrUUID2 := s.addIPAddress(c, dUUID1, nUUID, "192.168.20.20/24", 0)
 
 	ctx := c.Context()
 
@@ -179,7 +179,7 @@ func (s *containerSuite) TestGetSubnetCIDRForDevice(c *tc.C) {
 
 	devName := "eth0"
 	dUUID := s.addLinkLayerDevice(c, nUUID, devName, "mac-address", corenetwork.EthernetDevice)
-	addrUUID := s.addIPAddress(c, dUUID, nUUID, "10.10.10.100/24")
+	addrUUID := s.addIPAddress(c, dUUID, nUUID, "10.10.10.100/24", 0)
 
 	ctx := c.Context()
 
