@@ -311,7 +311,7 @@ VALUES (?, ?)
 
 // addIPAddress adds an IP address to the database and returns its UUID.
 func (s *linkLayerBaseSuite) addIPAddress(
-	c *tc.C, deviceUUID, netNodeUUID, addressValue string,
+	c *tc.C, deviceUUID, netNodeUUID, addressValue string, origin int,
 ) string {
 	addressUUID := "address-" + addressValue + "-uuid"
 
@@ -321,7 +321,7 @@ INSERT INTO ip_address (
 	config_type_id, origin_id, scope_id, is_secondary, is_shadow
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, 0, 0,
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, nil, 0, 4, origin, 0,
 		false, false)
 
 	return addressUUID
@@ -336,6 +336,21 @@ func (s *linkLayerBaseSuite) addIPAddressWithSubnet(c *tc.C, deviceUUID, netNode
 		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, addressUUID, deviceUUID, addressValue, netNodeUUID, subnetUUID, 0, 4, 1, 0,
+		false, false)
+
+	return addressUUID
+}
+
+// addIPAddressWithSubnet adds an IP address to the database and returns its UUID.
+func (s *linkLayerBaseSuite) addIPAddressWithSubnetAndOrigin(c *tc.C, deviceUUID, netNodeUUID,
+	subnetUUID, addressValue string, origin int) string {
+
+	addressUUID := "address-" + addressValue + "-uuid"
+
+	s.query(c, `
+		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, subnetUUID, 0, 4, origin, 0,
 		false, false)
 
 	return addressUUID
