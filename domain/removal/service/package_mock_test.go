@@ -1748,6 +1748,44 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
+// Destroy mocks base method.
+func (m *MockProvider) Destroy(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Destroy", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Destroy indicates an expected call of Destroy.
+func (mr *MockProviderMockRecorder) Destroy(arg0 any) *MockProviderDestroyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockProvider)(nil).Destroy), arg0)
+	return &MockProviderDestroyCall{Call: call}
+}
+
+// MockProviderDestroyCall wrap *gomock.Call
+type MockProviderDestroyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderDestroyCall) Return(arg0 error) *MockProviderDestroyCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderDestroyCall) Do(f func(context.Context) error) *MockProviderDestroyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderDestroyCall) DoAndReturn(f func(context.Context) error) *MockProviderDestroyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ReleaseContainerAddresses mocks base method.
 func (m *MockProvider) ReleaseContainerAddresses(arg0 context.Context, arg1 []string) error {
 	m.ctrl.T.Helper()
