@@ -15,6 +15,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// createModelCompat creates a model with params which use a model owner
+// rather than a model qualifier. It also adapts the result to convert a
+// model owner into a model qualifier.
 func (c *Client) createModelCompat(
 	ctx context.Context,
 	createArgs params.ModelCreateArgs,
@@ -60,6 +63,8 @@ func (c *Client) createModelCompat(
 	return convertParamsModelInfo(info)
 }
 
+// listModelsCompat lists models for a user but adapts the result to convert
+// a model owner into a model qualifier.
 func (c *Client) listModelsCompat(ctx context.Context, user string) ([]base.UserModel, error) {
 	var models params.UserModelListLegacy
 	entity := params.Entity{names.NewUserTag(user).String()}
@@ -88,6 +93,8 @@ func (c *Client) listModelsCompat(ctx context.Context, user string) ([]base.User
 	return result, nil
 }
 
+// listModelSummariesCompat lists model summaries for a user but adapts the
+// result to convert a model owner into a model qualifier.
 func (c *Client) listModelSummariesCompat(ctx context.Context, user string, all bool) ([]base.UserModelSummary, error) {
 	var out params.ModelSummaryResultsLegacy
 	in := params.ModelSummariesRequest{UserTag: names.NewUserTag(user).String(), All: all}
@@ -136,6 +143,8 @@ func (c *Client) listModelSummariesCompat(ctx context.Context, user string, all 
 	return c.composeModelSummaries(results)
 }
 
+// modelInfoCompat lists model summaries for a user but adapts the
+// result to convert a model owner into a model qualifier.
 func (c *Client) modelInfoCompat(ctx context.Context, tags []names.ModelTag) ([]params.ModelInfoResult, error) {
 	entities := params.Entities{
 		Entities: make([]params.Entity, len(tags)),

@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// allModelsCompat gets model info but adapts the
+// result to convert a model owner into a model qualifier.
 func (c *Client) allModelsCompat(ctx context.Context) ([]base.UserModel, error) {
 	var models params.UserModelListLegacy
 	err := c.facade.FacadeCall(ctx, "AllModels", nil, &models)
@@ -41,6 +43,8 @@ func (c *Client) allModelsCompat(ctx context.Context) ([]base.UserModel, error) 
 	return result, nil
 }
 
+// hostedModelConfigsCompat gets model config info but adapts the
+// result to convert a model owner into a model qualifier.
 func (c *Client) hostedModelConfigsCompat(ctx context.Context) ([]HostedConfig, error) {
 	result := params.HostedModelConfigsResultsLegacy{}
 	err := c.facade.FacadeCall(ctx, "HostedModelConfigs", nil, &result)

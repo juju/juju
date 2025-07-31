@@ -15,7 +15,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// ModelInfo return basic information about the model to migrated.
+// modelInfoCompat return basic information about the model to migrated
+// but adapts the result to convert a model owner into a model qualifier.
 func (c *Client) modelInfoCompat(ctx context.Context) (migration.ModelInfo, error) {
 	var info params.MigrationModelInfoLegacy
 	err := c.caller.FacadeCall(ctx, "ModelInfo", nil, &info)

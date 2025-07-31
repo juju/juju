@@ -15,6 +15,7 @@ import (
 
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
+// It adapts incoming model info which uses an owner name to use a model qualifier.
 func (api *APIV5) Prechecks(ctx context.Context, model params.MigrationModelInfoLegacy) error {
 	ownerTag, err := names.ParseUserTag(model.OwnerTag)
 	if err != nil {

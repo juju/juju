@@ -11,13 +11,14 @@ jobs:
     name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
     timeout-minutes: 30
     runs-on: [self-hosted, linux, arm64, aws, xlarge]
+    # TODO: Migration broken until Juju 4 migration infra is fixed.
+    if: false
     strategy:
       fail-fast: false
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        # TODO: Reinstate local when Juju 4 exports are fixed.
-        channel: ["3.6/edge"]
+        channel: ["local", "3.6/edge"]
 
     steps:
       - name: Checkout code

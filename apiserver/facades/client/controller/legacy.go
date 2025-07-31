@@ -14,6 +14,8 @@ import (
 )
 
 // ModelStatus returns a summary of the model.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (c *ControllerAPIV12) ModelStatus(ctx context.Context, req params.Entities) (params.ModelStatusResultsLegacy, error) {
 	status, err := c.ControllerAPI.ModelStatus(ctx, req)
 	if err != nil {
@@ -51,6 +53,8 @@ func (c *ControllerAPIV12) ModelStatus(ctx context.Context, req params.Entities)
 
 // AllModels allows controller administrators to get the list of all the
 // models in the controller.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (c *ControllerAPIV12) AllModels(ctx context.Context) (params.UserModelListLegacy, error) {
 	models, err := c.ControllerAPI.AllModels(ctx)
 	if err != nil {
@@ -81,6 +85,8 @@ func (c *ControllerAPIV12) AllModels(ctx context.Context) (params.UserModelListL
 // which have a block in place.  The resulting slice is sorted by model
 // name, then owner. Callers must be controller administrators to retrieve the
 // list.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (c *ControllerAPIV12) ListBlockedModels(ctx context.Context) (params.ModelBlockInfoListLegacy, error) {
 	models, err := c.ControllerAPI.ListBlockedModels(ctx)
 	if err != nil {
@@ -107,6 +113,8 @@ func (c *ControllerAPIV12) ListBlockedModels(ctx context.Context) (params.ModelB
 // HostedModelConfigs returns all the information that the client needs in
 // order to connect directly with the host model's provider and destroy it
 // directly.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (c *ControllerAPIV12) HostedModelConfigs(ctx context.Context) (params.HostedModelConfigsResultsLegacy, error) {
 	results, err := c.ControllerAPI.HostedModelConfigs(ctx)
 	if err != nil {
