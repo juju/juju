@@ -153,3 +153,25 @@ type MovedSubnets struct {
 	// FromSpace identifies the source network space from which the subnet was moved.
 	FromSpace network.SpaceName
 }
+
+// RemoveSpaceViolations represents a structure to handle violation when
+// trying to remove a space.
+type RemoveSpaceViolations struct {
+
+	// HasModelConstraint indicates whether a model constraint exists targeting this space.
+	HasModelConstraint bool
+
+	// ApplicationConstraints lists application names with constraints targeting
+	// the specific space.
+	ApplicationConstraints []string
+
+	// ApplicationConstraints lists application names with bindings targeting
+	// the specific space.
+	ApplicationBindings []string
+}
+
+// IsEmpty checks if there are no model constraints, application constraints,
+// or application bindings for the space.
+func (s RemoveSpaceViolations) IsEmpty() bool {
+	return !s.HasModelConstraint && len(s.ApplicationConstraints) == 0 && len(s.ApplicationBindings) == 0
+}
