@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/juju/sockets"
-	_ "github.com/juju/juju/state"
 )
 
 type suite struct {

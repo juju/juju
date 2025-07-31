@@ -29,7 +29,6 @@ import (
 	jujutesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
-	"github.com/juju/juju/state"
 )
 
 type ManifoldSuite struct {
@@ -47,8 +46,6 @@ type ManifoldSuite struct {
 
 	logger logger.Logger
 
-	state *state.State
-
 	stub testhelpers.Stub
 }
 
@@ -64,8 +61,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.BaseSuite.SetUpTest(c)
-
-	s.state = &state.State{}
 
 	s.leaseManager = stubLeaseManager{}
 	s.domainServicesGetter = stubDomainServicesGetter{}

@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/gate"
-	"github.com/juju/juju/state"
 )
 
 type ManifoldsSuite struct {
@@ -837,4 +837,4 @@ func (mc *mockConfig) DataDir() string {
 	return "data-dir"
 }
 
-func preUpgradeSteps(state.ModelType) upgrades.PreUpgradeStepsFunc { return nil }
+func preUpgradeSteps(model.ModelType) upgrades.PreUpgradeStepsFunc { return nil }

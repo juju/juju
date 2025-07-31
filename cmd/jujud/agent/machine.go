@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
@@ -70,13 +71,12 @@ import (
 	"github.com/juju/juju/internal/worker/logsender/logsendermetrics"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type (
 	// The following allows the upgrade steps to be overridden by brittle
 	// integration tests.
-	PreUpgradeStepsFunc func(state.ModelType) upgrades.PreUpgradeStepsFunc
+	PreUpgradeStepsFunc func(model.ModelType) upgrades.PreUpgradeStepsFunc
 	UpgradeStepsFunc    = upgrades.UpgradeStepsFunc
 )
 

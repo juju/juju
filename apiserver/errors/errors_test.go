@@ -24,7 +24,6 @@ import (
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	stateerrors "github.com/juju/juju/state/errors"
 )
 
 type errorsSuite struct {
@@ -82,20 +81,10 @@ var errorTransformTests = []struct {
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
 }, {
-	err:        stateerrors.ErrDead,
-	code:       params.CodeDead,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeDead,
-}, {
 	err:        jujutxn.ErrExcessiveContention,
 	code:       params.CodeExcessiveContention,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeExcessiveContention,
-}, {
-	err:        stateerrors.ErrUnitHasSubordinates,
-	code:       params.CodeUnitHasSubordinates,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeUnitHasSubordinates,
 }, {
 	err:        apiservererrors.ErrBadId,
 	code:       params.CodeNotFound,

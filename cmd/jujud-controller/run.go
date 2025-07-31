@@ -32,6 +32,7 @@ import (
 	jujudagentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
@@ -49,7 +50,6 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/state"
 )
 
 var logger = internallogger.GetLogger("juju.cmd.jujud")
@@ -266,8 +266,8 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		dbaccessor.NewTrackedDBWorker,
-		func(mt state.ModelType) upgrades.PreUpgradeStepsFunc {
-			if mt == state.ModelTypeCAAS {
+		func(mt model.ModelType) upgrades.PreUpgradeStepsFunc {
+			if mt == model.CAAS {
 				return upgrades.PreUpgradeStepsCAAS
 			}
 			return upgrades.PreUpgradeSteps

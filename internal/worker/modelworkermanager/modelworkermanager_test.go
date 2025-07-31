@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	model "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
-	"github.com/juju/juju/state"
 )
 
 func TestSuite(t *testing.T) {
@@ -451,7 +451,7 @@ func (s *suite) expectGetModel(modelUUID coremodel.UUID) {
 func (s *suite) expectGetModelTimes(modelUUID coremodel.UUID, times int) {
 	s.modelService.EXPECT().Model(gomock.Any(), modelUUID).Return(coremodel.Model{
 		UUID:      modelUUID,
-		ModelType: coremodel.ModelType(state.ModelTypeIAAS),
+		ModelType: model.IAAS,
 	}, nil).Times(times)
 }
 

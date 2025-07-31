@@ -18,9 +18,9 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/state"
 )
 
 type machineSessionSuite struct {
@@ -158,7 +158,7 @@ func (s *machineSessionSuite) TestMachineSessionProxy(c *tc.C) {
 
 	sessionHandler := sessionHandler{
 		connector: s.mockConnector,
-		modelType: state.ModelTypeIAAS,
+		modelType: model.IAAS,
 	}
 
 	err = sessionHandler.machineSessionProxy(s.userSession, virtualhostname.Info{})
@@ -199,7 +199,7 @@ func (s *machineSessionSuite) TestMachineCommandProxy(c *tc.C) {
 
 	sessionHandler := sessionHandler{
 		connector: s.mockConnector,
-		modelType: state.ModelTypeIAAS,
+		modelType: model.IAAS,
 	}
 
 	err = sessionHandler.machineSessionProxy(s.userSession, virtualhostname.Info{})
@@ -223,7 +223,7 @@ func (s *machineSessionSuite) TestConnectToMachineError(c *tc.C) {
 
 	sessionHandler := sessionHandler{
 		connector: s.mockConnector,
-		modelType: state.ModelTypeIAAS,
+		modelType: model.IAAS,
 		logger:    loggertesting.WrapCheckLog(c),
 	}
 

@@ -13,13 +13,13 @@ import (
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type ShowSuite struct {
@@ -142,7 +142,7 @@ func (s *ShowSuite) createTestApplicationInfo(name string, suffix string) *param
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
-		Life:        state.Alive.String(),
+		Life:        string(life.Alive),
 		EndpointBindings: map[string]string{
 			relation.JujuInfo: "myspace",
 		},

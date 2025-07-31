@@ -16,8 +16,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/relation"
-	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/state"
 )
 
 type ModelService interface {
@@ -80,16 +78,6 @@ type StatusService interface {
 // controller config.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// PrecheckMachine describes the state interface for a machine needed
-// by migration prechecks.
-type PrecheckMachine interface {
-	Id() string
-	AgentTools() (*tools.Tools, error)
-	Life() state.Life
-	// TODO(gfouillet): Restore this once machine fully migrated to dqlite
-	// ShouldRebootOrShutdown() (state.RebootAction, error)
 }
 
 // MachineService is used to get the life of all machines before migrating.

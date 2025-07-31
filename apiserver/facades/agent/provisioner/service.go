@@ -6,11 +6,13 @@ package provisioner
 import (
 	"context"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -277,4 +279,16 @@ type CloudImageMetadataService interface {
 	// FindMetadata searches for cloud image metadata based on the given filter criteria in a specific context.
 	// It returns a set of image metadata grouped by region
 	FindMetadata(ctx context.Context, criteria cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
+}
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	// CloudCredential returns the cloud credential for the given tag.
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }

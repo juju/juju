@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
@@ -63,7 +64,6 @@ import (
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/upgrader"
 	"github.com/juju/juju/internal/worker/upgradestepsmachine"
-	"github.com/juju/juju/state"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -108,7 +108,7 @@ type ManifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(state.ModelType) upgrades.PreUpgradeStepsFunc
+	PreUpgradeSteps func(model.ModelType) upgrades.PreUpgradeStepsFunc
 
 	// UpgradeSteps is a function that is used by the upgradesteps
 	// worker to perform the upgrade steps.
@@ -455,7 +455,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
-			PreUpgradeSteps:      config.PreUpgradeSteps(state.ModelTypeIAAS),
+			PreUpgradeSteps:      config.PreUpgradeSteps(model.IAAS),
 			UpgradeSteps:         config.UpgradeSteps,
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
 			Logger:               internallogger.GetLogger("juju.worker.upgradesteps"),
@@ -551,7 +551,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
-			PreUpgradeSteps:      config.PreUpgradeSteps(state.ModelTypeCAAS),
+			PreUpgradeSteps:      config.PreUpgradeSteps(model.CAAS),
 			UpgradeSteps:         config.UpgradeSteps,
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
 			Logger:               internallogger.GetLogger("juju.worker.upgradesteps"),

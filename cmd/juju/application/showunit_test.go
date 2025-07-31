@@ -14,11 +14,11 @@ import (
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/state"
 )
 
 type ShowUnitSuite struct {
@@ -150,7 +150,7 @@ func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) api
 		PublicAddress:   "10.0.0.1",
 		Charm:           fmt.Sprintf("charm-%v", app),
 		Leader:          true,
-		Life:            state.Alive.String(),
+		Life:            string(life.Alive),
 		RelationData: []apiapplication.EndpointRelationData{{
 			Endpoint:        "db",
 			CrossModel:      true,
