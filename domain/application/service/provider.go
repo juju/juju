@@ -610,6 +610,7 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 				"getting application %q storage directives: %w", appUUID, err,
 			)
 		}
+		existingUnitStorage = map[domainstorage.Name][]domainstorage.StorageInstanceUUID{}
 	}
 
 	// We need to walk through all of the storage in the model that is using one
