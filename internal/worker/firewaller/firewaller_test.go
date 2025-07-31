@@ -67,6 +67,7 @@ type firewallerBaseSuite struct {
 
 	firewallerStarted bool
 	modelFlushed      chan bool
+	modelFlushSkipped chan bool
 	machineFlushed    chan names.MachineTag
 	watchingMachine   chan names.MachineTag
 
@@ -305,6 +306,14 @@ func (s *firewallerBaseSuite) waitForModelFlush(c *gc.C) {
 	}
 }
 
+func (s *firewallerBaseSuite) waitForSkipModelFlush(c *gc.C) {
+	select {
+	case <-s.modelFlushSkipped:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for firewaller worker to skip model flush")
+	}
+}
+
 func (s *firewallerBaseSuite) waitForMachine(c *gc.C, id string) {
 	select {
 	case got := <-s.watchingMachine:
@@ -391,6 +400,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 
 func (s *firewallerBaseSuite) newFirewaller(c *gc.C) worker.Worker {
 	s.modelFlushed = make(chan bool, 1)
+	s.modelFlushSkipped = make(chan bool, 1)
 	s.machineFlushed = make(chan names.MachineTag, 1)
 	s.watchingMachine = make(chan names.MachineTag, 1)
 
@@ -403,6 +413,12 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C) worker.Worker {
 	flushModelNotify := func() {
 		select {
 		case s.modelFlushed <- true:
+		default:
+		}
+	}
+	skipFlushModelNotify := func() {
+		select {
+		case s.modelFlushSkipped <- true:
 		default:
 		}
 	}
@@ -424,12 +440,13 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C) worker.Worker {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:              s.clock,
-		Logger:             loggo.GetLogger("test"),
-		CredentialAPI:      s.credentialsFacade,
-		WatchMachineNotify: watchMachineNotify,
-		FlushModelNotify:   flushModelNotify,
-		FlushMachineNotify: flushMachineNotify,
+		Clock:                s.clock,
+		Logger:               loggo.GetLogger("test"),
+		CredentialAPI:        s.credentialsFacade,
+		WatchMachineNotify:   watchMachineNotify,
+		FlushModelNotify:     flushModelNotify,
+		FlushMachineNotify:   flushMachineNotify,
+		SkipFlushModelNotify: skipFlushModelNotify,
 	}
 	if s.withModelFirewaller {
 		cfg.EnvironModelFirewaller = s.envModelFirewaller
@@ -632,6 +649,8 @@ func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachine(c *gc.C) {
 
 	fw := s.newFirewaller(c)
 	defer workertest.CleanKill(c, fw)
+
+	s.waitForSkipModelFlush(c)
 
 	m := s.addMachineUnitAndEnsureMocks(c, ctrl)
 
@@ -964,6 +983,23 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *gc.C, ctrl *gomock.C
 		}
 		return nil, opened, nil
 	}).Times(1)
+	s.firewaller.EXPECT().ModelFirewallRules().MinTimes(1).DoAndReturn(func() (firewall.IngressRules, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.modelIngressRules, nil
+	})
+	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).MinTimes(1).DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.envModelPorts, nil
+	})
+	s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).MinTimes(1).DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		add, _ := s.envModelPorts.Diff(rules)
+		s.envModelPorts = append(s.envModelPorts, add...)
+		return nil
+	})
 
 	// Added machine watches units.
 	unitsCh := make(chan []string, 5)
@@ -981,26 +1017,6 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *gc.C, ctrl *gomock.C
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).Times(1)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).Times(1)
-
-	s.machinesCh <- []string{m.Tag().Id()}
-
-	s.firewaller.EXPECT().ModelFirewallRules().MinTimes(1).MaxTimes(2).DoAndReturn(func() (firewall.IngressRules, error) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		return s.modelIngressRules, nil
-	})
-	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).MinTimes(1).MaxTimes(2).DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		return s.envModelPorts, nil
-	})
-	s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		add, _ := s.envModelPorts.Diff(rules)
-		s.envModelPorts = append(s.envModelPorts, add...)
-		return nil
-	}).Times(1)
 
 	return m
 }
