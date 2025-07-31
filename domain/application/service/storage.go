@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"math"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -451,6 +452,11 @@ func makeUnitStorageArgs(
 		})
 
 		existingStorageUUIDs := existingStorage[sd.Name]
+		if len(existingStorageUUIDs) > math.MaxUint32 {
+			return application.CreateUnitStorageArg{}, errors.Errorf(
+				"storage %q has too many storage instances", sd.Name,
+			)
+		}
 		numExistingStorage := uint32(len(existingStorageUUIDs))
 		if numExistingStorage > sd.Count {
 			// A storage directive only supports n number of storage instances
