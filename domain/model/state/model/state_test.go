@@ -115,13 +115,14 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 
 	// Ensure that we have a model life record.
 	var lifeID int
-	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `SELECT life_id FROM model_life WHERE model_uuid = $1`, id.String()).Scan(&lifeID)
 		if err != nil {
 			return errors.Errorf("getting model life: %w", err)
 		}
 		return nil
 	})
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(lifeID, tc.Equals, 0)
 }
 
