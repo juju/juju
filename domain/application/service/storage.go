@@ -5,7 +5,9 @@ package service
 
 import (
 	"context"
+	"math"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
@@ -14,6 +16,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -41,9 +44,6 @@ type StorageProviderState interface {
 // StorageState describes retrieval and persistence methods for
 // storage related interactions.
 type StorageState interface {
-	// GetStorageUUIDByID returns the UUID for the specified storage, returning an error
-	// satisfying [github.com/juju/juju/domain/storage/errors.StorageNotFound] if the storage doesn't exist.
-	GetStorageUUIDByID(ctx context.Context, storageID corestorage.ID) (corestorage.UUID, error)
 
 	// AttachStorage attaches the specified storage to the specified unit.
 	// The following error types can be expected:
@@ -57,7 +57,7 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-	AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error
+	AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 
 	// AddStorageForUnit adds storage instances to given unit as specified.
 	// Missing storage constraints are populated based on model defaults.
@@ -81,16 +81,74 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 	// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-	DetachStorageForUnit(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error
+	DetachStorageForUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 
 	// DetachStorage detaches the specified storage from whatever node it is attached to.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-	DetachStorage(ctx context.Context, storageUUID corestorage.UUID) error
+	DetachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID) error
+
+	// GetApplicationStorageDirectives returns the storage directives that are
+	// set for an application. If the application does not have any storage
+	// directives set then an empty result is returned.
+	//
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
+	// when the application no longer exists.
+	GetApplicationStorageDirectives(
+		context.Context, coreapplication.ID,
+	) ([]application.StorageDirective, error)
 
 	// GetDefaultStorageProvisioners returns the default storage provisioners
 	// that have been set for the model.
-	GetDefaultStorageProvisioners(ctx context.Context) (application.DefaultStorageProvisioners, error)
+	GetDefaultStorageProvisioners(
+		ctx context.Context,
+	) (application.DefaultStorageProvisioners, error)
+
+	// GetStorageInstancesForProviderIDs returns the storage instance uuid
+	// associated with a provider id. Only storage instances belonging to an
+	// application are considered.
+	//
+	// If a storage instance doesn't exist for a provider id then this is not an
+	// error and no data will be emitted for the id. There is no correlation
+	// between ids supplied and instances supplied.
+	//
+	// The caller should expect that a zero length result can be supplied.
+	GetStorageInstancesForProviderIDs(
+		ctx context.Context,
+		applicationUUID coreapplication.ID,
+		ids []string,
+	) (map[string]domainstorage.StorageInstanceUUID, error)
+
+	// GetStorageUUIDByID returns the UUID for the storage specified by id.
+	//
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] if the
+	// storage doesn't exist.
+	GetStorageUUIDByID(
+		ctx context.Context, storageID corestorage.ID,
+	) (domainstorage.StorageInstanceUUID, error)
+
+	// GetUnitOwnedStorageInstances returns the storage instances that are owned
+	// by a unit. If the unit does not currently own any storage instances an
+	// empty result is returned.
+	//
+	// The following errors can be expected:
+	// - [applicationerrors.UnitNotFound] when the unit no longer exists.
+	GetUnitOwnedStorageInstances(
+		context.Context,
+		coreunit.UUID,
+	) (map[domainstorage.Name][]domainstorage.StorageInstanceUUID, error)
+
+	// GetUnitStorageDirectives returns the storage directives that are set for
+	// a unit. If the unit does not have any storage directives set then an
+	// empty result is returned.
+	//
+	// The following errors can be expected:
+	// - [applicationerrors.UnitNotFound] when the unit no longer exists.
+	GetUnitStorageDirectives(
+		context.Context, coreunit.UUID,
+	) ([]application.StorageDirective, error)
 }
 
 // StorageProviderValidator is an interface for defining the requirement of an
@@ -332,6 +390,171 @@ func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) e
 		return errors.Capture(err)
 	}
 	return s.st.DetachStorage(ctx, storageUUID)
+}
+
+// getUnitStorageInfo retrieves the existing storage information for a unit.
+// This includes the storage directives set for the unit and also any storage
+// that is currently owned by the unit.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit no longer exists.
+func (s *ProviderService) getUnitStorageInfo(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+) (
+	[]application.StorageDirective,
+	map[domainstorage.Name][]domainstorage.StorageInstanceUUID,
+	error,
+) {
+	existingUnitStorage, err := s.st.GetUnitOwnedStorageInstances(
+		ctx, unitUUID,
+	)
+	if err != nil {
+		return nil, nil, errors.Errorf(
+			"getting unit %q owned storage instances: %w",
+			unitUUID, err,
+		)
+	}
+
+	storageDirectives, err := s.st.GetUnitStorageDirectives(ctx, unitUUID)
+	if err != nil {
+		return nil, nil, errors.Errorf(
+			"getting unit %q storage directives: %w",
+			unitUUID, err,
+		)
+	}
+
+	return storageDirectives, existingUnitStorage, nil
+}
+
+// makeUnitStorageArgs creates the storage arguments required for a CAAS unit in
+// the model. This func looks at the set of directives for the unit and the
+// existing storage available. From this any new instances that need to be
+// created are calculated and all storage attachments are added.
+func makeUnitStorageArgs(
+	storageDirectives []application.StorageDirective,
+	existingStorage map[domainstorage.Name][]domainstorage.StorageInstanceUUID,
+) (application.CreateUnitStorageArg, error) {
+	rvalDirectives := make([]application.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
+	rvalInstances := []application.CreateUnitStorageInstanceArg{}
+	rvalToAttach := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
+	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
+
+	for _, sd := range storageDirectives {
+		// We make the storage directive args first. This is becase we know we
+		// will change the count in the struct later.
+		rvalDirectives = append(rvalDirectives, application.CreateUnitStorageDirectiveArg{
+			Count:        sd.Count,
+			Name:         sd.Name,
+			PoolUUID:     sd.PoolUUID,
+			ProviderType: sd.ProviderType,
+			Size:         sd.Size,
+		})
+
+		existingStorageUUIDs := existingStorage[sd.Name]
+		if len(existingStorageUUIDs) > math.MaxUint32 {
+			return application.CreateUnitStorageArg{}, errors.Errorf(
+				"storage %q has too many storage instances", sd.Name,
+			)
+		}
+		numExistingStorage := uint32(len(existingStorageUUIDs))
+		if numExistingStorage > sd.Count {
+			// A storage directive only supports n number of storage instances
+			// per directive. If there exists more existing storage for this
+			// directive than supported, we return an error.
+			//
+			// This is undefined behaviour in the Juju modeling.
+			return application.CreateUnitStorageArg{}, errors.Errorf(
+				"unable to use %d existing storage instances for directive %q, greater than supported count %d",
+				numExistingStorage, sd.Name, sd.Count,
+			)
+		}
+		// Remove the already existing storage instances from the count.
+		sd.Count -= numExistingStorage
+
+		// Add the existing storage matching this directive to the list of
+		// attachments.
+		rvalToAttach = append(rvalToAttach, existingStorageUUIDs...)
+		rvalToOwn = append(rvalToOwn, existingStorageUUIDs...)
+
+		instArgs, err := makeUnitStorageInstancesFromDirective(sd)
+		if err != nil {
+			return application.CreateUnitStorageArg{}, errors.Errorf(
+				"making new storage instance args: %w", err,
+			)
+		}
+
+		rvalInstances = append(rvalInstances, instArgs...)
+	}
+
+	// For all the new storage instances that need to be created add their uuids
+	// to the set of attachments.
+	for _, inst := range rvalInstances {
+		rvalToAttach = append(rvalToAttach, inst.UUID)
+		rvalToOwn = append(rvalToOwn, inst.UUID)
+	}
+
+	return application.CreateUnitStorageArg{
+		StorageDirectives: rvalDirectives,
+		StorageInstances:  rvalInstances,
+		StorageToAttach:   rvalToAttach,
+		StorageToOwn:      rvalToOwn,
+	}, nil
+}
+
+// makeUnitStorageInstancesFromDirective is responsible for taking a storage
+// directive and creating a set of storage instance args that are capable of
+// fulfilling the requirements of the directive.
+func makeUnitStorageInstancesFromDirective(
+	directive application.StorageDirective,
+) ([]application.CreateUnitStorageInstanceArg, error) {
+	rval := make([]application.CreateUnitStorageInstanceArg, 0, directive.Count)
+	for range directive.Count {
+		uuid, err := domainstorage.NewStorageInstanceUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"new storage instance uuid: %w", err,
+			)
+		}
+
+		fsUUID, err := domainstorageprov.NewFileystemUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"generating new storage filesystem uuid: %w", err,
+			)
+		}
+		// TODO (tlm): We are only focused on Kubernetes storage working at the
+		// moment. For that reason we are just hardcoding out volume and
+		// filesystem. This will be updated to cover all storage and for a
+		// machine in the near future.
+		rval = append(rval, application.CreateUnitStorageInstanceArg{
+			FilesystemUUID: &fsUUID,
+			Name:           directive.Name,
+			UUID:           uuid,
+		})
+	}
+
+	return nil, nil
+}
+
+// makeStorageDirectiveFromApplicationArg is responsible take the storage
+// directive create params for an application and converting them into
+// [application.StorageDirective] types for creating units.
+func makeStorageDirectiveFromApplicationArg(
+	applicationArgs []application.CreateApplicationStorageDirectiveArg,
+) []application.StorageDirective {
+	rval := make([]application.StorageDirective, 0, len(applicationArgs))
+	for _, arg := range applicationArgs {
+		rval = append(rval, application.StorageDirective{
+			Name:         arg.Name,
+			Count:        arg.Count,
+			PoolUUID:     arg.PoolUUID,
+			ProviderType: arg.ProviderType,
+			Size:         arg.Size,
+		})
+	}
+
+	return rval
 }
 
 // NewStorageProviderValidator returns a new [DefaultStorageProviderValidator]

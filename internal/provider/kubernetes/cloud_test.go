@@ -105,7 +105,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *tc.C) {
 		SkipTLSVerify:   true,
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
-		Config:          map[string]interface{}{"workload-storage": "workload-sc"},
+		Config:          map[string]interface{}{},
 		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }

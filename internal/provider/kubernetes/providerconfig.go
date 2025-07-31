@@ -14,13 +14,7 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
-var configSchema = configschema.Fields{
-	constants.WorkloadStorageKey: {
-		Description: "The preferred storage class used to provision workload storage.",
-		Type:        configschema.Tstring,
-		Group:       configschema.AccountGroup,
-	},
-}
+var configSchema = configschema.Fields{}
 
 var providerConfigFields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
@@ -30,9 +24,7 @@ var providerConfigFields = func() schema.Fields {
 	return fs
 }()
 
-var providerConfigDefaults = schema.Defaults{
-	constants.WorkloadStorageKey: "",
-}
+var providerConfigDefaults = schema.Defaults{}
 
 type brokerConfig struct {
 	*config.Config
@@ -80,7 +72,6 @@ func (p kubernetesEnvironProvider) ConfigDefaults() schema.Defaults {
 // should be set on a models config if they have not been specified by the user.
 func (p kubernetesEnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
 	return map[string]any{
-		config.StorageDefaultBlockSourceKey:      constants.StorageProviderType,
 		config.StorageDefaultFilesystemSourceKey: constants.StorageProviderType,
 	}, nil
 }

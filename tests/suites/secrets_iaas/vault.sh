@@ -49,7 +49,7 @@ run_secret_drain() {
 
 	juju --show-log deploy easyrsa
 	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
-	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
+	wait_for "easyrsa" "$(idle_condition "easyrsa" 0)"
 
 	secret_owned_by_unit=$(juju exec --unit easyrsa/0 -- secret-add --owner unit owned-by=easyrsa/0)
 	secret_owned_by_app=$(juju exec --unit easyrsa/0 -- secret-add owned-by=easyrsa-app)
@@ -105,7 +105,7 @@ run_user_secret_drain() {
 
 	juju --show-log deploy easyrsa
 	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
-	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
+	wait_for "easyrsa" "$(idle_condition "easyrsa" 0)"
 
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}

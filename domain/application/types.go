@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
@@ -51,7 +50,7 @@ type BaseAddApplicationArg struct {
 	PendingResources []resource.UUID
 	// StorageDirectives defines the list of storage directives to add to an
 	// application. The Name values must match the storage defined in the Charm.
-	StorageDirectives []ApplicationStorageDirectiveArg
+	StorageDirectives []CreateApplicationStorageDirectiveArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]ApplicationConfig
@@ -95,34 +94,6 @@ type AddApplicationResourceArg struct {
 	Revision *int
 	Origin   charmresource.Origin
 }
-
-// StorageDirectiveArg defines the arguments required to add a storage
-// directive to the model.
-type StorageDirectiveArg struct {
-	// Count represents the number of storage instances that should be made for
-	// this directive.
-	Count uint32
-
-	// Name relates to the charm storage name definition and must match up.
-	Name domainstorage.Name
-
-	// PoolUUID defines the storage pool uuid to use for the directive. This is
-	// an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.ProviderType] is set.
-	PoolUUID *domainstorage.StoragePoolUUID
-
-	// ProviderType defines the storage provider type to use for the directive.
-	// This is an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.PoolUUID] is set.
-	ProviderType *string
-
-	// Size defines the size of the storage directive in MiB.
-	Size uint64
-}
-
-// ApplicationStorageDirectiveArg defines an individual storage directive to be
-// associated with an application.
-type ApplicationStorageDirectiveArg = StorageDirectiveArg
 
 // CharmOrigin represents the origin of a charm.
 type CharmOrigin struct {
@@ -215,8 +186,15 @@ type ContainerAddress struct {
 	ConfigType  ipaddress.ConfigType
 }
 
+// AddCAASUnitArg contains parameters for adding a CAAS unit to state.
+type AddCAASUnitArg struct {
+	AddUnitArg
+	CloudContainer *CloudContainer
+}
+
 // AddUnitArg contains parameters for adding a unit to state.
 type AddUnitArg struct {
+	CreateUnitStorageArg
 	UnitStatusArg
 	Constraints constraints.Constraints
 	Placement   deployment.Placement
@@ -225,29 +203,6 @@ type AddUnitArg struct {
 // AddIAASUnitArg contains parameters for adding a IAAS unit to state.
 type AddIAASUnitArg struct {
 	AddUnitArg
-	Platform deployment.Platform
-	Nonce    *string
-}
-
-// UnitStorageDirectiveArg describes the arguments required for making storage
-// directives on a unit.
-type UnitStorageDirectiveArg = StorageDirectiveArg
-
-// InsertUnitArg is used to insert a fully populated unit.
-// Used by import and when registering a CAAS unit.
-type InsertUnitArg struct {
-	UnitName          coreunit.Name
-	CloudContainer    *CloudContainer
-	Password          *PasswordInfo
-	Constraints       constraints.Constraints
-	Placement         deployment.Placement
-	StorageDirectives []UnitStorageDirectiveArg
-	UnitStatusArg
-}
-
-// InsertIAASUnitArg contains parameters for inserting an IAAS unit.
-type InsertIAASUnitArg struct {
-	InsertUnitArg
 	Platform deployment.Platform
 	Nonce    *string
 }
@@ -269,10 +224,12 @@ type RegisterCAASUnitArg struct {
 	Ports        *[]string
 	OrderedScale bool
 	OrderedId    int
-	// TODO(storage) - this needs to be wired through to the register CAAS unit workflow.
-	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached
-	// by the infrastructure, used to map existing attachments.
-	ObservedAttachedVolumeIDs []string
+
+	// RegisterUnitStorageArg contains parameters for creating storage and also
+	// attaching existing storage to the unit. Described as well is the set of
+	// storage directives the unit should use if it is being created for the
+	// first time.
+	RegisterUnitStorageArg
 }
 
 // UnitStatusArg contains parameters for updating a unit status in state.
@@ -282,6 +239,7 @@ type UnitStatusArg struct {
 }
 
 type SubordinateUnitArg struct {
+	CreateUnitStorageArg
 	UnitStatusArg
 	SubordinateAppID  application.ID
 	PrincipalUnitName coreunit.Name

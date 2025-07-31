@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -88,9 +87,10 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 		k8sCloud.Config = make(map[string]interface{})
 	}
 
-	k8sCloud.Config[k8sconstants.WorkloadStorageKey] = ""
+	// TODO(storage): maybe re-implement this to create storage pool templates
+	// on clouds.
 	if clusterMetadata.WorkloadStorageClass != nil {
-		k8sCloud.Config[k8sconstants.WorkloadStorageKey] = clusterMetadata.WorkloadStorageClass.Name
+		_ = clusterMetadata.WorkloadStorageClass.Name
 	}
 	return k8sCloud, nil
 }
@@ -136,10 +136,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	// bootstrap. See lp-1918486
 	cld.AuthTypes = k8scloud.SupportedAuthTypes()
 
-	// if storage is already defined there is no need to query the cluster
-	if opStorage, ok := cld.Config[k8sconstants.WorkloadStorageKey]; ok && opStorage != "" {
-		return cld, nil
-	}
+	// TODO(storage): re-implement without workload-storage.
 
 	var credentials cloud.Credential
 	if cld.Name != k8s.K8sCloudMicrok8s {

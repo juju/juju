@@ -24,12 +24,6 @@ const (
 	StorageMode        = "storage-mode"
 )
 
-const (
-	// WorkloadStorageKey is the model config attribute used to specify
-	// the storage class for provisioning workload storage.
-	WorkloadStorageKey = "workload-storage"
-)
-
 // QualifiedStorageClassName returns a qualified storage class name.
 func QualifiedStorageClassName(namespace, storageClass string) string {
 	if namespace == "" {

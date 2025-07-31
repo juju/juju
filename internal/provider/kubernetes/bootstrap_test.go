@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/provider/kubernetes"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/mocks"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
@@ -69,8 +68,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.namespace = controllerName
 
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.NameKey:                  "controller-1",
-		k8sconstants.WorkloadStorageKey: "",
+		config.NameKey: "controller-1",
 	}))
 	c.Assert(err, tc.ErrorIsNil)
 	s.cfg = cfg

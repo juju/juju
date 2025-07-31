@@ -25,8 +25,8 @@ run_deploy_bundle_overlay() {
 	bundle=./tests/suites/deploy/bundles/overlay_bundle.yaml
 	juju deploy ${bundle}
 
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0 0)"
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0 1)"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0)"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
 
 	destroy_model "test-bundles-deploy-overlay"
 }
@@ -44,8 +44,8 @@ run_deploy_bundle_overlay_with_image_id() {
 
 	juju deploy "${TEST_DIR}/overlay_bundle_image_id.yaml"
 
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 0)"
-	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 1)"
 
 	destroy_model "test-bundles-deploy-overlay-image-id"
 }
@@ -268,7 +268,7 @@ run_deploy_charmhub_bundle() {
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/stable")"
 	wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "latest/candidate")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
-	wait_for "juju-qa-test-focal" "$(idle_condition "juju-qa-test-focal" 1)"
+	wait_for "juju-qa-test-focal" "$(idle_condition "juju-qa-test-focal")"
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test")"
 	wait_for "ntp-focal" "$(idle_subordinate_condition "ntp-focal" "juju-qa-test-focal")"
 
@@ -292,11 +292,11 @@ run_deploy_lxd_profile_bundle() {
 
 	# 8 units of lxd-profile
 	for i in 0 1 2 3 4 5 6 7; do
-		wait_for "lxd-profile" "$(idle_condition "lxd-profile" 0 "${i}")"
+		wait_for "lxd-profile" "$(idle_condition "lxd-profile" "${i}")"
 	done
 	# 4 units of ubuntu
 	for i in 0 1 2 3; do
-		wait_for "ubuntu" "$(idle_condition "ubuntu" 1 "${i}")"
+		wait_for "ubuntu" "$(idle_condition "ubuntu" "${i}")"
 	done
 
 	lxd_profile_name="juju-${model_name}-lxd-profile"
@@ -325,8 +325,8 @@ run_deploy_multi_app_single_charm_bundle() {
 	bundle=./tests/suites/deploy/bundles/multi-app-single-charm.yaml
 	juju deploy "${bundle}"
 
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0)"
-	wait_for "juju-qa-test-dup" "$(idle_condition "juju-qa-test-dup" 1)"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	wait_for "juju-qa-test-dup" "$(idle_condition "juju-qa-test-dup")"
 
 	# ensure juju-qa-test-dup can refresh and us it's resources.
 	juju refresh juju-qa-test-dup

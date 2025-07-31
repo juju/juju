@@ -17,10 +17,10 @@ run_deploy_charm() {
 	juju integrate discourse-k8s redis-k8s
 	juju integrate discourse-k8s nginx-ingress-integrator
 
-	wait_for "postgresql-k8s" "$(active_idle_condition "postgresql-k8s" 2)"
-	wait_for "redis-k8s" "$(active_idle_condition "redis-k8s" 3)"
-	wait_for "discourse-k8s" "$(active_idle_condition "discourse-k8s" 0)"
-	wait_for "nginx-ingress-integrator" "$(active_idle_condition "nginx-ingress-integrator" 1)"
+	wait_for "postgresql-k8s" "$(active_idle_condition "postgresql-k8s")"
+	wait_for "redis-k8s" "$(active_idle_condition "redis-k8s")"
+	wait_for "discourse-k8s" "$(active_idle_condition "discourse-k8s")"
+	wait_for "nginx-ingress-integrator" "$(active_idle_condition "nginx-ingress-integrator")"
 
 	echo "Verify discourse user can be created"
 	# discourse-k8s charm introduces a bug, that writes not valid yaml to stdout (injecting WARNING message). Until

@@ -265,18 +265,18 @@ func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *tc.C) {
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 
+	s.mockNodes.EXPECT().List(gomock.Any(), gomock.Any()).Return(&core.NodeList{}, nil)
+	s.mockStorageClass.EXPECT().List(gomock.Any(), gomock.Any()).Return(&storagev1.StorageClassList{}, nil)
+
 	_, err := s.broker.Bootstrap(ctx, bootstrapParams)
 	c.Assert(err, tc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, tc.Matches, "config without workload-storage value not valid.*")
+	c.Assert(msg, tc.Matches, "controller storage class not identified")
 }
 
 func (s *K8sBrokerSuite) TestBootstrap(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
-
-	// Ensure the broker is configured with workload storage.
-	s.setupWorkloadStorageConfig(c)
 
 	ctx := envtesting.BootstrapContext(c.Context(), c)
 	bootstrapParams := environs.BootstrapParams{
@@ -285,15 +285,15 @@ func (s *K8sBrokerSuite) TestBootstrap(c *tc.C) {
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 
-	sc := &storagev1.StorageClass{
+	sc := storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "some-storage",
 		},
 	}
-	gomock.InOrder(
-		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-some-storage", v1.GetOptions{}).
-			Return(sc, nil),
-	)
+	s.mockNodes.EXPECT().List(gomock.Any(), gomock.Any()).Return(&core.NodeList{}, nil)
+	s.mockStorageClass.EXPECT().List(gomock.Any(), gomock.Any()).Return(&storagev1.StorageClassList{
+		Items: []storagev1.StorageClass{sc},
+	}, nil)
 	result, err := s.broker.Bootstrap(ctx, bootstrapParams)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Arch, tc.Equals, "amd64")
@@ -304,38 +304,24 @@ func (s *K8sBrokerSuite) TestBootstrap(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *K8sBrokerSuite) setupWorkloadStorageConfig(c *tc.C) {
-	cfg := s.broker.Config()
-	var err error
-	cfg, err = cfg.Apply(map[string]interface{}{"workload-storage": "some-storage"})
-	c.Assert(err, tc.ErrorIsNil)
-	err = s.broker.SetConfig(c.Context(), cfg)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	// Ensure the broker is configured with workload storage.
-	s.setupWorkloadStorageConfig(c)
-
-	sc := &storagev1.StorageClass{
+	sc := storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "some-storage",
 		},
 	}
 
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), "controller-ctrl-1", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockNamespaces.EXPECT().List(gomock.Any(), v1.ListOptions{}).
-			Return(&core.NamespaceList{Items: []core.Namespace{}}, nil),
-		s.mockStorageClass.EXPECT().Get(gomock.Any(), "controller-ctrl-1-some-storage", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get(gomock.Any(), "some-storage", v1.GetOptions{}).
-			Return(sc, nil),
-	)
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "controller-ctrl-1", v1.GetOptions{}).
+		Return(nil, s.k8sNotFoundError())
+	s.mockNamespaces.EXPECT().List(gomock.Any(), v1.ListOptions{}).
+		Return(&core.NamespaceList{Items: []core.Namespace{}}, nil)
+	s.mockNodes.EXPECT().List(gomock.Any(), gomock.Any()).Return(&core.NodeList{}, nil)
+	s.mockStorageClass.EXPECT().List(gomock.Any(), gomock.Any()).Return(&storagev1.StorageClassList{
+		Items: []storagev1.StorageClass{sc},
+	}, nil)
 	ctx := envtesting.BootstrapContext(c.Context(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), tc.ErrorIsNil,

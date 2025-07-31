@@ -15,9 +15,9 @@ run_relation_data_exchange() {
 	echo "Establish relation"
 	juju relate dummy-sink dummy-source
 
-	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 0)"
-	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 1)"
-	wait_for "dummy-source" "$(idle_condition "dummy-source" 1 0)"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 1)"
+	wait_for "dummy-source" "$(idle_condition "dummy-source" 0)"
 
 	echo "Get the leader unit name"
 	non_leader_dummy_sink_unit=$(juju status dummy-sink --format json | jq -r '.applications."dummy-sink".units | to_entries[] | select(.value.leader!=true) | .key')

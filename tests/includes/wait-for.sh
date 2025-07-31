@@ -52,24 +52,22 @@ idle_condition() {
 	local name app_index unit_index
 
 	name=${1}
-	app_index=${2:-0}
-	unit_index=${3:-0}
+	unit_index=${2:-0}
 
-	path=".[\"$name\"] | .units | .[\"$name/$unit_index\"]"
+	path=".units | .[\"$name/$unit_index\"]"
 
-	echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current != \"error\")) | keys[$app_index]"
+	echo ".applications | pick(.\"$name\") | map_values(select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current != \"error\"))) | keys[0]"
 }
 
 active_idle_condition() {
 	local name app_index unit_index
 
 	name=${1}
-	app_index=${2:-0}
-	unit_index=${3:-0}
+	unit_index=${2:-0}
 
-	path=".[\"$name\"] | .units | .[\"$name/$unit_index\"]"
+	path=".units | .[\"$name/$unit_index\"]"
 
-	echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current == \"active\")) | keys[$app_index]"
+	echo ".applications | pick(.\"$name\") | map_values(select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current == \"active\"))) | keys[0]"
 }
 
 idle_subordinate_condition() {

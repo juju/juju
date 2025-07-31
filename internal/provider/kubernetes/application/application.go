@@ -2113,6 +2113,11 @@ func (a *app) filesystemToVolumeInfo(
 		return vol, nil, nil, nil
 	}
 
+	if fs.Provider != constants.StorageProviderType {
+		return nil, nil, nil, errors.Errorf("unsupported storage provider %q",
+			fs.Provider)
+	}
+
 	params, err := storage.ParseVolumeParams(pvcNameGetter(name), fsSize, fs.Attributes)
 	if err != nil {
 		return nil, nil, nil, errors.Annotatef(err, "getting volume params for %s", fs.StorageName)
@@ -2120,7 +2125,10 @@ func (a *app) filesystemToVolumeInfo(
 
 	var newStorageClass *storagev1.StorageClass
 	qualifiedStorageClassName := constants.QualifiedStorageClassName(a.namespace, params.StorageConfig.StorageClass)
-	if _, ok := storageClasses[params.StorageConfig.StorageClass]; ok {
+	if params.StorageConfig.StorageClass == "" {
+		// Fallback to default storage class.
+		// TODO(storage): ensure a default storage class is selected earlier.
+	} else if _, ok := storageClasses[params.StorageConfig.StorageClass]; ok {
 		// Do nothing
 	} else if _, ok := storageClasses[qualifiedStorageClassName]; ok {
 		params.StorageConfig.StorageClass = qualifiedStorageClassName

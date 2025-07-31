@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/configschema"
 	internalerrors "github.com/juju/juju/internal/errors"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -205,6 +204,7 @@ type DeployApplicationFunc = func(
 	context.Context,
 	model.ModelType,
 	ApplicationService,
+	StorageService,
 	objectstore.ObjectStore,
 	DeployApplicationParams,
 	corelogger.Logger,
@@ -425,7 +425,6 @@ type caasDeployParams struct {
 	charm           CharmMeta
 	config          map[string]string
 	placement       []*instance.Placement
-	storage         map[string]storage.Directive
 }
 
 // precheck, checks the deploy config based on caas specific
@@ -453,31 +452,6 @@ func (c caasDeployParams) precheck(
 			return errors.Errorf("block storage %q is not supported for container charms", s.Name)
 		}
 	}
-	cfg, err := modelConfigService.ModelConfig(ctx)
-	if err != nil {
-		return fmt.Errorf("getting model config: %w", err)
-	}
-
-	workloadStorageClass, _ := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey].(string)
-	for storageName, cons := range c.storage {
-		if cons.Pool == "" && workloadStorageClass == "" {
-			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
-		}
-		sp, err := charmStorageParams(ctx, "", workloadStorageClass, cfg, cons.Pool, storageService, registry)
-		if err != nil {
-			return errors.Annotatef(err, "getting workload storage params for %q", c.applicationName)
-		}
-		if sp.Provider != string(k8sconstants.StorageProviderType) {
-			poolName := cfg.AllAttrs()[k8sconstants.WorkloadStorageKey]
-			return errors.Errorf(
-				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
-		}
-		// TODO: implement this when caasBroker logic is migrated to the domain service and update the callers.
-		// if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
-		// 	return errors.Trace(err)
-		// }
-	}
-
 	return nil
 }
 
@@ -532,7 +506,6 @@ func (api *APIBase) deployApplication(
 			charm:           ch,
 			config:          args.Config,
 			placement:       args.Placement,
-			storage:         args.Storage,
 		}
 		if err := caas.precheck(ctx, api.modelConfigService, api.storageService, api.registry, api.caasBroker); err != nil {
 			return errors.Trace(err)
@@ -562,8 +535,7 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 
-	// TODO: replace model with model info/config services
-	err = api.deployApplicationFunc(ctx, api.modelType, api.applicationService, api.store, DeployApplicationParams{
+	appParams := DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             ch,
 		CharmOrigin:       origin,
@@ -578,7 +550,10 @@ func (api *APIBase) deployApplication(
 		EndpointBindings:  transformBindings(args.EndpointBindings),
 		Resources:         args.Resources,
 		Force:             args.Force,
-	}, api.logger, api.clock)
+	}
+	// TODO: replace model with model info/config services
+	err = api.deployApplicationFunc(ctx, api.modelType, api.applicationService,
+		api.storageService, api.store, appParams, api.logger, api.clock)
 	return errors.Trace(err)
 }
 

@@ -44,9 +44,9 @@ run_enable_ha() {
 	# remove-machine will fail. Wait for the config to be
 	# settled before trying to tear down.
 	juju switch controller
-	wait_for "controller" "$(idle_condition "controller" 1 0)"
-	wait_for "controller" "$(idle_condition "controller" 1 1)"
-	wait_for "controller" "$(idle_condition "controller" 1 2)"
+	wait_for "controller" "$(idle_condition "controller" 0)"
+	wait_for "controller" "$(idle_condition "controller" 1)"
+	wait_for "controller" "$(idle_condition "controller" 2)"
 
 	juju switch enable-ha
 	controller_1=$(juju status -m controller --format json | jq -r '.applications.controller.units["controller/1"].machine')

@@ -8,7 +8,7 @@ run_secrets() {
 	# These checks ensure the secrets are deleted when the units and app are deleted.
 	echo "deploy an app and create an app owned secret and a unit owned secret"
 	juju --show-log deploy alertmanager-k8s
-	wait_for "alertmanager-k8s" "$(active_idle_condition "alertmanager-k8s" 0 0)"
+	wait_for "alertmanager-k8s" "$(active_idle_condition "alertmanager-k8s" 0)"
 	wait_for "active" '.applications["alertmanager-k8s"] | ."application-status".current'
 	full_uri1=$(juju exec --unit alertmanager-k8s/0 -- secret-add foo=bar)
 	short_uri1=${full_uri1##*/}
@@ -19,7 +19,7 @@ run_secrets() {
 
 	echo "add another unit and create a unit owned secret"
 	juju --show-log scale-application alertmanager-k8s 2
-	wait_for "alertmanager-k8s" "$(active_idle_condition "alertmanager-k8s" 0 1)"
+	wait_for "alertmanager-k8s" "$(active_idle_condition "alertmanager-k8s" 1)"
 	full_uri3=$(juju exec --unit alertmanager-k8s/1 -- secret-add --owner unit foo=bar3)
 	short_uri3=${full_uri3##*/}
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri3}"'-1")')" "${short_uri3}-1"
@@ -75,9 +75,9 @@ run_secrets() {
 	juju --show-log add-secret mysecret owned-by="$model_name" --info "this is a user secret"
 
 	wait_for "active" '.applications["hello"] | ."application-status".current'
-	wait_for "hello" "$(idle_condition "hello" 0)"
+	wait_for "hello" "$(idle_condition "hello")"
 	wait_for "active" '.applications["nginx"] | ."application-status".current' 900
-	wait_for "nginx" "$(idle_condition "nginx" 1 0)"
+	wait_for "nginx" "$(idle_condition "nginx" 0)"
 	wait_for "active" "$(workload_status "nginx" 0).current"
 	wait_for "hello" '.applications["nginx"] | .relations.ingress[0]'
 
@@ -239,7 +239,7 @@ run_secret_drain() {
 
 	juju --show-log deploy snappass-test hello
 	wait_for "active" '.applications["hello"] | ."application-status".current'
-	wait_for "hello" "$(idle_condition "hello" 0)"
+	wait_for "hello" "$(idle_condition "hello")"
 
 	unit_owned_full_uri=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0)
 	unit_owned_short_uri=${unit_owned_full_uri##*/}
@@ -305,7 +305,7 @@ run_user_secret_drain() {
 
 	juju --show-log deploy snappass-test hello
 	wait_for "active" '.applications["hello"] | ."application-status".current'
-	wait_for "hello" "$(idle_condition "hello" 0)"
+	wait_for "hello" "$(idle_condition "hello")"
 
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}

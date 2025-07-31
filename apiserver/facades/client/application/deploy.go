@@ -73,6 +73,7 @@ func DeployApplication(
 	ctx context.Context,
 	modelType coremodel.ModelType,
 	applicationService ApplicationService,
+	storageService StorageService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
 	logger corelogger.Logger,
@@ -134,6 +135,11 @@ func DeployApplication(
 	attrs := args.ApplicationConfig.Attributes()
 	trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
 
+	sdo, err := storageDirectives(ctx, storageService, args.Storage)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	applicationArg := applicationservice.AddApplicationArgs{
 		ReferenceName:    chURL.Name,
 		DownloadInfo:     downloadInfo,
@@ -148,7 +154,8 @@ func DeployApplication(
 		ApplicationSettings: application.ApplicationSettings{
 			Trust: trust,
 		},
-		Constraints: args.Constraints,
+		Constraints:               args.Constraints,
+		StorageDirectiveOverrides: sdo,
 	}
 	if modelType == coremodel.CAAS {
 		unitArgs, err := makeCAASUnitArgs(args)

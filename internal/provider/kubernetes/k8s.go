@@ -440,17 +440,18 @@ func (k *kubernetesClient) EnsureImageRepoSecret(ctx context.Context, imageRepo 
 }
 
 func (k *kubernetesClient) validateControllerWorkloadStorage(ctx context.Context) (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[constants.WorkloadStorageKey].(string)
-	if storageClass == "" {
-		return "", errors.NewNotValid(nil, "config without workload-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
+	md, err := k.GetClusterMetadata(ctx, "")
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	_, err := k.getStorageClass(ctx, storageClass)
-	return storageClass, errors.Trace(err)
+	if md.WorkloadStorageClass == nil || md.WorkloadStorageClass.Name == "" {
+		return "", errors.NewNotValid(nil, "controller storage class not identified")
+	}
+	return md.WorkloadStorageClass.Name, nil
 }
 
 // Bootstrap deploys a controller into k8s cluster.
 func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-
 	if !args.BootstrapBase.Empty() {
 		return nil, errors.NotSupportedf("set base for bootstrapping to kubernetes")
 	}

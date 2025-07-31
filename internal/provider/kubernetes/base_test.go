@@ -43,7 +43,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/mocks"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
@@ -168,8 +167,7 @@ func (s *BaseSuite) SetUpTest(c *tc.C) {
 
 	// init config for each test for easier changing config inside test.
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.NameKey:                  "test",
-		k8sconstants.WorkloadStorageKey: "",
+		config.NameKey: "test",
 	}))
 	c.Assert(err, tc.ErrorIsNil)
 	s.cfg = cfg
@@ -492,8 +490,7 @@ func (s *fakeClientSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.cfg, err = config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.NameKey:                  "test",
-		k8sconstants.WorkloadStorageKey: "",
+		config.NameKey: "test",
 	}))
 	c.Assert(err, tc.ErrorIsNil)
 

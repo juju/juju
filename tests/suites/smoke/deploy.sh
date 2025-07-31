@@ -42,9 +42,9 @@ run_charmhub_deploy() {
 	juju deploy "juju-qa-dummy-source"
 	juju deploy "juju-qa-dummy-sink"
 
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 2)"
-	wait_for "dummy-source" "$(idle_condition "dummy-source" 1)"
-	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	wait_for "dummy-source" "$(idle_condition "dummy-source")"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 	# TODO(nvinuesa): When relations are finished implementing in 4.0, we
 	# should integrate dummy-source with dummy-sink.
 	# juju integrate dummy-source dummy-sink

@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -625,8 +624,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	storageMsg := " with no configured storage provisioning capability"
 	if !c.skipStorage && c.workloadStorage != "" {
 		storageMsg = fmt.Sprintf(` with storage provisioned
-by the existing %q storage class`,
-			newCloud.Config[k8sconstants.WorkloadStorageKey])
+by the existing %q storage class`, c.workloadStorage)
 	} else if !c.skipStorage && c.workloadStorage == "" {
 		storageMsg = ""
 	}

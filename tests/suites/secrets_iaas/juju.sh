@@ -5,8 +5,8 @@ check_secrets() {
 
 	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
 	wait_for "active" '.applications["etcd"] | ."application-status".current' 900
-	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
-	wait_for "etcd" "$(idle_condition "etcd" 1 0)"
+	wait_for "easyrsa" "$(idle_condition "easyrsa" 0)"
+	wait_for "etcd" "$(idle_condition "etcd" 0)"
 	wait_for "active" "$(workload_status "etcd" 0).current"
 
 	echo "Apps deployed, creating secrets"

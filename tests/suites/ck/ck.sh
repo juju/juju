@@ -111,7 +111,7 @@ run_deploy_caas_workload() {
 
 	juju deploy snappass-test
 
-	wait_for "snappass-test" "$(idle_condition "snappass-test" 0)"
+	wait_for "snappass-test" "$(idle_condition "snappass-test")"
 
 	destroy_model "${model_name}"
 }
