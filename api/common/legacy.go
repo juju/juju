@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// modelStatusCompat gets the model status but adapts the
+// result to convert a model owner into a model qualifier.
 func (c *ModelStatusAPI) modelStatusCompat(ctx context.Context, tags ...names.ModelTag) ([]base.ModelStatus, error) {
 	result := params.ModelStatusResultsLegacy{}
 	models := make([]params.Entity, len(tags))

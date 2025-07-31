@@ -15,6 +15,8 @@ import (
 )
 
 // ModelStatus returns a summary of the model.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (c *ModelManagerAPIV10) ModelStatus(ctx context.Context, req params.Entities) (params.ModelStatusResultsLegacy, error) {
 	status, err := c.ModelManagerAPI.ModelStatus(ctx, req)
 	if err != nil {
@@ -52,6 +54,8 @@ func (c *ModelManagerAPIV10) ModelStatus(ctx context.Context, req params.Entitie
 
 // CreateModel creates a new model using the account and
 // model config specified in the args.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (m *ModelManagerAPIV10) CreateModel(ctx context.Context, args params.ModelCreateArgsLegacy) (params.ModelInfoLegacy, error) {
 	ownerTag, err := names.ParseUserTag(args.OwnerTag)
 	if err != nil {
@@ -102,6 +106,8 @@ func (m *ModelManagerAPIV10) CreateModel(ctx context.Context, args params.ModelC
 // has access to in the current server.  Controller admins (superuser)
 // can list models for any user.  Other users
 // can only ask about their own models.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (m *ModelManagerAPIV10) ListModelSummaries(ctx context.Context, req params.ModelSummariesRequest) (params.ModelSummaryResultsLegacy, error) {
 	summary, err := m.ModelManagerAPI.ListModelSummaries(ctx, req)
 	if err != nil {
@@ -144,6 +150,8 @@ func (m *ModelManagerAPIV10) ListModelSummaries(ctx context.Context, req params.
 }
 
 // ModelInfo returns information about the specified models.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (m *ModelManagerAPIV10) ModelInfo(ctx context.Context, args params.Entities) (params.ModelInfoResultsLegacy, error) {
 	info, err := m.ModelManagerAPI.ModelInfo(ctx, args)
 	if err != nil {
@@ -192,6 +200,8 @@ func (m *ModelManagerAPIV10) ModelInfo(ctx context.Context, args params.Entities
 // has access to in the current server.  Controller admins (superuser)
 // can list models for any user.  Other users
 // can only ask about their own models.
+// It converts results which have a model qualifier to instead use
+// an owner tag.
 func (m *ModelManagerAPIV10) ListModels(ctx context.Context, userEntity params.Entity) (params.UserModelListLegacy, error) {
 	models, err := m.ModelManagerAPI.ListModels(ctx, userEntity)
 	if err != nil {

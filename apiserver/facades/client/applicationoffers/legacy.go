@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// legacyFiltersToFilters converts params which use a model owner name
+// to params which use a model qualifier.
 func legacyFiltersToFilters(in params.OfferFiltersLegacy) params.OfferFilters {
 	out := params.OfferFilters{
 		Filters: make([]params.OfferFilter, len(in.Filters)),
@@ -35,6 +37,7 @@ func legacyFiltersToFilters(in params.OfferFiltersLegacy) params.OfferFilters {
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
+// It converts incoming URLs to adapt model owner name to qualifier.
 func (api *OffersAPIv5) ApplicationOffers(ctx context.Context, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	return params.ApplicationOffersResults{}, nil
 
@@ -109,12 +112,14 @@ func (api *OffersAPIv5) ApplicationOffers(ctx context.Context, urls params.Offer
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
+// It converts incoming filters which contain a model owner to use a model qualifier.
 func (api *OffersAPIv5) ListApplicationOffers(ctx context.Context, legacyFilters params.OfferFiltersLegacy) (params.QueryApplicationOffersResultsV5, error) {
 	filters := legacyFiltersToFilters(legacyFilters)
 	return api.OffersAPI.ListApplicationOffers(ctx, filters)
 }
 
 // FindApplicationOffers gets details about remote applications that match given filter.
+// It converts incoming filters which contain a model owner to use a model qualifier.
 func (api *OffersAPIv5) FindApplicationOffers(ctx context.Context, legacyFilters params.OfferFiltersLegacy) (params.QueryApplicationOffersResultsV5, error) {
 	filters := legacyFiltersToFilters(legacyFilters)
 	return api.OffersAPI.FindApplicationOffers(ctx, filters)

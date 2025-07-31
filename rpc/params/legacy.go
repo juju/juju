@@ -15,7 +15,9 @@ import (
 
 // ApproximateUserTagFromQualifier creates a valid user tag
 // from the supplied qualifier. A qualifier does not contain
-// all the same characters that a user tag can have.
+// all the same characters that a user tag can have. A model
+// qualifier supports "a-z", "0-9", "-" characters. A user
+// tag can also contain "@" and "+".
 // This method is used for composing results for legacy callers
 // that still expect a user tag in the result. Such user tags may
 // still be parsed by the caller but are only used for display.
@@ -28,6 +30,8 @@ func ApproximateUserTagFromQualifier(q model.Qualifier) (names.UserTag, error) {
 
 // ModelBlockInfoLegacy holds information about a model and its
 // current blocks.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelBlockInfoLegacy struct {
 	Name     string   `json:"name"`
 	UUID     string   `json:"model-uuid"`
@@ -37,11 +41,15 @@ type ModelBlockInfoLegacy struct {
 
 // ModelBlockInfoListLegacy holds information about the blocked models
 // for a controller.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelBlockInfoListLegacy struct {
 	Models []ModelBlockInfoLegacy `json:"models,omitempty"`
 }
 
 // ModelStatusLegacy holds information about the status of a juju model.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelStatusLegacy struct {
 	ModelTag           string                 `json:"model-tag"`
 	Life               life.Value             `json:"life"`
@@ -58,12 +66,16 @@ type ModelStatusLegacy struct {
 }
 
 // ModelStatusResultsLegacy holds status information about a group of models.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelStatusResultsLegacy struct {
 	Results []ModelStatusLegacy `json:"models"`
 }
 
 // ModelLegacy holds the result of an API call returning a name and UUID
 // for a model and the tag of the server in which it is running.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelLegacy struct {
 	Name     string `json:"name"`
 	UUID     string `json:"uuid"`
@@ -73,6 +85,8 @@ type ModelLegacy struct {
 
 // UserModelLegacy holds information about a model and the last
 // time the model was accessed for a particular user.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type UserModelLegacy struct {
 	ModelLegacy    `json:"model"`
 	LastConnection *time.Time `json:"last-connection"`
@@ -80,12 +94,16 @@ type UserModelLegacy struct {
 
 // UserModelListLegacy holds information about a list of models
 // for a particular user.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type UserModelListLegacy struct {
 	UserModels []UserModelLegacy `json:"user-models"`
 }
 
 // ModelCreateArgsLegacy holds the arguments that are necessary to create
 // a model.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelCreateArgsLegacy struct {
 	// Name is the name for the new model.
 	Name string `json:"name"`
@@ -121,6 +139,8 @@ type ModelCreateArgsLegacy struct {
 
 // MigrationModelInfoLegacy is used to report basic model information to the
 // migrationmaster worker.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type MigrationModelInfoLegacy struct {
 	UUID                   string            `json:"uuid"`
 	Name                   string            `json:"name"`
@@ -135,6 +155,8 @@ type MigrationModelInfoLegacy struct {
 // for the model, both things that a client needs to talk directly
 // with the provider. This is used to take down mis-behaving models
 // aggressively.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type HostedModelConfigLegacy struct {
 	Name      string                 `json:"name"`
 	OwnerTag  string                 `json:"owner"`
@@ -145,11 +167,15 @@ type HostedModelConfigLegacy struct {
 
 // HostedModelConfigsResultsLegacy contains an entry for each hosted model
 // in the controller.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type HostedModelConfigsResultsLegacy struct {
 	Models []HostedModelConfigLegacy `json:"models"`
 }
 
 // ModelInfoLegacy holds information about the Juju model.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelInfoLegacy struct {
 	Name                    string                `json:"name"`
 	Type                    string                `json:"type"`
@@ -173,6 +199,8 @@ type ModelInfoLegacy struct {
 }
 
 // ModelSummaryLegacy holds summary about a Juju model.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelSummaryLegacy struct {
 	Name               string                `json:"name"`
 	UUID               string                `json:"uuid"`
@@ -194,34 +222,46 @@ type ModelSummaryLegacy struct {
 }
 
 // ModelSummaryResultLegacy holds the result of a ListModelsWithInfo call.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelSummaryResultLegacy struct {
 	Result *ModelSummaryLegacy `json:"result,omitempty"`
 	Error  *Error              `json:"error,omitempty"`
 }
 
 // ModelSummaryResultsLegacy holds the result of a bulk ListModelsWithInfo call.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelSummaryResultsLegacy struct {
 	Results []ModelSummaryResultLegacy `json:"results"`
 }
 
 // ModelInfoResultLegacy holds the result of a ModelInfo call.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelInfoResultLegacy struct {
 	Result *ModelInfoLegacy `json:"result,omitempty"`
 	Error  *Error           `json:"error,omitempty"`
 }
 
 // ModelInfoResultsLegacy holds the result of a bulk ModelInfo call.
+// It caters for old APIs which use model owner tag
+// rather than model qualifier.
 type ModelInfoResultsLegacy struct {
 	Results []ModelInfoResultLegacy `json:"results"`
 }
 
 // OfferFiltersLegacy is used to query offers.
 // Offers matching any of the filters are returned.
+// It caters for old APIs which use model owner
+// rather than model qualifier.
 type OfferFiltersLegacy struct {
 	Filters []OfferFilterLegacy
 }
 
 // OfferFilterLegacy is used to query offers.
+// It caters for old APIs which use model owner
+// rather than model qualifier.
 type OfferFilterLegacy struct {
 	// OwnerName is the owner of the model hosting the offer.
 	OwnerName string `json:"owner-name"`

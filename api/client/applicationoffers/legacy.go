@@ -7,6 +7,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// filtersToLegacyFilters converts params which use a model qualifier
+// to legacy params which use a model owner name.
 func filtersToLegacyFilters(in params.OfferFilters) params.OfferFiltersLegacy {
 	out := params.OfferFiltersLegacy{
 		Filters: make([]params.OfferFilterLegacy, len(in.Filters)),
