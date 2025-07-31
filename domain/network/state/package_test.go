@@ -82,6 +82,23 @@ VALUES (?, ?, ?, ?)
 	return applicationEndpointUUID
 }
 
+// addApplicationExtraEndpoint inserts a new application extra endpoint into the
+// database with the specified UUIDs. Returns the endpoint uuid.
+func (s *linkLayerBaseSuite) addApplicationExtraEndpoint(
+	c *tc.C, applicationUUID coreapplication.ID, charmRelationUUID string, boundSpaceUUID string) {
+	s.query(c, `
+INSERT INTO application_extra_endpoint (application_uuid, charm_extra_binding_uuid,space_uuid)
+VALUES (?, ?, ?)
+`, applicationUUID, charmRelationUUID, nilZeroPtr(boundSpaceUUID))
+}
+
+// addApplicationExposedEndpoint inserts a record linking an application,
+// its exposed endpoint, and the associated space into the database.
+func (s *linkLayerBaseSuite) addApplicationExposedEndpoint(c *tc.C, applicationUUID, endpointUUID, boundSpaceUUID string) {
+	s.query(c, `INSERT INTO application_exposed_endpoint_space (application_uuid, application_endpoint_uuid, space_uuid) 
+			VALUES (?, ?, ?)`, applicationUUID, endpointUUID, boundSpaceUUID)
+}
+
 // addCharm inserts a new charm record into the database and returns its UUID as a string.
 func (s *linkLayerBaseSuite) addCharm(c *tc.C) string {
 	charmUUID := uuid.MustNewUUID().String()
@@ -104,6 +121,15 @@ VALUES (?, ?, ?,
 	return charmRelationUUID
 }
 
+// addCharmExtraBinding inserts a new record into the charm_extra_binding table
+// and returns the generated UUID.
+func (s *linkLayerBaseSuite) addCharmExtraBinding(c *tc.C, charmUUID corecharm.ID, name string) string {
+	uuid := uuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO charm_extra_binding (uuid, charm_uuid, name) VALUES (?, ?, ?)`, uuid, charmUUID, name)
+	return uuid
+}
+
 func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
 	netNodeUUID := uuid.MustNewUUID().String()
 	s.query(c, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
@@ -124,6 +150,66 @@ func (s *linkLayerBaseSuite) addSpace(c *tc.C) string {
 	return spaceUUID
 }
 
+func (s *linkLayerBaseSuite) addSpaceWithName(c *tc.C, name string) string {
+	spaceUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
+		spaceUUID, name)
+	return spaceUUID
+}
+
+func (s *linkLayerBaseSuite) addSpaceWithNameAndProvider(c *tc.C, name, providerID string) string {
+	spaceUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
+		spaceUUID, name)
+	s.query(c, `INSERT INTO provider_space (space_uuid, provider_id) VALUES (?, ?)`, spaceUUID, providerID)
+	return spaceUUID
+}
+
+// addApplicationSpaceConstraint adds a space constraint to a machine with a given UUID,
+// associating it with a space name and include/exclude behavior.
+// It returns the generated constraint UUID for the added space constraint.
+func (s *linkLayerBaseSuite) addApplicationSpaceConstraint(c *tc.C, applicationUUID, spaceName string,
+	positive bool) string {
+	constraintUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO "constraint" (uuid) VALUES (?)`, constraintUUID)
+	s.query(c, `INSERT INTO application_constraint (application_uuid, constraint_uuid) VALUES (?, ?)`, applicationUUID,
+		constraintUUID)
+	s.query(c, `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`,
+		constraintUUID, spaceName, !positive)
+	return constraintUUID
+}
+
+// addModelSpaceConstraint adds a space constraint to the model,
+// associating it with a space name and include/exclude behavior.
+// It returns the generated constraint UUID for the added space constraint.
+func (s *linkLayerBaseSuite) addModelSpaceConstraint(c *tc.C, spaceName string, positive bool) string {
+	fakeModelUUID := "model-uuid" // we will never have more than one model
+	s.query(c, `INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type) 
+    VALUES (?, 'ctrl-uuid', 'model-name', 'qualifier', 'type', 'cloud', 'cloud-type')
+    ON CONFLICT DO NOTHING`, fakeModelUUID)
+
+	constraintUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO "constraint" (uuid) VALUES (?)`, constraintUUID)
+	s.query(c, `INSERT INTO model_constraint (model_uuid, constraint_uuid) VALUES (?, ?)`, fakeModelUUID,
+		constraintUUID)
+	s.query(c, `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`,
+		constraintUUID, spaceName, !positive)
+	return constraintUUID
+}
+
+// addMachineSpaceConstraint adds a space constraint to a machine with a given UUID,
+// associating it with a space name and include/exclude behavior.
+// It returns the generated constraint UUID for the added space constraint.
+func (s *linkLayerBaseSuite) addMachineSpaceConstraint(c *tc.C, machineUUID, spaceName string, positive bool) string {
+	constraintUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO "constraint" (uuid) VALUES (?)`, constraintUUID)
+	s.query(c, `INSERT INTO machine_constraint (machine_uuid, constraint_uuid) VALUES (?, ?)`, machineUUID,
+		constraintUUID)
+	s.query(c, `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`,
+		constraintUUID, spaceName, !positive)
+	return constraintUUID
+}
+
 // checkRowCount checks that the given table has the expected number of rows.
 func (s *linkLayerBaseSuite) checkRowCount(c *tc.C, table string, expected int) {
 	obtained := -1
@@ -133,6 +219,31 @@ func (s *linkLayerBaseSuite) checkRowCount(c *tc.C, table string, expected int) 
 	})
 	c.Assert(err, tc.IsNil, tc.Commentf("counting rows in table %q", table))
 	c.Check(obtained, tc.Equals, expected, tc.Commentf("count of %q rows", table))
+}
+
+// selectDistinctValues retrieves distinct values of a specified field from a
+// given table within a transactional context.
+func (s *linkLayerBaseSuite) selectDistinctValues(c *tc.C, field, table string) []string {
+	var obtained []string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		query := fmt.Sprintf(`SELECT DISTINCT %q FROM %q`, field, table)
+		rows, err := tx.QueryContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var space *string
+			err = rows.Scan(&space)
+			if err != nil {
+				return err
+			}
+			obtained = append(obtained, zeroNilPtr(space))
+		}
+		return nil
+	})
+	c.Assert(err, tc.IsNil, tc.Commentf("fetching all rows in table %q", table))
+	return obtained
 }
 
 // addLinkLayerDevice adds a link layer device to the database and returns its UUID.

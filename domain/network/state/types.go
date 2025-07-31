@@ -736,3 +736,11 @@ func nilZeroPtr[T comparable](v T) *T {
 	}
 	return &v
 }
+
+func zeroNilPtr[T comparable](v *T) T {
+	var zero T
+	if v == nil {
+		return zero
+	}
+	return *v
+}

@@ -17,7 +17,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type spaceMachineSuite struct {
@@ -849,21 +848,12 @@ JOIN space ON space.uuid = subnet.space_uuid
 // addSpace inserts a new space with the given name into the database
 // and returns its UUID.
 func (s *spaceMachineSuite) addSpace(c *tc.C, name string) string {
-	spaceUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
-		spaceUUID, name)
-	return spaceUUID
+	return s.linkLayerBaseSuite.addSpaceWithName(c, name)
 }
 
 // addSpaceConstraint adds a space constraint to a machine with a given UUID,
 // associating it with a space name and include/exclude behavior.
 // It returns the generated constraint UUID for the added space constraint.
 func (s *spaceMachineSuite) addSpaceConstraint(c *tc.C, machineUUID, spaceName string, positive bool) string {
-	constraintUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO "constraint" (uuid) VALUES (?)`, constraintUUID)
-	s.query(c, `INSERT INTO machine_constraint (machine_uuid, constraint_uuid) VALUES (?, ?)`, machineUUID,
-		constraintUUID)
-	s.query(c, `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`,
-		constraintUUID, spaceName, !positive)
-	return constraintUUID
+	return s.linkLayerBaseSuite.addMachineSpaceConstraint(c, machineUUID, spaceName, positive)
 }
