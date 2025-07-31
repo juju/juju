@@ -21,8 +21,6 @@ import (
 	"github.com/juju/juju/internal/pki"
 	pkitls "github.com/juju/juju/internal/pki/tls"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/common"
-	workerstate "github.com/juju/juju/internal/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run an HTTP server
@@ -30,7 +28,6 @@ import (
 type ManifoldConfig struct {
 	AuthorityName      string
 	MuxName            string
-	StateName          string
 	DomainServicesName string
 
 	// We don't use these in the worker, but we want to prevent the
@@ -55,9 +52,6 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.AuthorityName == "" {
 		return errors.NotValidf("empty AuthorityName")
-	}
-	if config.StateName == "" {
-		return errors.NotValidf("empty StateName")
 	}
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
@@ -105,7 +99,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AuthorityName,
-			config.StateName,
 			config.DomainServicesName,
 			config.MuxName,
 			config.APIServerName,
@@ -141,17 +134,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var stTracker workerstate.StateTracker
-	if err := getter.Get(config.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	newCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	controllerConfig, err := config.GetControllerConfig(newCtx, controllerDomainServices.ControllerConfig())
 	if err != nil {
-		_ = stTracker.Done()
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 	tlsConfig := config.NewTLSConfig(
@@ -173,9 +160,5 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		Logger:               config.Logger,
 		APIPort:              controllerConfig.APIPort(),
 	})
-	if err != nil {
-		_ = stTracker.Done()
-		return nil, errors.Trace(err)
-	}
-	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+	return w, errors.Trace(err)
 }

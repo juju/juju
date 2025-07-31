@@ -7,29 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/state"
 )
-
-type stubStateTracker struct {
-	testhelpers.Stub
-	pool   *state.StatePool
-	system *state.State
-}
-
-func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
-	s.MethodCall(s, "Use")
-	return s.pool, s.system, s.NextErr()
-}
-
-func (s *stubStateTracker) Done() error {
-	s.MethodCall(s, "Done")
-	return s.NextErr()
-}
-
-func (s *stubStateTracker) Report() map[string]interface{} {
-	s.MethodCall(s, "Report")
-	return nil
-}
 
 type stubPrometheusRegisterer struct {
 	testhelpers.Stub

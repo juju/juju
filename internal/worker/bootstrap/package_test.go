@@ -19,7 +19,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination caas_broker_mock_test.go github.com/juju/juju/caas ServiceManager
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination instance_mock_test.go github.com/juju/juju/environs/instances Instance
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
@@ -35,7 +34,6 @@ type baseSuite struct {
 	agent                      *MockAgent
 	agentConfig                *MockConfig
 	controllerAgentBinaryStore *MockAgentBinaryStore
-	stateTracker               *MockStateTracker
 	objectStore                *MockObjectStore
 	objectStoreGetter          *MockObjectStoreGetter
 	storageRegistryGetter      *MockStorageRegistryGetter
@@ -68,7 +66,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agent = NewMockAgent(ctrl)
 	s.agentConfig = NewMockConfig(ctrl)
 	s.controllerAgentBinaryStore = NewMockAgentBinaryStore(ctrl)
-	s.stateTracker = NewMockStateTracker(ctrl)
 	s.objectStore = NewMockObjectStore(ctrl)
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
 	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)

@@ -72,7 +72,6 @@ type HTTPClient interface {
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName           string
-	StateName           string
 	ObjectStoreName     string
 	BootstrapGateName   string
 	DomainServicesName  string
@@ -99,9 +98,6 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
-	}
-	if cfg.StateName == "" {
-		return errors.NotValidf("empty StateName")
 	}
 	if cfg.BootstrapGateName == "" {
 		return errors.NotValidf("empty BootstrapGateName")
@@ -153,7 +149,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.StateName,
 			config.ObjectStoreName,
 			config.BootstrapGateName,
 			config.DomainServicesName,

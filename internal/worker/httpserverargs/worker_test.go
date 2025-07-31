@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/state"
 )
 
 type workerConfigSuite struct {
@@ -38,7 +37,6 @@ func TestWorkerConfigSuite(t *testing.T) {
 func (s *workerConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = workerConfig{
-		statePool:               &state.StatePool{},
 		controllerConfigService: &managedServices{},
 		accessService:           &managedServices{},
 		macaroonService:         &managedServices{},
@@ -87,7 +85,6 @@ func TestWorkerSuite(t *testing.T) {
 func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 	return func(
 		ctx context.Context,
-		statePool *state.StatePool,
 		controllerConfigService ControllerConfigService,
 		agentPasswordServiceGetter AgentPasswordServiceGetter,
 		accessService AccessService,

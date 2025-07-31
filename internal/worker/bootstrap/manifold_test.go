@@ -42,10 +42,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.StateName = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.ObjectStoreName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -105,7 +101,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName:           "agent",
 		ObjectStoreName:     "object-store",
-		StateName:           "state",
 		BootstrapGateName:   "bootstrap-gate",
 		DomainServicesName:  "domain-services",
 		ProviderFactoryName: "provider-factory",
@@ -140,7 +135,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"agent":            s.agent,
-		"state":            s.stateTracker,
 		"object-store":     s.objectStoreGetter,
 		"bootstrap-gate":   s.bootstrapUnlocker,
 		"http-client":      s.httpClientGetter,
@@ -152,7 +146,6 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 
 var expectedInputs = []string{
 	"agent",
-	"state",
 	"object-store",
 	"bootstrap-gate",
 	"domain-services",

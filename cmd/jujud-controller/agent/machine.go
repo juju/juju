@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -60,7 +59,6 @@ import (
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/service"
-	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage/looputil"
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
@@ -76,7 +74,6 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 type (
@@ -99,8 +96,7 @@ var (
 	// be expressed as explicit dependencies, but nobody has yet had
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
-	reportOpenedState = func(*state.State) {}
-	getHostname       = os.Hostname
+	getHostname = os.Hostname
 
 	caasModelManifolds   = model.CAASManifolds
 	iaasModelManifolds   = model.IAASManifolds
@@ -353,9 +349,6 @@ type MachineAgent struct {
 	// longer any immediately pending agent upgrades.
 	initialUpgradeCheckComplete gate.Lock
 
-	mongoInitMutex   sync.Mutex
-	mongoInitialized bool
-
 	loopDeviceManager  looputil.LoopDeviceManager
 	prometheusRegistry *prometheus.Registry
 
@@ -540,10 +533,6 @@ func (a *MachineAgent) makeEngineCreator(
 			})
 		}
 
-		// statePoolReporter is an introspection.IntrospectionReporter,
-		// which is set to the current StatePool managed by the state
-		// tracker in controller agents.
-		var statePoolReporter statePoolIntrospectionReporter
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
@@ -559,7 +548,6 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeStepsLock:                  a.upgradeStepsLock,
 			UpgradeCheckLock:                  a.initialUpgradeCheckComplete,
 			NewDBWorkerFunc:                   a.newDBWorkerFunc,
-			OpenStatePool:                     a.initState,
 			PreUpgradeSteps:                   a.preUpgradeSteps,
 			UpgradeSteps:                      a.upgradeSteps,
 			LogSink:                           logSink,
@@ -572,7 +560,6 @@ func (a *MachineAgent) makeEngineCreator(
 			ControllerLeaseDuration:           time.Minute,
 			TransactionPruneInterval:          time.Hour,
 			MachineLock:                       a.machineLock,
-			SetStatePool:                      statePoolReporter.Set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			MuxShutdownWait:                   1 * time.Minute,
@@ -603,7 +590,6 @@ func (a *MachineAgent) makeEngineCreator(
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
 			AgentDir:           agentConfig.Dir(),
 			Engine:             eng,
-			StatePoolReporter:  &statePoolReporter,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,
@@ -690,32 +676,6 @@ func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.API
 		_, err = facade.Machine(ctx, a.agentTag.(names.MachineTag))
 	}
 	return errors.Trace(err)
-}
-
-func (a *MachineAgent) initState(
-	ctx context.Context, agentConfig agent.Config,
-	domainServicesGetter services.DomainServicesGetter,
-) (*state.StatePool, error) {
-	pool, err := openStatePool(
-		agentConfig,
-		domainServicesGetter,
-	)
-	if err != nil {
-		// On error, force a mongo refresh.
-		a.mongoInitMutex.Lock()
-		a.mongoInitialized = false
-		a.mongoInitMutex.Unlock()
-		return nil, err
-	}
-	logger.Infof(context.TODO(), "juju database opened")
-
-	systemState, err := pool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	reportOpenedState(systemState)
-
-	return pool, nil
 }
 
 // startModelWorkers starts the set of workers that run for every model
@@ -813,31 +773,6 @@ func (m *modelWorker) Wait() error {
 	// logger.
 	_ = m.metrics.Unregister()
 	return err
-}
-
-func openStatePool(
-	agentConfig agent.Config,
-	domainServicesGetter services.DomainServicesGetter,
-) (_ *state.StatePool, err error) {
-	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
-		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
-		if err != nil {
-			return nil, err
-		}
-		return svc.Storage(), nil
-	}
-
-	pool, err := state.OpenStatePool(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      agentConfig.Controller(),
-		ControllerModelTag: agentConfig.Model(),
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(storageServiceGetter),
-	})
-	if err != nil {
-		pool.Close()
-		return nil, err
-	}
-	return pool, nil
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers
@@ -956,27 +891,4 @@ func (a *MachineAgent) recordAgentStartInformation(ctx context.Context, apiConn 
 		return errors.Annotate(err, "cannot record agent start information")
 	}
 	return nil
-}
-
-// statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
-// calling its IntrospectionReport method or returning a message if it
-// is nil.
-type statePoolIntrospectionReporter struct {
-	mu   sync.Mutex
-	pool *state.StatePool
-}
-
-func (h *statePoolIntrospectionReporter) Set(pool *state.StatePool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.pool = pool
-}
-
-func (h *statePoolIntrospectionReporter) IntrospectionReport() string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.pool == nil {
-		return "agent has no pool set"
-	}
-	return h.pool.IntrospectionReport()
 }

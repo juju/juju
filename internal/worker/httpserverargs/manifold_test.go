@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserverargs"
-	"github.com/juju/juju/state"
 )
 
 type ManifoldSuite struct {
@@ -35,7 +34,6 @@ type ManifoldSuite struct {
 	manifold       dependency.Manifold
 	getter         dependency.Getter
 	clock          *testclock.Clock
-	stateTracker   stubStateTracker
 	authenticator  mockLocalMacaroonAuthenticator
 	domainServices stubDomainServices
 
@@ -48,14 +46,12 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewClock(time.Time{})
-	s.stateTracker = stubStateTracker{}
 	s.domainServices = stubDomainServices{}
 	s.stub.ResetCalls()
 
 	s.getter = s.newGetter(nil)
 	s.config = httpserverargs.ManifoldConfig{
 		ClockName:             "clock",
-		StateName:             "state",
 		DomainServicesName:    "domain-services",
 		NewStateAuthenticator: s.newStateAuthenticator,
 	}
@@ -65,7 +61,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"clock":           s.clock,
-		"state":           &s.stateTracker,
 		"domain-services": &s.domainServices,
 	}
 	for k, v := range overlay {
@@ -76,7 +71,6 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 
 func (s *ManifoldSuite) newStateAuthenticator(
 	ctx context.Context,
-	statePool *state.StatePool,
 	controllerConfig httpserverargs.ControllerConfigService,
 	agentPasswordServiceGetter httpserverargs.AgentPasswordServiceGetter,
 	accessService httpserverargs.AccessService,
@@ -92,7 +86,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	return &s.authenticator, nil
 }
 
-var expectedInputs = []string{"state", "clock", "domain-services"}
+var expectedInputs = []string{"clock", "domain-services"}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
@@ -142,11 +136,6 @@ func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
-
-	s.stateTracker.CheckCallNames(c, "Use")
-
-	workertest.CleanKill(c, w)
-	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *tc.C) {
@@ -177,9 +166,6 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 		expect string
 	}
 	tests := []test{{
-		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.StateName = "" },
-		expect: "empty StateName not valid",
-	}, {
 		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
 		expect: "empty ClockName not valid",
 	}, {
@@ -205,27 +191,6 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 
 type mockLocalMacaroonAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator
-}
-
-type stubStateTracker struct {
-	testhelpers.Stub
-	pool  *state.StatePool
-	state *state.State
-}
-
-func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
-	s.MethodCall(s, "Use")
-	return s.pool, s.state, s.NextErr()
-}
-
-func (s *stubStateTracker) Done() error {
-	s.MethodCall(s, "Done")
-	return s.NextErr()
-}
-
-func (s *stubStateTracker) Report() map[string]any {
-	s.MethodCall(s, "Report")
-	return nil
 }
 
 type stubDomainServices struct {

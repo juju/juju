@@ -35,7 +35,6 @@ const IntrospectionSocketName = "introspection.socket"
 type IntrospectionConfig struct {
 	AgentDir           string
 	Engine             *dependency.Engine
-	StatePoolReporter  introspection.Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 	Clock              clock.Clock
@@ -60,7 +59,6 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 	w, err := cfg.WorkerFunc(introspection.Config{
 		SocketName:         socketName,
 		DepEngine:          cfg.Engine,
-		StatePool:          cfg.StatePoolReporter,
 		MachineLock:        cfg.MachineLock,
 		PrometheusGatherer: cfg.PrometheusGatherer,
 		// TODO(leases) - add lease introspection

@@ -159,12 +159,6 @@ func (s *introspectionSuite) TestMissingDepEngineReporter(c *tc.C) {
 	s.assertBody(c, response, "missing dependency engine reporter")
 }
 
-func (s *introspectionSuite) TestMissingStatePoolReporter(c *tc.C) {
-	response := s.call(c, "/statepool")
-	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, `"State Pool" introspection not supported`)
-}
-
 func (s *introspectionSuite) TestMissingMachineLock(c *tc.C) {
 	response := s.call(c, "/machinelock")
 	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)

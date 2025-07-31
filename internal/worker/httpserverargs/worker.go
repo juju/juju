@@ -24,11 +24,9 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/state"
 )
 
 type workerConfig struct {
-	statePool               *state.StatePool
 	domainServicesGetter    DomainServicesGetter
 	controllerConfigService ControllerConfigService
 	accessService           AccessService
@@ -96,7 +94,6 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
 		w.catacomb.Context(context.Background()),
-		w.cfg.statePool,
 		w.managedServices,
 		w.managedServices,
 		w.managedServices,

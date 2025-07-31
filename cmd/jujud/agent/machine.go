@@ -566,7 +566,6 @@ func (a *MachineAgent) makeEngineCreator(
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
 			AgentDir:           agentConfig.Dir(),
 			Engine:             engine,
-			StatePoolReporter:  nil,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,

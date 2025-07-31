@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserver"
-	"github.com/juju/juju/state"
 )
 
 type ManifoldSuite struct {
@@ -39,7 +38,6 @@ type ManifoldSuite struct {
 	config                 httpserver.ManifoldConfig
 	manifold               dependency.Manifold
 	getter                 dependency.Getter
-	state                  stubStateTracker
 	mux                    *apiserverhttp.Mux
 	clock                  *testclock.Clock
 	prometheusRegisterer   stubPrometheusRegisterer
@@ -85,7 +83,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.config = httpserver.ManifoldConfig{
 		AgentName:            "machine-42",
 		AuthorityName:        "authority",
-		StateName:            "state",
 		DomainServicesName:   "domain-services",
 		MuxName:              "mux",
 		APIServerName:        "api-server",
@@ -99,16 +96,11 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		Logger:               loggertesting.WrapCheckLog(c),
 	}
 	s.manifold = httpserver.Manifold(s.config)
-	s.state = stubStateTracker{
-		pool:   &state.StatePool{},
-		system: &state.State{},
-	}
 }
 
 func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
 		"authority":       s.authority,
-		"state":           &s.state,
 		"mux":             s.mux,
 		"api-server":      nil,
 		"domain-services": s.domainServices,
@@ -150,7 +142,6 @@ func (s *ManifoldSuite) newWorker(config httpserver.Config) (worker.Worker, erro
 
 var expectedInputs = []string{
 	"authority",
-	"state",
 	"mux",
 	"api-server",
 	"domain-services",
@@ -204,9 +195,6 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	}, {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.AuthorityName = "" },
 		expect: "empty AuthorityName not valid",
-	}, {
-		f:      func(cfg *httpserver.ManifoldConfig) { cfg.StateName = "" },
-		expect: "empty StateName not valid",
 	}, {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.DomainServicesName = "" },
 		expect: "empty DomainServicesName not valid",
