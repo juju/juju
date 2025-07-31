@@ -187,6 +187,9 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerMetadataService = NewMockMetadataService(ctrl)
 	s.modelMetadataService = NewMockMetadataService(ctrl)
 
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil).AnyTimes()
+
 	s.modelMetadataServiceGetter = NewMockMetadataServiceGetter(ctrl)
 	s.modelMetadataServiceGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.modelMetadataService).AnyTimes()
 
