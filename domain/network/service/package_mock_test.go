@@ -238,44 +238,6 @@ func (c *MockStateDeleteImportedLinkLayerDevicesCall) DoAndReturn(f func(context
 	return c
 }
 
-// DeleteSpace mocks base method.
-func (m *MockState) DeleteSpace(arg0 context.Context, arg1 network.SpaceUUID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteSpace", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteSpace indicates an expected call of DeleteSpace.
-func (mr *MockStateMockRecorder) DeleteSpace(arg0, arg1 any) *MockStateDeleteSpaceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSpace", reflect.TypeOf((*MockState)(nil).DeleteSpace), arg0, arg1)
-	return &MockStateDeleteSpaceCall{Call: call}
-}
-
-// MockStateDeleteSpaceCall wrap *gomock.Call
-type MockStateDeleteSpaceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteSpaceCall) Return(arg0 error) *MockStateDeleteSpaceCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteSpaceCall) Do(f func(context.Context, network.SpaceUUID) error) *MockStateDeleteSpaceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID) error) *MockStateDeleteSpaceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DeleteSubnet mocks base method.
 func (m *MockState) DeleteSubnet(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -1060,45 +1022,6 @@ func (c *MockStateImportLinkLayerDevicesCall) DoAndReturn(f func(context.Context
 	return c
 }
 
-// IsSpaceUsedInConstraints mocks base method.
-func (m *MockState) IsSpaceUsedInConstraints(arg0 context.Context, arg1 network.SpaceName) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsSpaceUsedInConstraints", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsSpaceUsedInConstraints indicates an expected call of IsSpaceUsedInConstraints.
-func (mr *MockStateMockRecorder) IsSpaceUsedInConstraints(arg0, arg1 any) *MockStateIsSpaceUsedInConstraintsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSpaceUsedInConstraints", reflect.TypeOf((*MockState)(nil).IsSpaceUsedInConstraints), arg0, arg1)
-	return &MockStateIsSpaceUsedInConstraintsCall{Call: call}
-}
-
-// MockStateIsSpaceUsedInConstraintsCall wrap *gomock.Call
-type MockStateIsSpaceUsedInConstraintsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateIsSpaceUsedInConstraintsCall) Return(arg0 bool, arg1 error) *MockStateIsSpaceUsedInConstraintsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateIsSpaceUsedInConstraintsCall) Do(f func(context.Context, network.SpaceName) (bool, error)) *MockStateIsSpaceUsedInConstraintsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsSpaceUsedInConstraintsCall) DoAndReturn(f func(context.Context, network.SpaceName) (bool, error)) *MockStateIsSpaceUsedInConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MergeLinkLayerDevice mocks base method.
 func (m *MockState) MergeLinkLayerDevice(arg0 context.Context, arg1 string, arg2 []network0.NetInterface) error {
 	m.ctrl.T.Helper()
@@ -1249,6 +1172,45 @@ func (c *MockStateNamespaceForWatchSubnetCall) Do(f func() string) *MockStateNam
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateNamespaceForWatchSubnetCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchSubnetCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RemoveSpace mocks base method.
+func (m *MockState) RemoveSpace(arg0 context.Context, arg1 network.SpaceName, arg2, arg3 bool) (network0.RemoveSpaceViolations, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveSpace", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(network0.RemoveSpaceViolations)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoveSpace indicates an expected call of RemoveSpace.
+func (mr *MockStateMockRecorder) RemoveSpace(arg0, arg1, arg2, arg3 any) *MockStateRemoveSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSpace", reflect.TypeOf((*MockState)(nil).RemoveSpace), arg0, arg1, arg2, arg3)
+	return &MockStateRemoveSpaceCall{Call: call}
+}
+
+// MockStateRemoveSpaceCall wrap *gomock.Call
+type MockStateRemoveSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateRemoveSpaceCall) Return(arg0 network0.RemoveSpaceViolations, arg1 error) *MockStateRemoveSpaceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateRemoveSpaceCall) Do(f func(context.Context, network.SpaceName, bool, bool) (network0.RemoveSpaceViolations, error)) *MockStateRemoveSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateRemoveSpaceCall) DoAndReturn(f func(context.Context, network.SpaceName, bool, bool) (network0.RemoveSpaceViolations, error)) *MockStateRemoveSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

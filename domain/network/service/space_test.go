@@ -13,6 +13,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -210,25 +211,63 @@ func (s *spaceSuite) TestRetrieveAllSpaces(c *tc.C) {
 func (s *spaceSuite) TestRemoveSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spUUID := networktesting.GenSpaceUUID(c)
-	s.st.EXPECT().DeleteSpace(gomock.Any(), spUUID)
-	err := NewService(s.st, loggertesting.WrapCheckLog(c)).RemoveSpace(c.Context(), spUUID)
+	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
+	spaceName := network.SpaceName("spaceName")
+	expectedViolations := domainnetwork.RemoveSpaceViolations{
+		HasModelConstraint:     true,
+		ApplicationConstraints: []string{"app1", "app2"},
+		ApplicationBindings:    []string{"app2"},
+	}
+
+	s.st.EXPECT().RemoveSpace(gomock.Any(), spaceName, false, false).Return(expectedViolations, nil)
+
+	violations, err := svc.RemoveSpace(c.Context(), spaceName, false, false)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(violations, tc.DeepEquals, expectedViolations)
 }
 
-// TestRemoveSpaceNotFound checks that if we try to call Service.RemoveSpace on
-// a space that doesn't exist, an error is returned matching
-// networkerrors.SpaceNotFound.
-func (s *spaceSuite) TestRemoveSpaceNotFound(c *tc.C) {
+func (s *spaceSuite) TestRemoveSpaceForce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceID := networktesting.GenSpaceUUID(c)
-	s.st.EXPECT().DeleteSpace(gomock.Any(), spaceID).
-		Return(errors.Errorf("space %q: %w", spaceID, networkerrors.SpaceNotFound))
+	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
+	spaceName := network.SpaceName("spaceName")
+	expectedViolations := domainnetwork.RemoveSpaceViolations{
+		HasModelConstraint:     true,
+		ApplicationConstraints: []string{"app2"},
+		ApplicationBindings:    []string{"app1"},
+	}
+	s.st.EXPECT().RemoveSpace(gomock.Any(), spaceName, true, false).Return(expectedViolations, nil)
+
+	violations, err := svc.RemoveSpace(c.Context(), spaceName, true, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(violations, tc.DeepEquals, expectedViolations)
+}
+
+func (s *spaceSuite) TestRemoveSpaceDryRun(c *tc.C) {
+	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
-	err := svc.RemoveSpace(c.Context(), spaceID)
-	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
+	spaceName := network.SpaceName("spaceName")
+	expectedViolations := domainnetwork.RemoveSpaceViolations{}
+	s.st.EXPECT().RemoveSpace(gomock.Any(), spaceName, false, true).Return(expectedViolations, nil)
+
+	violations, err := svc.RemoveSpace(c.Context(), spaceName, false, true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(violations, tc.DeepEquals, expectedViolations)
+}
+
+func (s *spaceSuite) TestRemoveSpaceStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.st, loggertesting.WrapCheckLog(c))
+	spaceName := network.SpaceName("spaceName")
+	expectedViolations := domainnetwork.RemoveSpaceViolations{}
+	boom := errors.New("boom")
+	s.st.EXPECT().RemoveSpace(gomock.Any(), spaceName, false, false).Return(expectedViolations, boom)
+
+	violations, err := svc.RemoveSpace(c.Context(), spaceName, false, false)
+	c.Assert(err, tc.ErrorIs, boom)
+	c.Assert(violations, tc.DeepEquals, expectedViolations)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsWithoutSpaceUUID(c *tc.C) {
@@ -719,8 +758,8 @@ func (s *spaceSuite) TestDeleteProviderSpaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	spaceUUID := networktesting.GenSpaceUUID(c)
-	s.st.EXPECT().DeleteSpace(gomock.Any(), spaceUUID)
-	s.st.EXPECT().IsSpaceUsedInConstraints(gomock.Any(), network.SpaceName("1")).Return(false, nil)
+	s.st.EXPECT().RemoveSpace(gomock.Any(), network.SpaceName("1"), false, false).
+		Return(domainnetwork.RemoveSpaceViolations{}, nil)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
@@ -788,12 +827,14 @@ func (s *spaceSuite) TestDeleteProviderSpacesContainsConstraintsSpace(c *tc.C) {
 			Name: "1",
 		},
 	}
-	s.st.EXPECT().IsSpaceUsedInConstraints(gomock.Any(), network.SpaceName("1")).Return(true, nil)
+	s.st.EXPECT().RemoveSpace(gomock.Any(), network.SpaceName("1"), false, false).Return(domainnetwork.RemoveSpaceViolations{
+		ApplicationConstraints: []string{"app1"},
+	}, nil)
 
 	warnings, err := provider.deleteSpaces(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(warnings, tc.DeepEquals, []string{
-		`Unable to delete space "1". Space is used in a constraint.`,
+		`Unable to delete space "1": used in application constraint(s): app1`,
 	})
 }
 
@@ -833,8 +874,8 @@ func (s *spaceSuite) TestProviderSpacesRun(c *tc.C) {
 			return nil
 		},
 	)
-	s.st.EXPECT().DeleteSpace(gomock.Any(), spaceUUID)
-	s.st.EXPECT().IsSpaceUsedInConstraints(gomock.Any(), network.SpaceName("space1")).Return(false, nil)
+	s.st.EXPECT().RemoveSpace(gomock.Any(), network.SpaceName("space1"), false, false).
+		Return(domainnetwork.RemoveSpaceViolations{}, nil)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))

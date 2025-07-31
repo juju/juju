@@ -3,7 +3,12 @@
 
 package network
 
-import "github.com/juju/juju/core/network"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/juju/juju/core/network"
+)
 
 // NetAddr represents an IP address and its
 // association with a network interface.
@@ -174,4 +179,21 @@ type RemoveSpaceViolations struct {
 // or application bindings for the space.
 func (s RemoveSpaceViolations) IsEmpty() bool {
 	return !s.HasModelConstraint && len(s.ApplicationConstraints) == 0 && len(s.ApplicationBindings) == 0
+}
+
+// IsEmpty checks if there are no model constraints, application constraints,
+// or application bindings for the space.
+func (s RemoveSpaceViolations) String() string {
+	var violations []string
+	if s.HasModelConstraint {
+		violations = append(violations, "model constraint")
+	}
+	if len(s.ApplicationConstraints) > 0 {
+		violations = append(violations, fmt.Sprintf("application constraint(s): %s", strings.Join(s.ApplicationConstraints, ", ")))
+	}
+	if len(s.ApplicationBindings) > 0 {
+		violations = append(violations, fmt.Sprintf("application binding(s): %s", strings.Join(s.ApplicationBindings, ", ")))
+	}
+
+	return fmt.Sprintf("used in %s", strings.Join(violations, ", "))
 }

@@ -76,16 +76,9 @@ type SpaceState interface {
 	// space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 	UpdateSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName) error
-	// DeleteSpace deletes the space identified by the passed uuid. If the
-	// space is not found, an error is returned matching
-	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	DeleteSpace(ctx context.Context, uuid network.SpaceUUID) error
-	// IsSpaceUsedInConstraints checks if the provided space name is used in any
-	// constraints.
-	// This method doesn't check if the provided space name exists, it returns
-	// false in that case.
-	IsSpaceUsedInConstraints(ctx context.Context, name network.SpaceName) (bool, error)
-
+	// RemoveSpace removes a space from the system, optionally forcing removal,
+	// or simulating it via dry run.
+	RemoveSpace(ctx context.Context, spaceName network.SpaceName, force, dryRun bool) (domainnetwork.RemoveSpaceViolations, error)
 	// MoveSubnetsToSpace transfers a list of subnets to a specified network
 	// space. It verifies that existing machines will still satisfy their
 	// constraints and bindings. The check can be ignored if forced. In this

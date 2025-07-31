@@ -4,8 +4,6 @@
 package state
 
 import (
-	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
@@ -14,7 +12,6 @@ import (
 	networktesting "github.com/juju/juju/core/network/testing"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -384,124 +381,4 @@ func (s *stateSuite) TestUpdateSpaceFailNotFound(c *tc.C) {
 
 	err := st.UpdateSpace(c.Context(), "unknownSpace", "newSpaceName0")
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
-}
-
-func (s *stateSuite) TestDeleteSpace(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	db := s.DB()
-
-	// Add a subnet of type base.
-	subnetUUID0, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
-		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
-			CIDR:              "192.168.0.0/20",
-			ProviderId:        "provider-id-0",
-			ProviderNetworkId: "provider-network-id-0",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Create a space containing the newly created subnet.
-	spUUID := networktesting.GenSpaceUUID(c)
-	err = st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{subnetUUID0.String()})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Check the subnet entity.
-	row := db.QueryRow("SELECT space_uuid FROM subnet WHERE uuid = ?", subnetUUID0.String())
-	c.Assert(row.Err(), tc.ErrorIsNil)
-	var name string
-	err = row.Scan(&name)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(name, tc.Equals, spUUID.String())
-
-	// Check that the subnet is linked to the newly created space.
-	subnet, err := st.GetSubnet(c.Context(), subnetUUID0.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(subnet.SpaceID, tc.Equals, spUUID)
-
-	// Delete the space.
-	err = st.DeleteSpace(c.Context(), spUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Check that the subnet is not linked to the deleted space.
-	subnet, err = st.GetSubnet(c.Context(), subnetUUID0.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(subnet.SpaceID, tc.Equals, network.AlphaSpaceId)
-}
-
-// TestDeleteSpaceNotFound tests that if we try to call State.DeleteSpace with
-// a non-existent space, it will return an error matching
-// [networkerrors.SpaceNotFound].
-func (s *stateSuite) TestDeleteSpaceNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	spUUID := networktesting.GenSpaceUUID(c)
-	err := st.DeleteSpace(c.Context(), spUUID)
-	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
-}
-
-func (s *stateSuite) TestIsSpaceNotUsedInConstraints(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	// Create a space.
-	spUUID := networktesting.GenSpaceUUID(c)
-	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Check that the space is used in constraints.
-	used, err := st.IsSpaceUsedInConstraints(c.Context(), "space0")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(used, tc.IsFalse)
-}
-
-func (s *stateSuite) TestIsSpaceUsedInApplicationConstraints(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	// Create a space.
-	spUUID := networktesting.GenSpaceUUID(c)
-	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		addConstraintStmt := `INSERT INTO "constraint" (uuid) VALUES (?)`
-		_, err := tx.ExecContext(ctx, addConstraintStmt, "constraint-uuid")
-		if err != nil {
-			return err
-		}
-		addSpaceConsStmt := `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`
-		_, err = tx.ExecContext(ctx, addSpaceConsStmt, "constraint-uuid", "space0", false)
-		if err != nil {
-			return err
-		}
-		addCharmStmt := `INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, 'foo', 0)`
-		_, err = tx.ExecContext(ctx, addCharmStmt, "charm0-uuid")
-		if err != nil {
-			return errors.Capture(err)
-		}
-		addApplicationStmt := `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, addApplicationStmt, "app0-uuid", "app0", "0", "charm0-uuid", network.AlphaSpaceId)
-		if err != nil {
-			return err
-		}
-		addAppConstraintStmt := `INSERT INTO application_constraint (application_uuid, constraint_uuid) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addAppConstraintStmt, "app0-uuid", "constraint-uuid")
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Check that the space is used in constraints.
-	used, err := st.IsSpaceUsedInConstraints(c.Context(), "space0")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(used, tc.IsTrue)
-
-	// Check that the space is not used in constraints.
-	used, err = st.IsSpaceUsedInConstraints(c.Context(), "space1")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(used, tc.IsFalse)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -96,13 +97,14 @@ func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) 
 	return spaces, nil
 }
 
-// RemoveSpace deletes a space identified by its uuid. If the space is not
-// found, an error is returned matching
-// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) RemoveSpace(ctx context.Context, uuid network.SpaceUUID) error {
+// RemoveSpace removes a space identified by the given name. It can handle forced removal and supports dry-run mode.
+func (s *Service) RemoveSpace(ctx context.Context, name network.SpaceName, force bool,
+	dryRun bool) (domainnetwork.RemoveSpaceViolations, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	return errors.Capture(s.st.DeleteSpace(ctx, uuid))
+
+	violations, err := s.st.RemoveSpace(ctx, name, force, dryRun)
+	return violations, errors.Capture(err)
 }
 
 // ReloadSpaces loads spaces and subnets from the provider into state.
@@ -366,25 +368,13 @@ func (s *ProviderSpaces) deleteSpaces(ctx context.Context) ([]string, error) {
 			continue
 		}
 
-		// TODO(nvinuesa): This check is removed. We are going to handle
-		// this validation by referential integrity (between spaces and
-		// endpoint bindings).
-		// Check all endpoint bindings found within a model. If they reference
-		// a space name, then ignore then space for removal.
-
-		// Check to see if any space is within any constraints, if they are,
-		// ignore them for now.
-		isUsedInConstraints, err := s.spaceService.st.IsSpaceUsedInConstraints(ctx, space.Name)
+		violations, err := s.spaceService.st.RemoveSpace(ctx, space.Name, false, false)
 		if err != nil {
-			return warnings, errors.Capture(err)
-		} else if isUsedInConstraints {
-			warning := fmt.Sprintf("Unable to delete space %q. Space is used in a constraint.", space.Name)
-			warnings = append(warnings, warning)
-			continue
+			return warnings, errors.Errorf("removing space %q: %w", space.Name, err)
 		}
-
-		if err := s.spaceService.RemoveSpace(ctx, space.ID); err != nil {
-			return warnings, errors.Capture(err)
+		if !violations.IsEmpty() {
+			warning := fmt.Sprintf("Unable to delete space %q: %s", space.Name, violations)
+			warnings = append(warnings, warning)
 		}
 	}
 
