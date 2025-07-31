@@ -35,6 +35,10 @@ type Provider interface {
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
 	ReleaseContainerAddresses(ctx context.Context, interfaces []string) error
+
+	// Destroy shuts down all known machines and destroys the rest of the
+	// known environment.
+	Destroy(ctx context.Context) error
 }
 
 // ControllerDBState describes retrieval and persistence methods for entity
