@@ -526,6 +526,7 @@ SELECT COUNT(*) AS &count.count
 FROM unit
 JOIN machine ON machine.net_node_uuid = unit.net_node_uuid
 WHERE machine.uuid = $entityUUID.uuid
+AND unit.life_id != 2
 `, count{}, machineUUIDParam)
 	if err != nil {
 		return errors.Capture(err)

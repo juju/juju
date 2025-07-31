@@ -578,6 +578,26 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
 	s.checkMachineLife(c, machineUUID.String(), life.Dying)
 }
 
+func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnitsWithDeadUnits(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+	svc := s.setupApplicationService(c, factory)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIsNil)
+
+	s.checkMachineLife(c, machineUUID.String(), life.Dead)
+}
+
 func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
 	svc := s.setupMachineService(c)
 	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
