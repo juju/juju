@@ -46,10 +46,11 @@ type NetworkService interface {
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 	UpdateSpace(context.Context, network.SpaceUUID, network.SpaceName) error
 
-	// RemoveSpace deletes a space identified by its uuid. If the space is not
-	// found, an error is returned satisfying
+	// RemoveSpace removes a space identified by the given name.
+	// It can handle forced removal and supports dry-run mode.
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	RemoveSpace(context.Context, network.SpaceUUID) error
+	RemoveSpace(ctx context.Context, name network.SpaceName, force bool,
+		dryRun bool) (domainnetwork.RemoveSpaceViolations, error)
 
 	// ReloadSpaces loads spaces and subnets from the provider into state.
 	ReloadSpaces(context.Context) error

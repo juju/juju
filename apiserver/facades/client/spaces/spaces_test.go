@@ -410,8 +410,5 @@ func (s *APISuite) TestStub(c *tc.C) {
 - A NotSupported error from CreateSpaces.
 - A successful call to ListSpaces.
 - CreateSpaces error when the block checker is active.
-- A successful call to RemoveSpaces.
-- A error returned from the call to RemoveSpaces without force.
-- A error returned from the call to RemoveSpaces with force.
 `)
 }
