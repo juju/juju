@@ -146,7 +146,8 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		ApplicationSettings: application.ApplicationSettings{
 			Trust: trust,
 		},
-		Constraints: dt.constraints,
+		Constraints:               dt.constraints,
+		StorageDirectiveOverrides: dt.storage,
 	}
 
 	var err error
@@ -249,7 +250,7 @@ type deployTemplate struct {
 	origin            corecharm.Origin
 	placement         []*instance.Placement
 	resources         map[string]string
-	storage           map[string]storage.Directive
+	storage           map[string]applicationservice.ApplicationStorageDirectiveOverride
 	resourcesToUpload []*params.PendingResourceUpload
 	resolvedResources applicationservice.ResolvedResources
 	downloadInfo      corecharm.DownloadInfo
@@ -274,6 +275,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		modelConfigService: cfg.modelConfigService,
 		applicationService: cfg.applicationService,
 		machineService:     cfg.machineService,
+		storageService:     cfg.storageService,
 		newCharmHubRepository: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return repository.NewCharmHubRepository(cfg)
 		},
@@ -296,7 +298,6 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 					charm:           dt.charm,
 					config:          nil,
 					placement:       dt.placement,
-					storage:         dt.storage,
 				}
 				return cdp.precheck(ctx, v.modelConfigService, cfg.storageService, cfg.registry, cfg.caasBroker)
 			},
@@ -312,6 +313,7 @@ type deployFromRepositoryValidator struct {
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
 	machineService     MachineService
+	storageService     StorageService
 
 	// For testing using mocks.
 	newCharmHubRepository func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error)
@@ -375,9 +377,13 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.force = arg.Force
 	dt.origin = charmResult.Origin
 	dt.placement = arg.Placement
-	dt.storage = arg.Storage
 	if len(arg.EndpointBindings) > 0 {
 		dt.endpoints = transformBindings(arg.EndpointBindings)
+	}
+
+	dt.storage, err = storageDirectives(ctx, v.storageService, arg.Storage)
+	if err != nil {
+		errs = append(errs, err)
 	}
 
 	// Resolve resources and validate against the charm metadata.

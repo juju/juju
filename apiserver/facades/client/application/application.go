@@ -204,6 +204,7 @@ type DeployApplicationFunc = func(
 	context.Context,
 	model.ModelType,
 	ApplicationService,
+	StorageService,
 	objectstore.ObjectStore,
 	DeployApplicationParams,
 	corelogger.Logger,
@@ -424,7 +425,6 @@ type caasDeployParams struct {
 	charm           CharmMeta
 	config          map[string]string
 	placement       []*instance.Placement
-	storage         map[string]storage.Directive
 }
 
 // precheck, checks the deploy config based on caas specific
@@ -506,7 +506,6 @@ func (api *APIBase) deployApplication(
 			charm:           ch,
 			config:          args.Config,
 			placement:       args.Placement,
-			storage:         args.Storage,
 		}
 		if err := caas.precheck(ctx, api.modelConfigService, api.storageService, api.registry, api.caasBroker); err != nil {
 			return errors.Trace(err)
@@ -536,8 +535,7 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 
-	// TODO: replace model with model info/config services
-	err = api.deployApplicationFunc(ctx, api.modelType, api.applicationService, api.store, DeployApplicationParams{
+	appParams := DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             ch,
 		CharmOrigin:       origin,
@@ -552,7 +550,10 @@ func (api *APIBase) deployApplication(
 		EndpointBindings:  transformBindings(args.EndpointBindings),
 		Resources:         args.Resources,
 		Force:             args.Force,
-	}, api.logger, api.clock)
+	}
+	// TODO: replace model with model info/config services
+	err = api.deployApplicationFunc(ctx, api.modelType, api.applicationService,
+		api.storageService, api.store, appParams, api.logger, api.clock)
 	return errors.Trace(err)
 }
 
