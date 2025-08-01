@@ -129,7 +129,9 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 			return false
 		},
 		ShouldRestart: func(err error) bool {
-			if errors.Is(err, modelerrors.NotFound) || errors.Is(err, database.ErrDBDead) {
+			if errors.Is(err, modelerrors.NotFound) ||
+				errors.Is(err, database.ErrDBDead) ||
+				errors.Is(err, database.ErrDBNotFound) {
 				return false
 			}
 			return true
