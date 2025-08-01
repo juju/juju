@@ -9,7 +9,11 @@ import (
 	"sort"
 	"strconv"
 	"unicode"
+
+	"github.com/juju/errors"
 )
+
+const errNoNumber = errors.ConstError("no number in the given string")
 
 // Sort sorts strings according to their natural sort order.
 func Sort(s []string) []string {
@@ -46,39 +50,39 @@ func (n naturally) Less(a, b int) bool {
 		aPrefix, aNumber, aRemainder, errA := splitAtNumber(aVal)
 		bPrefix, bNumber, bRemainder, errB := splitAtNumber(bVal)
 
-		if errA == nil && errB == nil {
-			if aPrefix != bPrefix {
-				return aPrefix < bPrefix
-			}
-			if aNumber != bNumber {
-				return aNumber < bNumber
-			}
-
-			// Everything is the same so far, try again with the remainder.
-			aVal = aRemainder
-			bVal = bRemainder
-			continue
+		if errA != nil || errB != nil {
+			return aVal < bVal
 		}
 
-		return aVal < bVal
+		if aPrefix != bPrefix {
+			return aPrefix < bPrefix
+		}
+		if aNumber != bNumber {
+			return aNumber < bNumber
+		}
+
+		// Everything is the same so far, try again with the remainder.
+		aVal = aRemainder
+		bVal = bRemainder
 	}
 }
 
 // splitAtNumber splits given string at the first digit, returning the
 // prefix before the number, the integer represented by the first
 // series of digits, the remainder of the string after the first
-// series of digits, and an error if parsing fails. If no digits are
-// present, the number is returned as -1 and the remainder is empty.
-func splitAtNumber(str string) (string, int, string, error) {
+// series of digits, and an error if parsing fails.
+// If no digits are present, errNoNumber error is returned, the number is
+// returned as -1 and the remainder is empty.
+func splitAtNumber(str string) (string, uint64, string, error) {
 	i := indexOfDigit(str)
 	if i == -1 {
 		// no numbers
-		return str, -1, "", nil
+		return str, 0, "", errNoNumber
 	}
 	j := i + indexOfNonDigit(str[i:])
-	num, err := strconv.Atoi(str[i:j])
+	num, err := strconv.ParseUint(str[i:j], 10, 64)
 	if err != nil {
-		return str, -1, "", fmt.Errorf("parsing number %v: %v", str[i:j], err)
+		return str, 0, "", fmt.Errorf("parsing number %v: %v", str[i:j], err)
 	}
 	return str[:i], num, str[j:], nil
 }
