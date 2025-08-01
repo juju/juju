@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"maps"
 	"net"
 	"slices"
@@ -17,6 +18,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // mergeLinkLayerDevice is a subset of linklayerdevice.LinkLayerDevice
@@ -39,10 +41,17 @@ type mergeLinkLayerDevice struct {
 // It contains only the fields that are used to identify and merge the addresses
 type mergeAddress struct {
 	UUID             string
+	Name             string
 	Value            string
 	ProviderID       string
 	ProviderSubnetID string
 	SubnetCIDR       string
+	AddressType      corenetwork.AddressType
+	ConfigType       corenetwork.AddressConfigType
+	Origin           corenetwork.Origin
+	Scope            corenetwork.Scope
+	IsSecondary      bool
+	IsShadow         bool
 }
 
 // mergeLinkLayerDevicesChanges contains the changes to be applied to the
@@ -75,6 +84,9 @@ type mergeAddressesChanges struct {
 	// subnetToUpdate holds a list of merge address where the subnet needs to be
 	// updated
 	subnetToUpdate []mergeAddress
+
+	// map of uuid of device to address
+	addressesToAdd map[string][]mergeAddress
 }
 
 // MergeLinkLayerDevice is part of the [service.LinkLayerDeviceState]
@@ -219,6 +231,10 @@ func (st *State) applyMergeLinkLayerChanges(
 	err = st.relinquishAddresses(ctx, tx, addressChanges.toRelinquish)
 	if err != nil {
 		return errors.Errorf("relinquishing addresses: %w", err)
+	}
+	err = st.addAddressFromProvider(ctx, tx, addressChanges.addressesToAdd)
+	if err != nil {
+		return errors.Errorf("adding addresses: %w", err)
 	}
 
 	// Process subnet updates
@@ -373,14 +389,17 @@ func (st *State) computeMergeAddressChanges(
 	result := mergeAddressesChanges{
 		providerIDsToAddOrUpdate: make(map[string]string),
 		toRelinquish:             nil,
+		addressesToAdd:           make(map[string][]mergeAddress),
 	}
 	for _, device := range existingDevices {
 		deviceName, addresses := device.Name, device.Addresses
 		incomings, _ := incomingAddresses[deviceName]
+		// Find updates to existing addresses.
 		for _, existing := range addresses {
 			matchIncoming, ok := findMatchingAddresses(existing, incomings)
-			// The address is no more known by the provider
-			if !ok {
+			// This device is no longer seen by the provider and the addresses
+			// do not have a machine origin.
+			if !ok && !hasAllMachineAddresses([]mergeAddress{existing}) {
 				result.toRelinquish = append(result.toRelinquish, existing.UUID)
 				continue
 			}
@@ -407,6 +426,13 @@ func (st *State) computeMergeAddressChanges(
 			if ipnet == nil || strings.HasPrefix(ipnet.String(), ip.String()) {
 				result.subnetToUpdate = append(result.subnetToUpdate, existing)
 				continue
+			}
+		}
+		// Find new addresses for the device.
+		for _, incoming := range incomings {
+			_, ok := findMatchingAddresses(incoming, addresses)
+			if !ok {
+				result.addressesToAdd[device.UUID] = append(result.addressesToAdd[device.UUID], incoming)
 			}
 		}
 	}
@@ -439,8 +465,9 @@ func (st *State) computeMergeLinkLayerDeviceChanges(
 		if !ok && namelessHWAddrs.Contains(device.MACAddress) {
 			continue
 		}
-		// If this device is no more seen by the provider
-		if !ok {
+		// This device is no longer seen by the provider and the addresses
+		// do not have a machine origin.
+		if !ok && !hasAllMachineAddresses(device.Addresses) {
 			lldChanges.deviceToRelinquish = append(lldChanges.deviceToRelinquish, device.UUID)
 			lldChanges.addressToRelinquish = append(lldChanges.addressToRelinquish,
 				transform.Slice(device.Addresses, func(a mergeAddress) string { return a.UUID })...)
@@ -482,11 +509,22 @@ func findMatchingAddresses(
 	incomings []mergeAddress,
 ) (mergeAddress, bool) {
 	for _, incoming := range incomings {
-		if strings.HasPrefix(existing.Value, incoming.Value) {
+		if strings.Split(existing.Value, "/")[0] == strings.Split(incoming.Value, "/")[0] {
 			return incoming, true
 		}
 	}
 	return mergeAddress{}, false
+}
+
+// hasAllMachineAddresses returns true if any of the addresses do
+// no have a machine origin
+func hasAllMachineAddresses(addresses []mergeAddress) bool {
+	for _, addr := range addresses {
+		if addr.Origin != "machine" {
+			return false
+		}
+	}
+	return true
 }
 
 // getExistingLinkLayerDevicesWithAddresses retrieves existing link layer devices for a given net node UUID.
@@ -509,6 +547,7 @@ func (st *State) getExistingLinkLayerDevicesWithAddresses(
 		ProviderID       string `db:"provider_id"`
 		ProviderSubnetID string `db:"provider_subnet_id"`
 		SubnetCIDR       string `db:"subnet_cidr"`
+		Origin           string `db:"origin"`
 	}
 	type netNode struct {
 		UUID string `db:"uuid"`
@@ -530,16 +569,18 @@ WHERE lld.net_node_uuid = $netNode.uuid
 	}
 	getAddressesStmt, err := st.Prepare(`
 SELECT
-	ip.uuid AS &address.uuid,
-	ip.device_uuid AS &address.device_uuid,
-	ip.address_value AS &address.address_value,
-	pip.provider_id AS &address.provider_id,
-	ps.provider_id AS &address.provider_subnet_id,
-	s.cidr AS &address.subnet_cidr
-FROM ip_address AS ip
+    ip.uuid AS &address.uuid,
+    ip.device_uuid AS &address.device_uuid,
+    ip.address_value AS &address.address_value,
+    pip.provider_id AS &address.provider_id,
+    ps.provider_id AS &address.provider_subnet_id,
+    s.cidr AS &address.subnet_cidr,
+    iao.name AS &address.origin
+FROM  ip_address AS ip
 LEFT JOIN provider_ip_address AS pip ON ip.uuid = pip.address_uuid
 LEFT JOIN provider_subnet AS ps ON ip.subnet_uuid = ps.subnet_uuid
 LEFT JOIN subnet AS s ON ip.subnet_uuid = s.uuid
+JOIN  ip_address_origin AS iao ON ip.origin_id = iao.id
 WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -580,6 +621,7 @@ WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 						ProviderID:       a.ProviderID,
 						ProviderSubnetID: a.ProviderSubnetID,
 						SubnetCIDR:       a.SubnetCIDR,
+						Origin:           corenetwork.Origin(a.Origin),
 					}
 				}),
 		})
@@ -631,17 +673,25 @@ func (st *State) normalizeLinkLayerDevices(
 			if dev.MACAddress == nil {
 				st.logger.Debugf(ctx, "empty MACAddress for an incoming device")
 			}
+			macAddr := dereferenceOrEmpty(dev.MACAddress)
 			return mergeLinkLayerDevice{
 				Name:       dev.Name,
-				MACAddress: dereferenceOrEmpty(dev.MACAddress),
+				MACAddress: strings.ToLower(macAddr),
 				ProviderID: string(dereferenceOrEmpty(dev.ProviderID)),
 				Type:       dev.Type,
 				Addresses: transform.Slice(dev.Addrs,
 					func(addr network.NetAddr) mergeAddress {
 						return mergeAddress{
+							Name:             addr.InterfaceName,
 							Value:            addr.AddressValue,
 							ProviderID:       string(dereferenceOrEmpty(addr.ProviderID)),
 							ProviderSubnetID: string(dereferenceOrEmpty(addr.ProviderSubnetID)),
+							AddressType:      addr.AddressType,
+							ConfigType:       addr.ConfigType,
+							Origin:           addr.Origin,
+							Scope:            addr.Scope,
+							IsShadow:         addr.IsShadow,
+							IsSecondary:      addr.IsSecondary,
 						}
 					}),
 			}
@@ -767,4 +817,156 @@ SET subnet_uuid = (
 		UUID:             address.UUID,
 		ProviderSubnetID: address.ProviderSubnetID,
 	}).Run()
+}
+
+// subnetCIDRUUIDByProviderID returns a map of subnet provider IDs to a
+// struct including the subnet CIDR and UUID.
+func (st *State) subnetCIDRUUIDByProviderID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	add map[string][]mergeAddress,
+) (map[string]providerSubnetCIDR, error) {
+	type ids []string
+	input := make(ids, 0)
+	for _, addrs := range add {
+		for _, addr := range addrs {
+			input = append(input, addr.ProviderSubnetID)
+		}
+	}
+	stmt, err := st.Prepare(`
+SELECT &providerSubnetCIDR.*
+FROM provider_subnet AS ps
+JOIN subnet AS s ON ps.subnet_uuid = s.uuid
+WHERE ps.provider_id IN ($ids[:])
+`, providerSubnetCIDR{}, ids{})
+	if err != nil {
+		return nil, errors.Errorf("preparing subnet query: %w", err)
+	}
+
+	output := []providerSubnetCIDR{}
+	err = tx.Query(ctx, stmt, input).GetAll(&output)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	result := transform.SliceToMap(output, func(in providerSubnetCIDR) (string, providerSubnetCIDR) {
+		return in.ProviderID, in
+	})
+
+	return result, nil
+}
+
+// ensureAddressSubnetSuffix return a address including the subnet's suffix
+// and the subnetUUID. If the address is not an IPv4 nor IPv6 address, no
+// suffix is added.
+func ensureAddressSubnetSuffix(value, subnetProviderID string, data map[string]providerSubnetCIDR) (string, string, error) {
+	// Getting the subnet is helpful, but not essential.
+	subnet, _ := data[subnetProviderID]
+
+	parts := strings.Split(value, "/")
+	if len(parts) == 2 {
+		// Best case, the address has a CIDR suffix.
+		return subnet.SubnetUUID, value, nil
+	}
+
+	// Find the CIDR suffix, try the subnetCIDR first, if
+	// not define based on address type.
+	var suffix string
+	subnetCIDRParts := strings.Split(subnet.CIDR, "/")
+	switch len(subnetCIDRParts) {
+	case 2:
+		suffix = subnetCIDRParts[1]
+	case 1:
+		addType := corenetwork.DeriveAddressType(value)
+		if addType == corenetwork.IPv4Address {
+			suffix = "/32"
+		} else if addType == corenetwork.IPv6Address {
+			suffix = "/128"
+		} else {
+			return subnet.SubnetUUID, value, nil
+		}
+	case 0:
+		return "", "", errors.Errorf("invalid subnet CIDR value: %q", subnet.CIDR)
+	}
+
+	addressValue := value + "/" + suffix
+	return subnet.SubnetUUID, addressValue, nil
+}
+
+func (st *State) addAddressFromProvider(ctx context.Context, tx *sqlair.TX, add map[string][]mergeAddress) error {
+	if len(add) == 0 {
+		return nil
+	}
+
+	subnets, err := st.subnetCIDRUUIDByProviderID(ctx, tx, add)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	lookups, err := st.getNetConfigLookups(ctx, tx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	providerIDAddrs := make(map[string]string)
+	ipAddresses := make([]ipAddress, 0)
+	for devUUID, addresses := range add {
+		for _, addr := range addresses {
+			ipAddrUUID, err := uuid.NewUUID()
+			if err != nil {
+				return errors.Capture(err)
+			}
+			subnetUUID, value, err := ensureAddressSubnetSuffix(addr.Value, addr.ProviderSubnetID, subnets)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			var (
+				typeID, configID, scopeID, originID int
+			)
+			typeID = lookups.addrType[addr.AddressType]
+			configID = lookups.addrConfigType[addr.ConfigType]
+			scopeID = lookups.scope[addr.Scope]
+			originID = lookups.origin[addr.Origin]
+			ipAddresses = append(ipAddresses, ipAddress{
+				UUID:         ipAddrUUID.String(),
+				DeviceUUID:   devUUID,
+				AddressValue: value,
+				SubnetUUID:   nilZeroPtr(subnetUUID),
+				Type:         typeID,
+				ConfigType:   configID,
+				Origin:       originID,
+				Scope:        scopeID,
+				IsSecondary:  addr.IsSecondary,
+				IsShadow:     addr.IsShadow,
+			})
+			providerIDAddrs[addr.ProviderID] = ipAddrUUID.String()
+		}
+	}
+	// ensure address value subnet mask.
+	insertAddressStmt, err := sqlair.Prepare(`
+INSERT INTO ip_address
+SELECT
+    $ipAddress.uuid,
+    lld.net_node_uuid,
+    $ipAddress.device_uuid,
+    $ipAddress.address_value,
+    $ipAddress.subnet_uuid,
+    $ipAddress.type_id,
+    $ipAddress.config_type_id,
+    $ipAddress.origin_id,
+    $ipAddress.scope_id,
+    $ipAddress.is_secondary,
+    $ipAddress.is_shadow
+FROM  link_layer_device AS lld
+WHERE lld.uuid = $ipAddress.device_uuid
+;`, ipAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, ipAddress := range ipAddresses {
+		if err = tx.Query(ctx, insertAddressStmt, ipAddress).Run(); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	return st.addProviderAddress(ctx, tx, providerIDAddrs)
 }

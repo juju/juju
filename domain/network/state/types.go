@@ -66,6 +66,16 @@ type providerSubnet struct {
 	ProviderID corenetwork.Id `db:"provider_id"`
 }
 
+// providerSubnet represents a single row from the provider_subnet table.
+type providerSubnetCIDR struct {
+	// CIDR is the CIDR of the subnet.
+	CIDR string `db:"cidr"`
+	// SubnetUUID is the UUID of the subnet.
+	SubnetUUID string `db:"subnet_uuid"`
+	// ProviderID is the provider-specific subnet ID.
+	ProviderID string `db:"provider_id"`
+}
+
 // providerNetwork represents a single row from the provider_network table.
 type providerNetwork struct {
 	// ProviderNetworkUUID is the provider network UUID.
@@ -396,6 +406,20 @@ type ipAddressDML struct {
 	ConfigTypeID int     `db:"config_type_id"`
 	OriginID     int     `db:"origin_id"`
 	ScopeID      int     `db:"scope_id"`
+	IsSecondary  bool    `db:"is_secondary"`
+	IsShadow     bool    `db:"is_shadow"`
+}
+
+// ipAddress is for writing data to the ip_address table.
+type ipAddress struct {
+	UUID         string  `db:"uuid"`
+	DeviceUUID   string  `db:"device_uuid"`
+	AddressValue string  `db:"address_value"`
+	SubnetUUID   *string `db:"subnet_uuid"`
+	Type         int     `db:"type_id"`
+	ConfigType   int     `db:"config_type_id"`
+	Origin       int     `db:"origin_id"`
+	Scope        int     `db:"scope_id"`
 	IsSecondary  bool    `db:"is_secondary"`
 	IsShadow     bool    `db:"is_shadow"`
 }
