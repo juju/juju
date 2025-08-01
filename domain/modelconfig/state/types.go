@@ -29,3 +29,7 @@ type dbKeys []string
 type dbSpace struct {
 	Space string `db:"name"`
 }
+
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}

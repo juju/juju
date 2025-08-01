@@ -12,6 +12,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -54,6 +55,13 @@ JOIN   agent_stream ON agent_version.stream_id = agent_stream.id
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.modelExists(ctx, tx); err != nil {
+			return errors.Errorf(
+				"checking model exists for agent version and stream: %w",
+				err,
+			)
+		}
+
 		err := tx.Query(ctx, stmt).Get(&rval)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf(
@@ -333,4 +341,22 @@ func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error
 // keys.
 func (st *State) AllKeysQuery() string {
 	return "SELECT key from model_config"
+}
+
+func (st *State) modelExists(ctx context.Context, tx *sqlair.TX) error {
+	var modelUUID entityUUID
+	stmt, err := st.Prepare(`SELECT &entityUUID.uuid FROM model;`, modelUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&modelUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("model does not exist").Add(modelerrors.NotFound)
+	}
+	if err != nil {
+		return errors.Errorf("checking model if model exists: %w", err)
+	}
+
+	return nil
 }

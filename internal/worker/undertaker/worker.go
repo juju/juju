@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
@@ -111,36 +112,47 @@ func (w *Worker) loop() error {
 			return w.catacomb.ErrDying()
 
 		case models := <-watcher.Changes():
-			deadModels, err := w.filterDeadModels(ctx, models)
+			deadModels, notFoundModels, err := w.filterDeadModels(ctx, models)
 			if err != nil {
 				return errors.Errorf("filtering dead models: %w", err)
 			}
 
+			// Attempt to handle dead models first, this is graceful death.
 			for _, mUUID := range deadModels {
 				if err := w.handleDeadModel(ctx, mUUID); err != nil {
 					return errors.Errorf("handling dead model %s: %w", mUUID, err)
+				}
+			}
+
+			// Not found models, are models which we've still got a reference
+			// to, but they no longer exist in the controller.
+			for _, mUUID := range notFoundModels {
+				if err := w.handleNotFoundModel(ctx, mUUID); err != nil {
+					return errors.Errorf("handling not found model %s: %w", mUUID, err)
 				}
 			}
 		}
 	}
 }
 
-func (w *Worker) filterDeadModels(ctx context.Context, uuids []string) ([]model.UUID, error) {
-	var deadModels []model.UUID
+func (w *Worker) filterDeadModels(ctx context.Context, uuids []string) (dead, notFound []model.UUID, err error) {
 	for _, uuid := range uuids {
 		mUUID := model.UUID(uuid)
 		mLife, err := w.controllerModelService.GetModelLife(ctx, mUUID)
-		if err != nil {
-			return nil, errors.Errorf("getting model life for %s: %w", uuid, err)
+		if errors.Is(err, modelerrors.NotFound) {
+			notFound = append(notFound, mUUID)
+			continue
+		} else if err != nil {
+			return nil, nil, errors.Errorf("getting model life for %s: %w", uuid, err)
 		}
 
 		if mLife != life.Dead {
 			continue
 		}
 
-		deadModels = append(deadModels, mUUID)
+		dead = append(dead, mUUID)
 	}
-	return deadModels, nil
+	return dead, notFound, nil
 }
 
 func (w *Worker) handleDeadModel(ctx context.Context, mUUID model.UUID) error {
@@ -154,6 +166,23 @@ func (w *Worker) handleDeadModel(ctx context.Context, mUUID model.UUID) error {
 	})
 	if err != nil && !errors.Is(err, jujuerrors.AlreadyExists) {
 		return errors.Errorf("starting worker for model %s: %w", mUUID, err)
+	}
+
+	return nil
+}
+
+func (w *Worker) handleNotFoundModel(ctx context.Context, mUUID model.UUID) error {
+	if err := w.runner.StopAndRemoveWorker(mUUID.String(), ctx.Done()); err != nil && !errors.Is(err, jujuerrors.NotFound) {
+		return errors.Errorf("stopping and removing worker for model %s: %w", mUUID, err)
+	}
+
+	// Brute force the removal of the model from the controller.
+	// We can guarantee that the model is not active, so we can safely delete it.
+	if err := w.dbDeleter.DeleteDB(mUUID.String()); err != nil && !errors.Is(err, jujuerrors.NotFound) {
+		// Log the error but do not return it, as this will crash the
+		// worker and prevent further processing of other models. Manual
+		// intervention may be required to clean up the database.
+		w.logger.Errorf(ctx, "deleting database for model %s: %v", mUUID, err)
 	}
 
 	return nil
@@ -208,11 +237,11 @@ func (w *modelWorker) loop() error {
 }
 
 func (w *modelWorker) deleteModel(ctx context.Context) error {
-	if err := w.removalService.DeleteModel(ctx); err != nil {
+	if err := w.removalService.DeleteModel(ctx); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return errors.Errorf("deleting model: %w", err)
 	}
 
-	if err := w.dbDeleter.DeleteDB(w.modelUUID.String()); err != nil {
+	if err := w.dbDeleter.DeleteDB(w.modelUUID.String()); err != nil && !errors.Is(err, jujuerrors.NotFound) {
 		return errors.Errorf("deleting database %s: %w", w.modelUUID, err)
 	}
 

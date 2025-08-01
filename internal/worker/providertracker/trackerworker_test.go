@@ -368,15 +368,8 @@ func (s *trackerWorkerSuite) expectEnvironSetSpecUpdate(c *tc.C) {
 }
 
 func (s *trackerWorkerSuite) expectConfigWatcher(c *tc.C) chan []string {
-	ch := make(chan []string)
-	// Seed the initial event.
-	go func() {
-		select {
-		case ch <- []string{}:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out seeding initial event")
-		}
-	}()
+	ch := make(chan []string, 1)
+	ch <- []string{}
 
 	watcher := watchertest.NewMockStringsWatcher(ch)
 
@@ -386,15 +379,8 @@ func (s *trackerWorkerSuite) expectConfigWatcher(c *tc.C) chan []string {
 }
 
 func (s *trackerWorkerSuite) expectModelWatcher(c *tc.C) chan struct{} {
-	ch := make(chan struct{})
-	// Seed the initial event.
-	go func() {
-		select {
-		case ch <- struct{}{}:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out seeding initial event")
-		}
-	}()
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
@@ -404,15 +390,8 @@ func (s *trackerWorkerSuite) expectModelWatcher(c *tc.C) chan struct{} {
 }
 
 func (s *trackerWorkerSuite) expectModelCloudCredentialWatcher(c *tc.C, uuid coremodel.UUID) chan struct{} {
-	ch := make(chan struct{})
-	// Seed the initial event.
-	go func() {
-		select {
-		case ch <- struct{}{}:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out seeding initial event")
-		}
-	}()
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
