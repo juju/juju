@@ -748,23 +748,55 @@ func (st *State) updateSubnets(ctx context.Context, tx *sqlair.TX, update []merg
 	return nil
 }
 
+// updateSubnetFromProviderID updates the subnet_uuid field for a specific
+// address using its provider subnet id.
+// Updates will be ignored if the provider subnet id doesn't exist or if
+// the address doesn't belong to the identified subnet.
 func (st *State) updateSubnetFromProviderID(ctx context.Context, tx *sqlair.TX, address mergeAddress) error {
 	type updateAddress struct {
-		UUID             string `db:"uuid"`
-		ProviderSubnetID string `db:"provider_subnet_id"`
+		UUID       string `db:"uuid"`
+		SubnetUUID string `db:"subnet_uuid"`
 	}
+
+	subnetUUID, err := st.validateSubnetUpdate(ctx, tx, address)
+	if err != nil {
+		st.logger.Warningf(ctx, "ignoring subnet update for address %q (%s): %s",
+			address.Value, address.UUID, err)
+		return nil
+	}
+
 	stmt, err := st.Prepare(`
 UPDATE ip_address 
-SET subnet_uuid = (
-	SELECT subnet_uuid 
-	FROM provider_subnet 
-	WHERE provider_id = $updateAddress.provider_subnet_id)
-	WHERE uuid = $updateAddress.uuid`, updateAddress{})
+SET subnet_uuid = $updateAddress.subnet_uuid
+WHERE uuid = $updateAddress.uuid`, updateAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 	return tx.Query(ctx, stmt, updateAddress{
-		UUID:             address.UUID,
-		ProviderSubnetID: address.ProviderSubnetID,
+		UUID:       address.UUID,
+		SubnetUUID: subnetUUID,
 	}).Run()
+}
+
+// validateSubnetUpdate verifies if a given address is valid within its
+// associated subnet and retrieves the subnet ID.
+// It checks if the address belongs to the CIDR range of the candidate
+// subnet from the database, identified through its providerSubnetID
+func (st *State) validateSubnetUpdate(ctx context.Context, tx *sqlair.TX, address mergeAddress) (string, error) {
+	candidateSubnet, err := st.getSubnetByProviderID(ctx, tx, address.ProviderSubnetID)
+	if err != nil {
+		return "", errors.Errorf("getting subnet for provider id %q: %w", address.ProviderSubnetID, err)
+	}
+	cidr, err := candidateSubnet.ParsedCIDRNetwork()
+	if err != nil {
+		return "", errors.Errorf("parsing candidate subnet cidr %q: %w", candidateSubnet.CIDR, err)
+	}
+	if !cidr.Contains(net.ParseIP(strings.Split(address.Value, "/")[0])) {
+		return "", errors.Errorf("address %q (%s) is not in subnet %q (providerID: %q)",
+			address.Value,
+			address.UUID,
+			candidateSubnet.CIDR,
+			address.ProviderSubnetID)
+	}
+	return candidateSubnet.ID.String(), nil
 }
