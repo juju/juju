@@ -31,7 +31,9 @@ import (
 var logger = internallogger.GetLogger("juju.provider.oci")
 
 // EnvironProvider type implements environs.EnvironProvider interface
-type EnvironProvider struct{}
+type EnvironProvider struct {
+	ControllerUUID string
+}
 
 type environConfig struct {
 	*config.Config
@@ -254,6 +256,7 @@ func (e *EnvironProvider) Open(ctx context.Context, params environs.OpenParams, 
 		Identity:              identity,
 		ociConfig:             providerConfig,
 		clock:                 clock.WallClock,
+		controllerUUID:        params.ControllerUUID,
 		p:                     e,
 	}
 

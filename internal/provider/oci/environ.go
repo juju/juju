@@ -42,17 +42,18 @@ type Environ struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
 
-	Compute    ComputeClient
-	Networking NetworkingClient
-	Storage    StorageClient
-	Firewall   FirewallClient
-	Identity   IdentityClient
-	ociConfig  ociCommon.ConfigurationProvider
-	p          *EnvironProvider
-	clock      clock.Clock
-	ecfgMutex  sync.Mutex
-	ecfgObj    *environConfig
-	namespace  instance.Namespace
+	Compute        ComputeClient
+	Networking     NetworkingClient
+	Storage        StorageClient
+	Firewall       FirewallClient
+	Identity       IdentityClient
+	ociConfig      ociCommon.ConfigurationProvider
+	p              *EnvironProvider
+	clock          clock.Clock
+	ecfgMutex      sync.Mutex
+	ecfgObj        *environConfig
+	namespace      instance.Namespace
+	controllerUUID string
 
 	// subnets contains one subnet for each availability domain
 	// these will get created once the environment is spun up, and
@@ -449,7 +450,7 @@ func (e *Environ) startInstance(
 		return nil, errors.NotFoundf("Controller UUID")
 	}
 
-	networks, err := e.ensureNetworksAndSubnets(ctx, args.ControllerUUID, e.Config().UUID())
+	networks, err := e.ensureNetworksAndSubnets(ctx, e.Config().UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
