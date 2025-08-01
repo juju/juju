@@ -57,7 +57,6 @@ import (
 	runnercontext "github.com/juju/juju/internal/worker/uniter/runner/context"
 	contextmocks "github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -407,7 +406,7 @@ func (acpm addCharmProfileToMachine) step(c tc.LikeC, ctx *testContext) {
 
 type createApplicationAndUnit struct {
 	applicationName string
-	storage         map[string]state.StorageConstraints
+	storage         map[string]int
 	container       bool
 }
 
@@ -422,8 +421,8 @@ func (csau createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
 	ctx.app = ctx.makeApplication(appTag)
 
 	ctx.storage = make(map[string]*storageAttachment)
-	for si, info := range csau.storage {
-		for n := 0; n < int(info.Count); n++ {
+	for si, count := range csau.storage {
+		for n := 0; n < count; n++ {
 			tag := names.NewStorageTag(fmt.Sprintf("%s/%d", si, n))
 			ctx.storage[tag.Id()] = &storageAttachment{
 				eventCh: make(chan struct{}, 2),

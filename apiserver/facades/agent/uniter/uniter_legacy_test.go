@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 const allEndpoints = ""
@@ -398,7 +398,7 @@ func (s *uniterLegacySuite) TestWatchUnitAddressesHash(c *tc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
+	wc := watchertest.NewStringsWatcherC(c, resource.(watcher.StringsWatcher))
 	wc.AssertNoChange()
 }
 

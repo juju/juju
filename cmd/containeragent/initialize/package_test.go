@@ -112,7 +112,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"rpc",
 		"rpc/jsoncodec",
 		"rpc/params",
-		"state/errors",
 	)
 
 	unexpected := found.Difference(expected)

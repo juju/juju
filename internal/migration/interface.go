@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 )
 
+// ModelService provides access to the model service.
 type ModelService interface {
 	// ListAllModels returns all models registered in the controller. If no
 	// models exist a zero value slice will be returned.

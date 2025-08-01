@@ -250,7 +250,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		cloudbootstrap.InsertCloud(user.NameFromTag(b.adminUser), stateParams.ControllerCloud),
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		modeldefaultsbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
-		secretbackendbootstrap.CreateDefaultBackends(coremodel.ModelType(modelType)),
+		secretbackendbootstrap.CreateDefaultBackends(modelType),
 		controllerModelCreateFunc,
 		localModelRecordOp,
 		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),

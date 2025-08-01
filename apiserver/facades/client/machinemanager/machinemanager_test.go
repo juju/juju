@@ -16,8 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
-	"github.com/juju/juju/apiserver/common/storagecommon"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
@@ -39,14 +37,12 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type AddMachineManagerSuite struct {
 	authorizer     *apiservertesting.FakeAuthorizer
 	modelUUID      coremodel.UUID
 	controllerUUID string
-	storageAccess  *MockStorageInterface
 	api            *MachineManagerAPI
 	cloudService   *commonmocks.MockCloudService
 
@@ -68,7 +64,6 @@ func (s *AddMachineManagerSuite) SetUpTest(c *tc.C) {
 func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
@@ -80,7 +75,6 @@ func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 		s.controllerUUID,
 		s.modelUUID,
 		nil,
-		s.storageAccess,
 		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
@@ -99,7 +93,6 @@ func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 		s.cloudService = nil
 		s.machineService = nil
 		s.api = nil
-		s.storageAccess = nil
 		s.networkService = nil
 	})
 
@@ -166,7 +159,6 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 type DestroyMachineManagerSuite struct {
 	testhelpers.CleanupSuite
 	authorizer     *apiservertesting.FakeAuthorizer
-	storageAccess  *MockStorageInterface
 	api            *MachineManagerAPI
 	modelUUID      coremodel.UUID
 	controllerUUID string
@@ -180,10 +172,19 @@ type DestroyMachineManagerSuite struct {
 func TestDestroyMachineManagerSuite(t *testing.T) {
 	tc.Run(t, &DestroyMachineManagerSuite{})
 }
+
+func (s *DestroyMachineManagerSuite) TestStub(c *tc.C) {
+	c.Skip(`This suite is missing the following tests:
+- TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines 
+- TestDestroyMachineFailedAllStorageRetrieval
+- TestDestroyMachineFailedSomeUnitStorageRetrieval
+- TestDestroyMachineFailedSomeStorageRetrievalManyMachines
+`)
+}
+
 func (s *DestroyMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.PatchValue(&ClassifyDetachedStorage, mockedClassifyDetachedStorage)
 	s.modelUUID = modeltesting.GenModelUUID(c)
 	s.controllerUUID = uuid.MustNewUUID().String()
 }
@@ -195,10 +196,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 
-	s.storageAccess = NewMockStorageInterface(ctrl)
-	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
-	s.storageAccess.EXPECT().FilesystemAccess().Return(nil).AnyTimes()
-
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
 
@@ -206,7 +203,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerUUID,
 		s.modelUUID,
 		nil,
-		s.storageAccess,
 		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
@@ -224,7 +220,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.blockCommandService = nil
 		s.machineService = nil
 		s.api = nil
-		s.storageAccess = nil
 		s.api = nil
 	})
 
@@ -242,9 +237,6 @@ func (s *DestroyMachineManagerSuite) expectDestroyMachine(
 
 	if unitNames == nil {
 		unitNames = []coreunit.Name{"foo/0", "foo/1", "foo/2"}
-		s.expectDestroyUnit(ctrl, "foo/0", true, nil)
-		s.expectDestroyUnit(ctrl, "foo/1", false, nil)
-		s.expectDestroyUnit(ctrl, "foo/2", false, nil)
 	}
 
 	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(unitNames, nil)
@@ -252,151 +244,6 @@ func (s *DestroyMachineManagerSuite) expectDestroyMachine(
 	if attemptDestroy {
 		s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID, force, gomock.Any()).Return("", nil)
 	}
-}
-
-func (s *DestroyMachineManagerSuite) expectDestroyUnit(ctrl *gomock.Controller, name coreunit.Name, hasStorage bool, retrievalErr error) {
-	unitTag := names.NewUnitTag(name.String())
-	if retrievalErr != nil {
-		s.storageAccess.EXPECT().UnitStorageAttachments(unitTag).Return(nil, retrievalErr)
-	} else if !hasStorage {
-		s.storageAccess.EXPECT().UnitStorageAttachments(unitTag).Return([]state.StorageAttachment{}, nil)
-	} else {
-		s.storageAccess.EXPECT().UnitStorageAttachments(unitTag).Return([]state.StorageAttachment{
-			s.expectDestroyStorage(ctrl, "disks/0", true),
-			s.expectDestroyStorage(ctrl, "disks/1", false),
-		}, nil)
-	}
-}
-
-func (s *DestroyMachineManagerSuite) expectDestroyStorage(ctrl *gomock.Controller, id string, detachable bool) *MockStorageAttachment {
-	storageInstanceTag := names.NewStorageTag(id)
-	storageAttachment := NewMockStorageAttachment(ctrl)
-	storageAttachment.EXPECT().StorageInstance().Return(storageInstanceTag)
-
-	storageInstance := NewMockStorageInstance(ctrl)
-	storageInstance.EXPECT().StorageTag().Return(storageInstanceTag).AnyTimes()
-	s.storageAccess.EXPECT().StorageInstance(storageInstanceTag).Return(storageInstance, nil)
-
-	return storageAttachment
-}
-
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.expectDestroyUnit(ctrl, "foo/0", false, errors.New("kaboom"))
-	s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom"))
-	s.expectDestroyUnit(ctrl, "foo/2", false, errors.New("kaboom"))
-
-	s.expectDestroyMachine(c, ctrl, "0", []coreunit.Name{"foo/0", "foo/1", "foo/2"}, nil, false, false, false)
-
-	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
-		MachineTags: []string{"machine-0"},
-		MaxWait:     &noWait,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Error: apiservererrors.ServerError(
-				errors.Errorf(`classifying storage for machine "0": getting storage for unit foo/0: kaboom
-getting storage for unit foo/1: kaboom
-getting storage for unit foo/2: kaboom`),
-			),
-		}},
-	})
-}
-
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.expectDestroyUnit(ctrl, "foo/0", false, nil)
-	s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom"))
-	s.expectDestroyUnit(ctrl, "foo/2", false, nil)
-
-	s.expectDestroyMachine(c, ctrl, "0", []coreunit.Name{"foo/0", "foo/1", "foo/2"}, nil, false, false, false)
-
-	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
-		MachineTags: []string{"machine-0"},
-		MaxWait:     &noWait,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Error: apiservererrors.ServerError(
-				errors.Errorf("classifying storage for machine \"0\": getting storage for unit foo/1: kaboom"),
-			),
-		}},
-	})
-}
-
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom"))
-	s.expectDestroyMachine(c, ctrl, "0", []coreunit.Name{"foo/1"}, nil, false, false, false)
-
-	s.expectDestroyMachine(c, ctrl, "1", []coreunit.Name{}, nil, true, false, false)
-
-	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
-		MachineTags: []string{"machine-0", "machine-1"},
-		MaxWait:     &noWait,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{
-			{Error: apiservererrors.ServerError(
-				errors.Errorf("classifying storage for machine \"0\": getting storage for unit foo/1: kaboom"),
-			)},
-			{Info: &params.DestroyMachineInfo{
-				MachineId: "1",
-			}},
-		},
-	})
-}
-
-func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom"))
-	s.expectDestroyMachine(c, ctrl, "0", []coreunit.Name{"foo/1"}, nil, false, false, true)
-
-	s.expectDestroyUnit(ctrl, "bar/0", true, nil)
-	s.expectDestroyMachine(c, ctrl, "1", []coreunit.Name{"bar/0"}, nil, true, false, true)
-
-	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
-		Force:       true,
-		MachineTags: []string{"machine-0", "machine-1"},
-		MaxWait:     &noWait,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{
-			{Error: apiservererrors.ServerError(
-				errors.Errorf("classifying storage for machine \"0\": getting storage for unit foo/1: kaboom"),
-			)},
-			{Info: &params.DestroyMachineInfo{
-				MachineId: "1",
-				DestroyedUnits: []params.Entity{
-					{"unit-bar-0"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			}},
-		},
-	})
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
@@ -419,12 +266,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
 					{"unit-foo-0"},
 					{"unit-foo-1"},
 					{"unit-foo-2"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
 				},
 			},
 		}},
@@ -452,12 +293,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *t
 					{"unit-foo-1"},
 					{"unit-foo-2"},
 				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
 				DestroyedContainers: []params.DestroyMachineResult{{
 					Info: &params.DestroyMachineInfo{
 						MachineId: "0/lxd/0",
@@ -465,12 +300,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *t
 							{"unit-foo-0"},
 							{"unit-foo-1"},
 							{"unit-foo-2"},
-						},
-						DetachedStorage: []params.Entity{
-							{"storage-disks-0"},
-						},
-						DestroyedStorage: []params.Entity{
-							{"storage-disks-1"},
 						},
 					},
 				}},
@@ -503,12 +332,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *tc.C)
 					{"unit-foo-1"},
 					{"unit-foo-2"},
 				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
 			},
 		}},
 	})
@@ -537,12 +360,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *tc.C
 					{"unit-foo-1"},
 					{"unit-foo-2"},
 				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
 			},
 		}},
 	})
@@ -569,12 +386,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 					{"unit-foo-1"},
 					{"unit-foo-2"},
 				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
 				DestroyedContainers: []params.DestroyMachineResult{{
 					Info: &params.DestroyMachineInfo{
 						MachineId: "0/lxd/0",
@@ -583,35 +394,11 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 							{"unit-foo-1"},
 							{"unit-foo-2"},
 						},
-						DetachedStorage: []params.Entity{
-							{"storage-disks-0"},
-						},
-						DestroyedStorage: []params.Entity{
-							{"storage-disks-1"},
-						},
 					},
 				}},
 			},
 		}},
 	})
-}
-
-// // Alternate placing storage instaces in detached, then destroyed
-func mockedClassifyDetachedStorage(
-	_ storagecommon.VolumeAccess,
-	_ storagecommon.FilesystemAccess,
-	storage []state.StorageInstance,
-) ([]params.Entity, []params.Entity, error) {
-	destroyed := make([]params.Entity, 0)
-	detached := make([]params.Entity, 0)
-	for i, stor := range storage {
-		if i%2 == 0 {
-			detached = append(detached, params.Entity{stor.StorageTag().String()})
-		} else {
-			destroyed = append(destroyed, params.Entity{stor.StorageTag().String()})
-		}
-	}
-	return destroyed, detached, nil
 }
 
 type ProvisioningMachineManagerSuite struct {
@@ -668,7 +455,6 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 	s.api = NewMachineManagerAPI(
 		s.controllerUUID,
 		s.modelUUID,
-		nil,
 		nil,
 		ModelAuthorizer{
 			Authorizer: s.authorizer,

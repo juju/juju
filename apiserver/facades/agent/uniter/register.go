@@ -82,7 +82,6 @@ func newUniterAPIWithServices(
 		return nil, apiservererrors.ErrPerm
 	}
 	aClock := context.Clock()
-	resources := context.Resources()
 	watcherRegistry := context.WatcherRegistry()
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
@@ -103,15 +102,10 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageAccessor, err := getStorageState(modelInfo.Type)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	storageAPI, err := newStorageAPI(
-		storageAccessor,
 		context.DomainServices().BlockDevice(),
 		context.DomainServices().Application(),
-		resources,
+		watcherRegistry,
 		accessUnit,
 	)
 	if err != nil {
@@ -160,7 +154,6 @@ func newUniterAPIWithServices(
 		modelType:               modelInfo.Type,
 		clock:                   aClock,
 		auth:                    authorizer,
-		resources:               resources,
 		leadershipChecker:       leadershipChecker,
 		leadershipRevoker:       leadershipRevoker,
 		accessUnit:              accessUnit,

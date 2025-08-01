@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -39,19 +37,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 
 	logger := ctx.Logger().Child("machinemanager")
 
-	modelType, err := ctx.DomainServices().ModelInfo().GetModelType(stdCtx)
-	if err != nil {
-		return nil, internalerrors.Errorf(
-			"getting model type for constructing machine manager facade: %w",
-			err,
-		)
-	}
-
-	storageAccess, err := getStorageState(modelType)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	services := Services{
 		AgentBinaryService:      domainServices.AgentBinary(),
 		AgentPasswordService:    domainServices.AgentPassword(),
@@ -72,7 +57,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
 		ctx.ControllerObjectStore(),
-		storageAccess,
 		ModelAuthorizer{
 			ModelTag:   names.NewModelTag(ctx.ModelUUID().String()),
 			Authorizer: ctx.Auth(),

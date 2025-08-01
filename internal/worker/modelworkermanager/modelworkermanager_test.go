@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	model "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -451,7 +450,7 @@ func (s *suite) expectGetModel(modelUUID coremodel.UUID) {
 func (s *suite) expectGetModelTimes(modelUUID coremodel.UUID, times int) {
 	s.modelService.EXPECT().Model(gomock.Any(), modelUUID).Return(coremodel.Model{
 		UUID:      modelUUID,
-		ModelType: model.IAAS,
+		ModelType: coremodel.IAAS,
 	}, nil).Times(times)
 }
 

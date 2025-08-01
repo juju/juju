@@ -7,8 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -23,10 +21,6 @@ func Register(registry facade.FacadeRegistry) {
 // newStorageAPI returns a new storage API facade.
 func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI, error) {
 	domainServices := ctx.DomainServices()
-	storageAccessor, err := getStorageAccessor()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting backend")
-	}
 
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
@@ -37,7 +31,6 @@ func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI
 	return NewStorageAPI(
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
-		storageAccessor,
 		domainServices.BlockDevice(),
 		storageService,
 		domainServices.Application(),

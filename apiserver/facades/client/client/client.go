@@ -25,7 +25,6 @@ type Client struct {
 	controllerTag names.ControllerTag
 	modelTag      names.ModelTag
 
-	storageAccessor  StorageInterface
 	auth             facade.Authorizer
 	leadershipReader leadership.Reader
 

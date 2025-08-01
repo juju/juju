@@ -25,7 +25,7 @@ func (s *permBaseSuite) TestAPIConstruction(c *tc.C) {
 
 	s.authorizer.EXPECT().AuthClient().Return(false)
 
-	_, err := NewAPIBase(Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
+	_, err := NewAPIBase(Services{}, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -34,7 +34,7 @@ func (s *permBaseSuite) TestAPIServiceConstruction(c *tc.C) {
 
 	s.expectAuthClient()
 
-	_, err := NewAPIBase(Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
+	_, err := NewAPIBase(Services{}, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 

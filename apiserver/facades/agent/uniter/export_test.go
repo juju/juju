@@ -7,28 +7,21 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
-	coremodel "github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 var (
-	WatchStorageAttachment = watchStorageAttachment
-
 	NewUniterAPI             = newUniterAPI
 	NewUniterAPIv19          = newUniterAPIv19
 	NewUniterAPIWithServices = newUniterAPIWithServices
 )
 
 type (
-	StorageStateInterface      storageInterface
-	StorageVolumeInterface     = storageVolumeInterface
-	StorageFilesystemInterface = storageFilesystemInterface
-	BlockDeviceService         = blockDeviceService
+	BlockDeviceService = blockDeviceService
 )
 
 func NewTestAPI(
@@ -53,24 +46,6 @@ func NewTestAPI(
 	}, nil
 }
 
-func NewStorageAPI(
-	storage storageAccess,
-	blockDeviceService blockDeviceService,
-	applicationService ApplicationService,
-	resources facade.Resources,
-	accessUnit common.GetAuthFunc,
-) (*StorageAPI, error) {
-	return newStorageAPI(storage, blockDeviceService, applicationService, resources, accessUnit)
-}
-
 func SetNewContainerBrokerFunc(api *UniterAPI, newBroker caas.NewContainerBrokerFunc) {
 	api.containerBrokerFunc = newBroker
-}
-
-type patcher interface {
-	PatchValue(interface{}, interface{})
-}
-
-func PatchGetStorageStateError(patcher patcher, err error) {
-	patcher.PatchValue(&getStorageState, func(coremodel.ModelType) (storageAccess, error) { return nil, err })
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
@@ -42,7 +42,6 @@ type baseSuite struct {
 	storageService     *MockStorageService
 	relationService    *MockRelationService
 	removalService     *MockRemovalService
-	storageAccess      *MockStorageInterface
 	authorizer         *MockAuthorizer
 	blockChecker       *MockBlockChecker
 	leadershipReader   *MockLeadership
@@ -75,7 +74,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.relationService = NewMockRelationService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 
-	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
 	s.blockChecker = NewMockBlockChecker(ctrl)
 	s.leadershipReader = NewMockLeadership(ctrl)
@@ -145,7 +143,6 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 			RelationService:    s.relationService,
 			RemovalService:     s.removalService,
 		},
-		s.storageAccess,
 		s.authorizer,
 		s.blockChecker,
 		s.modelUUID,

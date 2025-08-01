@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -1593,7 +1592,7 @@ func CloudSpecForModel(
 	regionName := modelInfo.CloudRegion
 	credentialKey := credential.Key{
 		Cloud: modelInfo.Cloud,
-		Owner: model.ControllerModelOwnerUsername,
+		Owner: coremodel.ControllerModelOwnerUsername,
 		Name:  modelInfo.CredentialName,
 	}
 	cred, err := credentialService.CloudCredential(ctx, credentialKey)

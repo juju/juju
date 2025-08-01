@@ -199,12 +199,6 @@ func ServerError(err error) *params.Error {
 		code = params.CodeSecretBackendAlreadyExists
 	case errors.Is(err, errors.NotAssigned):
 		code = params.CodeNotAssigned
-	case errors.Is(err, stateerrors.HasHostedModelsError):
-		code = params.CodeHasHostedModels
-	case errors.Is(err, stateerrors.PersistentStorageError):
-		code = params.CodeHasPersistentStorage
-	case errors.Is(err, stateerrors.ModelNotEmptyError):
-		code = params.CodeModelNotEmpty
 	case errors.Is(err, NoAddressSetError):
 		code = params.CodeNoAddressSet
 	case errors.Is(err, errors.NotProvisioned):
@@ -212,8 +206,6 @@ func ServerError(err error) *params.Error {
 	case errors.Is(err, params.UpgradeInProgressError),
 		errors.Is(err, upgrade.ErrUpgradeInProgress):
 		code = params.CodeUpgradeInProgress
-	case errors.Is(err, stateerrors.StorageAttachedError):
-		code = params.CodeStorageAttached
 	case errors.Is(err, UnknownModelError):
 		code = params.CodeModelNotFound
 	case errors.Is(err, errors.NotSupported):

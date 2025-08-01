@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/base"
@@ -39,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // StatusHistory returns a slice of past statuses for several entities.
@@ -200,29 +198,11 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		}
 	}
 
-	if args.IncludeStorage {
-		context.storageInstances, err = c.storageAccessor.AllStorageInstances()
-		if err != nil {
-			return noStatus, internalerrors.Errorf("cannot list all storage instances: %w", err)
-		}
-		context.filesystems, err = c.storageAccessor.AllFilesystems()
-		if err != nil {
-			return noStatus, internalerrors.Errorf("cannot list all filesystems: %w", err)
-		}
-		context.volumes, err = c.storageAccessor.AllVolumes()
-		if err != nil {
-			return noStatus, internalerrors.Errorf("cannot list all volumes: %w", err)
-		}
-	}
-
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef(ctx, "Applications: %v", context.allAppsUnitsCharmBindings.applications)
 		logger.Tracef(ctx, "Offers: %v", context.offers)
 		logger.Tracef(ctx, "Leaders", context.leaders)
 		logger.Tracef(ctx, "Relations: %v", context.relations)
-		logger.Tracef(ctx, "StorageInstances: %v", context.storageInstances)
-		logger.Tracef(ctx, "Filesystems: %v", context.filesystems)
-		logger.Tracef(ctx, "Volumes: %v", context.volumes)
 	}
 
 	modelStatus, err := context.processModel(ctx)
@@ -230,23 +210,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, internalerrors.Errorf("cannot determine model status: %w", err)
 	}
 
-	var storageDetails []params.StorageDetails
-	var filesystemDetails []params.FilesystemDetails
-	var volumeDetails []params.VolumeDetails
-	if args.IncludeStorage {
-		storageDetails, err = context.processStorage(ctx, c.storageAccessor, c.blockDeviceService)
-		if err != nil {
-			return noStatus, internalerrors.Errorf("cannot process storage instances: %w", err)
-		}
-		filesystemDetails, err = context.processFilesystems(ctx, c.storageAccessor, c.blockDeviceService)
-		if err != nil {
-			return noStatus, internalerrors.Errorf("cannot process filesystems: %w", err)
-		}
-		volumeDetails, err = context.processVolumes(ctx, c.storageAccessor, c.blockDeviceService)
-		if err != nil {
-			return noStatus, internalerrors.Errorf("cannot process volumes: %w", err)
-		}
-	}
+	// TODO(storage): include storage details
 
 	now := c.clock.Now()
 	return params.FullStatus{
@@ -256,9 +220,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(ctx),
 		ControllerTimestamp: &now,
-		Storage:             storageDetails,
-		Filesystems:         filesystemDetails,
-		Volumes:             volumeDetails,
 	}, nil
 }
 
@@ -370,11 +331,6 @@ type statusContext struct {
 
 	// Information about all spaces.
 	spaceInfos network.SpaceInfos
-
-	// Optional storage info.
-	storageInstances []state.StorageInstance
-	volumes          []state.Volume
-	filesystems      []state.Filesystem
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -1128,58 +1084,6 @@ func (c *statusContext) processApplicationRelations(
 		related[relationName] = sn.SortedValues()
 	}
 	return related, subordSet.SortedValues(), nil
-}
-
-func (c *statusContext) unitToMachine(ctx context.Context, unitTag names.UnitTag) (names.MachineTag, error) {
-	unit, ok := c.unitByName(coreunit.Name(unitTag.Id()))
-	if !ok || unit.MachineName == nil {
-		return names.MachineTag{}, internalerrors.Errorf("unit %v: %w", unitTag, errors.NotFound)
-	}
-	return names.NewMachineTag(string(*unit.MachineName)), nil
-}
-
-func (c *statusContext) processStorage(ctx context.Context, storageAccessor StorageInterface, blockDeviceService BlockDeviceService) ([]params.StorageDetails, error) {
-	storageDetails := make([]params.StorageDetails, 0, len(c.storageInstances))
-	for _, storageInstance := range c.storageInstances {
-		storageDetail, err := storagecommon.StorageDetails(ctx, storageAccessor, blockDeviceService, c.unitToMachine, storageInstance)
-		if err != nil {
-			return nil, internalerrors.Errorf("cannot convert storage details for %v: %w", storageInstance.Tag(), err)
-		}
-		storageDetails = append(storageDetails, *storageDetail)
-	}
-	return storageDetails, nil
-}
-
-func (c *statusContext) processFilesystems(ctx context.Context, storageAccessor StorageInterface, blockDeviceService BlockDeviceService) ([]params.FilesystemDetails, error) {
-	filesystemDetails := make([]params.FilesystemDetails, 0, len(c.filesystems))
-	for _, filesystem := range c.filesystems {
-		attachments, err := storageAccessor.FilesystemAttachments(filesystem.FilesystemTag())
-		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-		filesystemDetail, err := storagecommon.FilesystemDetails(ctx, storageAccessor, blockDeviceService, c.unitToMachine, filesystem, attachments)
-		if err != nil {
-			return nil, internalerrors.Errorf("cannot convert filesystem details for %v: %w", filesystem.Tag(), err)
-		}
-		filesystemDetails = append(filesystemDetails, *filesystemDetail)
-	}
-	return filesystemDetails, nil
-}
-
-func (c *statusContext) processVolumes(ctx context.Context, storageAccessor StorageInterface, blockDeviceService BlockDeviceService) ([]params.VolumeDetails, error) {
-	volumeDetails := make([]params.VolumeDetails, 0, len(c.volumes))
-	for _, volume := range c.volumes {
-		attachments, err := storageAccessor.VolumeAttachments(volume.VolumeTag())
-		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-		volumeDetail, err := storagecommon.VolumeDetails(ctx, storageAccessor, blockDeviceService, c.unitToMachine, volume, attachments)
-		if err != nil {
-			return nil, internalerrors.Errorf("cannot convert volume details for %v: %w", volume.Tag(), err)
-		}
-		volumeDetails = append(volumeDetails, *volumeDetail)
-	}
-	return volumeDetails, nil
 }
 
 // processUnitAndAgentStatus retrieves status information for both unit and
