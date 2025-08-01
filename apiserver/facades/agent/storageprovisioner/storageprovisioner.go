@@ -1147,69 +1147,9 @@ func (s *StorageProvisionerAPIv4) getUnitUUID(
 func (s *StorageProvisionerAPIv4) filesystemAttachmentLife(
 	ctx context.Context, fsTag names.FilesystemTag, hostTag names.Tag,
 ) (life.Value, error) {
-	var fsAttachmentUUID storageprovisioning.FilesystemAttachmentUUID
-
-	switch tag := hostTag.(type) {
-	case names.MachineTag:
-		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", internalerrors.Errorf(
-				"machine %q not found", tag.Id(),
-			).Add(errors.NotFound)
-		} else if err != nil {
-			return "", internalerrors.Capture(err)
-		}
-		fsAttachmentUUID, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDMachine(
-			ctx, fsTag.Id(), machineUUID,
-		)
-		if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
-			return "", internalerrors.Errorf(
-				"filesystem attachment %q on %q not found", fsTag.Id(), hostTag.Id(),
-			).Add(errors.NotFound)
-		} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-			return "", internalerrors.Errorf(
-				"filesystem %q not found for attachment on %q", fsTag.Id(), hostTag.Id(),
-			).Add(errors.NotFound)
-		} else if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", internalerrors.Errorf(
-				"machine %q not found for attachment %q", tag.Id(), fsTag.Id(),
-			).Add(errors.NotFound)
-		} else if err != nil {
-			return "", internalerrors.Errorf(
-				"getting filesystem attachment UUID for %q on %q: %w",
-				fsTag.Id(), hostTag.Id(), err,
-			)
-		}
-	case names.UnitTag:
-		unitUUID, err := s.getUnitUUID(ctx, tag)
-		if err != nil {
-			return "", internalerrors.Capture(err)
-		}
-		fsAttachmentUUID, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDUnit(
-			ctx, fsTag.Id(), unitUUID,
-		)
-		if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
-			return "", internalerrors.Errorf(
-				"filesystem attachment %q on %q not found", fsTag.Id(), hostTag.Id(),
-			).Add(errors.NotFound)
-		} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-			return "", internalerrors.Errorf(
-				"filesystem %q not found for attachment on %q", fsTag.Id(), hostTag.Id(),
-			).Add(errors.NotFound)
-		} else if errors.Is(err, applicationerrors.UnitNotFound) {
-			return "", internalerrors.Errorf(
-				"unit %q not found for attachment %q", tag.Id(), fsTag.Id(),
-			).Add(errors.NotFound)
-		} else if err != nil {
-			return "", internalerrors.Errorf(
-				"getting filesystem attachment UUID for %q on %q: %w",
-				fsTag.Id(), hostTag.Id(), err,
-			)
-		}
-	default:
-		return "", internalerrors.Errorf(
-			"filesystem attachment host tag %q is not a valid", hostTag.String(),
-		).Add(errors.NotValid)
+	fsAttachmentUUID, err := s.getFilesystemAttachmentUUID(ctx, fsTag, hostTag)
+	if err != nil {
+		return "", internalerrors.Capture(err)
 	}
 
 	fsLife, err := s.storageProvisioningService.GetFilesystemAttachmentLife(
@@ -1218,10 +1158,6 @@ func (s *StorageProvisionerAPIv4) filesystemAttachmentLife(
 	if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
 		return "", internalerrors.Errorf(
 			"filesystem attachment %q on %q not found", fsTag.Id(), hostTag.Id(),
-		).Add(errors.NotFound)
-	} else if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-		return "", internalerrors.Errorf(
-			"filesystem %q not found for attachment on %q", fsTag.Id(), hostTag.Id(),
 		).Add(errors.NotFound)
 	} else if err != nil {
 		return "", internalerrors.Errorf(
@@ -1232,82 +1168,140 @@ func (s *StorageProvisionerAPIv4) filesystemAttachmentLife(
 	return fsLife.Value()
 }
 
-func (s *StorageProvisionerAPIv4) volumeAttachmentLife(
-	ctx context.Context, volTag names.VolumeTag, hostTag names.Tag,
-) (life.Value, error) {
-	var volAttachmentUUID storageprovisioning.VolumeAttachmentUUID
+func (s *StorageProvisionerAPIv4) getFilesystemAttachmentUUID(
+	ctx context.Context, fsTag names.FilesystemTag, hostTag names.Tag,
+) (storageprovisioning.FilesystemAttachmentUUID, error) {
+	errHandler := func(err error) error {
+		switch {
+		case errors.Is(err, machineerrors.MachineNotFound):
+			return internalerrors.Errorf(
+				"machine %q not found", hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound):
+			return internalerrors.Errorf(
+				"filesystem attachment %q on %q not found", fsTag.Id(), hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+			return internalerrors.Errorf(
+				"filesystem %q not found for attachment on %q", fsTag.Id(), hostTag.Id(),
+			).Add(errors.NotFound)
+		case err != nil:
+			return internalerrors.Errorf(
+				"getting filesystem attachment UUID for %q on %q: %w",
+				fsTag.Id(), hostTag.Id(), err,
+			)
+		}
+		return nil
+	}
+
+	var rval storageprovisioning.FilesystemAttachmentUUID
 	switch tag := hostTag.(type) {
 	case names.MachineTag:
 		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", internalerrors.Errorf(
-				"machine %q not found", tag.Id(),
-			).Add(errors.NotFound)
-		} else if err != nil {
-			return "", internalerrors.Capture(err)
+		if err != nil {
+			return "", errHandler(err)
 		}
-		volAttachmentUUID, err = s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
-			ctx, volTag.Id(), machineUUID,
+
+		rval, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+			ctx, fsTag.Id(), machineUUID,
 		)
-		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
-			return "", internalerrors.Errorf(
-				"volume attachment %q on %q not found", volTag.Id(), hostTag.Id(),
-			).Add(errors.NotFound)
-		} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
-			return "", internalerrors.Errorf(
-				"volume %q not found for attachment on %q", volTag.Id(), hostTag.Id(),
-			).Add(errors.NotFound)
-		} else if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", internalerrors.Errorf(
-				"machine %q not found for attachment %q", tag.Id(), volTag.Id(),
-			).Add(errors.NotFound)
-		} else if err != nil {
-			return "", internalerrors.Errorf(
-				"getting volume attachment UUID for %q on %q: %w",
-				volTag.Id(), hostTag.Id(), err,
-			)
+		if err != nil {
+			return "", errHandler(err)
 		}
 	case names.UnitTag:
 		unitUUID, err := s.getUnitUUID(ctx, tag)
 		if err != nil {
 			return "", internalerrors.Capture(err)
 		}
-		volAttachmentUUID, err = s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDUnit(
-			ctx, volTag.Id(), unitUUID,
+		rval, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+			ctx, fsTag.Id(), unitUUID,
 		)
-		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
-			return "", internalerrors.Errorf(
+		if err != nil {
+			return "", errHandler(err)
+		}
+	default:
+		return "", internalerrors.Errorf(
+			"filesystem attachment host tag %q is not a valid", hostTag.String(),
+		).Add(errors.NotValid)
+	}
+
+	return rval, nil
+}
+
+func (s *StorageProvisionerAPIv4) getVolumeAttachmentUUID(
+	ctx context.Context, volTag names.VolumeTag, hostTag names.Tag,
+) (storageprovisioning.VolumeAttachmentUUID, error) {
+	errHandler := func(err error) error {
+		switch {
+		case errors.Is(err, machineerrors.MachineNotFound):
+			return internalerrors.Errorf(
+				"machine %q not found", hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound):
+			return internalerrors.Errorf(
 				"volume attachment %q on %q not found", volTag.Id(), hostTag.Id(),
 			).Add(errors.NotFound)
-		} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
-			return "", internalerrors.Errorf(
+		case errors.Is(err, storageprovisioningerrors.VolumeNotFound):
+			return internalerrors.Errorf(
 				"volume %q not found for attachment on %q", volTag.Id(), hostTag.Id(),
 			).Add(errors.NotFound)
-		} else if errors.Is(err, applicationerrors.UnitNotFound) {
-			return "", internalerrors.Errorf(
-				"unit %q not found for attachment %q", tag.Id(), volTag.Id(),
-			).Add(errors.NotFound)
-		} else if err != nil {
-			return "", internalerrors.Errorf(
-				"getting volume attachment UUID for %q on %q: %w",
+		case err != nil:
+			return internalerrors.Errorf(
+				"getting volume attachment uuid for %q on %q: %w",
 				volTag.Id(), hostTag.Id(), err,
 			)
+		}
+		return nil
+	}
+
+	var rval storageprovisioning.VolumeAttachmentUUID
+	switch tag := hostTag.(type) {
+	case names.MachineTag:
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		if err != nil {
+			return "", errHandler(err)
+		}
+
+		rval, err = s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
+			ctx, volTag.Id(), machineUUID,
+		)
+		if err != nil {
+			return "", errHandler(err)
+		}
+	case names.UnitTag:
+		unitUUID, err := s.getUnitUUID(ctx, tag)
+		if err != nil {
+			return "", internalerrors.Capture(err)
+		}
+		rval, err = s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDUnit(
+			ctx, volTag.Id(), unitUUID,
+		)
+		if err != nil {
+			return "", errHandler(err)
 		}
 	default:
 		return "", internalerrors.Errorf(
 			"volume attachment host tag %q is not a valid", hostTag.String(),
 		).Add(errors.NotValid)
 	}
+
+	return rval, nil
+}
+
+func (s *StorageProvisionerAPIv4) volumeAttachmentLife(
+	ctx context.Context, volTag names.VolumeTag, hostTag names.Tag,
+) (life.Value, error) {
+	uuid, err := s.getVolumeAttachmentUUID(ctx, volTag, hostTag)
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
 	volLife, err := s.storageProvisioningService.GetVolumeAttachmentLife(
-		ctx, volAttachmentUUID,
+		ctx, uuid,
 	)
 	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
 		return "", internalerrors.Errorf(
 			"volume attachment %q on %q not found", volTag.Id(), hostTag.Id(),
-		).Add(errors.NotFound)
-	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
-		return "", internalerrors.Errorf(
-			"volume %q not found for attachment on %q", volTag.Id(), hostTag.Id(),
 		).Add(errors.NotFound)
 	} else if err != nil {
 		return "", internalerrors.Errorf(

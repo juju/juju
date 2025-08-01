@@ -1275,7 +1275,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemN
 	).Return(filesystemAttachmentUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
-		Return(-1, storageprovisioningerrors.FilesystemNotFound)
+		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
 	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -1391,7 +1391,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemNotF
 	).Return(filesystemAttachmentUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
-		Return(-1, storageprovisioningerrors.FilesystemNotFound)
+		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
 	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -1453,7 +1453,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemNotF
 	).Return(filesystemAttachmentUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
-		Return(-1, storageprovisioningerrors.FilesystemNotFound)
+		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
 	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -1632,7 +1632,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeNotFound2
 	).Return(volumeAttachmentUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().
 		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
-		Return(-1, storageprovisioningerrors.VolumeNotFound)
+		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
 
 	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -1748,7 +1748,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeNotFound(c *
 	).Return(volumeAttachmentUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().
 		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
-		Return(-1, storageprovisioningerrors.VolumeNotFound)
+		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
 
 	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -1810,7 +1810,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeNotFound2(c 
 	).Return(volumeAttachmentUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().
 		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
-		Return(-1, storageprovisioningerrors.VolumeNotFound)
+		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
 
 	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
