@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -522,22 +521,21 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 	unitUUIDRec := entityUUID{UUID: uUUID}
 
 	for _, table := range []string{
-		"unit_agent_version",
-		"unit_state",
-		"unit_state_charm",
-		"unit_state_relation",
-		"unit_agent_status",
-		"unit_workload_status",
-		"unit_workload_version",
-		"unit_principal",
-		"unit_resource",
-		"k8s_pod_status",
-		"port_range",
-		"unit_constraint",
-		"unit_storage_directive",
+		"DELETE FROM unit_agent_version WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_state WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_state_charm WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_state_relation WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_agent_status WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_workload_status WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_workload_version WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_principal WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_resource WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM k8s_pod_status WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM port_range WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_constraint WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_storage_directive WHERE unit_uuid = $entityUUID.uuid",
 	} {
-		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $entityUUID.uuid`, table)
-		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unitUUIDRec)
+		deleteUnitReferenceStmt, err := st.Prepare(table, unitUUIDRec)
 		if err != nil {
 			return errors.Capture(err)
 		}

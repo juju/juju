@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -570,28 +569,27 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 	machineUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
-		"machine_volume",
-		"machine_filesystem",
-		"machine_manual",
-		"machine_agent_version",
-		"instance_tag",
-		"machine_status",
-		"machine_cloud_instance_status",
-		"machine_cloud_instance",
-		"machine_container_type",
-		"machine_platform",
-		"machine_agent_version",
-		"machine_constraint",
-		"machine_requires_reboot",
-		"machine_lxd_profile",
-		"machine_agent_presence",
-		"machine_container_type",
-		"machine_ssh_host_key",
+		"DELETE FROM machine_volume WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_filesystem WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_manual WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_agent_version WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM instance_tag WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_status WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_cloud_instance_status WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_cloud_instance WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_platform WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_agent_version WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_constraint WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_requires_reboot WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_lxd_profile WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_agent_presence WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {
-		query := fmt.Sprintf("DELETE FROM %s WHERE machine_uuid = $entityUUID.uuid", table)
-		stmt, err := st.Prepare(query, machineUUIDRec)
+		stmt, err := st.Prepare(table, machineUUIDRec)
 		if err != nil {
 			return errors.Capture(err)
 		}

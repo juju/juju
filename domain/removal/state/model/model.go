@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -411,14 +410,13 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 	modelUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
-		"model_life",
-		"model_constraint",
-		"model_agent",
+		"DELETE FROM model_life WHERE model_uuid = $entityUUID.uuid",
+		"DELETE FROM model_constraint WHERE model_uuid = $entityUUID.uuid",
+		"DELETE FROM model_agent WHERE model_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {
-		query := fmt.Sprintf("DELETE FROM %s WHERE model_uuid = $entityUUID.uuid", table)
-		stmt, err := st.Prepare(query, modelUUIDRec)
+		stmt, err := st.Prepare(table, modelUUIDRec)
 		if err != nil {
 			return errors.Capture(err)
 		}

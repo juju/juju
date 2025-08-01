@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -237,15 +236,14 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 	modelUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
-		"model_secret_backend",
-		"secret_backend_reference",
-		"model_authorized_keys",
-		"model_last_login",
+		"DELETE FROM model_secret_backend WHERE model_uuid = $entityUUID.uuid",
+		"DELETE FROM secret_backend_reference WHERE model_uuid = $entityUUID.uuid",
+		"DELETE FROM model_authorized_keys WHERE model_uuid = $entityUUID.uuid",
+		"DELETE FROM model_last_login WHERE model_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {
-		query := fmt.Sprintf("DELETE FROM %s WHERE model_uuid = $entityUUID.uuid", table)
-		stmt, err := st.Prepare(query, modelUUIDRec)
+		stmt, err := st.Prepare(table, modelUUIDRec)
 		if err != nil {
 			return errors.Capture(err)
 		}
