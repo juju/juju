@@ -1276,6 +1276,13 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 						Size:         10,
 					},
 				},
+				StorageInstances: []application.CreateUnitStorageInstanceArg{
+					{
+						Name: "data",
+					},
+				},
+				StorageToAttach: []storage.StorageInstanceUUID{""},
+				StorageToOwn:    []storage.StorageInstanceUUID{""},
 			},
 		},
 		Platform: deployment.Platform{
@@ -1346,7 +1353,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
-		c.Assert(u, tc.DeepEquals, us)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
+			s.createUnitStorageArgChecker(), tc.ExpectedValue)
+		c.Assert(u, mc, us)
 		return id, nil, nil
 	})
 
@@ -1416,6 +1426,19 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 						ProviderType: ptr("fast"),
 					},
 				},
+				StorageInstances: []application.CreateUnitStorageInstanceArg{
+					{
+						Name: "data",
+					},
+					{
+						Name: "data",
+					},
+					{
+						Name: "data",
+					},
+				},
+				StorageToAttach: []storage.StorageInstanceUUID{"", "", ""},
+				StorageToOwn:    []storage.StorageInstanceUUID{"", "", ""},
 			},
 		},
 		Platform: deployment.Platform{
@@ -1487,7 +1510,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
-		c.Assert(u, tc.DeepEquals, us)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
+			s.createUnitStorageArgChecker(), tc.ExpectedValue)
+		c.Assert(u, mc, us)
 		return id, nil, nil
 	})
 
@@ -1559,6 +1585,13 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 						ProviderType: ptr("rootfs"),
 					},
 				},
+				StorageInstances: []application.CreateUnitStorageInstanceArg{
+					{
+						Name: "data",
+					},
+				},
+				StorageToAttach: []storage.StorageInstanceUUID{""},
+				StorageToOwn:    []storage.StorageInstanceUUID{""},
 			},
 		},
 		Platform: deployment.Platform{
@@ -1630,7 +1663,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
-		c.Assert(u, tc.DeepEquals, us)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
+			s.createUnitStorageArgChecker(), tc.ExpectedValue)
+		c.Assert(u, mc, us)
 		return id, nil, nil
 	})
 
@@ -1699,6 +1735,16 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 						ProviderType: ptr("fast"),
 					},
 				},
+				StorageInstances: []application.CreateUnitStorageInstanceArg{
+					{
+						Name: "data",
+					},
+					{
+						Name: "data",
+					},
+				},
+				StorageToAttach: []storage.StorageInstanceUUID{"", ""},
+				StorageToOwn:    []storage.StorageInstanceUUID{"", ""},
 			},
 		},
 		Platform: deployment.Platform{
@@ -1770,7 +1816,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
-		c.Assert(u, tc.DeepEquals, us)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
+			s.createUnitStorageArgChecker(), tc.ExpectedValue)
+		c.Assert(u, mc, us)
 		return id, nil, nil
 	})
 
@@ -2782,4 +2831,13 @@ func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.
 
 	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
+}
+
+func (s *providerServiceSuite) createUnitStorageArgChecker() tc.Checker {
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.StorageInstances[_].UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_.StorageInstances[_].FilesystemUUID`, tc.Deref(tc.IsNonZeroUUID))
+	mc.AddExpr(`_.StorageToAttach[_]`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_.StorageToOwn[_]`, tc.IsNonZeroUUID)
+	return mc
 }

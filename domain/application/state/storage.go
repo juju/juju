@@ -777,9 +777,9 @@ func (st *State) makeInsertUnitFilesystemArgs(
 		)
 	}
 
-	fsRval := make([]insertStorageFilesystem, len(argIndexes))
-	fsInstanceRval := make([]insertStorageFilesystemInstance, len(argIndexes))
-	fsStatusRval := make([]insertStorageFilesystemStatus, len(argIndexes))
+	fsRval := make([]insertStorageFilesystem, 0, len(argIndexes))
+	fsInstanceRval := make([]insertStorageFilesystemInstance, 0, len(argIndexes))
+	fsStatusRval := make([]insertStorageFilesystemStatus, 0, len(argIndexes))
 	statusTime := time.Now()
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
