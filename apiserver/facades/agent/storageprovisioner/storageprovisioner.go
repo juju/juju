@@ -1079,7 +1079,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeInfo(ctx context.Context, args params
 			return apiservererrors.ErrPerm
 		}
 		if vol.Info.Pool != "" {
-			return internalerrors.New("pool cannot be set")
+			return internalerrors.New("pool field must not be set")
 		}
 		info := storageprovisioning.VolumeProvisionedInfo{
 			ProviderID: vol.Info.ProviderId,
@@ -1126,7 +1126,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args pa
 			return apiservererrors.ErrPerm
 		}
 		if fs.Info.Pool != "" {
-			return internalerrors.New("pool cannot be set")
+			return internalerrors.New("pool field must not be set")
 		}
 		if fs.VolumeTag != "" {
 			// TODO(storage): once volumes are implemented, we need to check that
@@ -1192,13 +1192,13 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 			return apiservererrors.ErrPerm
 		}
 		if vp.Life != "" {
-			return internalerrors.New("cannot set life")
+			return internalerrors.New("life field must not be set")
 		}
 		if vp.PlanInfo.DeviceType != "" {
-			return internalerrors.New("cannot set device type")
+			return internalerrors.New("device type field must not be set")
 		}
 		if len(vp.PlanInfo.DeviceAttributes) != 0 {
-			return internalerrors.New("cannot set device attributes")
+			return internalerrors.New("device attributes field must not be set")
 		}
 		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
 		if errors.Is(err, machineerrors.MachineNotFound) {
@@ -1224,7 +1224,12 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 		}
 		blockDeviceUUID, err := s.storageProvisioningService.MatchOrCreateBlockDevice(
 			ctx, volumeTag.Id(), machineUUID, blockDeviceInfo)
-		if err != nil {
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			return internalerrors.Errorf(
+				"volume attachment for machine %q and volume %q not found",
+				machineTag.Id(), volumeTag.Id(),
+			).Add(errors.NotFound)
+		} else if err != nil {
 			return internalerrors.Capture(err)
 		}
 		err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedBlockDevice(
@@ -1297,7 +1302,12 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 			}
 			blockDeviceUUID, err = s.storageProvisioningService.MatchOrCreateBlockDevice(
 				ctx, volumeTag.Id(), machineUUID, blockDeviceInfo)
-			if err != nil {
+			if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+				return internalerrors.Errorf(
+					"volume attachment for machine %q and volume %q not found",
+					machineTag.Id(), volumeTag.Id(),
+				).Add(errors.NotFound)
+			} else if err != nil {
 				return internalerrors.Capture(err)
 			}
 		}
