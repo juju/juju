@@ -91,10 +91,6 @@ type space struct {
 	UUID corenetwork.SpaceUUID `db:"uuid"`
 }
 
-type countResult struct {
-	Count int `db:"count"`
-}
-
 // providerSpace represents a single row from the provider_space table.
 type providerSpace struct {
 	// SpaceUUID is the unique ID of the space.
@@ -740,4 +736,12 @@ func nilZeroPtr[T comparable](v T) *T {
 		return nil
 	}
 	return &v
+}
+
+func zeroNilPtr[T comparable](v *T) T {
+	var zero T
+	if v == nil {
+		return zero
+	}
+	return *v
 }

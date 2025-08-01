@@ -6,11 +6,14 @@ package spaces
 import (
 	"context"
 
-	"github.com/juju/errors"
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	domainerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -23,97 +26,59 @@ func (api *API) RemoveSpace(ctx context.Context, spaceParams params.RemoveSpaceP
 		return result, err
 	}
 
+	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return result, errors.Errorf("retrieving controller config: %w", err)
+	}
+	mgtSpace := cfg.JujuManagementSpace()
+
 	result.Results = make([]params.RemoveSpaceResult, len(spaceParams.SpaceParams))
 	for i, spaceParam := range spaceParams.SpaceParams {
 		spacesTag, err := names.ParseSpaceTag(spaceParam.Space.Tag)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Capture(err))
 			continue
 		}
 		spaceName := network.SpaceName(spacesTag.Id())
 
-		if !api.checkSpaceIsRemovable(ctx, i, spaceName, &result, spaceParam.Force) {
+		if spaceName == network.AlphaSpaceName {
+			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("the %q space cannot be removed", network.AlphaSpaceName))
 			continue
 		}
 
-		if spaceParam.DryRun {
+		// Check that the space is not the juju controller space
+		isMgtSpace := spaceName == mgtSpace
+
+		// RemoveSpace allows to both get violation and remove space.
+		// We use dryRun (get violation without change) if asked or if we are
+		// in the controller management space, since it would be a violation to
+		// remove the controller management space.
+		// However, RemoveSpace with the dry run flag in this case allows
+		// fetching any other violation.
+		violations, err := api.networkService.RemoveSpace(ctx, spaceName, spaceParam.Force, spaceParam.DryRun || isMgtSpace)
+		if errors.Is(err, domainerrors.SpaceNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(domainerrors.SpaceNotFound)
 			continue
 		}
-
-		space, err := api.networkService.SpaceByName(ctx, spaceName)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
+			return result, errors.Errorf("removing space %q: %w", spaceName, err)
+		}
+		if spaceParam.Force {
+			// We do not publish the violation if forced.
 			continue
 		}
-		if err := api.networkService.RemoveSpace(ctx, space.ID); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
-			continue
+		toAppEntity := func(f string) params.Entity {
+			return params.Entity{Tag: names.NewApplicationTag(f).String()}
 		}
+		result.Results[i].Bindings = transform.Slice(violations.ApplicationBindings, toAppEntity)
+		result.Results[i].Constraints = transform.Slice(violations.ApplicationConstraints, toAppEntity)
+		if violations.HasModelConstraint {
+			result.Results[i].Constraints = append(result.Results[i].Constraints, params.Entity{Tag: api.modelTag.String()})
+		}
+		if isMgtSpace {
+			result.Results[i].ControllerSettings = []string{controller.JujuManagementSpace}
+		}
+
 	}
 	return result, nil
-}
-
-func (api *API) checkSpaceIsRemovable(
-	ctx context.Context,
-	index int,
-	spaceName network.SpaceName,
-	results *params.RemoveSpaceResults,
-	force bool,
-) bool {
-	removable := true
-
-	if spaceName == network.AlphaSpaceName {
-		newErr := errors.New("the alpha space cannot be removed")
-		results.Results[index].Error = apiservererrors.ServerError(newErr)
-		return false
-	}
-
-	if force {
-		return true
-	}
-
-	space, err := api.networkService.SpaceByName(ctx, spaceName)
-	if err != nil {
-		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
-		return false
-	}
-
-	// TODO(gfouillet) - 2025-07-29: remove checks from here and move them into
-	//   the service layer. A space cannot be removed if:
-	//    - it is used as binding for application or endpoint
-	//    - it is used as constraint for model or application
-	//    - it is the controller management space
-	bindingTags, err := api.applicationTagsForSpace(ctx, space.ID)
-	if err != nil {
-		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
-		return false
-	}
-	if len(bindingTags) != 0 {
-		results.Results[index].Bindings = convertTagsToEntities(bindingTags)
-		removable = false
-	}
-	return removable
-}
-
-// applicationTagsForSpace returns the tags for all applications with an
-// endpoint bound to a space with the input name.
-func (api *API) applicationTagsForSpace(ctx context.Context, spaceID network.SpaceUUID) ([]names.Tag, error) {
-	applications, err := api.applicationService.GetApplicationsBoundToSpace(ctx, spaceID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	tags := make([]names.Tag, len(applications))
-	for i, app := range applications {
-		tags[i] = names.NewApplicationTag(app)
-	}
-	return tags, nil
-}
-
-func convertTagsToEntities(tags []names.Tag) []params.Entity {
-	entities := make([]params.Entity, len(tags))
-	for i, tag := range tags {
-		entities[i].Tag = tag.String()
-	}
-
-	return entities
 }
