@@ -114,6 +114,7 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 
 	case *services.ControllerObjectStoreServices:
 		*out = w.ControllerServices()
+
 	default:
 		return errors.Errorf("unsupported output type %T", out)
 	}

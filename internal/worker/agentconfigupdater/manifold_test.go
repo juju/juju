@@ -318,9 +318,6 @@ type mockConfig struct {
 
 	openTelemetryTailSamplingThreshold    time.Duration
 	openTelemetryTailSamplingThresholdSet bool
-
-	objectStoreType    objectstore.BackendType
-	objectStoreTypeSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -426,18 +423,6 @@ func (mc *mockConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
 func (mc *mockConfig) SetOpenTelemetryTailSamplingThreshold(dur time.Duration) {
 	mc.openTelemetryTailSamplingThreshold = dur
 	mc.openTelemetryTailSamplingThresholdSet = true
-}
-
-func (mc *mockConfig) ObjectStoreType() objectstore.BackendType {
-	if mc.objectStoreType == "" {
-		return objectstore.FileBackend
-	}
-	return mc.objectStoreType
-}
-
-func (mc *mockConfig) SetObjectStoreType(value objectstore.BackendType) {
-	mc.objectStoreType = value
-	mc.objectStoreTypeSet = true
 }
 
 func (mc *mockConfig) LogDir() string {

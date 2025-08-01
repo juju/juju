@@ -148,10 +148,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configOpenTelemetryTailSamplingThreshold := controllerConfig.OpenTelemetryTailSamplingThreshold()
 			openTelemetryTailSamplingThresholdChanged := agentsOpenTelemetryTailSamplingThreshold != configOpenTelemetryTailSamplingThreshold
 
-			agentsObjectStoreType := currentConfig.ObjectStoreType()
-			configObjectStoreType := controllerConfig.ObjectStoreType()
-			objectStoreTypeChanged := agentsObjectStoreType != configObjectStoreType
-
 			apiState, err := apiagent.NewClient(apiCaller, apiagent.WithTracer(tracer))
 			if err != nil {
 				return nil, errors.Capture(err)
@@ -208,10 +204,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf(ctx, "setting open telemetry tail sampling threshold: %f => %f", agentsOpenTelemetryTailSamplingThreshold, configOpenTelemetryTailSamplingThreshold)
 					config.SetOpenTelemetryTailSamplingThreshold(configOpenTelemetryTailSamplingThreshold)
 				}
-				if objectStoreTypeChanged {
-					logger.Debugf(ctx, "setting object store type: %q => %q", agentsObjectStoreType, configObjectStoreType)
-					config.SetObjectStoreType(configObjectStoreType)
-				}
 
 				return nil
 			})
@@ -253,10 +245,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				logger.Infof(ctx, "restarting agent for new open telemetry tail sampling threshold")
 				reason = append(reason, controller.OpenTelemetryTailSamplingThreshold)
 			}
-			if objectStoreTypeChanged {
-				logger.Infof(ctx, "restarting agent for new object store type")
-				reason = append(reason, controller.ObjectStoreType)
-			}
 			if len(reason) > 0 {
 				return nil, errors.Errorf("%w: controller config changed: %s",
 					jworker.ErrRestartAgent, strings.Join(reason, ", "))
@@ -273,7 +261,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				OpenTelemetryStackTraces:           configOpenTelemetryStackTraces,
 				OpenTelemetrySampleRatio:           configOpenTelemetrySampleRatio,
 				OpenTelemetryTailSamplingThreshold: configOpenTelemetryTailSamplingThreshold,
-				ObjectStoreType:                    configObjectStoreType,
 				Logger:                             config.Logger,
 			})
 		},

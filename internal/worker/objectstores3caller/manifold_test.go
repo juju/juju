@@ -89,20 +89,34 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectControllerConfig(c, testing.FakeControllerConfig())
+	config := testing.FakeControllerConfig()
 
-	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
+	s.expectClock()
+	s.expectControllerConfig(c, config)
+	s.expectControllerConfigWatch(c)
+	s.expectHTTPClient(c)
+
+	manifold := Manifold(s.getConfig())
+
+	w, err := manifold.Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// This should still be a worker, just a useless one.
-	nw, ok := w.(*noopWorker)
-	c.Assert(ok, tc.IsTrue)
-	err = nw.Session(c.Context(), func(context.Context, objectstore.Session) error {
+	s.ensureStartup(c)
+
+	var client objectstore.Client
+	err = manifold.Output(w, &client)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(client, tc.NotNil)
+
+	err = client.Session(c.Context(), func(context.Context, objectstore.Session) error {
 		c.Fatalf("unexpected call to Session")
 		return nil
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+
+	workertest.CleanKill(c, w)
 }
 
 func (s *manifoldSuite) TestStartS3Backend(c *tc.C) {
@@ -117,7 +131,7 @@ func (s *manifoldSuite) TestStartS3Backend(c *tc.C) {
 	config := testing.FakeControllerConfig()
 	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
 
-	s.expectControllerConfig(c, config)
+	s.expectClock()
 	s.expectControllerConfig(c, config)
 	s.expectControllerConfigWatch(c)
 	s.expectHTTPClient(c)
@@ -139,7 +153,6 @@ func (s *manifoldSuite) TestOutput(c *tc.C) {
 	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
 
 	s.expectClock()
-	s.expectControllerConfig(c, config)
 	s.expectControllerConfig(c, config)
 	s.expectControllerConfigWatch(c)
 	s.expectHTTPClient(c)
