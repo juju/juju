@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/loggo"
-	"github.com/juju/naturalsort"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	
+	"github.com/juju/juju/internal/naturalsort"
 )
 
 type modelSuite struct{}

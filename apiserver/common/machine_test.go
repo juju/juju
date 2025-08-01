@@ -296,17 +296,13 @@ func (st *mockState) Machine(id string) (common.Machine, error) {
 	return nil, errors.Errorf("machine %s does not exist", id)
 }
 
-func (st *mockState) AllMachines() (machines []common.Machine, err error) {
+func (st *mockState) AllMachines() (machines []common.Machine, _ error) {
 	// Ensure we get machines in id order.
 	var ids []string
 	for id := range st.machines {
 		ids = append(ids, id)
 	}
-	_, err = naturalsort.Sort(ids)
-	if err != nil {
-		return nil, err
-	}
-
+	naturalsort.Sort(ids)
 	for _, id := range ids {
 		machines = append(machines, st.machines[id])
 	}

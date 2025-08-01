@@ -16,7 +16,6 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/naturalsort"
 	jujuversion "github.com/juju/juju/version"
 )
 

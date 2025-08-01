@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
-	"github.com/juju/naturalsort"
 	"github.com/juju/utils/v3"
 
 	actionapi "github.com/juju/juju/api/client/action"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/jujuclient"
 )
 

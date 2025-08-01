@@ -9,8 +9,9 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/juju/naturalsort"
 	"github.com/mattn/go-isatty"
+
+	"github.com/juju/juju/internal/naturalsort"
 )
 
 // stringKeysFromMap takes a map with keys which are strings and returns
