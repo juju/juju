@@ -528,13 +528,13 @@ func makeUnitStorageInstancesFromDirective(
 		// filesystem. This will be updated to cover all storage and for a
 		// machine in the near future.
 		rval = append(rval, application.CreateUnitStorageInstanceArg{
-			FilesystemUUID: &fsUUID,
 			Name:           directive.Name,
 			UUID:           uuid,
+			FilesystemUUID: &fsUUID,
 		})
 	}
 
-	return nil, nil
+	return rval, nil
 }
 
 // makeStorageDirectiveFromApplicationArg is responsible take the storage

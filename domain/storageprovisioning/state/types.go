@@ -174,7 +174,7 @@ type filesystem struct {
 	FilesystemID string           `db:"filesystem_id"`
 	ProviderID   string           `db:"provider_id"`
 	VolumeID     sql.Null[string] `db:"volume_id"`
-	Size         uint64           `db:"size_mib"`
+	SizeMiB      uint64           `db:"size_mib"`
 }
 
 type filesystemAttachment struct {
@@ -212,4 +212,20 @@ type resourceTagInfo struct {
 	ModelUUID       string `db:"model_uuid"`
 	ControllerUUID  string `db:"controller_uuid"`
 	ApplicationName string `db:"application_name"`
+}
+
+// filesystemProvisionedInfo is used to set the provisioned info for a
+// filesystem.
+type filesystemProvisionedInfo struct {
+	UUID       string `db:"uuid"`
+	ProviderID string `db:"provider_id"`
+	SizeMiB    uint64 `db:"size_mib"`
+}
+
+// filesystemAttachmentProvisionedInfo is used to set the provisioned info for
+// a filesystem attachment.
+type filesystemAttachmentProvisionedInfo struct {
+	UUID       string `db:"uuid"`
+	MountPoint string `db:"mount_point"`
+	ReadOnly   bool   `db:"read_only"`
 }

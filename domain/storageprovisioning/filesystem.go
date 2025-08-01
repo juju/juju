@@ -46,8 +46,8 @@ type Filesystem struct {
 	// ProviderID is the ID of the filesystem from the storage provider.
 	ProviderID string
 
-	// Size is the size of the filesystem in MiB.
-	Size uint64
+	// SizeMiB is the size of the filesystem in MiB.
+	SizeMiB uint64
 }
 
 // FilesystemBackingVolume contains information about the volume that is used
@@ -105,4 +105,24 @@ type FilesystemTemplate struct {
 	// Attributes are a set of key value pairs that are supplied to the provider
 	// or provisioner to facilitate this filesystem(s).
 	Attributes map[string]string
+}
+
+// FilesystemProvisionedInfo is information set by the storage provisioner for
+// filesystems it has provisioned.
+type FilesystemProvisionedInfo struct {
+	// ProviderID is the ID of the filesystem from the storage provider.
+	ProviderID string
+
+	// SizeMiB is the size of the filesystem in MiB.
+	SizeMiB uint64
+}
+
+// FilesystemAttachmentProvisionedInfo is information set by the storage
+// provisioner for filesystems attachments it has provisioned.
+type FilesystemAttachmentProvisionedInfo struct {
+	// MountPoint is the path where the filesystem is mounted.
+	MountPoint string
+
+	// ReadOnly is true if the filesystem is mounted read-only.
+	ReadOnly bool
 }

@@ -14,6 +14,7 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/blockdevice"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
@@ -29,6 +30,7 @@ import (
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -111,7 +113,7 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 		},
 		FilesystemID: "123",
 		ProviderID:   "fs-1234",
-		Size:         1000,
+		SizeMiB:      1000,
 	}
 
 	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
@@ -1824,4 +1826,493 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeNotFound2(c 
 	c.Assert(result.Results, tc.HasLen, 1)
 	r := result.Results[0]
 	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+
+	info := storageprovisioning.FilesystemProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().CheckFilesystemForIDExists(gomock.Any(), "123").Return(true, nil)
+	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(nil)
+
+	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
+		Filesystems: []params.Filesystem{
+			{
+				FilesystemTag: tag.String(),
+				Info: params.FilesystemInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetFilesystemInfoWithBackingVolume(c *tc.C) {
+	c.Skip("skipped until volume backed filesystems are supported")
+
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	fsTag := names.NewFilesystemTag("123")
+	volTag := names.NewVolumeTag("456")
+
+	info := storageprovisioning.FilesystemProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().CheckFilesystemForIDExists(gomock.Any(), "123").Return(true, nil)
+	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(nil)
+
+	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
+		Filesystems: []params.Filesystem{
+			{
+				FilesystemTag: fsTag.String(),
+				VolumeTag:     volTag.String(),
+				Info: params.FilesystemInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetFilesystemInfoNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	info := storageprovisioning.FilesystemProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+	}
+
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().CheckFilesystemForIDExists(gomock.Any(), "123").Return(true, nil)
+	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(
+		storageprovisioningerrors.FilesystemNotFound)
+
+	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
+		Filesystems: []params.Filesystem{
+			{
+				FilesystemTag: tag.String(),
+				Info: params.FilesystemInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestSetFilesystemInfoNoPool(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().CheckFilesystemForIDExists(gomock.Any(), "123").Return(true, nil)
+
+	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
+		Filesystems: []params.Filesystem{
+			{
+				FilesystemTag: tag.String(),
+				Info: params.FilesystemInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+					Pool:       "not allowed",
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeInfo(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	info := storageprovisioning.VolumeProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+		HardwareID: "abc",
+		WWN:        "xyz",
+		Persistent: true,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetVolumeProvisionedInfo(gomock.Any(), "123", info).Return(nil)
+
+	result, err := s.api.SetVolumeInfo(c.Context(), params.Volumes{
+		Volumes: []params.Volume{
+			{
+				VolumeTag: tag.String(),
+				Info: params.VolumeInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+					HardwareId: "abc",
+					WWN:        "xyz",
+					Persistent: true,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeInfoNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	info := storageprovisioning.VolumeProvisionedInfo{
+		ProviderID: "fs-123",
+		SizeMiB:    100,
+		HardwareID: "abc",
+		WWN:        "xyz",
+		Persistent: true,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetVolumeProvisionedInfo(gomock.Any(), "123", info).Return(
+		storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.SetVolumeInfo(c.Context(), params.Volumes{
+		Volumes: []params.Volume{
+			{
+				VolumeTag: tag.String(),
+				Info: params.VolumeInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+					HardwareId: "abc",
+					WWN:        "xyz",
+					Persistent: true,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestSetVolumeInfoNoPool(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	result, err := s.api.SetVolumeInfo(c.Context(), params.Volumes{
+		Volumes: []params.Volume{
+			{
+				VolumeTag: tag.String(),
+				Info: params.VolumeInfo{
+					ProviderId: "fs-123",
+					Size:       100,
+					HardwareId: "abc",
+					WWN:        "xyz",
+					Persistent: true,
+					Pool:       "not allowed",
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineTag := names.NewMachineTag("5")
+	machineUUID := machinetesting.GenUUID(c)
+	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+		machine.Name(machineTag.Id())).Return(machineUUID, nil)
+	volAttachUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+	info := storageprovisioning.VolumeAttachmentProvisionedInfo{
+		ReadOnly:              true,
+		BlockDeviceName:       "x",
+		BlockDeviceLink:       "y",
+		BlockDeviceBusAddress: "z",
+	}
+	planInfo := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
+		DeviceType: "iscsi",
+		DeviceAttributes: map[string]string{
+			"a": "b",
+		},
+	}
+
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(),
+		tag.Id(), machineUUID).Return(volAttachUUID, nil)
+	svc.EXPECT().SetVolumeAttachmentProvisionedInfo(gomock.Any(),
+		volAttachUUID, info).Return(nil)
+	svc.EXPECT().SetVolumeAttachmentPlanProvisionedInfo(gomock.Any(), tag.Id(),
+		machineUUID, planInfo).Return(nil)
+
+	result, err := s.api.SetVolumeAttachmentInfo(c.Context(), params.VolumeAttachments{
+		VolumeAttachments: []params.VolumeAttachment{
+			{
+				VolumeTag:  tag.String(),
+				MachineTag: machineTag.String(),
+				Info: params.VolumeAttachmentInfo{
+					DeviceName: "x",
+					DeviceLink: "y",
+					BusAddress: "z",
+					ReadOnly:   true,
+					PlanInfo: &params.VolumeAttachmentPlanInfo{
+						DeviceType: storage.DeviceTypeISCSI,
+						DeviceAttributes: map[string]string{
+							"a": "b",
+						},
+					},
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeAttachmentInfoErrors(c *tc.C) {
+	// TODO(storage): test when volume attachments are missing or volume attach-
+	// ment plans are missing (when plan info specified)
+}
+
+func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineTag := names.NewMachineTag("5")
+	machineUUID := machinetesting.GenUUID(c)
+	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+		machine.Name(machineTag.Id())).Return(machineUUID, nil)
+
+	blockDeviceInfo := blockdevice.BlockDevice{
+		DeviceName:     "a",
+		DeviceLinks:    []string{"b"},
+		Label:          "c",
+		UUID:           "d",
+		HardwareId:     "e",
+		SizeMiB:        0xf,
+		WWN:            "h",
+		BusAddress:     "i",
+		FilesystemType: "j",
+		InUse:          true,
+		MountPoint:     "k",
+		SerialId:       "l",
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetVolumeAttachmentPlanProvisionedBlockDevice(gomock.Any(), tag.Id(), machineUUID,
+		blockDeviceInfo).Return(nil)
+
+	result, err := s.api.SetVolumeAttachmentPlanBlockInfo(c.Context(), params.VolumeAttachmentPlans{
+		VolumeAttachmentPlans: []params.VolumeAttachmentPlan{
+			{
+				VolumeTag:  tag.String(),
+				MachineTag: machineTag.String(),
+				BlockDevice: params.BlockDevice{
+					DeviceName:     "a",
+					DeviceLinks:    []string{"b"},
+					Label:          "c",
+					UUID:           "d",
+					HardwareId:     "e",
+					Size:           0xf,
+					WWN:            "h",
+					BusAddress:     "i",
+					FilesystemType: "j",
+					InUse:          true,
+					MountPoint:     "k",
+					SerialId:       "l",
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfoInvalid(c *tc.C) {
+	// TODO(storage): test to ensure when set volume attachment plan block info
+	// is called with arguments that are unsettable values (e.g. plan info and
+	// life), that it errors.
+}
+
+func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfoErrors(c *tc.C) {
+	// TODO(storage): test to ensure that set volume attachment plan block info
+	// errors when the volume attachment plan has not been created.
+}
+
+func (s *provisionerSuite) TestSetFilesystemAttachmentInfoMachine(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	machineTag := names.NewMachineTag("5")
+	machineUUID := machinetesting.GenUUID(c)
+	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+		machine.Name(machineTag.Id())).Return(machineUUID, nil)
+
+	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
+		MountPoint: "x",
+		ReadOnly:   true,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetFilesystemAttachmentProvisionedInfoForMachine(gomock.Any(),
+		tag.Id(), machineUUID, info).Return(nil)
+
+	result, err := s.api.SetFilesystemAttachmentInfo(c.Context(), params.FilesystemAttachments{
+		FilesystemAttachments: []params.FilesystemAttachment{
+			{
+				FilesystemTag: tag.String(),
+				MachineTag:    machineTag.String(),
+				Info: params.FilesystemAttachmentInfo{
+					MountPoint: "x",
+					ReadOnly:   true,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetFilesystemAttachmentInfoMachineErrors(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	machineTag := names.NewMachineTag("5")
+	machineUUID := machinetesting.GenUUID(c)
+	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+		machine.Name(machineTag.Id())).Return(machineUUID, nil)
+
+	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
+		MountPoint: "x",
+		ReadOnly:   true,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetFilesystemAttachmentProvisionedInfoForMachine(gomock.Any(),
+		tag.Id(), machineUUID, info).
+		Return(storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	result, err := s.api.SetFilesystemAttachmentInfo(c.Context(), params.FilesystemAttachments{
+		FilesystemAttachments: []params.FilesystemAttachment{
+			{
+				FilesystemTag: tag.String(),
+				MachineTag:    machineTag.String(),
+				Info: params.FilesystemAttachmentInfo{
+					MountPoint: "x",
+					ReadOnly:   true,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+}
+
+func (s *provisionerSuite) TestSetFilesystemAttachmentInfoUnit(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	unitTag := names.NewUnitTag("app/5")
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(),
+		coreunit.Name(unitTag.Id())).Return(unitUUID, nil)
+
+	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
+		MountPoint: "x",
+		ReadOnly:   true,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetFilesystemAttachmentProvisionedInfoForUnit(gomock.Any(),
+		tag.Id(), unitUUID, info).Return(nil)
+
+	result, err := s.api.SetFilesystemAttachmentInfo(c.Context(), params.FilesystemAttachments{
+		FilesystemAttachments: []params.FilesystemAttachment{
+			{
+				FilesystemTag: tag.String(),
+				MachineTag:    unitTag.String(),
+				Info: params.FilesystemAttachmentInfo{
+					MountPoint: "x",
+					ReadOnly:   true,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetFilesystemAttachmentInfoUnitErrors(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewFilesystemTag("123")
+	unitTag := names.NewUnitTag("app/5")
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(),
+		coreunit.Name(unitTag.Id())).Return(unitUUID, nil)
+
+	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
+		MountPoint: "x",
+		ReadOnly:   true,
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().SetFilesystemAttachmentProvisionedInfoForUnit(gomock.Any(),
+		tag.Id(), unitUUID, info).
+		Return(storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	result, err := s.api.SetFilesystemAttachmentInfo(c.Context(), params.FilesystemAttachments{
+		FilesystemAttachments: []params.FilesystemAttachment{
+			{
+				FilesystemTag: tag.String(),
+				MachineTag:    unitTag.String(),
+				Info: params.FilesystemAttachmentInfo{
+					MountPoint: "x",
+					ReadOnly:   true,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
 }

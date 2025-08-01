@@ -21,4 +21,8 @@ const (
 	// VolumeAttachmentNotFound describes an error that occurs when no
 	// volume attachment was found in the model.
 	VolumeAttachmentNotFound = errors.ConstError("volume attachment not found")
+
+	// VolumeAttachmentPlanNotFound is used when a volume attachment plan cannot
+	// be found.
+	VolumeAttachmentPlanNotFound = errors.ConstError("volume attachment plan not found")
 )

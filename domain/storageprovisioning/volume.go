@@ -32,3 +32,40 @@ type VolumeAttachmentID struct {
 	// one of these values to be set.
 	UnitName *coreunit.Name
 }
+
+// VolumeProvisionedInfo is information set by the storage provisioner for
+// volumes it has provisioned.
+type VolumeProvisionedInfo struct {
+	// ProviderID is the ID of the volume from the storage provider.
+	ProviderID string
+
+	// SizeMiB is the size of the volume in MiB.
+	SizeMiB uint64
+
+	// HardwareID is set by the storage provider to help matching with a block
+	// device.
+	HardwareID string
+
+	// WWN is set by the storage provider to help matching with a block device.
+	WWN string
+
+	// Persistent is true if the volume is persistent.
+	Persistent bool
+}
+
+// VolumeAttachmentProvisionedInfo is information set by the storage provisioner
+// for volume attachments it has provisioned.
+type VolumeAttachmentProvisionedInfo struct {
+	ReadOnly bool
+
+	BlockDeviceName       string
+	BlockDeviceLink       string
+	BlockDeviceBusAddress string
+}
+
+// VolumeAttachmentPlanProvisionedInfo is information set by the storage
+// provisioner for volume attachments it has provisioned.
+type VolumeAttachmentPlanProvisionedInfo struct {
+	DeviceType       string
+	DeviceAttributes map[string]string
+}

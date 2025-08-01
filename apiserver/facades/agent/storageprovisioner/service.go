@@ -375,4 +375,55 @@ type StorageProvisioningService interface {
 	WatchMachineProvisionedFilesystemAttachments(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.StringsWatcher, error)
+
+	// SetFilesystemProvisionedInfo sets on the provided filesystem the information
+	// about the provisioned filesystem.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+	// for the provided filesystem id.
+	SetFilesystemProvisionedInfo(ctx context.Context, filesystemID string, info storageprovisioning.FilesystemProvisionedInfo) error
+
+	// SetFilesystemAttachmentProvisionedInfoForMachine sets on the provided
+	// filesystem the information about the provisioned filesystem attachment.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided filesystem id.
+	SetFilesystemAttachmentProvisionedInfoForMachine(ctx context.Context, filesystemID string, machineUUID machine.UUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
+
+	// SetFilesystemAttachmentProvisionedInfoForUnit sets on the provided
+	// filesystem the information about the provisioned filesystem attachment.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided filesystem id.
+	SetFilesystemAttachmentProvisionedInfoForUnit(ctx context.Context, filesystemID string, unitUUID coreunit.UUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
+
+	// SetVolumeProvisionedInfo sets on the provided volume the information about
+	// the provisioned volume.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+	// provided volume id.
+	SetVolumeProvisionedInfo(ctx context.Context, volumeID string, info storageprovisioning.VolumeProvisionedInfo) error
+
+	// SetVolumeAttachmentProvisionedInfo sets on the provided volume the information
+	// about the provisioned volume attachment.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+	// attachmentexists for the provided volume attachment id.
+	SetVolumeAttachmentProvisionedInfo(ctx context.Context, volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID, info storageprovisioning.VolumeAttachmentProvisionedInfo) error
+
+	// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
+	// information about the provisioned volume attachment plan.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+	// attachment plan exists for the provided volume attachment id.
+	SetVolumeAttachmentPlanProvisionedInfo(ctx context.Context, volumeID string, machineUUID machine.UUID, info storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error
+
+	// SetVolumeAttachmentPlanProvisionedBlockDevice sets on the provided volume the
+	// information about the provisioned volume attachment.
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+	// attachment plan exists for the provided volume attachment id.
+	// - [storageprovisioningerrors.BlockDeviceNotFound] when no block device exists
+	// for the provided block device uuuid.
+	SetVolumeAttachmentPlanProvisionedBlockDevice(ctx context.Context, volumeID string, machineUUID machine.UUID, info blockdevice.BlockDevice) error
 }

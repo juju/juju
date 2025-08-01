@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -498,4 +499,56 @@ func (s *Service) WatchVolumeAttachmentPlans(
 	}
 
 	return w, nil
+}
+
+// SetVolumeProvisionedInfo sets on the provided volume the information about
+// the provisioned volume.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided volume id.
+func (s *Service) SetVolumeProvisionedInfo(
+	ctx context.Context,
+	volumeID string,
+	info storageprovisioning.VolumeProvisionedInfo,
+) error {
+	return errors.New("SetVolumeProvisionedInfo not implemented")
+}
+
+// SetVolumeAttachmentProvisionedInfo sets on the provided volume the information
+// about the provisioned volume attachment.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachmentexists for the provided volume attachment id.
+func (s *Service) SetVolumeAttachmentProvisionedInfo(
+	ctx context.Context,
+	volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID,
+	info storageprovisioning.VolumeAttachmentProvisionedInfo,
+) error {
+	return errors.New("SetVolumeAttachmentProvisionedInfo not implemented")
+}
+
+// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
+// information about the provisioned volume attachment plan.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the provided volume attachment id.
+func (s *Service) SetVolumeAttachmentPlanProvisionedInfo(
+	ctx context.Context,
+	volumeID string, machineUUID coremachine.UUID,
+	info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
+) error {
+	return errors.New("SetVolumeAttachmentPlanProvisionedInfo not implemented")
+}
+
+// SetVolumeAttachmentPlanProvisionedBlockDevice sets on the provided volume the
+// information about the provisioned volume attachment.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the provided volume attachment id.
+func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
+	ctx context.Context,
+	volumeID string, machineUUID coremachine.UUID,
+	blockDevice blockdevice.BlockDevice,
+) error {
+	return errors.New("SetVolumeAttachmentPlanProvisionedBlockDevice not implemented")
 }
