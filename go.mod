@@ -64,7 +64,6 @@ require (
 	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v5 v5.0.0
-	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.5
 	github.com/juju/packaging/v4 v4.0.0
 	github.com/juju/persistent-cookiejar v1.0.0
