@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/naturalsort"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -296,13 +296,17 @@ func (st *mockState) Machine(id string) (common.Machine, error) {
 	return nil, errors.Errorf("machine %s does not exist", id)
 }
 
-func (st *mockState) AllMachines() (machines []common.Machine, _ error) {
+func (st *mockState) AllMachines() (machines []common.Machine, err error) {
 	// Ensure we get machines in id order.
 	var ids []string
 	for id := range st.machines {
 		ids = append(ids, id)
 	}
-	naturalsort.Sort(ids)
+	_, err = naturalsort.Sort(ids)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, id := range ids {
 		machines = append(machines, st.machines[id])
 	}
