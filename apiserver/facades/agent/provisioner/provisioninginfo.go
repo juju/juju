@@ -14,7 +14,6 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -34,9 +33,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
@@ -170,9 +167,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		}
 	}
 
-	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, machineName, modelConfig, modelInfo.UUID); err != nil {
-		return result, errors.Capture(err)
-	}
+	// TODO (storage): get volumes and volume attachments from the model
 
 	if result.CharmLXDProfiles, err = api.machineService.UpdateLXDProfiles(ctx, modelInfo.Name, machineName.String()); err != nil {
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
@@ -206,100 +201,6 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	}
 
 	return result, nil
-}
-
-// machineVolumeParams retrieves VolumeParams for the volumes that should be
-// provisioned with, and attached to, the machine. The client should ignore
-// parameters that it does not know how to handle.
-func (api *ProvisionerAPI) machineVolumeParams(
-	ctx context.Context,
-	machineName coremachine.Name,
-	modelConfig *config.Config,
-	modelUUID model.UUID,
-) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
-	sb, err := state.NewStorageBackend()
-	if err != nil {
-		return nil, nil, errors.Capture(err)
-	}
-
-	// TODO(storage): We need to wire this from dqlite, since the machine is no
-	// longer inserted into the legacy state.
-	//
-	// volumeAttachments, err := m.VolumeAttachments()
-	// if err != nil {
-	// 	return nil, nil, errors.Capture(err)
-	// }
-	volumeAttachments := []state.VolumeAttachment{}
-	if len(volumeAttachments) == 0 {
-		return nil, nil, nil
-	}
-
-	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
-	var allVolumeAttachmentParams []params.VolumeAttachmentParams
-	for _, volumeAttachment := range volumeAttachments {
-		volumeTag := volumeAttachment.Volume()
-		volume, err := sb.Volume(volumeTag)
-		if err != nil {
-			return nil, nil, errors.Errorf("getting volume %q: %w", volumeTag.Id(), err)
-		}
-		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
-			volume.StorageInstance, sb.StorageInstance,
-		)
-		if err != nil {
-			return nil, nil, errors.Errorf("getting volume %q storage instance: %w", volumeTag.Id(), err)
-		}
-		volumeParams, err := storagecommon.VolumeParams(ctx,
-			volume, storageInstance, string(modelUUID), api.controllerUUID,
-			modelConfig, api.storagePoolGetter, api.storageProviderRegistry,
-		)
-		if err != nil {
-			return nil, nil, errors.Errorf("getting volume %q parameters: %w", volumeTag.Id(), err)
-		}
-
-		_, err = api.storageProviderRegistry.StorageProvider(storage.ProviderType(volumeParams.Provider))
-		if errors.Is(err, jujuerrors.NotFound) {
-			// This storage type is not managed by the environ
-			// provider, so ignore it. It'll be managed by one
-			// of the storage provisioners.
-			continue
-		} else if err != nil {
-			return nil, nil, errors.Errorf("checking storage provider: %w", err)
-		}
-
-		var volumeProvisioned bool
-		volumeInfo, err := volume.Info()
-		if err == nil {
-			volumeProvisioned = true
-		} else if !errors.Is(err, jujuerrors.NotProvisioned) {
-			return nil, nil, errors.Errorf("getting volume info: %w", err)
-		}
-		stateVolumeAttachmentParams, volumeDetached := volumeAttachment.Params()
-		if !volumeDetached {
-			// Volume is already attached to the machine, so
-			// there's nothing more to do for it.
-			continue
-		}
-
-		// We are creating the machine, so no instance ID is supplied.
-		volumeAttachmentParams := params.VolumeAttachmentParams{
-			VolumeTag:  volumeTag.String(),
-			MachineTag: names.NewMachineTag(machineName.String()).String(),
-			ProviderId: volumeInfo.VolumeId,
-			Provider:   volumeParams.Provider,
-			ReadOnly:   stateVolumeAttachmentParams.ReadOnly,
-		}
-		if volumeProvisioned {
-			// Volume is already provisioned, so we just need to attach it.
-			allVolumeAttachmentParams = append(
-				allVolumeAttachmentParams, volumeAttachmentParams,
-			)
-		} else {
-			// Not provisioned yet, so ask the cloud provisioner do it.
-			volumeParams.Attachment = &volumeAttachmentParams
-			allVolumeParams = append(allVolumeParams, volumeParams)
-		}
-	}
-	return allVolumeParams, allVolumeAttachmentParams, nil
 }
 
 // machineTags returns machine-specific tags to set on the instance.

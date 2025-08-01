@@ -33,11 +33,6 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	storageAccessor, err := getStorageState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	domainServices := ctx.DomainServices()
 	client := &Client{
 		logDir: ctx.LogDir(),
@@ -45,7 +40,6 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 
 		controllerTag:    names.NewControllerTag(ctx.ControllerUUID()),
 		modelTag:         names.NewModelTag(ctx.ModelUUID().String()),
-		storageAccessor:  storageAccessor,
 		auth:             authorizer,
 		leadershipReader: leadershipReader,
 

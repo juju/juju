@@ -13,7 +13,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/state"
 )
 
 var logger = internallogger.GetLogger("juju.apiserver.common")
@@ -71,27 +70,21 @@ func DestroyController(
 			}
 		}
 	}
-	return destroyControllerModel(ctx, blockCommandService, modelInfoService, state.DestroyModelParams{
-		DestroyHostedModels: destroyHostedModels,
-		DestroyStorage:      destroyStorage,
-		Force:               force,
-		MaxWait:             common.MaxWait(maxWait),
-		Timeout:             modelTimeout,
-	})
+	return checkForceForControllerModel(ctx, blockCommandService, modelInfoService, force)
 }
 
-func destroyControllerModel(
+func checkForceForControllerModel(
 	ctx context.Context,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
-	args state.DestroyModelParams,
+	force *bool,
 ) error {
 	check := common.NewBlockChecker(blockCommandService)
 	if err := check.DestroyAllowed(ctx); err != nil {
 		return interrors.Capture(err)
 	}
 
-	notForcing := args.Force == nil || !*args.Force
+	notForcing := force == nil || !*force
 	if notForcing {
 		hasValidCredential, err := modelInfoService.HasValidCredential(ctx)
 
@@ -103,14 +96,5 @@ func destroyControllerModel(
 		}
 	}
 
-	// TODO(gfouillet) - 2025-07-25: this method actually just check if it is
-	//   ok to destroy a model, but is noop. Rename or implements model
-	//   destroy
-
-	// Return to the caller. If it's the CLI, it will finish up by calling the
-	// provider's Destroy method, which will destroy the controllers, any
-	// straggler instances, and other provider-specific resources. Once all
-	// resources are torn down, the Undertaker worker handles the removal of
-	// the model.
 	return nil
 }

@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/machine"
 	"github.com/juju/juju/cmd/jujud-controller/agent/model"
 	"github.com/juju/juju/controller"
+	coremodel "github.com/juju/juju/core/model"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
-	"github.com/juju/juju/state"
 )
 
 func main() {
@@ -302,7 +302,7 @@ func (mc *mockConfig) OldPassword() string {
 	return "do-not-use"
 }
 
-func preUpgradeSteps(state.ModelType) upgrades.PreUpgradeStepsFunc { return nil }
+func preUpgradeSteps(coremodel.ModelType) upgrades.PreUpgradeStepsFunc { return nil }
 
 type stringslice []string
 

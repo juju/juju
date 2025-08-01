@@ -21,7 +21,6 @@ import (
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type modelStatusSuite struct {
@@ -81,7 +80,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 			{
 				ModelTag:  modelTag,
 				Qualifier: "foobar",
-				Type:      string(state.ModelTypeIAAS),
+				Type:      coremodel.IAAS.String(),
 			},
 		},
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -283,4 +284,30 @@ func (s *lxdProfileSuite) expectContainerType(cType instance.ContainerType) {
 		Return(coremachine.UUID("uuid0"), nil).AnyTimes()
 	s.machineService.EXPECT().GetSupportedContainersTypes(gomock.Any(), gomock.Any()).
 		Return([]instance.ContainerType{cType}, nil).AnyTimes()
+}
+
+type mockNotifyWatcher struct {
+	tomb    tomb.Tomb
+	changes chan struct{}
+}
+
+func (m *mockNotifyWatcher) Stop() error {
+	m.Kill()
+	return m.Wait()
+}
+
+func (m *mockNotifyWatcher) Kill() {
+	m.tomb.Kill(nil)
+}
+
+func (m *mockNotifyWatcher) Wait() error {
+	return m.tomb.Wait()
+}
+
+func (m *mockNotifyWatcher) Err() error {
+	return m.tomb.Err()
+}
+
+func (m *mockNotifyWatcher) Changes() <-chan struct{} {
+	return m.changes
 }

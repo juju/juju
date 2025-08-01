@@ -7,7 +7,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/watcher"
 )
 
 // FakeNotifyWatcher is an implementation of state.NotifyWatcher which
@@ -17,7 +17,7 @@ type FakeNotifyWatcher struct {
 	C chan struct{}
 }
 
-var _ state.NotifyWatcher = (*FakeNotifyWatcher)(nil)
+var _ watcher.NotifyWatcher = (*FakeNotifyWatcher)(nil)
 
 func NewFakeNotifyWatcher() *FakeNotifyWatcher {
 	ch := make(chan struct{}, 1)

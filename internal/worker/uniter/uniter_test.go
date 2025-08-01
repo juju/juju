@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	contextmocks "github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type UniterSuite struct {
@@ -1382,8 +1381,8 @@ storage:
 `[1:])
 		c.Assert(err, tc.ErrorIsNil)
 	}
-	storageDirectives := map[string]state.StorageConstraints{
-		"wp-content": {Count: 1},
+	storageDirectives := map[string]int{
+		"wp-content": 1,
 	}
 	s.runUniterTests(c, []uniterTest{
 		ut(

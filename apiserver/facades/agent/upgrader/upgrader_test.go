@@ -51,7 +51,6 @@ type upgraderSuite struct {
 	controllerNodeService  *MockControllerNodeService
 	machineService         *MockMachineService
 
-	isUpgrader      *MockUpgrader
 	watcherRegistry *facademocks.MockWatcherRegistry
 }
 
@@ -100,9 +99,6 @@ func (s *upgraderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentService = NewMockModelAgentService(ctrl)
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
-
-	s.isUpgrader = NewMockUpgrader(ctrl)
-	s.isUpgrader.EXPECT().IsUpgrading().Return(false, nil).AnyTimes()
 
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 

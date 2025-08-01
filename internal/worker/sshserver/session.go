@@ -11,8 +11,8 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
-	"github.com/juju/juju/state"
 )
 
 type stubSessionHandler struct{}
@@ -31,7 +31,7 @@ type SSHConnector interface {
 
 type sessionHandler struct {
 	connector SSHConnector
-	modelType state.ModelType
+	modelType model.ModelType
 	logger    logger.Logger
 }
 
@@ -46,12 +46,12 @@ func (s *sessionHandler) Handle(session ssh.Session, destination virtualhostname
 	}
 
 	switch s.modelType {
-	case state.ModelTypeCAAS:
+	case model.CAAS:
 		if err := s.k8sSessionProxy(session); err != nil {
 			err = errors.Annotate(err, "failed to proxy k8s session")
 			handleError(err)
 		}
-	case state.ModelTypeIAAS:
+	case model.IAAS:
 		if err := s.machineSessionProxy(session, destination); err != nil {
 			err = errors.Annotate(err, "failed to proxy machine session")
 			handleError(err)

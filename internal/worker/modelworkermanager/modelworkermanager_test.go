@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
-	"github.com/juju/juju/state"
 )
 
 func TestSuite(t *testing.T) {
@@ -451,7 +450,7 @@ func (s *suite) expectGetModel(modelUUID coremodel.UUID) {
 func (s *suite) expectGetModelTimes(modelUUID coremodel.UUID, times int) {
 	s.modelService.EXPECT().Model(gomock.Any(), modelUUID).Return(coremodel.Model{
 		UUID:      modelUUID,
-		ModelType: coremodel.ModelType(state.ModelTypeIAAS),
+		ModelType: coremodel.IAAS,
 	}, nil).Times(times)
 }
 

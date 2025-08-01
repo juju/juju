@@ -73,13 +73,12 @@ import (
 	"github.com/juju/juju/internal/wrench"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type (
 	// The following allows the upgrade steps to be overridden by brittle
 	// integration tests.
-	PreUpgradeStepsFunc func(state.ModelType) upgrades.PreUpgradeStepsFunc
+	PreUpgradeStepsFunc func(coremodel.ModelType) upgrades.PreUpgradeStepsFunc
 	UpgradeStepsFunc    = upgrades.UpgradeStepsFunc
 )
 

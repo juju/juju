@@ -63,7 +63,6 @@ type UniterAPI struct {
 	lxdProfileAPI           *LXDProfileAPI
 	clock                   clock.Clock
 	auth                    facade.Authorizer
-	resources               facade.Resources
 	leadershipChecker       leadership.Checker
 	leadershipRevoker       leadership.Revoker
 	accessUnit              common.GetAuthFunc
@@ -2802,17 +2801,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return apiservererrors.ErrPerm
 		}
 
-		curCons, err := unitStorageConstraints(unitTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// TODO(storage): This operation is no longer applied on the legacy
-		// state, this functionality must be migrated to dqlite.
-		_, err = u.addStorageToOneUnitOperation(unitTag, addParams, curCons)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		// TODO(storage): Add storage to the unit.
 	}
 
 	// TODO - do in txn once we have support for that

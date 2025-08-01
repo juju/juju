@@ -17,7 +17,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // MachineServiceGetter is a function that returns a MachineService for the
@@ -199,56 +198,4 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 	}
 
 	return result, nil
-}
-
-// ModelFilesystemInfo returns information about filesystems in the model.
-func ModelFilesystemInfo(in []state.Filesystem) []params.ModelFilesystemInfo {
-	out := make([]params.ModelFilesystemInfo, len(in))
-	for i, in := range in {
-		var statusString string
-		status, err := in.Status()
-		if err != nil {
-			statusString = err.Error()
-		} else {
-			statusString = string(status.Status)
-		}
-		var providerId string
-		if info, err := in.Info(); err == nil {
-			providerId = info.FilesystemId
-		}
-		out[i] = params.ModelFilesystemInfo{
-			Id:         in.Tag().Id(),
-			ProviderId: providerId,
-			Status:     statusString,
-			Message:    status.Message,
-			Detachable: in.Detachable(),
-		}
-	}
-	return out
-}
-
-// ModelVolumeInfo returns information about volumes in the model.
-func ModelVolumeInfo(in []state.Volume) []params.ModelVolumeInfo {
-	out := make([]params.ModelVolumeInfo, len(in))
-	for i, in := range in {
-		var statusString string
-		status, err := in.Status()
-		if err != nil {
-			statusString = err.Error()
-		} else {
-			statusString = string(status.Status)
-		}
-		var providerId string
-		if info, err := in.Info(); err == nil {
-			providerId = info.VolumeId
-		}
-		out[i] = params.ModelVolumeInfo{
-			Id:         in.Tag().Id(),
-			ProviderId: providerId,
-			Status:     statusString,
-			Message:    status.Message,
-			Detachable: in.Detachable(),
-		}
-	}
-	return out
 }

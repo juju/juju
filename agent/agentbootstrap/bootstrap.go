@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/state"
 )
 
 // DqliteInitializerFunc is a function that initializes the dqlite database
@@ -213,9 +212,9 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	)
 
 	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
-	modelType := state.ModelTypeIAAS
+	modelType := coremodel.IAAS
 	if isCAAS {
-		modelType = state.ModelTypeCAAS
+		modelType = coremodel.CAAS
 	}
 
 	agentVersion := stateParams.AgentVersion
@@ -251,7 +250,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		cloudbootstrap.InsertCloud(user.NameFromTag(b.adminUser), stateParams.ControllerCloud),
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		modeldefaultsbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
-		secretbackendbootstrap.CreateDefaultBackends(coremodel.ModelType(modelType)),
+		secretbackendbootstrap.CreateDefaultBackends(modelType),
 		controllerModelCreateFunc,
 		localModelRecordOp,
 		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),

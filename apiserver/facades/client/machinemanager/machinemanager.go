@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corebase "github.com/juju/juju/core/base"
@@ -36,16 +35,12 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	controllerUUID  string
 	modelUUID       coremodel.UUID
-	storageAccess   StorageInterface
 	authorizer      Authorizer
 	check           *common.BlockChecker
 	controllerStore objectstore.ObjectStore
@@ -72,7 +67,6 @@ func NewMachineManagerAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
 	controllerStore objectstore.ObjectStore,
-	storageAccess StorageInterface,
 	auth Authorizer,
 	logger corelogger.Logger,
 	clock clock.Clock,
@@ -84,7 +78,6 @@ func NewMachineManagerAPI(
 		controllerStore: controllerStore,
 		authorizer:      auth,
 		check:           common.NewBlockChecker(services.BlockCommandService),
-		storageAccess:   storageAccess,
 		clock:           clock,
 		logger:          logger,
 
@@ -166,24 +159,6 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	}
 	if parsedPlacement.Type == deployment.PlacementTypeProvider && parsedPlacement.Directive != mm.modelUUID.String() {
 		return "", internalerrors.Errorf("invalid model id %q", parsedPlacement.Directive)
-	}
-
-	volumes := make([]state.HostVolumeParams, 0, len(p.Disks))
-	for _, cons := range p.Disks {
-		if cons.Count == 0 {
-			return "", errors.Errorf("invalid volume params: count not specified")
-		}
-		// Pool and Size are validated by AddMachineX.
-		volumeParams := state.VolumeParams{
-			Pool: cons.Pool,
-			Size: cons.Size,
-		}
-		volumeAttachmentParams := state.VolumeAttachmentParams{}
-		for i := uint64(0); i < cons.Count; i++ {
-			volumes = append(volumes, state.HostVolumeParams{
-				Volume: volumeParams, Attachment: volumeAttachmentParams,
-			})
-		}
 	}
 
 	var n *string
@@ -469,42 +444,9 @@ func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machine
 
 func (mm *MachineManagerAPI) classifyDetachedStorage(unitNames []coreunit.Name) (destroyed, detached []params.Entity, _ error) {
 	var storageErrors []params.ErrorResult
-	storageError := func(e error) {
-		storageErrors = append(storageErrors, params.ErrorResult{Error: apiservererrors.ServerError(e)})
-	}
 
-	storageSeen := names.NewSet()
-	for _, unitName := range unitNames {
-		unitTag := names.NewUnitTag(unitName.String())
-		storage, err := storagecommon.UnitStorage(mm.storageAccess, unitTag)
-		if err != nil {
-			storageError(errors.Annotatef(err, "getting storage for unit %v", unitName))
-			continue
-		}
+	// TODO(storage): classify detached storage
 
-		// Filter out storage we've already seen. Shared
-		// storage may be attached to multiple units.
-		var unseen []state.StorageInstance
-		for _, storage := range storage {
-			storageTag := storage.StorageTag()
-			if storageSeen.Contains(storageTag) {
-				continue
-			}
-			storageSeen.Add(storageTag)
-			unseen = append(unseen, storage)
-		}
-		storage = unseen
-
-		unitDestroyed, unitDetached, err := ClassifyDetachedStorage(
-			mm.storageAccess.VolumeAccess(), mm.storageAccess.FilesystemAccess(), storage,
-		)
-		if err != nil {
-			storageError(errors.Annotatef(err, "classifying storage for destruction for unit %v", unitName))
-			continue
-		}
-		destroyed = append(destroyed, unitDestroyed...)
-		detached = append(detached, unitDetached...)
-	}
 	err := params.ErrorResults{Results: storageErrors}.Combine()
 	return destroyed, detached, err
 }

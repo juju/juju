@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/watcher"
 )
 
 // machineErrorRetry is a notify watcher that fires when it is
@@ -18,7 +18,7 @@ type machineErrorRetry struct {
 	out  chan struct{}
 }
 
-func newWatchMachineErrorRetry() state.NotifyWatcher {
+func newWatchMachineErrorRetry() watcher.NotifyWatcher {
 	w := &machineErrorRetry{
 		out: make(chan struct{}),
 	}

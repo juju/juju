@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	corecontainer "github.com/juju/juju/core/container"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
@@ -33,13 +34,12 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/watcher"
 )
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -64,7 +64,6 @@ type ProvisionerAPI struct {
 	statusService             StatusService
 	applicationService        ApplicationService
 	removalService            RemovalService
-	resources                 facade.Resources
 	authorizer                facade.Authorizer
 	storageProviderRegistry   storage.ProviderRegistry
 	storagePoolGetter         StoragePoolGetter
@@ -149,11 +148,11 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return nil, errors.Trace(err)
 	}
 
-	configGetter := stateenvirons.EnvironConfigGetter{
-		ModelInfoService:   modelInfoService,
-		CloudService:       cloudService,
-		CredentialService:  credentialService,
-		ModelConfigService: modelConfigService,
+	configGetter := environConfigGetter{
+		modelInfoService:   modelInfoService,
+		cloudService:       cloudService,
+		credentialService:  credentialService,
+		modelConfigService: modelConfigService,
 	}
 
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
@@ -167,8 +166,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 
 	watcherRegistry := ctx.WatcherRegistry()
 	modelConfigWatcher := commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry)
-
-	resources := ctx.Resources()
 
 	api := &ProvisionerAPI{
 		PasswordChanger:      common.NewPasswordChanger(agentPasswordService, getAuthFunc),
@@ -193,7 +190,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		statusService:             statusService,
 		applicationService:        applicationService,
 		removalService:            removalService,
-		resources:                 resources,
 		authorizer:                authorizer,
 		configGetter:              configGetter,
 		storageProviderRegistry:   storageRegisty,
@@ -813,13 +809,9 @@ func (api *ProvisionerAPI) WatchMachineErrorRetry(ctx context.Context) (params.N
 		return result, apiservererrors.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
-	// Consume any initial event and forward it to the result.
-	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = api.resources.Register(watch)
-	} else {
-		return result, watcher.EnsureErr(watch)
-	}
-	return result, nil
+	var err error
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watch)
+	return result, err
 }
 
 // ReleaseContainerAddresses finds addresses allocated to a container and marks
@@ -1553,4 +1545,59 @@ func (api *ProvisionerAPI) Remove(ctx context.Context, args params.Entities) (pa
 		}
 	}
 	return result, nil
+}
+
+type environConfigGetter struct {
+	modelInfoService   ModelInfoService
+	cloudService       CloudService
+	credentialService  CredentialService
+	modelConfigService ModelConfigService
+}
+
+// ControllerUUID returns the universally unique identifier of the controller.
+func (g environConfigGetter) ControllerUUID(ctx context.Context) (string, error) {
+	modelInfo, err := g.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return modelInfo.ControllerUUID.String(), nil
+}
+
+// ModelConfig implements environs.EnvironConfigGetter.
+func (g environConfigGetter) ModelConfig(ctx context.Context) (*config.Config, error) {
+	return g.modelConfigService.ModelConfig(ctx)
+}
+
+// CloudSpec implements environs.EnvironConfigGetter.
+func (g environConfigGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
+	return CloudSpecForModel(ctx, g.modelInfoService, g.cloudService, g.credentialService)
+}
+
+// CloudSpecForModel returns a CloudSpec for the specified model.
+func CloudSpecForModel(
+	ctx context.Context,
+	modelInfoService ModelInfoService,
+	cloudService CloudService,
+	credentialService CredentialService,
+) (environscloudspec.CloudSpec, error) {
+	modelInfo, err := modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
+	}
+
+	cld, err := cloudService.Cloud(ctx, modelInfo.Cloud)
+	if err != nil {
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
+	}
+	regionName := modelInfo.CloudRegion
+	credentialKey := credential.Key{
+		Cloud: modelInfo.Cloud,
+		Owner: coremodel.ControllerModelOwnerUsername,
+		Name:  modelInfo.CredentialName,
+	}
+	cred, err := credentialService.CloudCredential(ctx, credentialKey)
+	if err != nil {
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
+	}
+	return environscloudspec.MakeCloudSpec(*cld, regionName, &cred)
 }

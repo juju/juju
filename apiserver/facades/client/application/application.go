@@ -18,7 +18,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
@@ -58,10 +57,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 // APIv20 provides the Application API facade for version 20.
 type APIv20 struct {
@@ -76,8 +72,7 @@ type APIv19 struct {
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
 type APIBase struct {
-	storageAccess StorageInterface
-	store         objectstore.ObjectStore
+	store objectstore.ObjectStore
 
 	authorizer facade.Authorizer
 	check      BlockChecker
@@ -125,11 +120,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting model info: %w", err)
-	}
-
-	storageAccess, err := getStorageState(modelInfo.Type)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting state")
 	}
 
 	leadershipReader, err := ctx.LeadershipReader()
@@ -183,7 +173,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			ResourceService:    domainServices.Resource(),
 			StorageService:     storageService,
 		},
-		storageAccess,
 		ctx.Auth(),
 		blockChecker,
 		modelInfo.UUID,
@@ -214,7 +203,6 @@ type DeployApplicationFunc = func(
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	services Services,
-	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
 	modelUUID model.UUID,
@@ -237,7 +225,6 @@ func NewAPIBase(
 	}
 
 	return &APIBase{
-		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
@@ -1179,26 +1166,9 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		}
 
 		var info params.DestroyUnitInfo
-		unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unitTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 
-		if arg.DestroyStorage {
-			for _, s := range unitStorage {
-				info.DestroyedStorage = append(
-					info.DestroyedStorage,
-					params.Entity{Tag: s.StorageTag().String()},
-				)
-			}
-		} else {
-			info.DestroyedStorage, info.DetachedStorage, err = ClassifyDetachedStorage(
-				api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), unitStorage,
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
+		// TODO(storage): return detached / destroyed storage volumes/filesystems
+
 		if arg.DryRun {
 			return &info, nil
 		}
@@ -1269,48 +1239,14 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 		}
 
 		var info params.DestroyApplicationInfo
-		storageSeen := names.NewSet()
 		for _, unitName := range unitNames {
 			unitTag := names.NewUnitTag(unitName.String())
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
 				params.Entity{Tag: unitTag.String()},
 			)
-			unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unitTag)
-			if err != nil {
-				return nil, err
-			}
 
-			// Filter out storage we've already seen. Shared
-			// storage may be attached to multiple units.
-			var unseen []state.StorageInstance
-			for _, stor := range unitStorage {
-				storageTag := stor.StorageTag()
-				if storageSeen.Contains(storageTag) {
-					continue
-				}
-				storageSeen.Add(storageTag)
-				unseen = append(unseen, stor)
-			}
-			unitStorage = unseen
-
-			if arg.DestroyStorage {
-				for _, s := range unitStorage {
-					info.DestroyedStorage = append(
-						info.DestroyedStorage,
-						params.Entity{Tag: s.StorageTag().String()},
-					)
-				}
-			} else {
-				destroyed, detached, err := ClassifyDetachedStorage(
-					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), unitStorage,
-				)
-				if err != nil {
-					return nil, err
-				}
-				info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
-				info.DetachedStorage = append(info.DetachedStorage, detached...)
-			}
+			// TODO(storage): return detached / destroyed storage volumes/filesystems
 		}
 
 		if arg.DryRun {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -31,8 +30,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // AgentSuite is a fixture to be used by agent test suites.
@@ -240,20 +237,6 @@ func (s *AgentSuite) InitAgent(c *tc.C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir}, args...)
 	err := cmdtesting.InitCommand(a, args)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *AgentSuite) AssertCanOpenState(c *tc.C, tag names.Tag, dataDir string) {
-	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
-	c.Assert(err, tc.ErrorIsNil)
-
-	pool, err := state.OpenStatePool(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      config.Controller(),
-		ControllerModelTag: config.Model(),
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	_ = pool.Close()
 }
 
 func (s *AgentSuite) AssertCannotOpenState(c *tc.C, tag names.Tag, dataDir string) {
