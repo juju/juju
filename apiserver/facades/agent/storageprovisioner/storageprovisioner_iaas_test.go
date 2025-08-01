@@ -41,9 +41,6 @@ RemoveFilesystemParams.
  - Test set filesystem attachment info
  - Test watch filesystems
  - Test watch volume attachments
- - Test volume life
- - Test filesystem life
- - Test attachment life
  - Test ensure dead for volumes
  - Test remove controller volumes
  - Test remove controller filesystems

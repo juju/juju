@@ -20,9 +20,6 @@ func (s *caasProvisionerSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - TestRemoveVolumeAttachment: remove volume attachments.
 - TestRemoveFilesystemAttachments: remove filesystem attachments.
-- TestFilesystemAttachmentLife: get life of filesystem attachments.
-- TestVolumeAttachmentLife: get life of volume attachments.
-- TestLife: get life of storage entities.
 - TestInstanceId: get instance ID of each machine.
 `)
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/container"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
@@ -270,58 +269,6 @@ func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities
 	results := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Entities)),
 	}
-	oneLife := func(tag names.Tag) (domainlife.Life, error) {
-		switch tag := tag.(type) {
-		case names.VolumeTag:
-			volumeUUID, err := s.storageProvisioningService.GetVolumeUUIDForID(ctx, tag.Id())
-			if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
-				return -1, internalerrors.Errorf(
-					"volume not found for id %q", tag.Id(),
-				).Add(errors.NotFound)
-			} else if err != nil {
-				return -1, internalerrors.Errorf("getting volume UUID for id %q: %v", tag.Id(), err)
-			}
-			life, err := s.storageProvisioningService.GetVolumeLife(ctx, volumeUUID)
-			if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
-				return -1, internalerrors.Errorf(
-					"volume not found for id %q", tag.Id(),
-				).Add(errors.NotFound)
-			} else if errors.Is(err, coreerrors.NotValid) {
-				return -1, internalerrors.Errorf(
-					"volume uuid for %q is not valid: %v", tag.Id(), err,
-				).Add(errors.NotValid)
-			} else if err != nil {
-				return -1, internalerrors.Errorf("getting volume life for id %q: %v", tag.Id(), err)
-			}
-			return life, nil
-		case names.FilesystemTag:
-			filesystemUUID, err := s.storageProvisioningService.GetFilesystemUUIDForID(ctx, tag.Id())
-			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-				return -1, internalerrors.Errorf(
-					"filesystem not found for id %q", tag.Id(),
-				).Add(errors.NotFound)
-			} else if err != nil {
-				return -1, internalerrors.Errorf("getting filesystem UUID for id %q: %v", tag.Id(), err)
-			}
-			life, err := s.storageProvisioningService.GetFilesystemLife(ctx, filesystemUUID)
-			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-				return -1, internalerrors.Errorf(
-					"filesystem not found for id %q", tag.Id(),
-				).Add(errors.NotFound)
-			} else if errors.Is(err, coreerrors.NotValid) {
-				return -1, internalerrors.Errorf(
-					"filesystem uuid for %q is not valid: %v", tag.Id(), err,
-				).Add(errors.NotValid)
-			} else if err != nil {
-				return -1, internalerrors.Errorf("getting filesystem life for id %q: %v", tag.Id(), err)
-			}
-			return life, nil
-		default:
-			return -1, internalerrors.Errorf(
-				"invalid tag %q, expected volume or filesystem", tag,
-			).Add(errors.NotValid)
-		}
-	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
@@ -333,16 +280,79 @@ func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		life, err := oneLife(tag)
+
+		var life domainlife.Life
+		switch tag := tag.(type) {
+		case names.VolumeTag:
+			life, err = s.lifeForVolume(ctx, tag)
+		case names.FilesystemTag:
+			life, err = s.lifeForFilesystem(ctx, tag)
+		default:
+			err = internalerrors.Errorf(
+				"invalid tag %q, expected volume or filesystem", tag,
+			).Add(errors.NotValid)
+		}
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
 		if results.Results[i].Life, err = life.Value(); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return results, nil
+}
+
+func (s *StorageProvisionerAPIv4) lifeForFilesystem(
+	ctx context.Context, tag names.FilesystemTag,
+) (domainlife.Life, error) {
+	filesystemUUID, err := s.storageProvisioningService.GetFilesystemUUIDForID(ctx, tag.Id())
+	switch {
+	case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+		return -1, internalerrors.Errorf(
+			"filesystem not found for id %q", tag.Id(),
+		).Add(errors.NotFound)
+	case err != nil:
+		return -1, internalerrors.Errorf("getting filesystem UUID for id %q: %v", tag.Id(), err)
+	}
+
+	life, err := s.storageProvisioningService.GetFilesystemLife(ctx, filesystemUUID)
+	switch {
+	case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+		return -1, internalerrors.Errorf(
+			"filesystem not found for id %q", tag.Id(),
+		).Add(errors.NotFound)
+	case err != nil:
+		return -1, internalerrors.Errorf("getting filesystem life for id %q: %v", tag.Id(), err)
+	}
+	return life, nil
+}
+
+func (s *StorageProvisionerAPIv4) lifeForVolume(
+	ctx context.Context, tag names.VolumeTag,
+) (domainlife.Life, error) {
+	volumeUUID, err := s.storageProvisioningService.GetVolumeUUIDForID(ctx, tag.Id())
+	switch {
+	case errors.Is(err, storageprovisioningerrors.VolumeNotFound):
+		return -1, internalerrors.Errorf(
+			"volume not found for id %q", tag.Id(),
+		).Add(errors.NotFound)
+	case err != nil:
+		return -1, internalerrors.Errorf("getting volume UUID for id %q: %v", tag.Id(), err)
+	}
+
+	life, err := s.storageProvisioningService.GetVolumeLife(ctx, volumeUUID)
+	switch {
+	case errors.Is(err, storageprovisioningerrors.VolumeNotFound):
+		return -1, internalerrors.Errorf(
+			"volume not found for id %q", tag.Id(),
+		).Add(errors.NotFound)
+	case err != nil:
+		return -1, internalerrors.Errorf("getting volume UUID for id %q: %v", tag.Id(), err)
+	}
+
+	return life, nil
 }
 
 // EnsureDead ensures that the specified entities are dead.
