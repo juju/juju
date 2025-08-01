@@ -5,6 +5,7 @@ package modellife
 
 import (
 	"context"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -19,7 +20,6 @@ import (
 type Config struct {
 	ModelUUID    model.UUID
 	ModelService ModelService
-	Result       life.Predicate
 }
 
 // Validate validates the configuration.
@@ -30,9 +30,6 @@ func (c Config) Validate() error {
 	if c.ModelService == nil {
 		return errors.NotValidf("nil ModelService")
 	}
-	if c.Result == nil {
-		return errors.NotValidf("nil Result")
-	}
 	return nil
 }
 
@@ -41,7 +38,9 @@ func (c Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
-	life     life.Value
+
+	mutex sync.Mutex
+	life  life.Value
 }
 
 // NewWorker creates a new model life worker.
@@ -87,7 +86,10 @@ func (w *Worker) Wait() error {
 
 // Check is part of the util.Flag interface.
 func (w *Worker) Check() bool {
-	return w.config.Result(w.life)
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	return life.IsNotDead(w.life)
 }
 
 func (w *Worker) loop() error {
@@ -109,13 +111,30 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-watcher.Changes():
-			l, err := modelService.GetModelLife(ctx, modelUUID)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if w.config.Result(l) != w.Check() {
-				return dependency.ErrBounce
+			// Get the current life value to ensure we have the latest state.
+			// If the life value has changed, we will bounce.
+			currentCheck := w.Check()
+			if err := w.lifeChanged(ctx, modelUUID, currentCheck); err != nil {
+				return err
 			}
 		}
 	}
+}
+
+func (w *Worker) lifeChanged(ctx context.Context, modelUUID model.UUID, current bool) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	modelService := w.config.ModelService
+
+	var err error
+	w.life, err = modelService.GetModelLife(ctx, modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if life.IsNotDead(w.life) != current {
+		return dependency.ErrBounce
+	}
+	return nil
 }

@@ -38,7 +38,6 @@ type ManifoldConfig struct {
 
 	ModelUUID model.UUID
 
-	Result          life.Predicate
 	NewWorker       func(context.Context, Config) (worker.Worker, error)
 	GetModelService func(dependency.Getter, string) (ModelService, error)
 }
@@ -49,9 +48,6 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.ModelUUID == "" {
 		return errors.NotValidf("empty ModelUUID")
-	}
-	if c.Result == nil {
-		return errors.NotValidf("nil Result")
 	}
 	if c.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -83,7 +79,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			worker, err := config.NewWorker(ctx, Config{
 				ModelService: modelService,
 				ModelUUID:    config.ModelUUID,
-				Result:       config.Result,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

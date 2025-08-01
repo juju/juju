@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
@@ -193,7 +192,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		notDeadFlagName: modellife.Manifold(modellife.ManifoldConfig{
 			DomainServicesName: domainServicesName,
 			ModelUUID:          modelUUID,
-			Result:             life.IsNotDead,
 			GetModelService:    modellife.GetModelService,
 			NewWorker:          modellife.NewWorker,
 		}),
