@@ -31,7 +31,9 @@ import (
 var logger = internallogger.GetLogger("juju.provider.oci")
 
 // EnvironProvider type implements environs.EnvironProvider interface
-type EnvironProvider struct{}
+type EnvironProvider struct {
+	ControllerUUID string
+}
 
 type environConfig struct {
 	*config.Config
@@ -244,6 +246,8 @@ func (e *EnvironProvider) Open(ctx context.Context, params environs.OpenParams, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	e.ControllerUUID = params.ControllerUUID
 
 	env := &Environ{
 		CredentialInvalidator: providercommon.NewCredentialInvalidator(invalidator, common.IsAuthorisationFailure),

@@ -258,7 +258,11 @@ func (e *Environ) ensureSecurityList(ctx context.Context, controllerUUID, modelU
 	return response.SecurityList, nil
 }
 
-func (e *Environ) allSubnets(ctx context.Context, controllerUUID, modelUUID string, vcnID *string) (map[string][]ociCore.Subnet, error) {
+func (e *Environ) allSubnets(
+	ctx context.Context,
+	controllerUUID, modelUUID string,
+	vcnID *string,
+) (map[string][]ociCore.Subnet, error) {
 	subnets, err := e.Networking.ListSubnets(context.Background(), e.ecfg().compartmentID(), vcnID)
 	if err != nil {
 		return nil, err
@@ -909,6 +913,7 @@ func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, 
 }
 
 // Subnets is defined on the environs.Networking interface.
+// This implementation also creates the subnets if none exist.
 func (e *Environ) Subnets(
 	ctx context.Context, subnets []network.Id,
 ) ([]network.SubnetInfo, error) {
@@ -922,6 +927,21 @@ func (e *Environ) Subnets(
 	if err != nil {
 		return nil, e.HandleCredentialError(ctx, err)
 	}
+
+	// If no subnets exist for this model, create them.
+	if len(allSubnets) == 0 {
+		subnetMap, err := e.ensureNetworksAndSubnets(ctx, e.p.ControllerUUID, e.Config().UUID())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		allSubnets = make(map[string]ociCore.Subnet, len(subnetMap))
+		for _, subnets := range subnetMap {
+			for _, subnet := range subnets {
+				allSubnets[*subnet.Id] = subnet
+			}
+		}
+	}
+
 	hasSubnetList := false
 	if len(subIdSet) > 0 {
 		hasSubnetList = true
