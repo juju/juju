@@ -101,7 +101,9 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 			return false
 		},
 		ShouldRestart: func(err error) bool {
-			if errors.Is(err, modelerrors.NotFound) || errors.Is(err, database.ErrDBDead) {
+			if errors.Is(err, modelerrors.NotFound) ||
+				errors.Is(err, database.ErrDBDead) ||
+				errors.Is(err, database.ErrDBNotFound) {
 				return false
 			}
 			return true

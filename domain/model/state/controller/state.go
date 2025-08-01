@@ -2097,7 +2097,7 @@ WHERE uuid = $dbModelLife.uuid;
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, life).Get(&life)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("%w for %q", modelerrors.NotFound, uuid)
+			return modelerrors.NotFound
 		} else if err != nil {
 			return errors.Capture(err)
 		} else if !life.Activated {
