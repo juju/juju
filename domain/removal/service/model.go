@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/life"
@@ -172,6 +173,55 @@ func (s *Service) RemoveModel(
 	}
 
 	return modelJobUUID, nil
+}
+
+// DeleteModel removes the model with the given UUID from the database.
+// This will remove all the model's artifacts. Though it won't delete the
+// database itself. That is done by the undertaker worker.
+// The model must be dead before it can be deleted.
+// If the model is alive or dying, an error will be returned.
+func (s *Service) DeleteModel(ctx context.Context, modelUUID model.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	controllerLife, err := s.controllerState.GetModelLife(ctx, modelUUID.String())
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("getting controller model %q life: %w", modelUUID, err)
+	}
+
+	// We should ensure that the model is dead before we delete it.
+	modelLife, err := s.modelState.GetModelLife(ctx, modelUUID.String())
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("getting model %q life: %w", modelUUID, err)
+	}
+
+	if modelLife == life.Alive || controllerLife == life.Alive {
+		return errors.Errorf("model %q is still alive", modelUUID).Add(removalerrors.EntityStillAlive)
+	} else if modelLife == life.Dying || controllerLife == life.Dying {
+		return errors.Errorf("model %q is dying", modelUUID).Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// Attempt to destroy the provider of the model. This is best effort,
+	// because we might not have all the model information available to do so.
+	provider, err := s.provider(ctx)
+	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
+		s.logger.Errorf(ctx, "failed to get model provider: %v", err)
+	} else if err == nil {
+		if err := provider.Destroy(ctx); err != nil {
+			s.logger.Errorf(ctx, "failed to destroy model provider: %v", err)
+		}
+	}
+
+	if err := s.modelState.DeleteModelArtifacts(ctx, modelUUID.String()); err != nil {
+		return errors.Errorf("deleting model artifacts: %w", err)
+	}
+
+	if err := s.controllerState.DeleteModel(ctx, modelUUID.String()); err != nil {
+		return errors.Errorf("deleting model: %w", err)
+	}
+
+	s.logger.Infof(ctx, "model %q deleted successfully", modelUUID)
+	return nil
 }
 
 func (s *Service) modelScheduleRemoval(

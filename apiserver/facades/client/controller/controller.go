@@ -348,7 +348,9 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 	}
 
 	controllerModel, err := c.modelService.ControllerModel(ctx)
-	if err != nil {
+	if errors.Is(err, modelerrors.NotFound) {
+		return result, errors.NotFoundf("controller model")
+	} else if err != nil {
 		return result, errors.Trace(err)
 	}
 	for _, model := range models {
@@ -365,8 +367,11 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		if err != nil {
 			return result, errors.Trace(err)
 		}
+
 		modelConf, err := svc.ModelConfig(ctx)
-		if err != nil {
+		if errors.Is(err, modelerrors.NotFound) {
+			config.Error = apiservererrors.ServerError(errors.NotFoundf("model %q", model.UUID))
+		} else if err != nil {
 			config.Error = apiservererrors.ServerError(err)
 		} else {
 			config.Config = modelConf.AllAttrs()

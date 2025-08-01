@@ -236,6 +236,7 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 	modelUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
+		"DELETE FROM model_namespace WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_secret_backend WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM secret_backend_reference WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_authorized_keys WHERE model_uuid = $entityUUID.uuid",

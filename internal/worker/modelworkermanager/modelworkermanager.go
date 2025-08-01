@@ -223,7 +223,9 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 	// If the model is not found, it means two things, either it was removed or
 	// more likely it was never activated. In either case, we don't need to
 	// start a worker for it.
-	if errors.Is(err, modelerrors.NotFound) {
+	if errors.Is(err, modelerrors.NotFound) ||
+		errors.Is(err, database.ErrDBDead) ||
+		errors.Is(err, database.ErrDBNotFound) {
 		// Model was removed, ignore it.
 		// The reason we ignore it here is that one of the embedded
 		// workers is also responding to the model life changes and
