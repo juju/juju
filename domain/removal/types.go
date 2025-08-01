@@ -20,7 +20,7 @@ const (
 	ApplicationJob
 	// MachineJob indicates a job to remove a machine.
 	MachineJob
-	// ModelJob indicates a job to set a model.
+	// ModelJob indicates a job to remove a model.
 	ModelJob
 )
 

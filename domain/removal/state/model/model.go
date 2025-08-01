@@ -216,7 +216,7 @@ func (st *State) ModelScheduleRemoval(
 
 	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalDoc)
 	if err != nil {
-		return errors.Errorf("preparing model  removal: %w", err)
+		return errors.Errorf("preparing model removal: %w", err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
