@@ -142,7 +142,7 @@ func (w *dbReplWorker) loop() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer line.Close()
+	defer func() { _ = line.Close() }()
 
 	// TODO (stickupkid): If we're not in a tty, then just write "connecting" to
 	// stdout.
@@ -160,9 +160,9 @@ func (w *dbReplWorker) loop() (err error) {
 				return
 			case <-ticker.C:
 				if amount > 0 {
-					fmt.Fprint(w.cfg.Stdout, "\033[1A\033[K")
+					_, _ = fmt.Fprint(w.cfg.Stdout, "\033[1A\033[K")
 				}
-				fmt.Fprintln(w.cfg.Stdout, "connecting", strings.Repeat(".", amount%4))
+				_, _ = fmt.Fprintln(w.cfg.Stdout, "connecting", strings.Repeat(".", amount%4))
 				amount++
 			}
 		}
@@ -179,7 +179,7 @@ func (w *dbReplWorker) loop() (err error) {
 
 	// Allow the line to be closed when the worker is dying.
 	go func() {
-		defer line.Close()
+		defer func() { _ = line.Close() }()
 
 		select {
 		case <-w.tomb.Dying():
@@ -226,9 +226,11 @@ func (w *dbReplWorker) loop() (err error) {
 		case ".exit", ".quit":
 			return worker.ErrTerminateAgent
 		case ".help", ".h":
-			fmt.Fprint(w.cfg.Stdout, helpText)
+			_, _ = fmt.Fprint(w.cfg.Stdout, helpText)
 		case ".switch":
 			w.execSwitch(ctx, args[1:])
+		case ".open":
+			w.execOpen(ctx, args[1:])
 		case ".models":
 			w.execModels(ctx)
 		case ".tables":
@@ -255,7 +257,7 @@ func (w *dbReplWorker) loop() (err error) {
 
 func (w *dbReplWorker) execSwitch(ctx context.Context, args []string) {
 	if len(args) != 1 {
-		fmt.Fprintln(w.cfg.Stderr, "usage: .switch model-<name> or .switch controller for global controller database")
+		_, _ = fmt.Fprintln(w.cfg.Stderr, "usage: .switch model-<name> or .switch controller for global controller database")
 		return
 	}
 
@@ -268,7 +270,7 @@ func (w *dbReplWorker) execSwitch(ctx context.Context, args []string) {
 
 	name, ok := strings.CutPrefix(argName, "model-")
 	if !ok {
-		fmt.Fprintln(w.cfg.Stderr, `invalid model namespace name: expected "model-<name>" or "controller"`)
+		_, _ = fmt.Fprintln(w.cfg.Stderr, `invalid model namespace name: expected "model-<name>" or "controller"`)
 		return
 	}
 
@@ -280,20 +282,38 @@ func (w *dbReplWorker) execSwitch(ctx context.Context, args []string) {
 		}
 		return nil
 	}); errors.Is(err, sql.ErrNoRows) {
-		fmt.Fprintf(w.cfg.Stderr, "model %q not found\n", name)
+		_, _ = fmt.Fprintf(w.cfg.Stderr, "model %q not found\n", name)
 		return
 	} else if err != nil {
-		fmt.Fprintf(w.cfg.Stderr, "failed to select %q database: %v\n", name, err)
+		_, _ = fmt.Fprintf(w.cfg.Stderr, "failed to select %q database: %v\n", name, err)
 		return
 	}
 
 	var err error
 	w.currentDB, err = w.dbGetter.GetDB(uuid)
 	if err != nil {
-		fmt.Fprintf(w.cfg.Stderr, "failed to switch to namespace %q: %v\n", name, err)
+		_, _ = fmt.Fprintf(w.cfg.Stderr, "failed to switch to namespace %q: %v\n", name, err)
 		return
 	}
 	w.currentNamespace = argName
+}
+
+func (w *dbReplWorker) execOpen(ctx context.Context, args []string) {
+	if len(args) != 1 {
+		_, _ = fmt.Fprintln(w.cfg.Stderr, "usage: .open <model-uuid>")
+		return
+	}
+
+	modelUUID := args[0]
+	db, err := w.dbGetter.GetDB(modelUUID)
+	if err != nil {
+		_, _ = fmt.Fprintf(w.cfg.Stderr, "failed to open model %q: %v\n", modelUUID, err)
+		return
+	}
+
+	w.currentDB = db
+	w.currentNamespace = modelUUID
+	_, _ = fmt.Fprintf(w.cfg.Stdout, "switched to model %q\n", modelUUID)
 }
 
 func (w *dbReplWorker) execModels(ctx context.Context) {
@@ -310,7 +330,7 @@ func (w *dbReplWorker) execQueryForModels(ctx context.Context, args []string) {
 			return err
 		}
 
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var uuid string
@@ -334,8 +354,8 @@ func (w *dbReplWorker) execQueryForModels(ctx context.Context, args []string) {
 		}
 
 		str := "Executing query on model: " + model
-		fmt.Fprintln(w.cfg.Stdout, str)
-		fmt.Fprintln(w.cfg.Stdout, strings.Repeat("-", len(str)))
+		_, _ = fmt.Fprintln(w.cfg.Stdout, str)
+		_, _ = fmt.Fprintln(w.cfg.Stdout, strings.Repeat("-", len(str)))
 		query := strings.Join(args, " ")
 		if err := w.executeQuery(ctx, db, query); err != nil {
 			w.cfg.Logger.Errorf(ctx, "failed to execute query on model %q: %v", model, err)
@@ -351,7 +371,7 @@ func (w *dbReplWorker) execTables(ctx context.Context) {
 
 func (w *dbReplWorker) execShowDDL(ctx context.Context, args []string) {
 	if len(args) != 1 {
-		fmt.Fprintln(w.cfg.Stderr, "usage: .ddl <name>")
+		_, _ = fmt.Fprintln(w.cfg.Stderr, "usage: .ddl <name>")
 		return
 	}
 
@@ -367,7 +387,7 @@ func (w *dbReplWorker) execShowDDL(ctx context.Context, args []string) {
 		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v\n", err)
 	}
 
-	fmt.Fprintln(w.cfg.Stdout, ddl)
+	_, _ = fmt.Fprintln(w.cfg.Stdout, ddl)
 }
 
 func (w *dbReplWorker) execTriggers(ctx context.Context) {
@@ -399,13 +419,13 @@ func (w *dbReplWorker) describeCluster(ctx context.Context) {
 
 	columns := []string{"ID", "Address", "Role"}
 	for _, col := range columns {
-		headerStyle.Fprintf(writer, "%s\t", col)
+		_, _ = headerStyle.Fprintf(writer, "%s\t", col)
 	}
-	fmt.Fprintln(writer)
+	_, _ = fmt.Fprintln(writer)
 
 	for _, server := range cluster {
-		fmt.Fprintf(writer, "%x\t%s\t%s", server.ID, server.Address, server.Role)
-		fmt.Fprintln(writer)
+		_, _ = fmt.Fprintf(writer, "%x\t%s\t%s", server.ID, server.Address, server.Role)
+		_, _ = fmt.Fprintln(writer)
 	}
 
 	if err := writer.Flush(); err != nil {
@@ -414,7 +434,7 @@ func (w *dbReplWorker) describeCluster(ctx context.Context) {
 		// output that has been written so far.
 	}
 
-	fmt.Fprintln(w.cfg.Stdout, sb.String())
+	_, _ = fmt.Fprintln(w.cfg.Stdout, sb.String())
 }
 
 // Kill is part of the worker.Worker interface.
@@ -442,7 +462,7 @@ func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, 
 			return err
 		}
 
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		columns, err := rows.Columns()
 		if err != nil {
@@ -458,9 +478,9 @@ func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, 
 		// doesn't have this issue.
 		writer := ansiterm.NewTabWriter(&sb, 0, 8, 1, '\t', 0)
 		for _, col := range columns {
-			headerStyle.Fprintf(writer, "%s\t", col)
+			_, _ = headerStyle.Fprintf(writer, "%s\t", col)
 		}
-		fmt.Fprintln(writer)
+		_, _ = fmt.Fprintln(writer)
 
 		for rows.Next() {
 			row := make([]interface{}, n)
@@ -474,9 +494,9 @@ func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, 
 			}
 
 			for _, column := range row {
-				fmt.Fprintf(writer, "%v\t", column)
+				_, _ = fmt.Fprintf(writer, "%v\t", column)
 			}
-			fmt.Fprintln(writer)
+			_, _ = fmt.Fprintln(writer)
 		}
 
 		if err := rows.Err(); err != nil {
@@ -487,7 +507,7 @@ func (w *dbReplWorker) executeQuery(ctx context.Context, db database.TxnRunner, 
 			return err
 		}
 
-		fmt.Fprintln(w.cfg.Stdout, sb.String())
+		_, _ = fmt.Fprintln(w.cfg.Stdout, sb.String())
 
 		return err
 	})
@@ -515,6 +535,7 @@ Database commands:
   .models                  Show all models.
   .switch model-<model>    Switch to a different model.
   .switch controller       Switch to the controller global database.
+  .open <model-uuid>       Open a specific model database by UUID.
   .tables                  Show all standard tables in the current database.
   .triggers                Show all trigger tables in the current database.
   .views                   Show all views in the current database.
