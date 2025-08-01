@@ -9,7 +9,8 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -39,23 +40,23 @@ type State interface {
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided uuid.
-	CheckMachineIsDead(context.Context, machine.UUID) (bool, error)
+	// machine exists for the provided UUID.
+	CheckMachineIsDead(context.Context, coremachine.UUID) (bool, error)
 
-	// GetMachineNetNodeUUID retrieves the net node uuid associated with provided
+	// GetMachineNetNodeUUID retrieves the net node UUID associated with provided
 	// machine.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided uuid.
-	GetMachineNetNodeUUID(context.Context, machine.UUID) (domainnetwork.NetNodeUUID, error)
+	// machine exists for the provided UUID.
+	GetMachineNetNodeUUID(context.Context, coremachine.UUID) (domainnetwork.NetNodeUUID, error)
 
-	// GetUnitNetNodeUUID returns the node uuid associated with the supplied
+	// GetUnitNetNodeUUID returns the node UUID associated with the supplied
 	// unit.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-	// unit exists for the supplied unit uuid.
+	// unit exists for the supplied unit UUID.
 	GetUnitNetNodeUUID(context.Context, coreunit.UUID) (domainnetwork.NetNodeUUID, error)
 
 	// NamespaceForWatchMachineCloudInstance returns the change stream namespace
@@ -114,12 +115,15 @@ func NewService(st State, wf WatcherFactory) *Service {
 //
 // The following errors may be returned:
 // - [machineerrors.MachineNotFound] when no machine exists for the provided
-// uuid.
+// UUID.
 // - [machineerrors.MachineIsDead] when the machine is dead meaning it is about
 // to go away.
 func (s *Service) WatchMachineCloudInstance(
-	ctx context.Context, machineUUID machine.UUID,
+	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	dead, err := s.st.CheckMachineIsDead(ctx, machineUUID)
 	if err != nil {
 		return nil, errors.Errorf("checking if machine is dead: %w", err)

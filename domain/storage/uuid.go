@@ -13,7 +13,7 @@ import (
 // StorageInstanceUUID uniquely identifies a storage instance in the model.
 type StorageInstanceUUID uuid
 
-// StoragePoolUUID uniquely identifies a storage pool.
+// StoragePoolUUID uniquely identifies a storage pool in the model.
 type StoragePoolUUID uuid
 
 type uuid string
@@ -30,7 +30,7 @@ func NewStoragePoolUUID() (StoragePoolUUID, error) {
 	return StoragePoolUUID(u), err
 }
 
-// newUUID creates a new UUID using the internal uuid package.
+// newUUID creates a new UUID using the internal uui package.
 func newUUID() (uuid, error) {
 	id, err := internaluuid.NewUUID()
 	if err != nil {
@@ -39,19 +39,19 @@ func newUUID() (uuid, error) {
 	return uuid(id.String()), nil
 }
 
-// String returns the string representation of this uuid. This function
+// String returns the string representation of this UUID. This function
 // satisfies the [fmt.Stringer] interface.
 func (u StorageInstanceUUID) String() string {
 	return uuid(u).String()
 }
 
-// String returns the string representation of this uuid. This function
+// String returns the string representation of this UUID. This function
 // satisfies the [fmt.Stringer] interface.
 func (u StoragePoolUUID) String() string {
 	return uuid(u).String()
 }
 
-// String returns the string representation of this uuid. This function
+// String returns the string representation of this UUID. This function
 // satisfies the [fmt.Stringer] interface.
 func (u uuid) String() string {
 	return string(u)

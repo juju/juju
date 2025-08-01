@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/unit"
+	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -42,7 +42,7 @@ func NewState(
 // - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
 // machine exists for the provided uuid.
 func (st *State) CheckMachineIsDead(
-	ctx context.Context, uuid machine.UUID,
+	ctx context.Context, uuid coremachine.UUID,
 ) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -51,10 +51,10 @@ func (st *State) CheckMachineIsDead(
 
 	var (
 		input       = machineUUID{UUID: uuid.String()}
-		machineLife machineLife
+		machineLife entityLife
 	)
 	stmt, err := st.Prepare(
-		"SELECT &machineLife.* FROM machine WHERE uuid = $machineUUID.uuid",
+		"SELECT &entityLife.* FROM machine WHERE uuid = $machineUUID.uuid",
 		input, machineLife,
 	)
 	if err != nil {
@@ -75,7 +75,7 @@ func (st *State) CheckMachineIsDead(
 		return false, errors.Capture(err)
 	}
 
-	return domainlife.Life(machineLife.LifeId) == domainlife.Dead, nil
+	return domainlife.Life(machineLife.LifeID) == domainlife.Dead, nil
 }
 
 // GetMachineNetNodeUUID retrieves the net node uuid associated with provided
@@ -85,7 +85,7 @@ func (st *State) CheckMachineIsDead(
 // - [machineerrors.MachineNotFound] when no machine exists for the provided
 // uuid.
 func (st *State) GetMachineNetNodeUUID(
-	ctx context.Context, uuid machine.UUID,
+	ctx context.Context, uuid coremachine.UUID,
 ) (domainnetwork.NetNodeUUID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -93,19 +93,19 @@ func (st *State) GetMachineNetNodeUUID(
 	}
 
 	var (
-		input = machineUUID{UUID: uuid.String()}
-		dbVal netNodeUUIDRef
+		machineUUIDInput = machineUUID{UUID: uuid.String()}
+		dbVal            netNodeUUIDRef
 	)
 	stmt, err := st.Prepare(
 		"SELECT &netNodeUUIDRef.* FROM machine WHERE uuid = $machineUUID.uuid",
-		input, dbVal,
+		machineUUIDInput, dbVal,
 	)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, input).Get(&dbVal)
+		err := tx.Query(ctx, stmt, machineUUIDInput).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine %q does not exist", uuid).Add(
 				machineerrors.MachineNotFound,
@@ -127,7 +127,7 @@ func (st *State) GetMachineNetNodeUUID(
 // - [applicationerrors.UnitNotFound] when no unit exists for the provided
 // uuid.
 func (st *State) GetUnitNetNodeUUID(
-	ctx context.Context, uuid unit.UUID,
+	ctx context.Context, uuid coreunit.UUID,
 ) (domainnetwork.NetNodeUUID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -135,21 +135,19 @@ func (st *State) GetUnitNetNodeUUID(
 	}
 
 	var (
-		input = unitUUID{UUID: uuid.String()}
-		dbVal netNodeUUIDRef
+		unitUUIDInput = unitUUID{UUID: uuid.String()}
+		dbVal         netNodeUUIDRef
 	)
-	stmt, err := st.Prepare(`
-SELECT &netNodeUUIDRef.*
-FROM unit
-WHERE uuid = $unitUUID.uuid`,
-		input, dbVal,
+	stmt, err := st.Prepare(
+		"SELECT &netNodeUUIDRef.* FROM unit WHERE uuid = $unitUUID.uuid",
+		unitUUIDInput, dbVal,
 	)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, input).Get(&dbVal)
+		err := tx.Query(ctx, stmt, unitUUIDInput).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("unit %q does not exist", uuid).Add(
 				applicationerrors.UnitNotFound,
@@ -157,9 +155,11 @@ WHERE uuid = $unitUUID.uuid`,
 		}
 		return err
 	})
+
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+
 	return domainnetwork.NetNodeUUID(dbVal.UUID), nil
 }
 

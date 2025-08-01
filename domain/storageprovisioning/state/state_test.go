@@ -13,7 +13,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -142,7 +141,7 @@ func (s *stateSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 		c.Context(), coremachine.UUID(machineUUID),
 	)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(rval, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
+	c.Check(rval, tc.Equals, netNodeUUID)
 }
 
 // TestGetMachineNetNodeUUIDNotFound tests that asking for the net node of a
@@ -158,26 +157,28 @@ func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+// TestGetUnitNetNodeUUID tests the happy path of [State.GetUnitNetNodeUUID].
 func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 	rval, err := st.GetUnitNetNodeUUID(
-		c.Context(), coreunit.UUID(unitUUID),
-	)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(rval, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
-}
-
-func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
-	unitUUID := unittesting.GenUnitUUID(c)
-
-	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetUnitNetNodeUUID(
 		c.Context(), unitUUID,
 	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, netNodeUUID)
+}
+
+// TestGetUnitNetNodeUUIDNotFound tests that asking for the net node of a unit
+// that does not exist returns a [applicationerrors.UnitNotFound] error to the
+// caller.
+func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetUnitNetNodeUUID(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -185,7 +186,7 @@ func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
 // are obtained from model info, model config and application.
 func (s *stateSuite) TestGetStorageResourceTagInfoForApplication(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID().String()
-	appUUID := s.newApplication(c, "foo")
+	appUUID, _ := s.newApplication(c, "foo")
 
 	_, err := s.DB().ExecContext(c.Context(),
 		`INSERT INTO model_config (key, value) VALUES (?, ?)`, "resource_tags", "a=x b=y")

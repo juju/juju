@@ -12,8 +12,9 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	domainlife "github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs/config"
@@ -70,7 +71,7 @@ type StoragePoolGetter interface {
 // ApplicationService is an interface for the application domain service.
 type ApplicationService interface {
 	// GetUnitLife returns the life status of a unit identified by its name.
-	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
+	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)
 	// GetApplicationLifeByName looks up the life of the specified application, returning
 	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application is not found.
@@ -79,9 +80,9 @@ type ApplicationService interface {
 	// GetUnitUUID returns the UUID for the named unit.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/unit.InvalidUnitName] if the unit name is invalid.
+	// - [coreunit.InvalidUnitName] if the unit name is invalid.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the unit doesn't exist.
-	GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error)
+	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 }
 
 // StorageStatusService provides methods to set filesystem and volume status.
@@ -100,54 +101,212 @@ type StorageStatusService interface {
 // StorageProvisioningService provides methods to watch and manage storage
 // provisioning related resources.
 type StorageProvisioningService interface {
-	// GetFilesystem retrieves the [storageprovisioning.Filesystem] for the
-	// supplied filesystem id.
+	// GetFilesystemUUIDForID returns the UUID for a filesystem with the supplied
+	// id.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem
-	// exists for the provided filesystem id.
-	GetFilesystem(ctx context.Context, filesystemID string) (storageprovisioning.Filesystem, error)
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+	// when no filesystem exists for the provided filesystem UUID.
+	GetFilesystemUUIDForID(
+		ctx context.Context, filesystemID string,
+	) (storageprovisioning.FilesystemUUID, error)
 
-	// GetFilesystemAttachmentForUnit retrieves the [storageprovisioning.FilesystemAttachment]
-	// for the supplied unit uuid and filesystem id.
+	// GetVolumeUUIDForID returns the UUID for a volume with the supplied
+	// id.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
-	// is not valid.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-	// unit exists for the supplied unit uuid.
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
-	// exists for the provided filesystem id.
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
-	// the provided filesystem id.
-	GetFilesystemAttachmentForUnit(
-		ctx context.Context, unitUUID unit.UUID, filesystemID string,
-	) (storageprovisioning.FilesystemAttachment, error)
+	// - [corestorage.InvalidStorageID] when the provided id is not valid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+	// when no volume exists for the provided volume UUID.
+	GetVolumeUUIDForID(
+		ctx context.Context, volumeID string,
+	) (storageprovisioning.VolumeUUID, error)
+
+	// GetFilesystemLife returns the current life value for a filesystem UUID.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the filesystem UUID is not valid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+	// when no filesystem exists for the provided filesystem UUID.
+	GetFilesystemLife(
+		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	) (domainlife.Life, error)
+
+	// GetVolumeLife returns the current life value for a volume UUID.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the volume UUID is not valid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+	// when no volume exists for the provided volume UUID.
+	GetVolumeLife(
+		ctx context.Context, uuid storageprovisioning.VolumeUUID,
+	) (domainlife.Life, error)
+
+	// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
+	// filesystem ID. True is returned when a filesystem exists.
+	CheckFilesystemForIDExists(context.Context, string) (bool, error)
+
+	// GetFilesystemAttachmentUUIDForFilesystemIDUnit returns the filesystem attachment UUID
+	// for the supplied filesystem ID which is attached to the unit.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the provided unit UUID is not valid.
+	// - [storageprovisioningerrors.FilesystemNotFound] when no fileystem exists
+	// for the supplied id.
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the supplied values.
+	// - [applicationerrors.UnitNotFound] when no unit exists for the provided unit
+	// UUID.
+	GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+		ctx context.Context, filesystemID string, unitUUID coreunit.UUID,
+	) (storageprovisioning.FilesystemAttachmentUUID, error)
+
+	// GetFilesystemAttachmentUUIDForFilesystemIDMachine returns the filesystem attachment
+	// UUID for the supplied filesystem id which is attached to the machine.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the provided unit UUID is not valid.
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+	// for the supplied id.
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the supplied values.
+	// - [machineerrors.MachineNotFound] when no machine exists for the provided
+	// machine UUID.
+	GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+		ctx context.Context,
+		filesystemID string, machineUUID machine.UUID,
+	) (storageprovisioning.FilesystemAttachmentUUID, error)
 
 	// GetFilesystemAttachmentForMachine retrieves the [storageprovisioning.FilesystemAttachment]
-	// for the supplied machine uuid and filesystem id.
+	// for the supplied machine UUID and filesystem ID.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
-	// exists for the provided filesystem id.
+	// exists for the provided filesystem ID.
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
-	// the provided filesystem id.
+	// the provided filesystem ID.
 	GetFilesystemAttachmentForMachine(
-		ctx context.Context, machineUUID machine.UUID, filesystemID string,
+		ctx context.Context, filesystemID string, machineUUID machine.UUID,
 	) (storageprovisioning.FilesystemAttachment, error)
+
+	// GetFilesystemAttachmentForUnit retrieves the [storageprovisioning.FilesystemAttachment]
+	// for the supplied unit UUID and filesystem ID.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
+	// is not valid.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+	// unit exists for the supplied unit UUID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem attachment
+	// exists for the provided filesystem ID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists for
+	// the provided filesystem ID.
+	GetFilesystemAttachmentForUnit(
+		ctx context.Context, filesystemID string, unitUUID coreunit.UUID,
+	) (storageprovisioning.FilesystemAttachment, error)
+
+	// GetFilesystemAttachmentIDs returns the
+	// [storageprovisioning.FilesystemAttachmentID] information for each of the
+	// supplied filesystem attachment UUIDs. If a filesystem attachment does exist
+	// for a supplied UUID or if a filesystem attachment is not attached to either a
+	// machine or unit then this UUID will be left out of the final result.
+	//
+	// It is not considered an error if a filesystem attachment UUID no longer
+	// exists as it is expected the caller has already satisfied this requirement
+	// themselves.
+	//
+	// This function exists to help keep supporting storage provisioning facades
+	// that have a very week data model about what a filesystem attachment is
+	// attached to.
+	//
+	// All returned values will have either the machine name or unit name value
+	// filled out in the [storageprovisioning.FilesystemAttachmentID] struct.
+	GetFilesystemAttachmentIDs(
+		ctx context.Context, filesystemAttachmentUUIDs []string,
+	) (map[string]storageprovisioning.FilesystemAttachmentID, error)
+
+	// GetFilesystemForID retrieves the [storageprovisioning.Filesystem] for the
+	// supplied filesystem ID.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+	// when no filesystem exists for the provided filesystem ID.
+	GetFilesystemForID(ctx context.Context, filesystemID string) (storageprovisioning.Filesystem, error)
+
+	// GetVolumeAttachmentIDs returns the [storageprovisioning.VolumeAttachmentID]
+	// information for each volume attachment UUID supplied. If a UUID does not
+	// exist or isn't attached to either a machine or a unit then it will not exist
+	// in the result.
+	GetVolumeAttachmentIDs(
+		ctx context.Context, volumeAttachmentUUIDs []string,
+	) (map[string]storageprovisioning.VolumeAttachmentID, error)
+
+	// GetFilesystemAttachmentLife returns the current life value for a filesystem
+	// attachment UUID.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the filesystem attachment UUID is not valid.
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided UUID.
+	GetFilesystemAttachmentLife(
+		ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+	) (domainlife.Life, error)
+
+	// GetVolumeAttachmentUUIDForVolumeIDMachine returns the volume attachment
+	// UUID for the supplied volume ID which is attached to the machine.
+	//
+	// The following errors may be returned:
+	// - [corestorage.InvalidStorageID] when the provided id is not valid.
+	// - [coreerrors.NotValid] when the provided machine UUID is not valid.
+	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+	// supplied id.
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the supplied values.
+	// - [machineerrors.MachineNotFound] when no machine exists for the provided
+	// machine UUID.
+	GetVolumeAttachmentUUIDForVolumeIDMachine(
+		ctx context.Context, volumeID string, machineUUID machine.UUID,
+	) (storageprovisioning.VolumeAttachmentUUID, error)
+
+	// GetVolumeAttachmentUUIDForVolumeUnit returns the volume attachment UUID
+	// for the supplied volume ID which is attached to the unit.
+	//
+	// The following errors may be returned:
+	// - [corestorage.InvalidStorageID] when the provided id is not valid.
+	// - [coreerrors.NotValid] when the provided unit UUID is not valid.
+	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+	// supplied id.
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the supplied values.
+	// - [applicationerrors.UnitNotFound] when no unit exists for the provided unit
+	// UUID.
+	GetVolumeAttachmentUUIDForVolumeIDUnit(
+		ctx context.Context, volumeID string, unitUUID coreunit.UUID,
+	) (storageprovisioning.VolumeAttachmentUUID, error)
+
+	// GetVolumeAttachmentLife returns the current life value for a volume
+	// attachment uuid.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the volume attachment UUID is not valid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
+	// when no volume attachment exists for the provided UUID.
+	GetVolumeAttachmentLife(
+		ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+	) (domainlife.Life, error)
 
 	// WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,
 	// whenever the given machine's provisioned filsystem's life changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the supplied machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the supplied machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine uuid.
+	// machine exists for the provided machine UUID.
 	WatchMachineProvisionedFilesystems(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.StringsWatcher, error)
@@ -164,10 +323,10 @@ type StorageProvisioningService interface {
 	// whenever the given machine's provisioned volume life changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	WatchMachineProvisionedVolumes(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error)
 
 	// WatchVolumeAttachmentPlans returns a watcher that emits volume attachment
@@ -175,19 +334,11 @@ type StorageProvisioningService interface {
 	// changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	WatchVolumeAttachmentPlans(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error)
-
-	// GetVolumeAttachmentIDs returns the [storageprovisioning.VolumeAttachmentID]
-	// information for each volume attachment uuid supplied. If a uuid does not
-	// exist or isn't attached to either a machine or a unit then it will not exist
-	// in the result.
-	GetVolumeAttachmentIDs(
-		ctx context.Context, volumeAttachmentUUIDs []string,
-	) (map[string]storageprovisioning.VolumeAttachmentID, error)
 
 	// WatchModelProvisionedVolumeAttachments returns a watcher that emits volume
 	// attachment UUIDs, whenever a model provisioned volume attachment's life
@@ -199,33 +350,13 @@ type StorageProvisioningService interface {
 	// attachment's life changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	WatchMachineProvisionedVolumeAttachments(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.StringsWatcher, error)
-
-	// GetFilesystemAttachmentIDs returns the
-	// [storageprovisioning.FilesystemAttachmentID] information for each of the
-	// supplied filesystem attachment uuids. If a filesystem attachment does exist
-	// for a supplied uuid or if a filesystem attachment is not attached to either a
-	// machine or unit then this uuid will be left out of the final result.
-	//
-	// It is not considered an error if a filesystem attachment uuid no longer
-	// exists as it is expected the caller has already satisfied this requirement
-	// themselves.
-	//
-	// This function exists to help keep supporting storage provisioning facades
-	// that have a very week data model about what a filesystem attachment is
-	// attached to.
-	//
-	// All returned values will have either the machine name or unit name value
-	// filled out in the [storageprovisioning.FilesystemAttachmentID] struct.
-	GetFilesystemAttachmentIDs(
-		ctx context.Context, filesystemAttachmentUUIDs []string,
-	) (map[string]storageprovisioning.FilesystemAttachmentID, error)
 
 	// WatchModelProvisionedFilesystemAttachments returns a watcher that emits
 	// filesystem attachment UUIDs, whenever a model provisioned filsystem
@@ -237,10 +368,10 @@ type StorageProvisioningService interface {
 	// filsystem attachment's life changes.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-	// is not valid.
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine
+	// UUID is not valid.
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-	// machine exists for the provided machine UUUID.
+	// machine exists for the provided machine UUID.
 	WatchMachineProvisionedFilesystemAttachments(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.StringsWatcher, error)

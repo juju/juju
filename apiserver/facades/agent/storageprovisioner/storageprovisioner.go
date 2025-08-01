@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/container"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -22,6 +23,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -33,6 +35,8 @@ import (
 
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
+	*common.InstanceIdGetter
+
 	watcherRegistry facade.WatcherRegistry
 
 	blockDeviceService         BlockDeviceService
@@ -46,6 +50,7 @@ type StorageProvisionerAPIv4 struct {
 	applicationService         ApplicationService
 	getScopeAuthFunc           common.GetAuthFunc
 	getStorageEntityAuthFunc   common.GetAuthFunc
+	getLifeAuthFunc            common.GetAuthFunc
 	getMachineAuthFunc         common.GetAuthFunc
 	getBlockDevicesAuthFunc    common.GetAuthFunc
 	getAttachmentAuthFunc      func(context.Context) (func(names.Tag, names.Tag) bool, error)
@@ -127,11 +132,15 @@ func NewStorageProvisionerAPIv4(
 			if ok {
 				return authorizer.AuthController()
 			}
-			_, err := storageProvisioningService.GetFilesystem(ctx, tag.Id())
-			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-				return authorizer.AuthController()
-			} else if err != nil {
+
+			exists, err := storageProvisioningService.CheckFilesystemForIDExists(
+				ctx, tag.Id(),
+			)
+			if err != nil {
 				return false
+			}
+			if !exists {
+				return authorizer.AuthController()
 			}
 			// TODO: implement volume auth in Dqlite.
 			// volumeTag, err := f.Volume()
@@ -164,6 +173,11 @@ func NewStorageProvisionerAPIv4(
 	getStorageEntityAuthFunc := func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return canAccessStorageEntity(tag, false)
+		}, nil
+	}
+	getLifeAuthFunc := func(context.Context) (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return canAccessStorageEntity(tag, true)
 		}, nil
 	}
 	getAttachmentAuthFunc := func(context.Context) (func(names.Tag, names.Tag) bool, error) {
@@ -218,6 +232,8 @@ func NewStorageProvisionerAPIv4(
 		}, nil
 	}
 	return &StorageProvisionerAPIv4{
+		InstanceIdGetter: common.NewInstanceIdGetter(machineService, getMachineAuthFunc),
+
 		watcherRegistry: watcherRegistry,
 
 		authorizer:                 authorizer,
@@ -230,6 +246,7 @@ func NewStorageProvisionerAPIv4(
 		applicationService:         applicationService,
 		getScopeAuthFunc:           getScopeAuthFunc,
 		getStorageEntityAuthFunc:   getStorageEntityAuthFunc,
+		getLifeAuthFunc:            getLifeAuthFunc,
 		getAttachmentAuthFunc:      getAttachmentAuthFunc,
 		getMachineAuthFunc:         getMachineAuthFunc,
 		getBlockDevicesAuthFunc:    getBlockDevicesAuthFunc,
@@ -242,23 +259,100 @@ func NewStorageProvisionerAPIv4(
 	}, nil
 }
 
-// Life returns the life status of every supplied entity, where available.
-func (s *StorageProvisionerAPIv4) Life(args params.Entities) (params.LifeResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
-	result := params.LifeResults{
+// Life returns the life of the entities passed in.
+// The entities are expected to be either filesystems or volumes tags.
+func (s *StorageProvisionerAPIv4) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
+	canAccess, err := s.getLifeAuthFunc(ctx)
+	if err != nil {
+		return params.LifeResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+	results := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Entities)),
 	}
-	return result, nil
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if !canAccess(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		var life domainlife.Life
+		switch tag := tag.(type) {
+		case names.VolumeTag:
+			life, err = s.lifeForVolume(ctx, tag)
+		case names.FilesystemTag:
+			life, err = s.lifeForFilesystem(ctx, tag)
+		default:
+			err = internalerrors.Errorf(
+				"invalid tag %q, expected volume or filesystem", tag,
+			).Add(errors.NotValid)
+		}
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if results.Results[i].Life, err = life.Value(); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+	return results, nil
 }
 
-// InstanceId returns the provider specific instance id for each given
-// machine or an CodeNotProvisioned error, if not set.
-func (s *StorageProvisionerAPIv4) InstanceId(args params.Entities) (params.StringResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
+func (s *StorageProvisionerAPIv4) lifeForFilesystem(
+	ctx context.Context, tag names.FilesystemTag,
+) (domainlife.Life, error) {
+	filesystemUUID, err := s.storageProvisioningService.GetFilesystemUUIDForID(ctx, tag.Id())
+	switch {
+	case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+		return -1, internalerrors.Errorf(
+			"filesystem not found for id %q", tag.Id(),
+		).Add(errors.NotFound)
+	case err != nil:
+		return -1, internalerrors.Errorf("getting filesystem UUID for id %q: %v", tag.Id(), err)
 	}
-	return result, nil
+
+	life, err := s.storageProvisioningService.GetFilesystemLife(ctx, filesystemUUID)
+	switch {
+	case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+		return -1, internalerrors.Errorf(
+			"filesystem not found for id %q", tag.Id(),
+		).Add(errors.NotFound)
+	case err != nil:
+		return -1, internalerrors.Errorf("getting filesystem life for id %q: %v", tag.Id(), err)
+	}
+	return life, nil
+}
+
+func (s *StorageProvisionerAPIv4) lifeForVolume(
+	ctx context.Context, tag names.VolumeTag,
+) (domainlife.Life, error) {
+	volumeUUID, err := s.storageProvisioningService.GetVolumeUUIDForID(ctx, tag.Id())
+	switch {
+	case errors.Is(err, storageprovisioningerrors.VolumeNotFound):
+		return -1, internalerrors.Errorf(
+			"volume not found for id %q", tag.Id(),
+		).Add(errors.NotFound)
+	case err != nil:
+		return -1, internalerrors.Errorf("getting volume UUID for id %q: %v", tag.Id(), err)
+	}
+
+	life, err := s.storageProvisioningService.GetVolumeLife(ctx, volumeUUID)
+	switch {
+	case errors.Is(err, storageprovisioningerrors.VolumeNotFound):
+		return -1, internalerrors.Errorf(
+			"volume not found for id %q", tag.Id(),
+		).Add(errors.NotFound)
+	case err != nil:
+		return -1, internalerrors.Errorf("getting volume UUID for id %q: %v", tag.Id(), err)
+	}
+
+	return life, nil
 }
 
 // EnsureDead ensures that the specified entities are dead.
@@ -706,7 +800,7 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 		if err != nil || !canAccess(tag) {
 			return params.Filesystem{}, apiservererrors.ErrPerm
 		}
-		fs, err := s.storageProvisioningService.GetFilesystem(ctx, tag.Id())
+		fs, err := s.storageProvisioningService.GetFilesystemForID(ctx, tag.Id())
 		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
 			return params.Filesystem{}, internalerrors.Errorf(
 				"filesystem %q not found", tag.Id(),
@@ -831,34 +925,16 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 				return result, internalerrors.Capture(err)
 			}
 			fsAttachment, err = s.storageProvisioningService.GetFilesystemAttachmentForMachine(
-				ctx, machineUUID, filesystemTag.Id(),
+				ctx, filesystemTag.Id(), machineUUID,
 			)
 		case names.UnitTag:
-			var unitName coreunit.Name
-			unitName, err = coreunit.NewName(tag.Id())
-			if errors.Is(err, coreunit.InvalidUnitName) {
-				return result, internalerrors.Errorf(
-					"invalid unit name %q", tag.Id(),
-				).Add(errors.NotValid)
-			} else if err != nil {
+			var unitUUID coreunit.UUID
+			unitUUID, err = s.getUnitUUID(ctx, tag)
+			if err != nil {
 				return result, internalerrors.Capture(err)
 			}
-
-			var unitUUID coreunit.UUID
-			unitUUID, err = s.applicationService.GetUnitUUID(ctx, unitName)
-			if errors.Is(err, coreunit.InvalidUnitName) {
-				return result, internalerrors.Errorf(
-					"invalid unit name %q", unitName,
-				).Add(errors.NotValid)
-			} else if errors.Is(err, applicationerrors.UnitNotFound) {
-				return result, internalerrors.Errorf(
-					"unit %q not found", unitName,
-				).Add(errors.NotFound)
-			} else if err != nil {
-				return result, internalerrors.Errorf("getting unit %q UUID: %w", unitName, err)
-			}
 			fsAttachment, err = s.storageProvisioningService.GetFilesystemAttachmentForUnit(
-				ctx, unitUUID, filesystemTag.Id(),
+				ctx, filesystemTag.Id(), unitUUID,
 			)
 		default:
 			return result, errors.NotValidf("filesystem attachment host tag %q", tag)
@@ -1041,12 +1117,242 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 	return results, nil
 }
 
+func (s *StorageProvisionerAPIv4) getUnitUUID(
+	ctx context.Context, tag names.UnitTag,
+) (coreunit.UUID, error) {
+	unitName, err := coreunit.NewName(tag.Id())
+	if errors.Is(err, coreunit.InvalidUnitName) {
+		return "", internalerrors.Errorf(
+			"invalid unit name %q", tag.Id(),
+		).Add(errors.NotValid)
+	} else if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	unitUUID, err := s.applicationService.GetUnitUUID(ctx, unitName)
+	if errors.Is(err, coreunit.InvalidUnitName) {
+		return "", internalerrors.Errorf(
+			"invalid unit name %q", unitName,
+		).Add(errors.NotValid)
+	} else if errors.Is(err, applicationerrors.UnitNotFound) {
+		return "", internalerrors.Errorf(
+			"unit %q not found", unitName,
+		).Add(errors.NotFound)
+	} else if err != nil {
+		return "", internalerrors.Errorf("getting unit %q UUID: %w", unitName, err)
+	}
+	return unitUUID, nil
+}
+
+func (s *StorageProvisionerAPIv4) filesystemAttachmentLife(
+	ctx context.Context, fsTag names.FilesystemTag, hostTag names.Tag,
+) (life.Value, error) {
+	fsAttachmentUUID, err := s.getFilesystemAttachmentUUID(ctx, fsTag, hostTag)
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	fsLife, err := s.storageProvisioningService.GetFilesystemAttachmentLife(
+		ctx, fsAttachmentUUID,
+	)
+	if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
+		return "", internalerrors.Errorf(
+			"filesystem attachment %q on %q not found", fsTag.Id(), hostTag.Id(),
+		).Add(errors.NotFound)
+	} else if err != nil {
+		return "", internalerrors.Errorf(
+			"getting filesystem attachment life for %q on %q: %w",
+			fsTag.Id(), hostTag.Id(), err,
+		)
+	}
+	return fsLife.Value()
+}
+
+func (s *StorageProvisionerAPIv4) getFilesystemAttachmentUUID(
+	ctx context.Context, fsTag names.FilesystemTag, hostTag names.Tag,
+) (storageprovisioning.FilesystemAttachmentUUID, error) {
+	errHandler := func(err error) error {
+		switch {
+		case errors.Is(err, machineerrors.MachineNotFound):
+			return internalerrors.Errorf(
+				"machine %q not found", hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound):
+			return internalerrors.Errorf(
+				"filesystem attachment %q on %q not found", fsTag.Id(), hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+			return internalerrors.Errorf(
+				"filesystem %q not found for attachment on %q", fsTag.Id(), hostTag.Id(),
+			).Add(errors.NotFound)
+		case err != nil:
+			return internalerrors.Errorf(
+				"getting filesystem attachment UUID for %q on %q: %w",
+				fsTag.Id(), hostTag.Id(), err,
+			)
+		}
+		return nil
+	}
+
+	var rval storageprovisioning.FilesystemAttachmentUUID
+	switch tag := hostTag.(type) {
+	case names.MachineTag:
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		if err != nil {
+			return "", errHandler(err)
+		}
+
+		rval, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+			ctx, fsTag.Id(), machineUUID,
+		)
+		if err != nil {
+			return "", errHandler(err)
+		}
+	case names.UnitTag:
+		unitUUID, err := s.getUnitUUID(ctx, tag)
+		if err != nil {
+			return "", internalerrors.Capture(err)
+		}
+		rval, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+			ctx, fsTag.Id(), unitUUID,
+		)
+		if err != nil {
+			return "", errHandler(err)
+		}
+	default:
+		return "", internalerrors.Errorf(
+			"filesystem attachment host tag %q is not a valid", hostTag.String(),
+		).Add(errors.NotValid)
+	}
+
+	return rval, nil
+}
+
+func (s *StorageProvisionerAPIv4) getVolumeAttachmentUUID(
+	ctx context.Context, volTag names.VolumeTag, hostTag names.Tag,
+) (storageprovisioning.VolumeAttachmentUUID, error) {
+	errHandler := func(err error) error {
+		switch {
+		case errors.Is(err, machineerrors.MachineNotFound):
+			return internalerrors.Errorf(
+				"machine %q not found", hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound):
+			return internalerrors.Errorf(
+				"volume attachment %q on %q not found", volTag.Id(), hostTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.VolumeNotFound):
+			return internalerrors.Errorf(
+				"volume %q not found for attachment on %q", volTag.Id(), hostTag.Id(),
+			).Add(errors.NotFound)
+		case err != nil:
+			return internalerrors.Errorf(
+				"getting volume attachment uuid for %q on %q: %w",
+				volTag.Id(), hostTag.Id(), err,
+			)
+		}
+		return nil
+	}
+
+	var rval storageprovisioning.VolumeAttachmentUUID
+	switch tag := hostTag.(type) {
+	case names.MachineTag:
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		if err != nil {
+			return "", errHandler(err)
+		}
+
+		rval, err = s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
+			ctx, volTag.Id(), machineUUID,
+		)
+		if err != nil {
+			return "", errHandler(err)
+		}
+	case names.UnitTag:
+		unitUUID, err := s.getUnitUUID(ctx, tag)
+		if err != nil {
+			return "", internalerrors.Capture(err)
+		}
+		rval, err = s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDUnit(
+			ctx, volTag.Id(), unitUUID,
+		)
+		if err != nil {
+			return "", errHandler(err)
+		}
+	default:
+		return "", internalerrors.Errorf(
+			"volume attachment host tag %q is not a valid", hostTag.String(),
+		).Add(errors.NotValid)
+	}
+
+	return rval, nil
+}
+
+func (s *StorageProvisionerAPIv4) volumeAttachmentLife(
+	ctx context.Context, volTag names.VolumeTag, hostTag names.Tag,
+) (life.Value, error) {
+	uuid, err := s.getVolumeAttachmentUUID(ctx, volTag, hostTag)
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	volLife, err := s.storageProvisioningService.GetVolumeAttachmentLife(
+		ctx, uuid,
+	)
+	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+		return "", internalerrors.Errorf(
+			"volume attachment %q on %q not found", volTag.Id(), hostTag.Id(),
+		).Add(errors.NotFound)
+	} else if err != nil {
+		return "", internalerrors.Errorf(
+			"getting volume attachment life for %q on %q: %w",
+			volTag.Id(), hostTag.Id(), err,
+		)
+	}
+	return volLife.Value()
+}
+
 // AttachmentLife returns the lifecycle state of each specified machine
 // storage attachment.
 func (s *StorageProvisionerAPIv4) AttachmentLife(ctx context.Context, args params.MachineStorageIds) (params.LifeResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	if err != nil {
+		return params.LifeResults{}, err
+	}
 	results := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Ids)),
+	}
+	oneLife := func(arg params.MachineStorageId) (life.Value, error) {
+		hostTag, err := names.ParseTag(arg.MachineTag)
+		if err != nil {
+			return "", err
+		}
+
+		tag, err := names.ParseTag(arg.AttachmentTag)
+		if err != nil {
+			return "", err
+		}
+		if !canAccess(hostTag, tag) {
+			return "", apiservererrors.ErrPerm
+		}
+		switch tag := tag.(type) {
+		case names.VolumeTag:
+			return s.volumeAttachmentLife(ctx, tag, hostTag)
+		case names.FilesystemTag:
+			return s.filesystemAttachmentLife(ctx, tag, hostTag)
+		default:
+			return "", internalerrors.Errorf(
+				"attachment tag %q is not a valid", tag.String(),
+			).Add(errors.NotValid)
+		}
+	}
+	for i, arg := range args.Ids {
+		life, err := oneLife(arg)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].Life = life
 	}
 	return results, nil
 }

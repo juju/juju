@@ -13,8 +13,13 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
 // volumeSuite provides a test suite for asserting the [Service] interface
@@ -265,4 +270,238 @@ func (s *volumeSuite) TestWatchVolumeAttachmentPlansNotFound(c *tc.C) {
 	_, err := NewService(s.state, s.watcherFactory).
 		WatchVolumeAttachmentPlans(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentLife(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	s.state.EXPECT().GetVolumeAttachmentLife(c.Context(), vaUUID).Return(
+		domainlife.Alive, nil,
+	)
+
+	rval, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentLife(c.Context(), vaUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, domainlife.Alive)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentLifeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	s.state.EXPECT().GetVolumeAttachmentLife(c.Context(), vaUUID).Return(
+		-1, storageprovisioningerrors.VolumeAttachmentNotFound,
+	)
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentLife(c.Context(), vaUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentLifeNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentLife(c.Context(), "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	volumeUUID := domaintesting.GenVolumeUUID(c)
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
+	s.state.EXPECT().GetVolumeAttachmentUUIDForVolumeNetNode(
+		c.Context(), volumeUUID, netNodeUUID,
+	).Return(vaUUID, nil)
+
+	rval, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDMachine(
+			c.Context(), "666", machineUUID,
+		)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, vaUUID)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDMachine(c.Context(), "", coremachine.UUID(""))
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(
+		"", machineerrors.MachineNotFound,
+	)
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return("", storageprovisioningerrors.VolumeNotFound)
+
+	_, err = NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	volumeUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
+	s.state.EXPECT().GetVolumeAttachmentUUIDForVolumeNetNode(
+		c.Context(), volumeUUID, netNodeUUID,
+	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	_, err = NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	volumeUUID := domaintesting.GenVolumeUUID(c)
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(
+		netNodeUUID, nil,
+	)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
+	s.state.EXPECT().GetVolumeAttachmentUUIDForVolumeNetNode(
+		c.Context(), volumeUUID, netNodeUUID,
+	).Return(vaUUID, nil)
+
+	rval, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDUnit(
+			c.Context(), "666", unitUUID,
+		)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, vaUUID)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDUnit(c.Context(), "", "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(
+		"", applicationerrors.UnitNotFound,
+	)
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDUnit(c.Context(), "666", unitUUID)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return("", storageprovisioningerrors.VolumeNotFound)
+
+	_, err = NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDUnit(c.Context(), "666", unitUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	volumeUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
+	s.state.EXPECT().GetVolumeAttachmentUUIDForVolumeNetNode(
+		c.Context(), volumeUUID, netNodeUUID,
+	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	_, err = NewService(s.state, s.watcherFactory).
+		GetVolumeAttachmentUUIDForVolumeIDUnit(c.Context(), "666", unitUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeLife(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	volumeUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetVolumeLife(c.Context(), volumeUUID).Return(
+		domainlife.Alive, nil,
+	)
+
+	rval, err := NewService(s.state, s.watcherFactory).
+		GetVolumeLife(c.Context(), volumeUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, domainlife.Alive)
+}
+
+func (s *volumeSuite) TestGetVolumeLifeNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeLife(c.Context(), "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *volumeSuite) TestGetVolumeLifeWithVolumeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	volumeUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetVolumeLife(c.Context(), volumeUUID).Return(
+		-1, storageprovisioningerrors.VolumeNotFound,
+	)
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeLife(c.Context(), volumeUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
