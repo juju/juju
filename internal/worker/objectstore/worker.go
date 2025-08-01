@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
@@ -128,7 +129,10 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 			return false
 		},
 		ShouldRestart: func(err error) bool {
-			return !errors.Is(err, database.ErrDBDead)
+			if errors.Is(err, modelerrors.NotFound) || errors.Is(err, database.ErrDBDead) {
+				return false
+			}
+			return true
 		},
 		RestartDelay: time.Second * 10,
 		Logger:       internalworker.WrapLogger(cfg.Logger),

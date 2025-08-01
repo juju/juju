@@ -315,7 +315,7 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 
 		isController, err := a.root.domainServices.ModelInfo().IsControllerModel(ctx)
 		if errors.Is(err, modelerrors.NotFound) {
-			return nil, errors.NotFoundf("controller model")
+			return nil, errors.NotFoundf("model")
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
