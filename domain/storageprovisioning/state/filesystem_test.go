@@ -809,8 +809,8 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfo(c *tc.C) {
 		MountPoint: "x/y/z",
 		ReadOnly:   true,
 	}
-	err := st.SetFilesystemAttachmentProvisionedInfo(c.Context(), fsUUID,
-		domainnetwork.NetNodeUUID(netNodeUUID), info)
+	err := st.SetFilesystemAttachmentProvisionedInfo(c.Context(),
+		fsAttachmentUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	fsAttachment, err := st.GetFilesystemAttachment(c.Context(),
@@ -826,16 +826,14 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfo(c *tc.C) {
 func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	fsUUID, _ := s.newModelFilesystem(c)
-	netNodeUUID := s.newNetNode(c)
-	s.newMachineWithNetNode(c, netNodeUUID)
+	uuid, err := storageprovisioning.NewFilesystemAttachmentUUID()
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x/y/z",
 		ReadOnly:   true,
 	}
-	err := st.SetFilesystemAttachmentProvisionedInfo(c.Context(), fsUUID,
-		domainnetwork.NetNodeUUID(netNodeUUID), info)
+	err = st.SetFilesystemAttachmentProvisionedInfo(c.Context(), uuid, info)
 	c.Assert(err, tc.ErrorIs,
 		storageprovisioningerrors.FilesystemAttachmentNotFound)
 }

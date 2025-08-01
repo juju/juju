@@ -172,7 +172,7 @@ type FilesystemState interface {
 
 	// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem
 	// attachment information about the provisoned filesystem attachment.
-	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemUUID storageprovisioning.FilesystemUUID, netNodeUUID domainnetwork.NetNodeUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
+	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemAttachmentUUID storageprovisioning.FilesystemAttachmentUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
 }
 
 // CheckFilesystemForIDExists checks if a filesystem exists for the supplied
@@ -660,9 +660,14 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForMachine(
 	if err != nil {
 		return errors.Capture(err)
 	}
+	fsAttachmentUUID, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		ctx, filesystemUUID, netNodeUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
-	err = s.st.SetFilesystemAttachmentProvisionedInfo(ctx, filesystemUUID,
-		netNodeUUID, info)
+	err = s.st.SetFilesystemAttachmentProvisionedInfo(ctx, fsAttachmentUUID,
+		info)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -692,9 +697,14 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForUnit(
 	if err != nil {
 		return errors.Capture(err)
 	}
+	fsAttachmentUUID, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		ctx, filesystemUUID, netNodeUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
-	err = s.st.SetFilesystemAttachmentProvisionedInfo(ctx, filesystemUUID,
-		netNodeUUID, info)
+	err = s.st.SetFilesystemAttachmentProvisionedInfo(ctx, fsAttachmentUUID,
+		info)
 	if err != nil {
 		return errors.Capture(err)
 	}

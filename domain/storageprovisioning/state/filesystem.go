@@ -890,11 +890,15 @@ WHERE  uuid = $filesystemProvisionedInfo.uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, fs).Run()
+		exists, err := st.checkFilesystemExists(ctx, tx, filesystemUUID)
 		if err != nil {
-			return errors.Capture(err)
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"filesystem %q does not exist", filesystemUUID,
+			).Add(storageprovisioningerrors.FilesystemNotFound)
 		}
-		return nil
+		return tx.Query(ctx, stmt, fs).Run()
 	})
 	if err != nil {
 		return errors.Capture(err)
@@ -906,8 +910,7 @@ WHERE  uuid = $filesystemProvisionedInfo.uuid
 // attachment information about the provisoned filesystem attachment.
 func (st *State) SetFilesystemAttachmentProvisionedInfo(
 	ctx context.Context,
-	filesystemUUID storageprovisioning.FilesystemUUID,
-	netNodeUUID domainnetwork.NetNodeUUID,
+	filesystemAttachmentUUID storageprovisioning.FilesystemAttachmentUUID,
 	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
 ) error {
 	db, err := st.DB()
@@ -916,17 +919,15 @@ func (st *State) SetFilesystemAttachmentProvisionedInfo(
 	}
 
 	fs := filesystemAttachmentProvisionedInfo{
-		FilesystemUUID: filesystemUUID.String(),
-		NetNodeUUID:    netNodeUUID.String(),
-		MountPoint:     info.MountPoint,
-		ReadOnly:       info.ReadOnly,
+		UUID:       filesystemAttachmentUUID.String(),
+		MountPoint: info.MountPoint,
+		ReadOnly:   info.ReadOnly,
 	}
 	stmt, err := st.Prepare(`
 UPDATE storage_filesystem_attachment
 SET    mount_point = $filesystemAttachmentProvisionedInfo.mount_point,
        read_only = $filesystemAttachmentProvisionedInfo.read_only
-WHERE  storage_filesystem_uuid = $filesystemAttachmentProvisionedInfo.filesystem_uuid AND
-       net_node_uuid = $filesystemAttachmentProvisionedInfo.net_node_uuid
+WHERE  uuid = $filesystemAttachmentProvisionedInfo.uuid
 `, fs)
 	if err != nil {
 		return errors.Capture(err)
@@ -936,7 +937,7 @@ WHERE  storage_filesystem_uuid = $filesystemAttachmentProvisionedInfo.filesystem
 		var outcome sqlair.Outcome
 		err := tx.Query(ctx, stmt, fs).Get(&outcome)
 		if err != nil {
-			return errors.Capture(err)
+			return err
 		}
 
 		result := outcome.Result()
@@ -944,8 +945,8 @@ WHERE  storage_filesystem_uuid = $filesystemAttachmentProvisionedInfo.filesystem
 			return errors.Errorf("getting number of affected rows: %w", err)
 		} else if affected == 0 {
 			return errors.Errorf(
-				"filesystem attachment for filesystem %q and net node %s not found",
-				filesystemUUID, netNodeUUID,
+				"filesystem attachment %v not found",
+				filesystemAttachmentUUID,
 			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
 		}
 		return nil

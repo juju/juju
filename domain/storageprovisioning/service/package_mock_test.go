@@ -1334,17 +1334,17 @@ func (c *MockStateNamespaceForWatchMachineCloudInstanceCall) DoAndReturn(f func(
 }
 
 // SetFilesystemAttachmentProvisionedInfo mocks base method.
-func (m *MockState) SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemUUID storageprovisioning.FilesystemUUID, netNodeUUID network.NetNodeUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error {
+func (m *MockState) SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemAttachmentUUID storageprovisioning.FilesystemAttachmentUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetFilesystemAttachmentProvisionedInfo", ctx, filesystemUUID, netNodeUUID, info)
+	ret := m.ctrl.Call(m, "SetFilesystemAttachmentProvisionedInfo", ctx, filesystemAttachmentUUID, info)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetFilesystemAttachmentProvisionedInfo indicates an expected call of SetFilesystemAttachmentProvisionedInfo.
-func (mr *MockStateMockRecorder) SetFilesystemAttachmentProvisionedInfo(ctx, filesystemUUID, netNodeUUID, info any) *MockStateSetFilesystemAttachmentProvisionedInfoCall {
+func (mr *MockStateMockRecorder) SetFilesystemAttachmentProvisionedInfo(ctx, filesystemAttachmentUUID, info any) *MockStateSetFilesystemAttachmentProvisionedInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFilesystemAttachmentProvisionedInfo", reflect.TypeOf((*MockState)(nil).SetFilesystemAttachmentProvisionedInfo), ctx, filesystemUUID, netNodeUUID, info)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFilesystemAttachmentProvisionedInfo", reflect.TypeOf((*MockState)(nil).SetFilesystemAttachmentProvisionedInfo), ctx, filesystemAttachmentUUID, info)
 	return &MockStateSetFilesystemAttachmentProvisionedInfoCall{Call: call}
 }
 
@@ -1360,13 +1360,13 @@ func (c *MockStateSetFilesystemAttachmentProvisionedInfoCall) Return(arg0 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetFilesystemAttachmentProvisionedInfoCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID, network.NetNodeUUID, storageprovisioning.FilesystemAttachmentProvisionedInfo) error) *MockStateSetFilesystemAttachmentProvisionedInfoCall {
+func (c *MockStateSetFilesystemAttachmentProvisionedInfoCall) Do(f func(context.Context, storageprovisioning.FilesystemAttachmentUUID, storageprovisioning.FilesystemAttachmentProvisionedInfo) error) *MockStateSetFilesystemAttachmentProvisionedInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetFilesystemAttachmentProvisionedInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID, network.NetNodeUUID, storageprovisioning.FilesystemAttachmentProvisionedInfo) error) *MockStateSetFilesystemAttachmentProvisionedInfoCall {
+func (c *MockStateSetFilesystemAttachmentProvisionedInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemAttachmentUUID, storageprovisioning.FilesystemAttachmentProvisionedInfo) error) *MockStateSetFilesystemAttachmentProvisionedInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

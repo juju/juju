@@ -523,6 +523,8 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForMachine(c
 	fsID := "123"
 	fsUUID, err := storageprovisioning.NewFileystemUUID()
 	c.Assert(err, tc.ErrorIsNil)
+	fsAttachmentUUID, err := storageprovisioning.NewFilesystemAttachmentUUID()
+	c.Assert(err, tc.ErrorIsNil)
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
 		ReadOnly:   true,
@@ -535,8 +537,10 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForMachine(c
 		nil)
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
 		netNodeUUID, nil)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		gomock.Any(), fsUUID, netNodeUUID).Return(fsAttachmentUUID, nil)
 	s.state.EXPECT().SetFilesystemAttachmentProvisionedInfo(gomock.Any(),
-		fsUUID, netNodeUUID, info).Return(nil)
+		fsAttachmentUUID, info).Return(nil)
 
 	svc := NewService(s.state, s.watcherFactory)
 	err = svc.SetFilesystemAttachmentProvisionedInfoForMachine(c.Context(),
@@ -566,6 +570,8 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnit(c *t
 	fsID := "123"
 	fsUUID, err := storageprovisioning.NewFileystemUUID()
 	c.Assert(err, tc.ErrorIsNil)
+	fsAttachmentUUID, err := storageprovisioning.NewFilesystemAttachmentUUID()
+	c.Assert(err, tc.ErrorIsNil)
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
 		ReadOnly:   true,
@@ -578,8 +584,10 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnit(c *t
 		nil)
 	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(
 		netNodeUUID, nil)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		gomock.Any(), fsUUID, netNodeUUID).Return(fsAttachmentUUID, nil)
 	s.state.EXPECT().SetFilesystemAttachmentProvisionedInfo(gomock.Any(),
-		fsUUID, netNodeUUID, info).Return(nil)
+		fsAttachmentUUID, info).Return(nil)
 
 	svc := NewService(s.state, s.watcherFactory)
 	err = svc.SetFilesystemAttachmentProvisionedInfoForUnit(c.Context(),
