@@ -15,7 +15,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/naturalsort"
 
 	apicloud "github.com/juju/juju/api/client/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )

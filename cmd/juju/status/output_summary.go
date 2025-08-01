@@ -15,10 +15,10 @@ import (
 	"github.com/juju/ansiterm/tabwriter"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/naturalsort"
 
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/naturalsort"
 )
 
 func (c *statusCommand) formatSummary(writer io.Writer, value interface{}) error {

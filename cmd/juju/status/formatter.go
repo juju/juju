@@ -10,13 +10,13 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
-	"github.com/juju/naturalsort"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
 	corebase "github.com/juju/juju/core/base"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/rpc/params"
 )
 
