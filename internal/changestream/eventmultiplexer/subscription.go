@@ -10,6 +10,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -18,6 +19,10 @@ const (
 	// Failure to consume the changes within this time will result in the
 	// subscriber being unsubscribed.
 	DefaultSignalTimeout = time.Second * 10
+
+	// ErrUnsubscribing is returned when a subscription is killed while
+	// dispatching changes.
+	ErrUnsubscribing = errors.ConstError("unsubscribing during dispatching")
 )
 
 type requestSubscription struct {
@@ -88,7 +93,7 @@ func (s *subscription) dispatch(ctx context.Context, changes ChangeSet) error {
 
 	select {
 	case <-s.tomb.Dying():
-		return tomb.ErrDying
+		return ErrUnsubscribing
 	case <-ctx.Done():
 		// If the subscriber is not consuming changes in a timely manner,
 		// we will get [context.DeadlineExceeded] and kill the subscription.
