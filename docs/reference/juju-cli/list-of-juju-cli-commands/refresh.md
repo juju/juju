@@ -46,7 +46,7 @@ To refresh the resources for application foo:
 
 When no options are set, the application's charm will be refreshed to the latest
 revision available in the repository from which it was originally deployed. An
-explicit revision can be chosen with the --revision option.
+explicit revision can be chosen with the `--revision` option.
 
 Refreshing a local packaged charm will require a path to be supplied to allow an
 updated copy of the charm.
@@ -57,40 +57,40 @@ is not supported and may lead to confusing behaviour. Each local packaged charm
 gets uploaded with the revision specified in the charm, if possible, otherwise
 it gets a unique revision (highest in state + 1).
 
-When deploying from a path, the --path option is used to specify the location
+When deploying from a path, the `--path` option is used to specify the location
 of the packaged charm. Note that the charm must match what was originally used
 to deploy the charm as a superficial check that the updated charm is compatible.
 
-Resources may be uploaded at upgrade time by specifying the --resource option.
-Following the resource option should be name=filepath pair.  This option may be
+Resources may be uploaded at upgrade time by specifying the `--resource` option.
+Following the resource option should be `name=filepath` pair.  This option may be
 repeated more than once to upload more than one resource.
 
-  juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+	juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
 
-Where bar and baz are resources named in the metadata for the foo charm.
+Where `bar` and `baz` are resources named in the metadata for the `foo` charm.
 
 Storage directives may be added or updated at upgrade time by specifying
-the --storage option, with the same format as specified in "juju deploy".
+the `--storage` option, with the same format as specified in "juju deploy".
 If new required storage is added by the new charm revision, then you must
 specify directives or the defaults will be applied.
 
-  juju refresh foo --storage cache=ssd,10G
+	juju refresh foo --storage cache=ssd,10G
 
 Charm settings may be added or updated at upgrade time by specifying the
---config option, pointing to a YAML-encoded application config file.
+`--config` option, pointing to a YAML-encoded application config file.
 
-  juju refresh foo --config config.yaml
+	juju refresh foo --config config.yaml
 
 If the new version of a charm does not explicitly support the application's series, the
-upgrade is disallowed unless the --force-series option is used. This option should be
+upgrade is disallowed unless the `--force-series` option is used. This option should be
 used with caution since using a charm on a machine running an unsupported series may
 cause unexpected behavior.
 
-The --switch option allows you to replace the charm with an entirely different one.
+The `--switch` option allows you to replace the charm with an entirely different one.
 The new charm's URL and revision are inferred as they would be when running a
 deploy command.
 
-Please note that --switch is dangerous, because juju only has limited
+Please note that `--switch` is dangerous, because juju only has limited
 information with which to determine compatibility; the operation will succeed,
 regardless of potential havoc, so long as the following conditions hold:
 
@@ -102,20 +102,20 @@ regardless of potential havoc, so long as the following conditions hold:
 The new charm may add new relations and configuration settings.
 
 The new charm may also need to be granted access to trusted credentials.
-Use --trust to grant such access.
-Or use --trust=false to revoke such access.
+Use `--trust` to grant such access.
+Or use `--trust=false` to revoke such access.
 
---switch and --path are mutually exclusive.
+`--switch` and `--path` are mutually exclusive.
 
---path and --revision are mutually exclusive. The revision of the updated charm
+`--path` and `--revision` are mutually exclusive. The revision of the updated charm
 is determined by the contents of the charm at the specified path.
 
---switch and --revision are mutually exclusive.
+`--switch` and `--revision` are mutually exclusive.
 
-Use of the --force-units option is not generally recommended; units upgraded
-while in an error state will not have upgrade-charm hooks executed, and may
+Use of the `--force-units` option is not generally recommended; units upgraded
+while in an error state will not have `upgrade-charm` hooks executed, and may
 cause unexpected behavior.
 
---force option for LXD Profiles is not generally recommended when upgrading an
+The `--force` option for LXD Profiles is not generally recommended when upgrading an
 application; overriding profiles on the container may cause unexpected
 behavior.
