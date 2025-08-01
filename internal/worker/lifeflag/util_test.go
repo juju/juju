@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-func newMockFacade(stub *testing.Stub, lifeResults ...life.Value) *mockFacade {
+func newMockFacade(stub *testing.Stub, lifeResults ...func() life.Value) *mockFacade {
 	return &mockFacade{
 		stub:        stub,
 		lifeResults: lifeResults,
@@ -22,7 +22,7 @@ func newMockFacade(stub *testing.Stub, lifeResults ...life.Value) *mockFacade {
 
 type mockFacade struct {
 	stub        *testing.Stub
-	lifeResults []life.Value
+	lifeResults []func() life.Value
 }
 
 func (mock *mockFacade) Life(entity names.Tag) (life.Value, error) {
@@ -36,7 +36,7 @@ func (mock *mockFacade) Life(entity names.Tag) (life.Value, error) {
 func (mock *mockFacade) nextLife() life.Value {
 	result := mock.lifeResults[0]
 	mock.lifeResults = mock.lifeResults[1:]
-	return result
+	return result()
 }
 
 func (mock *mockFacade) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {

@@ -5,6 +5,7 @@ package lifeflag_test
 
 import (
 	"errors"
+	"time"
 
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -57,7 +58,7 @@ func (*WorkerSuite) TestWatchNotFoundError(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, life.Alive),
+		Facade: newMockFacade(stub, alive),
 		Entity: testEntity,
 		Result: never,
 	}
@@ -75,7 +76,7 @@ func (*WorkerSuite) TestWatchRandomError(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, errors.New("pew pew"))
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, life.Alive),
+		Facade: newMockFacade(stub, alive),
 		Entity: testEntity,
 		Result: never,
 	}
@@ -93,7 +94,7 @@ func (*WorkerSuite) TestLifeNotFoundError(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, nil, apilifeflag.ErrEntityNotFound)
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, life.Alive),
+		Facade: newMockFacade(stub, alive),
 		Entity: testEntity,
 		Result: never,
 	}
@@ -111,7 +112,7 @@ func (*WorkerSuite) TestLifeRandomError(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(nil, nil, errors.New("rawr"))
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, life.Alive),
+		Facade: newMockFacade(stub, alive),
 		Entity: testEntity,
 		Result: never,
 	}
@@ -126,9 +127,14 @@ func (*WorkerSuite) TestLifeRandomError(c *gc.C) {
 }
 
 func (*WorkerSuite) TestResultImmediateRealChange(c *gc.C) {
+	done := make(chan struct{})
+
 	stub := &testing.Stub{}
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, life.Alive, life.Dead),
+		Facade: newMockFacade(stub, alive, func() life.Value {
+			close(done)
+			return life.Dead
+		}),
 		Entity: testEntity,
 		Result: life.IsNotAlive,
 	}
@@ -137,21 +143,44 @@ func (*WorkerSuite) TestResultImmediateRealChange(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker.Check(), jc.IsFalse)
 
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for worker to change state")
+	}
+
+	// Now check that the life has actually changed!
+	c.Check(worker.Check(), jc.IsTrue)
+
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.Equals, lifeflag.ErrValueChanged)
 	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 
 func (*WorkerSuite) TestResultSubsequentRealChange(c *gc.C) {
+	done := make(chan struct{})
+
 	stub := &testing.Stub{}
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, life.Dying, life.Dying, life.Dead),
+		Facade: newMockFacade(stub, dying, dying, func() life.Value {
+			close(done)
+			return life.Dead
+		}),
 		Entity: testEntity,
 		Result: life.IsNotDead,
 	}
 	worker, err := lifeflag.New(config)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker.Check(), jc.IsTrue)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for worker to change state")
+	}
+
+	// Now check that the life has actually changed!
+	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.Equals, lifeflag.ErrValueChanged)
@@ -161,7 +190,7 @@ func (*WorkerSuite) TestResultSubsequentRealChange(c *gc.C) {
 func (*WorkerSuite) TestResultNoRealChange(c *gc.C) {
 	stub := &testing.Stub{}
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, life.Alive, life.Alive, life.Dying),
+		Facade: newMockFacade(stub, alive, alive, dying),
 		Entity: testEntity,
 		Result: life.IsNotDead,
 	}
@@ -186,3 +215,11 @@ func checkCalls(c *gc.C, stub *testing.Stub, names ...string) {
 func explode(life.Value) bool { panic("unexpected") }
 
 func never(life.Value) bool { return false }
+
+func alive() life.Value {
+	return life.Alive
+}
+
+func dying() life.Value {
+	return life.Dying
+}
