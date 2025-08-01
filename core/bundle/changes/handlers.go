@@ -14,7 +14,6 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-
 	"github.com/juju/juju/internal/naturalsort"
 )
 
