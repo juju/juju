@@ -240,7 +240,7 @@ func (s *machinerSuite) TestWatch(c *tc.C) {
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.CleanKill(c, watcher)
 
-	s.machineService.EXPECT().WatchMachineLife(gomock.Any(), coremachine.Name("1")).Return(watcher, nil)
+	s.machineService.EXPECT().WatchMachineAndMachineUnitLife(gomock.Any(), coremachine.Name("1")).Return(watcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	args := params.Entities{

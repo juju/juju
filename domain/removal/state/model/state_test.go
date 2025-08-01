@@ -323,7 +323,7 @@ func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UU
 			return err
 		}
 
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var unitUUID unit.UUID
 			if err := rows.Scan(&unitUUID); err != nil {
@@ -349,7 +349,7 @@ JOIN machine AS m ON m.net_node_uuid = nn.uuid
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var (
 				unitUUID    unit.UUID
@@ -394,7 +394,7 @@ WHERE u.uuid = ?
 			return err
 		}
 
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var machineUUID machine.UUID
 			if err := rows.Scan(&machineUUID); err != nil {

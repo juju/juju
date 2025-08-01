@@ -29,7 +29,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/domain/modelagent"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkstate "github.com/juju/juju/domain/network/state"
@@ -1000,7 +1000,7 @@ func (s *stateSuite) TestSetModelConstraints(c *tc.C) {
 	s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
-	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
 
 	_, err := s.DB().ExecContext(c.Context(), `
 INSERT INTO space (uuid, name) VALUES
@@ -1042,7 +1042,7 @@ func (s *stateSuite) TestGetModelConstraintsNotFound(c *tc.C) {
 	s.createTestModel(c)
 
 	runner := s.TxnRunnerFactory()
-	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
 
 	_, err := state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.ConstraintsNotFound)
@@ -1050,7 +1050,7 @@ func (s *stateSuite) TestGetModelConstraintsNotFound(c *tc.C) {
 
 func (s *stateSuite) TestGetModelConstraintsModelNotFound(c *tc.C) {
 	runner := s.TxnRunnerFactory()
-	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
 
 	_, err := state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
@@ -1250,7 +1250,7 @@ func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 
 func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {
 	runner := s.TxnRunnerFactory()
-	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{

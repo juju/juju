@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -224,7 +223,7 @@ AND    life_id = 0;`, uuids{})
 
 // MachineScheduleRemoval schedules a removal job for the machine with the
 // input UUID, qualified with the input force boolean.
-// We don't care if the unit does not exist at this point because:
+// We don't care if the machine does not exist at this point because:
 // - it should have been validated prior to calling this method,
 // - the removal job executor will handle that fact.
 func (st *State) MachineScheduleRemoval(
@@ -453,6 +452,14 @@ DELETE FROM net_node WHERE uuid IN
 		return errors.Capture(err)
 	}
 
+	deleteMachineParentStmt := `
+DELETE FROM machine_parent WHERE parent_uuid = $entityUUID.uuid;
+`
+	deleteMachineParent, err := st.Prepare(deleteMachineParentStmt, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		mLife, err := st.getMachineLife(ctx, tx, machineUUIDParam.UUID)
 		if err != nil {
@@ -494,6 +501,11 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("deleting block devices: %w", err)
 		}
 
+		// Remove the machine parent relationship.
+		if err := tx.Query(ctx, deleteMachineParent, machineUUIDParam).Run(); err != nil {
+			return errors.Errorf("deleting machine parent relationship: %w", err)
+		}
+
 		if err := tx.Query(ctx, deleteMachineStmt, machineUUIDParam).Run(); err != nil {
 			return errors.Errorf("deleting machine: %w", err)
 		}
@@ -526,6 +538,7 @@ SELECT COUNT(*) AS &count.count
 FROM unit
 JOIN machine ON machine.net_node_uuid = unit.net_node_uuid
 WHERE machine.uuid = $entityUUID.uuid
+AND unit.life_id != 2
 `, count{}, machineUUIDParam)
 	if err != nil {
 		return errors.Capture(err)
@@ -556,23 +569,27 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 	machineUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
-		"machine_status",
-		"machine_cloud_instance_status",
-		"machine_cloud_instance",
-		"machine_platform",
-		"machine_agent_version",
-		"machine_constraint",
-		"machine_volume",
-		"machine_filesystem",
-		"machine_requires_reboot",
-		"machine_lxd_profile",
-		"machine_agent_presence",
-		"machine_container_type",
+		"DELETE FROM machine_volume WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_filesystem WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_manual WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_agent_version WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM instance_tag WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_status WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_cloud_instance_status WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_cloud_instance WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_platform WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_agent_version WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_constraint WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_requires_reboot WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_lxd_profile WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_agent_presence WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {
-		query := fmt.Sprintf("DELETE FROM %s WHERE machine_uuid = $entityUUID.uuid", table)
-		stmt, err := st.Prepare(query, machineUUIDRec)
+		stmt, err := st.Prepare(table, machineUUIDRec)
 		if err != nil {
 			return errors.Capture(err)
 		}

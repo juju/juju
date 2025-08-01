@@ -27,7 +27,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -281,7 +281,7 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelState := modelstate.NewModelState(func() (database.TxnRunner, error) {
+	modelState := statemodel.NewState(func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modelUUID.String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
@@ -302,7 +302,7 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 // constraints and the model does not exist we get back an error satisfying
 // [modelerrors.NotFound].
 func (s *bootstrapSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
-	state := modelstate.NewModelState(func() (database.TxnRunner, error) {
+	state := statemodel.NewState(func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modeltesting.GenModelUUID(c).String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
@@ -342,7 +342,7 @@ func (s *bootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
-	state := modelstate.NewModelState(func() (database.TxnRunner, error) {
+	state := statemodel.NewState(func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modelUUID.String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
@@ -386,7 +386,7 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) 
 	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
-	state := modelstate.NewModelState(func() (database.TxnRunner, error) {
+	state := statemodel.NewState(func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modelUUID.String()), nil
 	}, loggertesting.WrapCheckLog(c))
 

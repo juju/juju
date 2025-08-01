@@ -45,7 +45,8 @@ import (
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelservice "github.com/juju/juju/domain/model/service"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	modelagentservice "github.com/juju/juju/domain/modelagent/service"
 	modelagentstate "github.com/juju/juju/domain/modelagent/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
@@ -389,8 +390,8 @@ func (s *ModelServices) Agent() *modelagentservice.WatchableService {
 func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 	return modelservice.NewProviderModelService(
 		s.modelUUID,
-		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
+		statecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		statemodel.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
 		modelservice.EnvironVersionProviderGetter(),
 		providertracker.ProviderRunner[modelservice.ModelResourcesProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelservice.CloudInfoProvider](s.providerFactory, s.modelUUID.String()),

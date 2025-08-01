@@ -69,7 +69,7 @@ type EventMultiplexer struct {
 	subscriptionsByNS  map[string][]*eventFilter
 	subscriptionsAll   map[uint64]struct{}
 	subscriptionsCount uint64
-	dispatchErrorCount int
+	dispatchErrorCount uint64
 
 	// subscriptionCh is a channel used to request new subscriptions.
 	// This is used to sync subscription additions into the loop.
@@ -230,12 +230,21 @@ func (e *EventMultiplexer) loop() error {
 			// Dispatch the set of changes, but do not cause the worker to
 			// exit. Just log out the error and then mark the term as done.
 			// There isn't anything we can do in this case.
+			previousCount := atomic.LoadUint64(&e.dispatchErrorCount)
 			err := e.dispatchSet(changeSet)
 			if err != nil {
 				e.logger.Errorf(ctx, "dispatching set: %v", err)
-				e.dispatchErrorCount++
+				atomic.AddUint64(&e.dispatchErrorCount, 1)
 			}
-			e.metrics.DispatchDurationObserve(e.clock.Now().Sub(begin).Seconds(), err != nil)
+
+			// We can just observe the dispatch error count as a facsimile of
+			// any failure because this is run in a serialized loop and any
+			// failure will be counted as an error. This ensures that even
+			// during a dispatch failure when not all errors are reported, the
+			// dispatch error count is incremented (see dispatchSet).
+			failed := previousCount != atomic.LoadUint64(&e.dispatchErrorCount)
+
+			e.metrics.DispatchDurationObserve(e.clock.Now().Sub(begin).Seconds(), failed)
 
 			// We should guarantee that the change set is not empty,
 			// so we can force false here.
@@ -292,7 +301,7 @@ func (e *EventMultiplexer) loop() error {
 			r.data["subscriptions"] = len(e.subscriptions)
 			r.data["subscriptions-by-ns"] = len(e.subscriptionsByNS)
 			r.data["subscriptions-all"] = len(e.subscriptionsAll)
-			r.data["dispatch-error-count"] = e.dispatchErrorCount
+			r.data["dispatch-error-count"] = int(atomic.LoadUint64(&e.dispatchErrorCount))
 
 			// If the stream supports reporting, then include it in the report.
 			if s, ok := e.stream.(reporter); ok {
@@ -363,7 +372,26 @@ func (e *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) er
 			// catacomb is dying or if the deadline is reached.
 			// If the subscription has been killed or did not dequeue in time,
 			// mark it bad. It will be removed at the top of the next loop.
-			return sub.dispatch(ctx, changes)
+			//
+			// Do not return the error here, as this will prevent subsequent
+			// subscriptions dispatching. Each subscription is run in parallel,
+			// and independent of each other, we don't want to stop any of them
+			// if just one of them fails. This includes the case where a
+			// subscription is killed while dispatching.
+			if err := sub.dispatch(ctx, changes); errors.Is(err, ErrUnsubscribing) {
+				// One subscription was being unsubscribed while we were
+				// dispatching changes. This is expected, so we just log it
+				// and move on. This is expected to happen, so we don't want
+				// to increment the error count.
+				e.logger.Tracef(ctx, "subscription %d is unsubscribing", sub.id)
+			} else if err != nil {
+				// If there was a legitimate error, log it and increment the
+				// error count.
+				e.logger.Errorf(ctx, "dispatching changes for subscription %d: %v", sub.id, err)
+				atomic.AddUint64(&e.dispatchErrorCount, 1)
+			}
+
+			return nil
 		})
 	}
 

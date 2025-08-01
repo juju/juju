@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
@@ -187,20 +186,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggingContext.GetLogger("juju.worker.logger"),
 		})),
 
-		// All other manifolds should depend on at least one of these
-		// three, which handle all the tasks that are safe and sane
+		// All other manifolds should depend on at least one of these, which
+		// handle all the tasks that are safe and sane
 		// to run in *all* controller machines.
 		notDeadFlagName: modellife.Manifold(modellife.ManifoldConfig{
 			DomainServicesName: domainServicesName,
 			ModelUUID:          modelUUID,
-			Result:             life.IsNotDead,
-			GetModelService:    modellife.GetModelService,
-			NewWorker:          modellife.NewWorker,
-		}),
-		notAliveFlagName: modellife.Manifold(modellife.ManifoldConfig{
-			DomainServicesName: domainServicesName,
-			ModelUUID:          modelUUID,
-			Result:             life.IsNotAlive,
 			GetModelService:    modellife.GetModelService,
 			NewWorker:          modellife.NewWorker,
 		}),
@@ -352,7 +343,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
 		// Everything else should be wrapped in ifResponsible,
-		// ifNotAlive, ifNotDead, or ifNotMigrating (which also
+		// ifNotDead, or ifNotMigrating (which also
 		// implies NotDead), to ensure that only a single
 		// controller is attempting to administer this model at
 		// any one time.
@@ -540,7 +531,6 @@ const (
 
 	isResponsibleFlagName = "is-responsible-flag"
 	notDeadFlagName       = "not-dead-flag"
-	notAliveFlagName      = "not-alive-flag"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"

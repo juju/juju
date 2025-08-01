@@ -21,7 +21,7 @@ import (
 
 // jobCheckMaxInterval is the maximum time between checks of the removal table,
 // to see if any jobs need processing.
-const jobCheckMaxInterval = 30 * time.Second
+const jobCheckMaxInterval = 10 * time.Second
 
 // Config holds configuration required to run the removal worker.
 type Config struct {

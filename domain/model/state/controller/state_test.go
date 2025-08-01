@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package controller
 
 import (
 	"context"
@@ -245,7 +245,7 @@ func (m *stateSuite) TestModelCloudInfoController(c *tc.C) {
 
 	// We need to establish the fact that the model created above is in fact the
 	// the controller model.
-	m.ControllerSuite.SeedControllerTable(c, modelUUID)
+	m.SeedControllerTable(c, modelUUID)
 
 	err = st.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1296,7 +1296,7 @@ func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 
 	// We need to establish the fact that the model created above is in fact the
 	// the controller model.
-	m.ControllerSuite.SeedControllerTable(c, modelUUID)
+	m.SeedControllerTable(c, modelUUID)
 
 	err = modelSt.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1360,7 +1360,7 @@ func (m *stateSuite) TestGetControllerModel(c *tc.C) {
 
 	// We need to establish the fact that the model created above is in fact the
 	// the controller model.
-	m.ControllerSuite.SeedControllerTable(c, modelUUID)
+	m.SeedControllerTable(c, modelUUID)
 
 	err = modelSt.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1839,7 +1839,7 @@ func (s *stateSuite) TestGetControllerModelUUID(c *tc.C) {
 
 	// We need to establish the fact that the model created above is in fact the
 	// the controller model.
-	s.ControllerSuite.SeedControllerTable(c, modelUUID)
+	s.SeedControllerTable(c, modelUUID)
 	err = modelSt.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

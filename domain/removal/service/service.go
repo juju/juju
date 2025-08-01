@@ -44,9 +44,18 @@ type ControllerDBState interface {
 	// UUID.
 	ModelExists(ctx context.Context, modelUUID string) (bool, error)
 
+	// GetModelLife retrieves the life state of a model.
+	GetModelLife(ctx context.Context, modelUUID string) (life.Life, error)
+
 	// EnsureModelNotAliveCascade ensures that there is no model identified
 	// by the input model UUID, that is still alive.
 	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) error
+
+	// MarkModelAsDead marks the model with the input UUID as dead.
+	MarkModelAsDead(ctx context.Context, modelUUID string) error
+
+	// DeleteModel removes the model with the input UUID from the database.
+	DeleteModel(ctx context.Context, modelUUID string) error
 }
 
 // ModelDBState describes retrieval and persistence methods for entity removal
@@ -126,7 +135,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 		err = s.processMachineRemovalJob(ctx, job)
 
 	case removal.ModelJob:
-		err = s.processModelRemovalJob(ctx, job)
+		err = s.processModelJob(ctx, job)
 
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(

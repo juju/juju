@@ -13,7 +13,8 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/model/service"
-	"github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -69,7 +70,7 @@ func (e *exportModelConstraintsOperation) Name() string {
 // [exportEnvironVersionOperation]
 func newExportEnvironVersionOperation(l logger.Logger) *exportEnvironVersionOperation {
 	return &exportEnvironVersionOperation{
-		exportOperation{
+		exportOperation: exportOperation{
 			logger: l,
 		},
 	}
@@ -79,7 +80,7 @@ func newExportEnvironVersionOperation(l logger.Logger) *exportEnvironVersionOper
 // [exportModelConstraintsOperation]
 func newExportModelConstraintsOperation(l logger.Logger) *exportModelConstraintsOperation {
 	return &exportModelConstraintsOperation{
-		exportOperation{
+		exportOperation: exportOperation{
 			logger: l,
 		},
 	}
@@ -91,8 +92,8 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.serviceGetter = func(modelUUID coremodel.UUID) ExportService {
 		return service.NewModelService(
 			modelUUID,
-			state.NewState(scope.ControllerDB()),
-			state.NewModelState(scope.ModelDB(), e.logger),
+			statecontroller.NewState(scope.ControllerDB()),
+			statemodel.NewState(scope.ModelDB(), e.logger),
 			service.EnvironVersionProviderGetter(),
 			service.DefaultAgentBinaryFinder(),
 		)

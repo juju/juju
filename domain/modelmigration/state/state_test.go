@@ -19,7 +19,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/domain/modelagent"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -41,7 +41,7 @@ func (s *migrationSuite) SetUpTest(c *tc.C) {
 	s.controllerUUID = uuid.MustNewUUID()
 
 	runner := s.TxnRunnerFactory()
-	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
+	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{

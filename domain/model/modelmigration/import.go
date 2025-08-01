@@ -26,7 +26,8 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelservice "github.com/juju/juju/domain/model/service"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
@@ -130,8 +131,8 @@ func modelDetailServiceGetter(
 	return func(id coremodel.UUID) ModelDetailService {
 		return modelservice.NewModelService(
 			id,
-			modelstate.NewState(scope.ControllerDB()),
-			modelstate.NewModelState(scope.ModelDB(), logger),
+			statecontroller.NewState(scope.ControllerDB()),
+			statemodel.NewState(scope.ModelDB(), logger),
 			modelservice.EnvironVersionProviderGetter(),
 			modelservice.DefaultAgentBinaryFinder(),
 		)
@@ -152,7 +153,7 @@ func (i *importModelConstraintsOperation) Name() string {
 // needed services used during import.
 func (i *importModelOperation) Setup(scope modelmigration.Scope) error {
 	i.modelImportService = modelservice.NewService(
-		modelstate.NewState(scope.ControllerDB()),
+		statecontroller.NewState(scope.ControllerDB()),
 		scope.ModelDeleter(),
 		i.logger,
 	)

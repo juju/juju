@@ -27,7 +27,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelestate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -214,7 +214,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := modelestate.NewState(s.TxnRunnerFactory())
+	modelSt := statecontroller.NewState(s.TxnRunnerFactory())
 	err = modelSt.Create(
 		c.Context(),
 		modelUUID,

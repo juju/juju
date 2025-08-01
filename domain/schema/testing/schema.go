@@ -45,7 +45,7 @@ func DumpChangeLogState(c *tc.C, runner database.TxnRunner) {
 			return err
 		}
 
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var row changeLogRow

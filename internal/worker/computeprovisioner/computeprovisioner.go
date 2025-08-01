@@ -259,8 +259,7 @@ func NewEnvironProvisioner(
 }
 
 func (p *environProvisioner) loop() error {
-	ctx, cancel := p.scopedContext()
-	defer cancel()
+	ctx := p.scopedContext()
 
 	// TODO(mjs channeling axw) - It would be better if there were
 	// APIs to watch and fetch provisioner specific config instead of
@@ -329,6 +328,6 @@ func (p *environProvisioner) setConfig(ctx context.Context, modelConfig *config.
 	return nil
 }
 
-func (p *environProvisioner) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(p.catacomb.Context(context.Background()))
+func (p *environProvisioner) scopedContext() context.Context {
+	return p.catacomb.Context(context.Background())
 }

@@ -3,6 +3,8 @@
 
 package watcher
 
+import "gopkg.in/tomb.v2"
+
 // TODO returns a watcher for type T that sends an initial change
 // with the empty value of type T.
 func TODO[T any]() Watcher[T] {
@@ -10,29 +12,27 @@ func TODO[T any]() Watcher[T] {
 	ch := make(chan T, 1)
 	ch <- empty
 	w := &todoWatcher[T]{
-		ch:   ch,
-		done: make(chan struct{}),
+		ch: ch,
 	}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		close(w.ch)
+		return tomb.ErrDying
+	})
 	return w
 }
 
 type todoWatcher[T any] struct {
+	tomb tomb.Tomb
 	ch   chan T
-	done chan struct{}
 }
 
 func (w *todoWatcher[T]) Kill() {
-	select {
-	case <-w.done:
-	default:
-		close(w.done)
-		close(w.ch)
-	}
+	w.tomb.Kill(nil)
 }
 
 func (w *todoWatcher[T]) Wait() error {
-	<-w.done
-	return nil
+	return w.tomb.Wait()
 }
 
 func (w *todoWatcher[T]) Changes() <-chan T {

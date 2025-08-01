@@ -104,6 +104,34 @@ func (s *WatchableService) WatchMachineLife(ctx context.Context, machineName mac
 	)
 }
 
+// WatchMachineAndMachineUnitLife returns a NotifyWatcher that is subscribed to
+// the changes in the machine and machine unit lifecycle tables in the model,
+// for the given machine name. It emits changes for both machine and the
+// machine unit lifecycle events, so it can be used to track the lifecycle of
+// a machine and its units together.
+func (s *WatchableService) WatchMachineAndMachineUnitLife(ctx context.Context, machineName machine.Name) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	machineTable, unitTable := s.st.NamespaceForMachineAndMachineUnitLife()
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			machineTable,
+			changestream.All,
+			eventsource.EqualsPredicate(machineName.String()),
+		),
+		eventsource.PredicateFilter(
+			unitTable,
+			changestream.All,
+			eventsource.EqualsPredicate(machineName.String()),
+		),
+	)
+}
+
 // WatchMachineContainerLife returns a watcher that observes machine container
 // life changes.
 func (s *WatchableService) WatchMachineContainerLife(ctx context.Context, parentMachineName machine.Name) (watcher.StringsWatcher, error) {

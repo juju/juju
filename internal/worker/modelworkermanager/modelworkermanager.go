@@ -265,7 +265,8 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 
 func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg NewModelConfig) (func(context.Context) (worker.Worker, error), error) {
 	modelUUID := model.UUID(cfg.ModelUUID)
-	absoluteModelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s/%s", cfg.ModelQualifier, cfg.ModelName), modelUUID)
+	modelName := fmt.Sprintf("%s/%s", cfg.ModelQualifier, cfg.ModelName)
+	absoluteModelName := fmt.Sprintf("%q (%s)", modelName, modelUUID)
 
 	// Get the provider domain services for the model.
 	cfg.ProviderServicesGetter = m.config.ProviderServicesGetter

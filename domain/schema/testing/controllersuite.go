@@ -29,11 +29,11 @@ type ControllerSuite struct {
 // with the controller schema.
 func (s *ControllerSuite) SetUpTest(c *tc.C) {
 	s.DqliteSuite.SetUpTest(c)
-	s.DqliteSuite.ApplyDDL(c, &SchemaApplier{
+	s.ApplyDDL(c, &SchemaApplier{
 		Schema:  schema.ControllerDDL(),
 		Verbose: s.Verbose,
 	})
-	err := database.InsertControllerNodeID(c.Context(), s.DqliteSuite.TxnRunner(), 0x2dc171858c3155be)
+	err := database.InsertControllerNodeID(c.Context(), s.TxnRunner(), 0x2dc171858c3155be)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

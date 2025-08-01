@@ -12,7 +12,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statemodel "github.com/juju/juju/domain/model/state/model"
 	"github.com/juju/juju/domain/modelagent"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -108,7 +108,7 @@ func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *tc.C) {
 func (s *suite) TestModelID(c *tc.C) {
 	// Create model info.
 	modelID := modeltesting.GenModelUUID(c)
-	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelSt := statemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := modelSt.Create(c.Context(), model.ModelDetailArgs{
 		UUID:               modelID,
 		LatestAgentVersion: semversion.Number{Major: 4, Minor: 21, Patch: 67},

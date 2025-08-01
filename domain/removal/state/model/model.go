@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -192,20 +191,22 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	return artifacts, nil
 }
 
-// ModelScheduleRemoval schedules a removal job for the model with the
-// input UUID, qualified with the input force boolean.
-// We don't care if the unit does not exist at this point because:
+// ModelScheduleRemoval schedules the removal job for a model.
+//
+// We don't care if the model does not exist at this point because:
 // - it should have been validated prior to calling this method,
 // - the removal job executor will handle that fact.
 func (st *State) ModelScheduleRemoval(
-	ctx context.Context, removalUUID, modelUUID string, force bool, when time.Time,
+	ctx context.Context,
+	removalUUID, modelUUID string,
+	force bool, when time.Time,
 ) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	removalRec := removalJob{
+	removalDoc := removalJob{
 		UUID:          removalUUID,
 		RemovalTypeID: 4,
 		EntityUUID:    modelUUID,
@@ -213,15 +214,14 @@ func (st *State) ModelScheduleRemoval(
 		ScheduledFor:  when,
 	}
 
-	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalDoc)
 	if err != nil {
 		return errors.Errorf("preparing model removal: %w", err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, removalRec).Run()
-		if err != nil {
-			return errors.Errorf("scheduling model removal: %w", err)
+		if err := tx.Query(ctx, stmt, removalDoc).Run(); err != nil {
+			return errors.Errorf("scheduling model  removal: %w", err)
 		}
 		return nil
 	}))
@@ -245,6 +245,46 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 	return life, errors.Capture(err)
 }
 
+// MarkModelAsDead marks the model with the input UUID as dead.
+// If there are model dependents, then this will return an error.
+func (st *State) MarkModelAsDead(ctx context.Context, mUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	modelUUID := entityUUID{UUID: mUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE model_life
+SET    life_id = 2
+WHERE  model_uuid = $entityUUID.uuid
+AND    life_id = 1`, modelUUID)
+	if err != nil {
+		return errors.Errorf("preparing model life update: %w", err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.getModelLife(ctx, tx, mUUID); err != nil {
+			return errors.Errorf("getting model life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		err = st.checkNoModelDependents(ctx, tx)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err := tx.Query(ctx, updateStmt, modelUUID).Run()
+		if err != nil {
+			return errors.Errorf("marking model as dead: %w", err)
+		}
+
+		return nil
+	}))
+}
+
 // DeleteModelArtifacts deletes all artifacts associated with a model.
 func (st *State) DeleteModelArtifacts(ctx context.Context, mUUID string) error {
 	db, err := st.DB()
@@ -265,9 +305,7 @@ WHERE uuid = $entityUUID.uuid;
 	}
 
 	// Once we get to this point, the model is hosed. We don't expect the
-	// model to be in use. The model migration will reinforce the schema once
-	// the migration is tried again. Failure to do that will result in the
-	// model being deleted unexpected scenarios.
+	// model to be in use.
 	modelTriggerStmt, err := st.Prepare(`DROP TRIGGER IF EXISTS trg_model_immutable_delete;`)
 	if err != nil {
 		return errors.Capture(err)
@@ -336,52 +374,14 @@ WHERE  model_uuid = $entityUUID.uuid;`, model, modelUUID)
 func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX) error {
 	var count count
 
-	// We don't care about the model, they exist in only one model database.
-	// So see if any of the following tables have any rows:
-	// - relation
-	// - machine
-	// - unit
-	// - application
-	// If any of these tables have rows, then the model cannot be removed.
-
-	relationsStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM relation`, count)
-	if err != nil {
-		return errors.Errorf("preparing relation count query: %w", err)
-	}
-
-	machinesStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM machine`, count)
-	if err != nil {
-		return errors.Errorf("preparing machine count query: %w", err)
-	}
-
-	unitsStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM unit`, count)
-	if err != nil {
-		return errors.Errorf("preparing unit count query: %w", err)
-	}
+	// We only care about applications and machines (for IAAS models). We assume
+	// that all dependant entities for each of these entities are already
+	// removed (units for applications etc). So if a model has no applications
+	// or machines, then it is empty.
 
 	applicationsStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM application`, count)
 	if err != nil {
 		return errors.Errorf("preparing application count query: %w", err)
-	}
-
-	err = tx.Query(ctx, relationsStmt).Get(&count)
-	if err != nil {
-		return errors.Errorf("getting relation count: %w", err)
-	} else if count.Count > 0 {
-		return errors.Errorf("still %d relations still exist", count.Count).Add(removalerrors.EntityStillAlive)
-	}
-
-	err = tx.Query(ctx, machinesStmt).Get(&count)
-	if err != nil {
-		return errors.Errorf("getting machine count: %w", err)
-	} else if count.Count > 0 {
-		return errors.Errorf("still %d machines still exist", count.Count).Add(removalerrors.EntityStillAlive)
-	}
-	err = tx.Query(ctx, unitsStmt).Get(&count)
-	if err != nil {
-		return errors.Errorf("getting unit count: %w", err)
-	} else if count.Count > 0 {
-		return errors.Errorf("still %d units still exist", count.Count).Add(removalerrors.EntityStillAlive)
 	}
 
 	err = tx.Query(ctx, applicationsStmt).Get(&count)
@@ -391,6 +391,18 @@ func (st *State) checkNoModelDependents(ctx context.Context, tx *sqlair.TX) erro
 		return errors.Errorf("still %d application still exist it", count.Count).Add(removalerrors.EntityStillAlive)
 	}
 
+	machinesStmt, err := st.Prepare(`SELECT COUNT(*) AS &count.count FROM machine`, count)
+	if err != nil {
+		return errors.Errorf("preparing machine count query: %w", err)
+	}
+
+	err = tx.Query(ctx, machinesStmt).Get(&count)
+	if err != nil {
+		return errors.Errorf("getting machine count: %w", err)
+	} else if count.Count > 0 {
+		return errors.Errorf("still %d machines still exist", count.Count).Add(removalerrors.EntityStillAlive)
+	}
+
 	return nil
 }
 
@@ -398,14 +410,13 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 	modelUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
-		"model_life",
-		"model_constraint",
-		"model_agent",
+		"DELETE FROM model_life WHERE model_uuid = $entityUUID.uuid",
+		"DELETE FROM model_constraint WHERE model_uuid = $entityUUID.uuid",
+		"DELETE FROM model_agent WHERE model_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {
-		query := fmt.Sprintf("DELETE FROM %s WHERE model_uuid = $entityUUID.uuid", table)
-		stmt, err := st.Prepare(query, modelUUIDRec)
+		stmt, err := st.Prepare(table, modelUUIDRec)
 		if err != nil {
 			return errors.Capture(err)
 		}

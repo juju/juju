@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/model"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
@@ -145,7 +145,7 @@ func CreateTestModel(
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := modelstate.NewState(txnRunner)
+	modelSt := statecontroller.NewState(txnRunner)
 	err = modelSt.Create(
 		c.Context(),
 		modelUUID,
@@ -175,7 +175,7 @@ func CreateTestModel(
 // DeleteTestModel is responsible for cleaning up a testing mode previously
 // created with [CreateTestModel].
 func DeleteTestModel(c *tc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
-	modelSt := modelstate.NewState(txnRunner)
+	modelSt := statecontroller.NewState(txnRunner)
 	err := modelSt.Delete(ctx, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }

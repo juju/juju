@@ -5,9 +5,7 @@ package modellife
 
 import (
 	"context"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
@@ -48,10 +46,6 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.Result = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.ModelService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 }
@@ -72,7 +66,7 @@ func (s *workerSuite) TestStartAlive(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -97,7 +91,7 @@ func (s *workerSuite) TestStartDead(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -134,7 +128,7 @@ func (s *workerSuite) TestWatchModelError(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -163,13 +157,13 @@ func (s *workerSuite) TestWatchModelStillAlive(c *tc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for worker to start")
 	}
 
@@ -199,20 +193,21 @@ func (s *workerSuite) TestWatchModelTransitionAliveToDying(c *tc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	c.Assert(w.Check(), tc.IsTrue)
 
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
+	// Make sure the worker doesn't bounce.
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *tc.C) {
@@ -227,41 +222,36 @@ func (s *workerSuite) TestWatchModelTransitionDyingToDead(c *tc.C) {
 		return watchertest.NewMockNotifyWatcher(ch), nil
 	})
 
-	var count int64
 	s.modelService.EXPECT().GetModelLife(gomock.Any(), s.modelUUID).DoAndReturn(func(ctx context.Context, u model.UUID) (life.Value, error) {
-		if c := atomic.AddInt64(&count, 1); c > 1 {
-			close(done)
-		}
+		close(done)
 		return life.Dead, nil
-	}).Times(2)
+	})
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	for i := 0; i < 2; i++ {
-		select {
-		case ch <- struct{}{}:
-		case <-time.After(testhelpers.LongWait):
-			c.Fatal("timed out waiting for worker to start")
-		}
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for worker to start")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for worker to start")
 	}
 
 	c.Assert(w.Check(), tc.IsFalse)
 
-	workertest.CleanKill(c, w)
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
 func (s *workerSuite) getConfig() Config {
 	return Config{
 		ModelUUID:    s.modelUUID,
 		ModelService: s.modelService,
-		Result:       life.IsAlive,
 	}
 }
 

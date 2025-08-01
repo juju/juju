@@ -186,6 +186,8 @@ const (
 )
 
 type provisionerTask struct {
+	catacomb catacomb.Catacomb
+
 	controllerUUID               string
 	hostTag                      names.Tag
 	logger                       logger.Logger
@@ -197,7 +199,6 @@ type provisionerTask struct {
 	machineChanges               watcher.StringsChannel
 	retryChanges                 watcher.NotifyChannel
 	broker                       environs.InstanceBroker
-	catacomb                     catacomb.Catacomb
 	imageStream                  string
 	retryStartInstanceStrategy   RetryStrategy
 
@@ -230,8 +231,7 @@ func (task *provisionerTask) Wait() error {
 }
 
 func (task *provisionerTask) loop() (taskErr error) {
-	ctx, cancel := task.scopedContext()
-	defer cancel()
+	ctx := task.scopedContext()
 
 	task.logger.Infof(ctx, "entering provisioner task loop; using provisioner pool with %d workers", task.wp.Size())
 	defer func() {
@@ -459,8 +459,8 @@ func (task *provisionerTask) pendingOrDead(
 	return pending, dead, nil
 }
 
-func (task *provisionerTask) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(task.catacomb.Context(context.Background()))
+func (task *provisionerTask) scopedContext() context.Context {
+	return task.catacomb.Context(context.Background())
 }
 
 // ClassifiableMachine is an interface that provides methods to classify a
@@ -585,7 +585,7 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 			for _, machine := range dead {
 				task.logger.Infof(ctx, "removing dead machine %q", machine.Id())
 				if err := machine.MarkForRemoval(ctx); err != nil {
-					task.logger.Errorf(ctx, "failed to remove dead machine %q", machine.Id())
+					task.logger.Errorf(ctx, "failed to remove dead machine %q: %v", machine.Id(), err)
 				}
 				task.removeMachineFromAZMap(machine)
 				machID := machine.Id()

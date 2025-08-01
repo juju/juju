@@ -16,7 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -45,10 +44,6 @@ func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig()
 	cfg.ModelUUID = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.Result = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -94,7 +89,6 @@ func (s *ManifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		DomainServicesName: "domainservices",
 		ModelUUID:          "model-uuid",
-		Result:             life.IsAlive,
 		NewWorker: func(ctx context.Context, c Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
 		},

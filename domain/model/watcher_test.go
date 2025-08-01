@@ -27,7 +27,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/model/service"
-	"github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -113,7 +113,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
-	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 
 	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
 
@@ -198,7 +198,7 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
 
-	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 
 	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
 
@@ -248,7 +248,7 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
-	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 
 	credSt := credentialstate.NewState(s.TxnRunnerFactory())
 	anotherKey := corecredential.Key{

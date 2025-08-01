@@ -125,6 +125,49 @@ BEGIN
 	}
 }
 
+func triggerMachineUnitLifecycle(namespace int) func() schema.Patch {
+	return func() schema.Patch {
+		stmt := fmt.Sprintf(`
+INSERT INTO change_log_namespace VALUES (%[1]d, 'custom_machine_unit_name_lifecycle', 'Changes to the lifecycle of machines units (name) entities');
+
+CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_insert
+AFTER INSERT ON unit FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+	SELECT 1, %[1]d, m.name, DATETIME('now')
+	FROM unit AS u
+	JOIN net_node AS n ON n.uuid = u.net_node_uuid
+	JOIN machine AS m ON m.net_node_uuid = n.uuid
+	WHERE u.uuid = NEW.uuid;
+END;
+
+CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_update
+AFTER UPDATE ON unit FOR EACH ROW
+WHEN 
+	NEW.life_id != OLD.life_id
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+	SELECT 2, %[1]d, m.name, DATETIME('now')
+	FROM unit AS u
+	JOIN net_node AS n ON n.uuid = u.net_node_uuid
+	JOIN machine AS m ON m.net_node_uuid = n.uuid
+	WHERE u.uuid = OLD.uuid;
+END;
+
+CREATE TRIGGER trg_log_custom_machine_unit_name_lifecycle_delete
+AFTER DELETE ON unit FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+	SELECT 4, %[1]d, m.name, DATETIME('now')
+	FROM unit AS u
+	JOIN net_node AS n ON n.uuid = u.net_node_uuid
+	LEFT JOIN machine AS m ON m.net_node_uuid = n.uuid
+	WHERE u.uuid = OLD.uuid;
+ END;`[1:], namespace)
+		return schema.MakePatch(stmt)
+	}
+}
+
 func triggerGuardForLife(tableName string) func() schema.Patch {
 	return func() schema.Patch {
 		stmt := fmt.Sprintf(`

@@ -167,7 +167,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc
 		sub.Kill()
 
 		err := sub.dispatch(c.Context(), changes)
-		c.Assert(err, tc.ErrorMatches, "tomb: dying")
+		c.Assert(err, tc.ErrorIs, ErrUnsubscribing)
 	}()
 
 	select {

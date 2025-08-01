@@ -32,11 +32,16 @@ type ModelState interface {
 	// - it should have been validated prior to calling this method,
 	// - the removal job executor will handle that fact.
 	ModelScheduleRemoval(
-		ctx context.Context, removalUUID, modelUUID string, force bool, when time.Time,
+		ctx context.Context,
+		removalDeadUUID, modelUUID string,
+		force bool, when time.Time,
 	) error
 
 	// GetModelLife retrieves the life state of a model.
 	GetModelLife(ctx context.Context, modelUUID string) (life.Life, error)
+
+	// MarkModelAsDead marks the model with the input UUID as dead.
+	MarkModelAsDead(ctx context.Context, modelUUID string) error
 
 	// DeleteModelArtifacts deletes all artifacts associated with a model.
 	DeleteModelArtifacts(ctx context.Context, modelUUID string) error
@@ -178,48 +183,56 @@ func (s *Service) modelScheduleRemoval(
 	}
 
 	if err := s.modelState.ModelScheduleRemoval(
-		ctx, jobUUID.String(), modelUUID.String(), force, s.clock.Now().UTC().Add(wait),
+		ctx,
+		jobUUID.String(),
+		modelUUID.String(),
+		force, s.clock.Now().UTC().Add(wait),
 	); err != nil {
-		return "", errors.Errorf("unit: %w", err)
+		return "", errors.Errorf("model: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q and %q", jobUUID)
 	return jobUUID, nil
 }
 
-// processModelRemovalJob deletes an model if it is dying.
+// processModelJob sets the model to dead if it meets the requirements.
 // Note that we do not need transactionality here:
 //   - Life can only advance - it cannot become alive if dying or dead.
-func (s *Service) processModelRemovalJob(ctx context.Context, job removal.Job) error {
+//   - All artifacts associated with the model will also have to be removed.
+func (s *Service) processModelJob(ctx context.Context, job removal.Job) error {
 	if job.RemovalType != removal.ModelJob {
 		return errors.Errorf("job type: %q not valid for model removal", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
-	l, err := s.modelState.GetModelLife(ctx, job.EntityUUID)
-	if errors.Is(err, modelerrors.NotFound) {
+	controllerModelExists, err := s.controllerState.ModelExists(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf("checking if controller model %q exists: %w", job.EntityUUID, err)
+	}
+
+	modelLife, err := s.modelState.GetModelLife(ctx, job.EntityUUID)
+	if errors.Is(err, modelerrors.NotFound) && !controllerModelExists {
 		// This is a programming error, as we should always have a model if
 		// we have a job for it.
 		return errors.Errorf("model %q not found for removal job %q", job.EntityUUID, job.UUID).Add(
 			removalerrors.RemovalModelRemoved)
-	} else if err != nil {
+	} else if err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return errors.Errorf("getting model %q life: %w", job.EntityUUID, err)
 	}
 
-	if l == life.Alive {
+	if modelLife == life.Alive {
 		return errors.Errorf("model %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	// This will delete any model artifacts that are associated with the model.
-	// This will not delete the model itself, that's handled by the model
-	// undertaker.
-	if err := s.modelState.DeleteModelArtifacts(ctx, job.EntityUUID); errors.Is(err, modelerrors.NotFound) {
-		// The model has already been removed.
-		// Indicate success so that this job will be deleted.
-		return nil
-	} else if err != nil {
-		return errors.Errorf("deleting model %q: %w", job.EntityUUID, err)
+	if err := s.modelState.MarkModelAsDead(ctx, job.EntityUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("marking model %q as dead: %w", job.EntityUUID, err)
 	}
+
+	if err := s.controllerState.MarkModelAsDead(ctx, job.EntityUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("marking controller model %q as dead: %w", job.EntityUUID, err)
+	}
+
+	s.logger.Infof(ctx, "model %q marked as dead", job.EntityUUID)
 
 	return nil
 }

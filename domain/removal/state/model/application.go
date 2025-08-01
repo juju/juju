@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -304,25 +303,24 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 	app := entityUUID{UUID: aUUID}
 
 	for _, table := range []string{
-		"application_channel",
-		"application_platform",
-		"application_scale",
-		"application_config",
-		"application_config_hash",
-		"application_constraint",
-		"application_setting",
-		"application_exposed_endpoint_space",
-		"application_exposed_endpoint_cidr",
-		"application_endpoint",
-		"application_extra_endpoint",
-		"application_storage_directive",
-		"application_resource",
-		"application_status",
-		"application_workload_version",
-		"device_constraint",
+		"DELETE FROM application_channel WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_platform WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_scale WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_config WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_config_hash WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_constraint WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_setting WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_exposed_endpoint_space WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_exposed_endpoint_cidr WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_endpoint WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_extra_endpoint WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_storage_directive WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_resource WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_status WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_workload_version WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM device_constraint WHERE application_uuid = $entityUUID.uuid",
 	} {
-		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $entityUUID.uuid`, table)
-		deleteApplicationReferenceStmt, err := st.Prepare(deleteApplicationReference, app)
+		deleteApplicationReferenceStmt, err := st.Prepare(table, app)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -487,26 +485,25 @@ WHERE charm_uuid = $entityUUID.uuid
 	}
 
 	for _, table := range []string{
-		"charm_config",
-		"charm_manifest_base",
-		"charm_action",
-		"charm_container_mount",
-		"charm_container",
-		"charm_term",
-		"charm_resource",
-		"charm_device",
-		"charm_storage_property",
-		"charm_storage",
-		"charm_tag",
-		"charm_category",
-		"charm_extra_binding",
-		"charm_relation",
-		"charm_hash",
-		"charm_metadata",
-		"charm_download_info",
+		"DELETE FROM charm_config WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_manifest_base WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_action WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_container_mount WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_container WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_term WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_resource WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_device WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_storage_property WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_storage WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_tag WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_category WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_extra_binding WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_relation WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_hash WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_metadata WHERE charm_uuid = $entityUUID.uuid",
+		"DELETE FROM charm_download_info WHERE charm_uuid = $entityUUID.uuid",
 	} {
-		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE charm_uuid = $entityUUID.uuid`, table)
-		deleteApplicationReferenceStmt, err := st.Prepare(deleteApplicationReference, charmUUID)
+		deleteApplicationReferenceStmt, err := st.Prepare(table, charmUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -569,13 +566,12 @@ WHERE resource_uuid = $entityUUID.uuid
 	}
 
 	for _, table := range []string{
-		"pending_application_resource",
-		"resource_retrieved_by",
-		"resource_file_store",
-		"resource_image_store",
+		"DELETE FROM pending_application_resource WHERE resource_uuid = $entityUUID.uuid",
+		"DELETE FROM resource_retrieved_by WHERE resource_uuid = $entityUUID.uuid",
+		"DELETE FROM resource_file_store WHERE resource_uuid = $entityUUID.uuid",
+		"DELETE FROM resource_image_store WHERE resource_uuid = $entityUUID.uuid",
 	} {
-		deleteResourceReference := fmt.Sprintf(`DELETE FROM %s WHERE resource_uuid = $entityUUID.uuid`, table)
-		deleteResourceReferenceStmt, err := st.Prepare(deleteResourceReference, resourceUUID)
+		deleteResourceReferenceStmt, err := st.Prepare(table, resourceUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -610,8 +606,8 @@ func (st *State) deleteFromObjectStore(ctx context.Context, tx *sqlair.TX, objec
 	ident := entityUUID{UUID: objectStoreUUID}
 
 	deleteObjectStorePathStmt, err := st.Prepare(`
-	DELETE FROM object_store_metadata_path
-	WHERE metadata_uuid = $entityUUID.uuid
+DELETE FROM object_store_metadata_path
+WHERE metadata_uuid = $entityUUID.uuid
 	`, ident)
 	if err != nil {
 		return errors.Capture(err)

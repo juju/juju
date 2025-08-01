@@ -33,7 +33,7 @@ import (
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	macaroonstate "github.com/juju/juju/domain/macaroon/state"
 	modelservice "github.com/juju/juju/domain/model/service"
-	modelstate "github.com/juju/juju/domain/model/state"
+	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -98,7 +98,7 @@ func (s *ControllerServices) ControllerNode() *controllernodeservice.WatchableSe
 // Model returns the model service.
 func (s *ControllerServices) Model() *modelservice.WatchableService {
 	return modelservice.NewWatchableService(
-		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		statecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.dbDeleter,
 		s.logger,
 		s.controllerWatcherFactory("model"),

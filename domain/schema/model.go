@@ -32,6 +32,7 @@ const (
 	customNamespaceUnitLifecycle tableNamespaceID = iota
 	customNamespaceMachineLifecycle
 	customNamespaceMachineLifeAndStartTime
+	customNamespaceMachineUnitLifecycle
 	customNamespaceStorageFilesystemLifeMachineProvisioning
 	customNamespaceStorageFilesystemLifeModelProvisioning
 	customNamespaceStorageFilesystemAttachmentLifeMachineProvisioning
@@ -219,6 +220,7 @@ func ModelDDL() *schema.Schema {
 		// operations for entities.
 		triggerEntityLifecycleByNameForTable("unit", customNamespaceUnitLifecycle),
 		triggerEntityLifecycleByNameForTable("machine", customNamespaceMachineLifecycle),
+		triggerMachineUnitLifecycle(customNamespaceMachineUnitLifecycle),
 
 		triggerEntityLifecycleByFieldForTable("application", "uuid", customNamespaceApplicationRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("machine", "uuid", customNamespaceMachineRemovalLifecycle),
