@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -599,4 +601,28 @@ func (s *stateSuite) TestDeleteSubnet(c *tc.C) {
 	subnets, err = st.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnets, tc.HasLen, 0)
+}
+
+// TestCannotAddEmptyProviderSubnet tests that an empty string provider ID
+// cannot be added to the provider_subnet table.
+func (s *stateSuite) TestCannotAddEmptyProviderSubnet(c *tc.C) {
+	// Act
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err := tx.ExecContext(ctx, insertSpace, "space0-uuid", "testing")
+		if err != nil {
+			return err
+		}
+		insertSubnet := `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertSubnet, "subnet-uuid", "10.0.0.0/24", "space0-uuid")
+		if err != nil {
+			return err
+		}
+		insertSubnetProvider := `INSERT INTO provider_subnet (provider_id, subnet_uuid) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertSubnetProvider, "", "subnet-uuid")
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "CHECK constraint failed: chk_provider_id_empty")
 }

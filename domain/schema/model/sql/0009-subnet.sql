@@ -11,6 +11,7 @@ CREATE TABLE subnet (
 CREATE TABLE provider_subnet (
     provider_id TEXT NOT NULL PRIMARY KEY,
     subnet_uuid TEXT NOT NULL,
+    CONSTRAINT chk_provider_id_empty CHECK (provider_id != ''),
     CONSTRAINT fk_provider_subnet_subnet_uuid
     FOREIGN KEY (subnet_uuid)
     REFERENCES subnet (uuid)
