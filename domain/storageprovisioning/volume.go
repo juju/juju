@@ -56,8 +56,11 @@ type VolumeProvisionedInfo struct {
 // VolumeAttachmentProvisionedInfo is information set by the storage provisioner
 // for volume attachments it has provisioned.
 type VolumeAttachmentProvisionedInfo struct {
-	ReadOnly        bool
-	BlockDeviceUUID string
+	ReadOnly bool
+
+	BlockDeviceName       string
+	BlockDeviceLink       string
+	BlockDeviceBusAddress string
 }
 
 // VolumeAttachmentPlanProvisionedInfo is information set by the storage

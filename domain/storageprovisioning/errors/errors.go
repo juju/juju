@@ -25,7 +25,4 @@ const (
 	// VolumeAttachmentPlanNotFound is used when a volume attachment plan cannot
 	// be found.
 	VolumeAttachmentPlanNotFound = errors.ConstError("volume attachment plan not found")
-
-	// BlockDeviceNotFound is used when a block device is not found.
-	BlockDeviceNotFound = errors.ConstError("block device not found")
 )

@@ -9,10 +9,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -642,7 +640,7 @@ func (s *Service) SetFilesystemProvisionedInfo(
 // attachment exists for the provided filesystem id.
 func (s *Service) SetFilesystemAttachmentProvisionedInfoForMachine(
 	ctx context.Context,
-	filesystemID string, machineUUID machine.UUID,
+	filesystemID string, machineUUID coremachine.UUID,
 	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -682,7 +680,7 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForMachine(
 // attachment exists for the provided filesystem id.
 func (s *Service) SetFilesystemAttachmentProvisionedInfoForUnit(
 	ctx context.Context,
-	filesystemID string, unitUUID unit.UUID,
+	filesystemID string, unitUUID coreunit.UUID,
 	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
 ) error {
 	if err := unitUUID.Validate(); err != nil {

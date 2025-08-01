@@ -409,7 +409,7 @@ type StorageProvisioningService interface {
 	// The following errors may be returned:
 	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 	// attachmentexists for the provided volume attachment id.
-	SetVolumeAttachmentProvisionedInfo(ctx context.Context, volumeID string, machineUUID machine.UUID, info storageprovisioning.VolumeAttachmentProvisionedInfo) error
+	SetVolumeAttachmentProvisionedInfo(ctx context.Context, volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID, info storageprovisioning.VolumeAttachmentProvisionedInfo) error
 
 	// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
 	// information about the provisioned volume attachment plan.
@@ -425,13 +425,5 @@ type StorageProvisioningService interface {
 	// attachment plan exists for the provided volume attachment id.
 	// - [storageprovisioningerrors.BlockDeviceNotFound] when no block device exists
 	// for the provided block device uuuid.
-	SetVolumeAttachmentPlanProvisionedBlockDevice(ctx context.Context, volumeID string, machineUUID machine.UUID, blockDeviceUUID string) error
-
-	// MatchOrCreateBlockDevice looks for a block device for the provided volume
-	// attachment id, or a matching block device on the machine otherwise it creates
-	// one.
-	// The following errors may be returned:
-	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
-	// attachmentexists for the provided volume attachment id.
-	MatchOrCreateBlockDevice(ctx context.Context, volumeID string, machineUUID machine.UUID, blockDeviceInfo blockdevice.BlockDevice) (string, error)
+	SetVolumeAttachmentPlanProvisionedBlockDevice(ctx context.Context, volumeID string, machineUUID machine.UUID, info blockdevice.BlockDevice) error
 }

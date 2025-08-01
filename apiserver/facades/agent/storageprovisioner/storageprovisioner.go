@@ -1222,18 +1222,8 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 			MountPoint:     vp.BlockDevice.MountPoint,
 			SerialId:       vp.BlockDevice.SerialId,
 		}
-		blockDeviceUUID, err := s.storageProvisioningService.MatchOrCreateBlockDevice(
-			ctx, volumeTag.Id(), machineUUID, blockDeviceInfo)
-		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
-			return internalerrors.Errorf(
-				"volume attachment for machine %q and volume %q not found",
-				machineTag.Id(), volumeTag.Id(),
-			).Add(errors.NotFound)
-		} else if err != nil {
-			return internalerrors.Capture(err)
-		}
 		err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedBlockDevice(
-			ctx, volumeTag.Id(), machineUUID, blockDeviceUUID)
+			ctx, volumeTag.Id(), machineUUID, blockDeviceInfo)
 		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
 			return internalerrors.Errorf(
 				"volume attachment plan for machine %q and volume %q not found",
@@ -1288,35 +1278,24 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 		} else if err != nil {
 			return internalerrors.Capture(err)
 		}
-		blockDeviceUUID := ""
-		if va.Info.BusAddress != "" ||
-			va.Info.DeviceName != "" ||
-			va.Info.DeviceLink != "" {
-			blockDeviceInfo := blockdevice.BlockDevice{
-				DeviceName: va.Info.DeviceName,
-				BusAddress: va.Info.BusAddress,
-			}
-			if va.Info.DeviceLink != "" {
-				blockDeviceInfo.DeviceLinks = append(blockDeviceInfo.DeviceLinks,
-					va.Info.DeviceLink)
-			}
-			blockDeviceUUID, err = s.storageProvisioningService.MatchOrCreateBlockDevice(
-				ctx, volumeTag.Id(), machineUUID, blockDeviceInfo)
-			if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
-				return internalerrors.Errorf(
-					"volume attachment for machine %q and volume %q not found",
-					machineTag.Id(), volumeTag.Id(),
-				).Add(errors.NotFound)
-			} else if err != nil {
-				return internalerrors.Capture(err)
-			}
+		volumeAttachmentUUID, err := s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
+			ctx, volumeTag.Id(), machineUUID)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			return internalerrors.Errorf(
+				"volume attachment for machine %q and volume %q not found",
+				machineTag.Id(), volumeTag.Id(),
+			).Add(errors.NotFound)
+		} else if err != nil {
+			return internalerrors.Capture(err)
 		}
 		info := storageprovisioning.VolumeAttachmentProvisionedInfo{
-			BlockDeviceUUID: blockDeviceUUID,
-			ReadOnly:        va.Info.ReadOnly,
+			ReadOnly:              va.Info.ReadOnly,
+			BlockDeviceName:       va.Info.DeviceName,
+			BlockDeviceLink:       va.Info.DeviceLink,
+			BlockDeviceBusAddress: va.Info.BusAddress,
 		}
 		err = s.storageProvisioningService.SetVolumeAttachmentProvisionedInfo(
-			ctx, volumeTag.Id(), machineUUID, info)
+			ctx, volumeAttachmentUUID, info)
 		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
 			return internalerrors.Errorf(
 				"volume attachment for machine %q and volume %q not found",

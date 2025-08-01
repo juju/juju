@@ -32,7 +32,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -2058,16 +2057,12 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
-
-	blockDeviceUUID := uuid.MustNewUUID().String()
-	blockDeviceInfo := blockdevice.BlockDevice{
-		DeviceName:  "x",
-		DeviceLinks: []string{"y"},
-		BusAddress:  "z",
-	}
+	volAttachUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 	info := storageprovisioning.VolumeAttachmentProvisionedInfo{
-		ReadOnly:        true,
-		BlockDeviceUUID: blockDeviceUUID,
+		ReadOnly:              true,
+		BlockDeviceName:       "x",
+		BlockDeviceLink:       "y",
+		BlockDeviceBusAddress: "z",
 	}
 	planInfo := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
 		DeviceType: "iscsi",
@@ -2077,10 +2072,10 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
 	}
 
 	svc := s.mockStorageProvisioningService
-	svc.EXPECT().MatchOrCreateBlockDevice(gomock.Any(), tag.Id(), machineUUID,
-		blockDeviceInfo).Return(blockDeviceUUID, nil)
-	svc.EXPECT().SetVolumeAttachmentProvisionedInfo(gomock.Any(), tag.Id(),
-		machineUUID, info).Return(nil)
+	svc.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(),
+		tag.Id(), machineUUID).Return(volAttachUUID, nil)
+	svc.EXPECT().SetVolumeAttachmentProvisionedInfo(gomock.Any(),
+		volAttachUUID, info).Return(nil)
 	svc.EXPECT().SetVolumeAttachmentPlanProvisionedInfo(gomock.Any(), tag.Id(),
 		machineUUID, planInfo).Return(nil)
 
@@ -2124,7 +2119,6 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
 
-	blockDeviceUUID := uuid.MustNewUUID().String()
 	blockDeviceInfo := blockdevice.BlockDevice{
 		DeviceName:     "a",
 		DeviceLinks:    []string{"b"},
@@ -2140,10 +2134,8 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 		SerialId:       "l",
 	}
 	svc := s.mockStorageProvisioningService
-	svc.EXPECT().MatchOrCreateBlockDevice(gomock.Any(), tag.Id(), machineUUID, blockDeviceInfo).
-		Return(blockDeviceUUID, nil)
 	svc.EXPECT().SetVolumeAttachmentPlanProvisionedBlockDevice(gomock.Any(), tag.Id(), machineUUID,
-		blockDeviceUUID).Return(nil)
+		blockDeviceInfo).Return(nil)
 
 	result, err := s.api.SetVolumeAttachmentPlanBlockInfo(c.Context(), params.VolumeAttachmentPlans{
 		VolumeAttachmentPlans: []params.VolumeAttachmentPlan{
