@@ -300,6 +300,10 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 
 		// Agent binary store.
 		"agent_binary_store",
+
+		// Offers
+		"offer",
+		"offer_endpoint",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -633,6 +637,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_machine_cloud_instance_guard_life",
 		"trg_machine_guard_life",
 		"trg_unit_guard_life",
+
+		"trg_ensure_single_app_per_offer",
+		"trg_offer_endpoint_immutable_update",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")
