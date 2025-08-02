@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -69,6 +70,8 @@ func machineInstanceInfoSetter(machineProvisionerAPI apiprovisioner.MachineProvi
 type ProvisionerTaskSuite struct {
 	testhelpers.IsolationSuite
 
+	clock testclock.AdvanceableClock
+
 	setupDone            chan bool
 	modelMachinesChanges chan []string
 	modelMachinesWatcher watcher.StringsWatcher
@@ -90,6 +93,8 @@ func TestProvisionerTaskSuite(t *testing.T) {
 func (s *ProvisionerTaskSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
+
 	s.setupDone = make(chan bool)
 	s.modelMachinesChanges = make(chan []string)
 	s.modelMachinesWatcher = watchertest.NewMockStringsWatcher(s.modelMachinesChanges)
@@ -105,6 +110,17 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *tc.C) {
 			return s.instances, s.instanceBroker.NextErr()
 		},
 	}
+
+	c.Cleanup(func() {
+		s.clock = nil
+		s.setupDone = nil
+		s.modelMachinesChanges = nil
+		s.modelMachinesWatcher = nil
+		s.machineErrorRetryChanges = nil
+		s.machineErrorRetryWatcher = nil
+		s.instances = nil
+		s.instanceBroker = nil
+	})
 }
 
 func (s *ProvisionerTaskSuite) TestStartStop(c *tc.C) {
@@ -212,7 +228,7 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *tc.C) {
 }
 
 func (s *ProvisionerTaskSuite) waitForProvisioned(c *tc.C, m *testMachine) {
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+	for {
 		_, err := m.InstanceId(c.Context())
 		if err == nil {
 			if m.GetPassword() == "" {
@@ -220,29 +236,40 @@ func (s *ProvisionerTaskSuite) waitForProvisioned(c *tc.C, m *testMachine) {
 			}
 			return
 		}
+		select {
+		case <-c.Context().Done():
+			c.Fatalf("machine %q not started", m.id)
+		case <-time.After(time.Millisecond):
+		}
 	}
-	c.Fatalf("machine %q not started", m.id)
 }
 
 func (s *ProvisionerTaskSuite) waitForRemovalMark(c *tc.C, m *testMachine) {
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+	for {
 		if m.GetMarkForRemoval() {
 			return
 		}
+		select {
+		case <-c.Context().Done():
+			c.Fatalf("machine %q not marked for removal", m.id)
+		case <-time.After(time.Millisecond):
+		}
 	}
-	c.Fatalf("machine %q not marked for removal", m.id)
 }
 
 func (s *ProvisionerTaskSuite) waitForInstanceStatus(c *tc.C, m *testMachine, status status.Status) string {
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+	for {
 		instStatus, info, err := m.InstanceStatus(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		if instStatus == status {
 			return info
 		}
+		select {
+		case <-c.Context().Done():
+			c.Fatalf("machine %q did not have expected status, instead: %v", m.id, m.instStatus)
+		case <-time.After(time.Millisecond):
+		}
 	}
-	c.Fatalf("machine %q did not have expected status, instead: %v", m.id, m.instStatus)
-	return ""
 }
 
 var (
@@ -582,7 +609,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *tc
 	s.sendMachineErrorRetryChange(c)
 	select {
 	case <-failedStartInstanceCh:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for StartInstance to be called")
 	}
 	s.sendMachineErrorRetryChange(c)
@@ -672,7 +699,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 	s.sendMachineErrorRetryChange(c)
 	select {
 	case <-failedStartInstanceCh:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for StartInstance to be called")
 	}
 	s.sendMachineErrorRetryChange(c)
@@ -724,7 +751,7 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 	s.sendMachineErrorRetryChange(c)
 	select {
 	case <-failedStartInstanceCh:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for StartInstance to be called")
 	}
 	s.sendMachineErrorRetryChange(c)
@@ -802,7 +829,7 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *tc.C) {
 		// and the main loop is ready to process the next event.
 		select {
 		case <-barrier:
-		case <-time.After(coretesting.LongWait):
+		case <-c.Context().Done():
 			c.Errorf("timed out waiting for first processed-machines event")
 		}
 
@@ -812,7 +839,7 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *tc.C) {
 		s.sendModelMachinesChange(c, "0")
 		select {
 		case <-barrier:
-		case <-time.After(coretesting.LongWait):
+		case <-c.Context().Done():
 			c.Errorf("timed out waiting for second processed-machines event")
 		}
 		close(doneCh)
@@ -828,7 +855,7 @@ func (s *ProvisionerTaskSuite) TestDedupStopRequests(c *tc.C) {
 	// shutdown and that any pending requests are processed.
 	select {
 	case <-doneCh:
-	case <-time.After(3 * coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Errorf("timed out waiting for work to complete")
 	}
 	workertest.CleanKill(c, task)
@@ -890,7 +917,7 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 			// and the main loop is ready to process the next event.
 			select {
 			case <-barrier:
-			case <-time.After(coretesting.LongWait):
+			case <-c.Context().Done():
 				c.Errorf("timed out waiting for first processed-machines event")
 			}
 
@@ -903,7 +930,7 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 			s.sendModelMachinesChange(c, "0")
 			select {
 			case <-barrier:
-			case <-time.After(coretesting.LongWait):
+			case <-c.Context().Done():
 				c.Errorf("timed out waiting for second processed-machines event")
 			}
 			return &environs.StartInstanceResult{
@@ -929,7 +956,7 @@ func (s *ProvisionerTaskSuite) TestDeferStopRequestsForMachinesStillProvisioning
 	// shutdown and that any pending requests are processed.
 	select {
 	case <-doneCh:
-	case <-time.After(3 * coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Errorf("timed out waiting for work to complete")
 	}
 	c.Assert(m0.password, tc.Not(tc.Equals), "")
@@ -971,9 +998,16 @@ func (s *ProvisionerTaskSuite) TestDedupStartInstance(c *tc.C) {
 	broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
 		c.Assert(len(ids), tc.Equals, 1)
 		c.Assert(ids[0], tc.DeepEquals, instance.Id("instance-0"))
-		close(doneCh)
+		// Due to the non-transactional nature of the provisionertask, it is
+		// unfortunately expected that multiple stop-instance tasks could be
+		// queued.
+		select {
+		case <-doneCh:
+		default:
+			close(doneCh)
+		}
 		return nil
-	}).Times(1)
+	}).AnyTimes()
 
 	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, nil)
 
@@ -987,7 +1021,7 @@ func (s *ProvisionerTaskSuite) TestDedupStartInstance(c *tc.C) {
 	// Wait until StartInstance is in progress.
 	select {
 	case <-startedCh:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for StartInstance to begin")
 	}
 
@@ -1006,7 +1040,7 @@ func (s *ProvisionerTaskSuite) TestDedupStartInstance(c *tc.C) {
 	// Wait for StopInstances to be called.
 	select {
 	case <-doneCh:
-	case <-time.After(3 * coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for StopInstances to complete")
 	}
 
@@ -1379,7 +1413,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningDoesNotProvisionTheSameMachineAft
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timeout waiting for provisioner")
 	}
 }
@@ -1453,7 +1487,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 func (s *ProvisionerTaskSuite) waitForWorkerSetup(c *tc.C) {
 	select {
 	case <-s.setupDone:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("worker not set up")
 	}
 }
@@ -1464,7 +1498,7 @@ func (s *ProvisionerTaskSuite) waitForTask(c *tc.C, expectedCalls []string) {
 		select {
 		case call := <-s.instanceBroker.callsChan:
 			calls = append(calls, call)
-		case <-time.After(coretesting.LongWait):
+		case <-c.Context().Done():
 			c.Fatalf("stopping worker chan didn't stop")
 		}
 		if reflect.DeepEqual(expectedCalls, calls) {
@@ -1477,7 +1511,7 @@ func (s *ProvisionerTaskSuite) waitForTask(c *tc.C, expectedCalls []string) {
 func (s *ProvisionerTaskSuite) sendModelMachinesChange(c *tc.C, ids ...string) {
 	select {
 	case s.modelMachinesChanges <- ids:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out sending model machines change")
 	}
 }
@@ -1485,7 +1519,7 @@ func (s *ProvisionerTaskSuite) sendModelMachinesChange(c *tc.C, ids ...string) {
 func (s *ProvisionerTaskSuite) sendMachineErrorRetryChange(c *tc.C) {
 	select {
 	case s.machineErrorRetryChanges <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out sending machine error retry change")
 	}
 }
@@ -1527,6 +1561,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		Broker:                       s.instanceBroker,
 		ImageStream:                  imagemetadata.ReleasedStream,
 		RetryStartInstanceStrategy:   retryStrategy,
+		Clock:                        s.clock,
 		NumProvisionWorkers:          numProvisionWorkers,
 		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
 	})
@@ -1566,6 +1601,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 			RetryDelay: 0 * time.Second,
 			RetryCount: 0,
 		},
+		Clock:                        s.clock,
 		NumProvisionWorkers:          numProvisionWorkers,
 		EventProcessedCb:             evtCb,
 		GetMachineInstanceInfoSetter: machineInstanceInfoSetter,
@@ -1578,6 +1614,11 @@ func (s *ProvisionerTaskSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerAPI = NewMockControllerAPI(ctrl)
 	s.machinesAPI = NewMockMachinesAPI(ctrl)
+	c.Cleanup(func() {
+		s.controllerAPI = nil
+		s.machinesAPI = nil
+	})
+
 	s.expectAuth()
 	return ctrl
 }

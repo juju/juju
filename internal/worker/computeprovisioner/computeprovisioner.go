@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
@@ -175,6 +176,7 @@ func (p *environProvisioner) getStartTask(ctx context.Context, workerCount int) 
 			RetryDelay: retryStrategyDelay,
 			RetryCount: retryStrategyCount,
 		},
+		Clock:               clock.WallClock,
 		NumProvisionWorkers: workerCount, // event callback is currently only being used by tests
 	})
 	if err != nil {
