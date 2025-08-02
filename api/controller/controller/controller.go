@@ -43,17 +43,21 @@ type Client struct {
 // connection.
 func NewClient(st base.APICallCloser, options ...Option) *Client {
 	frontend, backend := base.NewClientFacade(st, "Controller", options...)
+	legacy := frontend.BestAPIVersion() < 13
 	return &Client{
 		ClientFacade:        frontend,
 		facade:              backend,
 		ControllerConfigAPI: common.NewControllerConfig(backend),
-		ModelStatusAPI:      common.NewModelStatusAPI(backend),
+		ModelStatusAPI:      common.NewModelStatusAPI(backend, legacy),
 	}
 }
 
 // AllModels allows controller administrators to get the list of all the
 // models in the controller.
 func (c *Client) AllModels(ctx context.Context) ([]base.UserModel, error) {
+	if c.BestAPIVersion() < 13 {
+		return c.allModelsCompat(ctx)
+	}
 	var models params.UserModelList
 	err := c.facade.FacadeCall(ctx, "AllModels", nil, &models)
 	if err != nil {
@@ -91,6 +95,9 @@ type HostedConfig struct {
 // HostedModelConfigs returns all model settings for the
 // models hosted on the controller.
 func (c *Client) HostedModelConfigs(ctx context.Context) ([]HostedConfig, error) {
+	if c.BestAPIVersion() < 13 {
+		return c.hostedModelConfigsCompat(ctx)
+	}
 	result := params.HostedModelConfigsResults{}
 	err := c.facade.FacadeCall(ctx, "HostedModelConfigs", nil, &result)
 	if err != nil {

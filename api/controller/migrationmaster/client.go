@@ -144,6 +144,9 @@ func (c *Client) SetStatusMessage(ctx context.Context, message string) error {
 
 // ModelInfo return basic information about the model to migrated.
 func (c *Client) ModelInfo(ctx context.Context) (migration.ModelInfo, error) {
+	if c.caller.BestAPIVersion() < 5 {
+		return c.modelInfoCompat(ctx)
+	}
 	var info params.MigrationModelInfo
 	err := c.caller.FacadeCall(ctx, "ModelInfo", nil, &info)
 	if err != nil {
