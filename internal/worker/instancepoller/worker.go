@@ -280,35 +280,39 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 		return nil
 	}
 
-	// We don't poll manual machines, instead we're setting the status to 'running'
-	// as we don't have any better information from the provider, see lp:1678981
+	// We don't poll manual machines, instead we're setting the status to
+	// 'running' as we don't have any better information from the provider, see
+	// lp:1678981
 	isManual, err := u.config.MachineService.IsMachineManuallyProvisioned(ctx, machineName)
-	if err != nil {
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		u.config.Logger.Debugf(ctx, "machine %q not found, skipping polling", machineName)
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
-	if isManual {
-		machineStatus, err := u.config.StatusService.GetInstanceStatus(ctx, machineName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if machineStatus.Status != status.Running {
-			now := u.config.Clock.Now()
-			if err = u.config.StatusService.SetInstanceStatus(ctx, machineName, status.StatusInfo{
-				Status:  status.Running,
-				Message: "Manually provisioned machine",
-				Since:   &now,
-			}); err != nil {
-				u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", machineName, err)
-				return err
-			}
-		}
+	if !isManual {
+		// Add all new machines to the short poll group and arrange for them to
+		// be polled as soon as possible.
+		u.appendToShortPollGroup(machineName)
 		return nil
 	}
 
-	// Add all new machines to the short poll group and arrange for them to
-	// be polled as soon as possible.
-	u.appendToShortPollGroup(machineName)
+	machineStatus, err := u.config.StatusService.GetInstanceStatus(ctx, machineName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if machineStatus.Status != status.Running {
+		now := u.config.Clock.Now()
+		if err = u.config.StatusService.SetInstanceStatus(ctx, machineName, status.StatusInfo{
+			Status:  status.Running,
+			Message: "Manually provisioned machine",
+			Since:   &now,
+		}); err != nil {
+			u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", machineName, err)
+			return err
+		}
+	}
 	return nil
 }
 
