@@ -408,10 +408,11 @@ func (env *environ) getHardwareCharacteristics(
 	cores := uint64(container.CPUs())
 	mem := uint64(container.Mem())
 	return &instance.HardwareCharacteristics{
-		Arch:     &archStr,
-		CpuCores: &cores,
-		Mem:      &mem,
-		VirtType: &container.Type,
+		Arch:             &archStr,
+		CpuCores:         &cores,
+		Mem:              &mem,
+		VirtType:         &container.Type,
+		AvailabilityZone: &args.AvailabilityZone,
 	}
 }
 
