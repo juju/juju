@@ -169,6 +169,13 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		}
 		return svc.ModelMigration(), nil
 	}
+	removalServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.RemovalService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Removal(), nil
+	}
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
@@ -192,6 +199,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		blockCommandServiceGetter,
 		cloudSpecServiceGetter,
 		machineServiceGetter,
+		removalServiceGetter,
 		domainServices.Proxy(),
 		func(c context.Context, modelUUID coremodel.UUID) (controller.ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID)

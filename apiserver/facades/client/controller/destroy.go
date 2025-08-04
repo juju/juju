@@ -71,6 +71,14 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	}
 
 	if err := checkForceForControllerModel(ctx, c.blockCommandService, c.modelInfoService, args.Force); err != nil {
+		return errors.Trace(err)
+	}
+
+	removalService, err := c.removalServiceGetter(ctx, c.controllerModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := removalService.RemoveController(ctx, *args.Force, *args.MaxWait); err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
 		return errors.Trace(err)
 	}
@@ -102,6 +110,7 @@ func ensureNotBlocked(
 			return apiservererrors.OperationBlockedError("found blocks in controller models")
 		}
 	}
+
 	return nil
 }
 

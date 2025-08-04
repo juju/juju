@@ -256,3 +256,9 @@ type ModelAgentService interface {
 	// returned.
 	GetUnitsNotAtTargetAgentVersion(context.Context) ([]unit.Name, error)
 }
+
+// RemovalService provides access to the removal service.
+type RemovalService interface {
+	// RemoveController removes the controller and all models.
+	RemoveController(ctx context.Context, force bool, wait time.Duration) error
+}

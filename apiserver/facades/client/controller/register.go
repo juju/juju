@@ -127,6 +127,13 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		}
 		return svc.ModelMigration(), nil
 	}
+	removalServiceGetter := func(c context.Context, modelUUID model.UUID) (RemovalService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Removal(), nil
+	}
 
 	return NewControllerAPI(
 		stdCtx,
@@ -150,6 +157,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		blockCommandServiceGetter,
 		cloudSpecServiceGetter,
 		machineServiceGetter,
+		removalServiceGetter,
 		domainServices.Proxy(),
 		func(c context.Context, modelUUID model.UUID) (ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID)
