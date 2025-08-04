@@ -40,6 +40,8 @@ func (s *WatchersSuite) SetUpTest(c *gc.C) {
 			"1": {volume: names.NewVolumeTag("1")},
 			// filesystem 2 is backed by volume 2.
 			"2": {volume: names.NewVolumeTag("2")},
+			// filesystem 3 has no backing volume.
+			"3": {},
 		},
 		volumeAttachments: map[string]*mockVolumeAttachment{
 			"1": {life: state.Alive},
@@ -78,10 +80,24 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *gc.C) {
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
+	s.backend.modelFilesystemAttachmentsW.C <- []string{"1:3"}
 
 	// Filesystem 1 has a backing volume, so should not be reported.
 	wc := statetesting.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0:0")
+	wc.AssertChange("0:0", "1:3")
+	wc.AssertNoChange()
+}
+
+func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsNothingToSend(c *gc.C) {
+	w := s.watchers.WatchModelManagedFilesystemAttachments()
+	defer statetesting.AssertKillAndWait(c, w)
+
+	wc := statetesting.NewStringsWatcherC(c, w)
+	// Initial event.
+	s.backend.modelFilesystemAttachmentsW.C <- []string{}
+	wc.AssertChange()
+	// Filesystem 1 has a backing volume, so should not be reported.
+	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:1"}
 	wc.AssertNoChange()
 }
 
