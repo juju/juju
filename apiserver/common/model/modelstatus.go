@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/model"
@@ -142,12 +143,13 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		return status, errors.Trace(err)
 	}
 	modelInfo, err := statusService.GetModelStatusInfo(ctx)
-	switch {
-	case errors.Is(err, modelerrors.NotFound):
+	if errors.Is(err, modelerrors.NotFound) ||
+		errors.Is(err, database.ErrDBDead) ||
+		errors.Is(err, database.ErrDBNotFound) {
 		return status, internalerrors.Errorf(
-			"model for tag %q does not exist", modelTag,
+			"model %q does not exist", modelTag,
 		).Add(errors.NotFound)
-	case err != nil:
+	} else if err != nil {
 		return status, internalerrors.Errorf(
 			"getting model info for tag %q: %w", modelTag, err,
 		)

@@ -127,11 +127,9 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 		IsFatal: func(err error) bool {
 			return false
 		},
-		ShouldRestart: func(err error) bool {
-			return !errors.Is(err, database.ErrDBDead)
-		},
-		RestartDelay: time.Second * 10,
-		Logger:       internalworker.WrapLogger(cfg.Logger),
+		ShouldRestart: internalworker.ShouldRunnerRestart,
+		RestartDelay:  time.Second * 10,
+		Logger:        internalworker.WrapLogger(cfg.Logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

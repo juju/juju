@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/database/pragma"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
@@ -227,7 +228,7 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 		IsFatal: func(err error) bool {
 			// If a database is dead we should not kill the worker of the
 			// runner.
-			if errors.Is(err, database.ErrDBDead) {
+			if internalerrors.IsOneOf(err, database.ErrDBDead, database.ErrDBNotFound) {
 				return false
 			}
 
@@ -238,7 +239,7 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 			return !errors.Is(err, errTryAgain)
 		},
 		ShouldRestart: func(err error) bool {
-			return !errors.Is(err, database.ErrDBDead)
+			return !internalerrors.IsOneOf(err, database.ErrDBDead, database.ErrDBNotFound)
 		},
 		RestartDelay: time.Second * 10,
 		Logger:       internalworker.WrapLogger(cfg.Logger),

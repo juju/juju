@@ -4,15 +4,22 @@
 package state_test
 
 import (
-	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
 
-	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
+	usertesting "github.com/juju/juju/core/user/testing"
+	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	statemodel "github.com/juju/juju/domain/model/state/model"
+	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/domain/modelconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -148,25 +155,19 @@ func (s *stateSuite) TestSetModelConfig(c *tc.C) {
 // [errors.NotFound] error is returned.
 func (s *stateSuite) TestGetModelAgentVersionAndStreamNotFound(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
-	version, stream, err := st.GetModelAgentVersionAndStream(c.Context())
-	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
-	c.Check(version, tc.Equals, "")
-	c.Check(stream, tc.Equals, "")
+	_, _, err := st.GetModelAgentVersionAndStream(c.Context())
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestGetModelAgentVersionAndStream is testing the happy path that when agent
 // version and stream is set it is reported back correctly with no errors.
 func (s *stateSuite) TestGetModelAgentVersionAndStream(c *tc.C) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version (stream_id, target_version, latest_version) VALUES (0, '1.2.3', '1.2.3')")
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	s.createTestModel(c)
 
 	st := state.NewState(s.TxnRunnerFactory())
 	version, stream, err := st.GetModelAgentVersionAndStream(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(version, tc.Equals, "1.2.3")
+	c.Check(version, tc.Equals, jujuversion.Current.String())
 	c.Check(stream, tc.Equals, "released")
 }
 
@@ -184,4 +185,30 @@ func (s *stateSuite) TestCheckSpace(c *tc.C) {
 	exists, err = st.SpaceExists(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsTrue)
+}
+
+func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {
+	runner := s.TxnRunnerFactory()
+	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
+
+	id := modeltesting.GenModelUUID(c)
+	cid := uuid.MustNewUUID()
+	args := model.ModelDetailArgs{
+		UUID:               id,
+		AgentStream:        modelagent.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     cid,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
+	}
+	err := state.Create(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	return id
 }

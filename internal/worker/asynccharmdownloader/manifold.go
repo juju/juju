@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // Downloader is responsible for downloading charms from the charm store.
@@ -68,7 +69,8 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			cfg.DomainServicesName,
 			cfg.HTTPClientName,
 		},
-		Start: cfg.start,
+		Start:  cfg.start,
+		Filter: internalworker.ShouldWorkerUninstall,
 	}
 }
 

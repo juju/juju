@@ -161,6 +161,29 @@ func (t *trackerWorker) Wait() error {
 	return t.catacomb.Wait()
 }
 
+func (t *trackerWorker) Report() map[string]any {
+	report := map[string]any{
+		"model": t.model.UUID,
+		"type":  t.model.Type,
+		"cloud-spec": map[string]any{
+			"type":                t.currentCloudSpec.Type,
+			"name":                t.currentCloudSpec.Name,
+			"region":              t.currentCloudSpec.Region,
+			"endpoint":            t.currentCloudSpec.Endpoint,
+			"identity-endpoint":   t.currentCloudSpec.IdentityEndpoint,
+			"storage-endpoint":    t.currentCloudSpec.StorageEndpoint,
+			"skip-tls-verify":     t.currentCloudSpec.SkipTLSVerify,
+			"is-controller-cloud": t.currentCloudSpec.IsControllerCloud,
+		},
+	}
+
+	if t.provider != nil && t.provider.Config() != nil {
+		report["provider"] = t.provider.Config().Name()
+	}
+
+	return report
+}
+
 func (t *trackerWorker) loop() (err error) {
 	cfg := t.provider.Config()
 	defer errors.DeferredAnnotatef(&err, "model %q (%s)", cfg.Name(), cfg.UUID())
@@ -177,7 +200,9 @@ func (t *trackerWorker) loop() (err error) {
 	}
 
 	modelWatcher, err := t.config.ModelService.WatchModel(ctx)
-	if err != nil {
+	if errors.Is(err, modelerrors.NotFound) {
+		return nil
+	} else if err != nil {
 		return errors.Annotate(err, "watching model")
 	}
 	if err := t.addNotifyWatcher(ctx, modelWatcher); err != nil {
@@ -217,7 +242,10 @@ func (t *trackerWorker) loop() (err error) {
 			logger.Debugf(ctx, "reloading model config")
 
 			modelConfig, err := t.config.ConfigService.ModelConfig(ctx)
-			if err != nil {
+			if errors.Is(err, modelerrors.NotFound) {
+				logger.Infof(ctx, "model %q (%s) has been removed, stopping tracker worker", t.model.Name, t.model.UUID)
+				return nil
+			} else if err != nil {
 				return errors.Annotate(err, "reading model config")
 			}
 			if err = t.provider.SetConfig(ctx, modelConfig); err != nil {

@@ -96,17 +96,15 @@ func (s *WorkerSuite) TestTriggerFetch(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	go func() {
-		select {
-		case ch <- time.Now():
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out sending time")
-		}
-	}()
+	select {
+	case ch <- time.Now():
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending time")
+	}
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for fetch")
 	}
 
@@ -142,17 +140,15 @@ func (s *WorkerSuite) TestTriggerModelConfig(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	go func() {
-		select {
-		case ch <- []string{config.CharmHubURLKey}:
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out sending time")
-		}
-	}()
+	select {
+	case ch <- []string{config.CharmHubURLKey}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending time")
+	}
 
 	select {
 	case <-done:
-	case <-time.After(testhelpers.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for new client")
 	}
 

@@ -111,6 +111,7 @@ import (
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/internal/worker/upgradedatabase"
 	"github.com/juju/juju/internal/worker/upgrader"
 	"github.com/juju/juju/internal/worker/upgradesteps"
@@ -848,6 +849,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                   apiaddresssetter.New,
 			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
 		})),
+
+		undertakerName: ifController(undertaker.Manifold(undertaker.ManifoldConfig{
+			DBAccessorName:            dbAccessorName,
+			DomainServicesName:        domainServicesName,
+			NewWorker:                 undertaker.NewWorker,
+			GetControllerModelService: undertaker.GetControllerModelService,
+			GetRemovalServiceGetter:   undertaker.GetRemovalServiceGetter,
+			Logger:                    internallogger.GetLogger("juju.worker.undertaker"),
+			Clock:                     config.Clock,
+		})),
 	}
 
 	return manifolds
@@ -1317,6 +1328,6 @@ const (
 	toolsVersionCheckerName       = "tools-version-checker"
 	traceName                     = "trace"
 	validCredentialFlagName       = "valid-credential-flag"
-
-	machineSetupName = "machine-setup"
+	undertakerName                = "undertaker"
+	machineSetupName              = "machine-setup"
 )

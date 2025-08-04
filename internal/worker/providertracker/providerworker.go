@@ -13,9 +13,12 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -100,7 +103,13 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 			return false
 		},
 		ShouldRestart: func(err error) bool {
-			return !errors.Is(err, database.ErrDBDead)
+			return !internalerrors.IsOneOf(
+				err,
+				modelerrors.NotFound,
+				coreerrors.NotFound,
+				database.ErrDBDead,
+				database.ErrDBNotFound,
+			)
 		},
 		RestartDelay: time.Second * 10,
 		Clock:        config.Clock,
@@ -253,6 +262,10 @@ func (w *providerWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *providerWorker) Wait() error {
 	return w.catacomb.Wait()
+}
+
+func (w *providerWorker) Report() map[string]any {
+	return w.trackedRunner.Report()
 }
 
 func (w *providerWorker) loop() (err error) {

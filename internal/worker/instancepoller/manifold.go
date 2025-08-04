@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 var errNetworkingNotSupported = errors.NotSupportedf("networking")
@@ -83,6 +84,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DomainServicesName,
 			config.EnvironName,
 		},
-		Start: config.start,
+		Start:  config.start,
+		Filter: internalworker.ShouldWorkerUninstall,
 	}
 }

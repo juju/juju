@@ -19,6 +19,7 @@ import (
 	removalservice "github.com/juju/juju/domain/removal/service"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // DomainServices describes the service factory
@@ -99,7 +100,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.DomainServicesName,
 		},
-		Start: config.start,
+		Start:  config.start,
+		Filter: internalworker.ShouldWorkerUninstall,
 	}
 }
 

@@ -12,8 +12,10 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
 // Config is the configuration for the model life worker.
@@ -129,7 +131,12 @@ func (w *Worker) lifeChanged(ctx context.Context, modelUUID model.UUID, current 
 
 	var err error
 	w.life, err = modelService.GetModelLife(ctx, modelUUID)
-	if err != nil {
+	if errors.Is(err, modelerrors.NotFound) ||
+		errors.Is(err, database.ErrDBDead) ||
+		errors.Is(err, database.ErrDBNotFound) {
+		w.life = life.Dead
+		return dependency.ErrBounce
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 

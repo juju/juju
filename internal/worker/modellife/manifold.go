@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // ModelService is an interface that provides access to model
@@ -85,6 +86,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			return worker, nil
 		},
+		Filter: internalworker.ShouldWorkerUninstall,
 	}
 }
 
