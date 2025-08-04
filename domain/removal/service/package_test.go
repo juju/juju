@@ -9,6 +9,8 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -19,6 +21,8 @@ import (
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
+
+	modelUUID model.UUID
 
 	controllerState *MockControllerDBState
 	modelState      *MockModelDBState
@@ -32,6 +36,7 @@ func (s *baseSuite) newService(c *tc.C) *Service {
 		controllerState:   s.controllerState,
 		modelState:        s.modelState,
 		leadershipRevoker: s.revoker,
+		modelUUID:         s.modelUUID,
 		provider: func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
 		},
@@ -42,6 +47,8 @@ func (s *baseSuite) newService(c *tc.C) *Service {
 
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
+	s.modelUUID = modeltesting.GenModelUUID(c)
 
 	s.controllerState = NewMockControllerDBState(ctrl)
 	s.modelState = NewMockModelDBState(ctrl)

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -793,6 +794,7 @@ func (s *watcherSuite) setupRemovalService(c *tc.C, factory domain.WatchableDBFa
 		domain.NewWatcherFactory(factory, log),
 		nil,
 		nil,
+		model.UUID(s.ModelUUID()),
 		clock.WallClock,
 		log,
 	)
