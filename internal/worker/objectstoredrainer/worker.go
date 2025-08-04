@@ -353,11 +353,17 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 	objectStoreType := config.ObjectStoreType()
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
-	if !objectStoreTypeChanged || phase.IsDraining() {
+	if !objectStoreTypeChanged {
+		w.logger.Debugf(ctx, "object store type has not changed: %q", w.objectStoreType)
+		return nil
+	} else if phase.IsDraining() {
+		w.logger.Infof(ctx, "object store is already draining, no action taken")
 		return nil
 	}
 
 	w.logger.Debugf(ctx, "object store type changed: %q => %q", w.objectStoreType, objectStoreType)
+
+	w.objectStoreType = objectStoreType
 
 	// Force the draining process to move into the draining phase.
 	if err := w.guardService.SetDrainingPhase(ctx, objectstore.PhaseDraining); err != nil {
