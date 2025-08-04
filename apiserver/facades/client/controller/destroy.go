@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -74,11 +75,20 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		return errors.Trace(err)
 	}
 
+	var force bool
+	if args.Force != nil {
+		force = *args.Force
+	}
+	var maxWait time.Duration
+	if args.MaxWait != nil {
+		maxWait = *args.MaxWait
+	}
+
 	removalService, err := c.removalServiceGetter(ctx, c.controllerModelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := removalService.RemoveController(ctx, *args.Force, *args.MaxWait); err != nil {
+	if err := removalService.RemoveController(ctx, force, maxWait); err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
 		return errors.Trace(err)
 	}
