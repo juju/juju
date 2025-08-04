@@ -837,10 +837,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:               apiremotecaller.NewWorker,
 		})),
 
-		jwtParserName: jwtparser.Manifold(jwtparser.ManifoldConfig{
+		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
 			GetControllerConfigService: jwtparser.GetControllerConfigService,
 			DomainServicesName:         domainServicesName,
-		}),
+		})),
 
 		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
 			DomainServicesName:          domainServicesName,
@@ -850,7 +850,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
 		})),
 
-		undertakerName: undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifController(undertaker.Manifold(undertaker.ManifoldConfig{
 			DBAccessorName:            dbAccessorName,
 			DomainServicesName:        domainServicesName,
 			NewWorker:                 undertaker.NewWorker,
@@ -858,7 +858,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetRemovalServiceGetter:   undertaker.GetRemovalServiceGetter,
 			Logger:                    internallogger.GetLogger("juju.worker.undertaker"),
 			Clock:                     config.Clock,
-		}),
+		})),
 	}
 
 	return manifolds
