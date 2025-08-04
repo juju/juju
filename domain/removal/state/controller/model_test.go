@@ -70,6 +70,17 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 	s.checkModelLife(c, modelUUID, life.Dying)
 }
 
+func (s *modelSuite) TestGetModelUUIDs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUIDs, err := st.GetModelUUIDs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelUUIDs, tc.HasLen, 1)
+
+	expectedUUID := s.getModelUUID(c)
+	c.Check(modelUUIDs[0], tc.DeepEquals, expectedUUID)
+}
+
 func (s *modelSuite) getModelUUID(c *tc.C) string {
 	var modelUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

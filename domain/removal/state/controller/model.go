@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
@@ -208,6 +209,34 @@ WHERE grant_on = $entityUUID.uuid;
 		return errors.Errorf("deleting model: %w", err)
 	}
 	return nil
+}
+
+// GetModelUUIDs retrieves the UUIDs of all models in the controller.
+func (st *State) GetModelUUIDs(ctx context.Context) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM   model;
+`, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing get model UUIDs query: %w", err)
+	}
+
+	var modelUUIDs []entityUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&modelUUIDs)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting model UUIDs: %w", err)
+	}
+
+	return transform.Slice(modelUUIDs, func(e entityUUID) string {
+		return e.UUID
+	}), nil
 }
 
 func (st *State) getModelLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {
