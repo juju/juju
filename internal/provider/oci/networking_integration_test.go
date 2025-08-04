@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/tags"
+	internaltesting "github.com/juju/juju/internal/testing"
 )
 
 type networkingSuite struct {
@@ -178,4 +180,41 @@ func (s *networkingSuite) TestSubnets(c *tc.C) {
 	lookFor = []network.Id{"IDontExist"}
 	_, err = s.env.Subnets(c.Context(), lookFor)
 	c.Check(err, tc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
+}
+
+func (s *networkingSuite) TestSubnetsCreatesSubnets(c *tc.C) {
+	ctrl := s.patchEnv(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	// first call to allSubnetsAsMap shouldn't return any subnets: return no vcns.
+	// enable call to ensureNetworks to be successful
+	s.netw.EXPECT().ListVcns(gomock.Any(), &s.testCompartment).Return([]ociCore.Vcn{}, nil)
+
+	machineTags := map[string]string{
+		tags.JujuController: s.controllerUUID,
+		tags.JujuModel:      internaltesting.ModelTag.Id(),
+	}
+	s.setupEnsureNetworksExpectations(c, "fakeVcnID", machineTags)
+
+	expected := []network.SubnetInfo{{
+		CIDR:              "10.0.0.0/16",
+		ProviderId:        "fakeSubnetId1",
+		AvailabilityZones: []string{"fakeZone1"},
+	}, {
+		CIDR:              "10.0.0.0/16",
+		ProviderId:        "fakeSubnetId2",
+		AvailabilityZones: []string{"fakeZone2"},
+	}, {
+		CIDR:              "10.0.0.0/16",
+		ProviderId:        "fakeSubnetId3",
+		AvailabilityZones: []string{"fakeZone3"},
+	}}
+
+	// Act
+	info, err := s.env.Subnets(c.Context(), []network.Id{})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(info, tc.DeepEquals, expected)
 }
