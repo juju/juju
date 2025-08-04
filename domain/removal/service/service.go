@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
@@ -39,27 +40,6 @@ type Provider interface {
 	// Destroy shuts down all known machines and destroys the rest of the
 	// known environment.
 	Destroy(ctx context.Context) error
-}
-
-// ControllerDBState describes retrieval and persistence methods for entity
-// removal in the controller database.
-type ControllerDBState interface {
-	// ModelExists returns true if a model exists with the input model
-	// UUID.
-	ModelExists(ctx context.Context, modelUUID string) (bool, error)
-
-	// GetModelLife retrieves the life state of a model.
-	GetModelLife(ctx context.Context, modelUUID string) (life.Life, error)
-
-	// EnsureModelNotAliveCascade ensures that there is no model identified
-	// by the input model UUID, that is still alive.
-	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) error
-
-	// MarkModelAsDead marks the model with the input UUID as dead.
-	MarkModelAsDead(ctx context.Context, modelUUID string) error
-
-	// DeleteModel removes the model with the input UUID from the database.
-	DeleteModel(ctx context.Context, modelUUID string) error
 }
 
 // ModelDBState describes retrieval and persistence methods for entity removal
@@ -100,6 +80,8 @@ type Service struct {
 
 	leadershipRevoker leadership.Revoker
 	provider          providertracker.ProviderGetter[Provider]
+
+	modelUUID model.UUID
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -248,6 +230,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 	leadershipRevoker leadership.Revoker,
 	provider providertracker.ProviderGetter[Provider],
+	modelUUID model.UUID,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
@@ -257,6 +240,7 @@ func NewWatchableService(
 			modelState:        modelState,
 			leadershipRevoker: leadershipRevoker,
 			provider:          provider,
+			modelUUID:         modelUUID,
 			clock:             clock,
 			logger:            logger,
 		},

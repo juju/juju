@@ -17,6 +17,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -80,6 +81,7 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 		domain.NewWatcherFactory(factory, log),
 		nil,
 		nil,
+		model.UUID(s.ModelUUID()),
 		clock.WallClock,
 		log,
 	)
@@ -121,6 +123,7 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 		domain.NewWatcherFactory(factory, log),
 		nil,
 		nil,
+		model.UUID(s.ModelUUID()),
 		clock.WallClock,
 		log,
 	)
