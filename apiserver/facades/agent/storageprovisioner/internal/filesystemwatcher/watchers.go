@@ -482,8 +482,11 @@ func newFilteredStringsWatcher(w state.StringsWatcher, filter func(string) (bool
 
 func (fw *filteredStringsWatcher) loop() error {
 	defer close(fw.out)
-	var out chan []string
-	var values []string
+	var (
+		out    chan []string
+		values []string
+		first  = true
+	)
 	for {
 		select {
 		case <-fw.tomb.Dying():
@@ -492,7 +495,6 @@ func (fw *filteredStringsWatcher) loop() error {
 			if !ok {
 				return watcher.EnsureErr(fw.w)
 			}
-			values = make([]string, 0, len(in))
 			for _, value := range in {
 				ok, err := fw.filter(value)
 				if err != nil {
@@ -501,9 +503,13 @@ func (fw *filteredStringsWatcher) loop() error {
 					values = append(values, value)
 				}
 			}
-			out = fw.out
+			if first || len(values) > 0 {
+				out = fw.out
+			}
 		case out <- values:
 			out = nil
+			values = nil
+			first = false
 		}
 	}
 }
