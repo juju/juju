@@ -198,7 +198,8 @@ func (t *trackerWorker) loop() error {
 	modelWatcher, err := t.modelService.WatchModel(ctx)
 	if errors.Is(err, modelerrors.NotFound) {
 		t.logger.Infof(ctx, "model %q has been removed, stopping tracker worker", t.modelUUID)
-		return t.removeObjects(ctx)
+		t.removeObjects(ctx)
+		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "watching model")
 	}
@@ -217,22 +218,23 @@ func (t *trackerWorker) loop() error {
 			if errors.Is(err, modelerrors.NotFound) {
 				// The model has been removed, we can stop the worker.
 				t.logger.Infof(ctx, "model %q has been removed, stopping tracker worker", t.modelUUID)
-				return t.removeObjects(ctx)
+				t.removeObjects(ctx)
+				return nil
 			} else if err != nil {
 				return errors.Annotate(err, "reading model")
 			}
 			if corelife.IsDead(model.Life) {
 				// The model is dead, we can stop the worker.
 				t.logger.Infof(ctx, "model %q (%s) is dead, stopping tracker worker", model.Name, model.UUID)
-				return t.removeObjects(ctx)
+				t.removeObjects(ctx)
+				return nil
 			}
 		}
 	}
 }
 
-func (t *trackerWorker) removeObjects(ctx context.Context) error {
+func (t *trackerWorker) removeObjects(ctx context.Context) {
 	if err := t.objectStore.RemoveAll(ctx); err != nil {
 		t.logger.Errorf(ctx, "error removing all objects for model %q: %v", t.modelUUID, err)
 	}
-	return nil
 }
