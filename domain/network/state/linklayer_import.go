@@ -277,7 +277,7 @@ func transformAddressesFromImportData(input []internal.ImportLinkLayerDevice,
 				IsSecondary:  address.IsSecondary,
 				IsShadow:     address.IsShadow,
 			})
-			if address.ProviderID != nil {
+			if address.ProviderID != nil && *address.ProviderID != "" {
 				providerIds = append(providerIds, providerIpAddressDML{
 					AddressUUID: address.UUID,
 					ProviderID:  *address.ProviderID,

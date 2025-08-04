@@ -146,13 +146,15 @@ VALUES ($providerNetworkSubnet.*)`, providerNetSub)
 	}
 
 	// Add the subnet uuid to the provider ids table.
-	if err := tx.Query(ctx, insertSubnetProviderIDStmt, providerSub).Run(); err != nil {
-		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			st.logger.Debugf(ctx, "inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
-			return errors.Errorf("provider id %q for subnet %q %w", subnetInfo.ProviderId, subnetUUID, coreerrors.AlreadyExists)
+	if providerSub.ProviderID != "" {
+		if err := tx.Query(ctx, insertSubnetProviderIDStmt, providerSub).Run(); err != nil {
+			if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
+				st.logger.Debugf(ctx, "inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
+				return errors.Errorf("provider id %q for subnet %q %w", subnetInfo.ProviderId, subnetUUID, coreerrors.AlreadyExists)
+			}
+			st.logger.Errorf(ctx, "inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
+			return errors.Errorf("inserting provider id %q for subnet %q: %w", subnetInfo.ProviderId, subnetUUID, err)
 		}
-		st.logger.Errorf(ctx, "inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
-		return errors.Errorf("inserting provider id %q for subnet %q: %w", subnetInfo.ProviderId, subnetUUID, err)
 	}
 
 	var pnUUIDStr string

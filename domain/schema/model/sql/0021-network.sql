@@ -79,6 +79,7 @@ CREATE TABLE link_layer_device_parent (
 CREATE TABLE provider_link_layer_device (
     provider_id TEXT NOT NULL PRIMARY KEY,
     device_uuid TEXT NOT NULL,
+    CONSTRAINT chk_provider_id_empty CHECK (provider_id != ''),
     CONSTRAINT fk_provider_device_uuid
     FOREIGN KEY (device_uuid)
     REFERENCES link_layer_device (uuid)
@@ -245,6 +246,7 @@ ON ip_address (net_node_uuid);
 CREATE TABLE provider_ip_address (
     provider_id TEXT NOT NULL PRIMARY KEY,
     address_uuid TEXT NOT NULL,
+    CONSTRAINT chk_provider_id_empty CHECK (provider_id != ''),
     CONSTRAINT fk_provider_ip_address
     FOREIGN KEY (address_uuid)
     REFERENCES ip_address (uuid)
