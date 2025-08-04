@@ -69,7 +69,7 @@ type ControllerAPI struct {
 	accessService               ControllerAccessService
 	modelService                ModelService
 	modelInfoService            ModelInfoService
-	blockCommandService         common.BlockCommandService
+	blockCommandService         BlockCommandService
 	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error)
 	credentialServiceGetter     func(context.Context, coremodel.UUID) (CredentialService, error)
 	upgradeServiceGetter        func(context.Context, coremodel.UUID) (UpgradeService, error)
@@ -105,7 +105,7 @@ func NewControllerAPI(
 	accessService ControllerAccessService,
 	modelService ModelService,
 	modelInfoService ModelInfoService,
-	blockCommandService common.BlockCommandService,
+	blockCommandService BlockCommandService,
 	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error),
 	credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
 	upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
