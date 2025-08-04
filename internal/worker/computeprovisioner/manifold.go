@@ -19,6 +19,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // MachineService defines the methods that the worker assumes from the Machine
@@ -101,6 +102,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			return w, nil
 		},
+		Filter: internalworker.ShouldWorkerUninstall,
 	}
 }
 

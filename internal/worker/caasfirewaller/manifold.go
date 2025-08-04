@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // ManifoldConfig describes the resources used by the firewaller worker.
@@ -34,7 +35,8 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			cfg.BrokerName,
 			cfg.DomainServicesName,
 		},
-		Start: cfg.start,
+		Start:  cfg.start,
+		Filter: internalworker.ShouldWorkerUninstall,
 	}
 }
 

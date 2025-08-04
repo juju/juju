@@ -16,13 +16,12 @@ import (
 	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -141,11 +140,9 @@ func New(config Config) (worker.Worker, error) {
 	}
 
 	runner, err := worker.NewRunner(worker.RunnerParams{
-		Name:    "model-worker-manager",
-		IsFatal: neverFatal,
-		ShouldRestart: func(err error) bool {
-			return !errors.Is(err, database.ErrDBDead)
-		},
+		Name:          "model-worker-manager",
+		IsFatal:       neverFatal,
+		ShouldRestart: internalworker.ShouldRunnerRestart,
 		MoreImportant: neverImportant,
 		RestartDelay:  config.ErrorDelay,
 		Logger:        internalworker.WrapLogger(config.Logger),
@@ -223,17 +220,14 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 	// If the model is not found, it means two things, either it was removed or
 	// more likely it was never activated. In either case, we don't need to
 	// start a worker for it.
-	if errors.Is(err, modelerrors.NotFound) ||
-		errors.Is(err, database.ErrDBDead) ||
-		errors.Is(err, database.ErrDBNotFound) {
-		// Model was removed, ignore it.
-		// The reason we ignore it here is that one of the embedded
-		// workers is also responding to the model life changes and
-		// when it returns a NotFound error, which is determined as a
-		// fatal error for the model worker engine. This causes it to be
-		// removed from the runner above. However since the runner itself
-		// has neverFatal as an error handler, the runner itself doesn't
-		// propagate the error.
+	if !internalworker.ShouldRunnerRestart(err) || model.Life == life.Dead {
+		// Model was removed rip it out from the runners This ensures that we
+		// don't have any dangling references. Since the runner itself has
+		// neverFatal as an error handler, the runner itself doesn't propagate
+		// the error.
+		if err := m.runner.StopAndRemoveWorker(modelUUID, ctx.Done()); err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Annotatef(err, "removing model worker for %q", modelUUID)
+		}
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)

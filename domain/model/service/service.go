@@ -764,7 +764,7 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.St
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges(query),
 		mapper,
-		eventsource.NamespaceFilter(modelTableName, changestream.Changed),
+		eventsource.NamespaceFilter(modelTableName, changestream.All),
 	)
 }
 

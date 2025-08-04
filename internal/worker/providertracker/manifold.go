@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 )
 
@@ -109,7 +110,9 @@ func (cfg ManifoldConfig) Validate() error {
 // SingularTrackerManifold creates a new manifold that encapsulates a singular provider
 // tracker. Only one tracker is allowed to exist at a time.
 func SingularTrackerManifold(modelTag names.ModelTag, config ManifoldConfig) dependency.Manifold {
-	return manifold(SingularType(modelTag.Id()), config)
+	m := manifold(SingularType(modelTag.Id()), config)
+	m.Filter = internalworker.ShouldWorkerUninstall
+	return m
 }
 
 // MultiTrackerManifold creates a new manifold that encapsulates a singular provider

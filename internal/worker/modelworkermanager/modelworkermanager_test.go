@@ -310,7 +310,8 @@ func (s *suite) TestKillsManagers(c *tc.C) {
 		workers := s.waitWorkers(c, 2)
 		workertest.CleanKill(c, w)
 		for _, worker := range workers {
-			workertest.CheckKilled(c, worker)
+			err := workertest.CheckKilled(c, worker)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 
 		s.assertNoWorkers(c)
@@ -349,7 +350,8 @@ func (s *suite) TestClosedChangesChannel(c *tc.C) {
 		err := workertest.CheckKilled(c, w)
 		c.Check(err, tc.ErrorMatches, "changes stopped")
 		for _, worker := range workers {
-			workertest.CheckKilled(c, worker)
+			err := workertest.CheckKilled(c, worker)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		s.assertNoWorkers(c)
 	})

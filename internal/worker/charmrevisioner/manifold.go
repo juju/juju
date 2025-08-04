@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // CharmhubClient is responsible for refreshing charms from the charm store.
@@ -126,6 +127,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			}
 			return worker, nil
 		},
+		Filter: internalworker.ShouldWorkerUninstall,
 	}
 }
 
