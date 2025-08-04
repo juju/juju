@@ -179,6 +179,20 @@ func (mr *MockBrokerMockRecorder) Create(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockBroker)(nil).Create), arg0, arg1)
 }
 
+// DeleteCustomResourceDefinitionsForApps mocks base method.
+func (m *MockBroker) DeleteCustomResourceDefinitionsForApps(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCustomResourceDefinitionsForApps", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCustomResourceDefinitionsForApps indicates an expected call of DeleteCustomResourceDefinitionsForApps.
+func (mr *MockBrokerMockRecorder) DeleteCustomResourceDefinitionsForApps(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCustomResourceDefinitionsForApps", reflect.TypeOf((*MockBroker)(nil).DeleteCustomResourceDefinitionsForApps), arg0)
+}
+
 // DeleteOperator mocks base method.
 func (m *MockBroker) DeleteOperator(arg0 string) error {
 	m.ctrl.T.Helper()

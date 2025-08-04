@@ -274,6 +274,9 @@ func appDead(appName string, app caas.Application,
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := broker.DeleteCustomResourceDefinitionsForApps(appName); err != nil {
+		return errors.Trace(err)
+	}
 	// Clear "has-resources" flag so state knows it can now remove the application.
 	err = facade.ClearApplicationResources(appName)
 	if err != nil {

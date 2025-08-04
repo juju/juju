@@ -842,6 +842,11 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	return nil
 }
 
+// DeleteCustomResourceDefinitionsForApps deletes all CRDs associated with the given application.
+func (k *kubernetesClient) DeleteCustomResourceDefinitionsForApps(appName string) error {
+	return k.deleteCustomResourceDefinitionsForApp(appName)
+}
+
 const applyRawSpecTimeoutSeconds = 20
 
 func (k *kubernetesClient) applyRawK8sSpec(

@@ -247,6 +247,9 @@ type ApplicationBroker interface {
 	// the provider id for the unit. If containerName is empty, then the first workload container
 	// is used.
 	WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error)
+
+	// DeleteCustomResourceDefinitionsForApps deletes all CRDs associated with the given application.
+	DeleteCustomResourceDefinitionsForApps(appName string) error
 }
 
 // ModelOperatorManager provides an API for deploying operators for individual
