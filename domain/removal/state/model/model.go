@@ -5,6 +5,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -347,6 +348,46 @@ WHERE uuid = $entityUUID.uuid;
 		return errors.Errorf("deleting model: %w", err)
 	}
 	return nil
+}
+
+// IsControllerModel returns true if the model is the controller model.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model does not exist.
+func (s *State) IsControllerModel(ctx context.Context, mUUID string) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	type model struct {
+		IsControllerModel bool `db:"is_controller_model"`
+	}
+
+	uuid := entityUUID{UUID: mUUID}
+	var m model
+
+	stmt, err := s.Prepare(`
+SELECT &model.is_controller_model
+FROM model
+WHERE uuid = $entityUUID.uuid
+`, uuid, m)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uuid).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("model does not exist").Add(modelerrors.NotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return m.IsControllerModel, nil
 }
 
 func (st *State) getModelLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {

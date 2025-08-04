@@ -39,4 +39,8 @@ const (
 	// MachineHasUnits indicates that a machine cannot be deleted because it
 	// still hosts units
 	MachineHasUnits = errors.ConstError("machine has units")
+
+	// ForceRequired indicates that a removal job requires the force flag to
+	// be set to true in order to proceed.
+	ForceRequired = errors.ConstError("force required for removal job")
 )

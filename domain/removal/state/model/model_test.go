@@ -221,6 +221,47 @@ func (s *modelSuite) TestDeleteModelNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
+func (s *modelSuite) TestIsControllerModel(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	isController, err := st.IsControllerModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.Equals, false)
+}
+
+func (s *modelSuite) TestIsControllerModelControllerModel(c *tc.C) {
+	s.DumpTable(c, "model")
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Force the model to be a controller model.
+		_, err := tx.ExecContext(ctx, `DROP TRIGGER IF EXISTS trg_model_immutable_update;`)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `UPDATE model SET is_controller_model = 1 WHERE uuid = ?`, s.getModelUUID(c))
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	isController, err := st.IsControllerModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.Equals, true)
+}
+
+func (s *modelSuite) TestIsControllerModelNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.IsControllerModel(c.Context(), "not-a-model-uuid")
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
 func (s *modelSuite) getModelUUID(c *tc.C) string {
 	var modelUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
