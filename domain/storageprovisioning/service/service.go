@@ -37,14 +37,6 @@ type State interface {
 	FilesystemState
 	VolumeState
 
-	// GetStorageIDsForUnit returns the storage IDs for the given unit UUID.
-	//
-	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-	// unit exists for the supplied unit UUID.
-	// - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
-	GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]corestorage.ID, error)
-
 	// CheckMachineIsDead checks to see if a machine is dead, returning true
 	// when the life of the machine is dead.
 	//
@@ -77,12 +69,20 @@ type State interface {
 	// build resource tags for storage created for the given application.
 	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ResourceTagInfo, error)
 
+	// GetStorageIDsForUnit returns the storage IDs for the given unit UUID.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+	// unit exists for the supplied unit UUID.
+	// - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
+	GetStorageIDsForUnit(ctx context.Context, unitUUID string) ([]corestorage.ID, error)
+
 	// GetAttachmentLife retrieves the life of a storage attachment for a unit.
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
 	// - [storageprovisioningerrors.AttachmentNotFound] when the storage attachment does not exist for the unit.
-	GetAttachmentLife(ctx context.Context, unitUUID, attachmentID string) (domainlife.Life, error)
+	GetAttachmentLife(ctx context.Context, unitUUID, storageID string) (domainlife.Life, error)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -212,7 +212,7 @@ func (s *Service) GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UU
 		return nil, errors.Capture(err)
 	}
 
-	ids, err := s.st.GetStorageIDsForUnit(ctx, unitUUID)
+	ids, err := s.st.GetStorageIDsForUnit(ctx, unitUUID.String())
 	if err != nil {
 		return nil, errors.Errorf("getting storage IDs for unit %q: %w", unitUUID, err)
 	}
@@ -227,19 +227,19 @@ func (s *Service) GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UU
 // - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
 // - [storageprovisioningerrors.AttachmentNotFound] when the storage attachment does not exist for the unit.
 func (s *Service) GetAttachmentLife(
-	ctx context.Context, unitUUID coreunit.UUID, attachmentID corestorage.ID,
+	ctx context.Context, unitUUID coreunit.UUID, storageID corestorage.ID,
 ) (domainlife.Life, error) {
 	if err := unitUUID.Validate(); err != nil {
 		return -1, errors.Capture(err)
 	}
-	if err := attachmentID.Validate(); err != nil {
+	if err := storageID.Validate(); err != nil {
 		return -1, errors.Capture(err)
 	}
 
-	life, err := s.st.GetAttachmentLife(ctx, unitUUID.String(), attachmentID.String())
+	life, err := s.st.GetAttachmentLife(ctx, unitUUID.String(), storageID.String())
 	if err != nil {
 		return -1, errors.Errorf(
-			"getting life for storage attachment %q: %w", attachmentID, err,
+			"getting life for storage attachment %q: %w", storageID, err,
 		)
 	}
 	return life, nil

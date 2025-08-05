@@ -11,9 +11,15 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	coreerror "github.com/juju/juju/core/errors"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	corestorage "github.com/juju/juju/core/storage"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerror "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -131,4 +137,121 @@ func (s *serviceSuite) TestGetStorageResourceTagsForApplicationInvalidApplicatio
 	svc := NewService(s.state, s.watcherFactory)
 	_, err := svc.GetStorageResourceTagsForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.NotNil)
+}
+
+func (s *serviceSuite) TestGetStorageIDsForUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	storageID := corestorage.ID("foo/1")
+
+	s.state.EXPECT().GetStorageIDsForUnit(gomock.Any(), unitUUID.String()).Return(
+		[]corestorage.ID{storageID}, nil,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	storageIDs, err := svc.GetStorageIDsForUnit(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storageIDs, tc.DeepEquals, []corestorage.ID{storageID})
+}
+
+func (s *serviceSuite) TestGetStorageIDsForUnitWithNotValidUnitUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetStorageIDsForUnit(c.Context(), "")
+	c.Assert(err, tc.ErrorIs, coreerror.NotValid)
+}
+
+func (s *serviceSuite) TestGetStorageIDsForUnitWithUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetStorageIDsForUnit(gomock.Any(), unitUUID.String()).Return(
+		nil, applicationerrors.UnitNotFound,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetStorageIDsForUnit(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *serviceSuite) TestGetStorageIDsForUnitWithInvalidStorageID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetStorageIDsForUnit(gomock.Any(), unitUUID.String()).Return(
+		nil, corestorage.InvalidStorageID,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetStorageIDsForUnit(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
+}
+
+func (s *serviceSuite) TestGetAttachmentLife(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	storageID := corestorage.ID("foo/1")
+	life := domainlife.Alive
+
+	s.state.EXPECT().GetAttachmentLife(gomock.Any(), unitUUID.String(), storageID.String()).Return(
+		life, nil,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	result, err := svc.GetAttachmentLife(c.Context(), unitUUID, storageID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, life)
+}
+
+func (s *serviceSuite) TestGetAttachmentLifeWithNotValidUnitUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetAttachmentLife(c.Context(), "", corestorage.ID("foo/1"))
+	c.Assert(err, tc.ErrorIs, coreerror.NotValid)
+}
+
+func (s *serviceSuite) TestGetAttachmentLifeWithNotValidStorageID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetAttachmentLife(c.Context(), unitUUID, "")
+	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageID)
+}
+
+func (s *serviceSuite) TestGetAttachmentLifeWithUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	storageID := corestorage.ID("foo/1")
+
+	s.state.EXPECT().GetAttachmentLife(gomock.Any(), unitUUID.String(), storageID.String()).Return(
+		-1, applicationerrors.UnitNotFound,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetAttachmentLife(c.Context(), unitUUID, storageID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *serviceSuite) TestGetAttachmentLifeWithAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	storageID := corestorage.ID("foo/1")
+
+	s.state.EXPECT().GetAttachmentLife(gomock.Any(), unitUUID.String(), storageID.String()).Return(
+		-1, storageprovisioningerror.AttachmentNotFound,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.GetAttachmentLife(c.Context(), unitUUID, storageID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerror.AttachmentNotFound)
 }

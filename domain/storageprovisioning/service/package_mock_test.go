@@ -15,6 +15,7 @@ import (
 
 	application "github.com/juju/juju/core/application"
 	machine "github.com/juju/juju/core/machine"
+	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -121,6 +122,45 @@ func (c *MockStateCheckMachineIsDeadCall) Do(f func(context.Context, machine.UUI
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateCheckMachineIsDeadCall) DoAndReturn(f func(context.Context, machine.UUID) (bool, error)) *MockStateCheckMachineIsDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAttachmentLife mocks base method.
+func (m *MockState) GetAttachmentLife(ctx context.Context, unitUUID, storageID string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAttachmentLife", ctx, unitUUID, storageID)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAttachmentLife indicates an expected call of GetAttachmentLife.
+func (mr *MockStateMockRecorder) GetAttachmentLife(ctx, unitUUID, storageID any) *MockStateGetAttachmentLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAttachmentLife", reflect.TypeOf((*MockState)(nil).GetAttachmentLife), ctx, unitUUID, storageID)
+	return &MockStateGetAttachmentLifeCall{Call: call}
+}
+
+// MockStateGetAttachmentLifeCall wrap *gomock.Call
+type MockStateGetAttachmentLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAttachmentLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetAttachmentLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAttachmentLifeCall) Do(f func(context.Context, string, string) (life.Life, error)) *MockStateGetAttachmentLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAttachmentLifeCall) DoAndReturn(f func(context.Context, string, string) (life.Life, error)) *MockStateGetAttachmentLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -550,6 +590,45 @@ func (c *MockStateGetMachineNetNodeUUIDCall) Do(f func(context.Context, machine.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachineNetNodeUUIDCall) DoAndReturn(f func(context.Context, machine.UUID) (network.NetNodeUUID, error)) *MockStateGetMachineNetNodeUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStorageIDsForUnit mocks base method.
+func (m *MockState) GetStorageIDsForUnit(ctx context.Context, unitUUID string) ([]storage.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageIDsForUnit", ctx, unitUUID)
+	ret0, _ := ret[0].([]storage.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageIDsForUnit indicates an expected call of GetStorageIDsForUnit.
+func (mr *MockStateMockRecorder) GetStorageIDsForUnit(ctx, unitUUID any) *MockStateGetStorageIDsForUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageIDsForUnit", reflect.TypeOf((*MockState)(nil).GetStorageIDsForUnit), ctx, unitUUID)
+	return &MockStateGetStorageIDsForUnitCall{Call: call}
+}
+
+// MockStateGetStorageIDsForUnitCall wrap *gomock.Call
+type MockStateGetStorageIDsForUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageIDsForUnitCall) Return(arg0 []storage.ID, arg1 error) *MockStateGetStorageIDsForUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageIDsForUnitCall) Do(f func(context.Context, string) ([]storage.ID, error)) *MockStateGetStorageIDsForUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageIDsForUnitCall) DoAndReturn(f func(context.Context, string) ([]storage.ID, error)) *MockStateGetStorageIDsForUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
