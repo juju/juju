@@ -680,6 +680,9 @@ func (c *DeployCommand) Init(args []string) error {
 		if err := names.ValidateApplicationName(args[1]); err != nil {
 			return errors.Trace(err)
 		}
+		if len(args[1]) > 63 {
+			return errors.New("application name is too long: Kubernetes resource names must be 63 characters or less")
+		}
 		c.ApplicationName = args[1]
 		fallthrough
 	case 1:
