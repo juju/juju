@@ -5,11 +5,11 @@ Juju is an application orchestration tool for charmed applications -- that is, a
 
 In this tutorial you will get acquainted with Juju and charms by deploying a chat service.
 
-**What you'll need:**
+What you'll need:
 - A workstation that has sufficient resources to launch a virtual machine with 4 CPUs, 8 GB RAM, and 50 GB disk space.
 - Familiarity with a terminal.
 
-**What you'll do:**
+What you'll do:
 - Set up an isolated test environment with Multipass, then set up Juju with a localhost Kubernetes cloud, and use it to deploy, configure, and integrate the charms required to set up a chat service based on Mattermost and PostgreSQL.
 
 ## Set up an isolated test environment
