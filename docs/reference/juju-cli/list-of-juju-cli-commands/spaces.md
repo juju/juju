@@ -1,3 +1,5 @@
+(command-juju-spaces)=
+# `juju spaces`
 > See also: [add-space](#add-space), [reload-spaces](#reload-spaces)
 
 **Aliases:** list-spaces
@@ -32,5 +34,3 @@ List spaces:
 Displays all defined spaces. By default both spaces and their subnets are displayed.
 Supplying the --short option will list just the space names.
 The --output argument allows the command's output to be redirected to a file.
-
-

@@ -1,3 +1,5 @@
+(command-juju-kill-controller)=
+# `juju kill-controller`
 > See also: [destroy-controller](#destroy-controller), [unregister](#unregister)
 
 ## Summary
@@ -29,6 +31,3 @@ models as they are brought down in a controlled manner. If for some reason the
 models do not stop cleanly, there is a default five minute timeout. If no change
 in the model state occurs for the duration of this timeout, the command will
 stop watching and destroy the models directly through the cloud provider.
-
-
-

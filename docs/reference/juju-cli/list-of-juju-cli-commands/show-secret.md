@@ -1,3 +1,5 @@
+(command-juju-show-secret)=
+# `juju show-secret`
 > See also: [add-secret](#add-secret), [update-secret](#update-secret), [remove-secret](#remove-secret)
 
 ## Summary
@@ -35,6 +37,3 @@ with the '--reveal' option in json or yaml formats.
 
 Use --revision to inspect a particular revision, else latest is used.
 Use --revisions to see the metadata for each revision.
-
-
-

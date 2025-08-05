@@ -1,3 +1,5 @@
+(command-juju-list-users)=
+# `juju list-users`
 > See also: [add-user](#add-user), [register](#register), [show-user](#show-user), [disable-user](#disable-user), [enable-user](#enable-user)
 
 **Aliases:** list-users
@@ -35,7 +37,3 @@ Print the users relevant to the model "mymodel":
 ## Details
 When used without a model name argument, users relevant to a controller are printed.
 When used with a model name, users relevant to the specified model are printed.
-
-
-
-

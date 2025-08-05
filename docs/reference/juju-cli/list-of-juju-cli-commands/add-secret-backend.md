@@ -1,3 +1,5 @@
+(command-juju-add-secret-backend)=
+# `juju add-secret-backend`
 > See also: [secret-backends](#secret-backends), [remove-secret-backend](#remove-secret-backend), [show-secret-backend](#show-secret-backend), [update-secret-backend](#update-secret-backend)
 
 ## Summary
@@ -31,7 +33,3 @@ Any key values override file content if both are specified.
 
 To rotate the backend access credential/token (if specified), use
 the "token-rotate" config and supply a duration.
-
-
-
-

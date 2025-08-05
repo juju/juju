@@ -1,3 +1,5 @@
+(command-juju-diff-bundle)=
+# `juju diff-bundle`
 > See also: [deploy](#deploy)
 
 ## Summary
@@ -43,6 +45,3 @@ generation.
 
 Specifying a base will retrieve the bundle for the relevant store for
 the give base.
-
-
-

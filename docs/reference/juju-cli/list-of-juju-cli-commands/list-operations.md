@@ -1,3 +1,5 @@
+(command-juju-list-operations)=
+# `juju list-operations`
 > See also: [run](#run), [show-operation](#show-operation), [show-task](#show-task)
 
 **Aliases:** list-operations
@@ -47,6 +49,3 @@ When run without any arguments, operations corresponding to actions for all
 application units are returned.
 To see operations corresponding to juju run tasks, specify an action name
 "juju-exec" and/or one or more machines.
-
-
-

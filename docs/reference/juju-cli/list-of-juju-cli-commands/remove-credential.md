@@ -1,3 +1,5 @@
+(command-juju-remove-credential)=
+# `juju remove-credential`
 > See also: [add-credential](#add-credential), [autoload-credentials](#autoload-credentials), [credentials](#credentials), [default-credential](#default-credential), [set-credential](#set-credential), [update-credential](#update-credential)
 
 ## Summary
@@ -41,7 +43,3 @@ see ' + "'juju set-credential'" + ' for more information.
 
 
 Use --client option to remove credentials from the current client.
-
-
-
-

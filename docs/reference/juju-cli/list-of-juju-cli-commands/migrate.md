@@ -1,3 +1,5 @@
+(command-juju-migrate)=
+# `juju migrate`
 > See also: [login](#login), [controllers](#controllers), [status](#status)
 
 ## Summary
@@ -33,7 +35,3 @@ available at the source controller.
 If the migration fails for some reason, the model is returned to its
 original state where it is managed by the original
 controller.
-
-
-
-

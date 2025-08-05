@@ -1,3 +1,5 @@
+(command-juju-add-storage)=
+# `juju add-storage`
 > See also: [import-filesystem](#import-filesystem), [storage](#storage), [storage-pools](#storage-pools)
 
 ## Summary
@@ -76,6 +78,3 @@ by the charm, which can specify a maximum number of storage instances per unit.
 positive number, followed by a size suffix.  Valid suffixes include M, G, T,
 and P.  Defaults to "1024M", or the which can specify a minimum size required 
 by the charm.
-
-
-

@@ -1,3 +1,5 @@
+(command-juju-show-operation)=
+# `juju show-operation`
 > See also: [run](#run), [operations](#operations), [show-task](#show-task)
 
 ## Summary
@@ -34,6 +36,3 @@ Use --watch to wait indefinitely.
 The default behavior without --wait or --watch is to immediately check and return;
 if the results are "pending" then only the available information will be
 displayed.  This is also the behavior when any negative time is given.
-
-
-

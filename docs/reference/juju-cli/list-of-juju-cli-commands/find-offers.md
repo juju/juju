@@ -1,3 +1,5 @@
+(command-juju-find-offers)=
+# `juju find-offers`
 > See also: [show-offer](#show-offer)
 
 ## Summary
@@ -33,6 +35,3 @@ Find offered application endpoints.
 Find which offered application endpoints are available to the current user.
 
 This command is aimed for a user who wants to discover what endpoints are available to them.
-
-
-

@@ -1,3 +1,5 @@
+(command-juju-login)=
+# `juju login`
 > See also: [disable-user](#disable-user), [enable-user](#enable-user), [logout](#logout), [register](#register), [unregister](#unregister)
 
 ## Summary
@@ -52,6 +54,3 @@ Public controller aliases are provided by a directory service
 that is queried to find the host name for a given alias.
 The URL for the directory service may be configured
 by setting the environment variable JUJU_DIRECTORY.
-
-
-

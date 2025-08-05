@@ -1,3 +1,5 @@
+(command-juju-add-k8s)=
+# `juju add-k8s`
 > See also: [remove-k8s](#remove-k8s)
 
 ## Summary
@@ -78,7 +80,3 @@ with the specified name.
 
 If the cluster does not have a storage provisioning capability, use the
 --skip-storage option to add the cluster without any workload storage configured.
-
-
-
-

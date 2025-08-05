@@ -1,3 +1,5 @@
+(command-juju-add-model)=
+# `juju add-model`
 > See also: [model-config](#model-config), [model-defaults](#model-defaults), [add-credential](#add-credential), [autoload-credentials](#autoload-credentials)
 
 ## Summary
@@ -59,5 +61,3 @@ as the controller model.
 
 When adding --config, the default-series key is deprecated in favour of
 default-base, e.g. ubuntu@22.04.
-
-

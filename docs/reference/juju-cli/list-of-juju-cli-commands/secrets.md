@@ -1,3 +1,5 @@
+(command-juju-secrets)=
+# `juju secrets`
 > See also: [add-secret](#add-secret), [remove-secret](#remove-secret), [show-secret](#show-secret), [update-secret](#update-secret)
 
 **Aliases:** list-secrets
@@ -25,6 +27,3 @@ Lists secrets available in the model.
 ## Details
 
 Displays the secrets available for charms to use if granted access.
-
-
-

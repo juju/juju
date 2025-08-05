@@ -1,3 +1,5 @@
+(command-juju-dashboard)=
+# `juju dashboard`
 ## Summary
 Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.
 
@@ -35,7 +37,3 @@ An error is returned if the Juju Dashboard is not running.
 
 
 ## Details
-
-
-
-

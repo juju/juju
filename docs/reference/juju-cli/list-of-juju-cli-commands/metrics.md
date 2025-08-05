@@ -1,3 +1,5 @@
+(command-juju-metrics)=
+# `juju metrics`
 > See also: [collect-metrics](#collect-metrics)
 
 ## Summary
@@ -18,6 +20,3 @@ Retrieve metrics collected by specified entities.
 ## Details
 
 Display recently collected metrics.
-
-
-

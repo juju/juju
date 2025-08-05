@@ -1,3 +1,5 @@
+(command-juju-grant-cloud)=
+# `juju grant-cloud`
 > See also: [grant](#grant), [revoke-cloud](#revoke-cloud), [add-user](#add-user)
 
 ## Summary
@@ -23,5 +25,3 @@ Grant user 'joe' 'add-model' access to cloud 'fluffy':
 Valid access levels are:
     admin
     add-model
-
-

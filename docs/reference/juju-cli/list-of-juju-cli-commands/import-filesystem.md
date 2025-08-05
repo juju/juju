@@ -1,3 +1,5 @@
+(command-juju-import-filesystem)=
+# `juju import-filesystem`
 > See also: [storage](#storage)
 
 ## Summary
@@ -52,7 +54,3 @@ conditions must be met:
 
  - the PersistentVolume's reclaim policy must be set to "Retain".
  - the PersistentVolume must not be bound to any PersistentVolumeClaim.
-
-
-
-

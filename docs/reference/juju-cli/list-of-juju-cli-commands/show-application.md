@@ -1,3 +1,5 @@
+(command-juju-show-application)=
+# `juju show-application`
 ## Summary
 Displays information about an application.
 
@@ -27,6 +29,3 @@ where "myapplication" is the application name alias; see "juju help deploy" for 
 The command takes deployed application names or aliases as an argument.
 
 The command does an exact search. It does not support wildcards.
-
-
-

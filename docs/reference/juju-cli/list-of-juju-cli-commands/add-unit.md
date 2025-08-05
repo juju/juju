@@ -1,3 +1,5 @@
+(command-juju-add-unit)=
+# `juju add-unit`
 > See also: [remove-unit](#remove-unit)
 
 ## Summary
@@ -84,7 +86,3 @@ constraints. --to accepts a comma-separated list of placement specifications
 (see examples below). If the length of this list is less than the number of
 units being added, the remaining units will be added in the default way (i.e.
 to new machines).
-
-
-
-

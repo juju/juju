@@ -1,3 +1,5 @@
+(command-juju-destroy-model)=
+# `juju destroy-model`
 > See also: [destroy-controller](#destroy-controller)
 
 ## Summary
@@ -55,6 +57,3 @@ consideration or respect for clean shutdown or resource cleanup. If timeout
 elapses with --force, you may have resources left behind that will require
 manual cleanup. If --force --timeout 0 is passed, the model is brutally
 removed with haste. It is recommended to use graceful destroy (without --force or --no-wait).
-
-
-

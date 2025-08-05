@@ -1,3 +1,5 @@
+(command-juju-add-credential)=
+# `juju add-credential`
 > See also: [credentials](#credentials), [remove-credential](#remove-credential), [update-credential](#update-credential), [default-credential](#default-credential), [default-region](#default-region), [autoload-credentials](#autoload-credentials)
 
 ## Summary
@@ -88,7 +90,3 @@ provide that functionality.
 Use --controller option to upload a credential to a controller. 
 
 Use --client option to add a credential to the current client.
-
-
-
-

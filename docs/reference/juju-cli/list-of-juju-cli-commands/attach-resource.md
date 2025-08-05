@@ -1,3 +1,5 @@
+(command-juju-attach-resource)=
+# `juju attach-resource`
 > See also: [resources](#resources), [charm-resources](#charm-resources)
 
 ## Summary
@@ -43,7 +45,3 @@ controller to be streamed to the charm when "resource-get" is called by a hook.
 Note: If you choose (2b): You will need to specify:
 (i) the local path to the private OCI image as well as
 (ii) the username/password required to access the private OCI image.
-
-
-
-

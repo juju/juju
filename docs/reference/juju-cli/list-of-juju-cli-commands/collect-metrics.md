@@ -1,3 +1,5 @@
+(command-juju-collect-metrics)=
+# `juju collect-metrics`
 > See also: [metrics](#metrics)
 
 ## Summary
@@ -26,6 +28,3 @@ Trigger metrics collection
 This command waits for the metric collection to finish before returning.
 You may abort this command and it will continue to run asynchronously.
 Results may be checked by 'juju show-task'.
-
-
-

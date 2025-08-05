@@ -1,3 +1,5 @@
+(command-juju-clouds)=
+# `juju clouds`
 > See also: [add-cloud](#add-cloud), [credentials](#credentials), [controllers](#controllers), [regions](#regions), [default-credential](#default-credential), [default-region](#default-region), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
 
 **Aliases:** list-clouds
@@ -56,6 +58,3 @@ Further reading:
     Documentation:   https://juju.is/docs/olm/manage-clouds
     microk8s:        https://microk8s.io/docs
     LXD hypervisor:  https://documentation.ubuntu.com/lxd
-
-
-

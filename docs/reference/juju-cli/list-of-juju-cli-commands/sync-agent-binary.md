@@ -1,3 +1,5 @@
+(command-juju-sync-agent-binary)=
+# `juju sync-agent-binary`
 > See also: [upgrade-controller](#upgrade-controller)
 
 ## Summary
@@ -33,6 +35,3 @@ It is generally done when the controller is without Internet access.
 Instead of the above site, a local directory can be specified as source.
 The online store will, of course, need to be contacted at some point to get
 the software.
-
-
-

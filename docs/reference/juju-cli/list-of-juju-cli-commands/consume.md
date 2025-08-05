@@ -1,3 +1,5 @@
+(command-juju-consume)=
+# `juju consume`
 > See also: [integrate](#integrate), [offer](#offer), [remove-saas](#remove-saas)
 
 ## Summary
@@ -29,6 +31,3 @@ The path to the remote offer is formatted as follows:
 If the controller name is omitted, Juju will use the currently active
 controller. Similarly, if the model owner is omitted, Juju will use the user
 that is currently logged in to the controller providing the offer.
-
-
-

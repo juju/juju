@@ -1,3 +1,5 @@
+(command-juju-help-hook-commands)=
+# `juju help-hook-commands`
 > See also: [help](#help), [help-action-commands](#help-action-commands)
 
 ## Summary
@@ -65,7 +67,3 @@ The currently available charm hook commands include:
     storage-get              Print information for the storage instance with the specified ID.
     storage-list             List storage attached to the unit.
     unit-get                 Print public-address or private-address.
-
-
-
-

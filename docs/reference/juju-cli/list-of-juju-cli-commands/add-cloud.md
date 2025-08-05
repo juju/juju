@@ -1,3 +1,5 @@
+(command-juju-add-cloud)=
+# `juju add-cloud`
 > See also: [clouds](#clouds), [update-cloud](#update-cloud), [remove-cloud](#remove-cloud), [update-credential](#update-credential)
 
 ## Summary
@@ -100,7 +102,3 @@ When adding clouds to a controller, some clouds are whitelisted and can be easil
 Other cloud combinations can only be force added as the user must consider
 network routability, etc - concerns that are outside of scope of Juju.
 When forced addition is desired, use --force.
-
-
-
-

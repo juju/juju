@@ -1,3 +1,5 @@
+(command-juju-export-bundle)=
+# `juju export-bundle`
 ## Summary
 Exports the current model configuration as a reusable bundle.
 
@@ -31,6 +33,3 @@ If --filename is not used, the configuration is printed to stdout.
 If --include-series is used, the exported bundle will include the OS series
  alongside bases. This should be used as a compatibility option for older
  versions of Juju before bases were added.
-
-
-

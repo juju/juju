@@ -1,3 +1,5 @@
+(command-juju-expose)=
+# `juju expose`
 > See also: [unexpose](#unexpose)
 
 ## Summary
@@ -76,7 +78,3 @@ juju to only allow access to ports opened for the "logs" endpoint from CIDR
 
 juju expose apache2 --endpoints logs --to-cidrs 10.0.0.0/24
 juju expose apache2 --endpoints logs --to-cidrs 192.168.0.0/24
-
-
-
-

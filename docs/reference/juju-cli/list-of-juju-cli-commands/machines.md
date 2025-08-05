@@ -1,3 +1,5 @@
+(command-juju-machines)=
+# `juju machines`
 > See also: [status](#status)
 
 **Aliases:** list-machines
@@ -28,7 +30,3 @@ Lists machines in a model.
 By default, the tabular format is used.
 The following sections are included: ID, STATE, DNS, INS-ID, SERIES, AZ
 Note: AZ above is the cloud region's availability zone.
-
-
-
-

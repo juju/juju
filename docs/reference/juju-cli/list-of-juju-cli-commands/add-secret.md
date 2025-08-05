@@ -1,3 +1,5 @@
+(command-juju-add-secret)=
+# `juju add-secret`
 ## Summary
 Add a new secret.
 
@@ -36,6 +38,3 @@ If a key has the '#file' suffix, the value is read from the corresponding file.
 
 A secret is owned by the model, meaning only the model admin
 can manage it, ie grant/revoke access, update, remove etc.
-
-
-

@@ -1,3 +1,5 @@
+(command-juju-update-cloud)=
+# `juju update-cloud`
 > See also: [add-cloud](#add-cloud), [remove-cloud](#remove-cloud), [clouds](#clouds)
 
 ## Summary
@@ -37,6 +39,3 @@ from this client.
 Use --controller option to update a cloud on a controller. 
 
 Use --client to update cloud definition on this client.
-
-
-

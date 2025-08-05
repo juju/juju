@@ -1,3 +1,5 @@
+(command-juju-list-resources)=
+# `juju list-resources`
 > See also: [attach-resource](#attach-resource), [charm-resources](#charm-resources)
 
 **Aliases:** list-resources
@@ -37,6 +39,3 @@ To show detailed information about resources used by a unit:
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
 updates available for resources from a store.
-
-
-

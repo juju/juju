@@ -1,3 +1,5 @@
+(command-juju-add-ssh-key)=
+# `juju add-ssh-key`
 > See also: [ssh-keys](#ssh-keys), [remove-ssh-key](#remove-ssh-key), [import-ssh-key](#import-ssh-key)
 
 ## Summary
@@ -37,7 +39,3 @@ each unit (including units already deployed). By default this includes the
 key of the user who created the model (assuming it is stored in the
 default location ~/.ssh/). Additional keys may be added with this command,
 quoting the entire public key as an argument.
-
-
-
-

@@ -1,3 +1,5 @@
+(command-juju-models)=
+# `juju models`
 > See also: [add-model](#add-model)
 
 **Aliases:** list-models
@@ -32,6 +34,3 @@ The models listed here are either models you have created yourself, or
 models which have been shared with you. Default values for user and
 controller are, respectively, the current user and the current controller.
 The active model is denoted by an asterisk.
-
-
-

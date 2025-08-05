@@ -1,3 +1,5 @@
+(command-juju-grant-secret)=
+# `juju grant-secret`
 ## Summary
 Grant access to a secret.
 
@@ -19,6 +21,3 @@ Grant access to a secret.
 ## Details
 
 Grant applications access to view the value of a specified secret.
-
-
-

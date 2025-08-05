@@ -1,3 +1,5 @@
+(command-juju-default-region)=
+# `juju default-region`
 > See also: [add-credential](#add-credential)
 
 **Aliases:** set-default-region
@@ -27,7 +29,3 @@ To unset previously set default region for a cloud, use --reset option.
 
 To confirm what region is currently set to be default for a cloud, 
 use the command without region argument.
-
-
-
-
