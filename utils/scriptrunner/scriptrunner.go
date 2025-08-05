@@ -40,9 +40,8 @@ func RunCommand(command string, environ []string, clock clock.Clock, timeout tim
 	}
 
 	result, err := cmd.WaitWithCancel(cancel)
-
 	if err != nil {
-		err = errors.Trace(err)
+		return nil, errors.Annotatef(err, "running command %q", command)
 	}
 
 	return &ScriptResult{

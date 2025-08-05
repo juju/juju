@@ -135,15 +135,14 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 		environ = append(environ, "DRYRUN=echo")
 	}
 	result, err := scriptrunner.RunCommand(cmd, environ, params.Clock, params.Timeout)
+	if err != nil {
+		return nil, errors.Annotatef(err, "activating bridge")
+	}
 
 	activationResult := ActivationResult{
 		Stderr: result.Stderr,
 		Stdout: result.Stdout,
 		Code:   result.Code,
-	}
-
-	if err != nil {
-		return &activationResult, fmt.Errorf("bridge activation error: %w", err)
 	}
 
 	logger.Infof("bridge activation result=%v", result.Code)

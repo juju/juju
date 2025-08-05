@@ -137,7 +137,6 @@ func (*BridgeSuite) TestActivateWithNoDevicesSpecified(c *gc.C) {
 	}
 
 	_, err := debinterfaces.BridgeAndActivate(params)
-	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "no devices specified")
 }
 
@@ -152,7 +151,6 @@ func (*BridgeSuite) TestActivateWithParsingError(c *gc.C) {
 	}
 
 	_, err := debinterfaces.BridgeAndActivate(params)
-	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.FitsTypeOf, &debinterfaces.ParseError{})
 	parseError := err.(*debinterfaces.ParseError)
 	c.Check(parseError, gc.DeepEquals, &debinterfaces.ParseError{
@@ -177,8 +175,7 @@ func (*BridgeSuite) TestActivateWithTimeout(c *gc.C) {
 	}
 
 	_, err := debinterfaces.BridgeAndActivate(params)
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "bridge activation error: command cancelled")
+	c.Check(err, gc.ErrorMatches, `.* command cancelled`)
 }
 
 func (*BridgeSuite) TestActivateFailure(c *gc.C) {
@@ -195,7 +192,6 @@ func (*BridgeSuite) TestActivateFailure(c *gc.C) {
 	}
 
 	result, err := debinterfaces.BridgeAndActivate(params)
-	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "bridge activation failed: artificial failure\n")
 	c.Check(result.Code, gc.Equals, 1)
 }
@@ -214,7 +210,6 @@ func (*BridgeSuite) TestActivateFailureShortMessage(c *gc.C) {
 	}
 
 	result, err := debinterfaces.BridgeAndActivate(params)
-	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "bridge activation failed, see logs for details")
 	c.Check(result.Code, gc.Equals, 1)
 }
