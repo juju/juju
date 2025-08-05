@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -287,4 +288,52 @@ func (st *State) checkApplicationExists(
 	}
 
 	return true, nil
+}
+
+// GetStorageIDsForUnit returns the storage IDs for the given unit UUID.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+// - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
+func (s *State) GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]corestorage.ID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	input := storageAttachment{
+		UnitUUID: unitUUID.String(),
+	}
+	stmt, err := s.Prepare(`
+SELECT &storageAttachment.*
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  unit_uuid = $storageAttachment.unit_uuid`, input)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var attachments storageAttachments
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).GetAll(&attachments)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("unit %q does not exist", unitUUID).Add(
+				applicationerrors.UnitNotFound,
+			)
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var storageIDs []corestorage.ID
+	for _, attachment := range attachments {
+		id := corestorage.ID(attachment.StorageID)
+		if err := id.Validate(); err != nil {
+			return nil, errors.Errorf("invalid storage ID %q for unit %q: %w", id, unitUUID, err)
+		}
+		storageIDs = append(storageIDs, id)
+	}
+	return storageIDs, nil
 }

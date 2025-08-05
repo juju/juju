@@ -229,3 +229,10 @@ type filesystemAttachmentProvisionedInfo struct {
 	MountPoint string `db:"mount_point"`
 	ReadOnly   bool   `db:"read_only"`
 }
+
+type storageAttachment struct {
+	UnitUUID  string `db:"unit_uuid"`
+	StorageID string `db:"storage_id"`
+}
+
+type storageAttachments []storageAttachment
