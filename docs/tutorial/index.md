@@ -1,7 +1,7 @@
 (tutorial)=
 # Get started with Juju
 
-Juju is an application orchestration tool for charmed applications -- that is, applications whose installation, configuration, integration, scaling, upgrading, etc., operations have been recorded in a way that Juju can interpret in software packages called 'charms'.
+Juju is an application orchestration tool for charmed applications -- that is, applications whose installation, configuration, integration, scaling, upgrading, etc., operations have been defined in a way that Juju can interpret in software packages called 'charms'.
 
 In this tutorial you will get acquainted with Juju and charms by deploying a chat service.
 
@@ -88,14 +88,14 @@ If the VM launch fails, run `multipass delete --purge my-juju-vm` to clean up, t
    _Juju consists of at least a client and a controller, and both need access to a cloud and to Charmhub._
 ```
 
-The way Juju works is that you use a client to talk to a controller; the controller talks to {ref}`clouds <list-of-supported-clouds>` to provision infrastructure and to [Charmhub](https://charmhub.io/) to get charms to deploy, configure, integrate, scale, upgrade, etc., applications on that infrastructure; and the controller itself must live on a cloud resource, so before you do any of that you must use the client to talk to a cloud and Charmhub to bootstrap the controller into the cloud. Let's go ahead and prepare all those pieces and make sure your Juju is good to go!
+The way Juju works is that you use a client to talk to a controller; the controller talks to {ref}`clouds <list-of-supported-clouds>` to provision infrastructure and to [Charmhub](https://charmhub.io/) (or a local source for charms) to get charms to deploy, configure, integrate, scale, upgrade, etc., applications on that infrastructure; and the controller itself must live on a cloud resource, so before you do any of that you must use the client to talk to a cloud and Charmhub to bootstrap the controller into the cloud. Let's go ahead and prepare all those pieces and make sure your Juju is good to go!
 
 
 ### Prepare your cloud
 
 To Juju a cloud is anything that has an API where you can request compute, storage, and networking.
 
-This includes traditional machine clouds (Amazon AWS, Google GCE, Microsoft Azure, but also Equinix Metal, MAAS, OpenStack, Oracle OCI, and LXD) as well as Kubernetes clusters (Amazon EKS, Google GKE, Microsoft AKS but also Canonical Kubernetes or MicroK8s).
+This includes traditional machine clouds (Amazon AWS, Google GCE, Microsoft Azure, but also MAAS, OpenStack, Oracle OCI, and LXD) as well as Kubernetes clusters (Amazon EKS, Google GKE, Microsoft AKS but also Canonical Kubernetes or MicroK8s).
 
 Among these is MicroK8s, a low-ops, minimal production Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster ([see more](https://documentation.ubuntu.com/juju/3.6/reference/cloud/list-of-supported-clouds/the-microk8s-cloud-and-juju/)). Let's set it up on your VM:
 
@@ -245,12 +245,12 @@ Split your terminal window into 3 (or open 3 terminal windows). In all, access y
 
 **Shell 2:** Run `juju status --relations --color --watch 1s` to watch your deployment status evolve. Things are all right if your `App Status` and your `Unit - Workload` reach `active` and your `Unit - Agent` reaches `idle`. To exit and return to the terminal prompt, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`C`).
 
-**Shell 3:** Run `juju debug-log` to watch all the details behind your deployment status. (Especially useful when things don't evolve as expected. In that case, please get in touch.)
+**Shell 3:** Run `juju debug-log -m controller` to watch all the details behind your deployment status. (Especially useful when things don't evolve as expected. In that case, please get in touch.)
 ```
 
 ### Set up a Juju controller
 
-A Juju controller is your Juju control plane -- the entity that holds the Juju API server and Juju's internal database. Anything you do in Juju post-controller-setup goes through a Juju controller, and to work properly the controller needs access to a cloud and to Charmhub (or a local source of charms). Let's set it up!
+A Juju controller is your Juju control plane -- the entity that holds the Juju API server and Juju's database. Anything you do in Juju post-controller-setup goes through a Juju controller, and to work properly the controller needs access to a cloud and to Charmhub (or a local source of charms). Let's set it up!
 
 In your VM, use your client and its access to the MicroK8s cloud to bootstrap a Juju controller:
 
@@ -287,14 +287,13 @@ Take a moment to appreciate what this looks like:
   1. a Juju model (i.e., workspace; corresponding to a Kubernetes namespace) implicitly called 'controller', using resources from the 'microk8s' cloud (`juju switch controller`, then `juju show-model controller`), and  holding
   1. a Juju application (i.e., deployed charm -- in this case, the `juju-controller` charm) called 'controller' with a Juju unit (i.e., replica; corresponding to a Kubernetes pod) called 'controller/0', deployed on a resource from the 'microk8s' cloud (`juju status`), and holding
   1. the same 3 containers we saw on the MicroK8s side (`juju ssh --container [api-server | charm | mongodb] 0`), which hold the various bits of a running Juju controller:
-    - 'charm': contains a Juju unit agent and `juju-controller` charm code. The Juju unit agent pings the Juju controler agent (see next item) to check the unit's target state against the state in the database (see two items down) and progresses the unit's state by executing the charm code.
+    - 'charm': contains a Juju unit agent and `juju-controller` charm code. The Juju unit agent sends requests to the Juju controller agent (see next item) to check the unit's target state against the state in the database (see two items down) and progresses the unit's state by executing the charm code.
     - 'api-server': contains Pebble, a lightweight process supervisor, and the Juju controller agent, which also wraps the Juju API server. The controller agent reads and writes to the database (see next item).
-    - 'mongodb': contains Juju's internal database.
+    - 'mongodb': contains Juju's database.
 
 These details are specific to Kubernetes, bootstrap, and the controller application, but this is fundamentally how Juju operates for all clouds, all operations, and all applications: the cloud provides a resource and Charmhub provides charms, and the result is a resource that holds the Juju unit agent and the charm code, where the Juju unit agent always pings the Juju controller agent to reconcile state, then executes the charm code accordingly, and the charm reacts as it's been programmed to react, e.g., by installing a workload.
 
-
-Back to our main concern, to be fully operational a controller needs access to a cloud and to Charmhub. We saw just now that our controller already has access to our 'microk8s' cloud -- this access was granted implicitly through bootstrap. Also, as before, so long as you're connected to the internet, your controller has access to Charmhub too. Your controller is all set!
+Back to our main concern, to be fully operational a controller needs access to a cloud and to Charmhub (or a local source for charms). We saw just now that our controller already has access to our 'microk8s' cloud -- this access was granted implicitly through bootstrap. Also, as before, so long as you're connected to the internet, your controller has access to Charmhub too. Your controller is all set!
 
 At this point we could connect to it further clouds or set up the Juju dashboard. For the purpose of this tutorial, however, we will skip ahead to talking about users and permissions.
 
