@@ -39,7 +39,7 @@ func NewControllerModelState(
 func (s *ControllerModelState) GetModelTargetAgentVersion(
 	ctx context.Context,
 ) (semversion.Number, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
@@ -127,7 +127,7 @@ func (s *ControllerModelState) SetModelTargetAgentVersion(
 	preCondition semversion.Number,
 	toVersion semversion.Number,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -205,7 +205,7 @@ func (s *ControllerModelState) SetModelTargetAgentVersionAndStream(
 	toVersion semversion.Number,
 	stream modelagent.AgentStream,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

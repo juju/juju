@@ -38,7 +38,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 func (st *State) GetModelAgentVersionAndStream(
 	ctx context.Context,
 ) (string, string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -93,7 +93,7 @@ func (st *State) ModelConfigHasAttributes(
 		return rval, nil
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return rval, errors.Capture(err)
 	}
@@ -124,7 +124,7 @@ SELECT &dbKey.key FROM model_config WHERE key IN ($dbKeys[:])
 func (st *State) ModelConfig(ctx context.Context) (map[string]string, error) {
 	config := map[string]string{}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return config, errors.Capture(err)
 	}
@@ -154,7 +154,7 @@ func (st *State) SetModelConfig(
 	ctx context.Context,
 	config map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -271,7 +271,7 @@ func (st *State) UpdateModelConfig(
 	updateAttrs map[string]string,
 	removeAttrs []string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -315,7 +315,7 @@ func (*State) NamespaceForWatchModelConfig() string {
 
 // SpaceExists checks if the space identified by the given space name exists.
 func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}

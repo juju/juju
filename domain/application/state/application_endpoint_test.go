@@ -83,7 +83,7 @@ VALUES (?,?,?,0,?)`, s.appID, s.charmUUID, "foo", network.AlphaSpaceId)
 // while the default endpoint is correctly set
 func (s *applicationEndpointStateSuite) TestUpdateDefaultSpace(c *tc.C) {
 	// Arrange: No relation
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	bindings := map[string]network.SpaceName{
 		"": s.addSpaceReturningName(c, "beta"),
@@ -103,7 +103,7 @@ func (s *applicationEndpointStateSuite) TestUpdateDefaultSpace(c *tc.C) {
 
 func (s *applicationEndpointStateSuite) TestUpdateDefaultSpaceNoBindings(c *tc.C) {
 	// Arrange: No relation
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
@@ -122,7 +122,7 @@ func (s *applicationEndpointStateSuite) TestUpdateDefaultSpaceNoBingingToDefault
 	// - two expected relation
 	// - two expected extra endpoint
 	// - one of both are bound with a specific space (beta)
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	s.addRelation(c, "default")
 	s.addRelation(c, "bound")
@@ -145,7 +145,7 @@ func (s *applicationEndpointStateSuite) TestUpdateDefaultSpaceNoBingingToDefault
 
 func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointsApplicationNotFound(c *tc.C) {
 	// Arrange:
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
@@ -166,7 +166,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointsApplicatio
 // Ensures no relation endpoints are created and no errors occur during the operation.
 func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointsNoCharmRelation(c *tc.C) {
 	// Arrange:
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: noop, no error
@@ -186,7 +186,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointsNoCharmRel
 // endpoints with no bindings
 func (s *applicationEndpointStateSuite) TestInsertApplicationNoBindings(c *tc.C) {
 	// Arrange: One expected relation, one extra endpoint, no binding
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := s.addRelation(c, "default")
 	extraUUID := s.addExtraBinding(c, "extra")
@@ -221,7 +221,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointDefaultedSp
 	// Arrange:
 	// - One expected relation, one expected endpoint
 	// - override default space to beta
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := s.addRelation(c, "default")
 	extraUUID := s.addExtraBinding(c, "extra")
@@ -260,7 +260,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointBindOneToBe
 	// - two expected relation
 	// - two expected extra endpoint
 	// - one of both are bound with a specific space (beta)
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := s.addRelation(c, "default")
 	boundUUID := s.addRelation(c, "bound")
@@ -311,7 +311,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointBindOneToBe
 	// - override default space
 	// - bind one relation to a specific space
 	// - bind one extra relation to a specific space
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := s.addRelation(c, "default")
 	boundUUID := s.addRelation(c, "bound")
@@ -365,7 +365,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointRestoreDefa
 	// - two expected relation
 	// - bind one relation to a specific space
 	// - bind one extra relation to a specific space
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := s.addRelation(c, "default")
 	boundUUID := s.addRelation(c, "bound")
@@ -413,7 +413,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointUnknownSpac
 	// Arrange:
 	// - One expected relation
 	// - bind with an unknown space
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	s.addRelation(c, "default")
 	bindings := map[string]network.SpaceName{
@@ -440,7 +440,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointUnknownRela
 	// Arrange:
 	// - One expected relation
 	// - bind an unexpected relation
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	s.addRelation(c, "default")
 	bindings := map[string]network.SpaceName{
@@ -866,7 +866,7 @@ func (s *applicationEndpointStateSuite) TestGetApplicationsBoundToSpace(c *tc.C)
 
 // TestGetSpaceUUIDs tests the getApplicationEndpointSpaceUUIDs helper.
 func (s *applicationEndpointStateSuite) TestGetSpaceUUIDs(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange
@@ -898,7 +898,7 @@ func (s *applicationEndpointStateSuite) TestGetSpaceUUIDs(c *tc.C) {
 
 // TestGetSpaceUUIDsFail tests the getApplicationEndpointSpaceUUIDs helper.
 func (s *applicationEndpointStateSuite) TestGetSpaceUUIDsFail(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange
@@ -916,7 +916,7 @@ func (s *applicationEndpointStateSuite) TestGetSpaceUUIDsFail(c *tc.C) {
 
 // TestGetSpaceUUIDsFail tests the getApplicationEndpointSpaceUUIDs helper.
 func (s *applicationEndpointStateSuite) TestGetSpaceUUIDsApplicationDefaultOnly(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange
@@ -938,7 +938,7 @@ func (s *applicationEndpointStateSuite) TestGetSpaceUUIDsApplicationDefaultOnly(
 
 // TestValidateBindingNames tests the getBindingTableTypes helper.
 func (s *applicationEndpointStateSuite) TestGetBindingTypes(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange
@@ -973,7 +973,7 @@ func (s *applicationEndpointStateSuite) TestGetBindingTypes(c *tc.C) {
 
 // TestValidateBindingNames tests the getBindingTableTypes helper.
 func (s *applicationEndpointStateSuite) TestGetBindingNamesFail(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange
@@ -991,7 +991,7 @@ func (s *applicationEndpointStateSuite) TestGetBindingNamesFail(c *tc.C) {
 
 // TestValidateBindingNames tests the getBindingTableTypes helper.
 func (s *applicationEndpointStateSuite) TestGetBindingNamesIgnoreAppDefaultSpace(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange
@@ -1024,7 +1024,7 @@ func (s *applicationEndpointStateSuite) TestGetBindingNamesIgnoreAppDefaultSpace
 }
 
 func (s *applicationEndpointStateSuite) TestValidateUnitsInSpaces(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange
@@ -1056,7 +1056,7 @@ func (s *applicationEndpointStateSuite) TestValidateUnitsInSpaces(c *tc.C) {
 }
 
 func (s *applicationEndpointStateSuite) TestValidateUnitsInSpacesFail(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange
@@ -1087,7 +1087,7 @@ func (s *applicationEndpointStateSuite) TestValidateUnitsInSpacesFail(c *tc.C) {
 }
 
 func (s *applicationEndpointStateSuite) TestValidateUnitsInSpacesFailOneYesOneNo(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange

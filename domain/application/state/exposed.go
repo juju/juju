@@ -21,7 +21,7 @@ import (
 // IsApplicationExposed returns whether the provided application is exposed or
 // not.
 func (st *State) IsApplicationExposed(ctx context.Context, appID coreapplication.ID) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -56,7 +56,7 @@ WHERE application_uuid = $applicationID.uuid;
 // instances that specify which sources (spaces or CIDRs) can access the
 // opened ports for each endpoint once the application is exposed.
 func (st *State) GetExposedEndpoints(ctx context.Context, appID coreapplication.ID) (map[string]application.ExposedEndpoint, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -145,7 +145,7 @@ func encodeExposedEndpoints(endpoints []endpointCIDRsSpaces) map[string]applicat
 // If the provided set of endpoints is empty, all exposed endpoints of the
 // application will be removed.
 func (st *State) UnsetExposeSettings(ctx context.Context, appID coreapplication.ID, exposedEndpoints set.Strings) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -164,7 +164,7 @@ func (st *State) UnsetExposeSettings(ctx context.Context, appID coreapplication.
 // ExposedEndpoint details into the current set of expose settings. The merge
 // operation will overwrite expose settings for each existing endpoint name.
 func (st *State) MergeExposeSettings(ctx context.Context, appID coreapplication.ID, exposedEndpoints map[string]application.ExposedEndpoint) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -412,7 +412,7 @@ INSERT INTO application_exposed_endpoint_cidr(application_uuid, application_endp
 // [applicationerrors.EndpointNotFound] if any of the provided endpoints do not
 // exist.
 func (st *State) EndpointsExist(ctx context.Context, appID coreapplication.ID, endpoints set.Strings) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -453,7 +453,7 @@ AND charm_relation.name IN ($endpointNames[:]);
 // SpacesExist returns an error satisfying [networkerrors.SpaceNotFound] if any
 // of the provided spaces do not exist.
 func (st *State) SpacesExist(ctx context.Context, spaceUUIDs set.Strings) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -493,7 +493,7 @@ WHERE uuid IN ($spaces[:]);
 // It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 // space name doesn't exist.
 func (st *State) GetSpaceUUIDByName(ctx context.Context, name string) (network.SpaceUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

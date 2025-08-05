@@ -50,7 +50,7 @@ func NewPermissionState(factory coredatabase.TxnRunnerFactory, logger logger.Log
 func (st *PermissionState) CreatePermission(ctx context.Context, newPermissionUUID uuid.UUID, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error) {
 	var userAccess corepermission.UserAccess
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return userAccess, errors.Capture(err)
 	}
@@ -128,7 +128,7 @@ func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissio
 // returned.
 // If the permission does not exist, no error is returned.
 func (st *PermissionState) DeletePermission(ctx context.Context, subject user.Name, target corepermission.ID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -152,7 +152,7 @@ func (st *PermissionState) DeletePermission(ctx context.Context, subject user.Na
 // [accesserrors.PermissionAccessGreater] is returned if the user is being
 // granted an access level greater or equal to what they already have.
 func (st *PermissionState) UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -186,7 +186,7 @@ func (st *PermissionState) UpdatePermission(ctx context.Context, args access.Upd
 // accesserrors.PermissionNotFound is returned the users permission cannot be
 // found on the target.
 func (st *PermissionState) ReadUserAccessForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.UserAccess, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return corepermission.UserAccess{}, errors.Capture(err)
 	}
@@ -252,7 +252,7 @@ AND     u.removed = false
 // accesserrors.AccessNotFound is returned.
 func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	userAccess := corepermission.NoAccess
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return userAccess, errors.Capture(err)
 	}
@@ -323,7 +323,7 @@ func (st *PermissionState) EnsureExternalUserIfAuthorized(
 		return nil
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -378,7 +378,7 @@ func (st *PermissionState) addExternalUser(ctx context.Context, tx *sqlair.TX, s
 // ReadAllUserAccessForUser returns a slice of the user access the given
 // subject's (user) has for any access type.
 func (st *PermissionState) ReadAllUserAccessForUser(ctx context.Context, subject user.Name) ([]corepermission.UserAccess, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -446,7 +446,7 @@ WHERE  u.removed = false
 // An [accesserrors.PermissionNotFound] error is returned if no permissions can
 // be found on the target.
 func (st *PermissionState) ReadAllUserAccessForTarget(ctx context.Context, target corepermission.ID) ([]corepermission.UserAccess, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -515,7 +515,7 @@ AND     (p.uuid IS NOT NULL) OR (u.external AND ee.uuid IS NOT NULL)
 func (st *PermissionState) ReadAllAccessForUserAndObjectType(
 	ctx context.Context, subject user.Name, objectType corepermission.ObjectType,
 ) ([]corepermission.UserAccess, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -597,7 +597,7 @@ AND    u.removed = false
 // AllModelAccessForCloudCredential for a given (cloud) credential key, return all
 // model name and model access level combinations.
 func (st *PermissionState) AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

@@ -44,7 +44,7 @@ func NewState(
 func (st *State) CheckMachineIsDead(
 	ctx context.Context, uuid coremachine.UUID,
 ) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -87,7 +87,7 @@ func (st *State) CheckMachineIsDead(
 func (st *State) GetMachineNetNodeUUID(
 	ctx context.Context, uuid coremachine.UUID,
 ) (domainnetwork.NetNodeUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -129,7 +129,7 @@ func (st *State) GetMachineNetNodeUUID(
 func (st *State) GetUnitNetNodeUUID(
 	ctx context.Context, uuid coreunit.UUID,
 ) (domainnetwork.NetNodeUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -174,7 +174,7 @@ func (st *State) GetStorageResourceTagInfoForApplication(
 	appUUID application.ID,
 	resourceTagModelConfigKey string,
 ) (storageprovisioning.ResourceTagInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
 	}

@@ -20,7 +20,7 @@ import (
 // The following errors may be returned:
 // - [applicationerrors.MachineNotFound] if the machine does not exist
 func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name coremachine.Name) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -86,7 +86,7 @@ func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, erro
 // IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
 func (s *State) IsMachineController(ctx context.Context, mName string) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -145,7 +145,7 @@ func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mNam
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist.
 func (st *State) GetMachinesForApplication(ctx context.Context, appUUID string) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Errorf("cannot get database find names for machines %q: %w", appUUID, err)
 	}

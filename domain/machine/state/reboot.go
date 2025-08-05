@@ -21,7 +21,7 @@ import (
 // contains only machine UUID for which a reboot has been requested. This
 // function is idempotent.
 func (st *State) RequireMachineReboot(ctx context.Context, uuid machine.UUID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -53,7 +53,7 @@ func (st *State) RequireMachineReboot(ctx context.Context, uuid machine.UUID) er
 // It basically removes the uuid from the "machine_requires_reboot" table if
 // present. This function is idempotent.
 func (st *State) ClearMachineReboot(ctx context.Context, uuid machine.UUID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -78,7 +78,7 @@ func (st *State) ClearMachineReboot(ctx context.Context, uuid machine.UUID) erro
 // determine if a reboot is required. Returns a boolean value indicating if a
 // reboot is required, and an error if any occur during the process.
 func (st *State) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -122,7 +122,7 @@ func (st *State) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID)
 // The function returns any error issued through interaction with the database,
 // annotated with the UUID of the machine.
 func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (machine.RebootAction, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return machine.ShouldDoNothing, errors.Capture(err)
 	}

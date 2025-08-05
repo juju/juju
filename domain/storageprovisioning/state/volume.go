@@ -64,7 +64,7 @@ func (st *State) GetVolumeAttachmentIDs(
 		return nil, nil
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -148,7 +148,7 @@ func (st *State) GetVolumeAttachmentLife(
 	ctx context.Context,
 	uuid domainstorageprovisioning.VolumeAttachmentUUID,
 ) (domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
@@ -193,7 +193,7 @@ WHERE  uuid = $volumeAttachmentUUID.uuid
 func (st *State) GetVolumeAttachmentLifeForNetNode(
 	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -245,7 +245,7 @@ AND             net_node_uuid=$netNodeUUID.uuid
 func (st *State) GetVolumeAttachmentPlanLifeForNetNode(
 	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -309,7 +309,7 @@ func (st *State) GetVolumeAttachmentUUIDForVolumeNetNode(
 	vUUID domainstorageprovisioning.VolumeUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
 ) (domainstorageprovisioning.VolumeAttachmentUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -383,7 +383,7 @@ func (st *State) GetVolumeLife(
 	ctx context.Context,
 	uuid domainstorageprovisioning.VolumeUUID,
 ) (domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
@@ -427,7 +427,7 @@ WHERE  uuid = $volumeUUID.uuid
 func (st *State) GetVolumeLifeForNetNode(
 	ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -482,7 +482,7 @@ AND             sva.net_node_uuid=$netNodeUUID.uuid
 func (st *State) GetVolumeUUIDForID(
 	ctx context.Context, vID string,
 ) (domainstorageprovisioning.VolumeUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

@@ -17,7 +17,7 @@ import (
 // through the provided application name.
 func (st *State) CreateCloudServices(ctx context.Context, cloudservices []internal.ImportCloudService) error {
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

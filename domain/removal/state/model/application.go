@@ -18,7 +18,7 @@ import (
 
 // ApplicationExists returns true if a application exists with the input UUID.
 func (st *State) ApplicationExists(ctx context.Context, aUUID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -55,7 +55,7 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 // the last ones on their machines, it will cascade and the machines are
 // also set to dying. The affected machine UUIDs are returned.
 func (st *State) EnsureApplicationNotAliveCascade(ctx context.Context, aUUID string) (unitUUIDs, machineUUIDs []string, err error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -149,7 +149,7 @@ func (st *State) ApplicationScheduleRemoval(
 	ctx context.Context, removalUUID, applicationUUID string,
 	force bool, when time.Time,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -178,7 +178,7 @@ func (st *State) ApplicationScheduleRemoval(
 
 // GetApplicationLife returns the life of the application with the input UUID.
 func (st *State) GetApplicationLife(ctx context.Context, aUUID string) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -213,7 +213,7 @@ WHERE  uuid = $entityUUID.uuid;`, applicationLife, applicationUUID)
 
 // DeleteApplication removes a application from the database completely.
 func (st *State) DeleteApplication(ctx context.Context, aUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

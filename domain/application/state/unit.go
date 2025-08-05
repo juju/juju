@@ -273,7 +273,7 @@ WHERE a.name = $applicationName.name
 // given application. The supplied ids may belong to a different application;
 // the application name is used to filter.
 func (st *State) GetApplicationUnitLife(ctx context.Context, appName string, ids ...coreunit.UUID) (map[string]int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -317,7 +317,7 @@ func (st *State) getApplicationUnits(
 	ctx context.Context,
 	appUUID coreapplication.ID,
 ) ([]coreunit.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -361,7 +361,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[string]int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -421,7 +421,7 @@ WHERE u.application_uuid = $applicationID.uuid
 //   - [applicationerrors.UnitNotFound] if the unit cannot be found.
 //   - [applicationerrors.UnitIsDead] if the unit is dead.
 func (st *State) GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -464,7 +464,7 @@ WHERE  u.name = $getUnitMachineName.unit_name
 //   - [applicationerrors.UnitNotFound] if the unit cannot be found.
 //   - [applicationerrors.UnitIsDead] if the unit is dead.
 func (st *State) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (coremachine.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -518,7 +518,7 @@ func (st *State) AddIAASUnits(
 		return nil, nil, nil
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -558,7 +558,7 @@ func (st *State) AddCAASUnits(
 		return nil, nil
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -590,7 +590,7 @@ func (st *State) AddIAASSubordinateUnit(
 	ctx context.Context,
 	arg application.SubordinateUnitArg,
 ) (coreunit.Name, []coremachine.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", nil, errors.Capture(err)
 	}
@@ -656,7 +656,7 @@ func (st *State) GetUnitPrincipal(
 	ctx context.Context,
 	unitName coreunit.Name,
 ) (coreunit.Name, bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", false, errors.Capture(err)
 	}
@@ -736,7 +736,7 @@ func (st *State) IsSubordinateApplication(
 	ctx context.Context,
 	applicationUUID coreapplication.ID,
 ) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -780,7 +780,7 @@ WHERE  a.uuid = $getSubordinate.application_uuid
 // If the principal unit cannot be found, [applicationerrors.UnitNotFound] is
 // returned.
 func (st *State) GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -834,7 +834,7 @@ WHERE  principal.name = $principalName.name
 // - [errors.UnitNotFound] if the unit does not exist.
 // - [coreerrors.NotSupported] if the architecture is not known to the database.
 func (st *State) SetRunningAgentBinaryVersion(ctx context.Context, uuid coreunit.UUID, version coreagentbinary.Version) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -910,7 +910,7 @@ func (st *State) GetUnitNameForUUID(
 	ctx context.Context,
 	uuid coreunit.UUID,
 ) (coreunit.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -948,7 +948,7 @@ func (st *State) GetUnitNameForUUID(
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1078,7 +1078,7 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 // - [applicationerrors.UnitAlreadyExists] when the unit exists
 // - [applicationerrors.UnitNotAssigned] when the unit was not assigned
 func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg application.RegisterCAASUnitArg) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1458,7 +1458,7 @@ func (st *State) insertUnit(
 // returning an error satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
 func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params application.UpdateCAASUnitParams) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1556,7 +1556,7 @@ WHERE name = $unitName.name
 // [applicationerrors.UnitNotFound] is returned. This doesn't take into account
 // life, so it can return the attributes of a unit even if it's dead.
 func (st *State) GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return application.UnitAttributes{}, errors.Capture(err)
 	}
@@ -1606,7 +1606,7 @@ func (st *State) GetUnitRefreshAttributes(ctx context.Context, unitName coreunit
 func (st *State) GetModelConstraints(
 	ctx context.Context,
 ) (constraints.Constraints, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return constraints.Constraints{}, errors.Capture(err)
 	}
@@ -1673,7 +1673,7 @@ func (st *State) GetModelConstraints(
 // a [applicationerrors.InvalidUnitConstraints] error is returned. If the unit
 // is dead, an error satisfying [applicationerrors.UnitIsDead] is returned.
 func (st *State) SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUID, cons constraints.Constraints) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1685,7 +1685,7 @@ func (st *State) SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUI
 
 // GetAllUnitNames returns a slice of all unit names in the model.
 func (st *State) GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1717,7 +1717,7 @@ func (st *State) GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error) {
 // - [applicationerrors.ApplicationIsDead] if the application is dead
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplication.ID) ([]coreunit.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1752,7 +1752,7 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 // GetUnitNamesForNetNode returns a slice of the unit names for the given net node
 // The following errors may be returned:
 func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]coreunit.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1806,7 +1806,7 @@ func (st *State) getUnitNamesForNetNode(ctx context.Context, tx *sqlair.TX, uuid
 
 // SetUnitWorkloadVersion sets the workload version for the given unit.
 func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1878,7 +1878,7 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 
 // GetWorkloadVersion returns the workload version for the given unit.
 func (st *State) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1923,7 +1923,7 @@ func (st *State) GetAllUnitCloudContainerIDsForApplication(
 	ctx context.Context,
 	appUUID coreapplication.ID,
 ) (map[coreunit.Name]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2060,7 +2060,7 @@ WHERE  u.name = $getUnitMachine.unit_name
 // - [applicationerrors.UnitNotFound] if the unit does not exist
 // - [applicationerrors.UnitIsDead] if the unit is dead
 func (st *State) GetUnitK8sPodInfo(ctx context.Context, name coreunit.Name) (application.K8sPodInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return application.K8sPodInfo{}, errors.Capture(err)
 	}
@@ -2122,7 +2122,7 @@ WHERE  u.name = $unitName.name`
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
 func (st *State) GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

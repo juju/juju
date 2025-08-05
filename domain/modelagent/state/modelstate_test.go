@@ -223,7 +223,7 @@ func (s *modelStateSuite) setModelTargetAgentVersion(c *tc.C, vers string) {
 func (s *modelStateSuite) setModelTargetAgentVersionInfo(
 	c *tc.C, latestVersion, targetVersion string, stream modelagent.AgentStream,
 ) {
-	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB()
+	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	q := "INSERT INTO agent_version (*) VALUES ($M.stream_id, $M.target_version, $M.latest_version)"

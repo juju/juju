@@ -36,7 +36,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 // The following errors are possible:
 // - [modelerrors.NotFound] when the model does not exist.
 func (st *State) GetModelCloudAndCredential(ctx context.Context, uuid coremodel.UUID) (*cloud.Cloud, string, *modelprovider.CloudCredentialInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, "", nil, errors.Capture(err)
 	}

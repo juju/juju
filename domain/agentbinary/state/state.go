@@ -37,7 +37,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // the object store but unless the association has been made this will always
 // return false.
 func (s *State) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -82,7 +82,7 @@ func (s *State) GetObjectUUID(
 	ctx context.Context,
 	path string,
 ) (objectstore.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -129,7 +129,7 @@ WHERE  path = $objectStorePath.path`, objectStore)
 // already exists with the same version and architecture but a different
 // SHA.
 func (s *State) RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -297,7 +297,7 @@ WHERE  uuid = $objectStoreUUID.uuid
 // It returns a slice of agent binary metadata.
 // An empty slice is returned if no agent binaries are found.
 func (s *State) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

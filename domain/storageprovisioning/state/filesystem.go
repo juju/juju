@@ -30,7 +30,7 @@ func (st *State) GetFilesystemTemplatesForApplication(
 	ctx context.Context,
 	appUUID coreapplication.ID,
 ) ([]storageprovisioning.FilesystemTemplate, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -181,7 +181,7 @@ WHERE  uuid = $entityUUID.uuid
 func (st *State) CheckFilesystemForIDExists(
 	ctx context.Context, fsID string,
 ) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -228,7 +228,7 @@ func (st *State) GetFilesystem(
 	ctx context.Context,
 	uuid storageprovisioning.FilesystemUUID,
 ) (storageprovisioning.Filesystem, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return storageprovisioning.Filesystem{}, errors.Capture(err)
 	}
@@ -297,7 +297,7 @@ func (st *State) GetFilesystemAttachment(
 	ctx context.Context,
 	uuid storageprovisioning.FilesystemAttachmentUUID,
 ) (storageprovisioning.FilesystemAttachment, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return storageprovisioning.FilesystemAttachment{}, errors.Capture(err)
 	}
@@ -357,7 +357,7 @@ func (st *State) GetFilesystemAttachmentIDs(
 		return nil, nil
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -441,7 +441,7 @@ func (st *State) GetFilesystemAttachmentLife(
 	ctx context.Context,
 	uuid storageprovisioning.FilesystemAttachmentUUID,
 ) (domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
@@ -487,7 +487,7 @@ func (st *State) GetFilesystemAttachmentLifeForNetNode(
 	ctx context.Context,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -549,7 +549,7 @@ func (st *State) GetFilesystemAttachmentUUIDForFilesystemNetNode(
 	fsUUID storageprovisioning.FilesystemUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
 ) (storageprovisioning.FilesystemAttachmentUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -622,7 +622,7 @@ func (st *State) GetFilesystemLife(
 	ctx context.Context,
 	uuid storageprovisioning.FilesystemUUID,
 ) (domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
@@ -667,7 +667,7 @@ func (st *State) GetFilesystemLifeForNetNode(
 	ctx context.Context,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) (map[string]domainlife.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -722,7 +722,7 @@ AND             sfa.net_node_uuid=$netNodeUUID.uuid
 func (st *State) GetFilesystemUUIDForID(
 	ctx context.Context, fsID string,
 ) (storageprovisioning.FilesystemUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -869,7 +869,7 @@ func (st *State) SetFilesystemProvisionedInfo(
 	filesystemUUID storageprovisioning.FilesystemUUID,
 	info storageprovisioning.FilesystemProvisionedInfo,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -913,7 +913,7 @@ func (st *State) SetFilesystemAttachmentProvisionedInfo(
 	filesystemAttachmentUUID storageprovisioning.FilesystemAttachmentUUID,
 	info storageprovisioning.FilesystemAttachmentProvisionedInfo,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

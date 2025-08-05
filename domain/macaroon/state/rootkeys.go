@@ -33,7 +33,7 @@ func NewRootKeyState(factory coredatabase.TxnRunnerFactory) *RootKeyState {
 // GetKey gets the key with a given id from dqlite. If not key is found, a
 // macaroonerrors.KeyNotFound error is returned.
 func (st *RootKeyState) GetKey(ctx context.Context, id []byte, now time.Time) (macaroon.RootKey, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return macaroon.RootKey{}, errors.Capture(err)
 	}
@@ -72,7 +72,7 @@ func (st *RootKeyState) GetKey(ctx context.Context, id []byte, now time.Time) (m
 //
 // If no such key was found, return a macaroonerrors.KeyNotFound error
 func (st *RootKeyState) FindLatestKey(ctx context.Context, createdAfter, expiresAfter, expiresBefore, now time.Time) (macaroon.RootKey, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return macaroon.RootKey{}, errors.Capture(err)
 	}
@@ -122,7 +122,7 @@ ORDER BY created_at DESC
 // InsertKey inserts the given root key into dqlite. If a key with matching
 // id already exists, return a macaroonerrors.KeyAlreadyExists error.
 func (st *RootKeyState) InsertKey(ctx context.Context, key macaroon.RootKey) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

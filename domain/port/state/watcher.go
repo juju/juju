@@ -35,7 +35,7 @@ func (*State) InitialWatchMachineOpenedPortsStatement() (string, string) {
 // GetMachineNamesForUnits returns a slice of machine names that host the
 // provided units.
 func (st *State) GetMachineNamesForUnits(ctx context.Context, units []unit.UUID) ([]coremachine.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -68,7 +68,7 @@ WHERE unit.uuid IN ($unitUUIDs[:])
 }
 
 func (st *State) FilterUnitUUIDsForApplication(ctx context.Context, units []unit.UUID, app coreapplication.ID) (set.Strings, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

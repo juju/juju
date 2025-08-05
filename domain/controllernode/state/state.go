@@ -37,7 +37,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // controller ID. If the controller ID already exists, it updates the
 // Dqlite node ID and bind address.
 func (st *State) AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -73,7 +73,7 @@ UPDATE SET  dqlite_node_id = excluded.dqlite_node_id,
 
 // DeleteDqliteNodes removes controller nodes from the controller_node table.
 func (st *State) DeleteDqliteNodes(ctx context.Context, delete []string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -108,7 +108,7 @@ WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
 // database namespace specified by namespace. If no namespace is registered an
 // error satisfying [errors.NotFound] is returned.
 func (st *State) SelectDatabaseNamespace(ctx context.Context, namespace string) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -150,7 +150,7 @@ func (st *State) SetRunningAgentBinaryVersion(
 	controllerID string,
 	version coreagentbinary.Version,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -227,7 +227,7 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 
 // IsControllerNode returns true if the supplied nodeID is a controller node.
 func (st *State) IsControllerNode(ctx context.Context, nodeID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -281,7 +281,7 @@ func (st *State) NamespaceForWatchControllerAPIAddresses() string {
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
 func (st *State) SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -375,7 +375,7 @@ AND address = $controllerAPIAddress.address
 
 // GetAPIAddressesForAgents returns APIAddresses available for agents.
 func (st *State) GetAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -395,7 +395,7 @@ func (st *State) GetAPIAddressesForAgents(ctx context.Context) (map[string]contr
 // GetAPIAddressesForClients returns APIAddresses available for clients. These are
 // APIAddresses independent of is_agent value.
 func (st *State) GetAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -417,7 +417,7 @@ func (st *State) GetAPIAddressesForClients(ctx context.Context) (map[string]cont
 // local addresses. The returned strings are IP address only without
 // port numbers.
 func (st *State) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -454,7 +454,7 @@ WHERE  scope = "local-cloud"
 // GetControllerIDs returns the list of controller IDs from the controller node
 // records.
 func (st *State) GetControllerIDs(ctx context.Context) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

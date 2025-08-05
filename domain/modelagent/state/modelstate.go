@@ -212,7 +212,7 @@ func (st *State) GetMachineCountNotUsingBase(
 	ctx context.Context,
 	bases []corebase.Base,
 ) (int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
@@ -267,7 +267,7 @@ WHERE mb.base NOT IN ($machineBaseValues[:])
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
 // for one or more machines in the model.
 func (st *State) GetMachineAgentBinaryMetadata(ctx context.Context, mName string) (coreagentbinary.Metadata, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return coreagentbinary.Metadata{}, errors.Capture(err)
 	}
@@ -361,7 +361,7 @@ func (st *State) GetMachinesAgentBinaryMetadata(
 	// This would also require actively getting agent binaries from external sources
 	// when creating machines. This is currently done lazily.
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -470,7 +470,7 @@ FROM   machine
 func (st *State) GetMachinesNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]machine.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -517,7 +517,7 @@ WHERE uuid NOT IN (SELECT machine_uuid
 // GetMachineUUIDByName returns the UUID of a machine identified by its name.
 // It returns a MachineNotFound if the machine does not exist.
 func (st *State) GetMachineUUIDByName(ctx context.Context, name machine.Name) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -557,7 +557,7 @@ func (st *State) GetMachineRunningAgentBinaryVersion(
 	ctx context.Context,
 	uuid string,
 ) (coreagentbinary.Version, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
@@ -626,7 +626,7 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 // - [machineerrors.MachineNotFound] when the machine specified by uuid  does
 // not exists.
 func (st *State) GetMachineTargetAgentVersion(ctx context.Context, uuid string) (coreagentbinary.Version, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
@@ -711,7 +711,7 @@ func (st *State) GetUnitsAgentBinaryMetadata(
 	// This would also require actively getting agent binaries from external sources
 	// when creating units. This is currently done lazily.
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -821,7 +821,7 @@ FROM   unit
 func (st *State) GetUnitsNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]coreunit.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -875,7 +875,7 @@ func (st *State) GetUnitRunningAgentBinaryVersion(
 	ctx context.Context,
 	uuid coreunit.UUID,
 ) (coreagentbinary.Version, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
@@ -939,7 +939,7 @@ WHERE uav.unit_uuid = $unitUUIDRef.unit_uuid
 // - [applicationerrors.UnitNotFound] when the unit does not exist.
 // - [modelagenterrors.AgentVersionNotFound] when the agent version does not exist.
 func (st *State) GetUnitTargetAgentVersion(ctx context.Context, uuid coreunit.UUID) (coreagentbinary.Version, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
@@ -1005,7 +1005,7 @@ func (st *State) GetModelAgentStream(
 	// NOTE (tlm): This function is written on purpose to assume that an agent
 	// version record has been established for the model. We assume that this is
 	// always done on model creation.
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return modelagent.AgentStream(-1), errors.Capture(err)
 	}
@@ -1043,7 +1043,7 @@ SELECT &agentVersionStream.* FROM agent_version
 // If the agent_version table has no data,
 // [modelagenterrors.AgentVersionNotFound] is returned.
 func (st *State) GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return semversion.Zero, errors.Capture(err)
 	}
@@ -1078,7 +1078,7 @@ func (st *State) GetModelTargetAgentVersion(ctx context.Context) (semversion.Num
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1133,7 +1133,7 @@ func (st *State) SetMachineRunningAgentBinaryVersion(
 	machineUUID string,
 	version coreagentbinary.Version,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1206,7 +1206,7 @@ func (st *State) SetModelAgentStream(
 	// specific case for this. The agent_version table is a singleton table as
 	// well.
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1239,7 +1239,7 @@ func (st *State) SetModelTargetAgentVersion(
 	preCondition semversion.Number,
 	toVersion semversion.Number,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1320,7 +1320,7 @@ func (st *State) SetModelTargetAgentVersionAndStream(
 	toVersion semversion.Number,
 	stream modelagent.AgentStream,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1388,7 +1388,7 @@ SET    target_version = $setAgentVersionTargetStream.target_version,
 
 // UpdateLatestAgentVersion persists the latest available agent version.
 func (st *State) UpdateLatestAgentVersion(ctx context.Context, version semversion.Number) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1474,7 +1474,7 @@ func (st *State) SetUnitRunningAgentBinaryVersion(
 	uuid coreunit.UUID,
 	version coreagentbinary.Version,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

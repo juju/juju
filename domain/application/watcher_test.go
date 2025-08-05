@@ -78,7 +78,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	watcher, err := svc.WatchCharms(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))

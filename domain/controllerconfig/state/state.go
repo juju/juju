@@ -29,7 +29,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 
 // ControllerConfig returns the current configuration in the database.
 func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -71,7 +71,7 @@ func (st *State) UpdateControllerConfig(
 	updateAttrs map[string]string, removeAttrs []string,
 	validateModification func(map[string]string) error,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

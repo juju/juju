@@ -44,7 +44,7 @@ func NewControllerState(
 // information. If the model no longer exists for the provided UUID then an error
 // satisfying [modelerrors.NotFound] will be returned.
 func (s *ControllerState) GetModelStatusContext(ctx context.Context) (status.ModelStatusContext, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return status.ModelStatusContext{}, errors.Capture(err)
 	}

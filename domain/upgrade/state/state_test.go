@@ -442,7 +442,7 @@ func (s *stateSuite) startUpgrade(c *tc.C) domainupgrade.UUID {
 }
 
 func (s *stateSuite) getUpgrade(c *tc.C, st *State, upgradeUUID domainupgrade.UUID) []ControllerNodeInfo {
-	db, err := s.st.DB()
+	db, err := s.st.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	nodeInfosQ := `

@@ -35,7 +35,7 @@ func NewModelState(factory database.TxnRunnerFactory) *ModelState {
 
 // SetUnitPasswordHash sets the password hash for the given unit.
 func (s *ModelState) SetUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash agentpassword.PasswordHash) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ WHERE  uuid = $entityPasswordHash.uuid;
 // MatchesUnitPasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
 func (s *ModelState) MatchesUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash agentpassword.PasswordHash) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -111,7 +111,7 @@ AND    password_hash = $validatePasswordHash.password_hash;
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
 func (s *ModelState) GetAllUnitPasswordHashes(ctx context.Context) (agentpassword.UnitPasswordHashes, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -140,7 +140,7 @@ func (s *ModelState) GetAllUnitPasswordHashes(ctx context.Context) (agentpasswor
 // GetUnitUUID returns the UUID of the unit with the given name, returning an
 // error satisfying [applicationerrors.UnitNotFound] if the unit does not exist.
 func (s *ModelState) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -176,7 +176,7 @@ WHERE  name=$entityName.name`, u)
 
 // SetMachinePasswordHash sets the password hash for the given machine.
 func (s *ModelState) SetMachinePasswordHash(ctx context.Context, machineUUID machine.UUID, passwordHash agentpassword.PasswordHash) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
@@ -224,7 +224,7 @@ func (s *ModelState) MatchesMachinePasswordHashWithNonce(
 	passwordHash agentpassword.PasswordHash,
 	nonce string,
 ) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -278,7 +278,7 @@ AND       m.nonce = $validatePasswordHashWithNonce.nonce;
 
 // GetAllMachinePasswordHashes returns a map of machine names to password hashes.
 func (s *ModelState) GetAllMachinePasswordHashes(ctx context.Context) (agentpassword.MachinePasswordHashes, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -308,7 +308,7 @@ func (s *ModelState) GetAllMachinePasswordHashes(ctx context.Context) (agentpass
 // an error satisfying [machineerrors.MachineNotFound] if the machine does not
 // exist.
 func (s *ModelState) GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -347,7 +347,7 @@ WHERE  name=$entityName.name`, u)
 func (s *ModelState) MatchesModelPasswordHash(
 	ctx context.Context, passwordHash agentpassword.PasswordHash,
 ) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -381,7 +381,7 @@ WHERE  password_hash = $validateModelPasswordHash.password_hash;
 // SetModelPasswordHash sets the password hash for the model overriding any
 // previously set value.
 func (s *ModelState) SetModelPasswordHash(ctx context.Context, passwordHash agentpassword.PasswordHash) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -426,7 +426,7 @@ SET    password_hash = $modelPasswordHash.password_hash,
 // IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
 func (s *ModelState) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -484,7 +484,7 @@ func (s *ModelState) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, 
 func (s *ModelState) SetApplicationPasswordHash(
 	ctx context.Context, appID application.ID, passwordHash agentpassword.PasswordHash,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
@@ -539,7 +539,7 @@ UPDATE SET  password_hash = $entityPasswordHash.password_hash,
 func (s *ModelState) MatchesApplicationPasswordHash(
 	ctx context.Context, appID application.ID, passwordHash agentpassword.PasswordHash,
 ) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -574,7 +574,7 @@ AND    password_hash = $validatePasswordHash.password_hash;
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (s *ModelState) GetApplicationIDByName(ctx context.Context, name string) (application.ID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

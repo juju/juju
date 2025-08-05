@@ -50,7 +50,7 @@ func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 }
 
 // DB returns the database for a given namespace.
-func (st *StateBase) DB() (TxnRunner, error) {
+func (st *StateBase) DB(ctx context.Context) (TxnRunner, error) {
 	// Check if the database has already been retrieved.
 	// We optimistically check if the database is not nil, before checking
 	// if the getDB function is nil. This reduces the branching logic for the
@@ -72,7 +72,7 @@ func (st *StateBase) DB() (TxnRunner, error) {
 		return nil, errors.New("nil getDB")
 	}
 
-	db, err := st.getDB(context.TODO())
+	db, err := st.getDB(ctx)
 	if err != nil {
 		return nil, errors.Errorf("invoking getDB: %w", err)
 	}
@@ -122,7 +122,7 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 // perform state changes and must not be used to execute queries outside of the
 // state scope. This includes performing goroutines or other async operations.
 func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting database: %w", err)
 	}

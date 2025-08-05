@@ -23,7 +23,7 @@ import (
 func (st *State) UpdateUnitPorts(
 	ctx context.Context, unit coreunit.UUID, openPorts, closePorts network.GroupedPortRanges,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

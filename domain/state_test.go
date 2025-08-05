@@ -31,21 +31,21 @@ func TestStateSuite(t *stdtesting.T) {
 func (s *stateSuite) TestStateBaseGetDB(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 }
 
 func (s *stateSuite) TestStateBaseGetDBNilFactory(c *tc.C) {
 	base := NewStateBase(nil)
-	_, err := base.DB()
+	_, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorMatches, `nil getDB`)
 }
 
 func (s *stateSuite) TestStateBasePrepare(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -75,7 +75,7 @@ func (s *stateSuite) TestStateBasePrepare(c *tc.C) {
 func (s *stateSuite) TestStateBasePrepareKeyClash(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(db, tc.NotNil)
 
@@ -107,7 +107,7 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *tc.C) {
 func (s *stateSuite) TestStateBaseRunAtomicTransactionExists(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -126,7 +126,7 @@ func (s *stateSuite) TestStateBaseRunAtomicTransactionExists(c *tc.C) {
 func (s *stateSuite) TestStateBaseRunAtomicPreventAtomicContextStoring(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -150,7 +150,7 @@ func (s *stateSuite) TestStateBaseRunAtomicPreventAtomicContextStoring(c *tc.C) 
 func (s *stateSuite) TestStateBaseRunAtomicContextValue(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -175,7 +175,7 @@ func (s *stateSuite) TestStateBaseRunAtomicContextValue(c *tc.C) {
 func (s *stateSuite) TestStateBaseRunAtomicCancel(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -196,7 +196,7 @@ func (s *stateSuite) TestStateBaseRunAtomicCancel(c *tc.C) {
 func (s *stateSuite) TestStateBaseRunAtomicWithRun(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -216,7 +216,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRun(c *tc.C) {
 func (s *stateSuite) TestStateBaseRunAtomicWithRunMultipleTimes(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -241,7 +241,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunMultipleTimes(c *tc.C) {
 func (s *stateSuite) TestStateBaseRunAtomicWithRunFailsConcurrently(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -318,7 +318,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunFailsConcurrently(c *tc.C) {
 func (s *stateSuite) TestStateBaseRunAtomicWithRunPreparedStatements(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -345,7 +345,7 @@ func (s *stateSuite) TestStateBaseRunAtomicWithRunPreparedStatements(c *tc.C) {
 func (s *stateSuite) TestStateBaseRunAtomicWithRunDoesNotLeakError(c *tc.C) {
 	f := s.TxnRunnerFactory()
 	base := NewStateBase(f)
-	db, err := base.DB()
+	db, err := base.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 

@@ -26,7 +26,7 @@ func (st *ModelState) SetFilesystemStatus(
 	filesystemUUID storage.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -103,7 +103,7 @@ func (st *ModelState) ImportFilesystemStatus(
 	filesystemUUID storage.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -120,7 +120,7 @@ func (st *ModelState) GetFilesystemUUIDByID(
 	ctx context.Context,
 	id string,
 ) (storage.FilesystemUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -192,7 +192,7 @@ func (st *ModelState) SetVolumeStatus(
 	volumeUUID storage.VolumeUUID,
 	sts status.StatusInfo[status.StorageVolumeStatusType],
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -269,7 +269,7 @@ func (st *ModelState) ImportVolumeStatus(
 	volumeUUID storage.VolumeUUID,
 	sts status.StatusInfo[status.StorageVolumeStatusType],
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -286,7 +286,7 @@ func (st *ModelState) GetVolumeUUIDByID(
 	ctx context.Context,
 	id string,
 ) (storage.VolumeUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

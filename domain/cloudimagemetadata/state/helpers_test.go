@@ -23,19 +23,20 @@ func (s *stateSuite) retrieveMetadataFromDB(c *tc.C) ([]cloudimagemetadata.Metad
 	return metadata, s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query(`
 SELECT 
-created_at,
-source,
-stream,
-region,
-version,
-virt_type,
-root_storage_type,
-root_storage_size,
-priority,
-arch.name as archName,
-image_id
- FROM cloud_image_metadata
- JOIN architecture arch on cloud_image_metadata.architecture_id = arch.id`)
+    created_at,
+    source,
+    stream,
+    region,
+    version,
+    virt_type,
+    root_storage_type,
+    root_storage_size,
+    priority,
+    arch.name as archName,
+    image_id
+FROM cloud_image_metadata
+JOIN architecture arch on cloud_image_metadata.architecture_id = arch.id
+`)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -67,7 +68,7 @@ image_id
 //
 // It is a convenient function to set up test with a specific database state.
 func (s *stateSuite) runQuery(c *tc.C, query string) error {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	if err != nil {
 		return err
 	}

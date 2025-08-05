@@ -39,7 +39,7 @@ func (st *State) MoveSubnetsToSpace(
 	}
 	spaceUUID := space.ID.String()
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

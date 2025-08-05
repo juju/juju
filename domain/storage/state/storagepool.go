@@ -19,7 +19,7 @@ import (
 // The following errors can be expected:
 // - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
 func (st State) CreateStoragePool(ctx context.Context, pool domainstorage.StoragePool) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -173,7 +173,7 @@ ON CONFLICT(storage_pool_uuid, key) DO UPDATE SET key=excluded.key,
 // The following errors can be expected:
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 func (st State) DeleteStoragePool(ctx context.Context, name string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -228,7 +228,7 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 		return errors.Errorf("storage pool UUID is missing")
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -275,7 +275,7 @@ WHERE  uuid = $storagePoolIdentifiers.uuid`, storagePoolIdentifiers{})
 
 // ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
 func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -312,7 +312,7 @@ ORDER BY sp.uuid`,
 
 // ListStoragePools returns the storage pools including default and built-in storage pools.
 func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -359,7 +359,7 @@ func (st State) ListStoragePoolsByNamesAndProviders(
 	spNames := storagePoolNames(names)
 	spTypes := storageProviderTypes(providers)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -406,7 +406,7 @@ func (st State) ListStoragePoolsByNames(
 	}
 	spNames := storagePoolNames(names)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -452,7 +452,7 @@ func (st State) ListStoragePoolsByProviders(
 	}
 	spTypes := storageProviderTypes(providers)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -492,7 +492,7 @@ func (st State) GetStoragePoolUUID(
 	ctx context.Context,
 	name string,
 ) (domainstorage.StoragePoolUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -515,7 +515,7 @@ func (st State) GetStoragePool(
 	ctx context.Context,
 	poolUUID domainstorage.StoragePoolUUID,
 ) (domainstorage.StoragePool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return domainstorage.StoragePool{}, errors.Capture(err)
 	}
