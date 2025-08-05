@@ -17,15 +17,17 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/semversion"
-	corestorage "github.com/juju/juju/core/storage"
-	storagetesting "github.com/juju/juju/core/storage/testing"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
+	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	storagetesting "github.com/juju/juju/domain/storage/testing"
+	"github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -77,8 +79,8 @@ var (
 	}
 )
 
-func (s *storageSuite) createFilesystem(c *tc.C) corestorage.FilesystemUUID {
-	filesystemUUID := storagetesting.GenFilesystemUUID(c)
+func (s *storageSuite) createFilesystem(c *tc.C) storageprovisioning.FilesystemUUID {
+	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -97,8 +99,8 @@ VALUES (?, ?)`, filesystemUUID, 0)
 	return filesystemUUID
 }
 
-func (s *storageSuite) createFilesystemNoStatus(c *tc.C) corestorage.FilesystemUUID {
-	filesystemUUID := storagetesting.GenFilesystemUUID(c)
+func (s *storageSuite) createFilesystemNoStatus(c *tc.C) storageprovisioning.FilesystemUUID {
+	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -182,9 +184,9 @@ INSERT INTO charm_storage (
 	return uuid
 }
 
-func (s *storageSuite) createStorageInstance(c *tc.C, storageName, charmUUID corecharm.ID) corestorage.UUID {
+func (s *storageSuite) createStorageInstance(c *tc.C, storageName, charmUUID corecharm.ID) storage.StorageInstanceUUID {
 	ctx := c.Context()
-	storageUUID := storagetesting.GenStorageUUID(c)
+	storageUUID := storagetesting.GenStorageInstanceUUID(c)
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_instance (
@@ -202,7 +204,10 @@ INSERT INTO storage_instance (
 	return storageUUID
 }
 
-func (s *storageSuite) createFilesystemInstance(c *tc.C, filesystemUUID corestorage.FilesystemUUID) {
+func (s *storageSuite) createFilesystemInstance(
+	c *tc.C,
+	filesystemUUID storageprovisioning.FilesystemUUID,
+) {
 	charmUUID := s.insertCharmWithStorage(c, filesystemStorage)
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID)
 
@@ -215,7 +220,11 @@ VALUES (?, ?)`, filesystemUUID, storageUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *storageSuite) assertFilesystemStatus(c *tc.C, filesystemUUID corestorage.FilesystemUUID, expected status.StatusInfo[status.StorageFilesystemStatusType]) {
+func (s *storageSuite) assertFilesystemStatus(
+	c *tc.C,
+	filesystemUUID storageprovisioning.FilesystemUUID,
+	expected status.StatusInfo[status.StorageFilesystemStatusType],
+) {
 	ctx := c.Context()
 
 	var got status.StatusInfo[status.StorageFilesystemStatusType]
@@ -234,10 +243,10 @@ WHERE filesystem_uuid = ?`, filesystemUUID).Scan(
 	c.Check(got, tc.DeepEquals, expected)
 }
 
-func (s *storageSuite) createVolume(c *tc.C) corestorage.VolumeUUID {
+func (s *storageSuite) createVolume(c *tc.C) storageprovisioning.VolumeUUID {
 	ctx := c.Context()
 
-	volumeUUID := storagetesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -256,10 +265,10 @@ VALUES (?, ?)`, volumeUUID, 0)
 	return volumeUUID
 }
 
-func (s *storageSuite) createVolumeNoStatus(c *tc.C) corestorage.VolumeUUID {
+func (s *storageSuite) createVolumeNoStatus(c *tc.C) storageprovisioning.VolumeUUID {
 	ctx := c.Context()
 
-	volumeUUID := storagetesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -272,7 +281,7 @@ VALUES (?, ?, ?)`, volumeUUID, life.Alive, s.volumeCount)
 	return volumeUUID
 }
 
-func (s *storageSuite) createVolumeInstance(c *tc.C, volumeUUID corestorage.VolumeUUID) {
+func (s *storageSuite) createVolumeInstance(c *tc.C, volumeUUID storageprovisioning.VolumeUUID) {
 	charmUUID := s.insertCharmWithStorage(c, blockStorage)
 	storageUUID := s.createStorageInstance(c, "pgblock", charmUUID)
 
@@ -285,7 +294,10 @@ VALUES (?, ?)`, volumeUUID, storageUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *storageSuite) assertVolumeStatus(c *tc.C, volumeUUID corestorage.VolumeUUID, expected status.StatusInfo[status.StorageVolumeStatusType]) {
+func (s *storageSuite) assertVolumeStatus(
+	c *tc.C,
+	volumeUUID storageprovisioning.VolumeUUID,
+	expected status.StatusInfo[status.StorageVolumeStatusType]) {
 	ctx := c.Context()
 
 	var got status.StatusInfo[status.StorageVolumeStatusType]
@@ -365,7 +377,7 @@ func (s *storageSuite) TestSetFilesystemStatusFilesystemNotFound(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	uuid := storagetesting.GenFilesystemUUID(c)
+	uuid := storageprovisioningtesting.GenFilesystemUUID(c)
 	err := s.modelState.SetFilesystemStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
 }
@@ -492,7 +504,7 @@ func (s *storageSuite) TestSetVolumeStatusVolumeNotFound(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	uuid := storagetesting.GenVolumeUUID(c)
+	uuid := storageprovisioningtesting.GenVolumeUUID(c)
 	err := s.modelState.SetVolumeStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.VolumeNotFound)
 }

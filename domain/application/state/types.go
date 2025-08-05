@@ -935,30 +935,30 @@ type storageAttachment struct {
 }
 
 type filesystemUUID struct {
-	UUID       corestorage.FilesystemUUID `db:"uuid"`
-	AttachedTo *string                    `db:"net_node_uuid"`
+	UUID       string  `db:"uuid"`
+	AttachedTo *string `db:"net_node_uuid"`
 }
 
 type volumeUUID struct {
-	UUID       corestorage.VolumeUUID `db:"uuid"`
-	AttachedTo *string                `db:"net_node_uuid"`
+	UUID       string  `db:"uuid"`
+	AttachedTo *string `db:"net_node_uuid"`
 }
 
 type filesystemAttachment struct {
-	UUID           corestorage.FilesystemAttachmentUUID `db:"uuid"`
-	NetNodeUUID    string                               `db:"net_node_uuid"`
-	FilesystemUUID corestorage.FilesystemUUID           `db:"storage_filesystem_uuid"`
-	LifeID         life.Life                            `db:"life_id"`
-	MountPoint     string                               `db:"mount_point"`
-	ReadOnly       bool                                 `db:"read_only"`
+	UUID           string    `db:"uuid"`
+	NetNodeUUID    string    `db:"net_node_uuid"`
+	FilesystemUUID string    `db:"storage_filesystem_uuid"`
+	LifeID         life.Life `db:"life_id"`
+	MountPoint     string    `db:"mount_point"`
+	ReadOnly       bool      `db:"read_only"`
 }
 
 type volumeAttachment struct {
-	UUID        corestorage.VolumeAttachmentUUID `db:"uuid"`
-	NetNodeUUID string                           `db:"net_node_uuid"`
-	VolumeUUID  corestorage.VolumeUUID           `db:"storage_volume_uuid"`
-	LifeID      life.Life                        `db:"life_id"`
-	ReadOnly    bool                             `db:"read_only"`
+	UUID        string    `db:"uuid"`
+	NetNodeUUID string    `db:"net_node_uuid"`
+	VolumeUUID  string    `db:"storage_volume_uuid"`
+	LifeID      life.Life `db:"life_id"`
+	ReadOnly    bool      `db:"read_only"`
 }
 
 type setUnitConstraint struct {

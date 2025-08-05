@@ -8,9 +8,9 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -23,7 +23,7 @@ const (
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 func (st *ModelState) SetFilesystemStatus(
 	ctx context.Context,
-	filesystemUUID storage.FilesystemUUID,
+	filesystemUUID storageprovisioning.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
 	db, err := st.DB(ctx)
@@ -60,7 +60,7 @@ func (st *ModelState) SetFilesystemStatus(
 func (st *ModelState) getFilesystemProvisioningStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid storage.FilesystemUUID,
+	uuid storageprovisioning.FilesystemUUID,
 ) (status.StorageFilesystemStatusType, bool, error) {
 	id := filesystemUUID{
 		FilesystemUUID: uuid.String(),
@@ -100,7 +100,7 @@ WHERE     sf.uuid = $filesystemUUID.uuid
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 func (st *ModelState) ImportFilesystemStatus(
 	ctx context.Context,
-	filesystemUUID storage.FilesystemUUID,
+	filesystemUUID storageprovisioning.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
 	db, err := st.DB(ctx)
@@ -119,8 +119,8 @@ func (st *ModelState) ImportFilesystemStatus(
 func (st *ModelState) GetFilesystemUUIDByID(
 	ctx context.Context,
 	id string,
-) (storage.FilesystemUUID, error) {
-	db, err := st.DB(ctx)
+) (storageprovisioning.FilesystemUUID, error) {
+	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -146,13 +146,13 @@ WHERE  filesystem_id = $filesystemUUIDID.filesystem_id
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return storage.FilesystemUUID(arg.UUID), nil
+	return storageprovisioning.FilesystemUUID(arg.UUID), nil
 }
 
 func (st *ModelState) updateFilesystemStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
-	filesystemUUID storage.FilesystemUUID,
+	filesystemUUID storageprovisioning.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
 	statusID, err := status.EncodeStorageFilesystemStatus(sts.Status)
@@ -189,7 +189,7 @@ ON CONFLICT(filesystem_uuid) DO UPDATE SET
 // - [storageerrors.VolumeNotFound] if the volume doesn't exist.
 func (st *ModelState) SetVolumeStatus(
 	ctx context.Context,
-	volumeUUID storage.VolumeUUID,
+	volumeUUID storageprovisioning.VolumeUUID,
 	sts status.StatusInfo[status.StorageVolumeStatusType],
 ) error {
 	db, err := st.DB(ctx)
@@ -226,7 +226,7 @@ func (st *ModelState) SetVolumeStatus(
 func (st *ModelState) getVolumeProvisioningStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid storage.VolumeUUID,
+	uuid storageprovisioning.VolumeUUID,
 ) (status.StorageVolumeStatusType, bool, error) {
 	id := volumeUUID{
 		VolumeUUID: uuid.String(),
@@ -266,7 +266,7 @@ WHERE     sv.uuid = $volumeUUID.uuid
 // - [storageerrors.VolumeNotFound] if the volume doesn't exist.
 func (st *ModelState) ImportVolumeStatus(
 	ctx context.Context,
-	volumeUUID storage.VolumeUUID,
+	volumeUUID storageprovisioning.VolumeUUID,
 	sts status.StatusInfo[status.StorageVolumeStatusType],
 ) error {
 	db, err := st.DB(ctx)
@@ -285,8 +285,8 @@ func (st *ModelState) ImportVolumeStatus(
 func (st *ModelState) GetVolumeUUIDByID(
 	ctx context.Context,
 	id string,
-) (storage.VolumeUUID, error) {
-	db, err := st.DB(ctx)
+) (storageprovisioning.VolumeUUID, error) {
+	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -312,13 +312,13 @@ WHERE  volume_id = $volumeUUIDID.volume_id
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return storage.VolumeUUID(arg.UUID), nil
+	return storageprovisioning.VolumeUUID(arg.UUID), nil
 }
 
 func (st *ModelState) updateVolumeStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
-	volumeUUID storage.VolumeUUID,
+	volumeUUID storageprovisioning.VolumeUUID,
 	sts status.StatusInfo[status.StorageVolumeStatusType],
 ) error {
 	statusID, err := status.EncodeStorageVolumeStatus(sts.Status)

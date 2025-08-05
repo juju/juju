@@ -6,11 +6,15 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // StorageState provides access to storage related state methods.
@@ -20,21 +24,21 @@ type StorageState interface {
 	// - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 	SetFilesystemStatus(
 		ctx context.Context,
-		filesystemUUID storage.FilesystemUUID,
+		filesystemUUID storageprovisioning.FilesystemUUID,
 		sts status.StatusInfo[status.StorageFilesystemStatusType],
 	) error
 
 	// GetFilesystemUUIDByID returns the filesystem UUID for the given
 	// filesystem unique id. If no filesystem is found, an error satisfying
 	// [storageerrors.FilesystemNotFound] is returned.
-	GetFilesystemUUIDByID(ctx context.Context, id string) (storage.FilesystemUUID, error)
+	GetFilesystemUUIDByID(ctx context.Context, id string) (storageprovisioning.FilesystemUUID, error)
 
 	// SetVolumeStatus sets the given volume status, overwriting any
 	// current status data. The following errors can be expected:
 	// - [storageerrors.VolumeNotFound] if the volume doesn't exist.
 	SetVolumeStatus(
 		ctx context.Context,
-		volumeUUID storage.VolumeUUID,
+		volumeUUID storageprovisioning.VolumeUUID,
 		sts status.StatusInfo[status.StorageVolumeStatusType],
 	) error
 
