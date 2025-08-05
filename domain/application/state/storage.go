@@ -49,7 +49,7 @@ func (st *State) GetApplicationStorageDirectives(
 	ctx context.Context,
 	appUUID coreapplication.ID,
 ) ([]application.StorageDirective, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -130,7 +130,7 @@ func (st *State) GetUnitOwnedStorageInstances(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 ) (map[domainstorage.Name][]domainstorage.StorageInstanceUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -184,7 +184,7 @@ func (st *State) GetUnitStorageDirectives(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 ) ([]application.StorageDirective, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -693,7 +693,7 @@ INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
 func (st *State) GetProviderTypeOfPool(
 	ctx context.Context, poolUUID domainstorage.StoragePoolUUID,
 ) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1071,7 +1071,7 @@ WHERE storage_instance_uuid IN ($S[:])
 // GetStorageUUIDByID returns the UUID for the specified storage, returning an error
 // satisfying [storageerrors.StorageNotFound] if the storage doesn't exist.
 func (st *State) GetStorageUUIDByID(ctx context.Context, storageID corestorage.ID) (domainstorage.StorageInstanceUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1113,7 +1113,7 @@ WHERE  storage_id = $storageInstance.storage_id
 // - [applicationerrors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [applicationerrors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 func (st *State) AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1248,7 +1248,7 @@ AND    cs.name = $unitCharmStorage.name
 func (st *State) GetDefaultStorageProvisioners(
 	ctx context.Context,
 ) (application.DefaultStorageProvisioners, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return application.DefaultStorageProvisioners{}, errors.Capture(err)
 	}

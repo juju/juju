@@ -45,7 +45,7 @@ func (st *State) GetAnnotations(ctx context.Context, id annotations.ID) (map[str
 // given ID from the database.
 // If no annotations are found, an empty map is returned.
 func (st *State) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -91,7 +91,7 @@ WHERE c.name = $charmArgs.name AND c.revision = $charmArgs.revision;
 // keep annotations per model, so we don't need to try to find the UUID of the
 // given ID (the model).
 func (st *State) getAnnotationsForModel(ctx context.Context) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -127,7 +127,7 @@ FROM   annotation_model`, Annotation{})
 // Kinds we need to find the UUID of the ID before we retrieve annotations from
 // the corresponding annotation table.
 func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -206,7 +206,7 @@ func (st *State) SetAnnotations(
 func (st *State) setAnnotationsForID(ctx context.Context, id annotations.ID,
 	toInsert map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -281,7 +281,7 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 func (st *State) setAnnotationsForModel(ctx context.Context,
 	toInsert map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -329,7 +329,7 @@ func (st *State) SetCharmAnnotations(
 	id annotation.GetCharmArgs,
 	values map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

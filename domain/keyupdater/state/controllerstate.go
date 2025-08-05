@@ -28,7 +28,7 @@ func (st *ControllerState) GetControllerConfigKeys(
 	ctx context.Context,
 	keys []string,
 ) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting database when getting controller config keys: %w", err,
@@ -84,7 +84,7 @@ func (s *ControllerState) GetUserAuthorizedKeysForModel(
 	ctx context.Context,
 	modelUUID model.UUID,
 ) ([]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting database when getting all user public keys for model %q: %w",

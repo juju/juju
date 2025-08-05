@@ -23,7 +23,7 @@ import (
 // This uses the *model* database table, not the *controller* model table.
 // The model table with one row should exist until the model is removed.
 func (st *State) ModelExists(ctx context.Context, mUUID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -56,7 +56,7 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 // EnsureModelNotAliveCascade ensures that there is no model identified
 // by the input model UUID, that is still alive.
 func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) (removal.ModelArtifacts, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Capture(err)
 	}
@@ -202,7 +202,7 @@ func (st *State) ModelScheduleRemoval(
 	removalUUID, modelUUID string,
 	force bool, when time.Time,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -230,7 +230,7 @@ func (st *State) ModelScheduleRemoval(
 
 // GetModelLife retrieves the life state of a model.
 func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -249,7 +249,7 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 // MarkModelAsDead marks the model with the input UUID as dead.
 // If there are model dependents, then this will return an error.
 func (st *State) MarkModelAsDead(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -288,7 +288,7 @@ AND    life_id = 1`, modelUUID)
 
 // DeleteModelArtifacts deletes all artifacts associated with a model.
 func (st *State) DeleteModelArtifacts(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -354,7 +354,7 @@ WHERE uuid = $entityUUID.uuid;
 // The following errors may be returned:
 // - [modelerrors.NotFound] when the model does not exist.
 func (s *State) IsControllerModel(ctx context.Context, mUUID string) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}

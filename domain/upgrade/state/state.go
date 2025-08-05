@@ -35,7 +35,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 // and returns the upgrade's UUID. If an active upgrade already exists,
 // return an AlreadyExists error
 func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersion semversion.Number) (domainupgrade.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -80,7 +80,7 @@ VALUES ($Info.*)`, info)
 // A controller node is ready for an upgrade if a row corresponding
 // to the controller is present in upgrade_info_controller_node.
 func (st *State) SetControllerReady(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -137,7 +137,7 @@ VALUES ($ControllerNodeInfo.*);
 // that have been started by the provisioner are ready to start the provided
 // upgrade.
 func (st *State) AllProvisionedControllersReady(ctx context.Context, upgradeUUID domainupgrade.UUID) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -180,7 +180,7 @@ AND    upgrade_node.controller_node_id IS NULL;
 // TODO (jack-w-shaw) Set `statuses`/`statuseshistory` here
 // to status.Busy once the table has been added
 func (st *State) StartUpgrade(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -229,7 +229,7 @@ WHERE  uuid = $Info.uuid
 
 // SetDBUpgradeCompleted marks the database upgrade as completed.
 func (st *State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -246,7 +246,7 @@ func (st *State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainup
 
 // SetDBUpgradeFailed marks the database upgrade as failed.
 func (st *State) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -268,7 +268,7 @@ func (st *State) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgra
 // TODO (jack-w-shaw) Set `statuses`/`statuseshistory` here to status.Available
 // when we complete an upgrade
 func (st *State) SetControllerDone(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -352,7 +352,7 @@ AND (
 // any upgrade that is not in the StepsCompleted state. It returns a NotFound
 // error if there is no active upgrade.
 func (st *State) ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -385,7 +385,7 @@ WHERE state_type_id < $Info.state_type_id
 // UpgradeInfo returns the upgrade info for the provided upgradeUUID. It returns
 // a NotFound error if the upgrade does not exist.
 func (st *State) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return upgrade.Info{}, errors.Capture(err)
 	}

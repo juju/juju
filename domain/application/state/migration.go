@@ -25,7 +25,7 @@ import (
 // If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 // If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.ID) ([]application.ExportUnit, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ WHERE application_uuid = $applicationID.uuid
 // [applicationerrors.CharmNotFound] if the charm for the application is
 // not found.
 func (st *State) InsertMigratingApplication(ctx context.Context, name string, args application.InsertApplicationArgs) (coreapplication.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -333,7 +333,7 @@ func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreappli
 	if len(units) == 0 {
 		return nil
 	}
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -353,7 +353,7 @@ func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreappli
 	if len(units) == 0 {
 		return nil
 	}
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

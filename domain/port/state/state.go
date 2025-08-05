@@ -34,7 +34,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // GetUnitOpenedPorts returns the opened ports for a given unit uuid,
 // grouped by endpoint.
 func (st *State) GetUnitOpenedPorts(ctx context.Context, unit coreunit.UUID) (network.GroupedPortRanges, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -83,7 +83,7 @@ WHERE unit_uuid = $unitUUID.unit_uuid
 // NOTE: We do not group by endpoint here. It is not needed. Instead, we just
 // group by unit name
 func (s *State) GetAllOpenedPorts(ctx context.Context) (port.UnitGroupedPortRanges, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -130,7 +130,7 @@ JOIN unit ON unit_uuid = unit.uuid
 //
 // TODO: Once we have a core static machine uuid type, use it here.
 func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[coreunit.Name]network.GroupedPortRanges, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -170,7 +170,7 @@ WHERE machine.uuid = $machineUUID.machine_uuid
 // given application. We return opened ports paired with the unit UUIDs, grouped
 // by endpoint. This is because some consumers do not care about the unit.
 func (st *State) GetApplicationOpenedPorts(ctx context.Context, application coreapplication.ID) (port.UnitEndpointPortRanges, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -209,7 +209,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 // GetUnitUUID returns the UUID of the unit with the given name, returning an
 // error satisfying [porterrors.UnitNotFound] if the unit does not exist.
 func (st *State) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

@@ -183,7 +183,7 @@ func newUnitUUIDEvent(event changestream.ChangeEvent, change string) maskedEvent
 // The RelationEndpointUUID can be used to tell what side of the relation
 // the returned units are on.
 func (st *State) getUnitsInRelation(ctx context.Context, relUUID string) ([]relationUnit, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -223,7 +223,7 @@ ORDER BY u.uuid`
 }
 
 func (st *State) getRelationAppEndpoints(ctx context.Context, relationUUID string) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

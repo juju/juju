@@ -19,7 +19,7 @@ import (
 // This uses the *model* database table, not the *controller* model table.
 // The model table with one row should exist until the model is removed.
 func (st *State) ModelExists(ctx context.Context, mUUID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -52,7 +52,7 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 // EnsureModelNotAliveCascade ensures that there is no model identified
 // by the input model UUID, that is still alive.
 func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -83,7 +83,7 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 
 // GetModelLife retrieves the life state of a model.
 func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -102,7 +102,7 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 // MarkModelAsDead marks the model with the input UUID as dead.
 // If there are model dependents, then this will return an error.
 func (st *State) MarkModelAsDead(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -136,7 +136,7 @@ AND    life_id = 1`, modelUUID)
 
 // DeleteModel deletes all artifacts associated with a model.
 func (st *State) DeleteModel(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -213,7 +213,7 @@ WHERE grant_on = $entityUUID.uuid;
 
 // GetModelUUIDs retrieves the UUIDs of all models in the controller.
 func (st *State) GetModelUUIDs(ctx context.Context) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

@@ -38,7 +38,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 func (st *State) GetUnitUUID(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
 	unitName := unitName{Name: name}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -72,7 +72,7 @@ WHERE name=$unitName.name
 func (st *State) UnitResolveMode(ctx context.Context, uuid coreunit.UUID) (resolve.ResolveMode, error) {
 	unitUUID := unitUUID{UUID: uuid}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -107,7 +107,7 @@ WHERE unit_uuid = $unitUUID.uuid
 func (st *State) ResolveUnit(ctx context.Context, uuid coreunit.UUID, mode resolve.ResolveMode) error {
 	unitUUID := unitUUID{UUID: uuid}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -172,7 +172,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 // ResolveAllUnits marks all units as resolved.
 func (st *State) ResolveAllUnits(ctx context.Context, mode resolve.ResolveMode) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -244,7 +244,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 func (st *State) ClearResolved(ctx context.Context, uuid coreunit.UUID) error {
 	unitUUID := unitUUID{UUID: uuid}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

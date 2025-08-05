@@ -49,7 +49,7 @@ WHERE  sp.name = ?`, "ebs-fast").Scan(&poolUUIDStr)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var poolUUID domainstorage.StoragePoolUUID
@@ -64,7 +64,7 @@ WHERE  sp.name = ?`, "ebs-fast").Scan(&poolUUIDStr)
 func (s *storagePoolHelperSuite) TestGetStoragePoolUUIDNotFound(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	db, err := st.DB()
+	db, err := st.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -93,7 +93,7 @@ func (s *storagePoolHelperSuite) TestGetStoragePool(c *tc.C) {
 	poolUUID, err := st.GetStoragePoolUUID(ctx, "ebs-fast")
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var pool domainstorage.StoragePool
@@ -111,7 +111,7 @@ func (s *storagePoolHelperSuite) TestGetStoragePoolNotFound(c *tc.C) {
 	poolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := st.DB()
+	db, err := st.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {

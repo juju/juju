@@ -51,7 +51,7 @@ func (s *baseRelationSuite) SetUpTest(c *tc.C) {
 // Txn executes a transactional function within a database context,
 // ensuring proper error handling and assertion.
 func (s *baseRelationSuite) Txn(c *tc.C, fn func(ctx context.Context, tx *sqlair.TX) error) error {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	return db.Txn(c.Context(), fn)
 }

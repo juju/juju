@@ -41,7 +41,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 
 // ListClouds lists the clouds with the specified filter, if any.
 func (st *State) ListClouds(ctx context.Context) ([]cloud.Cloud, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -57,7 +57,7 @@ func (st *State) ListClouds(ctx context.Context) ([]cloud.Cloud, error) {
 
 // Cloud returns the cloud with the specified name.
 func (st *State) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -81,7 +81,7 @@ func (st *State) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 // cloud is found for the given uuid then a [clouderrors.NotFound] error is
 // returned.
 func (st *State) GetCloudForUUID(ctx context.Context, id corecloud.UUID) (cloud.Cloud, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return cloud.Cloud{}, errors.Capture(err)
 	}
@@ -313,7 +313,7 @@ WHERE  cloud_uuid IN ($uuids[:])
 
 // UpdateCloud updates the specified cloud.
 func (st *State) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -349,7 +349,7 @@ WHERE  name = $dbCloud.name`, dbCloud{})
 // provided ownerName.
 // This is the exported method for use with the cloud state.
 func (st *State) CreateCloud(ctx context.Context, ownerName user.Name, cloudUUID string, cloud cloud.Cloud) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -643,7 +643,7 @@ func dbCloudFromCloud(ctx context.Context, tx *sqlair.TX, cloudUUID string, clou
 
 // DeleteCloud removes a cloud credential with the given name.
 func (st *State) DeleteCloud(ctx context.Context, name string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -767,7 +767,7 @@ func (st *State) WatchCloud(
 	) (watcher.NotifyWatcher, error),
 	cloudName string,
 ) (watcher.NotifyWatcher, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

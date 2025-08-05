@@ -32,7 +32,7 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 // SetFlag sets the value of a flag.
 // Description is used to describe the flag and its potential state.
 func (s *State) SetFlag(ctx context.Context, flagName string, value bool, description string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -73,7 +73,7 @@ ON CONFLICT (name) DO UPDATE SET value = excluded.value,
 
 // GetFlag returns the value of a flag.
 func (s *State) GetFlag(ctx context.Context, flagName string) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}

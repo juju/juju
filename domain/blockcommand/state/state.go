@@ -35,7 +35,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 // message.
 // Returns an error [errors.BlockAlreadyExists].
 func (s *State) SetBlock(ctx context.Context, t blockcommand.BlockType, message string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (s *State) SetBlock(ctx context.Context, t blockcommand.BlockType, message 
 // RemoveBlock disables block of specified type for the current model.
 // Returns an error [errors.BlockNotFound].
 func (s *State) RemoveBlock(ctx context.Context, t blockcommand.BlockType) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (s *State) RemoveBlock(ctx context.Context, t blockcommand.BlockType) error
 // RemoveAllBlocks removes all blocks for the current model. If no blocks are
 // found, returns nil.
 func (s *State) RemoveAllBlocks(ctx context.Context) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (s *State) RemoveAllBlocks(ctx context.Context) error {
 
 // GetBlocks returns all the blocks for the current model.
 func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 }
 
 func (s *State) GetBlockMessage(ctx context.Context, t blockcommand.BlockType) (string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", err
 	}

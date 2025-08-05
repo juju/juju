@@ -40,7 +40,7 @@ func (s *State) GetModelConfigKeyValues(
 		return map[string]string{}, nil
 	}
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -90,7 +90,7 @@ WHERE key in ($S[:])
 // ModelID returns the UUID of the current model. If the model cannot be found,
 // an error is returned satisfying [modelerrors.NotFound].
 func (s *State) ModelID(ctx context.Context) (model.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

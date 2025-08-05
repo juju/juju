@@ -105,7 +105,7 @@ func (st *State) CreateIAASApplication(
 	args application.AddIAASApplicationArg,
 	units []application.AddIAASUnitArg,
 ) (coreapplication.ID, []coremachine.Name, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", nil, errors.Capture(err)
 	}
@@ -146,7 +146,7 @@ func (st *State) CreateCAASApplication(
 	args application.AddCAASApplicationArg,
 	units []application.AddCAASUnitArg,
 ) (coreapplication.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -408,7 +408,7 @@ func (st *State) insertCAASApplicationUnits(
 // doesn't exist. If the application still has units, as error satisfying
 // [applicationerrors.ApplicationHasUnits] is returned.
 func (st *State) DeleteApplication(ctx context.Context, name string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -584,7 +584,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -626,7 +626,7 @@ WHERE name = $unitNameLife.name
 // GetApplicationScaleState looks up the scale state of the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
 func (st *State) GetApplicationScaleState(ctx context.Context, appUUID coreapplication.ID) (application.ScaleState, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return application.ScaleState{}, errors.Capture(err)
 	}
@@ -673,7 +673,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 // application is not found.
 func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication.ID) (life.Life, error) {
 	ident := applicationID{ID: appUUID}
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -702,7 +702,7 @@ WHERE uuid = $applicationID.uuid
 
 // IsControllerApplication returns true when the application is the controller.
 func (st *State) IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -750,7 +750,7 @@ WHERE application_uuid = $controllerApplication.application_uuid
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
 func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", -1, errors.Capture(err)
 	}
@@ -772,7 +772,7 @@ func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (
 // - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
 // - [applicationerrors.UnitNotAlive] if any units are not alive.
 func (st *State) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -846,7 +846,7 @@ WHERE name = $applicationDetails.name
 // SetDesiredApplicationScale updates the desired scale of the specified
 // application.
 func (st *State) SetDesiredApplicationScale(ctx context.Context, appUUID coreapplication.ID, scale int) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -875,7 +875,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 // If the resulting scale is less than zero, an error satisfying
 // [applicationerrors.ScaleChangeInvalid] is returned.
 func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplication.ID, delta int) (int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -913,7 +913,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 // SetApplicationScalingState sets the scaling details for the given caas
 // application Scale is optional and is only set if not nil.
 func (st *State) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -974,7 +974,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (st *State) UpsertCloudService(ctx context.Context, applicationName, providerID string, sAddrs network.ProviderAddresses) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1375,7 +1375,7 @@ SELECT &applicationID.* FROM application
 // If the unit does not exist an error satisfying
 // [applicationerrors.UnitNotFound] will be returned.
 func (st *State) GetNetNodeUUIDByUnitName(ctx context.Context, name coreunit.Name) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1436,7 +1436,7 @@ WHERE  name = $unitName.name
 // A possible future improvement would be to accumulate the change events and
 // check whether the unit of interest has been affaceted, before hitting the db.
 func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID string) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1560,7 +1560,7 @@ func (st *State) hashAddress(writer io.Writer, address spaceAddress) error {
 // GetApplicationsWithPendingCharmsFromUUIDs returns the application IDs for the
 // applications with pending charms from the specified UUIDs.
 func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1603,7 +1603,7 @@ WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 // [applicationerrors.ApplicationNotFound] if the application is not found, and
 // [applicationerrors.CharmNotFound] if the charm is not found.
 func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1637,7 +1637,7 @@ func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (
 // If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplication.ID) (charm.Charm, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return charm.Charm{}, errors.Capture(err)
 	}
@@ -1671,7 +1671,7 @@ func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplic
 // relation can change the validation result.
 func (st *State) SetApplicationCharm(ctx context.Context, id coreapplication.ID,
 	params application.UpdateCharmParams) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1711,7 +1711,7 @@ func (st *State) GetApplicationIDByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
 ) (coreapplication.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1750,7 +1750,7 @@ func (st *State) GetApplicationIDAndNameByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
 ) (coreapplication.ID, string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -1788,7 +1788,7 @@ WHERE u.name = $unitName.name;
 // Returns [applicationerrors.ApplicationNotFound] if the
 // application is not found.
 func (st *State) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -1828,7 +1828,7 @@ WHERE uuid = $applicationID.uuid
 // downloading a charm, or [applicationerrors.ApplicationNotFound] if the
 // application is not found.
 func (st *State) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return application.CharmDownloadInfo{}, errors.Capture(err)
 	}
@@ -1900,7 +1900,7 @@ WHERE application_uuid = $applicationID.uuid
 // is not found, and [applicationerrors.CharmAlreadyResolved] if the charm is
 // already resolved.
 func (st *State) ResolveCharmDownload(ctx context.Context, id corecharm.ID, info application.ResolvedCharmDownload) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1972,7 +1972,7 @@ WHERE uuid = $charmID.uuid;`
 // that are alive.
 // This will return an empty slice if there are no applications.
 func (st *State) GetApplicationsForRevisionUpdater(ctx context.Context) ([]application.RevisionUpdaterApplication, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2077,7 +2077,7 @@ FROM v_revision_updater_application_unit
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, application.ApplicationSettings, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
@@ -2134,7 +2134,7 @@ func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID core
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2178,7 +2178,7 @@ func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID cor
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -2224,7 +2224,7 @@ func (st *State) UpdateApplicationConfigAndSettings(
 	config map[string]application.ApplicationConfig,
 	settings application.UpdateApplicationSettingsArg,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2303,7 +2303,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2388,7 +2388,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 // [applicationerrors.ApplicationNotFound] is returned.
 // If the charm for the application does not exist.
 func (st *State) GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (corecharm.ID, charm.Config, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", charm.Config{}, errors.Capture(err)
 	}
@@ -2435,7 +2435,7 @@ WHERE uuid = $applicationID.uuid;
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.ID) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -2456,7 +2456,7 @@ func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.I
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (st *State) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -2478,7 +2478,7 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 // An error satisfying [applicationerrors.ApplicationNotFoundError]
 // is returned if the application doesn't exist.
 func (st *State) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -2542,7 +2542,7 @@ WHERE  uuid = $applicationIDAndName.uuid
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationConfigHash(ctx context.Context, appID coreapplication.ID) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -2585,7 +2585,7 @@ WHERE application_uuid = $applicationID.uuid;
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationCharmOrigin(ctx context.Context, appID coreapplication.ID) (application.CharmOrigin, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return application.CharmOrigin{}, errors.Capture(err)
 	}
@@ -2684,7 +2684,7 @@ WHERE application_uuid = $applicationID.uuid;
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Constraints, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return constraints.Constraints{}, errors.Capture(err)
 	}
@@ -2730,7 +2730,7 @@ WHERE application_uuid = $applicationID.uuid;
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Constraints) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2928,7 +2928,7 @@ ON CONFLICT (application_uuid) DO NOTHING
 // If the application is not found, [applicationerrors.ApplicationNotFound]
 // is returned.
 func (st *State) GetDeviceConstraints(ctx context.Context, appID coreapplication.ID) (map[string]devices.Constraints, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

@@ -31,7 +31,7 @@ func NewControllerState(factory database.TxnRunnerFactory) *ControllerState {
 
 // SetControllerNodePasswordHash sets the password hash for the given unit.
 func (s *ControllerState) SetControllerNodePasswordHash(ctx context.Context, id string, passwordHash agentpassword.PasswordHash) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ SET password_hash = $entityPasswordHash.password_hash;
 // MatchesControllerNodePasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
 func (s *ControllerState) MatchesControllerNodePasswordHash(ctx context.Context, id string, passwordHash agentpassword.PasswordHash) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, err
 	}

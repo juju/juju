@@ -47,7 +47,7 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *Stat
 // GetModelSecretBackendDetails is responsible for returning the backend details for a given model uuid,
 // returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *State) GetModelSecretBackendDetails(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Capture(err)
 	}
@@ -93,7 +93,7 @@ WHERE  uuid = $modelIdentifier.uuid`, input, ModelSecretBackend{})
 
 // GetModelType returns the model type for the given model UUID.
 func (s *State) GetModelType(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelType, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -123,7 +123,7 @@ WHERE  m.uuid = $modelDetails.uuid
 
 // GetInternalAndActiveBackendUUIDs returns the UUIDs for the internal and active secret backends.
 func (s *State) GetInternalAndActiveBackendUUIDs(ctx context.Context, modelUUID coremodel.UUID) (string, string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -171,7 +171,7 @@ func (s *State) CreateSecretBackend(ctx context.Context, params secretbackend.Cr
 		return "", errors.Capture(err)
 	}
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -201,7 +201,7 @@ func (s *State) UpdateSecretBackend(ctx context.Context, params secretbackend.Up
 		return "", errors.Capture(err)
 	}
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -275,7 +275,7 @@ func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params u
 
 // DeleteSecretBackend deletes the secret backend for the given backend ID.
 func (s *State) DeleteSecretBackend(ctx context.Context, identifier secretbackend.BackendIdentifier, deleteInUse bool) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -369,7 +369,7 @@ DELETE FROM secret_backend WHERE uuid = $SecretBackend.uuid`, input)
 
 // ListSecretBackendIDs returns a list of all secret backend ids.
 func (s *State) ListSecretBackendIDs(ctx context.Context) ([]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -405,7 +405,7 @@ FROM secret_backend b`, SecretBackendRow{})
 
 // ListSecretBackends returns a list of all secret backends which contain secrets.
 func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -541,7 +541,7 @@ func getK8sBackendConfig(controllerName, modelName string, cloud cloud.Cloud, cr
 // which contain secrets for the specified model, unless includeEmpty is true
 // in which case all backends are returned.
 func (s *State) ListSecretBackendsForModel(ctx context.Context, modelUUID coremodel.UUID, includeEmpty bool) ([]*secretbackend.SecretBackend, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -760,7 +760,7 @@ WHERE b.%s = $M.identifier`, columName)
 // GetActiveModelSecretBackend returns the active secret backend ID and config for the given model.
 // It returns an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *State) GetActiveModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, *provider.ModelBackendConfig, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", nil, errors.Capture(err)
 	}
@@ -803,7 +803,7 @@ func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.Backe
 		return nil, errors.Errorf("%w: both ID and name are provided", secretbackenderrors.NotValid)
 	}
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -819,7 +819,7 @@ func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.Backe
 
 // SecretBackendRotated updates the next rotation time for the secret backend.
 func (s *State) SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -868,7 +868,7 @@ WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
 // returning an error satisfying [secretbackenderrors.NotFound] if the backend provided does not exist,
 // returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, secretBackendName string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -927,7 +927,7 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 // GetSecretBackendReferenceCount returns the number of references to the secret backend.
 // It returns 0 if there are no references for the provided secret backend ID.
 func (s *State) GetSecretBackendReferenceCount(ctx context.Context, backendID string) (int, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -959,7 +959,7 @@ WHERE  secret_backend_uuid = $SecretBackendReference.secret_backend_uuid`, input
 func (s *State) AddSecretBackendReference(
 	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
 ) (func() error, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1089,7 +1089,7 @@ WHERE  model_uuid = $SecretBackendReference.model_uuid
 func (s *State) UpdateSecretBackendReference(
 	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
 ) (func() error, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1136,7 +1136,7 @@ func (s *State) RemoveSecretBackendReference(ctx context.Context, revisionIDs ..
 		return nil
 	}
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1197,7 +1197,7 @@ func (s *State) InitialWatchStatementForSecretBackendRotationChanges() (string, 
 // GetSecretBackendRotateChanges returns the secret backend rotation changes
 // for the given backend IDs for the Watcher.
 func (s *State) GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

@@ -31,7 +31,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 
 // GetControllerModelUUID returns the model UUID of the controller model.
 func (st *State) GetControllerModelUUID(ctx context.Context) (model.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -62,7 +62,7 @@ FROM   controller
 // GetControllerAgentInfo returns the information that a controller agent
 // needs when it's responsible for serving the API.
 func (st *State) GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return controller.ControllerAgentInfo{}, errors.Capture(err)
 	}

@@ -24,7 +24,7 @@ func (st *State) GetHardwareCharacteristics(
 	ctx context.Context,
 	machineUUID string,
 ) (*instance.HardwareCharacteristics, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -62,7 +62,7 @@ func (st *State) AvailabilityZone(
 	ctx context.Context,
 	machineUUID string,
 ) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -112,7 +112,7 @@ func (st *State) SetMachineCloudInstance(
 	displayName, nonce string,
 	hardwareCharacteristics *instance.HardwareCharacteristics,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -280,7 +280,7 @@ func (st *State) DeleteMachineCloudInstance(
 	ctx context.Context,
 	mUUID string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -339,7 +339,7 @@ WHERE machine_uuid=$entityUUID.uuid
 // If the machine is not provisioned, it returns a
 // [machineerrors.NotProvisionedError].
 func (st *State) GetInstanceID(ctx context.Context, mUUID string) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -387,7 +387,7 @@ WHERE  machine_uuid = $entityUUID.uuid;`
 // If the machine is not provisioned, it returns a
 // [machineerrors.NotProvisionedError].
 func (st *State) GetInstanceIDAndName(ctx context.Context, mUUID string) (string, string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}

@@ -33,7 +33,7 @@ func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
 
 // GetAllJobs returns all scheduled removal jobs.
 func (st *State) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -85,7 +85,7 @@ func (st *State) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 // DeleteJob ensures that a job with the input
 // UUID is not present in the removal table.
 func (st *State) DeleteJob(ctx context.Context, jUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

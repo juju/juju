@@ -36,7 +36,7 @@ func NewControllerState(
 func (s *ControllerState) GetControllerNodeVersions(
 	ctx context.Context,
 ) (map[string]semversion.Number, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -83,7 +83,7 @@ FROM   controller_node_agent_version
 // GetControllerVersion returns the target controller version in use by the
 // cluster.
 func (s *ControllerState) GetControllerVersion(ctx context.Context) (semversion.Number, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return semversion.Number{}, errors.Capture(err)
 	}
@@ -133,7 +133,7 @@ func (s *ControllerState) SetControllerTargetVersion(
 	ctx context.Context,
 	version semversion.Number,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

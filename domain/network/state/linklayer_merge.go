@@ -94,7 +94,7 @@ func (st *State) MergeLinkLayerDevice(
 	netNodeUUID string,
 	incoming []network.NetInterface,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

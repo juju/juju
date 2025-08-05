@@ -45,7 +45,7 @@ func (s *State) Leases(ctx context.Context, keys ...corelease.Key) (map[coreleas
 		return nil, errors.Errorf("filtering with more than one lease key %w", coreerrors.NotSupported)
 	}
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -111,7 +111,7 @@ AND    l.name = $Lease.name`, lease)
 // for the holder and duration indicated by the input request.
 // The lease must not already be held, otherwise an error is returned.
 func (s *State) ClaimLease(ctx context.Context, uuid uuid.UUID, key corelease.Key, req corelease.Request) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -151,7 +151,7 @@ WHERE  type = $Lease.type;`, lease)
 // the requested duration starting from now.
 // If the input holder does not currently hold the lease, an error is returned.
 func (s *State) ExtendLease(ctx context.Context, key corelease.Key, req corelease.Request) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -201,7 +201,7 @@ WHERE  uuid = (
 // provided it exists and is held by the input holder.
 // If either of these conditions is false, an error is returned.
 func (s *State) RevokeLease(ctx context.Context, key corelease.Key, holder string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -245,7 +245,7 @@ WHERE  uuid = (
 // LeaseGroup (lease.Store) returns all leases
 // for the input namespace and model.
 func (s *State) LeaseGroup(ctx context.Context, namespace, modelUUID string) (map[corelease.Key]corelease.Info, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -294,7 +294,7 @@ AND    l.model_uuid = $Lease.model_uuid;`, lease)
 // to indicate that the lease indicated by the input key must not expire,
 // and that this entity requires such behaviour.
 func (s *State) PinLease(ctx context.Context, key corelease.Key, entity string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -344,7 +344,7 @@ AND    l.name = $Lease.name;`, leasePin, lease)
 // When there are no entities associated with a particular lease,
 // it is determined not to be pinned, and can expire normally.
 func (s *State) UnpinLease(ctx context.Context, key corelease.Key, entity string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -382,7 +382,7 @@ WHERE  uuid = (
 // Pinned (lease.Store) returns all leases that are currently pinned,
 // and the entities requiring such behaviour for them.
 func (s *State) Pinned(ctx context.Context) (map[corelease.Key][]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -435,7 +435,7 @@ ORDER BY l.uuid;`, Lease{}, LeasePin{})
 // ExpireLeases (lease.Store) deletes all leases that have expired, from the
 // store. This method is intended to be called periodically by a worker.
 func (s *State) ExpireLeases(ctx context.Context) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

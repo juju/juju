@@ -24,7 +24,7 @@ func (st *State) RemoveSpace(ctx context.Context,
 	spaceName network.SpaceName,
 	force, dryRun bool) (domainnetwork.RemoveSpaceViolations, error) {
 	var violations domainnetwork.RemoveSpaceViolations
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return violations, errors.Capture(err)
 	}

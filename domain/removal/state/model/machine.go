@@ -19,7 +19,7 @@ import (
 
 // MachineExists returns true if a machine exists with the input UUID.
 func (st *State) MachineExists(ctx context.Context, mUUID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -56,7 +56,7 @@ WHERE  uuid = $entityUUID.uuid`, machineUUID)
 // uuids can then be used to ensure the units and machines are correctly
 // cascaded to the dying state.
 func (st *State) EnsureMachineNotAliveCascade(ctx context.Context, mUUID string, force bool) (units, childMachines []string, err error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -229,7 +229,7 @@ AND    life_id = 0;`, uuids{})
 func (st *State) MachineScheduleRemoval(
 	ctx context.Context, removalUUID, machineUUID string, force bool, when time.Time,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -258,7 +258,7 @@ func (st *State) MachineScheduleRemoval(
 
 // GetMachineLife returns the life of the machine with the input UUID.
 func (st *State) GetMachineLife(ctx context.Context, mUUID string) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -276,7 +276,7 @@ func (st *State) GetMachineLife(ctx context.Context, mUUID string) (life.Life, e
 
 // GetInstanceLife returns the life of the machine instance with the input UUID.
 func (st *State) GetInstanceLife(ctx context.Context, mUUID string) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -298,7 +298,7 @@ func (st *State) GetInstanceLife(ctx context.Context, mUUID string) (life.Life, 
 // This will only return interfaces that have a non-null MAC address and
 // if the machine is a container machine (i.e. lxd container machine).
 func (st *State) GetMachineNetworkInterfaces(ctx context.Context, machineUUID string) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -339,7 +339,7 @@ AND     lld.mac_address IS NOT NULL;`, entityUUID{UUID: machineUUID}, linkLayerD
 // - [removalerrors.MachineHasContainers] if the machine hosts containers.
 // - [removalerrors.MachineHasUnits] if the machine hosts units.
 func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -384,7 +384,7 @@ AND    life_id = 1`, machineUUID)
 // - [removalerrors.MachineHasContainers] if the machine hosts containers.
 // - [removalerrors.MachineHasUnits] if the machine hosts units.
 func (st *State) MarkInstanceAsDead(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -423,7 +423,7 @@ AND    life_id = 1`, machineUUID)
 
 // DeleteMachine deletes the specified machine and any dependent child records.
 func (st *State) DeleteMachine(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

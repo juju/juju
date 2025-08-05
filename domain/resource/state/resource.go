@@ -53,7 +53,7 @@ func (st *State) DeleteApplicationResources(
 	ctx context.Context,
 	applicationID application.ID,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -166,7 +166,7 @@ func (st *State) DeleteUnitResources(
 	ctx context.Context,
 	uuid coreunit.UUID,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -218,7 +218,7 @@ func (st *State) DeleteImportedResources(
 		return nil
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -304,7 +304,7 @@ func (st *State) GetApplicationResourceID(
 	ctx context.Context,
 	args resource.GetApplicationResourceIDArgs,
 ) (coreresource.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -356,7 +356,7 @@ func (st *State) GetResourceUUIDByApplicationAndResourceName(
 	appName string,
 	resName string,
 ) (coreresource.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -431,7 +431,7 @@ func (st *State) listApplicationResources(
 	ctx context.Context,
 	applicationID application.ID,
 ) ([]charmresource.Resource, []coreresource.Resource, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -503,7 +503,7 @@ func (st *State) listUnitResources(
 	ctx context.Context,
 	applicationID application.ID,
 ) ([]coreresource.UnitResources, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -585,7 +585,7 @@ func (st *State) GetResourcesByApplicationID(
 	ctx context.Context,
 	applicationID application.ID,
 ) ([]coreresource.Resource, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -644,7 +644,7 @@ AND state = 'available'`
 //   - [resourceerrors.ResourceNotFound] if no such resource exists.
 func (st *State) GetResource(ctx context.Context,
 	resourceUUID coreresource.UUID) (coreresource.Resource, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return coreresource.Resource{}, errors.Capture(err)
 	}
@@ -688,7 +688,7 @@ func (st *State) RecordStoredResource(
 	ctx context.Context,
 	args resource.RecordStoredResourceArgs,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -740,7 +740,7 @@ func (st *State) GetResourceType(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
 ) (charmresource.Type, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
@@ -1052,7 +1052,7 @@ func (st *State) SetUnitResource(
 	resourceUUID coreresource.UUID,
 	unitUUID coreunit.UUID,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1225,7 +1225,7 @@ func (st *State) SetRepositoryResources(
 	ctx context.Context,
 	config resource.SetRepositoryResourcesArgs,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1338,7 +1338,7 @@ func (st *State) AddResourcesBeforeApplication(
 	ctx context.Context,
 	args resource.AddResourcesBeforeApplicationArgs,
 ) ([]coreresource.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1490,7 +1490,7 @@ func (st *State) UpdateUploadResourceAndDeletePriorVersion(
 	ctx context.Context,
 	args resource.StateUpdateUploadResourceArgs,
 ) (coreresource.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1663,7 +1663,7 @@ func (st *State) UpdateResourceRevisionAndDeletePriorVersion(
 	args resource.UpdateResourceRevisionArgs,
 	resourceType charmresource.Type,
 ) (coreresource.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1836,7 +1836,7 @@ WHERE         resource_uuid = $localUUID.uuid
 // given resource UUIDs. These resource UUIDs must have been returned
 // by AddResourcesBeforeApplication.
 func (st *State) DeleteResourcesAddedBeforeApplication(ctx context.Context, resources []coreresource.UUID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1903,7 +1903,7 @@ func (st *State) ImportResources(ctx context.Context, args resource.ImportResour
 		return nil
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2363,7 +2363,7 @@ AND    charm_uuid = $charmResource.charm_uuid
 // ExportResources returns the application and unit resources to export for a
 // particular application.
 func (st *State) ExportResources(ctx context.Context, appName string) (resource.ExportedResources, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return resource.ExportedResources{}, errors.Capture(err)
 	}

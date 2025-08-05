@@ -17,7 +17,7 @@ import (
 
 // GetMachinesForExport returns all machines in the model for export.
 func (st *State) GetMachinesForExport(ctx context.Context) ([]machine.ExportMachine, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ WHERE     mci.instance_id IS NOT NULL AND mci.instance_id != '';`
 // - [machineerrors.MachineAlreadyExists] if a machine with the same name
 // already exists.
 func (st *State) InsertMigratingMachine(ctx context.Context, machineName string, args machine.CreateMachineArgs) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return err
 	}

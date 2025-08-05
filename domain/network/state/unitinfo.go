@@ -106,7 +106,7 @@ func (st *State) getAllSpacesForEndpoints(
 	unitUUID string,
 	endpointNames []string,
 ) ([]spaceEndpoint, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -170,7 +170,7 @@ func (st *State) getAllUnitAddressesInSpaces(
 	unitUUID string,
 	spaceUUIDs []string,
 ) ([]unitAddress, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -219,7 +219,7 @@ AND space_uuid IN ($uuids[:])
 // isCaasUnit determines if a unit identified by the given UUID is tied to a
 // Kubernetes service.
 func (st *State) isCaasUnit(ctx context.Context, uuid string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}

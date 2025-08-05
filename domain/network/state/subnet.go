@@ -45,7 +45,7 @@ FROM   subnet`, subnet{})
 // UpsertSubnets updates or adds each one of the provided subnets in one
 // transaction.
 func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -257,7 +257,7 @@ func (st *State) AddSubnet(
 	ctx context.Context,
 	subnet network.SubnetInfo,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -273,7 +273,7 @@ func (st *State) AddSubnet(
 func (st *State) GetAllSubnets(
 	ctx context.Context,
 ) (network.SubnetInfos, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -306,7 +306,7 @@ func (st *State) GetSubnet(
 	ctx context.Context,
 	uuid string,
 ) (*network.SubnetInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -347,7 +347,7 @@ func (st *State) GetSubnetsByCIDR(
 	ctx context.Context,
 	cidrs ...string,
 ) (network.SubnetInfos, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -445,7 +445,7 @@ func (st *State) UpdateSubnet(
 	uuid string,
 	spaceID network.SpaceUUID,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -461,7 +461,7 @@ func (st *State) DeleteSubnet(
 	ctx context.Context,
 	uuid string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

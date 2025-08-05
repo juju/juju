@@ -32,7 +32,7 @@ func New(modelFactory database.TxnRunnerFactory) *State {
 func (s *State) GetControllerUUID(
 	ctx context.Context,
 ) (string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Errorf("cannot get database to retrieve controller uuid: %w", err)
 	}
@@ -72,7 +72,7 @@ FROM model`, ModelInfo{})
 // juju/collections set.
 func (s *State) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Errorf("cannot get database to retrieve instance IDs: %w", err)
 	}

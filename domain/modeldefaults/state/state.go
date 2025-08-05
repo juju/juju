@@ -85,7 +85,7 @@ func (s *State) CloudDefaults(
 ) (map[string]string, error) {
 	rval := make(map[string]string)
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return rval, errors.Capture(err)
 	}
@@ -132,7 +132,7 @@ func (s *State) ModelCloudRegionDefaults(
 	ctx context.Context,
 	uuid coremodel.UUID,
 ) (map[string]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -204,7 +204,7 @@ func (s *State) CloudAllRegionDefaults(
 	ctx context.Context,
 	cloudUUID cloud.UUID,
 ) (map[string]map[string]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -265,7 +265,7 @@ func (s *State) CloudType(
 	ctx context.Context,
 	uuid cloud.UUID,
 ) (string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "'", errors.Capture(err)
 	}
@@ -315,7 +315,7 @@ func (s *State) ModelMetadataDefaults(
 	ctx context.Context,
 	uuid coremodel.UUID,
 ) (map[string]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -361,7 +361,7 @@ WHERE m.uuid = $modelUUID.uuid
 // If the model is not found, an error specifying
 // [modelerrors.NotFound] is returned.
 func (s *State) GetModelCloudUUID(ctx context.Context, uuid coremodel.UUID) (cloud.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -395,7 +395,7 @@ WHERE m.uuid = $modelUUID.uuid
 // If the cloud is not found, an error specifying [clouderrors.NotFound] is
 // returned.
 func (s *State) GetCloudUUID(ctx context.Context, cloudName string) (cloud.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -505,7 +505,7 @@ func (s *State) UpdateCloudDefaults(
 	cloudUUID cloud.UUID,
 	updateAttrs map[string]string,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -544,7 +544,7 @@ func (s *State) DeleteCloudDefaults(
 	cloudUUID cloud.UUID,
 	removeAttrs []string,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -582,7 +582,7 @@ func (s *State) UpdateCloudRegionDefaults(
 	regionName string,
 	updateAttrs map[string]string,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -654,7 +654,7 @@ func (s *State) DeleteCloudRegionDefaults(
 	regionName string,
 	removeAttrs []string,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

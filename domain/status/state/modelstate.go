@@ -53,7 +53,7 @@ func NewModelState(factory database.TxnRunnerFactory, clock clock.Clock, logger 
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
 func (st *ModelState) GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return status.ModelStatusInfo{}, errors.Capture(err)
 	}
@@ -88,7 +88,7 @@ FROM   model
 
 // GetAllRelationStatuses returns all the relation statuses of the given model.
 func (st *ModelState) GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -138,7 +138,7 @@ JOIN   relation r ON r.uuid = rs.relation_uuid
 // If no application is found, an error satisfying
 // [statuserrors.ApplicationNotFound] is returned.
 func (st *ModelState) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -162,7 +162,7 @@ func (st *ModelState) GetApplicationIDAndNameByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
 ) (coreapplication.ID, string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -198,7 +198,7 @@ WHERE u.name = $unitName.name;
 // returning an error satisfying [statuserrors.ApplicationNotFound] if the
 // application is not found.
 func (st *ModelState) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (status.StatusInfo[status.WorkloadStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
@@ -252,7 +252,7 @@ func (st *ModelState) SetApplicationStatus(
 	applicationID coreapplication.ID,
 	sts status.StatusInfo[status.WorkloadStatusType],
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -347,7 +347,7 @@ func (st *ModelState) SetRelationStatus(
 	relationUUID corerelation.UUID,
 	sts status.StatusInfo[status.RelationStatusType],
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -389,7 +389,7 @@ func (st *ModelState) ImportRelationStatus(
 	relationUUID corerelation.UUID,
 	sts status.StatusInfo[status.RelationStatusType],
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -406,7 +406,7 @@ func (st *ModelState) GetRelationUUIDByID(
 	ctx context.Context,
 	id int,
 ) (corerelation.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -482,7 +482,7 @@ WHERE relation_uuid = $relationStatus.relation_uuid
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
 // satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
 func (st *ModelState) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -517,7 +517,7 @@ WHERE name = $unitName.name
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
 func (st *ModelState) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Capture(err)
 	}
@@ -567,7 +567,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unit
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
 func (st *ModelState) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.UnitAgentStatusType]) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -586,7 +586,7 @@ func (st *ModelState) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
 func (st *ModelState) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
@@ -636,7 +636,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $u
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
 func (st *ModelState) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.WorkloadStatusType]) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -655,7 +655,7 @@ func (st *ModelState) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreun
 // - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 func (st *ModelState) GetUnitK8sPodStatus(ctx context.Context, uuid coreunit.UUID) (status.StatusInfo[status.K8sPodStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Capture(err)
 	}
@@ -712,7 +712,7 @@ WHERE  unit_uuid = $unitUUID.uuid
 func (st *ModelState) GetUnitWorkloadStatusesForApplication(
 	ctx context.Context, appID coreapplication.ID,
 ) (status.UnitWorkloadStatuses, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -739,7 +739,7 @@ func (st *ModelState) GetUnitWorkloadStatusesForApplication(
 func (st *ModelState) GetUnitAgentStatusesForApplication(
 	ctx context.Context, appID coreapplication.ID,
 ) (status.UnitAgentStatuses, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -768,7 +768,7 @@ func (st *ModelState) GetAllFullUnitStatusesForApplication(
 ) (
 	status.FullUnitStatuses, error,
 ) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -856,7 +856,7 @@ WHERE application_uuid = $applicationID.uuid
 // of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
 // if any units do not have statuses.
 func (st *ModelState) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (status.UnitWorkloadAgentStatuses, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -917,7 +917,7 @@ func (st *ModelState) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (stat
 // GetAllApplicationStatuses returns the statuses of all the applications in the model,
 // indexed by application name, if they have a status set.
 func (st *ModelState) GetAllApplicationStatuses(ctx context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -963,7 +963,7 @@ JOIN application ON application.uuid = application_status.application_uuid
 // satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
 // The unit life is not considered when making this query.
 func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1015,7 +1015,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // unit isn't found it ignores the error.
 // The unit life is not considered when making this query.
 func (st *ModelState) DeleteUnitPresence(ctx context.Context, name coreunit.Name) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1352,7 +1352,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // GetApplicationAndUnitStatuses returns the application and unit statuses of
 // all the applications in the model, indexed by application name.
 func (st *ModelState) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1719,7 +1719,7 @@ ORDER BY u.name;
 // GetApplicationAndUnitModelStatuses returns the application name and unit
 // count for each model for the model status request.
 func (st *ModelState) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1759,7 +1759,7 @@ GROUP BY u.application_uuid, application.name;
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 // - [statuserrors.MachineStatusNotFound] if the status is not set.
 func (st *ModelState) GetMachineStatus(ctx context.Context, mName string) (status.StatusInfo[status.MachineStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
@@ -1835,7 +1835,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 // GetAllMachineStatuses returns all the machine statuses for the model, indexed
 // by machine name.
 func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1889,7 +1889,7 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 // GetMachineFullStatuses returns all the machine statuses for the model, indexed
 // by machine name.
 func (st *ModelState) GetMachineFullStatuses(ctx context.Context) (map[coremachine.Name]status.Machine, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2087,7 +2087,7 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 // This method may return the following errors:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 func (st *ModelState) SetMachineStatus(ctx context.Context, mName string, newStatus status.StatusInfo[status.MachineStatusType]) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2148,7 +2148,7 @@ VALUES ($setMachineStatus.*)
 // - [machineerrors.MachineNotFound] if the machine does not exist or;
 // - [statuserrors.MachineStatusNotFound] if the status is not set.
 func (st *ModelState) GetInstanceStatus(ctx context.Context, mName string) (status.StatusInfo[status.InstanceStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return status.StatusInfo[status.InstanceStatusType]{}, errors.Capture(err)
 	}
@@ -2222,7 +2222,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 // GetAllInstanceStatuses returns all the instance statuses for the model, indexed
 // by machine name.
 func (st *ModelState) GetAllInstanceStatuses(ctx context.Context) (map[string]status.StatusInfo[status.InstanceStatusType], error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2276,7 +2276,7 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 // This method may return the following errors:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 func (st *ModelState) SetInstanceStatus(ctx context.Context, mName string, newStatus status.StatusInfo[status.InstanceStatusType]) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
