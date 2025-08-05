@@ -69,7 +69,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "machine")
 	s.svc = service.NewWatchableService(
 		state.NewState(
-			func() (database.TxnRunner, error) { return factory() },
+			func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) },
 			clock.WallClock,
 			loggertesting.WrapCheckLog(c),
 		),
@@ -787,9 +787,9 @@ func (s *watcherSuite) TestWatchMachineContainerLifeNoDispatch(c *tc.C) {
 func (s *watcherSuite) setupRemovalService(c *tc.C, factory domain.WatchableDBFactory) *removalservice.WatchableService {
 	log := loggertesting.WrapCheckLog(c)
 
-	modelState := removalstatemodel.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log)
+	modelState := removalstatemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log)
 	svc := removalservice.NewWatchableService(
-		removalstatecontroller.NewState(func() (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
+		removalstatecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
 		modelState,
 		domain.NewWatcherFactory(factory, log),
 		nil,
@@ -803,7 +803,7 @@ func (s *watcherSuite) setupRemovalService(c *tc.C, factory domain.WatchableDBFa
 }
 
 func (s *watcherSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 
@@ -858,7 +858,7 @@ func (s *watcherSuite) createIAASApplication(c *tc.C, svc *applicationservice.Wa
 }
 
 func (s *watcherSuite) setCharmObjectStoreMetadata(c *tc.C, appID string) {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 

@@ -83,10 +83,12 @@ func NewWatchableProviderService(
 
 // Watch returns a watcher that returns keys for any changes to model
 // config.
-func (s *WatchableProviderService) Watch() (watcher.StringsWatcher, error) {
-	// TODO (stickupkid): Wire up trace here. The fallout from this change
-	// is quite large.
+func (s *WatchableProviderService) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchModelConfig(), changestream.All),
 	)

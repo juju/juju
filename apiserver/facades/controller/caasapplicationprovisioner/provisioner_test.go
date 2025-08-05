@@ -211,7 +211,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 	controllerConfigChanged := make(chan []string, 1)
 	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(portsChanged), nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(controllerConfigChanged), nil)
-	s.modelConfigService.EXPECT().Watch().Return(watchertest.NewMockStringsWatcher(modelConfigChanged), nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watchertest.NewMockStringsWatcher(modelConfigChanged), nil)
 	s.applicationService.EXPECT().WatchApplication(gomock.Any(), "gitlab").Return(watchertest.NewMockNotifyWatcher(appChanged), nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
 

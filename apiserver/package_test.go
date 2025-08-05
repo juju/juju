@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
@@ -16,7 +18,7 @@ import (
 
 type StubDBGetter struct{}
 
-func (s StubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+func (s StubDBGetter) GetWatchableDB(_ context.Context, namespace string) (changestream.WatchableDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}

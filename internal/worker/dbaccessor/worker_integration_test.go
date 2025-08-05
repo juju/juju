@@ -125,7 +125,7 @@ func (s *integrationSuite) TearDownTest(c *tc.C) {
 }
 
 func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *tc.C) {
-	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbGetter.GetDB(c.Context(), coredatabase.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
@@ -146,19 +146,19 @@ func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *tc.C) {
 }
 
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *tc.C) {
-	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbGetter.GetDB(c.Context(), coredatabase.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 }
 
 func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *tc.C) {
-	_, err := s.dbGetter.GetDB("foo")
+	_, err := s.dbGetter.GetDB(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, `.*"foo": database not found`)
 	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
 func (s *integrationSuite) TestWorkerAccessingKnownDB(c *tc.C) {
-	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
+	db, err := s.dbGetter.GetDB(c.Context(), coredatabase.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -167,7 +167,7 @@ func (s *integrationSuite) TestWorkerAccessingKnownDB(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err = s.dbGetter.GetDB("bar")
+	db, err = s.dbGetter.GetDB(c.Context(), "bar")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -195,7 +195,7 @@ func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *tc.C) {
 }
 
 func (s *integrationSuite) TestWorkerDeletingKnownDB(c *tc.C) {
-	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
+	ctrlDB, err := s.dbGetter.GetDB(c.Context(), coredatabase.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
 	err = ctrlDB.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO namespace_list (namespace) VALUES ("baz")`)
@@ -203,7 +203,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := s.dbGetter.GetDB("baz")
+	db, err := s.dbGetter.GetDB(c.Context(), "baz")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(db, tc.NotNil)
 
@@ -218,13 +218,13 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *tc.C) {
 	err = s.dbDeleter.DeleteDB("baz")
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.dbGetter.GetDB("baz")
+	_, err = s.dbGetter.GetDB(c.Context(), "baz")
 	c.Assert(err, tc.ErrorMatches, `.*namespace "baz": database not found`)
 	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
 func (s *integrationSuite) TestWorkerDeleteKnownDBKillErr(c *tc.C) {
-	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
+	ctrlDB, err := s.dbGetter.GetDB(c.Context(), coredatabase.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
 	err = ctrlDB.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO namespace_list (namespace) VALUES ("baz")`)
@@ -233,7 +233,7 @@ func (s *integrationSuite) TestWorkerDeleteKnownDBKillErr(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// GetDB ensures that we've got it cached.
-	_, err = s.dbGetter.GetDB("baz")
+	_, err = s.dbGetter.GetDB(c.Context(), "baz")
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.worker.Kill()
@@ -245,7 +245,7 @@ func (s *integrationSuite) TestWorkerDeleteKnownDBKillErr(c *tc.C) {
 // first. This ensures that we don't have to have an explicit db worker for
 // each model.
 func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *tc.C) {
-	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
+	ctrlDB, err := s.dbGetter.GetDB(c.Context(), coredatabase.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
 	err = ctrlDB.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO namespace_list (namespace) VALUES ("fred")`)
@@ -264,7 +264,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *tc.C) {
 	err = s.dbDeleter.DeleteDB("fred")
 	c.Assert(err, tc.ErrorMatches, `.*"fred" not found`)
 
-	_, err = s.dbGetter.GetDB("fred")
+	_, err = s.dbGetter.GetDB(c.Context(), "fred")
 	c.Assert(err, tc.ErrorMatches, `.*"fred": database not found`)
 	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }

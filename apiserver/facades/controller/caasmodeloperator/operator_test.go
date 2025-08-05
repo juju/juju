@@ -88,7 +88,7 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
 	m.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(hostPortWatcher, nil)
 
 	modelConfigWatcher := watchertest.NewMockStringsWatcher(modelConfigChanged)
-	m.modelConfigService.EXPECT().Watch().Return(modelConfigWatcher, nil)
+	m.modelConfigService.EXPECT().Watch(gomock.Any()).Return(modelConfigWatcher, nil)
 
 	m.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
 

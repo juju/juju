@@ -104,7 +104,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 }
 
 func (s *watcherSuite) setupService(c *tc.C) *service.WatchableService {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_resolved")

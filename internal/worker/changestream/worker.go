@@ -169,7 +169,7 @@ func (w *changeStreamWorker) Report() map[string]any {
 }
 
 // GetWatchableDB returns a new WatchableDB for the given namespace.
-func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+func (w *changeStreamWorker) GetWatchableDB(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
 	if mux, err := w.workerFromCache(namespace); err != nil {
 		return nil, errors.Trace(err)
 	} else if mux != nil {
@@ -177,8 +177,8 @@ func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.Watc
 	}
 
 	// If the worker doesn't exist yet, create it.
-	if err := w.runner.StartWorker(context.TODO(), namespace, func(ctx context.Context) (worker.Worker, error) {
-		db, err := w.cfg.DBGetter.GetDB(namespace)
+	if err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
+		db, err := w.cfg.DBGetter.GetDB(ctx, namespace)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

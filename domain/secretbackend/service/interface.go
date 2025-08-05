@@ -45,6 +45,7 @@ type WatcherFactory interface {
 	// Changes channel. A filter option is required, though additional filter
 	// options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -53,6 +54,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)

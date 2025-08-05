@@ -485,6 +485,7 @@ func (s *Service) WatchModelProvisionedFilesystems(
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystems()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		initialQuery,
 		eventsource.NamespaceFilter(ns, corechangestream.All))
 }
@@ -522,6 +523,7 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery, mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -540,7 +542,9 @@ func (s *Service) WatchModelProvisionedFilesystemAttachments(
 	defer span.End()
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystemAttachments()
-	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		initialQuery,
 		eventsource.NamespaceFilter(ns, corechangestream.All))
 }
 
@@ -578,6 +582,7 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery, mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)

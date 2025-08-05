@@ -354,7 +354,7 @@ type mockAuthenticator struct {
 
 type stubWatchableDBGetter struct{}
 
-func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+func (s stubWatchableDBGetter) GetWatchableDB(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}

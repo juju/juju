@@ -944,6 +944,7 @@ func (s *serviceSuite) TestWatchActivatedModels(c *tc.C) {
 	s.mockStringsWatcher.EXPECT().Changes().AnyTimes().Return(changes)
 
 	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher(
+		gomock.Any(),
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(s.mockStringsWatcher, nil)
 

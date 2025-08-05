@@ -3,7 +3,11 @@
 
 package database
 
-import "github.com/juju/juju/internal/errors"
+import (
+	"context"
+
+	"github.com/juju/juju/internal/errors"
+)
 
 const (
 	// ControllerNS is the namespace for the controller database.
@@ -39,7 +43,7 @@ type DBGetter interface {
 	// that contains the data for the specified namespace.
 	// A NotFound error is returned if the worker is unaware of the
 	// requested DB.
-	GetDB(namespace string) (TxnRunner, error)
+	GetDB(ctx context.Context, namespace string) (TxnRunner, error)
 }
 
 // DBDeleter describes the ability to delete a database.

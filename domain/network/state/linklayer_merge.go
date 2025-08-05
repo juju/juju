@@ -605,7 +605,7 @@ WHERE ip.net_node_uuid = $netNode.uuid`, address{}, netNode{})
 		if !corenetwork.IsValidLinkLayerDeviceType(device.Type) {
 			return nil, errors.Errorf("unexpected device type %q", device.Type)
 		}
-		addresses, _ := addressByDeviceUUID[device.UUID]
+		addresses := addressByDeviceUUID[device.UUID]
 		result = append(result, mergeLinkLayerDevice{
 			UUID:       device.UUID,
 			Name:       device.Name,
@@ -891,7 +891,7 @@ WHERE ps.provider_id IN ($ids[:])
 // suffix is added.
 func ensureAddressSubnetSuffix(value, subnetProviderID string, data map[string]providerSubnetCIDR) (string, string, error) {
 	// Getting the subnet is helpful, but not essential.
-	subnet, _ := data[subnetProviderID]
+	subnet := data[subnetProviderID]
 
 	parts := strings.Split(value, "/")
 	if len(parts) == 2 {

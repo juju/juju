@@ -360,6 +360,7 @@ func (s *Service) WatchModelProvisionedVolumes(
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumes()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		initialQuery,
 		eventsource.NamespaceFilter(ns, changestream.All))
 }
@@ -397,6 +398,7 @@ func (s *Service) WatchMachineProvisionedVolumes(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery, mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -415,7 +417,9 @@ func (s *Service) WatchModelProvisionedVolumeAttachments(
 	defer span.End()
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumeAttachments()
-	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		initialQuery,
 		eventsource.NamespaceFilter(ns, changestream.All))
 }
 
@@ -452,7 +456,7 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
-	w, err := s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filter)
+	w, err := s.watcherFactory.NewNamespaceMapperWatcher(ctx, initialQuery, mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -493,7 +497,7 @@ func (s *Service) WatchVolumeAttachmentPlans(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
-	w, err := s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filter)
+	w, err := s.watcherFactory.NewNamespaceMapperWatcher(ctx, initialQuery, mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

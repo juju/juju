@@ -27,7 +27,7 @@ func TestLinkLayerSuite(t *testing.T) {
 }
 
 func (s *linkLayerSuite) TestMachineInterfaceViewFitsType(c *tc.C) {
-	db, err := s.TxnRunnerFactory()()
+	db, err := s.TxnRunnerFactory()(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange

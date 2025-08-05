@@ -65,5 +65,5 @@ type ModelConfigService interface {
 	ModelConfig(context.Context) (*config.Config, error)
 	// Watch returns a watcher that returns keys for any changes to model
 	// config.
-	Watch() (watcher.StringsWatcher, error)
+	Watch(context.Context) (watcher.StringsWatcher, error)
 }

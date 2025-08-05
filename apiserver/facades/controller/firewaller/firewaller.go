@@ -41,7 +41,7 @@ type ControllerConfigService interface {
 // model configuration.
 type ModelConfigService interface {
 	ModelConfig(ctx context.Context) (*config.Config, error)
-	Watch() (watcher.StringsWatcher, error)
+	Watch(context.Context) (watcher.StringsWatcher, error)
 }
 
 // FirewallerAPI provides access to the Firewaller API facade.
@@ -176,7 +176,7 @@ func (f *FirewallerAPI) Life(ctx context.Context, args params.Entities) (params.
 				err = jujuerrors.NotFoundf("unit %q", unitName)
 			}
 		default:
-			lifeValue, err = f.LifeGetter.OneLife(ctx, tag)
+			lifeValue, err = f.OneLife(ctx, tag)
 		}
 		result.Results[i].Life = lifeValue
 		result.Results[i].Error = apiservererrors.ServerError(err)

@@ -36,11 +36,11 @@ func TestWatcherSuite(t *testing.T) {
 }
 
 func (*watcherSuite) TestNewUUIDsWatcherFail(c *tc.C) {
-	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
+	factory := NewWatcherFactory(func(context.Context) (changestream.WatchableDB, error) {
 		return nil, errors.New("fail getting db instance")
 	}, nil)
 
-	_, err := factory.NewUUIDsWatcher("random_namespace", changestream.All)
+	_, err := factory.NewUUIDsWatcher(c.Context(), "random_namespace", changestream.All)
 	c.Assert(err, tc.ErrorMatches, "creating base watcher: fail getting db instance")
 }
 
@@ -48,14 +48,14 @@ func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
-	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
+	factory := NewWatcherFactory(func(context.Context) (changestream.WatchableDB, error) {
 		return &watchableDB{
 			TxnRunner:   s.TxnRunner(),
 			EventSource: s.events,
 		}, nil
 	}, nil)
 
-	w, err := factory.NewUUIDsWatcher("external_controller", changestream.All)
+	w, err := factory.NewUUIDsWatcher(c.Context(), "external_controller", changestream.All)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -80,7 +80,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *tc.C) {
 		return err
 	})
 
-	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
+	factory := NewWatcherFactory(func(context.Context) (changestream.WatchableDB, error) {
 		return &watchableDB{
 			TxnRunner:   s.TxnRunner(),
 			EventSource: s.events,
@@ -88,6 +88,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *tc.C) {
 	}, nil)
 
 	w, err := factory.NewNamespaceWatcher(
+		c.Context(),
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
 		eventsource.NamespaceFilter("some_namespace", changestream.All),
 	)
@@ -115,7 +116,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 		return err
 	})
 
-	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
+	factory := NewWatcherFactory(func(context.Context) (changestream.WatchableDB, error) {
 		return &watchableDB{
 			TxnRunner:   s.TxnRunner(),
 			EventSource: s.events,
@@ -123,6 +124,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 	}, nil)
 
 	w, err := factory.NewNamespaceMapperWatcher(
+		c.Context(),
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
 		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {
 			return transform.Slice(ce, func(c changestream.ChangeEvent) string {

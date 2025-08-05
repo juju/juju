@@ -22,7 +22,7 @@ type ModelConfigService interface {
 	ModelConfig(ctx context.Context) (*config.Config, error)
 	// Watch returns a watcher that returns keys for any changes to model
 	// config.
-	Watch() (watcher.StringsWatcher, error)
+	Watch(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // ModelConfigWatcher implements two common methods for use by various
@@ -48,7 +48,7 @@ func NewModelConfigWatcher(modelConfigService ModelConfigService, watcherRegistr
 // so we use the regular error return.
 func (m *ModelConfigWatcher) WatchForModelConfigChanges(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	w, err := m.modelConfigService.Watch()
+	w, err := m.modelConfigService.Watch(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

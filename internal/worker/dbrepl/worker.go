@@ -97,7 +97,7 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerDB, err := cfg.DBGetter.GetDB(database.ControllerNS)
+	controllerDB, err := cfg.DBGetter.GetDB(context.TODO(), database.ControllerNS)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller db")
 	}
@@ -168,7 +168,7 @@ func (w *dbReplWorker) loop() (err error) {
 		}
 	}()
 
-	currentDB, err := w.dbGetter.GetDB(database.ControllerNS)
+	currentDB, err := w.dbGetter.GetDB(ctx, database.ControllerNS)
 	if err != nil {
 		return errors.Annotate(err, "failed to get db")
 	}
@@ -290,7 +290,7 @@ func (w *dbReplWorker) execSwitch(ctx context.Context, args []string) {
 	}
 
 	var err error
-	w.currentDB, err = w.dbGetter.GetDB(uuid)
+	w.currentDB, err = w.dbGetter.GetDB(ctx, uuid)
 	if err != nil {
 		_, _ = fmt.Fprintf(w.cfg.Stderr, "failed to switch to namespace %q: %v\n", name, err)
 		return
@@ -305,7 +305,7 @@ func (w *dbReplWorker) execOpen(ctx context.Context, args []string) {
 	}
 
 	modelUUID := args[0]
-	db, err := w.dbGetter.GetDB(modelUUID)
+	db, err := w.dbGetter.GetDB(ctx, modelUUID)
 	if err != nil {
 		_, _ = fmt.Fprintf(w.cfg.Stderr, "failed to open model %q: %v\n", modelUUID, err)
 		return
@@ -347,7 +347,7 @@ func (w *dbReplWorker) execQueryForModels(ctx context.Context, args []string) {
 	}
 
 	for _, model := range models {
-		db, err := w.dbGetter.GetDB(model)
+		db, err := w.dbGetter.GetDB(ctx, model)
 		if err != nil {
 			w.cfg.Logger.Errorf(ctx, "failed to get db for model %q: %v", model, err)
 			continue

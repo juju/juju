@@ -27,13 +27,13 @@ type TxnRunner interface {
 
 // TxnRunnerFactory aliases a function that
 // returns a database.TxnRunner or an error.
-type TxnRunnerFactory = func() (TxnRunner, error)
+type TxnRunnerFactory = func(context.Context) (TxnRunner, error)
 
 // NewTxnRunnerFactoryForNamespace returns a TxnRunnerFactory
 // for the input namespaced factory function and namespace.
-func NewTxnRunnerFactoryForNamespace[T TxnRunner](f func(string) (T, error), ns string) TxnRunnerFactory {
-	return func() (TxnRunner, error) {
-		r, err := f(ns)
+func NewTxnRunnerFactoryForNamespace[T TxnRunner](f func(context.Context, string) (T, error), ns string) TxnRunnerFactory {
+	return func(ctx context.Context) (TxnRunner, error) {
+		r, err := f(ctx, ns)
 		return r, errors.Capture(err)
 	}
 }

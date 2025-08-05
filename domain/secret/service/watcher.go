@@ -50,15 +50,15 @@ func NewWatchableService(
 }
 
 // WatchConsumedSecretsChanges watches secrets consumed by the specified unit
-// and returns a watcher which notifies of secret URIs that have had a new revision added.
+// and returns a watcher which notifies of secret URIs that have had a new
+// revision added.
 func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	tableLocal, queryLocal := s.secretState.InitialWatchStatementForConsumedSecretsChange(unitName)
 	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
-		// We are only interested in CREATE changes because
-		// the secret_revision.revision is immutable anyway.
+		ctx,
 		queryLocal,
 		eventsource.NamespaceFilter(tableLocal, changestream.Changed),
 	)
@@ -75,7 +75,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 
 	tableRemote, queryRemote := s.secretState.InitialWatchStatementForConsumedRemoteSecretsChange(unitName)
 	wRemote, err := s.watcherFactory.NewNamespaceWatcher(
-		// We are interested in both CREATE and UPDATE changes on secret_reference table.
+		ctx,
 		queryRemote,
 		eventsource.NamespaceFilter(tableRemote, changestream.All),
 	)
@@ -92,8 +92,8 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	return eventsource.NewMultiStringsWatcher(ctx, sWLocal, sWRemote)
 }
 
-// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any unit
-// of the specified app and retuens a watcher which notifies of secret URIs
+// WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
+// unit of the specified app and retuens a watcher which notifies of secret URIs
 // that have had a new revision added.
 func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
@@ -101,6 +101,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 
 	table, query := s.secretState.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		query,
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
@@ -152,6 +153,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	}
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery,
 		obsoleteWatcherMapperFunc(
 			s.logger,
@@ -342,6 +344,7 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	table, query := s.secretState.InitialWatchStatementForSecretsRevisionExpiryChanges(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		query,
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
@@ -377,6 +380,7 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	table, query := s.secretState.InitialWatchStatementForSecretsRotationChanges(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		query,
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
@@ -425,6 +429,7 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 	}
 
 	wObsolete, err := s.watcherFactory.NewNotifyMapperWatcher(
+		ctx,
 		mapper,
 		eventsource.NamespaceFilter(
 			s.secretState.NamespaceForWatchSecretRevisionObsolete(),
@@ -436,6 +441,7 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 	}
 
 	wAutoPrune, err := s.watcherFactory.NewNotifyMapperWatcher(
+		ctx,
 		mapper,
 		eventsource.NamespaceFilter(
 			s.secretState.NamespaceForWatchSecretMetadata(),

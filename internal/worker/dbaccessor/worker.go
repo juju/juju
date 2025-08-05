@@ -417,17 +417,19 @@ func (w *dbWorker) Report() map[string]any {
 
 // GetDB returns a transaction runner for the dqlite-backed
 // database that contains the data for the specified namespace.
-func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
+func (w *dbWorker) GetDB(ctx context.Context, namespace string) (database.TxnRunner, error) {
 	// Ensure Dqlite is initialised.
 	select {
 	case <-w.dbReady:
 	case <-w.catacomb.Dying():
 		return nil, database.ErrDBAccessorDying
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 
 	// First check if we've already got the db worker already running.
 	// The runner is effectively a DB cache.
-	if db, err := w.workerFromCache(namespace); err != nil {
+	if db, err := w.workerFromCache(ctx, namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, database.ErrDBAccessorDying
 		}
@@ -444,6 +446,8 @@ func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 	case w.dbRequests <- req:
 	case <-w.catacomb.Dying():
 		return nil, database.ErrDBAccessorDying
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 
 	// Wait for the worker loop to indicate it's done.
@@ -456,6 +460,8 @@ func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 		}
 	case <-w.catacomb.Dying():
 		return nil, database.ErrDBAccessorDying
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 
 	// This will return a not found error if the request was not honoured.
@@ -467,7 +473,7 @@ func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 	return tracked.(database.TxnRunner), nil
 }
 
-func (w *dbWorker) workerFromCache(namespace string) (database.TxnRunner, error) {
+func (w *dbWorker) workerFromCache(ctx context.Context, namespace string) (database.TxnRunner, error) {
 	// If the worker already exists, return the existing worker early.
 	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
 		return tracked.(database.TxnRunner), nil
@@ -705,7 +711,7 @@ func (w *dbWorker) deleteDatabase(ctx context.Context, namespace string) error {
 		return errors.Forbiddenf("cannot delete controller database")
 	}
 
-	worker, err := w.workerFromCache(namespace)
+	worker, err := w.workerFromCache(ctx, namespace)
 	if err != nil {
 		return errors.Trace(err)
 	} else if worker == nil {

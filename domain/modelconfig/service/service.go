@@ -72,6 +72,7 @@ type WatcherFactory interface {
 	// Changes channel. A filter option is required, though additional filter
 	// options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -434,10 +435,12 @@ func NewWatchableService(
 
 // Watch returns a watcher that returns keys for any changes to model
 // config.
-func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
-	// TODO (stickupkid): Wire up trace here. The fallout from this change
-	// is quite large.
+func (s *WatchableService) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchModelConfig(), changestream.All),
 	)

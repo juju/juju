@@ -63,10 +63,11 @@ type ModelDBState interface {
 type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
 	// input table name that match the input mask.
-	NewUUIDsWatcher(tableName string, changeMask changestream.ChangeType) (watcher.StringsWatcher, error)
+	NewUUIDsWatcher(ctx context.Context, tableName string, changeMask changestream.ChangeType) (watcher.StringsWatcher, error)
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes from
 	// the input base watcher's db/queue.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
@@ -250,8 +251,11 @@ func NewWatchableService(
 
 // WatchRemovals watches for scheduled removal jobs.
 // The returned watcher emits the UUIDs of any inserted or updated jobs.
-func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
-	w, err := s.watcherFactory.NewUUIDsWatcher(s.modelState.NamespaceForWatchRemovals(), changestream.Changed)
+func (s *WatchableService) WatchRemovals(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	w, err := s.watcherFactory.NewUUIDsWatcher(ctx, s.modelState.NamespaceForWatchRemovals(), changestream.Changed)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for removals: %w", err)
 	}
@@ -259,7 +263,10 @@ func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
 }
 
 // WatchEntityRemovals watches for scheduled removal jobs for specific entities.
-func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchEntityRemovals(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	initialQuery, filterNames := s.modelState.NamespaceForWatchEntityRemovals()
 
 	if len(filterNames) == 0 {
@@ -272,6 +279,7 @@ func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error)
 	}
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery,
 		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {
 			var results []string

@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -113,7 +114,7 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *tc.C) {
 }
 
 func (s *charmSuite) setupService(c *tc.C) *service.Service {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 

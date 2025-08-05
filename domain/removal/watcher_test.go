@@ -76,8 +76,8 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 	log := loggertesting.WrapCheckLog(c)
 
 	svc := service.NewWatchableService(
-		statecontroller.NewState(func() (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
-		statemodel.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log),
+		statecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
+		statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log),
 		domain.NewWatcherFactory(factory, log),
 		nil,
 		nil,
@@ -86,7 +86,7 @@ func (s *watcherSuite) TestWatchRemovals(c *tc.C) {
 		log,
 	)
 
-	w, err := svc.WatchRemovals()
+	w, err := svc.WatchRemovals(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
@@ -116,9 +116,9 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 
 	log := loggertesting.WrapCheckLog(c)
 
-	modelState := statemodel.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log)
+	modelState := statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, log)
 	svc := service.NewWatchableService(
-		statecontroller.NewState(func() (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
+		statecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
 		modelState,
 		domain.NewWatcherFactory(factory, log),
 		nil,
@@ -128,7 +128,7 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 		log,
 	)
 
-	w, err := svc.WatchEntityRemovals()
+	w, err := svc.WatchEntityRemovals(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
@@ -184,7 +184,7 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 }
 
 func (s *watcherSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 
@@ -239,7 +239,7 @@ func (s *watcherSuite) createIAASApplication(c *tc.C, svc *applicationservice.Wa
 }
 
 func (s *watcherSuite) setCharmObjectStoreMetadata(c *tc.C, appID string) {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 

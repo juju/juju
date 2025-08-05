@@ -22,7 +22,10 @@ type ModificationValidatorFunc = func(map[string]string) error
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
+	// ControllerConfig returns the config values for the controller.
 	ControllerConfig(context.Context) (map[string]string, error)
+
+	// UpdateControllerConfig updates the controller config.
 	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error
 
 	// AllKeysQuery is used to get the initial state
@@ -42,6 +45,7 @@ type WatcherFactory interface {
 	// Changes channel. A filter option is required, though additional filter
 	// options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		query eventsource.NamespaceQuery,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -288,6 +292,7 @@ func (s *WatchableService) WatchControllerConfig(ctx context.Context) (watcher.S
 	}
 
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
 		filters[0], filters[1:]...,
 	)

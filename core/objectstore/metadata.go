@@ -52,5 +52,5 @@ type ObjectStoreMetadata interface {
 
 	// Watch returns a watcher that emits the path changes that either have been
 	// added or removed.
-	Watch() (watcher.StringsWatcher, error)
+	Watch(context.Context) (watcher.StringsWatcher, error)
 }

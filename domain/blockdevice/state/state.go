@@ -366,6 +366,7 @@ WHERE machine_uuid = $M.machine_uuid
 func (st *State) WatchBlockDevices(
 	ctx context.Context,
 	getWatcher func(
+		ctx context.Context,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
@@ -393,6 +394,7 @@ func (st *State) WatchBlockDevices(
 	}
 
 	baseWatcher, err := getWatcher(
+		ctx,
 		eventsource.PredicateFilter("block_device", changestream.All, eventsource.EqualsPredicate(machineUUID)),
 	)
 	if err != nil {

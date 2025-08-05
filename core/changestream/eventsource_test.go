@@ -4,6 +4,7 @@
 package changestream
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -24,7 +25,7 @@ func TestChangestreamSuite(t *testing.T) {
 }
 
 func (s *changestreamSuite) TestTxnRunnerFactory(c *tc.C) {
-	db, err := NewTxnRunnerFactory(s.getWatchableDB)()
+	db, err := NewTxnRunnerFactory(s.getWatchableDB)(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(db, tc.NotNil)
 }
@@ -33,22 +34,22 @@ func (s *changestreamSuite) TestTxnRunnerFactoryForNamespace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test multiple function return signatures to verify the generic behaviour.
-	db, err := database.NewTxnRunnerFactoryForNamespace(func(string) (database.TxnRunner, error) {
+	db, err := database.NewTxnRunnerFactoryForNamespace(func(context.Context, string) (database.TxnRunner, error) {
 		return s.txnRunner, nil
-	}, "any-old-namespace")()
+	}, "any-old-namespace")(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(db, tc.NotNil)
 
-	db, err = database.NewTxnRunnerFactoryForNamespace(s.getWatchableDBForNameSpace, "any-old-namespace")()
+	db, err = database.NewTxnRunnerFactoryForNamespace(s.getWatchableDBForNameSpace, "any-old-namespace")(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(db, tc.NotNil)
 }
 
-func (s *changestreamSuite) getWatchableDB() (WatchableDB, error) {
+func (s *changestreamSuite) getWatchableDB(context.Context) (WatchableDB, error) {
 	return &stubWatchableDB{TxnRunner: s.txnRunner}, nil
 }
 
-func (s *changestreamSuite) getWatchableDBForNameSpace(_ string) (WatchableDB, error) {
+func (s *changestreamSuite) getWatchableDBForNameSpace(context.Context, string) (WatchableDB, error) {
 	return &stubWatchableDB{TxnRunner: s.txnRunner}, nil
 }
 

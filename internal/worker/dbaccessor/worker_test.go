@@ -67,7 +67,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 
 	w.Kill()
 
-	_, err := dbw.GetDB("anything")
+	_, err := dbw.GetDB(c.Context(), "anything")
 	c.Assert(err, tc.ErrorIs, database.ErrDBAccessorDying)
 }
 

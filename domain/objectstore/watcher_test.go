@@ -4,6 +4,7 @@
 package objectstore_test
 
 import (
+	"context"
 	stdtesting "testing"
 	"time"
 
@@ -33,12 +34,13 @@ func TestWatcherSuite(t *stdtesting.T) {
 func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
-	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableService(
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
 	)
-	watcher, err := svc.Watch()
+	watcher, err := svc.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the initial change.
@@ -70,12 +72,13 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
-	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableService(
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
 	)
-	watcher, err := svc.Watch()
+	watcher, err := svc.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the initial change.
@@ -122,7 +125,8 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 func (s *watcherSuite) TestWatchDraining(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
-	svc := service.NewWatchableDrainingService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableDrainingService(
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),

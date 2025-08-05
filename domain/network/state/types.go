@@ -204,7 +204,7 @@ func (sp SpaceSubnetRows) ToSpaceInfos() corenetwork.SpaceInfos {
 		}
 		uniqueSpaces[spaceSubnet.SpaceUUID] = spInfo
 
-		snInfo := spaceSubnet.SubnetRow.ToSubnetInfo()
+		snInfo := spaceSubnet.ToSubnetInfo()
 		if snInfo != nil {
 			if _, ok := uniqueSubnets[spaceSubnet.SpaceUUID]; !ok {
 				uniqueSubnets[spaceSubnet.SpaceUUID] = make(map[string]corenetwork.SubnetInfo)

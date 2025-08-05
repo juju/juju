@@ -41,7 +41,10 @@ func NewModelFirewallRulesWatcher(modelConfigService ModelConfigService) (*model
 func (w *modelFirewallRulesWatcher) loop() error {
 	defer close(w.out)
 
-	configWatcher, err := w.modelConfigService.Watch()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	configWatcher, err := w.modelConfigService.Watch(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -61,7 +64,7 @@ func (w *modelFirewallRulesWatcher) loop() error {
 			if !ok {
 				return w.catacomb.ErrDying()
 			}
-			sshAllow, err := w.getSSHAllow()
+			sshAllow, err := w.getSSHAllow(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -81,10 +84,7 @@ func (w *modelFirewallRulesWatcher) scopedContext() (context.Context, context.Ca
 	return w.catacomb.Context(ctx), cancel
 }
 
-func (w *modelFirewallRulesWatcher) getSSHAllow() (set.Strings, error) {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
+func (w *modelFirewallRulesWatcher) getSSHAllow(ctx context.Context) (set.Strings, error) {
 	cfg, err := w.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

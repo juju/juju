@@ -95,7 +95,9 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 }
 
 func (w *removalWorker) loop() (err error) {
-	watch, err := w.cfg.RemovalService.WatchRemovals()
+	ctx := w.catacomb.Context(context.Background())
+
+	watch, err := w.cfg.RemovalService.WatchRemovals(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -103,8 +105,6 @@ func (w *removalWorker) loop() (err error) {
 	if err := w.catacomb.Add(watch); err != nil {
 		return errors.Capture(err)
 	}
-
-	ctx := w.catacomb.Context(context.Background())
 
 	timer := w.cfg.Clock.NewTimer(jobCheckMaxInterval)
 	defer timer.Stop()

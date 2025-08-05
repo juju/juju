@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -790,7 +791,7 @@ func (s *watchableServiceSuite) TestWatchControllerNode(c *tc.C) {
 	var namespace string
 
 	ch := make(chan struct{}, 1)
-	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any()).DoAndReturn(func(fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
 		namespace = fo.Namespace()
 
 		watcher := watchertest.NewMockNotifyWatcher(ch)
@@ -810,7 +811,7 @@ func (s *watchableServiceSuite) TestWatchControllerNode(c *tc.C) {
 func (s *watchableServiceSuite) TestWatchControllerNodeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any()).DoAndReturn(func(fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
 		return nil, internalerrors.Errorf("boom")
 	})
 

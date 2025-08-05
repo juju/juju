@@ -122,7 +122,7 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(ctx context.Context, args params.E
 			continue
 		}
 
-		watch, err := h.modelConfigService.Watch()
+		watch, err := h.modelConfigService.Watch(ctx)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

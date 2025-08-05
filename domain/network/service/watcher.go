@@ -46,12 +46,13 @@ func NewWatchableService(st State,
 // association (fan underlays), filtered based on the provided list of subnets
 // to watch.
 func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	filter := subnetUUIDsFilter(subnetUUIDsToWatch)
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		s.st.AllSubnetsQuery,
 		eventsource.FilterEvents(filter),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchSubnet(), changestream.All),

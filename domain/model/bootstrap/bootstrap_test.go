@@ -281,7 +281,7 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelState := statemodel.NewState(func() (database.TxnRunner, error) {
+	modelState := statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modelUUID.String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
@@ -302,7 +302,7 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 // constraints and the model does not exist we get back an error satisfying
 // [modelerrors.NotFound].
 func (s *bootstrapSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
-	state := statemodel.NewState(func() (database.TxnRunner, error) {
+	state := statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modeltesting.GenModelUUID(c).String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
@@ -342,7 +342,7 @@ func (s *bootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
-	state := statemodel.NewState(func() (database.TxnRunner, error) {
+	state := statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modelUUID.String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
@@ -386,7 +386,7 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) 
 	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
 
-	state := statemodel.NewState(func() (database.TxnRunner, error) {
+	state := statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, modelUUID.String()), nil
 	}, loggertesting.WrapCheckLog(c))
 

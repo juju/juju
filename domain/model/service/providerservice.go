@@ -82,6 +82,7 @@ func (s ProviderService) WatchModel(ctx context.Context) (watcher.NotifyWatcher,
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		eventsource.NamespaceFilter("model", changestream.All),
 	)
 }

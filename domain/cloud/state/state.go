@@ -759,6 +759,7 @@ VALUES      ($cloudType.*)`, dbCloudType)
 func (st *State) WatchCloud(
 	ctx context.Context,
 	getWatcher func(
+		ctx context.Context,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
@@ -792,7 +793,7 @@ WHERE name = $cloudID.name`, cloud)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	result, err := getWatcher(eventsource.PredicateFilter("cloud", changestream.All, eventsource.EqualsPredicate(cloud.UUID)))
+	result, err := getWatcher(ctx, eventsource.PredicateFilter("cloud", changestream.All, eventsource.EqualsPredicate(cloud.UUID)))
 	if err != nil {
 		return result, errors.Errorf("watching cloud: %w", err)
 	}

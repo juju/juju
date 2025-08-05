@@ -191,7 +191,7 @@ func (t *trackerWorker) loop() (err error) {
 	ctx, cancel := t.scopedContext()
 	defer cancel()
 
-	modelConfigWatcher, err := t.config.ConfigService.Watch()
+	modelConfigWatcher, err := t.config.ConfigService.Watch(ctx)
 	if err != nil {
 		return errors.Annotate(err, "watching model config")
 	}

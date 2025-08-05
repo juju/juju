@@ -4,6 +4,8 @@
 package domain
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
@@ -12,7 +14,7 @@ import (
 )
 
 // WatchableDBFactory is a function that returns a WatchableDB or an error.
-type WatchableDBFactory = func() (changestream.WatchableDB, error)
+type WatchableDBFactory = func(context.Context) (changestream.WatchableDB, error)
 
 // WatcherFactory is a factory for creating watchers.
 type WatcherFactory struct {
@@ -31,9 +33,11 @@ func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger logger.Logg
 // NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
 // input table name that match the input mask.
 func (f *WatcherFactory) NewUUIDsWatcher(
+	ctx context.Context,
 	tableName string, changeMask changestream.ChangeType,
 ) (watcher.StringsWatcher, error) {
 	w, err := f.NewNamespaceWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges("SELECT uuid from "+tableName),
 		eventsource.NamespaceFilter(tableName, changeMask),
 	)
@@ -45,10 +49,11 @@ func (f *WatcherFactory) NewUUIDsWatcher(
 // accepts them, and dispatching the notifications via the Changes channel. A
 // filter option is required, though additional filter options can be provided.
 func (f *WatcherFactory) NewNamespaceWatcher(
+	ctx context.Context,
 	initialQuery eventsource.NamespaceQuery,
 	filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 ) (watcher.StringsWatcher, error) {
-	base, err := f.newBaseWatcher()
+	base, err := f.newBaseWatcher(ctx)
 	if err != nil {
 		return nil, errors.Errorf("creating base watcher: %w", err)
 	}
@@ -64,11 +69,12 @@ func (f *WatcherFactory) NewNamespaceWatcher(
 // subset of them (or none) may be emitted. A filter option is required, though
 // additional filter options can be provided.
 func (f *WatcherFactory) NewNamespaceMapperWatcher(
+	ctx context.Context,
 	initialQuery eventsource.NamespaceQuery,
 	mapper eventsource.Mapper,
 	filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 ) (watcher.StringsWatcher, error) {
-	base, err := f.newBaseWatcher()
+	base, err := f.newBaseWatcher(ctx)
 	if err != nil {
 		return nil, errors.Errorf("creating base watcher: %w", err)
 	}
@@ -82,10 +88,11 @@ func (f *WatcherFactory) NewNamespaceMapperWatcher(
 // base watcher's db/queue. A single filter option is required, though
 // additional filter options can be provided.
 func (f *WatcherFactory) NewNotifyWatcher(
+	ctx context.Context,
 	filter eventsource.FilterOption,
 	filterOpts ...eventsource.FilterOption,
 ) (watcher.NotifyWatcher, error) {
-	base, err := f.newBaseWatcher()
+	base, err := f.newBaseWatcher(ctx)
 	if err != nil {
 		return nil, errors.Errorf("creating base watcher: %w", err)
 	}
@@ -99,11 +106,12 @@ func (f *WatcherFactory) NewNotifyWatcher(
 // by the filter, and then subsequently by the mapper. Based on the mapper's
 // logic a subset of them (or none) may be emitted.
 func (f *WatcherFactory) NewNotifyMapperWatcher(
+	ctx context.Context,
 	mapper eventsource.Mapper,
 	filter eventsource.FilterOption,
 	filterOpts ...eventsource.FilterOption,
 ) (watcher.NotifyWatcher, error) {
-	base, err := f.newBaseWatcher()
+	base, err := f.newBaseWatcher(ctx)
 	if err != nil {
 		return nil, errors.Errorf("creating base watcher: %w", err)
 	}
@@ -111,8 +119,8 @@ func (f *WatcherFactory) NewNotifyMapperWatcher(
 	return eventsource.NewNotifyMapperWatcher(base, mapper, filter, filterOpts...)
 }
 
-func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {
-	watchableDB, err := f.getDB()
+func (f *WatcherFactory) newBaseWatcher(ctx context.Context) (*eventsource.BaseWatcher, error) {
+	watchableDB, err := f.getDB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

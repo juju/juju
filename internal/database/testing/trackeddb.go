@@ -41,7 +41,7 @@ func (t *TestTrackedDB) Wait() error {
 }
 
 func (t *TestTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
-	db, err := t.factory()
+	db, err := t.factory(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -49,7 +49,7 @@ func (t *TestTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlai
 }
 
 func (t *TestTrackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	db, err := t.factory()
+	db, err := t.factory(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

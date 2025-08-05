@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
+	gomock "go.uber.org/mock/gomock"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -178,7 +179,7 @@ func (s *workerSuite) TestPruneModel(c *tc.C) {
 func (s *workerSuite) TestPruneModelGetDBError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.dbGetter.EXPECT().GetDB("foo").Return(nil, errors.New("boom"))
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), "foo").Return(nil, errors.New("boom"))
 
 	pruner := s.newPruner(c)
 

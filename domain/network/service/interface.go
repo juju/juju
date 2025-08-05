@@ -38,6 +38,7 @@ type WatcherFactory interface {
 	// mapper's logic a subset of them (or none) may be emitted. A filter option
 	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,

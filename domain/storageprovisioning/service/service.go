@@ -78,6 +78,7 @@ type WatcherFactory interface {
 	// mapper's logic a subset of them (or none) may be emitted. A filter option
 	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialStateQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
@@ -88,6 +89,7 @@ type WatcherFactory interface {
 	// accepts them, and dispatching the notifications via the Changes channel. A
 	// filter option is required, though additional filter options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -96,6 +98,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
@@ -138,7 +141,7 @@ func (s *Service) WatchMachineCloudInstance(
 	ns := s.st.NamespaceForWatchMachineCloudInstance()
 	filter := eventsource.PredicateFilter(ns, changestream.All,
 		eventsource.EqualsPredicate(machineUUID.String()))
-	return s.watcherFactory.NewNotifyWatcher(filter)
+	return s.watcherFactory.NewNotifyWatcher(ctx, filter)
 }
 
 // GetStorageResourceTagsForApplication returns the storage resource tags for

@@ -47,7 +47,7 @@ type WatcherFactory interface {
 	// the filter accepts them, and dispatching the notifications via the
 	// Changes channel. A filter option is required, though additional filter
 	// options can be provided.
-	NewNotifyWatcher(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.NotifyWatcher, error)
+	NewNotifyWatcher(context.Context, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.NotifyWatcher, error)
 }
 
 // WatchableService is a normal [Service] that can also be watched for updates
@@ -210,6 +210,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	}
 
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchModelAuthorizationKeys(),
 			changestream.All,

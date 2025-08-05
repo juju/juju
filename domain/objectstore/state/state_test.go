@@ -162,7 +162,7 @@ func (s *stateSuite) TestPutMetadata(c *tc.C) {
 	uuid, err := st.PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
-	runner, err := s.TxnRunnerFactory()()
+	runner, err := s.TxnRunnerFactory()(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var received coreobjectstore.Metadata

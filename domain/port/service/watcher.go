@@ -46,6 +46,7 @@ type WatcherFactory interface {
 	// mapper's logic a subset of them (or none) may be emitted. A filter option
 	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
@@ -57,6 +58,7 @@ type WatcherFactory interface {
 	// done first by the filter, and then subsequently by the mapper. Based on
 	// the mapper's logic a subset of them (or none) may be emitted.
 	NewNotifyMapperWatcher(
+		ctx context.Context,
 		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -93,6 +95,7 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 
 	table, statement := s.st.InitialWatchMachineOpenedPortsStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(statement),
 		s.endpointToMachineMapper,
 		eventsource.NamespaceFilter(table, changestream.All),
@@ -107,6 +110,7 @@ func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, a
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyMapperWatcher(
+		ctx,
 		s.filterForApplication(applicationUUID),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchOpenedPort(), changestream.All),
 	)

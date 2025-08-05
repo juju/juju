@@ -709,7 +709,7 @@ WHERE  uuid = $M.id
 		CloudName: rows[0].CloudName,
 	}
 	for _, row := range rows {
-		rval.CloudCredentialInfo.Attributes[row.AttributeKey] = row.AttributeValue
+		rval.Attributes[row.AttributeKey] = row.AttributeValue
 	}
 	return rval, nil
 }
@@ -847,6 +847,7 @@ WHERE  cloud_credential_uuid = $credentialUUID.uuid
 func (st *State) WatchCredential(
 	ctx context.Context,
 	getWatcher func(
+		ctx context.Context,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
@@ -867,6 +868,7 @@ func (st *State) WatchCredential(
 		return nil, errors.Capture(err)
 	}
 	result, err := getWatcher(
+		ctx,
 		eventsource.PredicateFilter("cloud_credential", changestream.All, eventsource.EqualsPredicate(id.String())),
 	)
 	if err != nil {

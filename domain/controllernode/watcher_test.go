@@ -4,6 +4,7 @@
 package controllernode_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -151,7 +152,7 @@ func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
 }
 
 func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *service.WatchableService {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ControllerTxnRunner(), nil
 	}
 

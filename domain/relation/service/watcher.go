@@ -25,15 +25,21 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// WatcherFactory is a subset of [github.com/juju/juju/domain.WatcherFactory] method that are used
-// in the relation domain.
+// WatcherFactory describes methods for creating watchers that are used by the
+// WatchableService.
 type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that receives changes from the
+	// input base watcher's db/queue.
 	NewNotifyWatcher(
+		ctx context.Context,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 
+	// NewNamespaceWatcher returns a new watcher that receives changes from the
+	// input base watcher's db/queue.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
@@ -87,6 +93,7 @@ func (s *WatchableService) WatchLifeSuspendedStatus(
 		w = newPrincipalLifeSuspendedStatusWatcher(s, principalID)
 	}
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		w.GetInitialQuery(),
 		w.GetMapper(),
 		w.GetFirstFilterOption(),
@@ -439,5 +446,5 @@ func (s *WatchableService) WatchRelatedUnits(
 	filters := transform.Slice(namespaces, func(ns string) eventsource.FilterOption {
 		return eventsource.NamespaceFilter(ns, changestream.All)
 	})
-	return s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filters[0], filters[1:]...)
+	return s.watcherFactory.NewNamespaceMapperWatcher(ctx, initialQuery, mapper, filters[0], filters[1:]...)
 }

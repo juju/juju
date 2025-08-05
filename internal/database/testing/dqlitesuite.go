@@ -203,8 +203,8 @@ func (s *DqliteSuite) OpenDBForNamespace(c *tc.C, domain string, foreignKey bool
 }
 
 // TxnRunnerFactory returns a DBFactory that returns the given database.
-func (s *DqliteSuite) TxnRunnerFactory() func() (coredatabase.TxnRunner, error) {
-	return func() (coredatabase.TxnRunner, error) {
+func (s *DqliteSuite) TxnRunnerFactory() func(context.Context) (coredatabase.TxnRunner, error) {
+	return func(context.Context) (coredatabase.TxnRunner, error) {
 		return s.trackedDB, nil
 	}
 }

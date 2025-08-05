@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"context"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
@@ -58,7 +60,7 @@ func (s *ControllerModelSuite) InitWatchableDB(c *tc.C, namespace string) (*Test
 }
 
 // GetWatchableDB allows the ControllerModelSuite to be a WatchableDBGetter
-func (s *ControllerModelSuite) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+func (s *ControllerModelSuite) GetWatchableDB(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
 	if watchableDB, ok := s.watchableDBs[namespace]; ok {
 		return watchableDB, nil
 	}
