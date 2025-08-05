@@ -121,10 +121,6 @@ type CharmState interface {
 	// revision and the requiredSequencing flag must be set to false.
 	SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error)
 
-	// DeleteCharm removes the charm from the state. If the charm does not
-	// exist, a [applicationerrors.CharmNotFound]  error is returned.
-	DeleteCharm(ctx context.Context, id corecharm.ID) error
-
 	// ListCharmLocators returns a list of charm locators. The locator allows
 	// the reconstruction of the charm URL for the client response.
 	ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, error)
@@ -704,20 +700,6 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 		return "", nil, errors.Capture(err)
 	}
 	return result.ID, warnings, nil
-}
-
-// DeleteCharm removes the charm from the state.
-// Returns an error if the charm does not exist.
-func (s *Service) DeleteCharm(ctx context.Context, locator charm.CharmLocator) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	args := argsFromLocator(locator)
-	id, err := s.getCharmID(ctx, args)
-	if err != nil {
-		return errors.Errorf("charm id: %w", err)
-	}
-	return s.st.DeleteCharm(ctx, id)
 }
 
 // ListCharmLocators returns a list of charm locators. The locator allows you to

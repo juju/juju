@@ -78,6 +78,11 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	watcher, err := svc.WatchCharms(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
+	modelDB := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+	st := state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Ensure that we get the charm created event.
@@ -102,14 +107,29 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 		)
 	})
 
-	// Ensure that we get the charm deleted event.
+	// Ensure that we get the charm created event when an application is created.
 
+	var appID coreapplication.ID
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.DeleteCharm(c.Context(), charm.CharmLocator{
-			Name:     "test",
-			Revision: 1,
-			Source:   charm.CharmHubSource,
-		})
+		appID = s.createIAASApplication(c, svc, "foo")
+		id, err = st.GetCharmIDByApplicationName(c.Context(), "foo")
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(id.String()),
+		)
+	})
+
+	// Ensure that we get the charm deleted event.
+	//
+	// We do this by removing the application, since this will trigger a cleanup
+	// of the charm.
+
+	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
+	harness.AddTest(c, func(c *tc.C) {
+		_, _, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		err = removalSt.DeleteApplication(c.Context(), appID.String())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
