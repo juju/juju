@@ -271,11 +271,11 @@ func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
 	tracked, err := w.runner.Worker(namespace, w.catacomb.Dying())
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if tracked == nil {
-		return nil, errors.NotFoundf("objectstore")
+		return nil, objectstore.ErrObjectStoreNotFound
 	}
 	return tracked.(objectstore.ObjectStore), nil
 }

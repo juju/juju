@@ -32,6 +32,7 @@ type providerWorkerSuite struct {
 
 	trackedCalled   int64
 	ephemeralCalled int64
+	deniedCalled    atomic.Bool
 }
 
 func TestProviderWorkerSuite(t *stdtesting.T) {
@@ -58,7 +59,7 @@ func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *tc.C) 
 
 	worker := w.(*providerWorker)
 	_, err := worker.Provider()
-	c.Assert(err, tc.ErrorIs, ErrProviderWorkerDying)
+	c.Assert(err, tc.ErrorIs, providertracker.ErrProviderWorkerDying)
 }
 
 func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *tc.C) {
@@ -78,7 +79,7 @@ func (s *providerWorkerSuite) TestKilledMultiWorkerProviderErrDying(c *tc.C) {
 
 	worker := w.(*providerWorker)
 	_, err := worker.ProviderForModel(c.Context(), "hunter2")
-	c.Assert(err, tc.ErrorIs, ErrProviderWorkerDying)
+	c.Assert(err, tc.ErrorIs, providertracker.ErrProviderWorkerDying)
 }
 
 func (s *providerWorkerSuite) TestMultiFailsForSingularModels(c *tc.C) {
@@ -192,6 +193,27 @@ func (s *providerWorkerSuite) TestProviderForModel(c *tc.C) {
 	provider, err := worker.ProviderForModel(c.Context(), "hunter2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provider, tc.NotNil)
+}
+
+func (s *providerWorkerSuite) TestProviderForModelNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Force the provider worker to return a not found error.
+	s.deniedCalled.Store(true)
+
+	// Ensure that the provider for a model is returned correctly.
+
+	s.expectDomainServices("denied")
+
+	w := s.newMultiWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	worker := w.(*providerWorker)
+
+	_, err := worker.ProviderForModel(c.Context(), "denied")
+	c.Assert(err, tc.ErrorIs, providertracker.ErrProviderNotFound)
 }
 
 func (s *providerWorkerSuite) TestProviderForModelIsCached(c *tc.C) {
@@ -352,6 +374,8 @@ func (s *providerWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	atomic.StoreInt64(&s.trackedCalled, 0)
 	atomic.StoreInt64(&s.ephemeralCalled, 0)
 
+	s.deniedCalled.Store(false)
+
 	return s.baseSuite.setupMocks(c)
 }
 
@@ -375,6 +399,10 @@ func (s *providerWorkerSuite) newWorker(c *tc.C, trackerType TrackerType) worker
 			return nil, cloudspec.CloudSpec{}, nil
 		},
 		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
+			if s.deniedCalled.Load() {
+				return nil, database.ErrDBNotFound
+			}
+
 			atomic.AddInt64(&s.trackedCalled, 1)
 
 			w := &trackerWorker{
