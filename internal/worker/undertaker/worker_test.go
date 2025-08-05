@@ -121,11 +121,7 @@ func (s *workerSuite) TestRemoveAliveModel(c *tc.C) {
 		c.Fatal("timed out waiting to send model names")
 	}
 
-	select {
-	case <-time.After(time.Millisecond * 500):
-	case <-c.Context().Done():
-		c.Fatal("waiting for nothing to happen")
-	}
+	<-time.After(time.Millisecond * 500)
 
 	workertest.CleanKill(c, w)
 }
@@ -149,11 +145,7 @@ func (s *workerSuite) TestRemoveDyingModel(c *tc.C) {
 		c.Fatal("timed out waiting to send model names")
 	}
 
-	select {
-	case <-time.After(time.Millisecond * 500):
-	case <-c.Context().Done():
-		c.Fatal("waiting for nothing to happen")
-	}
+	<-time.After(time.Millisecond * 500)
 
 	workertest.CleanKill(c, w)
 }
