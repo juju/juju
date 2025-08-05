@@ -373,7 +373,7 @@ func (s *trackerWorkerSuite) expectConfigWatcher(c *tc.C) chan []string {
 
 	watcher := watchertest.NewMockStringsWatcher(ch)
 
-	s.configService.EXPECT().Watch().Return(watcher, nil)
+	s.configService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
 	return ch
 }

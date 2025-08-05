@@ -51,6 +51,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		summary string,
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
@@ -163,6 +164,7 @@ func (s *WatchableService) WatchUnitResolveMode(ctx context.Context, unitName co
 
 	resolveNamespace := s.st.NamespaceForWatchUnitResolveMode()
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("unit resolve mode watcher for %q", unitName),
 		eventsource.PredicateFilter(
 			resolveNamespace,

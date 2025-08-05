@@ -132,7 +132,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 		"logging-config": "<root>=ERROR",
 	}
 
-	modelTxnRunnerFactory := func() (database.TxnRunner, error) {
+	modelTxnRunnerFactory := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, string(s.modelID)), nil
 	}
 
@@ -144,7 +144,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *tc.C) {
 		loggertesting.WrapCheckLog(c))
 	svc := service.NewWatchableService(defaults, config.ModelValidator(), st, factory)
 
-	watcher, err := svc.Watch()
+	watcher, err := svc.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(idler, watchertest.NewWatcherC(c, watcher))

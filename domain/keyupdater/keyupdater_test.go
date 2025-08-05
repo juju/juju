@@ -126,7 +126,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 	ctx, cancel := jujutesting.LongWaitContext()
 	defer cancel()
 
-	modelTxnRunnerFactory := func() (database.TxnRunner, error) {
+	modelTxnRunnerFactory := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, string(s.modelID)), nil
 	}
 

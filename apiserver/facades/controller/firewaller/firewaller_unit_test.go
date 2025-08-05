@@ -172,7 +172,7 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *tc.C) {
 	ch <- []string{}
 	w := watchertest.NewMockStringsWatcher(ch)
 
-	s.modelConfigService.EXPECT().Watch().Return(w, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(w, nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)

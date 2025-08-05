@@ -418,7 +418,7 @@ func (m *stateSuite) TestGetModelNotFound(c *tc.C) {
 // with the same uuid as one that already exists we get back a
 // [modelerrors.AlreadyExists] error.
 func (m *stateSuite) TestCreateModelWithExisting(c *tc.C) {
-	runner, err := m.TxnRunnerFactory()()
+	runner, err := m.TxnRunnerFactory()(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {

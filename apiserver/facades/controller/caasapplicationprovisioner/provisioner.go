@@ -247,7 +247,7 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	modelConfigWatcher, err := a.modelConfigService.Watch()
+	modelConfigWatcher, err := a.modelConfigService.Watch(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

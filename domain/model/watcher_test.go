@@ -115,7 +115,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
-	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+	st := statecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return watchableDBFactory(ctx) })
 
 	modelService := service.NewWatchableService(
 		st,
@@ -174,7 +174,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 	// Verifies that watchers do not receive changes when entities other than
 	// models are updated.
 	harness.AddTest(c, func(c *tc.C) {
-		cloudState := cloudstate.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+		cloudState := cloudstate.NewState(func(ctx context.Context) (database.TxnRunner, error) { return watchableDBFactory(ctx) })
 		cloudService := cloudservice.NewWatchableService(cloudState, watcherFactory)
 		err := cloudService.UpdateCloud(ctx, cloud.Cloud{
 			Name:      "my-cloud",
@@ -197,7 +197,7 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
 
-	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+	st := statecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return watchableDBFactory(ctx) })
 
 	modelService := service.NewWatchableService(
 		st,
@@ -245,7 +245,7 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
-	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+	st := statecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return watchableDBFactory(ctx) })
 
 	credSt := credentialstate.NewState(s.TxnRunnerFactory())
 	anotherKey := corecredential.Key{

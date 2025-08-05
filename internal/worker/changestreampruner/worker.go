@@ -144,7 +144,7 @@ func (w *Pruner) prune() (map[string]int64, error) {
 		w.cfg.Logger.Tracef(ctx, "Starting pruning change log")
 	}
 
-	db, err := w.cfg.DBGetter.GetDB(coredatabase.ControllerNS)
+	db, err := w.cfg.DBGetter.GetDB(ctx, coredatabase.ControllerNS)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -217,7 +217,7 @@ FROM model_namespace;
 }
 
 func (w *Pruner) pruneModel(ctx context.Context, namespace string) (int64, error) {
-	db, err := w.cfg.DBGetter.GetDB(namespace)
+	db, err := w.cfg.DBGetter.GetDB(ctx, namespace)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}

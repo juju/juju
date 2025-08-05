@@ -737,7 +737,7 @@ func (s *workerSuite) expectDBCompleted() {
 }
 
 func (s *workerSuite) expectControllerDBUpgrade() {
-	s.dbGetter.EXPECT().GetDB(coredatabase.ControllerNS).Return(s.TxnRunner(), nil)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), coredatabase.ControllerNS).Return(s.TxnRunner(), nil)
 }
 
 func (s *workerSuite) expectListModelIDs(models []coremodel.UUID) {
@@ -747,7 +747,7 @@ func (s *workerSuite) expectListModelIDs(models []coremodel.UUID) {
 
 func (s *workerSuite) expectModelDBUpgrade(c *tc.C, modelUUID coremodel.UUID) coredatabase.TxnRunner {
 	txnRunner, _ := s.OpenDB(c)
-	s.dbGetter.EXPECT().GetDB(modelUUID.String()).Return(txnRunner, nil)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), modelUUID.String()).Return(txnRunner, nil)
 	return txnRunner
 }
 

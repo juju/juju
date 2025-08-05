@@ -72,7 +72,7 @@ func (st *StateBase) DB() (TxnRunner, error) {
 		return nil, errors.New("nil getDB")
 	}
 
-	db, err := st.getDB()
+	db, err := st.getDB(context.TODO())
 	if err != nil {
 		return nil, errors.Errorf("invoking getDB: %w", err)
 	}

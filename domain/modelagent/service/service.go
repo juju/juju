@@ -201,6 +201,7 @@ type WatcherFactory interface {
 	// input base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -1021,10 +1022,11 @@ func (s *WatchableService) WatchUnitTargetAgentVersion(
 // version of this model and reporting when a change has happened in the
 // version.
 func (s *WatchableService) WatchModelTargetAgentVersion(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	w, err := s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		"model target agent version watcher",
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchAgentVersion(), changestream.All),
 	)

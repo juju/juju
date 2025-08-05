@@ -69,7 +69,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "port_range")
 	s.srv = service.NewWatchableService(
 		state.NewState(
-			func() (database.TxnRunner, error) { return factory() },
+			func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) },
 		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		logger.GetLogger("juju.test.port"),

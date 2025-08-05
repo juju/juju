@@ -22,7 +22,7 @@ func CreateTestCloud(
 	txnRunner database.TxnRunnerFactory,
 	cloud cloud.Cloud,
 ) uuid.UUID {
-	runner, err := txnRunner()
+	runner, err := txnRunner(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cloudUUID, err := uuid.NewUUID()

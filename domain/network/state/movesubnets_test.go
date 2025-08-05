@@ -848,12 +848,12 @@ JOIN space ON space.uuid = subnet.space_uuid
 // addSpace inserts a new space with the given name into the database
 // and returns its UUID.
 func (s *spaceMachineSuite) addSpace(c *tc.C, name string) string {
-	return s.linkLayerBaseSuite.addSpaceWithName(c, name)
+	return s.addSpaceWithName(c, name)
 }
 
 // addSpaceConstraint adds a space constraint to a machine with a given UUID,
 // associating it with a space name and include/exclude behavior.
 // It returns the generated constraint UUID for the added space constraint.
 func (s *spaceMachineSuite) addSpaceConstraint(c *tc.C, machineUUID, spaceName string, positive bool) string {
-	return s.linkLayerBaseSuite.addMachineSpaceConstraint(c, machineUUID, spaceName, positive)
+	return s.addMachineSpaceConstraint(c, machineUUID, spaceName, positive)
 }

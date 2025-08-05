@@ -284,7 +284,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	_, err = dbw.GetDB("foo")
+	_, err = dbw.GetDB(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = dbw.deleteDatabase(c.Context(), "foo")
@@ -326,7 +326,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	_, err = dbw.GetDB("foo")
+	_, err = dbw.GetDB(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = dbw.deleteDatabase(c.Context(), "foo")

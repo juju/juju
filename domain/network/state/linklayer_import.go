@@ -27,6 +27,7 @@ func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.Im
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		lookups, err := st.getNetConfigLookups(ctx, tx)
 		if err != nil {
+			return errors.Capture(err)
 		}
 
 		llds, parents, providers, err := transformImportData(input, lookups.deviceType, lookups.virtualPortType)

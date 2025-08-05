@@ -49,7 +49,7 @@ func (s *ModelSuite) SetUpTest(c *tc.C) {
 }
 
 // GetWatchableDB allows the ModelSuite to be a WatchableDBGetter
-func (s *ModelSuite) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+func (s *ModelSuite) GetWatchableDB(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
 	return s.watchableDB, nil
 }
 

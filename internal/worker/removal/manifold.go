@@ -34,7 +34,7 @@ type DomainServices interface {
 type RemovalService interface {
 	// WatchRemovals emits job UUIDs for additions
 	// and changes to removal job scheduling.
-	WatchRemovals() (watcher.StringsWatcher, error)
+	WatchRemovals(context.Context) (watcher.StringsWatcher, error)
 
 	// GetAllJobs returns all jobs for removals that have not been completed.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)

@@ -46,7 +46,7 @@ type State interface {
 type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for
 	// changes to the input table name that match the input mask.
-	NewUUIDsWatcher(string, string, changestream.ChangeType) (watcher.StringsWatcher, error)
+	NewUUIDsWatcher(context.Context, string, string, changestream.ChangeType) (watcher.StringsWatcher, error)
 }
 
 // Service provides the API for working with external controllers.
@@ -171,15 +171,13 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 
 // Watch returns a watcher that observes changes to external controllers.
 func (s *WatchableService) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if s.watcherFactory != nil {
-		return s.watcherFactory.NewUUIDsWatcher(
-			s.st.NamespaceForWatchExternalController(),
-			"external controller watcher",
-			changestream.Changed,
-		)
-	}
-	return nil, errors.Errorf("external controller watcher %w", coreerrors.NotYetAvailable)
+	return s.watcherFactory.NewUUIDsWatcher(
+		ctx,
+		s.st.NamespaceForWatchExternalController(),
+		"external controller watcher",
+		changestream.Changed,
+	)
 }

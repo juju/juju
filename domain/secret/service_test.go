@@ -108,7 +108,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.secretBackendState = secret.NewMockSecretBackendState(ctrl)
 
 	s.svc = service.NewSecretService(
-		state.NewState(func() (database.TxnRunner, error) {
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 			return s.ModelTxnRunner(c, s.modelUUID.String()), nil
 		}, loggertesting.WrapCheckLog(c)),
 		s.secretBackendState,
@@ -121,7 +121,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
 	ctx := c.Context()
-	st := applicationstate.NewState(func() (database.TxnRunner, error) {
+	st := applicationstate.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(c, s.modelUUID.String()), nil
 	}, clock.WallClock, loggertesting.WrapCheckLog(c))
 

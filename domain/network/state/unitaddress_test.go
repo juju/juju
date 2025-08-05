@@ -283,7 +283,6 @@ func (s *unitAddressSuite) addCharm(c *tc.C) string {
 func (s *unitAddressSuite) addControllerApplication(c *tc.C, applicationUUID string) {
 	s.query(c, `INSERT INTO application_controller (application_uuid) VALUES ( ?)`,
 		applicationUUID)
-	return
 }
 
 func (s *unitAddressSuite) addsubnet(c *tc.C, spaceUUID string) (string, string) {

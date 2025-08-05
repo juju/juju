@@ -517,7 +517,7 @@ func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 
 	// Updating the charm doesn't emit an event.
 	harness.AddTest(c, func(c *tc.C) {
-		db, err := factory()
+		db, err := factory(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -536,7 +536,7 @@ WHERE a.uuid=?`, id0.String())
 	// Updating the parts of the application table ignored by the mapper doesn't
 	// emit an event.
 	harness.AddTest(c, func(c *tc.C) {
-		db, err := factory()
+		db, err := factory(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -587,7 +587,7 @@ func (s *watcherSuite) TestWatchApplication(c *tc.C) {
 
 	// Assert that a change to the charm modified version triggers the watcher.
 	harness.AddTest(c, func(c *tc.C) {
-		db, err := factory()
+		db, err := factory(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -603,7 +603,7 @@ WHERE uuid=?`, appUUID)
 
 	// Assert that a changing the name to itself does not trigger the watcher.
 	harness.AddTest(c, func(c *tc.C) {
-		db, err := factory()
+		db, err := factory(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -710,7 +710,7 @@ func (s *watcherSuite) TestWatchApplicationConfigBadName(c *tc.C) {
 func (s *watcherSuite) TestWatchApplicationConfigHash(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
 
-	db, err := factory()
+	db, err := factory(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c, factory)
@@ -1057,7 +1057,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 	svc := s.setupService(c, factory)
@@ -1157,7 +1157,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "custom_unit_name_lifecycle")
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 	svc := s.setupService(c, factory)
@@ -1293,7 +1293,7 @@ func (s *watcherSuite) TestWatchApplications(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 	svc := s.setupService(c, factory)
 
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
@@ -1450,7 +1450,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	otherUnitUUID, err := svc.GetUnitUUID(ctx, otherUnitName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 	statusState := statusstate.NewModelState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -1683,7 +1683,7 @@ func (s *watcherSuite) getApplicationConfigHash(c *tc.C, db changestream.Watchab
 }
 
 func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *service.WatchableService {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 

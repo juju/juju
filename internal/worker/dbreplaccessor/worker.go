@@ -243,7 +243,7 @@ func (w *dbReplWorker) DescribeCluster(ctx context.Context) ([]Node, error) {
 
 // GetDB returns a transaction runner for the dqlite-backed
 // database that contains the data for the specified namespace.
-func (w *dbReplWorker) GetDB(namespace string) (database.TxnRunner, error) {
+func (w *dbReplWorker) GetDB(ctx context.Context, namespace string) (database.TxnRunner, error) {
 	// Ensure Dqlite is initialised.
 	select {
 	case <-w.dbReplReady:

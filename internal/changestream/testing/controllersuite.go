@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/tc"
@@ -41,7 +42,7 @@ func (s *ControllerSuite) SetUpTest(c *tc.C) {
 }
 
 // GetWatchableDB allows the ControllerSuite to be a WatchableDBGetter
-func (s *ControllerSuite) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+func (s *ControllerSuite) GetWatchableDB(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
 	return s.watchableDB, nil
 }
 

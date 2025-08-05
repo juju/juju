@@ -486,6 +486,7 @@ func (s *Service) WatchModelProvisionedFilesystems(
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystems()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		initialQuery,
 		"model provisioned filesystem watcher",
 		eventsource.NamespaceFilter(ns, corechangestream.All))
@@ -524,6 +525,7 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery,
 		fmt.Sprintf("machine provisioned filesystem watcher for %q", machineUUID),
 		mapper, filter)
@@ -540,13 +542,16 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 func (s *Service) WatchModelProvisionedFilesystemAttachments(
 	ctx context.Context,
 ) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystemAttachments()
-	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		initialQuery,
 		"model provisioned filesystem attachment watcher",
-		eventsource.NamespaceFilter(ns, corechangestream.All))
+		eventsource.NamespaceFilter(ns, corechangestream.All),
+	)
 }
 
 // WatchMachineProvisionedFilesystemAttachments returns a watcher that emits
@@ -583,9 +588,12 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery,
 		fmt.Sprintf("machine provisioned filesystem attachment watcher for %q", machineUUID),
-		mapper, filter)
+		mapper,
+		filter,
+	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

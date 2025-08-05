@@ -844,6 +844,7 @@ WHERE  cloud_credential_uuid = $credentialUUID.uuid
 func (st *State) WatchCredential(
 	ctx context.Context,
 	getWatcher func(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -865,6 +866,7 @@ func (st *State) WatchCredential(
 		return nil, errors.Capture(err)
 	}
 	result, err := getWatcher(
+		ctx,
 		fmt.Sprintf("watching credential for %q", id),
 		eventsource.PredicateFilter("cloud_credential", changestream.All, eventsource.EqualsPredicate(id.String())),
 	)

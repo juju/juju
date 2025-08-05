@@ -4,6 +4,7 @@
 package network_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/collections/set"
@@ -32,7 +33,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "subnet")
 
 	svc := service.NewWatchableService(
-		state.NewState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }, loggertesting.WrapCheckLog(c)),
 		nil, nil,
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
@@ -63,7 +64,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "subnet")
 
 	svc := service.NewWatchableService(
-		state.NewState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }, loggertesting.WrapCheckLog(c)),
 		nil, nil,
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),

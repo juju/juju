@@ -4,6 +4,8 @@
 package changestream
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -26,7 +28,7 @@ type WatchableDB interface {
 // WatchableDBGetter describes the ability to get
 // a WatchableDB for a particular namespace.
 type WatchableDBGetter interface {
-	GetWatchableDB(string) (WatchableDB, error)
+	GetWatchableDB(context.Context, string) (WatchableDB, error)
 }
 
 // NewTxnRunnerFactory returns a TxnRunnerFactory for the input
@@ -36,21 +38,21 @@ type WatchableDBGetter interface {
 // State objects should only be concerned with persistence and retrieval.
 // Watchers are the concern of the service layer.
 func NewTxnRunnerFactory(f WatchableDBFactory) database.TxnRunnerFactory {
-	return func() (database.TxnRunner, error) {
-		r, err := f()
+	return func(ctx context.Context) (database.TxnRunner, error) {
+		r, err := f(ctx)
 		return r, errors.Capture(err)
 	}
 }
 
 // WatchableDBFactory provides a function for getting a database.TxnRunner or
 // an error.
-type WatchableDBFactory = func() (WatchableDB, error)
+type WatchableDBFactory = func(context.Context) (WatchableDB, error)
 
 // NewWatchableDBFactoryForNamespace returns a WatchableDBFactory
 // for the input namespaced factory function and namespace.
-func NewWatchableDBFactoryForNamespace[T WatchableDB](f func(string) (T, error), ns string) WatchableDBFactory {
-	return func() (WatchableDB, error) {
-		r, err := f(ns)
+func NewWatchableDBFactoryForNamespace[T WatchableDB](f func(context.Context, string) (T, error), ns string) WatchableDBFactory {
+	return func(ctx context.Context) (WatchableDB, error) {
+		r, err := f(ctx, ns)
 		return r, errors.Capture(err)
 	}
 }

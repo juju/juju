@@ -49,7 +49,7 @@ type singularDBGetter struct {
 	runner coredatabase.TxnRunner
 }
 
-func (s singularDBGetter) GetDB(name string) (coredatabase.TxnRunner, error) {
+func (s singularDBGetter) GetDB(ctx context.Context, name string) (coredatabase.TxnRunner, error) {
 	return s.runner, nil
 }
 
@@ -62,8 +62,8 @@ func SingularDBGetter(runner coredatabase.TxnRunner) coredatabase.DBGetter {
 
 // ConstFactory returns a changestream.WatchableDB factory function from just a
 // database.TxnRunner.
-func ConstFactory(runner coredatabase.TxnRunner) func() (changestream.WatchableDB, error) {
-	return func() (changestream.WatchableDB, error) {
+func ConstFactory(runner coredatabase.TxnRunner) func(context.Context) (changestream.WatchableDB, error) {
+	return func(context.Context) (changestream.WatchableDB, error) {
 		return constWatchableDB{
 			TxnRunner: runner,
 		}, nil

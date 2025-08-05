@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -1092,7 +1093,7 @@ func (s *fileObjectStoreSuite) expectRelease(hash string, num int) {
 
 func (s *fileObjectStoreSuite) expectWatch() chan struct{} {
 	ch := make(chan struct{})
-	s.service.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.service.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		defer close(ch)
 
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil

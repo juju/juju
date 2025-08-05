@@ -36,7 +36,7 @@ type ProviderConfigService interface {
 	ModelConfig(ctx context.Context) (*config.Config, error)
 	// Watch returns a watcher that observes changes to the specified
 	// model configuration.
-	Watch() (watcher.StringsWatcher, error)
+	Watch(context.Context) (watcher.StringsWatcher, error)
 }
 
 // ProviderCredentialService represents the credential service provided by the

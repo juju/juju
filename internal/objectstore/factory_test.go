@@ -4,6 +4,7 @@
 package objectstore
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/errors"
@@ -76,6 +77,6 @@ type stubObjectStore struct {
 
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
-func (stubObjectStore) Watch() (watcher.StringsWatcher, error) {
+func (stubObjectStore) Watch(context.Context) (watcher.StringsWatcher, error) {
 	return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
 }

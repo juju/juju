@@ -10,6 +10,7 @@
 package changestreampruner
 
 import (
+	context "context"
 	reflect "reflect"
 
 	database "github.com/juju/juju/core/database"
@@ -40,18 +41,18 @@ func (m *MockDBGetter) EXPECT() *MockDBGetterMockRecorder {
 }
 
 // GetDB mocks base method.
-func (m *MockDBGetter) GetDB(arg0 string) (database.TxnRunner, error) {
+func (m *MockDBGetter) GetDB(arg0 context.Context, arg1 string) (database.TxnRunner, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDB", arg0)
+	ret := m.ctrl.Call(m, "GetDB", arg0, arg1)
 	ret0, _ := ret[0].(database.TxnRunner)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDB indicates an expected call of GetDB.
-func (mr *MockDBGetterMockRecorder) GetDB(arg0 any) *MockDBGetterGetDBCall {
+func (mr *MockDBGetterMockRecorder) GetDB(arg0, arg1 any) *MockDBGetterGetDBCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockDBGetter)(nil).GetDB), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockDBGetter)(nil).GetDB), arg0, arg1)
 	return &MockDBGetterGetDBCall{Call: call}
 }
 
@@ -67,13 +68,13 @@ func (c *MockDBGetterGetDBCall) Return(arg0 database.TxnRunner, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDBGetterGetDBCall) Do(f func(string) (database.TxnRunner, error)) *MockDBGetterGetDBCall {
+func (c *MockDBGetterGetDBCall) Do(f func(context.Context, string) (database.TxnRunner, error)) *MockDBGetterGetDBCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDBGetterGetDBCall) DoAndReturn(f func(string) (database.TxnRunner, error)) *MockDBGetterGetDBCall {
+func (c *MockDBGetterGetDBCall) DoAndReturn(f func(context.Context, string) (database.TxnRunner, error)) *MockDBGetterGetDBCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

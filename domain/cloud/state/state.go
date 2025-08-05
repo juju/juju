@@ -760,6 +760,7 @@ VALUES      ($cloudType.*)`, dbCloudType)
 func (st *State) WatchCloud(
 	ctx context.Context,
 	getWatcher func(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -795,6 +796,7 @@ WHERE name = $cloudID.name`, cloud)
 		return nil, errors.Capture(err)
 	}
 	result, err := getWatcher(
+		ctx,
 		fmt.Sprintf("cloud watcher for %q", cloudName),
 		eventsource.PredicateFilter("cloud", changestream.All, eventsource.EqualsPredicate(cloud.UUID)),
 	)

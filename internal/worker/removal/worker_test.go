@@ -39,7 +39,7 @@ func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
-	s.svc.EXPECT().WatchRemovals().Return(watch, nil)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watch, nil)
 
 	// Use the timer creation as a synchronisation point below.
 	// so that we know we are entrant into the worker's loop.
@@ -75,7 +75,7 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *tc.C) {
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
-	s.svc.EXPECT().WatchRemovals().Return(watch, nil)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watch, nil)
 
 	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).DoAndReturn(func(d time.Duration) clock.Timer {
 		return clock.WallClock.NewTimer(d)
@@ -142,7 +142,7 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
-	s.svc.EXPECT().WatchRemovals().Return(watch, nil)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watch, nil)
 
 	timerChan := make(chan time.Time)
 	timer := NewMockTimer(ctrl)
@@ -227,7 +227,7 @@ func (s *workerSuite) TestWorkerReport(c *tc.C) {
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
-	s.svc.EXPECT().WatchRemovals().Return(watch, nil)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watch, nil)
 
 	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).DoAndReturn(func(d time.Duration) clock.Timer {
 		return clock.WallClock.NewTimer(d)

@@ -152,7 +152,7 @@ VALUES (?, 0);
 }
 
 func (s *baseSuite) setupMachineService(c *tc.C) *machineservice.ProviderService {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 
@@ -167,7 +167,7 @@ func (s *baseSuite) setupMachineService(c *tc.C) *machineservice.ProviderService
 }
 
 func (s *baseSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 
@@ -289,7 +289,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Watch
 }
 
 func (s *baseSuite) setCharmObjectStoreMetadata(c *tc.C, appID coreapplication.ID) {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 

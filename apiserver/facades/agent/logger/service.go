@@ -14,5 +14,5 @@ import (
 // model configuration.
 type ModelConfigService interface {
 	ModelConfig(ctx context.Context) (*config.Config, error)
-	Watch() (watcher.StringsWatcher, error)
+	Watch(ctx context.Context) (watcher.StringsWatcher, error)
 }

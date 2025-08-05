@@ -944,7 +944,7 @@ func (s *serviceSuite) TestWatchActivatedModels(c *tc.C) {
 	s.mockStringsWatcher.EXPECT().Changes().AnyTimes().Return(changes)
 
 	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(s.mockStringsWatcher, nil)
 
 	// Verifies that the service returns a watcher with the correct model UUIDs string.
@@ -1134,7 +1134,7 @@ func (s *serviceSuite) TestWatchModelCloudCredential(c *tc.C) {
 	ch := make(chan struct{}, 1)
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	s.mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(watcher, nil)
 
 	svc := s.newWatchableService(c)

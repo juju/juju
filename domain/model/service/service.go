@@ -201,6 +201,7 @@ type WatcherFactory interface {
 	// starts with the current state of the system, preventing data loss from
 	// prior events.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialStateQuery eventsource.NamespaceQuery,
 		summary string,
 		mapper eventsource.Mapper,
@@ -211,6 +212,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -222,6 +224,7 @@ type WatcherFactory interface {
 	// by the filter, and then subsequently by the mapper. Based on the mapper's
 	// logic a subset of them (or none) may be emitted.
 	NewNotifyMapperWatcher(
+		ctx context.Context,
 		summary string,
 		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
@@ -725,6 +728,7 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.St
 	modelTableName, query := s.st.InitialWatchActivatedModelsStatement()
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(query),
 		"activated models watcher",
 		mapper,
@@ -738,6 +742,7 @@ func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UU
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		"model watcher",
 		eventsource.PredicateFilter("model", changestream.All, eventsource.EqualsPredicate(modelUUID.String())),
 	)
@@ -804,6 +809,7 @@ func watchModelCloudCredential(
 	}
 
 	result, err := watcherFactory.NewNotifyMapperWatcher(
+		ctx,
 		fmt.Sprintf("model cloud and credential watcher for %q", modelUUID),
 		mapper,
 		eventsource.PredicateFilter("model", changestream.Changed, eventsource.EqualsPredicate(modelUUID.String())),

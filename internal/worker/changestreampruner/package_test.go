@@ -57,7 +57,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *baseSuite) expectControllerDBGet() {
-	s.dbGetter.EXPECT().GetDB(coredatabase.ControllerNS).Return(s.TxnRunner(), nil).Times(2)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), coredatabase.ControllerNS).Return(s.TxnRunner(), nil).Times(2)
 }
 
 func (s *baseSuite) expectDBGet(namespace string, txnRunner coredatabase.TxnRunner) {
@@ -65,7 +65,7 @@ func (s *baseSuite) expectDBGet(namespace string, txnRunner coredatabase.TxnRunn
 }
 
 func (s *baseSuite) expectDBGetTimes(namespace string, txnRunner coredatabase.TxnRunner, amount int) {
-	s.dbGetter.EXPECT().GetDB(namespace).Return(txnRunner, nil).Times(amount)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), namespace).Return(txnRunner, nil).Times(amount)
 }
 
 func (s *baseSuite) expectClock() {

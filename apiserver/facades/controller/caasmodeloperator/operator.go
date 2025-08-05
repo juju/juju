@@ -86,7 +86,7 @@ func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.No
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	modelConfigWatcher, err := a.modelConfigService.Watch()
+	modelConfigWatcher, err := a.modelConfigService.Watch(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

@@ -37,6 +37,7 @@ type WatcherFactory interface {
 	// input base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		initialStateQuery eventsource.NamespaceQuery,
 		summary string,
 		filter eventsource.FilterOption,
@@ -51,6 +52,7 @@ type WatcherFactory interface {
 	// mapper's logic a subset of them (or none) may be emitted. A filter option
 	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialStateQuery eventsource.NamespaceQuery,
 		summary string,
 		mapper eventsource.Mapper,
@@ -61,6 +63,7 @@ type WatcherFactory interface {
 	// input base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -100,6 +103,7 @@ func (s *WatchableService) WatchMachineLife(ctx context.Context, machineName mac
 
 	table := s.st.NamespaceForMachineLife()
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("machine life watcher for %q", machineName),
 		eventsource.PredicateFilter(
 			table,
@@ -124,6 +128,7 @@ func (s *WatchableService) WatchMachineAndMachineUnitLife(ctx context.Context, m
 
 	machineTable, unitTable := s.st.NamespaceForMachineAndMachineUnitLife()
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("machine and unit life watcher for %q", machineName),
 		eventsource.PredicateFilter(
 			machineTable,
@@ -166,6 +171,7 @@ func (s *WatchableService) WatchMachineContainerLife(ctx context.Context, parent
 
 	table, stmt, arg := s.st.InitialMachineContainerLifeStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(stmt, arg(prefix)),
 		fmt.Sprintf("machine container life watcher for %q", parentMachineName),
 		eventsource.PredicateFilter(
@@ -223,6 +229,7 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machines watcher",
 		eventsource.PredicateFilter(table, changestream.All,
@@ -241,6 +248,7 @@ func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Contex
 
 	table, stmt := s.st.InitialWatchModelMachineLifeAndStartTimesStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machine life and start times watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
@@ -255,6 +263,7 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("machine cloud instance watcher for %q", machineUUID),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineCloudInstance(),
@@ -274,6 +283,7 @@ func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID mac
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("machine lxd profiles watcher for %q", machineUUID),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineLXDProfiles(),
@@ -296,6 +306,7 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid machine.
 	}
 	machines := set.NewStrings(transform.Slice(uuids, func(u machine.UUID) string { return u.String() })...)
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("machine reboot watcher for %q", uuid),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineReboot(),

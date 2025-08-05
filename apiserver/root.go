@@ -972,19 +972,19 @@ func (ctx *facadeContext) Clock() clock.Clock {
 // controllerDB is a protected method, do not expose this directly in to the
 // facade context. It is expect that users of the facade context will use the
 // higher level abstractions.
-func (ctx *facadeContext) controllerDB() (changestream.WatchableDB, error) {
-	db, err := ctx.r.shared.dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+func (ctx *facadeContext) controllerDB(c context.Context) (changestream.WatchableDB, error) {
+	db, err := ctx.r.shared.dbGetter.GetWatchableDB(c, coredatabase.ControllerNS)
 	return db, errors.Trace(err)
 }
 
 // modelDB is a protected method, do not expose this directly in to the
 // facade context. It is expected that users of the facade context will use the
 // higher level abstractions.
-func (ctx *facadeContext) modelDB(modelUUID model.UUID) (changestream.WatchableDB, error) {
+func (ctx *facadeContext) modelDB(c context.Context, modelUUID model.UUID) (changestream.WatchableDB, error) {
 	if err := modelUUID.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating model uuid")
 	}
-	db, err := ctx.r.shared.dbGetter.GetWatchableDB(modelUUID.String())
+	db, err := ctx.r.shared.dbGetter.GetWatchableDB(c, modelUUID.String())
 	return db, errors.Trace(err)
 }
 
@@ -994,8 +994,8 @@ func (ctx *facadeContext) modelDB(modelUUID model.UUID) (changestream.WatchableD
 func (ctx *facadeContext) migrationScope(modelUUID model.UUID) coremodelmigration.Scope {
 	return coremodelmigration.NewScope(
 		changestream.NewTxnRunnerFactory(ctx.controllerDB),
-		changestream.NewTxnRunnerFactory(func() (changestream.WatchableDB, error) {
-			return ctx.modelDB(modelUUID)
+		changestream.NewTxnRunnerFactory(func(c context.Context) (changestream.WatchableDB, error) {
+			return ctx.modelDB(c, modelUUID)
 		}),
 		ctx.r.shared.dbDeleter,
 	)

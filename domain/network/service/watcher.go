@@ -27,6 +27,7 @@ type WatcherFactory interface {
 	// mapper's logic a subset of them (or none) may be emitted. A filter option
 	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
 		mapper eventsource.Mapper,
@@ -64,12 +65,13 @@ func NewWatchableService(st State,
 // association (fan underlays), filtered based on the provided list of subnets
 // to watch.
 func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	filter := subnetUUIDsFilter(subnetUUIDsToWatch)
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		s.st.AllSubnetsQuery,
 		fmt.Sprintf("subnet watcher for %q", subnetUUIDsToWatch.SortedValues()),
 		eventsource.FilterEvents(filter),

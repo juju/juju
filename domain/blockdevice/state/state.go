@@ -367,6 +367,7 @@ WHERE machine_uuid = $M.machine_uuid
 func (st *State) WatchBlockDevices(
 	ctx context.Context,
 	getWatcher func(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -395,6 +396,7 @@ func (st *State) WatchBlockDevices(
 	}
 
 	baseWatcher, err := getWatcher(
+		ctx,
 		fmt.Sprintf("block devices watcher for %q", machineId),
 		eventsource.PredicateFilter("block_device", changestream.All, eventsource.EqualsPredicate(machineUUID)),
 	)

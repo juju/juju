@@ -43,6 +43,7 @@ type WatcherFactory interface {
 	// done first by the filter, and then subsequently by the mapper. Based on
 	// the mapper's logic a subset of them (or none) may be emitted.
 	NewNotifyMapperWatcher(
+		ctx context.Context,
 		summary string,
 		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
@@ -184,6 +185,8 @@ func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
 // WatchForUpgradeReady creates a watcher which notifies when all controller
 // nodes have been registered, meaning the upgrade is ready to start.
 func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID upgrade.UUID) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
 
 	if err := upgradeUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -206,6 +209,7 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		}), nil
 	}
 	return s.watcherFactory.NewNotifyMapperWatcher(
+		ctx,
 		"upgrade ready watcher",
 		mapper,
 		eventsource.PredicateFilter(
@@ -219,6 +223,9 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 // WatchForUpgradeState creates a watcher which notifies when the upgrade
 // has reached the given state.
 func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID upgrade.UUID, state coreupgrade.State) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := upgradeUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -239,6 +246,7 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		}), nil
 	}
 	return s.watcherFactory.NewNotifyMapperWatcher(
+		ctx,
 		"upgrade state watcher",
 		mapper,
 		eventsource.PredicateFilter(
