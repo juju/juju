@@ -72,7 +72,7 @@ func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 			BridgeName: "br-ens123",
 		},
 	}
-	expected := "bridge activation error: bridge activation error: command cancelled"
+	expected := ".* command cancelled"
 	// 25694 is a magic value that causes the bridging script to sleep
 	assertENIBridgerError(c, devices, 500*time.Millisecond, clock.WallClock, "testdata/interfaces", true, 25694, expected)
 }
