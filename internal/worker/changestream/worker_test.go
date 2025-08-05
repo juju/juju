@@ -154,7 +154,7 @@ func (s *workerSuite) TestEventSourceEmptyNamespace(c *tc.C) {
 	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
 	_, err := stream.GetWatchableDB(c.Context(), "")
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
 func (s *workerSuite) TestEventSourceCalledTwice(c *tc.C) {
@@ -210,7 +210,7 @@ func (s *workerSuite) TestEventSourceCalledWithError(c *tc.C) {
 
 	// Ensure that the event queue is only created once.
 	_, err := stream.GetWatchableDB(c.Context(), "controller")
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
 func (s *workerSuite) newWorker(c *tc.C, attempts int) worker.Worker {
