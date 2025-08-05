@@ -15,6 +15,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -75,6 +76,13 @@ type State interface {
 	// GetStorageResourceTagInfoForApplication returns information required to
 	// build resource tags for storage created for the given application.
 	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ResourceTagInfo, error)
+
+	// GetAttachmentLife retrieves the life of a storage attachment for a unit.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+	// - [storageprovisioningerrors.AttachmentNotFound] when the storage attachment does not exist for the unit.
+	GetAttachmentLife(ctx context.Context, unitUUID, attachmentID string) (domainlife.Life, error)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -209,4 +217,30 @@ func (s *Service) GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UU
 		return nil, errors.Errorf("getting storage IDs for unit %q: %w", unitUUID, err)
 	}
 	return ids, nil
+}
+
+// GetAttachmentLife retrieves the life of a storage attachment for a unit.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the provided unit UUID is not valid.
+// - [corestorage.InvalidStorageID] when the provided storage attachment ID is not valid.
+// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+// - [storageprovisioningerrors.AttachmentNotFound] when the storage attachment does not exist for the unit.
+func (s *Service) GetAttachmentLife(
+	ctx context.Context, unitUUID coreunit.UUID, attachmentID corestorage.ID,
+) (domainlife.Life, error) {
+	if err := unitUUID.Validate(); err != nil {
+		return -1, errors.Capture(err)
+	}
+	if err := attachmentID.Validate(); err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	life, err := s.st.GetAttachmentLife(ctx, unitUUID.String(), attachmentID.String())
+	if err != nil {
+		return -1, errors.Errorf(
+			"getting life for storage attachment %q: %w", attachmentID, err,
+		)
+	}
+	return life, nil
 }

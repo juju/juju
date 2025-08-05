@@ -285,14 +285,14 @@ func (s *Service) GetFilesystemAttachmentLife(
 	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
-		return 0, errors.Errorf(
+		return -1, errors.Errorf(
 			"validating filesystem attachment uuid: %w", err,
 		).Add(coreerrors.NotValid)
 	}
 
 	life, err := s.st.GetFilesystemAttachmentLife(ctx, uuid)
 	if err != nil {
-		return 0, errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 	return life, nil
 }
@@ -443,14 +443,14 @@ func (s *Service) GetFilesystemLife(
 	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
-		return 0, errors.Errorf(
+		return -1, errors.Errorf(
 			"validating filesystem uuid: %w", err,
 		).Add(coreerrors.NotValid)
 	}
 
 	life, err := s.st.GetFilesystemLife(ctx, uuid)
 	if err != nil {
-		return 0, errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 	return life, nil
 }
