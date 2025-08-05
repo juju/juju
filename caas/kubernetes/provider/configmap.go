@@ -70,6 +70,7 @@ func (k *kubernetesClient) ensureConfigMapLegacy(cm *core.ConfigMap) (cleanUp fu
 
 // ensureConfigMap ensures a ConfigMap resource.
 func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
+	logger.Infof("alvin ensureConfigMap called: %+v", *cm)
 	cleanUp := func() {}
 	out, err := k.createConfigMap(cm)
 	if err == nil {
@@ -113,6 +114,7 @@ func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
 
 // createConfigMap creates a ConfigMap resource.
 func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
+	logger.Infof("alvin createConfigmap: %+v", *cm)
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}

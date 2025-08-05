@@ -944,6 +944,7 @@ func (k *kubernetesClient) ensureService(
 	numUnits int,
 	config coreconfig.ConfigAttributes,
 ) (err error) {
+	logger.Criticalf("alvin ensureService called")
 
 	if params == nil || params.PodSpec == nil {
 		return errors.Errorf("missing pod spec")
