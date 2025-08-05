@@ -1228,9 +1228,7 @@ func processStorage(
 			unitTag := names.NewUnitTag(unit.String())
 			sad := params.StorageAttachmentDetails{
 				StorageTag: details.StorageTag,
-			}
-			if sa.Unit != nil {
-				sad.UnitTag = names.NewUnitTag(sa.Unit.String()).String()
+				UnitTag:    names.NewUnitTag(sa.Unit.String()).String(),
 			}
 			if sa.Machine != nil {
 				sad.MachineTag = names.NewMachineTag(sa.Machine.String()).String()

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storageprovisioning"
 )
 
 // Application represents the status of an application.
@@ -71,6 +72,7 @@ type Machine struct {
 }
 
 type StorageInstance struct {
+	UUID        storage.StorageInstanceUUID
 	ID          string
 	Owner       *unit.Name
 	Kind        storage.StorageKind
@@ -79,13 +81,15 @@ type StorageInstance struct {
 }
 
 type StorageAttachment struct {
-	Life     life.Life
-	Unit     *unit.Name
-	Machine  *machine.Name
-	Location string
+	StorageInstanceUUID storage.StorageInstanceUUID
+	Life                life.Life
+	Unit                unit.Name
+	Machine             *machine.Name
+	Location            string
 }
 
 type Filesystem struct {
+	UUID       storageprovisioning.FilesystemUUID
 	ID         string
 	Life       life.Life
 	Status     StatusInfo[StorageFilesystemStatusType]
@@ -96,6 +100,7 @@ type Filesystem struct {
 }
 
 type Volume struct {
+	UUID       storageprovisioning.VolumeUUID
 	ID         string
 	Life       life.Life
 	Status     StatusInfo[StorageVolumeStatusType]
@@ -108,13 +113,19 @@ type Volume struct {
 }
 
 type FilesystemAttachment struct {
-	Life       life.Life
-	MountPoint string
-	ReadOnly   bool
+	FilesystemUUID storageprovisioning.FilesystemUUID
+	Life           life.Life
+	Unit           *unit.Name
+	Machine        *machine.Name
+	MountPoint     string
+	ReadOnly       bool
 }
 
 type VolumeAttachment struct {
+	VolumeUUID           storageprovisioning.VolumeUUID
 	Life                 life.Life
+	Unit                 *unit.Name
+	Machine              *machine.Name
 	DeviceName           string
 	DeviceLink           string
 	BusAddress           string

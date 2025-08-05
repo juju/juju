@@ -96,7 +96,7 @@ type StorageInstance struct {
 
 type StorageAttachment struct {
 	Life     life.Value
-	Unit     *unit.Name
+	Unit     unit.Name
 	Machine  *machine.Name
 	Location string
 }

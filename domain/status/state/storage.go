@@ -349,3 +349,47 @@ ON CONFLICT(volume_uuid) DO UPDATE SET
 	}
 	return nil
 }
+
+// GetStorageInstances returns all the storage instances for this model.
+func (st *ModelState) GetStorageInstances(
+	ctx context.Context,
+) ([]status.StorageInstance, error) {
+	return nil, nil
+}
+
+// GetStorageInstanceAttachments returns all the storage instance
+// attachments for this model.
+func (st *ModelState) GetStorageInstanceAttachments(
+	ctx context.Context,
+) ([]status.StorageAttachment, error) {
+	return nil, nil
+}
+
+// GetFilesystems returns all the filesystems for this model.
+func (st *ModelState) GetFilesystems(
+	ctx context.Context,
+) ([]status.Filesystem, error) {
+	return nil, nil
+}
+
+// GetFilesystemAttachments returns all the filesystem attachments for this
+// model.
+func (st *ModelState) GetFilesystemAttachments(
+	ctx context.Context,
+) ([]status.FilesystemAttachment, error) {
+	return nil, nil
+}
+
+// GetVolumes returns all the volumes for this model.
+func (st *ModelState) GetVolumes(
+	ctx context.Context,
+) ([]status.Volume, error) {
+	return nil, nil
+}
+
+// GetVolumeAttachments returns all the volume attachments for this model.
+func (st *ModelState) GetVolumeAttachments(
+	ctx context.Context,
+) ([]status.VolumeAttachment, error) {
+	return nil, nil
+}
