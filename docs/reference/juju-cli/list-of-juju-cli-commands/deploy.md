@@ -1,5 +1,3 @@
-(command-juju-deploy)=
-# `juju deploy`
 > See also: [integrate](#integrate), [add-unit](#add-unit), [config](#config), [expose](#expose), [constraints](#constraints), [refresh](#refresh), [set-constraints](#set-constraints), [spaces](#spaces), [charm-resources](#charm-resources)
 
 ## Summary
@@ -289,3 +287,6 @@ the `--force` option to bypass this check. Doing so is not recommended as it
 can lead to unexpected behaviour.
 
 Further reading: https://juju.is/docs/olm/manage-applications
+
+
+

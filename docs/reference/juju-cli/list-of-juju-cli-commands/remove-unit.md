@@ -1,5 +1,3 @@
-(command-juju-remove-unit)=
-# `juju remove-unit`
 > See also: [remove-application](#remove-application), [scale-application](#scale-application)
 
 ## Summary
@@ -71,3 +69,6 @@ Unit removal is a multi-step process. Under normal circumstances, Juju will not
 proceed to the next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps
 without delay waiting for each step to complete.
+
+
+

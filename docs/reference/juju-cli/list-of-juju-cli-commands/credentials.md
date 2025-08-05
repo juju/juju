@@ -1,5 +1,3 @@
-(command-juju-credentials)=
-# `juju credentials`
 > See also: [add-credential](#add-credential), [update-credential](#update-credential), [remove-credential](#remove-credential), [default-credential](#default-credential), [autoload-credentials](#autoload-credentials), [show-credential](#show-credential)
 
 **Aliases:** list-credentials
@@ -74,3 +72,6 @@ for a given cloud.
 Use --controller option to list credentials from a controller.
 
 Use --client option to list credentials known locally on this client.
+
+
+

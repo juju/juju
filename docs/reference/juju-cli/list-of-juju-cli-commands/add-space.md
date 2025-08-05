@@ -1,5 +1,3 @@
-(command-juju-add-space)=
-# `juju add-space`
 > See also: [spaces](#spaces), [remove-space](#remove-space)
 
 ## Summary
@@ -25,3 +23,5 @@ Add space "beta" with subnet 172.31.0.0/20:
 ## Details
 Adds a new space with the given name and associates the given
 (optional) list of existing subnet CIDRs with it.
+
+

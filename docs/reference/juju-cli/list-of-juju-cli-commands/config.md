@@ -1,5 +1,3 @@
-(command-juju-config)=
-# `juju config`
 > See also: [deploy](#deploy), [status](#status), [model-config](#model-config), [controller-config](#controller-config)
 
 ## Summary
@@ -124,3 +122,6 @@ settings back to their default value as defined in the charm metadata:
 
     juju config apache2 --reset servername
     juju config apache2 --reset servername,lb_balancer_timeout
+
+
+

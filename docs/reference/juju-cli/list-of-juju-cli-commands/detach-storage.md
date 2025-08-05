@@ -1,5 +1,3 @@
-(command-juju-detach-storage)=
-# `juju detach-storage`
 > See also: [storage](#storage), [attach-storage](#attach-storage)
 
 ## Summary
@@ -29,4 +27,7 @@ as output by "juju storage". The storage will remain in the model until it is
 removed by an operator.
 
 Detaching storage may fail but under some circumstances, Juju user may need 
-to force storage detachment despite operational errors.
+to force storage detachment despite operational errors. 
+
+
+

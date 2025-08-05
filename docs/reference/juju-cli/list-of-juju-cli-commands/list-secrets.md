@@ -26,4 +26,4 @@ Lists secrets available in the model.
 
 ## Details
 
-Displays the secrets available for charms to use if granted access.
+Displays the secrets

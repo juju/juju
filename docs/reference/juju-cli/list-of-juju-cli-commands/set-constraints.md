@@ -1,5 +1,3 @@
-(command-juju-set-constraints)=
-# `juju set-constraints`
 > See also: [constraints](#constraints), [model-constraints](#model-constraints), [set-model-constraints](#set-model-constraints)
 
 ## Summary
@@ -33,3 +31,6 @@ This command requires that the application to have at least one unit. To apply
 constraints to
 the first unit set them at the model level or pass them as an argument
 when deploying.
+
+
+

@@ -1,5 +1,3 @@
-(command-juju-download-backup)=
-# `juju download-backup`
 > See also: [create-backup](#create-backup)
 
 ## Summary
@@ -26,3 +24,6 @@ download-backup retrieves a backup archive file.
 
 If --filename is not used, the archive is downloaded to a temporary
 location and the filename is printed to stdout.
+
+
+

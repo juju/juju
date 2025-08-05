@@ -1,5 +1,3 @@
-(command-juju-resume-relation)=
-# `juju resume-relation`
 > See also: [integrate](#integrate), [offers](#offers), [remove-relation](#remove-relation), [suspend-relation](#suspend-relation)
 
 ## Summary
@@ -25,3 +23,6 @@ Resumes a suspended relation to an application offer.
 A relation between an application in another model and an offer in this model will be resumed. 
 The relation-joined and relation-changed hooks will be run for the relation, and the relation
 status will be set to joined. The relation is specified using its id.
+
+
+

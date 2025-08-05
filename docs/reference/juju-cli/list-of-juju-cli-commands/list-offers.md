@@ -1,5 +1,3 @@
-(command-juju-list-offers)=
-# `juju list-offers`
 > See also: [find-offers](#find-offers), [show-offer](#show-offer)
 
 **Aliases:** list-offers
@@ -53,3 +51,7 @@ The output can be filtered by:
  - connected user: the name of a user who has a relation to the offer
  - allowed consumer: the name of a user allowed to consume the offer
  - active only: only show offers which are in use (are related to)
+
+
+
+

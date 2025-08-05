@@ -1,5 +1,3 @@
-(command-juju-create-storage-pool)=
-# `juju create-storage-pool`
 > See also: [remove-storage-pool](#remove-storage-pool), [update-storage-pool](#update-storage-pool), [storage-pools](#storage-pools)
 
 ## Summary
@@ -44,3 +42,6 @@ configuration as space-separated pairs, e.g. tags, size, path, etc.
 
 For Kubernetes models, the provider type defaults to "kubernetes"
 unless otherwise specified.
+
+
+

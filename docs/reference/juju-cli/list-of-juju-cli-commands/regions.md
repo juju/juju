@@ -1,5 +1,3 @@
-(command-juju-regions)=
-# `juju regions`
 > See also: [add-cloud](#add-cloud), [clouds](#clouds), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
 
 **Aliases:** list-regions
@@ -34,3 +32,6 @@ List regions for a given cloud.
 Use --controller option to list regions from the cloud from a controller.
 
 Use --client option to list regions known locally on this client.
+
+
+

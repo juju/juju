@@ -1,5 +1,3 @@
-(command-juju-list-subnets)=
-# `juju list-subnets`
 **Aliases:** list-subnets
 
 ## Summary
@@ -42,3 +40,5 @@ Like with other Juju commands, the output and its format can be changed
 using the --format and --output (or -o) optional arguments. Supported
 output formats include "yaml" (default) and "json". To redirect the
 output to a file, use --output.
+
+

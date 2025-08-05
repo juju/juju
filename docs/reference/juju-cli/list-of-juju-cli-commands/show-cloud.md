@@ -1,5 +1,3 @@
-(command-juju-show-cloud)=
-# `juju show-cloud`
 > See also: [clouds](#clouds), [add-cloud](#add-cloud), [update-cloud](#update-cloud)
 
 ## Summary
@@ -39,3 +37,6 @@ description) specific to the cloud are displayed if available.
 Use --controller option to show a cloud from a controller.
 
 Use --client option to show a cloud known on this client.
+
+
+

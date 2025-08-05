@@ -1,5 +1,3 @@
-(command-juju-integrate)=
-# `juju integrate`
 > See also: [consume](#consume), [find-offers](#find-offers), [set-firewall-rule](#set-firewall-rule), [suspend-relation](#suspend-relation)
 
 **Aliases:** relate
@@ -166,3 +164,6 @@ Further reading:
 
     https://juju.is/docs/juju/integration
     https://juju.is/docs/juju/cross-model-integration
+
+
+

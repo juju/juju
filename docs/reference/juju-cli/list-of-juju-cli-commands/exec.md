@@ -1,5 +1,3 @@
-(command-juju-exec)=
-# `juju exec`
 > See also: [run](#run), [ssh](#ssh)
 
 ## Summary
@@ -100,3 +98,7 @@ command and its arguments with "--", to tell "juju exec" to stop processing
 those arguments. For example:
 
     juju exec --all -- hostname -f
+
+
+
+

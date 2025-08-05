@@ -1,5 +1,3 @@
-(command-juju-model-defaults)=
-# `juju model-defaults`
 > See also: [models](#models), [model-config](#model-config)
 
 **Aliases:** model-default
@@ -115,3 +113,7 @@ accepts arguments in the following forms:
     --region=<region>               (default cloud, specified region)
     --region=<cloud>/<region>            (specified cloud and region)
     --cloud=<cloud> --region=<region>    (specified cloud and region)
+
+
+
+

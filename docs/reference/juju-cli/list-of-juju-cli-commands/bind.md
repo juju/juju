@@ -1,5 +1,3 @@
-(command-juju-bind)=
-# `juju bind`
 > See also: [spaces](#spaces), [show-space](#show-space), [show-application](#show-application)
 
 ## Summary
@@ -39,3 +37,6 @@ and individual endpoints in one go:
 In order to be able to bind any endpoint to a space, all machines where the
 application units are deployed to are required to be configured with an address
 in that space. However, you can use the --force option to bypass this check.
+
+
+

@@ -1,5 +1,3 @@
-(command-juju-agree)=
-# `juju agree`
 > See also: [agreements](#agreements)
 
 ## Summary
@@ -38,3 +36,7 @@ When deploying a charm that requires agreement to terms, use 'juju agree' to
 view the terms and agree to them. Then the charm may be deployed.
 
 Once you have agreed to terms, you will not be prompted to view them again.
+
+
+
+

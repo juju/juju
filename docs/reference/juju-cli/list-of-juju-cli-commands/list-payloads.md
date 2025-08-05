@@ -1,5 +1,3 @@
-(command-juju-list-payloads)=
-# `juju list-payloads`
 **Aliases:** list-payloads
 
 ## Summary
@@ -31,3 +29,6 @@ will be checked against the following info in Juju:
 - payload id
 - payload tag
 - payload status
+
+
+

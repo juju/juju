@@ -1,5 +1,3 @@
-(command-juju-debug-hook)=
-# `juju debug-hook`
 > See also: [ssh](#ssh), [debug-code](#debug-code)
 
 **Aliases:** debug-hook
@@ -59,3 +57,6 @@ If no hook or action is specified, all hooks and actions will be intercepted.
 
 See the "juju help ssh" for information about SSH related options
 accepted by the debug-hooks command.
+
+
+

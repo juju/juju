@@ -1,5 +1,3 @@
-(command-juju-controller-config)=
-# `juju controller-config`
 > See also: [controllers](#controllers), [model-config](#model-config), [show-cloud](#show-cloud)
 
 ## Summary
@@ -192,3 +190,8 @@ The following keys are available:
     ssh-max-concurrent-connections:
       type: int
       description: The maximum number of concurrent ssh connections to the controller
+    
+
+
+
+

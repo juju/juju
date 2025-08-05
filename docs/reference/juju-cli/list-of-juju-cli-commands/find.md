@@ -1,5 +1,3 @@
-(command-juju-find)=
-# `juju find`
 > See also: [info](#info), [download](#download)
 
 ## Summary
@@ -28,3 +26,6 @@ Queries the CharmHub store for available charms or bundles.
 ## Details
 
 The find command queries the CharmHub store for available charms or bundles.
+
+
+

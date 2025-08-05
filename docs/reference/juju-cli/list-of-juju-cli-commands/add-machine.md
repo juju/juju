@@ -1,5 +1,3 @@
-(command-juju-add-machine)=
-# `juju add-machine`
 > See also: [remove-machine](#remove-machine), [model-constraints](#model-constraints), [set-model-constraints](#set-model-constraints)
 
 ## Summary
@@ -137,3 +135,6 @@ It is also possible to add containers to existing machines using the format
 Further reading:
 	https://juju.is/docs/reference/commands/add-machine
 	https://juju.is/docs/reference/constraints
+
+
+

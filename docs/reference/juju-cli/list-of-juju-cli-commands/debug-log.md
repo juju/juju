@@ -1,5 +1,3 @@
-(command-juju-debug-log)=
-# `juju debug-log`
 > See also: [status](#status), [ssh](#ssh)
 
 ## Summary
@@ -174,3 +172,6 @@ Given the above, the following flag combinations are incompatible and cannot be 
 * --no-tail and --lines (-n)
 * --limit and --lines (-n)
 * --replay and --lines (-n)
+
+
+

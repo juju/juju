@@ -1,5 +1,3 @@
-(command-juju-rename-space)=
-# `juju rename-space`
 > See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [remove-space](#remove-space), [show-space](#show-space)
 
 ## Summary
@@ -25,3 +23,5 @@ Rename a space from db to fe:
 ## Details
 Renames an existing space from "old-name" to "new-name". Does not change the
 associated subnets and "new-name" must not match another existing space.
+
+

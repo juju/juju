@@ -1,5 +1,3 @@
-(command-juju-bootstrap)=
-# `juju bootstrap`
 > See also: [add-credential](#add-credential), [autoload-credentials](#autoload-credentials), [add-model](#add-model), [controller-config](#controller-config), [model-config](#model-config), [set-constraints](#set-constraints), [show-cloud](#show-cloud)
 
 ## Summary
@@ -650,3 +648,8 @@ Model configuration keys (affecting the controller model):
       type: string
       description: How often to run the charm update-status hook, in human-readable time
         format (default 5m, range 1-60m)
+    
+
+
+
+

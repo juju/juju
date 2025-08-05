@@ -1,5 +1,3 @@
-(command-juju-ssh)=
-# `juju ssh`
 > See also: [scp](#scp)
 
 ## Summary
@@ -119,3 +117,7 @@ For k8s charms, the --container argument is used to identity a specific
 container in the pod. For charms which run the workload in a separate pod
 to that of the charm, the default ssh target is the charm operator pod.
 The workload pod may be specified using the --remote argument.
+
+
+
+

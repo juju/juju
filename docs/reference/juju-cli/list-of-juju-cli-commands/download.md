@@ -1,5 +1,3 @@
-(command-juju-download)=
-# `juju download`
 > See also: [info](#info), [find](#find)
 
 ## Summary
@@ -42,3 +40,6 @@ which cannot be used together with --arch, --base, --channel or
 
 Adding a hyphen as the second argument allows the download to be piped
 to stdout.
+
+
+

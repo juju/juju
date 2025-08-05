@@ -1,5 +1,3 @@
-(command-juju-list-storage-pools)=
-# `juju list-storage-pools`
 > See also: [create-storage-pool](#create-storage-pool), [remove-storage-pool](#remove-storage-pool)
 
 **Aliases:** list-storage-pools
@@ -47,3 +45,6 @@ If only types are specified, all pools of the specified types will be listed.
 
 Both pool types and names must be valid.
 Valid pool types are pool types that are registered for Juju model.
+
+
+

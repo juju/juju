@@ -1,5 +1,3 @@
-(command-juju-remove-storage)=
-# `juju remove-storage`
 > See also: [add-storage](#add-storage), [attach-storage](#attach-storage), [detach-storage](#detach-storage), [list-storage](#list-storage), [show-storage](#show-storage), [storage](#storage)
 
 ## Summary
@@ -42,3 +40,6 @@ By default, remove-storage will fail if the storage
 is attached to any units. To override this behaviour,
 you can use "juju remove-storage --force".
 Note: forced detach is not available on container models.
+
+
+

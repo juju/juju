@@ -1,5 +1,3 @@
-(command-juju-model-config)=
-# `juju model-config`
 > See also: [models](#models), [model-defaults](#model-defaults), [show-cloud](#show-cloud), [controller-config](#controller-config)
 
 ## Summary
@@ -361,3 +359,8 @@ The following keys are available:
       type: string
       description: How often to run the charm update-status hook, in human-readable time
         format (default 5m, range 1-60m)
+    
+
+
+
+

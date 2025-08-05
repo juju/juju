@@ -1,5 +1,3 @@
-(command-juju-info)=
-# `juju info`
 > See also: [find](#find), [download](#download)
 
 ## Summary
@@ -45,3 +43,6 @@ For example: --revision 42
 Use --track to display information about a specific track of the charm,
 which cannot be used together with --arch, --base, --channel or --series.
 For example: --track 14
+
+
+

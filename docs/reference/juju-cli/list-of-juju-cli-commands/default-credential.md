@@ -1,5 +1,3 @@
-(command-juju-default-credential)=
-# `juju default-credential`
 > See also: [credentials](#credentials), [add-credential](#add-credential), [remove-credential](#remove-credential), [autoload-credentials](#autoload-credentials)
 
 **Aliases:** set-default-credentials
@@ -37,3 +35,6 @@ To unset previously set default credential for a cloud, use --reset option.
 
 To view currently set default credential for a cloud, use the command
 without a credential name argument.
+
+
+
