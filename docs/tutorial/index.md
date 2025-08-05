@@ -5,8 +5,6 @@ Juju is an application orchestration tool for charmed applications -- that is, a
 
 In this tutorial you will get acquainted with Juju and charms by deploying a chat service.
 
-<!-- Imagine your business needs a chat service such as Mattermost backed up by a database such as PostgreSQL. In a traditional setup, this can be quite a challenge, but with Juju you'll find yourself deploying, configuring, scaling, integrating, etc., applications in no time. Let's get started! -->
-
 **What you'll need:**
 - A workstation that has sufficient resources to launch a virtual machine with 4 CPUs, 8 GB RAM, and 50 GB disk space.
 - Familiarity with a terminal.
@@ -78,9 +76,6 @@ If the VM launch fails, run `multipass delete --purge my-juju-vm` to clean up, t
 ```
 
 ## Set up Juju
-
-<!-- Juju is a distributed system consisting of a controller that contains the API server and database and which coordinates with clients and agents; to have a functional Juju you need to set up at least the `juju` CLI client and a Juju controller. -->
-
 
 ```{figure} tutorial-setup.svg
    :alt: Juju consists of a client and a controller and both need access to a cloud and to Charmhub
