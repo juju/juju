@@ -418,5 +418,5 @@ AND    si.storage_id = $storageAttachmentLife.storage_id`, attachment)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
-	return domainlife.Life(attachment.Life), nil
+	return attachment.Life, nil
 }

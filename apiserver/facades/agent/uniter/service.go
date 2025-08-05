@@ -21,7 +21,6 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
-	corewatcher "github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	domainlife "github.com/juju/juju/domain/life"
@@ -575,7 +574,7 @@ type RemovalService interface {
 // BlockDeviceService provides methods to watch and manage block devices.
 type BlockDeviceService interface {
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
-	WatchBlockDevices(ctx context.Context, machineId string) (corewatcher.NotifyWatcher, error)
+	WatchBlockDevices(ctx context.Context, machineId string) (watcher.NotifyWatcher, error)
 }
 
 // StorageProvisioningService provides methods to watch and manage storage
@@ -600,6 +599,6 @@ type StorageProvisioningService interface {
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.AttachmentNotFound] when the
 	// storage attachment does not exist for the unit.
 	GetAttachmentLife(
-		ctx context.Context, unitUUID coreunit.UUID, attachmentID corestorage.ID,
+		ctx context.Context, unitUUID coreunit.UUID, storageID corestorage.ID,
 	) (domainlife.Life, error)
 }

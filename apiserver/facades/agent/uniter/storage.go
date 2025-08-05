@@ -105,9 +105,9 @@ func (s *StorageAPI) UnitStorageAttachments(ctx context.Context, args params.Ent
 			ctx, unitUUID,
 		)
 		switch {
-		case errors.Is(err, coreunit.InvalidUnitName):
+		case errors.Is(err, coreerrors.NotValid):
 			return nil, internalerrors.Errorf(
-				"invalid unit name %q", unitTag.Id(),
+				"invalid unit uuid for %q", unitTag.Id(),
 			).Add(errors.NotValid)
 		case errors.Is(err, applicationerrors.UnitNotFound):
 			return nil, internalerrors.Errorf(
@@ -126,11 +126,12 @@ func (s *StorageAPI) UnitStorageAttachments(ctx context.Context, args params.Ent
 		var storageAttachmentIds []params.StorageAttachmentId
 		for _, sID := range sIDs {
 			if !names.IsValidStorage(sID.String()) {
+				// This should never happen. But to avoid a panic, we
+				// return an error if we encounter an invalid storage ID.
 				return nil, internalerrors.Errorf(
 					"invalid storage ID %q for unit %q", sID, unitTag.Id(),
 				).Add(errors.NotValid)
 			}
-
 			storageAttachmentIds = append(storageAttachmentIds, params.StorageAttachmentId{
 				UnitTag:    unitTag.String(),
 				StorageTag: names.NewStorageTag(sID.String()).String(),
@@ -171,6 +172,10 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 // StorageAttachmentLife returns the lifecycle state of the storage attachments
 // with the specified tags.
 func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.StorageAttachmentIds) (params.LifeResults, error) {
+	canAccess, err := s.accessUnit(ctx)
+	if err != nil {
+		return params.LifeResults{}, err
+	}
 	result := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Ids)),
 	}
@@ -179,10 +184,8 @@ func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.Stor
 		if err != nil {
 			return "", internalerrors.Capture(err)
 		}
-
-		unitUUID, err := s.getUnitUUID(ctx, unitTag)
-		if err != nil {
-			return "", internalerrors.Capture(err)
+		if !canAccess(unitTag) {
+			return "", apiservererrors.ErrPerm
 		}
 
 		storageTag, err := names.ParseStorageTag(arg.StorageTag)
@@ -195,6 +198,11 @@ func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.Stor
 				"invalid storage ID %q for unit %q", arg.StorageTag, unitTag.Id(),
 			).Add(errors.NotValid)
 		} else if err != nil {
+			return "", internalerrors.Capture(err)
+		}
+
+		unitUUID, err := s.getUnitUUID(ctx, unitTag)
+		if err != nil {
 			return "", internalerrors.Capture(err)
 		}
 
