@@ -4,6 +4,8 @@
 package fanconfigurer
 
 import (
+	"github.com/juju/names/v5"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -37,9 +39,17 @@ func (f *Facade) WatchForFanConfigChanges() (watcher.NotifyWatcher, error) {
 }
 
 // FanConfig returns the current fan configuration.
-func (f *Facade) FanConfig() (network.FanConfig, error) {
-	var result params.FanConfigResult
-	err := f.caller.FacadeCall("FanConfig", nil, &result)
+func (f *Facade) FanConfig(tag names.MachineTag) (network.FanConfig, error) {
+	var (
+		result params.FanConfigResult
+		err    error
+	)
+	if f.caller.BestAPIVersion() < 2 {
+		err = f.caller.FacadeCall("FanConfig", nil, &result)
+	} else {
+		arg := params.Entity{Tag: tag.String()}
+		err = f.caller.FacadeCall("FanConfig", arg, &result)
+	}
 	if err != nil {
 		return nil, apiservererrors.RestoreError(err)
 	}

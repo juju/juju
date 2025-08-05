@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package fanconfigurer_test -destination state_mock_test.go github.com/juju/juju/apiserver/facades/agent/fanconfigurer MachineAccessor,ModelAccessor,Machine
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

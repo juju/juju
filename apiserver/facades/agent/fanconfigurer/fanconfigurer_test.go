@@ -5,11 +5,12 @@ package fanconfigurer_test
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -27,39 +28,40 @@ import (
 
 type fanconfigurerSuite struct {
 	testing.BaseSuite
+
+	mockModelAccessor   *MockModelAccessor
+	mockMachineAccessor *MockMachineAccessor
+	mockMachine         *MockMachine
 }
 
 var _ = gc.Suite(&fanconfigurerSuite{})
 
-type fakeModelAccessor struct {
-	modelConfig      *config.Config
-	modelConfigError error
-}
-
-func (*fakeModelAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
-	return apiservertesting.NewFakeNotifyWatcher()
-}
-
-func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
-	if f.modelConfigError != nil {
-		return nil, f.modelConfigError
-	}
-	return f.modelConfig, nil
-}
-
-func (s *fanconfigurerSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
-	s.BaseSuite.TearDownTest(c)
+func (s *fanconfigurerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockModelAccessor = NewMockModelAccessor(ctrl)
+	s.mockMachineAccessor = NewMockMachineAccessor(ctrl)
+	s.mockMachine = NewMockMachine(ctrl)
+	s.AddCleanup(func(_ *gc.C) {
+		s.mockModelAccessor = nil
+		s.mockMachineAccessor = nil
+		s.mockMachine = nil
+	})
+	return ctrl
 }
 
 func (s *fanconfigurerSuite) TestWatchSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.mockModelAccessor.EXPECT().WatchForModelConfigChanges().Return(apiservertesting.NewFakeNotifyWatcher())
+
 	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
-		&fakeModelAccessor{},
+		s.mockModelAccessor,
+		s.mockMachineAccessor,
 		resources,
 		authorizer,
 	)
@@ -71,13 +73,16 @@ func (s *fanconfigurerSuite) TestWatchSuccess(c *gc.C) {
 }
 
 func (s *fanconfigurerSuite) TestWatchAuthFailed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("vito"),
 	}
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	_, err := fanconfigurer.NewFanConfigurerAPIForModel(
-		&fakeModelAccessor{},
+		s.mockModelAccessor,
+		s.mockMachineAccessor,
 		resources,
 		authorizer,
 	)
@@ -85,6 +90,8 @@ func (s *fanconfigurerSuite) TestWatchAuthFailed(c *gc.C) {
 }
 
 func (s *fanconfigurerSuite) TestFanConfigSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -92,15 +99,18 @@ func (s *fanconfigurerSuite) TestFanConfigSuccess(c *gc.C) {
 	}
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	testingEnvConfig := testingEnvConfig(c)
+	s.mockModelAccessor.EXPECT().ModelConfig().Return(testingEnvConfig, nil)
+	s.mockMachineAccessor.EXPECT().Machine("0").Return(s.mockMachine, nil)
+	s.mockMachine.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "22.04/stable"})
+
 	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
-		&fakeModelAccessor{
-			modelConfig: testingEnvConfig,
-		},
+		s.mockModelAccessor,
+		s.mockMachineAccessor,
 		resources,
 		authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := e.FanConfig()
+	result, err := e.FanConfig(params.Entity{Tag: "machine-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Fans, gc.HasLen, 2)
 	c.Check(result.Fans[0].Underlay, gc.Equals, "10.100.0.0/16")
@@ -109,22 +119,51 @@ func (s *fanconfigurerSuite) TestFanConfigSuccess(c *gc.C) {
 	c.Check(result.Fans[1].Overlay, gc.Equals, "252.0.0.0/8")
 }
 
-func (s *fanconfigurerSuite) TestFanConfigFetchError(c *gc.C) {
+func (s *fanconfigurerSuite) TestFanConfigNoble(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.mockMachineAccessor.EXPECT().Machine("0").Return(s.mockMachine, nil)
+	s.mockMachine.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "24.04/stable"})
+
 	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
-		&fakeModelAccessor{
-			modelConfigError: fmt.Errorf("pow"),
-		},
+		s.mockModelAccessor,
+		s.mockMachineAccessor,
+		resources,
+		authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := e.FanConfig(params.Entity{Tag: "machine-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Fans, gc.HasLen, 0)
+}
+
+func (s *fanconfigurerSuite) TestFanConfigFetchError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resources := common.NewResources()
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
+	}
+	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.mockMachineAccessor.EXPECT().Machine("0").Return(s.mockMachine, nil)
+	s.mockMachine.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "22.04/stable"})
+	s.mockModelAccessor.EXPECT().ModelConfig().Return(nil, errors.New("pow"))
+
+	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
+		s.mockModelAccessor,
+		s.mockMachineAccessor,
 		nil,
 		authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = e.FanConfig()
+	_, err = e.FanConfig(params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 

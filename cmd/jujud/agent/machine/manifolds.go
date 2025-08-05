@@ -13,10 +13,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
-	pubsub "github.com/juju/pubsub/v2"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
-	version "github.com/juju/version/v2"
-	worker "github.com/juju/worker/v3"
+	"github.com/juju/version/v2"
+	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -836,6 +836,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
+			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
 		})),

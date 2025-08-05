@@ -14,6 +14,7 @@ import (
 
 	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,18 +42,18 @@ func (m *MockFanConfigurerFacade) EXPECT() *MockFanConfigurerFacadeMockRecorder 
 }
 
 // FanConfig mocks base method.
-func (m *MockFanConfigurerFacade) FanConfig() (network.FanConfig, error) {
+func (m *MockFanConfigurerFacade) FanConfig(arg0 names.MachineTag) (network.FanConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FanConfig")
+	ret := m.ctrl.Call(m, "FanConfig", arg0)
 	ret0, _ := ret[0].(network.FanConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FanConfig indicates an expected call of FanConfig.
-func (mr *MockFanConfigurerFacadeMockRecorder) FanConfig() *gomock.Call {
+func (mr *MockFanConfigurerFacadeMockRecorder) FanConfig(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FanConfig", reflect.TypeOf((*MockFanConfigurerFacade)(nil).FanConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FanConfig", reflect.TypeOf((*MockFanConfigurerFacade)(nil).FanConfig), arg0)
 }
 
 // WatchForFanConfigChanges mocks base method.

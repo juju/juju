@@ -6,9 +6,11 @@ package fanconfigurer
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/agent"
 	apifanconfigurer "github.com/juju/juju/api/agent/fanconfigurer"
 	"github.com/juju/juju/api/base"
 )
@@ -18,6 +20,7 @@ import (
 type ManifoldConfig struct {
 	// These are the dependency resource names.
 	APICallerName string
+	AgentName     string
 	Clock         clock.Clock
 }
 
@@ -27,6 +30,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
+			config.AgentName,
 		},
 		Output: func(in worker.Worker, out interface{}) error {
 			inWorker, _ := in.(*FanConfigurer)
@@ -47,10 +51,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var agent agent.Agent
+			if err := context.Get(config.AgentName, &agent); err != nil {
+				return nil, errors.Trace(err)
+			}
+			machineTag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
+			if !ok {
+				return nil, errors.Errorf("agent tag should be a MachineTag; got %T", agent.CurrentConfig().Tag())
+			}
+
 			facade := apifanconfigurer.NewFacade(apiCaller)
 
 			fanconfigurer, err := NewFanConfigurer(FanConfigurerConfig{
 				Facade: facade,
+				Tag:    machineTag,
 			}, config.Clock)
 			return fanconfigurer, errors.Annotate(err, "creating fanconfigurer orchestrator")
 		},

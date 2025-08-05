@@ -3150,7 +3150,7 @@
     {
         "Name": "FanConfigurer",
         "Description": "",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -3163,6 +3163,9 @@
                 "FanConfig": {
                     "type": "object",
                     "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
                         "Result": {
                             "$ref": "#/definitions/FanConfigResult"
                         }
@@ -3178,6 +3181,18 @@
                 }
             },
             "definitions": {
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {

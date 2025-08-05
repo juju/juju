@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v5"
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/core/network"
@@ -29,12 +30,13 @@ type FanConfigurer struct {
 }
 
 type FanConfigurerFacade interface {
-	FanConfig() (network.FanConfig, error)
+	FanConfig(tag names.MachineTag) (network.FanConfig, error)
 	WatchForFanConfigChanges() (watcher.NotifyWatcher, error)
 }
 
 type FanConfigurerConfig struct {
 	Facade FanConfigurerFacade
+	Tag    names.MachineTag
 }
 
 // processNewConfig acts on a new fan config.
@@ -48,7 +50,7 @@ func (fc *FanConfigurer) processNewConfig() error {
 	// use the new facade, but it will fail.
 	// Part of the migration steps to 4.0 prevents a migration with fan-config
 	// set, so the code below is dead code.
-	fanConfig, err := fc.config.Facade.FanConfig()
+	fanConfig, err := fc.config.Facade.FanConfig(fc.config.Tag)
 	if errors.Is(err, errors.NotImplemented) {
 		return nil
 	} else if err != nil {

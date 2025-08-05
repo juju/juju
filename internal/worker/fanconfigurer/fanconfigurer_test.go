@@ -5,6 +5,7 @@ package fanconfigurer
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -21,11 +22,12 @@ var _ = gc.Suite(&fanConfigurerSuite{})
 func (s *fanConfigurerSuite) TestProcessNewConfigNotImplemented(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facade.EXPECT().FanConfig().Return(nil, errors.NotImplemented)
+	s.facade.EXPECT().FanConfig(names.NewMachineTag("0")).Return(nil, errors.NotImplemented)
 
 	fc := &FanConfigurer{
 		config: FanConfigurerConfig{
 			Facade: s.facade,
+			Tag:    names.NewMachineTag("0"),
 		},
 	}
 
@@ -41,6 +43,7 @@ func (s *fanConfigurerSuite) TestProcessLoopNotImplemented(c *gc.C) {
 	fc := &FanConfigurer{
 		config: FanConfigurerConfig{
 			Facade: s.facade,
+			Tag:    names.NewMachineTag("0"),
 		},
 	}
 
