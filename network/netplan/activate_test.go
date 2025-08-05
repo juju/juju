@@ -27,7 +27,7 @@ func (s *ActivateSuite) TestNoDevices(c *gc.C) {
 	params := netplan.ActivationParams{}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "no devices specified")
+	c.Assert(err, gc.ErrorMatches, "no devices specified")
 }
 
 func (s *ActivateSuite) TestNoDirectory(c *gc.C) {
@@ -39,7 +39,7 @@ func (s *ActivateSuite) TestNoDirectory(c *gc.C) {
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "open /quite/for/sure/this/doesnotexists.*")
+	c.Assert(err, gc.ErrorMatches, "open /quite/for/sure/this/doesnotexists.*")
 }
 
 func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
@@ -72,7 +72,7 @@ func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, gc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *gc.C) {
@@ -105,7 +105,7 @@ func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *gc.C) {
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, gc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
@@ -159,7 +159,7 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 			yamlCount++
 		}
 	}
-	c.Check(yamlCount, gc.Equals, len(files))
+	c.Assert(yamlCount, gc.Equals, len(files))
 }
 
 func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
@@ -193,5 +193,5 @@ func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	_, err := netplan.BridgeAndActivate(params)
-	c.Check(err, gc.ErrorMatches, `activating bridge: running command "sleep 10000 && netplan generate && netplan apply && sleep 10": command cancelled`)
+	c.Assert(err, gc.ErrorMatches, `activating bridge: running command "sleep 10000 && netplan generate && netplan apply && sleep 10": command cancelled`)
 }
