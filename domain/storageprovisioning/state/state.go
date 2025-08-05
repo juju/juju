@@ -321,14 +321,14 @@ func (st *State) checkApplicationExists(
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
 // - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
-func (s *State) GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]corestorage.ID, error) {
+func (s *State) GetStorageIDsForUnit(ctx context.Context, unitUUID string) ([]corestorage.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	input := storageAttachment{
-		UnitUUID: unitUUID.String(),
+		UnitUUID: unitUUID,
 	}
 	stmt, err := s.Prepare(`
 SELECT &storageAttachment.*
@@ -341,6 +341,14 @@ WHERE  unit_uuid = $storageAttachment.unit_uuid`, input)
 
 	var attachments storageAttachments
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if exists, err := s.checkUnitExists(ctx, tx, unitUUID); err != nil {
+			return errors.Capture(err)
+		} else if !exists {
+			return errors.Errorf("unit %q does not exist", unitUUID).Add(
+				applicationerrors.UnitNotFound,
+			)
+		}
+
 		err := tx.Query(ctx, stmt, input).GetAll(&attachments)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("unit %q does not exist", unitUUID).Add(
@@ -357,7 +365,10 @@ WHERE  unit_uuid = $storageAttachment.unit_uuid`, input)
 	for _, attachment := range attachments {
 		id := corestorage.ID(attachment.StorageID)
 		if err := id.Validate(); err != nil {
-			return nil, errors.Errorf("invalid storage ID %q for unit %q: %w", id, unitUUID, err)
+			// This should not happen, but if it does, we return an error.
+			return nil, errors.Errorf(
+				"invalid storage ID %q for unit %q: %w", id, unitUUID, err,
+			).Add(corestorage.InvalidStorageID)
 		}
 		storageIDs = append(storageIDs, id)
 	}
@@ -369,21 +380,21 @@ WHERE  unit_uuid = $storageAttachment.unit_uuid`, input)
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
 // - [storageprovisioningerrors.AttachmentNotFound] when the storage attachment does not exist for the unit.
-func (s *State) GetAttachmentLife(ctx context.Context, unitUUID, attachmentID string) (domainlife.Life, error) {
+func (s *State) GetAttachmentLife(ctx context.Context, unitUUID, storageID string) (domainlife.Life, error) {
 	db, err := s.DB()
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
 	attachment := storageAttachmentLife{
 		UnitUUID:  unitUUID,
-		StorageID: attachmentID,
+		StorageID: storageID,
 	}
 	stmt, err := s.Prepare(`
-SELECT &storageAttachmentLife.*
+SELECT (si.life_id) AS (&storageAttachmentLife.*)
 FROM   storage_attachment sa
 JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
 WHERE  sa.unit_uuid = $storageAttachmentLife.unit_uuid
-AND    si.id = $storageAttachmentLife.storage_id`, attachment)
+AND    si.storage_id = $storageAttachmentLife.storage_id`, attachment)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -399,7 +410,7 @@ AND    si.id = $storageAttachmentLife.storage_id`, attachment)
 		err := tx.Query(ctx, stmt, attachment).Get(&attachment)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"storage attachment %q for unit %q does not exist", attachmentID, unitUUID,
+				"storage attachment %q for unit %q does not exist", storageID, unitUUID,
 			).Add(storageprovisioningerrors.AttachmentNotFound)
 		}
 		return err
