@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -1639,21 +1638,21 @@ func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
 
 	got, err := s.state.GetApplicationUnitLife(c.Context(), "foo", fooUnits[1])
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
-		fooUnits[1]: life.Alive,
+	c.Assert(got, tc.DeepEquals, map[string]int{
+		fooUnits[1].String(): 0,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo", fooUnits[:]...)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
-		fooUnits[0]: life.Dead,
-		fooUnits[1]: life.Alive,
+	c.Assert(got, tc.DeepEquals, map[string]int{
+		fooUnits[0].String(): 2,
+		fooUnits[1].String(): 0,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo", fooUnits[1], barUnits[0])
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.DeepEquals, map[coreunit.UUID]life.Life{
-		fooUnits[1]: life.Alive,
+	c.Assert(got, tc.DeepEquals, map[string]int{
+		fooUnits[1].String(): 0,
 	})
 
 	got, err = s.state.GetApplicationUnitLife(c.Context(), "foo")
@@ -1668,15 +1667,15 @@ func (s *applicationStateSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 
 	fooUnitLife, err := s.state.GetAllUnitLifeForApplication(c.Context(), fooAppID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(fooUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
-		coreunit.Name("foo/0"): life.Dead,
-		coreunit.Name("foo/1"): life.Alive,
+	c.Check(fooUnitLife, tc.DeepEquals, map[string]int{
+		"foo/0": 2,
+		"foo/1": 0,
 	})
 
 	barUnitLife, err := s.state.GetAllUnitLifeForApplication(c.Context(), barAppID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(barUnitLife, tc.DeepEquals, map[coreunit.Name]life.Life{
-		coreunit.Name("bar/0"): life.Alive,
+	c.Check(barUnitLife, tc.DeepEquals, map[string]int{
+		"bar/0": 0,
 	})
 
 	_, err = s.state.GetAllUnitLifeForApplication(c.Context(),

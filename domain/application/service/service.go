@@ -266,8 +266,8 @@ func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName
 			return nil, err
 		}
 		result := make(map[string]life.Life, len(lives))
-		for unitUUID, life := range lives {
-			result[unitUUID.String()] = life
+		for unitUUID, lifeID := range lives {
+			result[unitUUID] = life.Life(lifeID)
 		}
 		return result, nil
 	}

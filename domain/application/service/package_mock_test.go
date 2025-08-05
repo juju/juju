@@ -869,44 +869,6 @@ func (c *MockStateDeleteApplicationCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
-// DeleteCharm mocks base method.
-func (m *MockState) DeleteCharm(arg0 context.Context, arg1 charm.ID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteCharm", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteCharm indicates an expected call of DeleteCharm.
-func (mr *MockStateMockRecorder) DeleteCharm(arg0, arg1 any) *MockStateDeleteCharmCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCharm", reflect.TypeOf((*MockState)(nil).DeleteCharm), arg0, arg1)
-	return &MockStateDeleteCharmCall{Call: call}
-}
-
-// MockStateDeleteCharmCall wrap *gomock.Call
-type MockStateDeleteCharmCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteCharmCall) Return(arg0 error) *MockStateDeleteCharmCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteCharmCall) Do(f func(context.Context, charm.ID) error) *MockStateDeleteCharmCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteCharmCall) DoAndReturn(f func(context.Context, charm.ID) error) *MockStateDeleteCharmCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DetachStorage mocks base method.
 func (m *MockState) DetachStorage(arg0 context.Context, arg1 storage0.StorageInstanceUUID) error {
 	m.ctrl.T.Helper()
@@ -1139,10 +1101,10 @@ func (c *MockStateGetAllUnitCloudContainerIDsForApplicationCall) DoAndReturn(f f
 }
 
 // GetAllUnitLifeForApplication mocks base method.
-func (m *MockState) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]life.Life, error) {
+func (m *MockState) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.ID) (map[string]int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllUnitLifeForApplication", arg0, arg1)
-	ret0, _ := ret[0].(map[unit.Name]life.Life)
+	ret0, _ := ret[0].(map[string]int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1160,19 +1122,19 @@ type MockStateGetAllUnitLifeForApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllUnitLifeForApplicationCall) Return(arg0 map[unit.Name]life.Life, arg1 error) *MockStateGetAllUnitLifeForApplicationCall {
+func (c *MockStateGetAllUnitLifeForApplicationCall) Return(arg0 map[string]int, arg1 error) *MockStateGetAllUnitLifeForApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllUnitLifeForApplicationCall) Do(f func(context.Context, application.ID) (map[unit.Name]life.Life, error)) *MockStateGetAllUnitLifeForApplicationCall {
+func (c *MockStateGetAllUnitLifeForApplicationCall) Do(f func(context.Context, application.ID) (map[string]int, error)) *MockStateGetAllUnitLifeForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllUnitLifeForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[unit.Name]life.Life, error)) *MockStateGetAllUnitLifeForApplicationCall {
+func (c *MockStateGetAllUnitLifeForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[string]int, error)) *MockStateGetAllUnitLifeForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1844,14 +1806,14 @@ func (c *MockStateGetApplicationTrustSettingCall) DoAndReturn(f func(context.Con
 }
 
 // GetApplicationUnitLife mocks base method.
-func (m *MockState) GetApplicationUnitLife(arg0 context.Context, arg1 string, arg2 ...unit.UUID) (map[unit.UUID]life.Life, error) {
+func (m *MockState) GetApplicationUnitLife(arg0 context.Context, arg1 string, arg2 ...unit.UUID) (map[string]int, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetApplicationUnitLife", varargs...)
-	ret0, _ := ret[0].(map[unit.UUID]life.Life)
+	ret0, _ := ret[0].(map[string]int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1870,19 +1832,19 @@ type MockStateGetApplicationUnitLifeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationUnitLifeCall) Return(arg0 map[unit.UUID]life.Life, arg1 error) *MockStateGetApplicationUnitLifeCall {
+func (c *MockStateGetApplicationUnitLifeCall) Return(arg0 map[string]int, arg1 error) *MockStateGetApplicationUnitLifeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationUnitLifeCall) Do(f func(context.Context, string, ...unit.UUID) (map[unit.UUID]life.Life, error)) *MockStateGetApplicationUnitLifeCall {
+func (c *MockStateGetApplicationUnitLifeCall) Do(f func(context.Context, string, ...unit.UUID) (map[string]int, error)) *MockStateGetApplicationUnitLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationUnitLifeCall) DoAndReturn(f func(context.Context, string, ...unit.UUID) (map[unit.UUID]life.Life, error)) *MockStateGetApplicationUnitLifeCall {
+func (c *MockStateGetApplicationUnitLifeCall) DoAndReturn(f func(context.Context, string, ...unit.UUID) (map[string]int, error)) *MockStateGetApplicationUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

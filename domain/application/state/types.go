@@ -101,19 +101,35 @@ type unitUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
 }
 
+type unitUUIDLife struct {
+	UnitUUID string `db:"uuid"`
+	LifeID   int    `db:"life_id"`
+}
+
 type unitName struct {
 	Name coreunit.Name `db:"name"`
 }
 
-type unitDetails struct {
+type unitNameLife struct {
+	Name   string `db:"name"`
+	LifeID int    `db:"life_id"`
+}
+
+type unitRow struct {
 	UnitUUID                coreunit.UUID      `db:"uuid"`
-	CharmUUID               corecharm.ID       `db:"charm_uuid"`
-	NetNodeID               string             `db:"net_node_uuid"`
 	Name                    coreunit.Name      `db:"name"`
-	ApplicationID           coreapplication.ID `db:"application_uuid"`
 	LifeID                  life.Life          `db:"life_id"`
+	ApplicationID           coreapplication.ID `db:"application_uuid"`
+	NetNodeID               string             `db:"net_node_uuid"`
+	CharmUUID               corecharm.ID       `db:"charm_uuid"`
 	PasswordHash            sql.NullString     `db:"password_hash"`
 	PasswordHashAlgorithmID sql.NullInt16      `db:"password_hash_algorithm_id"`
+}
+
+type unitDetails struct {
+	UnitUUID  coreunit.UUID `db:"uuid"`
+	NetNodeID string        `db:"net_node_uuid"`
+	Name      coreunit.Name `db:"name"`
 }
 
 type unitAttributes struct {
@@ -132,11 +148,9 @@ type unitPassword struct {
 
 type unitUUIDs []coreunit.UUID
 
-type minimalUnit struct {
-	UUID      coreunit.UUID `db:"uuid"`
-	NetNodeID string        `db:"net_node_uuid"`
-	Name      coreunit.Name `db:"name"`
-	LifeID    life.Life     `db:"life_id"`
+type unitLifeAndNetNode struct {
+	NetNodeID string `db:"net_node_uuid"`
+	LifeID    int    `db:"life_id"`
 }
 
 type unitStatusInfo struct {
@@ -1208,8 +1222,8 @@ type unitWorkloadVersion struct {
 }
 
 type applicationWorkloadVersion struct {
-	ApplicationUUID coreapplication.ID `db:"application_uuid"`
-	Version         string             `db:"version"`
+	ApplicationUUID string `db:"application_uuid"`
+	Version         string `db:"version"`
 }
 
 type getPrincipal struct {

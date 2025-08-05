@@ -69,26 +69,27 @@ WHERE  uuid = $entityUUID.uuid
 	return true, nil
 }
 
-func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) (life.Life, string, error) {
-	unit := minimalUnit{UUID: unitUUID}
+func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID) (life.Life, string, error) {
+	unitUUID := unitUUID{UnitUUID: uuid}
 	queryUnit := `
-SELECT &minimalUnit.*
+SELECT &unitLifeAndNetNode.*
 FROM unit
-WHERE uuid = $minimalUnit.uuid
+WHERE uuid = $unitUUID.uuid
 `
-	queryUnitStmt, err := st.Prepare(queryUnit, unit)
+	queryUnitStmt, err := st.Prepare(queryUnit, unitUUID, unitLifeAndNetNode{})
 	if err != nil {
 		return 0, "", errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, queryUnitStmt, unit).Get(&unit)
-	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return 0, "", errors.Errorf("querying unit %q life: %w", unitUUID, err)
-		}
+	var lifeAndNetNode unitLifeAndNetNode
+	err = tx.Query(ctx, queryUnitStmt, unitUUID).Get(&lifeAndNetNode)
+	if errors.Is(err, sqlair.ErrNoRows) {
 		return 0, "", errors.Errorf("%w: %s", applicationerrors.UnitNotFound, unitUUID)
+	} else if err != nil {
+		return 0, "", errors.Errorf("querying unit %q life: %w", unitUUID, err)
 	}
-	return unit.LifeID, unit.NetNodeID, nil
+
+	return life.Life(lifeAndNetNode.LifeID), lifeAndNetNode.NetNodeID, nil
 }
 
 // status data. If returns an error satisfying [applicationerrors.UnitNotFound]
@@ -240,15 +241,15 @@ func (st *State) InitialWatchStatementUnitLife(appName string) (string, eventsou
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		app := applicationName{Name: appName}
 		stmt, err := st.Prepare(`
-SELECT u.uuid AS &unitDetails.uuid
+SELECT u.uuid AS &unitUUID.uuid
 FROM unit u
 JOIN application a ON a.uuid = u.application_uuid
 WHERE a.name = $applicationName.name
-`, app, unitDetails{})
+`, app, unitUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		var result []unitDetails
+		var result []unitUUID
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			err := tx.Query(ctx, stmt, app).GetAll(&result)
 			if errors.Is(err, sqlair.ErrNoRows) {
@@ -271,7 +272,7 @@ WHERE a.name = $applicationName.name
 // GetApplicationUnitLife returns the life values for the specified units of the
 // given application. The supplied ids may belong to a different application;
 // the application name is used to filter.
-func (st *State) GetApplicationUnitLife(ctx context.Context, appName string, ids ...coreunit.UUID) (map[coreunit.UUID]life.Life, error) {
+func (st *State) GetApplicationUnitLife(ctx context.Context, appName string, ids ...coreunit.UUID) (map[string]int, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -279,7 +280,7 @@ func (st *State) GetApplicationUnitLife(ctx context.Context, appName string, ids
 	unitUUIDs := unitUUIDs(ids)
 
 	lifeQuery := `
-SELECT (u.uuid, u.life_id) AS (&unitDetails.*)
+SELECT (u.uuid, u.life_id) AS (&unitUUIDLife.*)
 FROM unit u
 JOIN application a ON a.uuid = u.application_uuid
 WHERE u.uuid IN ($unitUUIDs[:])
@@ -287,12 +288,12 @@ AND a.name = $applicationName.name
 `
 
 	app := applicationName{Name: appName}
-	lifeStmt, err := st.Prepare(lifeQuery, app, unitDetails{}, unitUUIDs)
+	lifeStmt, err := st.Prepare(lifeQuery, app, unitUUIDLife{}, unitUUIDs)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var lifes []unitDetails
+	var lifes []unitUUIDLife
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, lifeStmt, unitUUIDs, app).GetAll(&lifes)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -303,7 +304,7 @@ AND a.name = $applicationName.name
 	if err != nil {
 		return nil, errors.Errorf("querying unit life for %q: %w", appName, err)
 	}
-	result := make(map[coreunit.UUID]life.Life)
+	result := make(map[string]int)
 	for _, u := range lifes {
 		result[u.UnitUUID] = u.LifeID
 	}
@@ -359,7 +360,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 // for the given application.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]life.Life, error) {
+func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[string]int, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -377,18 +378,18 @@ WHERE uuid = $applicationID.uuid;
 	}
 
 	lifeQuery := `
-SELECT (u.name, u.life_id) AS (&unitDetails.*)
+SELECT (u.name, u.life_id) AS (&unitNameLife.*)
 FROM unit u
 WHERE u.application_uuid = $applicationID.uuid
 `
 
 	app := applicationID{ID: appID}
-	lifeStmt, err := st.Prepare(lifeQuery, app, unitDetails{})
+	lifeStmt, err := st.Prepare(lifeQuery, app, unitNameLife{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var lifes []unitDetails
+	var lifes []unitNameLife
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, appExistsStmt, ident).Get(&ident)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -405,7 +406,7 @@ WHERE u.application_uuid = $applicationID.uuid
 	if err != nil {
 		return nil, errors.Errorf("querying unit life for %q: %w", appID, err)
 	}
-	result := make(map[coreunit.Name]life.Life)
+	result := make(map[string]int)
 	for _, u := range lifes {
 		result[u.Name] = u.LifeID
 	}
@@ -1012,6 +1013,30 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName cor
 	return &unit, nil
 }
 
+func (st *State) getUnitApplicationID(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID) (string, error) {
+	unitUUID := unitUUID{UnitUUID: uuid}
+
+	query, err := st.Prepare(`
+SELECT a.uuid AS &applicationID.uuid
+FROM application AS a
+JOIN unit AS u ON u.application_uuid = a.uuid
+WHERE u.uuid = $unitUUID.uuid
+	`, applicationID{}, unitUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var appID applicationID
+	err = tx.Query(ctx, query, unitUUID).Get(&appID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("unit %q not found", uuid).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return appID.ID.String(), nil
+}
+
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderID: cloudContainer.ProviderID,
@@ -1379,7 +1404,7 @@ func (st *State) insertUnit(
 		return errors.Capture(err)
 	}
 
-	createParams := unitDetails{
+	createParams := unitRow{
 		ApplicationID: appUUID,
 		UnitUUID:      unitUUID,
 		CharmUUID:     args.CharmUUID,
@@ -1401,7 +1426,7 @@ func (st *State) insertUnit(
 		}
 	}
 
-	createUnit := `INSERT INTO unit (*) VALUES ($unitDetails.*)`
+	createUnit := `INSERT INTO unit (*) VALUES ($unitRow.*)`
 	createUnitStmt, err := st.Prepare(createUnit, createParams)
 	if err != nil {
 		return errors.Capture(err)
@@ -1423,7 +1448,7 @@ func (st *State) insertUnit(
 	if err := st.setUnitWorkloadStatus(ctx, tx, unitUUID, args.WorkloadStatus); err != nil {
 		return errors.Errorf("setting workload status for unit %q: %w", args.UnitName, err)
 	}
-	if err := st.setUnitWorkloadVersion(ctx, tx, args.UnitName, ""); err != nil {
+	if err := st.setUnitWorkloadVersion(ctx, tx, unitUUID, ""); err != nil {
 		return errors.Errorf("setting workload version for unit %q: %w", args.UnitName, err)
 	}
 	return nil
@@ -1746,7 +1771,11 @@ func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.N
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.setUnitWorkloadVersion(ctx, tx, unitName, version)
+		unitUUID, err := st.getUnitUUIDByName(ctx, tx, unitName)
+		if err != nil {
+			return errors.Errorf("getting uuid for unit %q: %w", unitName, err)
+		}
+		return st.setUnitWorkloadVersion(ctx, tx, unitUUID, version)
 	})
 	if err != nil {
 		return errors.Capture(err)
@@ -1762,7 +1791,7 @@ func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.N
 func (st *State) setUnitWorkloadVersion(
 	ctx context.Context,
 	tx *sqlair.TX,
-	unitName coreunit.Name,
+	unitUUID coreunit.UUID,
 	version string,
 ) error {
 	unitQuery, err := st.Prepare(`
@@ -1785,23 +1814,23 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
-	details, err := st.getUnitDetails(ctx, tx, unitName)
+	appID, err := st.getUnitApplicationID(ctx, tx, unitUUID)
 	if err != nil {
-		return errors.Errorf("getting unit uuid for %q: %w", unitName, err)
+		return errors.Errorf("getting application id for unit %q: %w", unitUUID, err)
 	}
 
 	if err := tx.Query(ctx, unitQuery, unitWorkloadVersion{
-		UnitUUID: details.UnitUUID,
+		UnitUUID: unitUUID,
 		Version:  version,
 	}).Run(); err != nil {
-		return errors.Errorf("setting workload version for unit %q: %w", unitName, err)
+		return errors.Errorf("setting workload version for unit %q: %w", unitUUID, err)
 	}
 
 	if err := tx.Query(ctx, appQuery, applicationWorkloadVersion{
-		ApplicationUUID: details.ApplicationID,
+		ApplicationUUID: appID,
 		Version:         version,
 	}).Run(); err != nil {
-		return errors.Errorf("setting workload version for application %q: %w", details.ApplicationID, err)
+		return errors.Errorf("setting workload version for application %q: %w", appID, err)
 	}
 	return nil
 }

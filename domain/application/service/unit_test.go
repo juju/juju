@@ -638,10 +638,10 @@ func (s *unitServiceSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	allUnitDomainLife := map[coreunit.Name]life.Life{
-		coreunit.Name("foo/0"): life.Alive,
-		coreunit.Name("foo/1"): life.Dying,
-		coreunit.Name("foo/2"): life.Dead,
+	allUnitDomainLife := map[string]int{
+		"foo/0": 0,
+		"foo/1": 1,
+		"foo/2": 2,
 	}
 	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).
 		Return(allUnitDomainLife, nil)

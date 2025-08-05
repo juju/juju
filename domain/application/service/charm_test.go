@@ -1317,23 +1317,6 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresInvalid(
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
 }
 
-func (s *charmServiceSuite) TestDeleteCharm(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := charmtesting.GenCharmID(c)
-
-	locator := charm.CharmLocator{
-		Name:     "foo",
-		Revision: 42,
-		Source:   charm.CharmHubSource,
-	}
-	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
-	s.state.EXPECT().DeleteCharm(gomock.Any(), id).Return(nil)
-
-	err := s.service.DeleteCharm(c.Context(), locator)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *charmServiceSuite) TestListCharmLocatorsWithName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

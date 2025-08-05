@@ -373,7 +373,7 @@ func (st *State) importCAASUnit(
 	appUUID coreapplication.ID,
 	args application.ImportUnitArg,
 ) error {
-	_, err := st.getUnitDetails(ctx, tx, args.UnitName)
+	err := st.checkUnitExistsByName(ctx, tx, args.UnitName)
 	if err == nil {
 		return errors.Errorf("unit %q already exists", args.UnitName).Add(applicationerrors.UnitAlreadyExists)
 	} else if !errors.Is(err, applicationerrors.UnitNotFound) {
@@ -436,7 +436,7 @@ func (st *State) importIAASUnit(
 	appUUID coreapplication.ID,
 	args application.ImportUnitArg,
 ) error {
-	_, err := st.getUnitDetails(ctx, tx, args.UnitName)
+	err := st.checkUnitExistsByName(ctx, tx, args.UnitName)
 	if err == nil {
 		return errors.Errorf("unit %q already exists", args.UnitName).Add(applicationerrors.UnitAlreadyExists)
 	} else if !errors.Is(err, applicationerrors.UnitNotFound) {

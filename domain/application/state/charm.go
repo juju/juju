@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -1043,92 +1042,6 @@ func decodeCharmLocator(c charmLocator) (charm.CharmLocator, error) {
 		Source:       source,
 		Architecture: architecture,
 	}, nil
-}
-
-var tablesToDeleteFrom = []string{
-	"charm_action",
-	"charm_category",
-	"charm_config",
-	"charm_container_mount",
-	"charm_container",
-	"charm_device",
-	"charm_download_info",
-	"charm_extra_binding",
-	"charm_hash",
-	"charm_manifest_base",
-	"charm_relation",
-	"charm_resource",
-	"charm_metadata",
-	"charm_storage_property",
-	"charm_storage",
-	"charm_tag",
-	"charm_term",
-}
-
-type deleteStatement struct {
-	stmt      *sqlair.Statement
-	tableName string
-}
-
-// DeleteCharm removes the charm from the state.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
-func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
-	db, err := s.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	selectQuery, err := s.Prepare(`SELECT charm.uuid AS &charmID.* FROM charm WHERE uuid = $charmID.uuid;`, charmID{})
-	if err != nil {
-		return errors.Errorf("failed to prepare query: %w", err)
-	}
-
-	deleteQuery, err := s.Prepare(`DELETE FROM charm WHERE uuid = $charmID.uuid;`, charmID{})
-	if err != nil {
-		return errors.Errorf("failed to prepare query: %w", err)
-	}
-
-	// Prepare the delete statements for each table.
-	stmts := make([]deleteStatement, len(tablesToDeleteFrom))
-	for i, table := range tablesToDeleteFrom {
-		query := fmt.Sprintf("DELETE FROM %s WHERE charm_uuid = $charmUUID.charm_uuid;", table)
-
-		stmt, err := s.Prepare(query, charmUUID{})
-		if err != nil {
-			return errors.Errorf("failed to prepare query: %w", err)
-		}
-
-		stmts[i] = deleteStatement{
-			stmt:      stmt,
-			tableName: table,
-		}
-	}
-
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, selectQuery, charmID{UUID: id}).Get(&charmID{}); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
-		}
-
-		// Delete the foreign key references first.
-		for _, stmt := range stmts {
-			if err := tx.Query(ctx, stmt.stmt, charmUUID{UUID: id}).Run(); err != nil {
-				return errors.Errorf("failed to delete related data for %q: %w", stmt.tableName, err)
-			}
-		}
-
-		// Then delete the charm itself.
-		if err := tx.Query(ctx, deleteQuery, charmID{UUID: id}).Run(); err != nil {
-			return errors.Errorf("failed to delete charm: %w", err)
-		}
-
-		return nil
-	}); err != nil {
-		return errors.Errorf("failed to delete charm: %w", err)
-	}
-
-	return nil
 }
 
 // NamespaceForWatchCharm return the namespace used to listen charm changes
