@@ -56,6 +56,7 @@ func (k *kubernetesClient) ensureConfigMapLegacy(cm *core.ConfigMap) (cleanUp fu
 		return cleanUp, errNoNamespace
 	}
 	api := k.client().CoreV1().ConfigMaps(k.namespace)
+	logger.Infof("alvin2 create configmap ensureConfigMapLegacy: %+v", cm)
 	_, err = api.Update(context.TODO(), cm, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		var out *core.ConfigMap
