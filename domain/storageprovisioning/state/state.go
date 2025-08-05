@@ -19,6 +19,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -263,6 +264,31 @@ func (st *State) checkNetNodeExists(
 	return true, nil
 }
 
+func (st *State) checkUnitExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) (bool, error) {
+	input := unitUUID{UUID: uuid}
+
+	checkStmt, err := st.Prepare(`
+SELECT &unitUUID.*
+FROM   unit
+WHERE  uuid = $unitUUID.uuid`, input)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, input).Get(&input)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // checkApplicationExists checks if the provided application uuid exists in the
 // database during a txn. False is returned when the application does not exist.
 func (st *State) checkApplicationExists(
@@ -336,4 +362,50 @@ WHERE  unit_uuid = $storageAttachment.unit_uuid`, input)
 		storageIDs = append(storageIDs, id)
 	}
 	return storageIDs, nil
+}
+
+// GetAttachmentLife retrieves the life of a storage attachment for a unit.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+// - [storageprovisioningerrors.AttachmentNotFound] when the storage attachment does not exist for the unit.
+func (s *State) GetAttachmentLife(ctx context.Context, unitUUID, attachmentID string) (domainlife.Life, error) {
+	db, err := s.DB()
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+	attachment := storageAttachmentLife{
+		UnitUUID:  unitUUID,
+		StorageID: attachmentID,
+	}
+	stmt, err := s.Prepare(`
+SELECT &storageAttachmentLife.*
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  sa.unit_uuid = $storageAttachmentLife.unit_uuid
+AND    si.id = $storageAttachmentLife.storage_id`, attachment)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if exists, err := s.checkUnitExists(ctx, tx, unitUUID); err != nil {
+			return errors.Capture(err)
+		} else if !exists {
+			return errors.Errorf("unit %q does not exist", unitUUID).Add(
+				applicationerrors.UnitNotFound,
+			)
+		}
+
+		err := tx.Query(ctx, stmt, attachment).Get(&attachment)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"storage attachment %q for unit %q does not exist", attachmentID, unitUUID,
+			).Add(storageprovisioningerrors.AttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+	return domainlife.Life(attachment.Life), nil
 }

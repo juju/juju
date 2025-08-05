@@ -236,3 +236,9 @@ type storageAttachment struct {
 }
 
 type storageAttachments []storageAttachment
+
+type storageAttachmentLife struct {
+	StorageID string    `db:"storage_id"`
+	UnitUUID  string    `db:"unit_uuid"`
+	Life      life.Life `db:"life_id"`
+}
