@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // Application represents the status of an application.
@@ -83,4 +84,65 @@ type StatusHistoryRequest struct {
 	Kind   status.HistoryKind
 	Filter StatusHistoryFilter
 	Tag    string
+}
+
+type StorageInstance struct {
+	ID          string
+	Owner       *unit.Name
+	Kind        internalstorage.StorageKind
+	Life        life.Value
+	Attachments map[unit.Name]StorageAttachment
+}
+
+type StorageAttachment struct {
+	Life     life.Value
+	Unit     *unit.Name
+	Machine  *machine.Name
+	Location string
+}
+
+type Filesystem struct {
+	ID                 string
+	Life               life.Value
+	Status             status.StatusInfo
+	StorageID          string
+	VolumeID           *string
+	ProviderID         string
+	SizeMiB            uint64
+	MachineAttachments map[machine.Name]FilesystemAttachment
+	UnitAttachments    map[unit.Name]FilesystemAttachment
+}
+
+type Volume struct {
+	ID                 string
+	Life               life.Value
+	Status             status.StatusInfo
+	StorageID          string
+	ProviderID         string
+	HardwareID         string
+	WWN                string
+	SizeMiB            uint64
+	Persistent         bool
+	MachineAttachments map[machine.Name]VolumeAttachment
+	UnitAttachments    map[unit.Name]VolumeAttachment
+}
+
+type FilesystemAttachment struct {
+	Life       life.Value
+	MountPoint string
+	ReadOnly   bool
+}
+
+type VolumeAttachment struct {
+	Life                 life.Value
+	DeviceName           string
+	DeviceLink           string
+	BusAddress           string
+	ReadOnly             bool
+	VolumeAttachmentPlan *VolumeAttachmentPlan
+}
+
+type VolumeAttachmentPlan struct {
+	DeviceType       internalstorage.DeviceType
+	DeviceAttributes map[string]string
 }

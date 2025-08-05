@@ -117,3 +117,19 @@ func (s *Service) SetVolumeStatus(
 
 	return nil
 }
+
+// GetStorageInstanceStatuses returns all the storage instance statuses for
+// the model.
+func (s *Service) GetStorageInstanceStatuses(ctx context.Context) ([]StorageInstance, error) {
+	return nil, nil
+}
+
+// GetFilesystemStatuses returns all the filesystem statuses for the model.
+func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, error) {
+	return nil, nil
+}
+
+// GetVolumeStatuses returns all the volume statuses for the model.
+func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
+	return nil, nil
+}

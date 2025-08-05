@@ -37,6 +37,7 @@ import (
 	statusservice "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -210,7 +211,18 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, internalerrors.Errorf("cannot determine model status: %w", err)
 	}
 
-	// TODO(storage): include storage details
+	var (
+		allStorage  []params.StorageDetails
+		filesystems []params.FilesystemDetails
+		volumes     []params.VolumeDetails
+	)
+	if args.IncludeStorage {
+		allStorage, filesystems, volumes, err = processStorage(ctx,
+			c.statusService)
+		if err != nil {
+			return noStatus, internalerrors.Errorf("fetching storage: %w", err)
+		}
+	}
 
 	now := c.clock.Now()
 	return params.FullStatus{
@@ -219,6 +231,9 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Applications:        context.processApplications(ctx),
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(ctx),
+		Storage:             allStorage,
+		Filesystems:         filesystems,
+		Volumes:             volumes,
 		ControllerTimestamp: &now,
 	}, nil
 }
@@ -1182,4 +1197,197 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 	default:
 		return "", internalerrors.Errorf("unknown os type %q", ostype)
 	}
+}
+
+// processStorage produces status for all storage in the model.
+func processStorage(
+	ctx context.Context, statusService StatusService,
+) ([]params.StorageDetails, []params.FilesystemDetails, []params.VolumeDetails, error) {
+	storageInstances, err := statusService.GetStorageInstanceStatuses(ctx)
+	if err != nil {
+		return nil, nil, nil, internalerrors.Capture(err)
+	}
+	storageMap := map[string]*params.StorageDetails{}
+	for _, v := range storageInstances {
+		details := params.StorageDetails{
+			StorageTag: names.NewStorageTag(v.ID).String(),
+			Life:       v.Life,
+		}
+		if v.Owner != nil {
+			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()
+		}
+		switch v.Kind {
+		case storage.StorageKindBlock:
+			details.Kind = params.StorageKindBlock
+		case storage.StorageKindFilesystem:
+			details.Kind = params.StorageKindFilesystem
+		default:
+			details.Kind = params.StorageKindUnknown
+		}
+		for unit, sa := range v.Attachments {
+			unitTag := names.NewUnitTag(unit.String())
+			sad := params.StorageAttachmentDetails{
+				StorageTag: details.StorageTag,
+			}
+			if sa.Unit != nil {
+				sad.UnitTag = names.NewUnitTag(sa.Unit.String()).String()
+			}
+			if sa.Machine != nil {
+				sad.MachineTag = names.NewMachineTag(sa.Machine.String()).String()
+			}
+			if details.Attachments == nil {
+				details.Attachments = map[string]params.StorageAttachmentDetails{}
+			}
+			details.Attachments[unitTag.String()] = sad
+		}
+		// Store in a map to get the fs or volume status later.
+		storageMap[v.ID] = &details
+	}
+
+	filesystems, err := statusService.GetFilesystemStatuses(ctx)
+	if err != nil {
+		return nil, nil, nil, internalerrors.Capture(err)
+	}
+	filesystemResult := make([]params.FilesystemDetails, 0, len(filesystems))
+	for _, v := range filesystems {
+		details := params.FilesystemDetails{
+			FilesystemTag: names.NewStorageTag(v.ID).String(),
+			Life:          v.Life,
+			Info: params.FilesystemInfo{
+				ProviderId: v.ProviderID,
+				Size:       v.SizeMiB,
+			},
+			Status: params.EntityStatus{
+				Status: v.Status.Status,
+				Info:   v.Status.Message,
+				Data:   v.Status.Data,
+				Since:  v.Status.Since,
+			},
+		}
+		if v.VolumeID != nil {
+			details.VolumeTag = names.NewVolumeTag(*v.VolumeID).String()
+		}
+		for unit, fa := range v.UnitAttachments {
+			fad := params.FilesystemAttachmentDetails{
+				Life: fa.Life,
+				FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+					MountPoint: fa.MountPoint,
+					ReadOnly:   fa.ReadOnly,
+				},
+			}
+			if details.UnitAttachments == nil {
+				details.UnitAttachments = map[string]params.FilesystemAttachmentDetails{}
+			}
+			unitTag := names.NewUnitTag(unit.String())
+			details.UnitAttachments[unitTag.String()] = fad
+		}
+		for machine, fa := range v.MachineAttachments {
+			fad := params.FilesystemAttachmentDetails{
+				Life: fa.Life,
+				FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+					MountPoint: fa.MountPoint,
+					ReadOnly:   fa.ReadOnly,
+				},
+			}
+			if details.MachineAttachments == nil {
+				details.MachineAttachments = map[string]params.FilesystemAttachmentDetails{}
+			}
+			machineTag := names.NewUnitTag(machine.String())
+			details.MachineAttachments[machineTag.String()] = fad
+		}
+		if storage, ok := storageMap[v.StorageID]; ok {
+			if storage.Kind == params.StorageKindFilesystem {
+				storage.Status = details.Status
+			}
+			details.Storage = storage
+		}
+		filesystemResult = append(filesystemResult, details)
+	}
+
+	volumes, err := statusService.GetVolumeStatuses(ctx)
+	if err != nil {
+		return nil, nil, nil, internalerrors.Capture(err)
+	}
+	volumeResult := make([]params.VolumeDetails, 0, len(volumes))
+	for _, v := range volumes {
+		details := params.VolumeDetails{
+			VolumeTag: names.NewVolumeTag(v.ID).String(),
+			Life:      v.Life,
+			Info: params.VolumeInfo{
+				ProviderId: v.ProviderID,
+				HardwareId: v.HardwareID,
+				WWN:        v.WWN,
+				SizeMiB:    v.SizeMiB,
+				Persistent: v.Persistent,
+			},
+			Status: params.EntityStatus{
+				Status: v.Status.Status,
+				Info:   v.Status.Message,
+				Data:   v.Status.Data,
+				Since:  v.Status.Since,
+			},
+		}
+		for unit, va := range v.UnitAttachments {
+			vad := params.VolumeAttachmentDetails{
+				Life: va.Life,
+				VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+					DeviceName: va.DeviceName,
+					DeviceLink: va.DeviceLink,
+					BusAddress: va.BusAddress,
+					ReadOnly:   va.ReadOnly,
+				},
+			}
+			if vap := va.VolumeAttachmentPlan; vap != nil {
+				pi := params.VolumeAttachmentPlanInfo{
+					DeviceType:       vap.DeviceType,
+					DeviceAttributes: vap.DeviceAttributes,
+				}
+				vad.VolumeAttachmentInfo.PlanInfo = &pi
+			}
+			if details.UnitAttachments == nil {
+				details.UnitAttachments = map[string]params.VolumeAttachmentDetails{}
+			}
+			unitTag := names.NewUnitTag(unit.String())
+			details.UnitAttachments[unitTag.String()] = vad
+		}
+		for machine, va := range v.MachineAttachments {
+			vad := params.VolumeAttachmentDetails{
+				Life: va.Life,
+				VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+					DeviceName: va.DeviceName,
+					DeviceLink: va.DeviceLink,
+					BusAddress: va.BusAddress,
+					ReadOnly:   va.ReadOnly,
+				},
+			}
+			if vap := va.VolumeAttachmentPlan; vap != nil {
+				pi := params.VolumeAttachmentPlanInfo{
+					DeviceType:       vap.DeviceType,
+					DeviceAttributes: vap.DeviceAttributes,
+				}
+				vad.VolumeAttachmentInfo.PlanInfo = &pi
+			}
+			if details.MachineAttachments == nil {
+				details.MachineAttachments = map[string]params.VolumeAttachmentDetails{}
+			}
+			machineTag := names.NewUnitTag(machine.String())
+			details.MachineAttachments[machineTag.String()] = vad
+		}
+		if storage, ok := storageMap[v.StorageID]; ok {
+			if storage.Kind == params.StorageKindBlock {
+				storage.Status = details.Status
+				storage.Persistent = details.Info.Persistent
+			}
+			details.Storage = storage
+		}
+		volumeResult = append(volumeResult, details)
+	}
+
+	storageResult := make([]params.StorageDetails, 0, len(storageInstances))
+	for _, v := range storageInstances {
+		if storage, ok := storageMap[v.ID]; ok {
+			storageResult = append(storageResult, *storage)
+		}
+	}
+	return storageResult, filesystemResult, volumeResult, nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/storage"
 )
 
 // Application represents the status of an application.
@@ -67,4 +68,61 @@ type Machine struct {
 	Constraints             constraints.Constraints
 	HardwareCharacteristics instance.HardwareCharacteristics
 	LXDProfiles             []string
+}
+
+type StorageInstance struct {
+	ID          string
+	Owner       *unit.Name
+	Kind        storage.StorageKind
+	Life        life.Life
+	Attachments map[unit.Name]StorageAttachment
+}
+
+type StorageAttachment struct {
+	Life     life.Life
+	Unit     *unit.Name
+	Machine  *machine.Name
+	Location string
+}
+
+type Filesystem struct {
+	ID         string
+	Life       life.Life
+	Status     StatusInfo[StorageFilesystemStatusType]
+	StorageID  string
+	VolumeID   *string
+	ProviderID string
+	SizeMiB    uint64
+}
+
+type Volume struct {
+	ID         string
+	Life       life.Life
+	Status     StatusInfo[StorageVolumeStatusType]
+	StorageID  string
+	ProviderID string
+	HardwareID string
+	WWN        string
+	SizeMiB    uint64
+	Persistent bool
+}
+
+type FilesystemAttachment struct {
+	Life       life.Life
+	MountPoint string
+	ReadOnly   bool
+}
+
+type VolumeAttachment struct {
+	Life                 life.Life
+	DeviceName           string
+	DeviceLink           string
+	BusAddress           string
+	ReadOnly             bool
+	VolumeAttachmentPlan *VolumeAttachmentPlan
+}
+
+type VolumeAttachmentPlan struct {
+	DeviceType       string
+	DeviceAttributes map[string]string
 }

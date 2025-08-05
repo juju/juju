@@ -26,6 +26,7 @@ func (s *statusSuite) TestStub(c *tc.C) {
 - Full status before and after a unit has been scaled.
 - Full status before and after a machine has been scaled.
 - Full status before and after NICs have been added to a machine.
+- Full status with storage.
 `)
 }
 
