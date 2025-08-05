@@ -24,6 +24,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
@@ -589,4 +590,16 @@ type StorageProvisioningService interface {
 	// unit exists for the supplied unit UUID.
 	// - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
 	GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]corestorage.ID, error)
+
+	// GetAttachmentLife retrieves the life of a storage attachment for a unit.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the provided unit UUID is not valid.
+	// - [corestorage.InvalidStorageID] when the provided storage attachment ID is not valid.
+	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.AttachmentNotFound] when the
+	// storage attachment does not exist for the unit.
+	GetAttachmentLife(
+		ctx context.Context, unitUUID coreunit.UUID, attachmentID corestorage.ID,
+	) (domainlife.Life, error)
 }

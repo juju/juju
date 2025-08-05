@@ -13,10 +13,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -170,6 +173,63 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.StorageAttachmentIds) (params.LifeResults, error) {
 	result := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Ids)),
+	}
+	one := func(arg params.StorageAttachmentId) (corelife.Value, error) {
+		unitTag, err := names.ParseUnitTag(arg.UnitTag)
+		if err != nil {
+			return "", internalerrors.Capture(err)
+		}
+
+		unitUUID, err := s.getUnitUUID(ctx, unitTag)
+		if err != nil {
+			return "", internalerrors.Capture(err)
+		}
+
+		storageTag, err := names.ParseStorageTag(arg.StorageTag)
+		if err != nil {
+			return "", internalerrors.Capture(err)
+		}
+		storageID, err := corestorage.ParseID(storageTag.Id())
+		if errors.Is(err, corestorage.InvalidStorageID) {
+			return "", internalerrors.Errorf(
+				"invalid storage ID %q for unit %q", arg.StorageTag, unitTag.Id(),
+			).Add(errors.NotValid)
+		} else if err != nil {
+			return "", internalerrors.Capture(err)
+		}
+
+		life, err := s.storageProvisioningService.GetAttachmentLife(ctx, unitUUID, storageID)
+		switch {
+		case errors.Is(err, coreerrors.NotValid):
+			return "", internalerrors.Errorf(
+				"invalid unit UUID %q for %q", unitUUID, unitTag.Id(),
+			).Add(errors.NotValid)
+		case errors.Is(err, corestorage.InvalidStorageID):
+			return "", internalerrors.Errorf(
+				"invalid storage ID %q for unit %q", storageID, unitTag.Id(),
+			).Add(errors.NotValid)
+		case errors.Is(err, applicationerrors.UnitNotFound):
+			return "", internalerrors.Errorf(
+				"unit %q not found", unitTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.AttachmentNotFound):
+			return "", internalerrors.Errorf(
+				"attachment %q for unit %q not found", arg.StorageTag, unitTag.Id(),
+			).Add(errors.NotFound)
+		case err != nil:
+			return "", internalerrors.Errorf(
+				"getting attachment life for storage %q unit %q: %w", arg.StorageTag, unitTag.Id(), err,
+			)
+		}
+		return life.Value()
+	}
+	for i, arg := range args.Ids {
+		life, err := one(arg)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Life = life
 	}
 	return result, nil
 }
