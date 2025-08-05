@@ -96,7 +96,7 @@ type ApplicationState interface {
 	// GetApplicationUnitLife returns the life values for the specified units of
 	// the given application. The supplied ids may belong to a different
 	// application; the application name is used to filter.
-	GetApplicationUnitLife(ctx context.Context, appName string, unitUUIDs ...coreunit.UUID) (map[coreunit.UUID]life.Life, error)
+	GetApplicationUnitLife(ctx context.Context, appName string, unitUUIDs ...coreunit.UUID) (map[string]int, error)
 
 	// GetApplicationLife looks up the life of the specified application,
 	// returning an error satisfying

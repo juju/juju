@@ -17,7 +17,6 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -3629,22 +3628,6 @@ VALUES (?, ?, 'ubuntu', 0, ?);
 		return errors.Capture(err)
 	}
 	return nil
-}
-
-func assertTableEmpty(c *tc.C, runner coredatabase.TxnRunner, table string) {
-	// Ensure that we don't use zero values for the count, as that would
-	// pass if the table is empty.
-	count := -1
-	err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", table)).Scan(&count)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
 }
 
 func assertCharmMetadata(c *tc.C, metadata charm.Metadata, expected func() charm.Metadata) {

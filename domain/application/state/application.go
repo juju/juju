@@ -602,11 +602,11 @@ func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.
 }
 
 func (st *State) getLifeForUnitName(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (life.Life, error) {
-	unit := minimalUnit{Name: unitName}
+	unit := unitNameLife{Name: unitName.String()}
 	queryUnit := `
-SELECT &minimalUnit.life_id
+SELECT &unitNameLife.life_id
 FROM unit
-WHERE name = $minimalUnit.name
+WHERE name = $unitNameLife.name
 `
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
@@ -620,7 +620,7 @@ WHERE name = $minimalUnit.name
 		}
 		return -1, errors.Errorf("%w: %s", applicationerrors.UnitNotFound, unitName)
 	}
-	return unit.LifeID, nil
+	return life.Life(unit.LifeID), nil
 }
 
 // GetApplicationScaleState looks up the scale state of the specified application, returning an error

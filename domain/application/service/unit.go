@@ -88,7 +88,7 @@ type UnitState interface {
 	// for the given application.
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
-	GetAllUnitLifeForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]life.Life, error)
+	GetAllUnitLifeForApplication(context.Context, coreapplication.ID) (map[string]int, error)
 
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
@@ -604,8 +604,12 @@ func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreap
 		return nil, errors.Capture(err)
 	}
 	namesAndCoreLives := map[coreunit.Name]corelife.Value{}
-	for name, life := range namesAndLives {
-		namesAndCoreLives[name], err = life.Value()
+	for name, lifeID := range namesAndLives {
+		unitName, err := coreunit.NewName(name)
+		if err != nil {
+			return nil, errors.Errorf("parsing unit name %q: %w", name, err)
+		}
+		namesAndCoreLives[unitName], err = life.Life(lifeID).Value()
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
