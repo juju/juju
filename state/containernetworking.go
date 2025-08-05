@@ -23,9 +23,13 @@ func (m *Model) AutoConfigureContainerNetworking(environ environs.BootstrapEnvir
 	if err != nil {
 		return err
 	}
-	fanConfigured, err := m.discoverFan(environ, modelConfig, updateAttrs)
-	if err != nil {
-		return err
+	var fanConfigured bool
+	if cnm := modelConfig.ContainerNetworkingMethod(); cnm != "local" && cnm != "provider" {
+		var err error
+		fanConfigured, err = m.discoverFan(environ, modelConfig, updateAttrs)
+		if err != nil {
+			return errors.Annotatef(err, "auto discovering fan config")
+		}
 	}
 
 	if modelConfig.ContainerNetworkingMethod() != "" {
