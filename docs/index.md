@@ -22,6 +22,7 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 
 ## In this documentation
 
+- **Learn more about Juju:** {ref}`Architecture <juju-architecture>`, {ref}`Security <juju-security>`, {ref}`Performance <performance-with-juju>`
 - **Set up Juju:** {ref}`Install juju <install-juju>`, {ref}`Bootstrap a controller <bootstrap-a-controller>`, {ref}`Connect a cloud <add-a-cloud>`, {ref}`Add a model <add-a-model>`
 - **Handle authentication and authorization:** {ref}`SSH keys <manage-ssh-keys>`, {ref}`Users <manage-users>`
 - **Deploy infrastructure and applications:** {ref}`Deploy <deploy-an-application>`, {ref}`Configure <configure-an-application>`, {ref}`Integrate <integrate-an-application-with-another-application>`, {ref}`Scale <scale-an-application>`, {ref}`Upgrade <upgrade-an-application>`, etc.
