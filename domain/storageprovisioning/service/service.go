@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	coremachine "github.com/juju/juju/core/machine"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -34,6 +35,14 @@ type Service struct {
 type State interface {
 	FilesystemState
 	VolumeState
+
+	// GetStorageIDsForUnit returns the storage IDs for the given unit UUID.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+	// unit exists for the supplied unit UUID.
+	// - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
+	GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]corestorage.ID, error)
 
 	// CheckMachineIsDead checks to see if a machine is dead, returning true
 	// when the life of the machine is dead.
@@ -180,4 +189,24 @@ func (s *Service) GetStorageResourceTagsForApplication(
 	resourceTags[tags.JujuStorageOwner] = info.ApplicationName
 
 	return resourceTags, nil
+}
+
+// GetStorageIDsForUnit returns the storage IDs for the given unit UUID.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
+// is not valid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+// unit exists for the supplied unit UUID.
+// - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
+func (s *Service) GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]corestorage.ID, error) {
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ids, err := s.st.GetStorageIDsForUnit(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting storage IDs for unit %q: %w", unitUUID, err)
+	}
+	return ids, nil
 }
