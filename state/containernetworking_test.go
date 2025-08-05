@@ -49,7 +49,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNetworkle
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "local")
-	c.Check(attrs["fan-config"], gc.Equals, "")
+	c.Assert(attrs["fan-config"], gc.Equals, "")
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDoesntChangeDefault(c *gc.C) {
@@ -63,7 +63,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDoesntCha
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
-	c.Check(attrs["fan-config"], gc.Equals, "")
+	c.Assert(attrs["fan-config"], gc.Equals, "")
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyConfigured(c *gc.C) {
@@ -82,7 +82,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyCo
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "local")
-	c.Check(attrs["fan-config"], gc.Equals, "1.2.3.4/24=5.6.7.8/16")
+	c.Assert(attrs["fan-config"], gc.Equals, "1.2.3.4/24=5.6.7.8/16")
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNoSuperSubnets(c *gc.C) {
@@ -95,7 +95,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNoSuperSu
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "local")
-	c.Check(attrs["fan-config"], gc.Equals, "")
+	c.Assert(attrs["fan-config"], gc.Equals, "")
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsContainerAddresses(c *gc.C) {
@@ -110,7 +110,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsC
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
-	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
+	c.Assert(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c *gc.C) {
@@ -125,7 +125,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "fan")
-	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
+	c.Assert(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIPv6(c *gc.C) {
@@ -140,5 +140,24 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIP
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
-	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8")
+	c.Assert(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8")
+}
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresNonFan(c *gc.C) {
+	err := s.Model.UpdateModelConfig(map[string]interface{}{
+		"container-networking-method": "provider",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	environ := containerTestNetworkedEnviron{
+		stub:                       &testing.Stub{},
+		supportsContainerAddresses: true,
+		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
+	}
+	err = s.Model.AutoConfigureContainerNetworking(&environ)
+	c.Check(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
+	c.Assert(attrs["fan-config"], gc.Equals, "")
 }
