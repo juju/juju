@@ -125,7 +125,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 	info.HardwareId = details.Info.HardwareId
 	info.WWN = details.Info.WWN
 	info.Pool = details.Info.Pool
-	info.Size = details.Info.Size
+	info.Size = details.Info.SizeMiB
 	info.Persistent = details.Info.Persistent
 	info.Life = string(details.Life)
 	info.Status = EntityStatus{

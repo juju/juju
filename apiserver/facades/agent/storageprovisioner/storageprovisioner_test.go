@@ -1972,7 +1972,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *tc.C) {
 				VolumeTag: tag.String(),
 				Info: params.VolumeInfo{
 					ProviderId: "fs-123",
-					Size:       100,
+					SizeMiB:       100,
 					HardwareId: "abc",
 					WWN:        "xyz",
 					Persistent: true,
@@ -2008,7 +2008,7 @@ func (s *provisionerSuite) TestSetVolumeInfoNotFound(c *tc.C) {
 				VolumeTag: tag.String(),
 				Info: params.VolumeInfo{
 					ProviderId: "fs-123",
-					Size:       100,
+					SizeMiB:       100,
 					HardwareId: "abc",
 					WWN:        "xyz",
 					Persistent: true,
@@ -2034,7 +2034,7 @@ func (s *provisionerSuite) TestSetVolumeInfoNoPool(c *tc.C) {
 				VolumeTag: tag.String(),
 				Info: params.VolumeInfo{
 					ProviderId: "fs-123",
-					Size:       100,
+					SizeMiB:       100,
 					HardwareId: "abc",
 					WWN:        "xyz",
 					Persistent: true,

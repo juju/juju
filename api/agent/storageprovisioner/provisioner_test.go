@@ -201,7 +201,7 @@ func (s *provisionerSuite) TestVolumes(c *tc.C) {
 					Info: params.VolumeInfo{
 						ProviderId: "volume-id",
 						HardwareId: "abc",
-						Size:       1024,
+						SizeMiB:       1024,
 					},
 				},
 			}},
@@ -221,7 +221,7 @@ func (s *provisionerSuite) TestVolumes(c *tc.C) {
 			Info: params.VolumeInfo{
 				ProviderId: "volume-id",
 				HardwareId: "abc",
-				Size:       1024,
+				SizeMiB:       1024,
 			},
 		},
 	}})
@@ -658,7 +658,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *tc.C) {
 				Info: params.VolumeInfo{
 					ProviderId: "123",
 					HardwareId: "abc",
-					Size:       1024,
+					SizeMiB:       1024,
 					Persistent: true,
 				},
 			}},
@@ -676,7 +676,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *tc.C) {
 	volumes := []params.Volume{{
 		VolumeTag: "volume-100",
 		Info: params.VolumeInfo{
-			ProviderId: "123", HardwareId: "abc", Size: 1024, Persistent: true,
+			ProviderId: "123", HardwareId: "abc", SizeMiB: 1024, Persistent: true,
 		},
 	}}
 	errorResults, err := st.SetVolumeInfo(c.Context(), volumes)

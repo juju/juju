@@ -1083,7 +1083,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeInfo(ctx context.Context, args params
 		}
 		info := storageprovisioning.VolumeProvisionedInfo{
 			ProviderID: vol.Info.ProviderId,
-			SizeMiB:    vol.Info.Size,
+			SizeMiB:    vol.Info.SizeMiB,
 			HardwareID: vol.Info.HardwareId,
 			WWN:        vol.Info.WWN,
 			Persistent: vol.Info.Persistent,

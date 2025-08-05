@@ -505,7 +505,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *tc.C) {
 		VolumeTag: "volume-1-0",
 		Info: params.VolumeInfo{
 			ProviderId: "vol-123",
-			Size:       124,
+			SizeMiB:    124,
 		},
 	}}
 	volumeAttachments := map[string]params.VolumeAttachmentInfo{
