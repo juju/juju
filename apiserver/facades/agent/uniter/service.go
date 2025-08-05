@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/blockdevice"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -17,8 +18,10 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	corewatcher "github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -33,21 +36,23 @@ import (
 
 // Services represents all the services that the uniter facade requires.
 type Services struct {
-	ApplicationService      ApplicationService
-	ResolveService          ResolveService
-	StatusService           StatusService
-	ControllerConfigService ControllerConfigService
-	ControllerNodeService   ControllerNodeService
-	MachineService          MachineService
-	ModelConfigService      ModelConfigService
-	ModelInfoService        ModelInfoService
-	ModelProviderService    ModelProviderService
-	PortService             PortService
-	NetworkService          NetworkService
-	RelationService         RelationService
-	SecretService           SecretService
-	UnitStateService        UnitStateService
-	RemovalService          RemovalService
+	ApplicationService         ApplicationService
+	BlockDeviceService         BlockDeviceService
+	ResolveService             ResolveService
+	StatusService              StatusService
+	ControllerConfigService    ControllerConfigService
+	ControllerNodeService      ControllerNodeService
+	MachineService             MachineService
+	ModelConfigService         ModelConfigService
+	ModelInfoService           ModelInfoService
+	ModelProviderService       ModelProviderService
+	PortService                PortService
+	NetworkService             NetworkService
+	RelationService            RelationService
+	SecretService              SecretService
+	StorageProvisioningService StorageProvisioningService
+	UnitStateService           UnitStateService
+	RemovalService             RemovalService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -564,4 +569,24 @@ type RemovalService interface {
 	// that is a separate operation. This will advance the unit's life to dead
 	// and will not allow it to be transitioned back to alive.
 	MarkUnitAsDead(context.Context, coreunit.UUID) error
+}
+
+// BlockDeviceService provides methods to watch and manage block devices.
+type BlockDeviceService interface {
+	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
+	WatchBlockDevices(ctx context.Context, machineId string) (corewatcher.NotifyWatcher, error)
+}
+
+// StorageProvisioningService provides methods to watch and manage storage
+// provisioning related resources.
+type StorageProvisioningService interface {
+	// GetStorageIDsForUnit returns the storage IDs for the given unit UUID.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
+	// is not valid.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+	// unit exists for the supplied unit UUID.
+	// - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
+	GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]corestorage.ID, error)
 }
