@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
-	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

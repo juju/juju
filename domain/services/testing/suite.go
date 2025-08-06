@@ -45,7 +45,6 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/services"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/storage"

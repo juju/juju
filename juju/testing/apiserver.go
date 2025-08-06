@@ -56,7 +56,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
-	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"

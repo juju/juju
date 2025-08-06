@@ -17,7 +17,6 @@ import (
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/modeldefaults/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	_ "github.com/juju/juju/internal/provider/dummy"
 )
 
 type bootstrapSuite struct {

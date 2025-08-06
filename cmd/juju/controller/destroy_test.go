@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
-	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"

@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/domain/access"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"

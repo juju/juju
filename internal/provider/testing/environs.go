@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package dummy
+package testing
 
 import (
 	"context"
@@ -41,6 +41,12 @@ import (
 )
 
 var logger = internallogger.GetLogger("juju.provider.dummy")
+
+// Register registers the dummy provider with environs.
+// Deprecated: Use mocks instead.
+func Register() {
+	environs.RegisterProvider("dummy", &dummy)
+}
 
 var transientErrorInjection chan error
 
@@ -109,10 +115,6 @@ type environ struct {
 var _ environs.Environ = (*environ)(nil)
 
 var _ environs.Networking = (*environ)(nil)
-
-func init() {
-	environs.RegisterProvider("dummy", &dummy)
-}
 
 // dummy is the dummy environmentProvider singleton.
 var dummy = environProvider{
@@ -1120,4 +1122,12 @@ func (*environ) LXDProfileNames(string) ([]string, error) {
 // AssignLXDProfiles implements environs.LXDProfiler.
 func (*environ) AssignLXDProfiles(_ string, profilesNames []string, _ []lxdprofile.ProfilePost) (current []string, err error) {
 	return profilesNames, nil
+}
+
+var _ environs.InstanceTypesFetcher = (*environ)(nil)
+
+// InstanceTypes implements InstanceTypesFetcher
+func (e *environ) InstanceTypes(ctx context.Context, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+	result := instances.InstanceTypesWithCostMetadata{}
+	return result, errors.NotSupportedf("InstanceTypes")
 }

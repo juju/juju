@@ -47,8 +47,8 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
-	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/provider/openstack"
+	providertesting "github.com/juju/juju/internal/provider/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -60,17 +60,17 @@ import (
 	"github.com/juju/juju/testcharms"
 )
 
-func runCommandWithDummyProvider(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
+func runCommandWithDummyProvider(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan providertesting.Operation, errc chan error) {
 	if ctx == nil {
 		panic("ctx == nil")
 	}
 	errc = make(chan error, 1)
-	opc = make(chan dummy.Operation, 200)
-	dummy.Listen(opc)
+	opc = make(chan providertesting.Operation, 200)
+	providertesting.Listen(opc)
 	go func() {
 		defer func() {
 			// signal that we're done with this ops channel.
-			dummy.Listen(nil)
+			providertesting.Listen(nil)
 			// now that dummy is no longer going to send ops on
 			// this channel, close it to signal to test cases
 			// that we are done.
@@ -280,7 +280,7 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 
 	op, ok := <-opc
 	c.Assert(ok, tc.Equals, true)
-	opBootstrap := op.(dummy.OpBootstrap)
+	opBootstrap := op.(providertesting.OpBootstrap)
 	c.Check(opBootstrap.Env, tc.Equals, bootstrap.ControllerModelName)
 	c.Check(opBootstrap.Args.ModelConstraints, tc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
@@ -293,7 +293,7 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 	c.Check(opBootstrap.Args.BootstrapConstraints, tc.DeepEquals, test.bootstrapConstraints)
 	c.Check(opBootstrap.Args.Placement, tc.Equals, test.placement)
 
-	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
+	opFinalizeBootstrap := (<-opc).(providertesting.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, tc.Equals, bootstrap.ControllerModelName)
 	c.Check(opFinalizeBootstrap.InstanceConfig.ToolsList(), tc.Not(tc.HasLen), 0)
 	if test.upload != "" {
@@ -358,7 +358,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:   "1.2.3-ubuntu-amd64",
 	args:      []string{"--config", "broken=Bootstrap Destroy", "--auto-upgrade"},
 	silentErr: true,
-	logs:      []loggo.Entry{{Level: loggo.ERROR, Message: `failed to bootstrap model: dummy.Bootstrap is broken`}},
+	logs:      []loggo.Entry{{Level: loggo.ERROR, Message: `failed to bootstrap model: providertesting.Bootstrap is broken`}},
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cores=4"},
@@ -1317,8 +1317,8 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *tc.C) {
 	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
-	c.Check((<-opc).(dummy.OpBootstrap).Env, tc.Equals, bootstrap.ControllerModelName)
-	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
+	c.Check((<-opc).(providertesting.OpBootstrap).Env, tc.Equals, bootstrap.ControllerModelName)
+	icfg := (<-opc).(providertesting.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, tc.NotNil)
 	c.Assert(icfg.AgentVersion().String(), tc.Equals, "1.7.3.1-ubuntu-"+arch.HostArch())
 }
@@ -1393,12 +1393,12 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *tc.C) {
 		c.Fatal("timed out")
 	}
 
-	var opDestroy *dummy.OpDestroy
+	var opDestroy *providertesting.OpDestroy
 	for opDestroy == nil {
 		select {
 		case op := <-opc:
 			switch op := op.(type) {
-			case dummy.OpDestroy:
+			case providertesting.OpDestroy:
 				opDestroy = &op
 			}
 		default:
@@ -1406,17 +1406,17 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *tc.C) {
 			return
 		}
 	}
-	c.Assert(opDestroy.Error, tc.ErrorMatches, "dummy.Destroy is broken")
+	c.Assert(opDestroy.Error, tc.ErrorMatches, "providertesting.Destroy is broken")
 
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
 	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
 	mc.AddExpr(`_._`, tc.Ignore)
 	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{
-		{Level: loggo.ERROR, Message: "failed to bootstrap model: dummy.Bootstrap is broken"},
+		{Level: loggo.ERROR, Message: "failed to bootstrap model: providertesting.Bootstrap is broken"},
 		{Level: loggo.DEBUG, Message: "(?m).*error details.*"},
 		{Level: loggo.DEBUG, Message: "cleaning up after failed bootstrap"},
-		{Level: loggo.ERROR, Message: "error cleaning up: dummy.Destroy is broken"},
+		{Level: loggo.ERROR, Message: "error cleaning up: providertesting.Destroy is broken"},
 	})
 }
 
@@ -1432,7 +1432,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *tc.C) {
 	)
 	select {
 	case err := <-errc:
-		c.Assert(err, tc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+		c.Assert(err, tc.ErrorMatches, "failed to bootstrap model: providertesting.Bootstrap is broken")
 	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
 	}
@@ -1445,7 +1445,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *tc.C) {
 				break
 			}
 			switch op.(type) {
-			case dummy.OpDestroy:
+			case providertesting.OpDestroy:
 				c.Error("unexpected call to env.Destroy")
 				break
 			}
@@ -1803,7 +1803,7 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *tc.C) {
 	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
 	mc.AddExpr(`_._`, tc.Ignore)
 	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{
-		{Level: loggo.ERROR, Message: "failed to bootstrap model: dummy.Bootstrap is broken"},
+		{Level: loggo.ERROR, Message: "failed to bootstrap model: providertesting.Bootstrap is broken"},
 	})
 }
 
@@ -2146,11 +2146,11 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	// Run the bootstrap command in another goroutine, sending the
 	// dummy provider ops to opc.
 	errc := make(chan error, 1)
-	opc := make(chan dummy.Operation)
-	dummy.Listen(opc)
+	opc := make(chan providertesting.Operation)
+	providertesting.Listen(opc)
 	go func() {
 		defer func() {
-			dummy.Listen(nil)
+			providertesting.Listen(nil)
 			close(opc)
 		}()
 		com := s.newBootstrapCommand()
@@ -2165,7 +2165,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	// Wait for bootstrap to start.
 	select {
 	case op := <-opc:
-		_, ok := op.(dummy.OpBootstrap)
+		_, ok := op.(providertesting.OpBootstrap)
 		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
@@ -2183,7 +2183,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	// Let bootstrap finish.
 	select {
 	case op := <-opc:
-		_, ok := op.(dummy.OpFinalizeBootstrap)
+		_, ok := op.(providertesting.OpFinalizeBootstrap)
 		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out")
