@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -49,8 +50,8 @@ func (ss *StatefulSet) ID() ID {
 }
 
 // Apply patches the resource change.
-func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (err error) {
-	api := client.AppsV1().StatefulSets(ss.Namespace)
+func (ss *StatefulSet) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) (err error) {
+	api := coreClient.AppsV1().StatefulSets(ss.Namespace)
 	var result *appsv1.StatefulSet
 	defer func() {
 		if result != nil {
@@ -96,8 +97,8 @@ func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (
 }
 
 // Get refreshes the resource.
-func (ss *StatefulSet) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().StatefulSets(ss.Namespace)
+func (ss *StatefulSet) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.AppsV1().StatefulSets(ss.Namespace)
 	res, err := api.Get(ctx, ss.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -109,8 +110,8 @@ func (ss *StatefulSet) Get(ctx context.Context, client kubernetes.Interface) err
 }
 
 // Delete removes the resource.
-func (ss *StatefulSet) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().StatefulSets(ss.Namespace)
+func (ss *StatefulSet) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.AppsV1().StatefulSets(ss.Namespace)
 	err := api.Delete(ctx, ss.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -123,12 +124,12 @@ func (ss *StatefulSet) Delete(ctx context.Context, client kubernetes.Interface) 
 }
 
 // Events emitted by the resource.
-func (ss *StatefulSet) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, ss.Namespace, ss.Name, "StatefulSet")
+func (ss *StatefulSet) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, ss.Namespace, ss.Name, "StatefulSet")
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (ss *StatefulSet) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (ss *StatefulSet) ComputeStatus(ctx context.Context, coreClient kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	if ss.DeletionTimestamp != nil {
 		return "", status.Terminated, ss.DeletionTimestamp.Time, nil
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
@@ -42,11 +43,11 @@ type operation struct {
 	resource Resource
 }
 
-func (op *operation) process(ctx context.Context, api kubernetes.Interface, rollback Applier) error {
+func (op *operation) process(ctx context.Context, coreAPI kubernetes.Interface, extendedAPI clientset.Interface, rollback Applier) error {
 	existingRes := op.resource.Clone()
 	// TODO: consider to `list` using label selectors instead of `get` by `name`.
 	// Because it's not good for non namespaced resources.
-	err := existingRes.Get(ctx, api)
+	err := existingRes.Get(ctx, coreAPI, extendedAPI)
 	found := true
 	if errors.IsNotFound(err) {
 		found = false
@@ -62,7 +63,7 @@ func (op *operation) process(ctx context.Context, api kubernetes.Interface, roll
 	}
 	switch op.opType {
 	case opApply:
-		err = op.resource.Apply(ctx, api)
+		err = op.resource.Apply(ctx, coreAPI, extendedAPI)
 		if found {
 			// apply the previously existing resource.
 			rollback.Apply(existingRes)
@@ -71,7 +72,7 @@ func (op *operation) process(ctx context.Context, api kubernetes.Interface, roll
 			rollback.Delete(op.resource)
 		}
 	case opDelete:
-		err = op.resource.Delete(ctx, api)
+		err = op.resource.Delete(ctx, coreAPI, extendedAPI)
 		if found {
 			rollback.Apply(existingRes)
 		}
@@ -104,19 +105,19 @@ func (a *applier) ApplySet(current []Resource, desired []Resource) {
 	a.Apply(desired...)
 }
 
-func (a *applier) Run(ctx context.Context, client kubernetes.Interface, noRollback bool) (err error) {
+func (a *applier) Run(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface, noRollback bool) (err error) {
 	rollback := NewApplier()
 
 	defer func() {
 		if noRollback || err == nil {
 			return
 		}
-		if rollbackErr := rollback.Run(ctx, client, true); rollbackErr != nil {
+		if rollbackErr := rollback.Run(ctx, coreClient, extendedClient, true); rollbackErr != nil {
 			logger.Warningf("rollback failed %s", rollbackErr.Error())
 		}
 	}()
 	for _, op := range a.ops {
-		if err = op.process(ctx, client, rollback); err != nil {
+		if err = op.process(ctx, coreClient, extendedClient, rollback); err != nil {
 			return errors.Trace(err)
 		}
 	}

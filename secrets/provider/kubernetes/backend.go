@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -23,7 +24,8 @@ type k8sBackend struct {
 	modelName      string
 	modelUUID      string
 
-	client kubernetes.Interface
+	coreClient     kubernetes.Interface
+	extendedClient clientset.Interface
 }
 
 // Ping implements SecretsBackend.
@@ -31,16 +33,16 @@ func (k *k8sBackend) Ping() (err error) {
 	defer func() {
 		err = errors.Annotatef(err, "backend not reachable")
 	}()
-	_, err = k.client.Discovery().ServerVersion()
+	_, err = k.coreClient.Discovery().ServerVersion()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = k.client.CoreV1().Namespaces().Get(context.Background(), k.namespace, v1.GetOptions{})
+	_, err = k.coreClient.CoreV1().Namespaces().Get(context.Background(), k.namespace, v1.GetOptions{})
 	if err != nil {
 		return errors.Annotatef(err, "checking secrets namespace")
 	}
 	if k.serviceAccount != "" {
-		_, err = k.client.CoreV1().ServiceAccounts(k.namespace).Get(context.Background(), k.serviceAccount, v1.GetOptions{})
+		_, err = k.coreClient.CoreV1().ServiceAccounts(k.namespace).Get(context.Background(), k.serviceAccount, v1.GetOptions{})
 		if err != nil {
 			return errors.Annotatef(err, "checking secrets service account")
 		}
@@ -53,7 +55,7 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Se
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	secret, err := k.client.CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
+	secret, err := k.coreClient.CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("secret %q", secretName)
@@ -100,7 +102,7 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *coresecrets.URI, revi
 		return "", errors.Trace(err)
 	}
 	secret := resources.NewSecret(name, k.namespace, in)
-	if err = secret.Apply(ctx, k.client); err != nil {
+	if err = secret.Apply(ctx, k.coreClient, k.extendedClient); err != nil {
 		return "", errors.Trace(err)
 	}
 	return name, nil
@@ -118,5 +120,5 @@ func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) (err 
 		logger.Tracef("deleting secret %q: %v", revisionId, err)
 		return errors.Trace(err)
 	}
-	return resources.NewSecret(secret.Name, k.namespace, secret).Delete(ctx, k.client)
+	return resources.NewSecret(secret.Name, k.namespace, secret).Delete(ctx, k.coreClient, k.extendedClient)
 }

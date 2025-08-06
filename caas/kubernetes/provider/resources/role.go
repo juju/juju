@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -48,8 +49,8 @@ func (r *Role) ID() ID {
 }
 
 // Apply patches the resource change.
-func (r *Role) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().Roles(r.Namespace)
+func (r *Role) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().Roles(r.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &r.Role)
 	if err != nil {
 		return errors.Trace(err)
@@ -73,8 +74,8 @@ func (r *Role) Apply(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Get refreshes the resource.
-func (r *Role) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().Roles(r.Namespace)
+func (r *Role) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().Roles(r.Namespace)
 	res, err := api.Get(ctx, r.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -86,8 +87,8 @@ func (r *Role) Get(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Delete removes the resource.
-func (r *Role) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().Roles(r.Namespace)
+func (r *Role) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().Roles(r.Namespace)
 	err := api.Delete(ctx, r.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -100,8 +101,8 @@ func (r *Role) Delete(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Events emitted by the resource.
-func (r *Role) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, r.Namespace, r.Name, "Role")
+func (r *Role) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, r.Namespace, r.Name, "Role")
 }
 
 // ComputeStatus returns a juju status for the resource.

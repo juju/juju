@@ -55,9 +55,9 @@ func NewApplicationForTest(
 
 func PVCNames(client kubernetes.Interface, namespace, appName, storagePrefix string) (map[string]string, error) {
 	a := &app{
-		name:      appName,
-		namespace: namespace,
-		client:    client,
+		name:       appName,
+		namespace:  namespace,
+		coreClient: client,
 	}
 	return a.pvcNames(storagePrefix)
 }

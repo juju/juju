@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -46,8 +47,8 @@ func (pv *PersistentVolume) ID() ID {
 }
 
 // Apply patches the resource change.
-func (pv *PersistentVolume) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().PersistentVolumes()
+func (pv *PersistentVolume) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().PersistentVolumes()
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &pv.PersistentVolume)
 	if err != nil {
 		return errors.Trace(err)
@@ -71,8 +72,8 @@ func (pv *PersistentVolume) Apply(ctx context.Context, client kubernetes.Interfa
 }
 
 // Get refreshes the resource.
-func (pv *PersistentVolume) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().PersistentVolumes()
+func (pv *PersistentVolume) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().PersistentVolumes()
 	res, err := api.Get(ctx, pv.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -84,8 +85,8 @@ func (pv *PersistentVolume) Get(ctx context.Context, client kubernetes.Interface
 }
 
 // Delete removes the resource.
-func (pv *PersistentVolume) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().PersistentVolumes()
+func (pv *PersistentVolume) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().PersistentVolumes()
 	logger.Infof("deleting PV %s due to call to PersistentVolume.Delete", pv.Name)
 	err := api.Delete(ctx, pv.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
@@ -99,12 +100,12 @@ func (pv *PersistentVolume) Delete(ctx context.Context, client kubernetes.Interf
 }
 
 // Events emitted by the resource.
-func (pv *PersistentVolume) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, pv.Namespace, pv.Name, "PersistentVolume")
+func (pv *PersistentVolume) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, pv.Namespace, pv.Name, "PersistentVolume")
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (pv *PersistentVolume) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (pv *PersistentVolume) ComputeStatus(ctx context.Context, coreClient kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	if pv.DeletionTimestamp != nil {
 		return "", status.Terminated, pv.DeletionTimestamp.Time, nil
 	}

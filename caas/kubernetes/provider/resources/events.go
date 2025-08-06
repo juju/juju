@@ -17,7 +17,7 @@ const maxEventsToPage = 100
 
 // ListEventsForObject returns all the events for the specified object.
 func ListEventsForObject(
-	ctx context.Context, client kubernetes.Interface, namespace, name, kind string,
+	ctx context.Context, coreClient kubernetes.Interface, namespace, name, kind string,
 ) ([]corev1.Event, error) {
 	selector := fields.AndSelectors(
 		fields.OneTermEqualSelector("involvedObject.name", name),
@@ -28,7 +28,7 @@ func ListEventsForObject(
 	}
 	var items []corev1.Event
 	for len(items) < maxEventsToPage {
-		res, err := client.CoreV1().Events(namespace).List(ctx, opts)
+		res, err := coreClient.CoreV1().Events(namespace).List(ctx, opts)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

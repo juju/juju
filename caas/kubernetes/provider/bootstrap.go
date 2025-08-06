@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service/pebble/plan"
 	"github.com/juju/juju/version"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 const (
@@ -505,6 +506,7 @@ func (c *controllerStack) Deploy() (err error) {
 	saName, saCleanUps, err := ensureControllerServiceAccount(
 		c.ctx.Context(),
 		c.broker.client(),
+		c.broker.extendedClient(),
 		c.broker.Namespace(),
 		c.broker.ControllerUUID(),
 		c.stackLabels,
@@ -873,7 +875,8 @@ func (c *controllerStack) ensureControllerApplicationSecret() error {
 // of the service account create, cleanup functions and any errors.
 func ensureControllerServiceAccount(
 	ctx context.Context,
-	client kubernetes.Interface,
+	coreClient kubernetes.Interface,
+	extendedClient clientset.Interface,
 	namespace string,
 	controllerUUID string,
 	labels map[string]string,
@@ -890,7 +893,7 @@ func ensureControllerServiceAccount(
 		AutomountServiceAccountToken: boolPtr(true),
 	})
 
-	cleanUps, err := sa.Ensure(context.TODO(), client)
+	cleanUps, err := sa.Ensure(context.TODO(), coreClient, extendedClient)
 	if err != nil {
 		return sa.Name, cleanUps, errors.Trace(err)
 	}
@@ -916,7 +919,7 @@ func ensureControllerServiceAccount(
 		}},
 	})
 
-	crbCleanUps, err := crb.Ensure(ctx, client)
+	crbCleanUps, err := crb.Ensure(ctx, coreClient, extendedClient)
 	cleanUps = append(cleanUps, crbCleanUps...)
 	return sa.Name, cleanUps, errors.Trace(err)
 }
@@ -1636,6 +1639,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		constants.LastLabelVersion,
 		caas.DeploymentStateful,
 		c.broker.client(),
+		c.broker.extendedClient(),
 		c.broker.newWatcher,
 		c.broker.clock,
 		c.broker.randomPrefix,

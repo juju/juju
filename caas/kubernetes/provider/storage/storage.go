@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/storage"
 	storageprovider "github.com/juju/juju/storage/provider"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 // GetMountPathForFilesystem returns mount path.
@@ -129,7 +130,7 @@ func VolumeInfo(pv *resources.PersistentVolume, now time.Time) caas.VolumeInfo {
 }
 
 // FilesystemInfo returns filesystem info.
-func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
+func FilesystemInfo(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface,
 	namespace string, volume corev1.Volume, volumeMount corev1.VolumeMount,
 	now time.Time) (*caas.FilesystemInfo, error) {
 	if volume.EmptyDir != nil {
@@ -164,7 +165,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 
 	// Handle PVC
 	pvc := resources.NewPersistentVolumeClaim(volume.PersistentVolumeClaim.ClaimName, namespace, nil)
-	err := pvc.Get(ctx, client)
+	err := pvc.Get(ctx, coreClient, extendedClient)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get persistent volume claim")
 	}
@@ -192,7 +193,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	if statusMessage == "" {
 		// If there are any events for this pvc we can use the
 		// most recent to set the status.
-		eventList, err := pvc.Events(ctx, client)
+		eventList, err := pvc.Events(ctx, coreClient)
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get events for PVC")
 		}
@@ -203,7 +204,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	}
 
 	pv := resources.NewPersistentVolume(pvc.Spec.VolumeName, nil)
-	err = pv.Get(ctx, client)
+	err = pv.Get(ctx, coreClient, extendedClient)
 	if errors.IsNotFound(err) {
 		// Ignore volumes which don't exist (yet).
 		return nil, nil

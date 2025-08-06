@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -48,8 +49,8 @@ func (rb *RoleBinding) ID() ID {
 }
 
 // Apply patches the resource change.
-func (rb *RoleBinding) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().RoleBindings(rb.Namespace)
+func (rb *RoleBinding) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().RoleBindings(rb.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &rb.RoleBinding)
 	if err != nil {
 		return errors.Trace(err)
@@ -73,8 +74,8 @@ func (rb *RoleBinding) Apply(ctx context.Context, client kubernetes.Interface) e
 }
 
 // Get refreshes the resource.
-func (rb *RoleBinding) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().RoleBindings(rb.Namespace)
+func (rb *RoleBinding) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().RoleBindings(rb.Namespace)
 	res, err := api.Get(ctx, rb.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -86,8 +87,8 @@ func (rb *RoleBinding) Get(ctx context.Context, client kubernetes.Interface) err
 }
 
 // Delete removes the resource.
-func (rb *RoleBinding) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().RoleBindings(rb.Namespace)
+func (rb *RoleBinding) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().RoleBindings(rb.Namespace)
 	err := api.Delete(ctx, rb.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -100,8 +101,8 @@ func (rb *RoleBinding) Delete(ctx context.Context, client kubernetes.Interface) 
 }
 
 // Events emitted by the resource.
-func (rb *RoleBinding) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, rb.Namespace, rb.Name, "RoleBinding")
+func (rb *RoleBinding) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, rb.Namespace, rb.Name, "RoleBinding")
 }
 
 // ComputeStatus returns a juju status for the resource.

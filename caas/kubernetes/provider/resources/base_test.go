@@ -5,17 +5,17 @@ package resources_test
 
 import (
 	gc "gopkg.in/check.v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes"
 )
 
 type resourceSuite struct {
-	client *fake.Clientset
+	coreClient kubernetes.Interface
 }
 
 func (s *resourceSuite) SetUpTest(c *gc.C) {
-	s.client = fake.NewSimpleClientset()
+	s.coreClient = newCombinedClientSet()
 }
 
 func (s *resourceSuite) TearDownTest(c *gc.C) {
-	s.client = nil
+	s.coreClient = nil
 }

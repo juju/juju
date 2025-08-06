@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -48,8 +49,8 @@ func (d *Deployment) ID() ID {
 }
 
 // Apply patches the resource change.
-func (d *Deployment) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().Deployments(d.Namespace)
+func (d *Deployment) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.AppsV1().Deployments(d.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &d.Deployment)
 	if err != nil {
 		return errors.Trace(err)
@@ -73,8 +74,8 @@ func (d *Deployment) Apply(ctx context.Context, client kubernetes.Interface) err
 }
 
 // Get refreshes the resource.
-func (d *Deployment) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().Deployments(d.Namespace)
+func (d *Deployment) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.AppsV1().Deployments(d.Namespace)
 	res, err := api.Get(ctx, d.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -86,8 +87,8 @@ func (d *Deployment) Get(ctx context.Context, client kubernetes.Interface) error
 }
 
 // Delete removes the resource.
-func (d *Deployment) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().Deployments(d.Namespace)
+func (d *Deployment) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.AppsV1().Deployments(d.Namespace)
 	err := api.Delete(ctx, d.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -100,12 +101,12 @@ func (d *Deployment) Delete(ctx context.Context, client kubernetes.Interface) er
 }
 
 // Events emitted by the resource.
-func (d *Deployment) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, d.Namespace, d.Name, "Deployment")
+func (d *Deployment) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, d.Namespace, d.Name, "Deployment")
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (d *Deployment) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (d *Deployment) ComputeStatus(ctx context.Context, coreClient kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	if d.DeletionTimestamp != nil {
 		return "", status.Terminated, d.DeletionTimestamp.Time, nil
 	}

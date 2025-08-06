@@ -58,7 +58,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 		config.ImageDetails.BasicAuthConfig.Auth = docker.NewToken("xxxxxxxx===")
 	}
 	bridge := &modelOperatorBrokerBridge{
-		client: m.client,
+		coreClient: m.client,
 		ensureConfigMap: func(cm *core.ConfigMap) ([]func(), error) {
 			ensureConfigMapCalled = true
 			_, err := m.client.CoreV1().ConfigMaps(namespace).Create(context.TODO(), cm, meta.CreateOptions{})

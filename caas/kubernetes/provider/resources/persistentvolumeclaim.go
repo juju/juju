@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,8 +37,8 @@ func NewPersistentVolumeClaim(name string, namespace string, in *corev1.Persiste
 }
 
 // ListPersistentVolumeClaims returns a list of persistent volume claims.
-func ListPersistentVolumeClaims(ctx context.Context, client kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]PersistentVolumeClaim, error) {
-	api := client.CoreV1().PersistentVolumeClaims(namespace)
+func ListPersistentVolumeClaims(ctx context.Context, coreClient kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]PersistentVolumeClaim, error) {
+	api := coreClient.CoreV1().PersistentVolumeClaims(namespace)
 	var items []PersistentVolumeClaim
 	for {
 		res, err := api.List(ctx, opts)
@@ -67,8 +68,8 @@ func (pvc *PersistentVolumeClaim) ID() ID {
 }
 
 // Apply patches the resource change.
-func (pvc *PersistentVolumeClaim) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().PersistentVolumeClaims(pvc.Namespace)
+func (pvc *PersistentVolumeClaim) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().PersistentVolumeClaims(pvc.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &pvc.PersistentVolumeClaim)
 	if err != nil {
 		return errors.Trace(err)
@@ -92,8 +93,8 @@ func (pvc *PersistentVolumeClaim) Apply(ctx context.Context, client kubernetes.I
 }
 
 // Get refreshes the resource.
-func (pvc *PersistentVolumeClaim) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().PersistentVolumeClaims(pvc.Namespace)
+func (pvc *PersistentVolumeClaim) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().PersistentVolumeClaims(pvc.Namespace)
 	res, err := api.Get(ctx, pvc.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -105,8 +106,8 @@ func (pvc *PersistentVolumeClaim) Get(ctx context.Context, client kubernetes.Int
 }
 
 // Delete removes the resource.
-func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().PersistentVolumeClaims(pvc.Namespace)
+func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().PersistentVolumeClaims(pvc.Namespace)
 	logger.Infof("deleting PVC %s due to call to PersistentVolumeClaim.Delete", pvc.Name)
 	err := api.Delete(ctx, pvc.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
@@ -120,12 +121,12 @@ func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, client kubernetes.
 }
 
 // Events emitted by the resource.
-func (pvc *PersistentVolumeClaim) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, pvc.Namespace, pvc.Name, "PersistentVolumeClaim")
+func (pvc *PersistentVolumeClaim) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, pvc.Namespace, pvc.Name, "PersistentVolumeClaim")
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (pvc *PersistentVolumeClaim) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (pvc *PersistentVolumeClaim) ComputeStatus(ctx context.Context, coreClient kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	if pvc.DeletionTimestamp != nil {
 		return "", status.Terminated, pvc.DeletionTimestamp.Time, nil
 	}

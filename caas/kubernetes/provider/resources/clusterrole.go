@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,8 +48,8 @@ func (r *ClusterRole) ID() ID {
 }
 
 // Apply patches the resource change.
-func (r *ClusterRole) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().ClusterRoles()
+func (r *ClusterRole) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().ClusterRoles()
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &r.ClusterRole)
 	if err != nil {
 		return errors.Trace(err)
@@ -72,8 +73,8 @@ func (r *ClusterRole) Apply(ctx context.Context, client kubernetes.Interface) er
 }
 
 // Get refreshes the resource.
-func (r *ClusterRole) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().ClusterRoles()
+func (r *ClusterRole) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().ClusterRoles()
 	res, err := api.Get(ctx, r.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -85,8 +86,8 @@ func (r *ClusterRole) Get(ctx context.Context, client kubernetes.Interface) erro
 }
 
 // Delete removes the resource.
-func (r *ClusterRole) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().ClusterRoles()
+func (r *ClusterRole) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.RbacV1().ClusterRoles()
 	err := api.Delete(ctx, r.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -101,10 +102,11 @@ func (r *ClusterRole) Delete(ctx context.Context, client kubernetes.Interface) e
 // Ensure ensures this cluster role exists in it's desired form inside the
 // cluster. If the object does not exist it's updated and if the object exists
 // it's updated. The method also takes an optional set of claims to test the
-// exisiting Kubernetes object with to assert ownership before overwriting it.
+// exisiting kubernetes.Interface object with to assert ownership before overwriting it.
 func (r *ClusterRole) Ensure(
 	ctx context.Context,
-	client kubernetes.Interface,
+	coreClient kubernetes.Interface,
+	extendedClient clientset.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
 	// TODO(caas): roll this into Apply()
@@ -112,7 +114,7 @@ func (r *ClusterRole) Ensure(
 	hasClaim := true
 
 	existing := ClusterRole{r.ClusterRole}
-	err := existing.Get(ctx, client)
+	err := existing.Get(ctx, coreClient, extendedClient)
 	if err == nil {
 		hasClaim, err = RunClaims(claims...).Assert(&existing.ClusterRole)
 	}
@@ -129,20 +131,20 @@ func (r *ClusterRole) Ensure(
 			"cluster role %q not controlled by juju", r.Name)
 	}
 
-	cleanups = append(cleanups, func() { _ = r.Delete(ctx, client) })
+	cleanups = append(cleanups, func() { _ = r.Delete(ctx, coreClient, extendedClient) })
 	if errors.IsNotFound(err) {
-		return cleanups, r.Apply(ctx, client)
+		return cleanups, r.Apply(ctx, coreClient, extendedClient)
 	}
 
-	if err := r.Update(ctx, client); err != nil {
+	if err := r.Update(ctx, coreClient, extendedClient); err != nil {
 		return cleanups, err
 	}
 	return cleanups, nil
 }
 
 // Events emitted by the resource.
-func (r *ClusterRole) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, r.Namespace, r.Name, "ClusterRole")
+func (r *ClusterRole) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, r.Namespace, r.Name, "ClusterRole")
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -153,9 +155,9 @@ func (r *ClusterRole) ComputeStatus(_ context.Context, _ kubernetes.Interface, n
 	return "", status.Active, now, nil
 }
 
-// Update updates the object in the Kubernetes cluster to the new representation
-func (r *ClusterRole) Update(ctx context.Context, client kubernetes.Interface) error {
-	out, err := client.RbacV1().ClusterRoles().Update(
+// Update updates the object in the kubernetes.Interface cluster to the new representation
+func (r *ClusterRole) Update(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	out, err := coreClient.RbacV1().ClusterRoles().Update(
 		ctx,
 		&r.ClusterRole,
 		metav1.UpdateOptions{

@@ -20,6 +20,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -55,6 +56,9 @@ var (
 var (
 	NewK8sClient = func(config *rest.Config) (kubernetes.Interface, error) {
 		return kubernetes.NewForConfig(config)
+	}
+	NewExtendedK8sClient = func(config *rest.Config) (clientset.Interface, error) {
+		return clientset.NewForConfig(config)
 	}
 	InClusterConfig = func() (*rest.Config, error) {
 		return rest.InClusterConfig()
@@ -129,6 +133,10 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (*kubernetesCli
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	k8sExtendedClient, err := NewExtendedK8sClient(restCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	broker := &kubernetesClient{
 		controllerUUID:    cfg.ControllerUUID,
 		modelUUID:         cfg.ModelUUID,
@@ -137,6 +145,7 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (*kubernetesCli
 		serviceAccount:    validCfg.serviceAccount(),
 		isControllerModel: cfg.ModelName == bootstrap.ControllerModelName,
 		client:            k8sClient,
+		extendedClient:    k8sExtendedClient,
 	}
 	return broker, errors.Trace(err)
 }
@@ -316,7 +325,8 @@ func (p k8sProvider) RestrictedConfig(
 }
 
 type kubernetesClient struct {
-	client kubernetes.Interface
+	client         kubernetes.Interface
+	extendedClient clientset.Interface
 
 	controllerUUID string
 	modelUUID      string
@@ -1172,7 +1182,8 @@ func (p k8sProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.Secr
 		modelUUID:      cfg.ModelUUID,
 		namespace:      broker.namespace,
 		serviceAccount: broker.serviceAccount,
-		client:         broker.client,
+		coreClient:     broker.client,
+		extendedClient: broker.extendedClient,
 	}, nil
 }
 

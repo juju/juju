@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,8 +37,8 @@ func NewSecret(name string, namespace string, in *corev1.Secret) *Secret {
 }
 
 // ListSecrets returns a list of Secrets.
-func ListSecrets(ctx context.Context, client kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]Secret, error) {
-	api := client.CoreV1().Secrets(namespace)
+func ListSecrets(ctx context.Context, coreClient kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]Secret, error) {
+	api := coreClient.CoreV1().Secrets(namespace)
 	var items []Secret
 	for {
 		res, err := api.List(ctx, opts)
@@ -67,8 +68,8 @@ func (s *Secret) ID() ID {
 }
 
 // Apply patches the resource change.
-func (s *Secret) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().Secrets(s.Namespace)
+func (s *Secret) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().Secrets(s.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &s.Secret)
 	if err != nil {
 		return errors.Trace(err)
@@ -92,8 +93,8 @@ func (s *Secret) Apply(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Get refreshes the resource.
-func (s *Secret) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().Secrets(s.Namespace)
+func (s *Secret) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().Secrets(s.Namespace)
 	res, err := api.Get(ctx, s.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -105,8 +106,8 @@ func (s *Secret) Get(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Delete removes the resource.
-func (s *Secret) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().Secrets(s.Namespace)
+func (s *Secret) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().Secrets(s.Namespace)
 	err := api.Delete(ctx, s.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -119,12 +120,12 @@ func (s *Secret) Delete(ctx context.Context, client kubernetes.Interface) error 
 }
 
 // Events emitted by the resource.
-func (s *Secret) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, s.Namespace, s.Name, "Secret")
+func (s *Secret) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, s.Namespace, s.Name, "Secret")
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (s *Secret) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (s *Secret) ComputeStatus(ctx context.Context, coreClient kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	if s.DeletionTimestamp != nil {
 		return "", status.Terminated, s.DeletionTimestamp.Time, nil
 	}

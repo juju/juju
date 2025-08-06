@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/environs/bootstrap"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 type upgradeCAASControllerBridge struct {
@@ -76,6 +77,7 @@ func (k *kubernetesClient) upgradeController(vers version.Number) error {
 func (k *kubernetesClient) InClusterCredentialUpgrade() error {
 	return inClusterCredentialUpgrade(
 		k.client(),
+		k.extendedClient(),
 		k.LabelVersion(),
 		k.Namespace(),
 		k.ControllerUUID(),
@@ -83,7 +85,8 @@ func (k *kubernetesClient) InClusterCredentialUpgrade() error {
 }
 
 func inClusterCredentialUpgrade(
-	client kubernetes.Interface,
+	coreClient kubernetes.Interface,
+	extendedClient clientset.Interface,
 	labelVersion constants.LabelVersion,
 	namespace string,
 	controllerUUID string,
@@ -93,7 +96,8 @@ func inClusterCredentialUpgrade(
 
 	saName, cleanUps, err := ensureControllerServiceAccount(
 		ctx,
-		client,
+		coreClient,
+		extendedClient,
 		namespace,
 		controllerUUID,
 		labels,
@@ -112,14 +116,14 @@ func inClusterCredentialUpgrade(
 	}
 
 	ss := resources.NewStatefulSet("controller", namespace, &appsv1.StatefulSet{})
-	if err := ss.Get(ctx, client); err != nil {
+	if err := ss.Get(ctx, coreClient, extendedClient); err != nil {
 		runCleanups()
 		return errors.Annotate(err, "updating controller for in cluster credentials")
 	}
 
 	ss.Spec.Template.Spec.ServiceAccountName = saName
 	ss.Spec.Template.Spec.AutomountServiceAccountToken = boolPtr(true)
-	if err := ss.Apply(ctx, client); err != nil {
+	if err := ss.Apply(ctx, coreClient, extendedClient); err != nil {
 		runCleanups()
 		return errors.Annotate(err, "updating controller for in cluster credentials")
 	}

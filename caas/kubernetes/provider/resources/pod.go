@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -38,8 +39,8 @@ func NewPod(name string, namespace string, in *corev1.Pod) *Pod {
 }
 
 // ListPods returns a list of Pods.
-func ListPods(ctx context.Context, client kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]Pod, error) {
-	api := client.CoreV1().Pods(namespace)
+func ListPods(ctx context.Context, coreClient kubernetes.Interface, namespace string, opts metav1.ListOptions) ([]Pod, error) {
+	api := coreClient.CoreV1().Pods(namespace)
 	var items []Pod
 	for {
 		res, err := api.List(ctx, opts)
@@ -69,8 +70,8 @@ func (p *Pod) ID() ID {
 }
 
 // Apply patches the resource change.
-func (p *Pod) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().Pods(p.Namespace)
+func (p *Pod) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().Pods(p.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &p.Pod)
 	if err != nil {
 		return errors.Trace(err)
@@ -94,8 +95,8 @@ func (p *Pod) Apply(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Get refreshes the resource.
-func (p *Pod) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().Pods(p.Namespace)
+func (p *Pod) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().Pods(p.Namespace)
 	res, err := api.Get(ctx, p.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -107,8 +108,8 @@ func (p *Pod) Get(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Delete removes the resource.
-func (p *Pod) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().Pods(p.Namespace)
+func (p *Pod) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().Pods(p.Namespace)
 	err := api.Delete(ctx, p.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -121,13 +122,13 @@ func (p *Pod) Delete(ctx context.Context, client kubernetes.Interface) error {
 }
 
 // Events emitted by the resource.
-func (p *Pod) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, p.Namespace, p.Name, "Pod")
+func (p *Pod) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, p.Namespace, p.Name, "Pod")
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (p *Pod) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
-	return PodToJujuStatus(p.Pod, now, func() ([]corev1.Event, error) { return p.Events(ctx, client) })
+func (p *Pod) ComputeStatus(ctx context.Context, coreClient kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+	return PodToJujuStatus(p.Pod, now, func() ([]corev1.Event, error) { return p.Events(ctx, coreClient) })
 }
 
 type EventGetter func() ([]corev1.Event, error)
@@ -162,7 +163,7 @@ var (
 	}
 )
 
-// PodToJujuStatus takes a Kubernetes pod and translates it to a known Juju
+// PodToJujuStatus takes a kubernetes.Interface pod and translates it to a known Juju
 // status. If this function can't determine the reason for a pod's state either
 // a status of error or unknown is returned. Function returns the status message,
 // juju status, the time of the status event and any errors that occurred.
@@ -194,7 +195,7 @@ func PodToJujuStatus(
 		return false, reasonMapper(pc.Reason), pc.Message
 	}
 
-	// reasonMapper takes a mapping of Kubernetes pod reasons to juju statuses.
+	// reasonMapper takes a mapping of kubernetes.Interface pod reasons to juju statuses.
 	// If no reason is found in the map the default reason supplied is returned
 	reasonMapper := func(
 		reasons map[string]status.Status,

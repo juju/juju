@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,8 +48,8 @@ func (sa *ServiceAccount) ID() ID {
 }
 
 // Apply patches the resource change.
-func (sa *ServiceAccount) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().ServiceAccounts(sa.Namespace)
+func (sa *ServiceAccount) Apply(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().ServiceAccounts(sa.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &sa.ServiceAccount)
 	if err != nil {
 		return errors.Trace(err)
@@ -72,8 +73,8 @@ func (sa *ServiceAccount) Apply(ctx context.Context, client kubernetes.Interface
 }
 
 // Get refreshes the resource.
-func (sa *ServiceAccount) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().ServiceAccounts(sa.Namespace)
+func (sa *ServiceAccount) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().ServiceAccounts(sa.Namespace)
 	res, err := api.Get(ctx, sa.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
@@ -85,8 +86,8 @@ func (sa *ServiceAccount) Get(ctx context.Context, client kubernetes.Interface) 
 }
 
 // Delete removes the resource.
-func (sa *ServiceAccount) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().ServiceAccounts(sa.Namespace)
+func (sa *ServiceAccount) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	api := coreClient.CoreV1().ServiceAccounts(sa.Namespace)
 	err := api.Delete(ctx, sa.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
@@ -100,7 +101,8 @@ func (sa *ServiceAccount) Delete(ctx context.Context, client kubernetes.Interfac
 
 func (sa *ServiceAccount) Ensure(
 	ctx context.Context,
-	client kubernetes.Interface,
+	coreClient kubernetes.Interface,
+	extendedClient clientset.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
 	alreadyExists := false
@@ -108,7 +110,7 @@ func (sa *ServiceAccount) Ensure(
 	hasClaim := true
 
 	existing := ServiceAccount{sa.ServiceAccount}
-	err := existing.Get(ctx, client)
+	err := existing.Get(ctx, coreClient, extendedClient)
 	if err != nil && !errors.IsNotFound(err) {
 		return cleanups, errors.Annotatef(
 			err,
@@ -133,17 +135,17 @@ func (sa *ServiceAccount) Ensure(
 			"service account %q not controlled by juju", sa.Name)
 	}
 
-	cleanups = append(cleanups, func() { _ = sa.Delete(ctx, client) })
+	cleanups = append(cleanups, func() { _ = sa.Delete(ctx, coreClient, extendedClient) })
 	if !alreadyExists {
-		return cleanups, sa.Apply(ctx, client)
+		return cleanups, sa.Apply(ctx, coreClient, extendedClient)
 	}
 
-	return cleanups, errors.Trace(sa.Update(ctx, client))
+	return cleanups, errors.Trace(sa.Update(ctx, coreClient))
 }
 
 // Events emitted by the resource.
-func (sa *ServiceAccount) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, sa.Namespace, sa.Name, "ServiceAccount")
+func (sa *ServiceAccount) Events(ctx context.Context, coreClient kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, coreClient, sa.Namespace, sa.Name, "ServiceAccount")
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -156,9 +158,9 @@ func (sa *ServiceAccount) ComputeStatus(_ context.Context, _ kubernetes.Interfac
 
 func (sa *ServiceAccount) Update(
 	ctx context.Context,
-	client kubernetes.Interface,
+	coreClient kubernetes.Interface,
 ) error {
-	out, err := client.CoreV1().ServiceAccounts(sa.Namespace).Update(
+	out, err := coreClient.CoreV1().ServiceAccounts(sa.Namespace).Update(
 		ctx,
 		&sa.ServiceAccount,
 		metav1.UpdateOptions{

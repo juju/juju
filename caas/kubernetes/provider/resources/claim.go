@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-// Claim represents an assertion over a generic Kubernetes object to assert
+// Claim represents an assertion over a generic kubernetes.Interface object to assert
 // ownership. These are used in Juju for cluster scoped resources to assert that
 // that Juju is not going to take ownership of an object that was not created by
 // itself.
@@ -27,7 +27,7 @@ type Claim interface {
 type ClaimFn func(obj interface{}) (bool, error)
 
 var (
-	// ClaimJujuOwnership asserts that the Kubernetes object has labels that
+	// ClaimJujuOwnership asserts that the kubernetes.Interface object has labels that
 	// in line with Juju management "ownership".
 	ClaimJujuOwnership = ClaimAggregateOr(
 		ClaimFn(claimIsManagedByJuju),
@@ -67,7 +67,7 @@ func claimHasJujuLabel(obj interface{}) (bool, error) {
 
 	metaObj, err := meta.Accessor(obj)
 	if err != nil {
-		return false, errors.Annotate(err, "asserting Kubernetes object has Juju labels")
+		return false, errors.Annotate(err, "asserting kubernetes.Interface object has Juju labels")
 	}
 	for k := range metaObj.GetLabels() {
 		if strings.Contains(k, "juju") {
@@ -77,7 +77,7 @@ func claimHasJujuLabel(obj interface{}) (bool, error) {
 	return false, nil
 }
 
-// claimIsManagedByJuju is a check to assert that the Kubernetes object provided
+// claimIsManagedByJuju is a check to assert that the kubernetes.Interface object provided
 // is managed by Juju by having the label key and value of
 // app.kubernetes.io/managed-by: juju.
 func claimIsManagedByJuju(obj interface{}) (bool, error) {
@@ -87,7 +87,7 @@ func claimIsManagedByJuju(obj interface{}) (bool, error) {
 
 	metaObj, err := meta.Accessor(obj)
 	if err != nil {
-		return false, errors.Annotate(err, "asserting Kubernetes object has managed by juju label")
+		return false, errors.Annotate(err, "asserting kubernetes.Interface object has managed by juju label")
 	}
 
 	val, has := metaObj.GetLabels()[constants.LabelKubernetesAppManaged]

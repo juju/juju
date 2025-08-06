@@ -36,11 +36,11 @@ func (s *eventsSuite) TestList(c *gc.C) {
 	for i := 0; i < 1000; i++ {
 		ev := template
 		ev.ObjectMeta.Name = strconv.Itoa(i)
-		_, err := s.client.CoreV1().Events("test").Create(context.TODO(), &ev, metav1.CreateOptions{})
+		_, err := s.coreClient.CoreV1().Events("test").Create(context.TODO(), &ev, metav1.CreateOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 		res = append(res, ev)
 	}
-	events, err := resources.ListEventsForObject(context.TODO(), s.client, "test", "test", "Pod")
+	events, err := resources.ListEventsForObject(context.TODO(), s.coreClient, "test", "test", "Pod")
 	c.Assert(err, jc.ErrorIsNil)
 
 	toInt := func(s string) int {

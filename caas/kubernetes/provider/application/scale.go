@@ -25,14 +25,14 @@ func (a *app) Scale(scaleTo int) error {
 			context.Background(),
 			a.name,
 			int32(scaleTo),
-			scale.StatefulSetScalePatcher(a.client.AppsV1().StatefulSets(a.namespace)),
+			scale.StatefulSetScalePatcher(a.coreClient.AppsV1().StatefulSets(a.namespace)),
 		)
 	case caas.DeploymentStateless:
 		return scale.PatchReplicasToScale(
 			context.Background(),
 			a.name,
 			int32(scaleTo),
-			scale.DeploymentScalePatcher(a.client.AppsV1().Deployments(a.namespace)),
+			scale.DeploymentScalePatcher(a.coreClient.AppsV1().Deployments(a.namespace)),
 		)
 	default:
 		return errors.NotSupportedf(
@@ -46,7 +46,7 @@ func (a *app) Scale(scaleTo int) error {
 func (a *app) currentScale(ctx context.Context) (int, error) {
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		ss, err := a.client.AppsV1().StatefulSets(a.namespace).Get(ctx, a.name, meta.GetOptions{})
+		ss, err := a.coreClient.AppsV1().StatefulSets(a.namespace).Get(ctx, a.name, meta.GetOptions{})
 		if k8serrors.IsNotFound(err) {
 			err = errors.WithType(err, errors.NotFound)
 		}

@@ -31,14 +31,18 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 // ModelOperatorBroker defines a broker for Executing Kubernetes ensure
 // commands. This interfaces is scoped down to the exact components needed by
 // the ensure model operator routines.
 type ModelOperatorBroker interface {
-	// Client returns the Kubernetes client to use for model operator actions.
+	// Client returns the core Kubernetes client to use for model operator actions.
 	Client() kubernetes.Interface
+
+	// ExtendedClient returns the extended Kubernetes client to use for model operator actions.
+	ExtendedClient() clientset.Interface
 
 	// EnsureConfigMap ensures the supplied kubernetes config map exists in the
 	// targeted cluster. Error returned if this action is not able to be
@@ -86,7 +90,8 @@ type ModelOperatorBroker interface {
 // modelOperatorBrokerBridge provides a pluggable struct of funcs to implement
 // the ModelOperatorBroker interface
 type modelOperatorBrokerBridge struct {
-	client kubernetes.Interface
+	coreClient     kubernetes.Interface
+	extendedClient clientset.Interface
 
 	ensureConfigMap      func(*core.ConfigMap) ([]func(), error)
 	ensureDeployment     func(*apps.Deployment) ([]func(), error)
@@ -122,7 +127,12 @@ var (
 
 // Client implements ModelOperatorBroker
 func (m *modelOperatorBrokerBridge) Client() kubernetes.Interface {
-	return m.client
+	return m.coreClient
+}
+
+// ExtendedClient implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) ExtendedClient() clientset.Interface {
+	return m.extendedClient
 }
 
 // EnsureConfigMap implements ModelOperatorBroker
@@ -317,7 +327,8 @@ func (k *kubernetesClient) EnsureModelOperator(
 	}
 
 	bridge := &modelOperatorBrokerBridge{
-		client: k.client(),
+		coreClient:     k.client(),
+		extendedClient: k.extendedClient(),
 		ensureConfigMap: func(c *core.ConfigMap) ([]func(), error) {
 			cleanUp, err := k.ensureConfigMap(c)
 			return []func(){cleanUp}, err
@@ -616,6 +627,7 @@ func ensureModelOperatorRBAC(
 	c, err = clusterRole.Ensure(
 		ctx,
 		broker.Client(),
+		broker.ExtendedClient(),
 		resources.ClaimJujuOwnership,
 	)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
@@ -639,7 +651,7 @@ func ensureModelOperatorRBAC(
 		},
 	})
 
-	c, err = clusterRoleBinding.Ensure(ctx, broker.Client(), resources.ClaimJujuOwnership)
+	c, err = clusterRoleBinding.Ensure(ctx, broker.Client(), broker.ExtendedClient(), resources.ClaimJujuOwnership)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
 	if err != nil {
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role binding")

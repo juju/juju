@@ -19,7 +19,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubernetes "k8s.io/client-go/kubernetes"
 )
 
 // MockResource is a mock of Resource interface.
@@ -46,7 +45,7 @@ func (m *MockResource) EXPECT() *MockResourceMockRecorder {
 }
 
 // Apply mocks base method.
-func (m *MockResource) Apply(arg0 context.Context, arg1 kubernetes.Interface) error {
+func (m *MockResource) Apply(arg0 context.Context, arg1 resources.kubernetes.Interface) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Apply", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -74,7 +73,7 @@ func (mr *MockResourceMockRecorder) Clone() *gomock.Call {
 }
 
 // ComputeStatus mocks base method.
-func (m *MockResource) ComputeStatus(arg0 context.Context, arg1 kubernetes.Interface, arg2 time.Time) (string, status.Status, time.Time, error) {
+func (m *MockResource) ComputeStatus(arg0 context.Context, arg1 resources.kubernetes.Interface, arg2 time.Time) (string, status.Status, time.Time, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ComputeStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
@@ -91,7 +90,7 @@ func (mr *MockResourceMockRecorder) ComputeStatus(arg0, arg1, arg2 any) *gomock.
 }
 
 // Delete mocks base method.
-func (m *MockResource) Delete(arg0 context.Context, arg1 kubernetes.Interface) error {
+func (m *MockResource) Delete(arg0 context.Context, arg1 resources.kubernetes.Interface) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -105,7 +104,7 @@ func (mr *MockResourceMockRecorder) Delete(arg0, arg1 any) *gomock.Call {
 }
 
 // Events mocks base method.
-func (m *MockResource) Events(arg0 context.Context, arg1 kubernetes.Interface) ([]v1.Event, error) {
+func (m *MockResource) Events(arg0 context.Context, arg1 resources.kubernetes.Interface) ([]v1.Event, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Events", arg0, arg1)
 	ret0, _ := ret[0].([]v1.Event)
@@ -120,7 +119,7 @@ func (mr *MockResourceMockRecorder) Events(arg0, arg1 any) *gomock.Call {
 }
 
 // Get mocks base method.
-func (m *MockResource) Get(arg0 context.Context, arg1 kubernetes.Interface) error {
+func (m *MockResource) Get(arg0 context.Context, arg1 resources.kubernetes.Interface) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -243,7 +242,7 @@ func (mr *MockApplierMockRecorder) Delete(arg0 ...any) *gomock.Call {
 }
 
 // Run mocks base method.
-func (m *MockApplier) Run(arg0 context.Context, arg1 kubernetes.Interface, arg2 bool) error {
+func (m *MockApplier) Run(arg0 context.Context, arg1 resources.kubernetes.Interface, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

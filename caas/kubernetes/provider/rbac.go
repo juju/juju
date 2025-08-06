@@ -153,6 +153,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		cRCleanups, err := cr.Ensure(
 			ctx,
 			k.client(),
+			k.extendedClient(),
 			resources.ClaimJujuOwnership,
 		)
 		cleanups = append(cleanups, cRCleanups...)
@@ -165,6 +166,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		crbCleanups, err := clusterRoleBinding.Ensure(
 			ctx,
 			k.client(),
+			k.extendedClient(),
 			resources.ClaimJujuOwnership,
 		)
 		cleanups = append(cleanups, crbCleanups...)
