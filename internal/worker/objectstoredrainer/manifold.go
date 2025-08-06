@@ -85,7 +85,7 @@ type ManifoldConfig struct {
 	Clock  clock.Clock
 }
 
-// validate is called by start to check for bad configuration.
+// Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")

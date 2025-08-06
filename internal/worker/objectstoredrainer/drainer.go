@@ -130,7 +130,7 @@ func (w *drainWorker) loop() error {
 	}
 
 	// We can't use the tomb dying to signal completion here, because we
-	// allow the worker to be restart.
+	// allow the worker to be restarted.
 	select {
 	case <-w.tomb.Dying():
 		return tomb.ErrDying

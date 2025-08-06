@@ -20,6 +20,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
 )
 
@@ -133,7 +134,7 @@ func (w *s3Worker) Session(ctx context.Context, fn func(context.Context, objects
 			defer w.mutex.Unlock()
 
 			if w.session == nil {
-				return errors.NotSupportedf("no session available")
+				return internalerrors.Errorf("no session available").Add(errors.NotSupported)
 			}
 
 			return fn(ctx, w.session)
