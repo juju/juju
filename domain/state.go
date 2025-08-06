@@ -57,9 +57,20 @@ func (st *StateBase) DB(ctx context.Context) (TxnRunner, error) {
 	// common use case.
 	st.dbMutex.RLock()
 	if st.db != nil {
-		db := st.db
-		st.dbMutex.RUnlock()
-		return db, nil
+		select {
+		case <-st.db.runner.Dying():
+			// The database is no longer usable, so we can remove it from the
+			// cache and return an error. If the the consumer wants to try
+			// again, they can call DB again and it will perform the full
+			// retrieval.
+			st.db = nil
+			st.dbMutex.RUnlock()
+			return nil, database.ErrDBNotFound
+		default:
+			// The database is still alive, return it.
+			st.dbMutex.RUnlock()
+			return st.db, nil
+		}
 	}
 	st.dbMutex.RUnlock()
 

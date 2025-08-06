@@ -23,6 +23,11 @@ type TxnRunner interface {
 	// which the input function is executed.
 	// The input context can be used by the caller to cancel this process.
 	StdTxn(context.Context, func(context.Context, *sql.Tx) error) error
+
+	// Dying returns a channel that is closed when the database connection
+	// is no longer usable. This can be used to detect when the database is
+	// shutting down or has been closed.
+	Dying() <-chan struct{}
 }
 
 // TxnRunnerFactory aliases a function that

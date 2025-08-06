@@ -134,6 +134,13 @@ func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *
 	})
 }
 
+// Dying returns a channel that is closed when the database connection
+// is no longer usable. This can be used to detect when the database is
+// shutting down or has been closed.
+func (w *trackedDBWorker) Dying() <-chan struct{} {
+	return w.tomb.Dying()
+}
+
 // Err returns the error that caused the worker to stop.
 func (w *trackedDBWorker) Err() error {
 	return w.tomb.Err()

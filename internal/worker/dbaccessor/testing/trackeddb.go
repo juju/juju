@@ -57,3 +57,7 @@ func (t *testTrackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sq
 	}
 	return db.StdTxn(ctx, fn)
 }
+
+func (t *testTrackedDB) Dying() <-chan struct{} {
+	return t.tomb.Dying()
+}

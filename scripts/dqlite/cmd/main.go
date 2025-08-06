@@ -238,6 +238,10 @@ func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx)
 	return errors.Trace(StdTxn(ctx, r.db, f))
 }
 
+func (r *txnRunner) Dying() <-chan struct{} {
+	return make(<-chan struct{})
+}
+
 var (
 	defaultTransactionRunner = txn.NewRetryingTxnRunner()
 )

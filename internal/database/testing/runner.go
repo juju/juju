@@ -45,6 +45,13 @@ func (t *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx
 	})
 }
 
+// Dying returns a channel that is closed when the database connection
+// is no longer usable. This can be used to detect when the database is
+// shutting down or has been closed.
+func (t *txnRunner) Dying() <-chan struct{} {
+	return make(<-chan struct{})
+}
+
 type singularDBGetter struct {
 	runner coredatabase.TxnRunner
 }
