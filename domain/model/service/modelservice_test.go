@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -951,6 +952,7 @@ type providerModelServiceSuite struct {
 	modelServiceSuite
 	mockProvider          *MockModelResourcesProvider
 	mockCloudInfoProvider *MockCloudInfoProvider
+	mockRegionProvider    *MockRegionProvider
 }
 
 func TestProviderModelServiceSuite(t *testing.T) {
@@ -961,6 +963,14 @@ func (s *providerModelServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.modelServiceSuite.setupMocks(c)
 	s.mockProvider = NewMockModelResourcesProvider(ctrl)
 	s.mockCloudInfoProvider = NewMockCloudInfoProvider(ctrl)
+	s.mockRegionProvider = NewMockRegionProvider(ctrl)
+
+	c.Cleanup(func() {
+		s.mockCloudInfoProvider = nil
+		s.mockProvider = nil
+		s.mockRegionProvider = nil
+	})
+
 	return ctrl
 }
 
@@ -998,15 +1008,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
 
-	svc := NewProviderModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
-		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
-		DefaultAgentBinaryFinder(),
-	)
+	svc := s.providerService(modelUUID)
 	err := svc.CreateModel(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -1041,15 +1043,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 		LatestAgentVersion: jujuversion.Current,
 	}).Return(modelerrors.AlreadyExists)
 
-	svc := NewProviderModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
-		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
-		DefaultAgentBinaryFinder(),
-	)
+	svc := s.providerService(modelUUID)
 	err := svc.CreateModel(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
@@ -1062,15 +1056,7 @@ func (s *providerModelServiceSuite) TestCloudAPIVersion(c *tc.C) {
 
 	s.mockCloudInfoProvider.EXPECT().APIVersion().Return("666", nil)
 
-	svc := NewProviderModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
-		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
-		DefaultAgentBinaryFinder(),
-	)
+	svc := s.providerService(modelUUID)
 	vers, err := svc.CloudAPIVersion(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(vers, tc.Equals, "666")
@@ -1091,15 +1077,7 @@ func (s *providerModelServiceSuite) TestResolveConstraints(c *tc.C) {
 	validator := coreconstraints.NewValidator()
 	s.mockProvider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
 
-	svc := NewProviderModelService(
-		modelUUID,
-		s.mockControllerState,
-		s.mockModelState,
-		s.environVersionProviderGetter(),
-		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
-		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
-		DefaultAgentBinaryFinder(),
-	)
+	svc := s.providerService(modelUUID)
 	result, err := svc.ResolveConstraints(c.Context(), coreconstraints.Value{
 		Arch:      ptr("arm64"),
 		Container: ptr(instance.NONE),
@@ -1117,4 +1095,43 @@ func (s *providerModelServiceSuite) TestResolveConstraints(c *tc.C) {
 		RootDisk:  ptr(uint64(1024)),
 	}
 	c.Check(result, tc.DeepEquals, cons)
+}
+
+func (s *providerModelServiceSuite) TestGetModelRegion(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockRegionProvider.EXPECT().Region().Return(simplestreams.CloudSpec{Region: "region"}, nil)
+
+	svc := s.providerService(modeltesting.GenModelUUID(c))
+	spec, err := svc.GetRegionCloudSpec(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, simplestreams.CloudSpec{Region: "region"})
+}
+
+func (s *providerModelServiceSuite) TestGetModelRegionNotSupported(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := s.providerService(modeltesting.GenModelUUID(c))
+	svc.environRegionGetter = func(context.Context) (RegionProvider, error) { return nil, coreerrors.NotSupported }
+
+	spec, err := svc.GetRegionCloudSpec(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, simplestreams.CloudSpec{})
+}
+
+func (s *providerModelServiceSuite) providerService(modelUUID coremodel.UUID) *ProviderModelService {
+	return NewProviderModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
+		func(context.Context) (RegionProvider, error) { return s.mockRegionProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
 }

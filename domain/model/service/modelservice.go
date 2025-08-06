@@ -23,6 +23,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -161,6 +162,14 @@ type CloudInfoProvider interface {
 	APIVersion() (string, error)
 }
 
+// RegionProvider instances provide a means to get the CloudSpec for this
+// model from a provider which supports it.
+type RegionProvider interface {
+	// Region returns the necessary attributes to uniquely identify the model's
+	// actual cloud deployment via a CloudSpec.
+	Region() (simplestreams.CloudSpec, error)
+}
+
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
@@ -186,7 +195,8 @@ func NewModelService(
 		modelSt:               modelSt,
 		clock:                 clock.WallClock,
 		environProviderGetter: environProviderGetter,
-		agentBinaryFinder:     agentBinaryFinder,
+
+		agentBinaryFinder: agentBinaryFinder,
 	}
 }
 
@@ -555,8 +565,9 @@ func (s *ModelService) HasValidCredential(ctx context.Context) (bool, error) {
 // state, as opposed to the controller state and the provider.
 type ProviderModelService struct {
 	ModelService
-	providerGetter  providertracker.ProviderGetter[ModelResourcesProvider]
-	cloudInfoGetter providertracker.ProviderGetter[CloudInfoProvider]
+	providerGetter      providertracker.ProviderGetter[ModelResourcesProvider]
+	cloudInfoGetter     providertracker.ProviderGetter[CloudInfoProvider]
+	environRegionGetter providertracker.ProviderGetter[RegionProvider]
 }
 
 // NewProviderModelService returns a new Service for interacting with a models state.
@@ -567,6 +578,7 @@ func NewProviderModelService(
 	environProviderGetter EnvironVersionProviderFunc,
 	providerGetter providertracker.ProviderGetter[ModelResourcesProvider],
 	cloudInfoGetter providertracker.ProviderGetter[CloudInfoProvider],
+	environRegionGetter providertracker.ProviderGetter[RegionProvider],
 	agentBinaryFinder AgentBinaryFinder,
 ) *ProviderModelService {
 	return &ProviderModelService{
@@ -578,8 +590,9 @@ func NewProviderModelService(
 			environProviderGetter: environProviderGetter,
 			agentBinaryFinder:     agentBinaryFinder,
 		},
-		providerGetter:  providerGetter,
-		cloudInfoGetter: cloudInfoGetter,
+		providerGetter:      providerGetter,
+		cloudInfoGetter:     cloudInfoGetter,
+		environRegionGetter: environRegionGetter,
 	}
 }
 
@@ -734,6 +747,23 @@ func (s *ProviderModelService) createModelProviderResources(
 	}
 
 	return nil
+}
+
+// GetRegionCloudSpec returns a CloudSpec representing the cloud deployment of
+// this model if supported by the provider. If not, an empty structure is
+// returned with no error.
+func (s *ProviderModelService) GetRegionCloudSpec(ctx context.Context) (simplestreams.CloudSpec, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	provider, err := s.environRegionGetter(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return simplestreams.CloudSpec{}, nil
+	} else if err != nil {
+		return simplestreams.CloudSpec{}, errors.Errorf("getting provider: %w", err)
+	}
+
+	return provider.Region()
 }
 
 // agentBinaryFinderFn is func type for the AgentBinaryFinder interface.
