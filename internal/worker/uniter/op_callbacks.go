@@ -137,7 +137,7 @@ func (opc *operationCallbacks) GetArchiveInfo(url string) (charm.BundleInfo, err
 
 // SetCurrentCharm is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetCurrentCharm(ctx stdcontext.Context, charmURL string) error {
-	return opc.u.unit.SetCharmURL(ctx, charmURL)
+	return opc.u.unit.SetCharm(ctx, charmURL)
 }
 
 // SetExecutingStatus is part of the operation.Callbacks interface.

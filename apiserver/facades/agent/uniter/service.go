@@ -108,25 +108,25 @@ type ApplicationService interface {
 	GetApplicationLifeByName(ctx context.Context, name string) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
-	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)
+	GetUnitLife(context.Context, coreunit.Name) (life.Value, error)
 
 	// GetUnitUUID returns the UUID for the named unit.
-	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
+	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
 
 	// GetUnitPrincipal returns the unit's principal unit if it exists
-	GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error)
+	GetUnitPrincipal(context.Context, coreunit.Name) (coreunit.Name, bool, error)
 
 	// GetUnitMachineName gets the name of the unit's machine.
 	//
 	// The following errors may be returned:
 	//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
 	//     machine assigned.
-	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error)
+	GetUnitMachineName(context.Context, coreunit.Name) (coremachine.Name, error)
 
 	// GetUnitMachineUUID gets the uuid of the unit's machine. If the unit's
 	// machine cannot be found [applicationerrors.UnitMachineNotAssigned] is
 	// returned.
-	GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (coremachine.UUID, error)
+	GetUnitMachineUUID(context.Context, coreunit.Name) (coremachine.UUID, error)
 
 	// GetUnitNamesForApplication returns a slice of the unit names for the given application
 	GetUnitNamesForApplication(ctx context.Context, appName string) ([]coreunit.Name, error)
@@ -140,12 +140,12 @@ type ApplicationService interface {
 	//
 	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
 	// will be returned.
-	WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error)
+	WatchUnitForLegacyUniter(context.Context, coreunit.Name) (watcher.NotifyWatcher, error)
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit.
 	//
 	// Returns [applicationerrors.UnitNotFound] if the unit is not found.
-	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
+	GetApplicationIDByUnitName(context.Context, coreunit.Name) (coreapplication.ID, error)
 
 	// GetApplicationIDByName returns an application ID by application name.
 	//
@@ -155,25 +155,25 @@ type ApplicationService interface {
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.
-	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
+	GetCharmModifiedVersion(context.Context, coreapplication.ID) (int, error)
 
 	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm
 	// archive for the given charm name, source and revision. If the charm is
 	// not available, [applicationerrors.CharmNotResolved] is returned.
-	GetAvailableCharmArchiveSHA256(ctx context.Context, locator charm.CharmLocator) (string, error)
+	GetAvailableCharmArchiveSHA256(context.Context, charm.CharmLocator) (string, error)
 
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the
 	// charm using the charm name, source and revision.
-	GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
+	GetCharmLXDProfile(context.Context, charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
 
 	// GetApplicationConfig returns the application config attributes for the
 	// configuration.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfig(ctx context.Context, uuid coreapplication.ID) (coreconfig.ConfigAttributes, error)
+	GetApplicationConfig(context.Context, coreapplication.ID) (coreconfig.ConfigAttributes, error)
 
 	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
-	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (domainapplication.UnitAttributes, error)
+	GetUnitRefreshAttributes(context.Context, coreunit.Name) (domainapplication.UnitAttributes, error)
 
 	// AddIAASSubordinateUnit adds a IAAS unit to the specified subordinate
 	// application to the application on the same machine as the given principal
@@ -184,7 +184,7 @@ type ApplicationService interface {
 	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error
 
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
-	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
+	GetUnitWorkloadVersion(context.Context, coreunit.Name) (string, error)
 
 	// GetApplicationConfigWithDefaults returns the application config
 	// attributes for the configuration, or their charm default if the config
@@ -192,7 +192,7 @@ type ApplicationService interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (coreconfig.ConfigAttributes, error)
+	GetApplicationConfigWithDefaults(context.Context, coreapplication.ID) (coreconfig.ConfigAttributes, error)
 
 	// WatchApplicationConfigHash watches for changes to the specified application's
 	// config hash.
@@ -204,11 +204,11 @@ type ApplicationService interface {
 	//
 	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
 	// will be returned.
-	WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
+	WatchUnitAddressesHash(context.Context, coreunit.Name) (watcher.StringsWatcher, error)
 
 	// GetUnitSubordinates returns the names of all the subordinate units of the
 	// given principal unit.
-	GetUnitSubordinates(ctx context.Context, unitName coreunit.Name) ([]coreunit.Name, error)
+	GetUnitSubordinates(context.Context, coreunit.Name) ([]coreunit.Name, error)
 
 	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
 	GetCharmLocatorByApplicationName(ctx context.Context, name string) (charm.CharmLocator, error)
@@ -223,7 +223,11 @@ type ApplicationService interface {
 	//
 	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
 	// will be returned.
-	WatchUnitActions(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
+	WatchUnitActions(context.Context, coreunit.Name) (watcher.StringsWatcher, error)
+
+	// UpdateUnitCharm updates the currently running charm marker for the given
+	// unit.
+	UpdateUnitCharm(context.Context, coreunit.Name, charm.CharmLocator) error
 }
 
 // NetworkService is the interface that is used to interact with the

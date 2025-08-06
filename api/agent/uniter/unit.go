@@ -491,9 +491,9 @@ func (u *Unit) CharmURL(ctx context.Context) (string, error) {
 	return "", ErrNoCharmURLSet
 }
 
-// SetCharmURL marks the unit as currently using the supplied charm URL.
+// SetCharm marks the unit as currently using the supplied charm URL.
 // An error will be returned if the unit is dead, or the charm URL not known.
-func (u *Unit) SetCharmURL(ctx context.Context, curl string) error {
+func (u *Unit) SetCharm(ctx context.Context, curl string) error {
 	if curl == "" {
 		return errors.Errorf("charm URL cannot be nil")
 	}
@@ -503,7 +503,7 @@ func (u *Unit) SetCharmURL(ctx context.Context, curl string) error {
 			{Tag: u.tag.String(), CharmURL: curl},
 		},
 	}
-	err := u.client.facade.FacadeCall(ctx, "SetCharmURL", args, &result)
+	err := u.client.facade.FacadeCall(ctx, "SetCharm", args, &result)
 	if err != nil {
 		return errors.Trace(apiservererrors.RestoreError(err))
 	}

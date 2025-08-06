@@ -5704,6 +5704,44 @@ func (c *MockStateUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.N
 	return c
 }
 
+// UpdateUnitCharm mocks base method.
+func (m *MockState) UpdateUnitCharm(arg0 context.Context, arg1 unit.Name, arg2 charm.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUnitCharm", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateUnitCharm indicates an expected call of UpdateUnitCharm.
+func (mr *MockStateMockRecorder) UpdateUnitCharm(arg0, arg1, arg2 any) *MockStateUpdateUnitCharmCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitCharm", reflect.TypeOf((*MockState)(nil).UpdateUnitCharm), arg0, arg1, arg2)
+	return &MockStateUpdateUnitCharmCall{Call: call}
+}
+
+// MockStateUpdateUnitCharmCall wrap *gomock.Call
+type MockStateUpdateUnitCharmCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUpdateUnitCharmCall) Return(arg0 error) *MockStateUpdateUnitCharmCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUpdateUnitCharmCall) Do(f func(context.Context, unit.Name, charm.ID) error) *MockStateUpdateUnitCharmCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUpdateUnitCharmCall) DoAndReturn(f func(context.Context, unit.Name, charm.ID) error) *MockStateUpdateUnitCharmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpsertCloudService mocks base method.
 func (m *MockState) UpsertCloudService(arg0 context.Context, arg1, arg2 string, arg3 network.ProviderAddresses) error {
 	m.ctrl.T.Helper()

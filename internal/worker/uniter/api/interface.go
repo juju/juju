@@ -85,7 +85,7 @@ type Unit interface {
 
 	// Used by operation.Callbacks.
 
-	SetCharmURL(ctx context.Context, curl string) error
+	SetCharm(ctx context.Context, curl string) error
 }
 
 // Application defines the methods on uniter.api.Application.

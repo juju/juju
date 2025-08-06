@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -22,6 +23,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
@@ -57,6 +59,58 @@ func (s *unitServiceSuite) TestGetUnitUUIDErrors(c *tc.C) {
 
 	_, err := s.service.GetUnitUUID(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitServiceSuite) TestUpdateUnitCharmCharmNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("bar/0")
+
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return("", applicationerrors.CharmNotFound)
+
+	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+	unitName := coreunit.Name("bar/0")
+
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
+	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, id).Return(applicationerrors.UnitNotFound)
+
+	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+	unitName := coreunit.Name("bar/0")
+
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
+	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, id).Return(nil)
+
+	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {

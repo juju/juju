@@ -853,9 +853,21 @@ func (u *UniterAPI) charmURLForUnit(ctx context.Context, tag names.UnitTag) (str
 	return curl, true, nil
 }
 
-// SetCharmURL sets the charm URL for each given unit. An error will
-// be returned if a unit is dead, or the charm URL is not known.
-func (u *UniterAPI) SetCharmURL(ctx context.Context, args params.EntitiesCharmURL) (params.ErrorResults, error) {
+// SetCharmURL sets the charm for each given unit to the charm specified by the
+// given charm URL. An error will be returned if a unit is dead, or the charm URL
+// is not known.
+
+// NOTE: The name SetCharmURL is misleading since the charm URL is not a concept
+// that the domain understands. Instead, we use a charm locator to change the charm
+// linked to the unit. This method is renamed to SetCharm on v21 of the facade.
+func (u *UniterAPIv20) SetCharmURL(ctx context.Context, args params.EntitiesCharmURL) (params.ErrorResults, error) {
+	return u.SetCharm(ctx, args)
+}
+
+// SetCharm sets the charm for each given unit to the charm specified by the
+// given charm URL. An error will be returned if a unit is dead, or the charm URL
+// is not known.
+func (u *UniterAPI) SetCharm(ctx context.Context, args params.EntitiesCharmURL) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -869,13 +881,31 @@ func (u *UniterAPI) SetCharmURL(ctx context.Context, args params.EntitiesCharmUR
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
-			// TODO(aflynn): SetCharmURL is currently a no-op. It will be
-			// addressed in the refresh epic.
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		charmLocator, err := apiservercharms.CharmLocatorFromURL(entity.CharmURL)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = u.applicationService.UpdateUnitCharm(ctx, unitName, charmLocator)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
+			continue
+		} else if errors.Is(err, applicationerrors.CharmNotFound) {
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "charm %q not found", charmLocator)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return result, nil
 }

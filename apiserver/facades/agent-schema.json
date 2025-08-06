@@ -10579,7 +10579,7 @@
                         }
                     }
                 },
-                "SetCharmURL": {
+                "SetCharm": {
                     "type": "object",
                     "properties": {
                         "Params": {

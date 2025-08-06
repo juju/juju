@@ -877,6 +877,44 @@ func (c *MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall) DoAndReturn(f
 	return c
 }
 
+// UpdateUnitCharm mocks base method.
+func (m *MockApplicationService) UpdateUnitCharm(arg0 context.Context, arg1 unit.Name, arg2 charm.CharmLocator) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUnitCharm", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateUnitCharm indicates an expected call of UpdateUnitCharm.
+func (mr *MockApplicationServiceMockRecorder) UpdateUnitCharm(arg0, arg1, arg2 any) *MockApplicationServiceUpdateUnitCharmCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitCharm", reflect.TypeOf((*MockApplicationService)(nil).UpdateUnitCharm), arg0, arg1, arg2)
+	return &MockApplicationServiceUpdateUnitCharmCall{Call: call}
+}
+
+// MockApplicationServiceUpdateUnitCharmCall wrap *gomock.Call
+type MockApplicationServiceUpdateUnitCharmCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceUpdateUnitCharmCall) Return(arg0 error) *MockApplicationServiceUpdateUnitCharmCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceUpdateUnitCharmCall) Do(f func(context.Context, unit.Name, charm.CharmLocator) error) *MockApplicationServiceUpdateUnitCharmCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceUpdateUnitCharmCall) DoAndReturn(f func(context.Context, unit.Name, charm.CharmLocator) error) *MockApplicationServiceUpdateUnitCharmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchApplication mocks base method.
 func (m *MockApplicationService) WatchApplication(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
