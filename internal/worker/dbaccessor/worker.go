@@ -475,7 +475,7 @@ func (w *dbWorker) GetDB(ctx context.Context, namespace string) (database.TxnRun
 
 func (w *dbWorker) workerFromCache(ctx context.Context, namespace string) (database.TxnRunner, error) {
 	// If the worker already exists, return the existing worker early.
-	if tracked, err := w.dbRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
+	if tracked, err := w.dbRunner.Worker(namespace, firstClosed(ctx.Done(), w.catacomb.Dying())); err == nil {
 		return tracked.(database.TxnRunner), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the DB runner is dead due to this worker dying.
@@ -493,6 +493,28 @@ func (w *dbWorker) workerFromCache(ctx context.Context, namespace string) (datab
 
 	// We didn't find the worker. Let the caller decide what to do.
 	return nil, nil
+}
+
+// firstClosed merges multiple channels into a single channel and the first
+// channel that closes will close the output channel.
+// It is expected that no channel will emit any value only that they will
+// close.
+func firstClosed(cs ...<-chan struct{}) <-chan struct{} {
+	out := make(chan struct{})
+	once := sync.OnceFunc(func() {
+		close(out)
+	})
+
+	for _, c := range cs {
+		go func() {
+			select {
+			case <-out:
+			case <-c:
+				once()
+			}
+		}()
+	}
+	return out
 }
 
 // DeleteDB deletes the dqlite-backed database that contains the data for
