@@ -215,6 +215,44 @@ func (m *MockWatchableDB) EXPECT() *MockWatchableDBMockRecorder {
 	return m.recorder
 }
 
+// Dying mocks base method.
+func (m *MockWatchableDB) Dying() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dying")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// Dying indicates an expected call of Dying.
+func (mr *MockWatchableDBMockRecorder) Dying() *MockWatchableDBDyingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dying", reflect.TypeOf((*MockWatchableDB)(nil).Dying))
+	return &MockWatchableDBDyingCall{Call: call}
+}
+
+// MockWatchableDBDyingCall wrap *gomock.Call
+type MockWatchableDBDyingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockWatchableDBDyingCall) Return(arg0 <-chan struct{}) *MockWatchableDBDyingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockWatchableDBDyingCall) Do(f func() <-chan struct{}) *MockWatchableDBDyingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockWatchableDBDyingCall) DoAndReturn(f func() <-chan struct{}) *MockWatchableDBDyingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // StdTxn mocks base method.
 func (m *MockWatchableDB) StdTxn(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
 	m.ctrl.T.Helper()

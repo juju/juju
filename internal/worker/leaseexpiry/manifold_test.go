@@ -5,8 +5,10 @@ package leaseexpiry_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -92,7 +94,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *manifoldSuite) newGetter() *dt.Getter {
 	return dt.StubGetter(map[string]interface{}{
 		"clock-name":       clock.WallClock,
-		"db-accessor-name": stubDBGetter{runner: nil},
+		"db-accessor-name": stubDBGetter{runner: noopTxnRunner{}},
 		"trace-name":       stubTracerGetter{},
 	})
 }
@@ -116,7 +118,9 @@ type stubDBGetter struct {
 	runner coredatabase.TxnRunner
 }
 
-func (s stubDBGetter) GetDB(name string) (coredatabase.TxnRunner, error) {
+var _ coredatabase.DBGetter = (*stubDBGetter)(nil)
+
+func (s stubDBGetter) GetDB(ctx context.Context, name string) (coredatabase.TxnRunner, error) {
 	if name != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
 	}
@@ -129,4 +133,27 @@ type stubTracerGetter struct {
 
 func (s stubTracerGetter) GetTracer(context.Context, coretrace.TracerNamespace) (coretrace.Tracer, error) {
 	return coretrace.NoopTracer{}, nil
+}
+
+type noopTxnRunner struct{}
+
+// Txn manages the application of a SQLair transaction within which the
+// input function is executed. See https://github.com/canonical/sqlair.
+// The input context can be used by the caller to cancel this process.
+func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) error) error {
+	return errors.NotImplemented
+}
+
+// StdTxn manages the application of a standard library transaction within
+// which the input function is executed.
+// The input context can be used by the caller to cancel this process.
+func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
+	return errors.NotImplemented
+}
+
+// Dying returns a channel that is closed when the database connection
+// is no longer usable. This can be used to detect when the database is
+// shutting down or has been closed.
+func (noopTxnRunner) Dying() <-chan struct{} {
+	return make(<-chan struct{})
 }

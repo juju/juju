@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/juju/domain/removal"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/domain/removal"
 )
 
 type controllerSuite struct {

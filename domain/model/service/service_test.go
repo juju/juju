@@ -1135,7 +1135,9 @@ func (s *serviceSuite) TestWatchModelCloudCredential(c *tc.C) {
 	ch := make(chan struct{}, 1)
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	s.mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(
-		gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(),
+		gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(watcher, nil)
 
 	svc := s.newWatchableService(c)
