@@ -45,6 +45,7 @@ type operation struct {
 
 func (op *operation) process(ctx context.Context, coreAPI kubernetes.Interface, extendedAPI clientset.Interface, rollback Applier) error {
 	existingRes := op.resource.Clone()
+	logger.Infof("alvin existing Res: %+v", existingRes)
 	// TODO: consider to `list` using label selectors instead of `get` by `name`.
 	// Because it's not good for non namespaced resources.
 	err := existingRes.Get(ctx, coreAPI, extendedAPI)

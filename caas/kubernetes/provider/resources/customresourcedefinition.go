@@ -81,7 +81,6 @@ func (crd *CustomResourceDefinition) Apply(ctx context.Context, coreClient kuber
 // Get refreshes the resource.
 func (crd *CustomResourceDefinition) Get(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
 	api := extendedClient.ApiextensionsV1().CustomResourceDefinitions()
-
 	res, err := api.Get(context.TODO(), crd.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("custom resource definition: %q", crd.Name)
@@ -89,15 +88,23 @@ func (crd *CustomResourceDefinition) Get(ctx context.Context, coreClient kuberne
 		return errors.Trace(err)
 	}
 	crd.CustomResourceDefinition = *res
+	logger.Infof("alvin Get res: %+v", res)
 	return nil
 }
 
 // Delete removes the resource.
 func (crd *CustomResourceDefinition) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
+	logger.Infof("alvin crd in del is %+v", *crd)
 	api := extendedClient.ApiextensionsV1().CustomResourceDefinitions()
+
 	err := api.Delete(ctx, crd.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
+	logger.Infof("alvin logger called for %s and err is %v", crd.Name, err)
+
+	err = crd.Get(ctx, coreClient, extendedClient)
+	logger.Infof("alvin Get err in Del is %v", err)
+	logger.Infof("alvin Get res after del in Del is %+v", *crd)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
