@@ -6,6 +6,7 @@ package lxd_test
 import (
 	"context"
 	stdcontext "context"
+	"fmt"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -51,6 +52,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 func (s *environSuite) TearDownTest(c *gc.C) {
 	s.invalidCredential = false
+	s.Client.ProfileExists = false
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -145,6 +147,63 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 
 	err := s.Env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"Destroy", []interface{}{s.callCtx}},
+		{"StorageSupported", nil},
+		{"GetStoragePools", nil},
+		{"GetStoragePoolVolumes", []interface{}{"juju"}},
+		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
+	})
+}
+
+func (s *environSuite) TestDestroyShouldCleanupProfile(c *gc.C) {
+	s.Client.Volumes = map[string][]api.StorageVolume{
+		"juju": {{
+			Name: "not-ours",
+			Config: map[string]string{
+				"user.juju-model-uuid": "other",
+			},
+		}, {
+			Name: "ours",
+			Config: map[string]string{
+				"user.juju-model-uuid": s.Config.UUID(),
+			},
+		}},
+	}
+	s.Client.ProfileExists = true
+	err := s.Env.Destroy(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"Destroy", []interface{}{s.callCtx}},
+		{"StorageSupported", nil},
+		{"GetStoragePools", nil},
+		{"GetStoragePoolVolumes", []interface{}{"juju"}},
+		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
+		{"DeleteProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
+	})
+}
+
+func (s *environSuite) TestDestroySkipDestroyingMissingProfile(c *gc.C) {
+	s.Client.Volumes = map[string][]api.StorageVolume{
+		"juju": {{
+			Name: "not-ours",
+			Config: map[string]string{
+				"user.juju-model-uuid": "other",
+			},
+		}, {
+			Name: "ours",
+			Config: map[string]string{
+				"user.juju-model-uuid": s.Config.UUID(),
+			},
+		}},
+	}
+
+	err := s.Env.Destroy(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Destroy", []interface{}{s.callCtx}},
@@ -153,6 +212,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 	})
 }
 
@@ -236,6 +296,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{machine1.Name}}},
 		{"StorageSupported", nil},
@@ -270,7 +331,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 	s.Client.Containers = append(s.Client.Containers, *machine0)
 
 	// RemoveContainers will error not-auth.
-	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, errTestUnAuth)
+	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, errTestUnAuth)
 
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, "not authorized")
@@ -281,6 +342,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{}}},
 	})
@@ -290,6 +352,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 		"GetStoragePools",
 		"GetStoragePoolVolumes",
 		"GetStoragePoolVolumes",
+		"HasProfile",
 		"AliveContainers",
 		"RemoveContainers")
 }
@@ -318,7 +381,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 	s.Client.Containers = append(s.Client.Containers, *machine0)
 
 	// RemoveContainers will error not-auth.
-	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
+	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
 
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
@@ -329,6 +392,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{}}},
 		{"StorageSupported", nil},
