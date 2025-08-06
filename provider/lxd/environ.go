@@ -5,6 +5,7 @@ package lxd
 
 import (
 	stdcontext "context"
+	"fmt"
 	"net"
 	"net/url"
 	"runtime"
@@ -31,6 +32,7 @@ import (
 var _ environs.HardwareCharacteristicsDetector = (*environ)(nil)
 
 const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://documentation.ubuntu.com/lxd/en/latest/explanation/performance_tuning/`
+const shortModelIdLength = 6
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
@@ -133,8 +135,12 @@ func (env *environ) initProfile() error {
 	return err
 }
 
+func (env *environ) shortModelUUID() string {
+	return env.uuid[:shortModelIdLength]
+}
+
 func (env *environ) profileName() string {
-	return "juju-" + env.Name()
+	return fmt.Sprintf("juju-%s-%s", env.name, env.shortModelUUID())
 }
 
 // Name returns the name of the environ.
@@ -231,7 +237,8 @@ func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
-	return nil
+
+	return env.destroyProfile(ctx)
 }
 
 // DestroyController implements the Environ interface.
@@ -274,6 +281,20 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	logger.Debugf("removing instances: %v", names)
 
 	return errors.Trace(env.server().RemoveContainers(names))
+}
+
+func (env *environ) destroyProfile(ctx context.ProviderCallContext) error {
+	server := env.server()
+	hasProfile, err := server.HasProfile(env.profileName())
+	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Trace(err)
+	}
+	if hasProfile {
+		return errors.Trace(server.DeleteProfile(env.profileName()))
+	}
+
+	return nil
 }
 
 // lxdAvailabilityZone wraps a LXD cluster member as an availability zone.
