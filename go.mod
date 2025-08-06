@@ -36,7 +36,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-delve/delve v1.24.0
-	github.com/go-goose/goose/v5 v5.1.1
+	github.com/go-goose/goose/v5 v5.1.2
 	github.com/go-logr/logr v1.4.3
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.2
 	github.com/google/gnostic-models v0.6.8
@@ -63,7 +63,6 @@ require (
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137
-	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.5
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
@@ -73,6 +72,7 @@ require (
 	github.com/juju/tc v0.0.0-20250801052209-d17f0b681e82
 	github.com/juju/testing v1.2.0
 	github.com/juju/txn/v3 v3.0.2
+	github.com/juju/utils/v3 v3.2.2
 	github.com/juju/utils/v4 v4.0.5
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v4 v4.2.0
@@ -106,15 +106,16 @@ require (
 	go.opentelemetry.io/otel/trace v1.36.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.5.0
-	golang.org/x/crypto v0.39.0
-	golang.org/x/net v0.41.0
+	golang.org/x/crypto v0.40.0
+	golang.org/x/net v0.42.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.15.0
-	golang.org/x/sys v0.33.0
+	golang.org/x/sync v0.16.0
+	golang.org/x/sys v0.34.0
 	golang.org/x/time v0.12.0
-	golang.org/x/tools v0.34.0
+	golang.org/x/tools v0.35.0
 	google.golang.org/api v0.238.0
 	google.golang.org/grpc v1.73.0
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.67.0
@@ -218,7 +219,6 @@ require (
 	github.com/juju/mgo/v2 v2.0.2 // indirect
 	github.com/juju/mgo/v3 v3.0.4 // indirect
 	github.com/juju/usso v1.0.1 // indirect
-	github.com/juju/utils/v3 v3.2.2 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
@@ -285,13 +285,12 @@ require (
 	go.starlark.net v0.0.0-20241125201518-c05ff208a98f // indirect
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/exp v0.0.0-20250531010427-b6e5de432a8b // indirect
-	golang.org/x/mod v0.25.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/mod v0.26.0 // indirect
+	golang.org/x/term v0.33.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/juju/environschema.v1 v1.0.1 // indirect

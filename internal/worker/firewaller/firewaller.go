@@ -70,8 +70,11 @@ type Config struct {
 	// FlushModelNotify is called when the Firewaller flushes it's model.
 	// This should only be used for testing.
 	FlushModelNotify func()
-	// FlushMMachineNotify is called when the Firewaller flushes a machine.
-	// This should only be used for testing
+	// SkipFlushModelNotify is called when the Firewaller skips flushing a model.
+	// This should only be used for testing.
+	SkipFlushModelNotify func()
+	// FlushMachineNotify is called when the Firewaller flushes a machine.
+	// This should only be used for testing.
 	FlushMachineNotify func(machine.Name)
 }
 
@@ -149,9 +152,10 @@ type Firewaller struct {
 	logger                     logger.Logger
 
 	// Only used for testing
-	watchMachineNotify func(machine.Name)
-	flushModelNotify   func()
-	flushMachineNotify func(machine.Name)
+	watchMachineNotify   func(machine.Name)
+	flushModelNotify     func()
+	skipFlushModelNotify func()
+	flushMachineNotify   func(machine.Name)
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -204,6 +208,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		relationWorkerRunner:       runner,
 		watchMachineNotify:         cfg.WatchMachineNotify,
 		flushModelNotify:           cfg.FlushModelNotify,
+		skipFlushModelNotify:       cfg.SkipFlushModelNotify,
 		flushMachineNotify:         cfg.FlushMachineNotify,
 	}
 
@@ -1111,6 +1116,9 @@ func (fw *Firewaller) flushModel(ctx context.Context) error {
 	if len(fw.machineds) == 0 {
 		fw.needsToFlushModel = true
 		fw.logger.Debugf(ctx, "skipping flushing model because there are no machines for this model")
+		if fw.skipFlushModelNotify != nil {
+			fw.skipFlushModelNotify()
+		}
 		return nil
 	}
 	// Reset the flag because the models are being flushed now.

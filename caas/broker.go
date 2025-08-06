@@ -236,6 +236,9 @@ type ModelOperatorManager interface {
 	// ModelOperator return the model operator config used to create the current
 	// model operator for this broker
 	ModelOperator(ctx context.Context) (*ModelOperatorConfig, error)
+
+	// GetModelOperatorDeploymentImage returns the image used for the model operator deployment.
+	GetModelOperatorDeploymentImage(ctx context.Context) (string, error)
 }
 
 // Upgrader provides the API to perform upgrades.

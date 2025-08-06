@@ -106,7 +106,7 @@ With LXD system containers, constraints are interpreted as resource *maximums* (
 | - {ref}`constraint-spaces`             | &#10005;                                                                                                                                                |
 | - {ref}`constraint-tags`               | &#10005;                                                                                                                                                |
 | - {ref}`constraint-virt-type`          | &#10003;                                                                                                                                                |
-| - {ref}`constraint-zones`              | &#10005;                                                                                                                                                |
+| - {ref}`constraint-zones`              | &#10003;  <br> `zones` are the LXD node name(s).                                                                                                        |
 
 
 ## Supported placement directives

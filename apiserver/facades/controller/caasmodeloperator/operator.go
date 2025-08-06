@@ -141,7 +141,7 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConfig, vers)
+	registryPath, err := podcfg.GetJujuOCIImagePathFromControllerCfg(controllerConfig, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

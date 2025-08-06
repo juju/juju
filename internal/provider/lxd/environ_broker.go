@@ -344,15 +344,18 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 func (env *environ) getTargetServer(
 	ctx context.Context, args environs.StartInstanceParams,
 ) (Server, error) {
-	p, err := env.parsePlacement(ctx, args.Placement)
+	zone, err := env.deriveAvailabilityZone(ctx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if p.nodeName == "" {
+	if zone == "" || !env.server().IsClustered() {
+		if zone != "" && zone != env.server().Name() {
+			return nil, errors.NotFoundf("LXD server %q", zone)
+		}
 		return env.server(), nil
+
 	}
-	return env.server().UseTargetServer(ctx, p.nodeName)
+	return env.server().UseTargetServer(ctx, zone)
 }
 
 type lxdPlacement struct {

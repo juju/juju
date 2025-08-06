@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
-	"github.com/juju/naturalsort"
 
 	"github.com/juju/juju/core/output"
+	"github.com/juju/juju/internal/naturalsort"
 )
 
 // FormatOneline writes a brief list of units and their subordinates.

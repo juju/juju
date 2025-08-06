@@ -36,20 +36,30 @@ func (s *CreateSecretSuite) TestKeyValues(c *tc.C) {
 	})
 }
 
+const (
+	// maxUnencodedSizeBytes is the maximum size of raw secret data
+	// before base64 encoding such that the base64 encoding size
+	// does not exceed the maximum allowed.
+	maxUnencodedSizeBytes = 750000
+)
+
 func (s *CreateSecretSuite) TestKeyContentTooLarge(c *tc.C) {
-	content := strings.Repeat("a", 9*1024)
+	content := strings.Repeat("a", maxUnencodedSizeBytes+1)
 	_, err := secrets.CreateSecretData([]string{"foo=" + content})
-	c.Assert(err, tc.ErrorMatches, `secret content for key "foo" too large: 9216 bytes`)
+	c.Assert(err, tc.ErrorMatches, `base64 encoded secret content for key "foo" too large: 1000004 bytes`)
 }
 
 func (s *CreateSecretSuite) TestTotalContentTooLarge(c *tc.C) {
-	content := strings.Repeat("a", 4*1024)
+	content := strings.Repeat("a", maxUnencodedSizeBytes/8)
 	var args []string
-	for i := 1; i <= 20; i++ {
+	// Generate 8 chunks adding up to the max allowed overall unencoded content size.
+	for i := 1; i <= 8; i++ {
 		args = append(args, fmt.Sprintf("key%d=%s", i, content))
 	}
+	// Tip the total content 1 extra byte over the limit.
+	args = append(args, fmt.Sprintf("key%d=%s", 9, "a"))
 	_, err := secrets.CreateSecretData(args)
-	c.Assert(err, tc.ErrorMatches, `secret content too large: 81920 bytes`)
+	c.Assert(err, tc.ErrorMatches, `base64 encoded secret content too large: 1000004 bytes`)
 }
 
 func (s *CreateSecretSuite) TestSecretKeyFromFile(c *tc.C) {

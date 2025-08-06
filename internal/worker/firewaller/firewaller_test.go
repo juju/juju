@@ -73,6 +73,7 @@ type firewallerBaseSuite struct {
 
 	firewallerStarted bool
 	modelFlushed      chan bool
+	modelFlushSkipped chan bool
 	machineFlushed    chan machine.Name
 	watchingMachine   chan machine.Name
 
@@ -319,6 +320,14 @@ func (s *firewallerBaseSuite) waitForModelFlush(c *tc.C) {
 	}
 }
 
+func (s *firewallerBaseSuite) waitForSkipModelFlush(c *tc.C) {
+	select {
+	case <-s.modelFlushSkipped:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for firewaller worker to skip model flush")
+	}
+}
+
 func (s *firewallerBaseSuite) waitForMachine(c *tc.C, id machine.Name) {
 	select {
 	case got := <-s.watchingMachine:
@@ -413,6 +422,7 @@ func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *moc
 
 func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) worker.Worker {
 	s.modelFlushed = make(chan bool, 1)
+	s.modelFlushSkipped = make(chan bool, 1)
 	s.machineFlushed = make(chan machine.Name, 1)
 	s.watchingMachine = make(chan machine.Name, 1)
 
@@ -425,6 +435,12 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 	flushModelNotify := func() {
 		select {
 		case s.modelFlushed <- true:
+		default:
+		}
+	}
+	skipFlushModelNotify := func() {
+		select {
+		case s.modelFlushSkipped <- true:
 		default:
 		}
 	}
@@ -449,11 +465,12 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:              s.clock,
-		Logger:             loggertesting.WrapCheckLog(c),
-		WatchMachineNotify: watchMachineNotify,
-		FlushModelNotify:   flushModelNotify,
-		FlushMachineNotify: flushMachineNotify,
+		Clock:                s.clock,
+		Logger:               loggertesting.WrapCheckLog(c),
+		WatchMachineNotify:   watchMachineNotify,
+		FlushModelNotify:     flushModelNotify,
+		FlushMachineNotify:   flushMachineNotify,
+		SkipFlushModelNotify: skipFlushModelNotify,
 	}
 	if s.withModelFirewaller {
 		cfg.EnvironModelFirewaller = s.envModelFirewaller
@@ -661,6 +678,8 @@ func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachine(c *tc.C) {
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
+
+	s.waitForSkipModelFlush(c)
 
 	m := s.addMachineUnitAndEnsureMocks(c, ctrl)
 
@@ -968,17 +987,6 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *tc.C, ctrl *gomock.C
 	}).MinTimes(1)
 	m.EXPECT().IsManual(gomock.Any()).Return(false, nil).MinTimes(1)
 
-	// Add a machine.
-	s.machinesCh <- []string{tag.Id()}
-
-	instId := instance.Id("inst-" + m.Tag().Id())
-	m.EXPECT().InstanceId(gomock.Any()).Return(instId, nil).AnyTimes()
-	inst := mocks.NewMockEnvironInstance(ctrl)
-	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).Times(1)
-	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).Times(1)
-
-	s.machinesCh <- []string{m.Tag().Id()}
-
 	s.firewaller.EXPECT().ModelFirewallRules(gomock.Any()).MinTimes(1).MaxTimes(2).DoAndReturn(func(_ context.Context) (firewall.IngressRules, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -996,6 +1004,14 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *tc.C, ctrl *gomock.C
 		s.envModelPorts = append(s.envModelPorts, add...)
 		return nil
 	}).Times(1)
+
+	instId := instance.Id("inst-" + m.Tag().Id())
+	m.EXPECT().InstanceId(gomock.Any()).Return(instId, nil).AnyTimes()
+	inst := mocks.NewMockEnvironInstance(ctrl)
+	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).Times(1)
+	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).Times(1)
+
+	s.machinesCh <- []string{tag.Id()}
 
 	return m
 }

@@ -13,12 +13,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
-	"github.com/juju/naturalsort"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/naturalsort"
 )
 
 func NewListCommand() cmd.Command {

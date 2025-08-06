@@ -15,7 +15,6 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
-	"github.com/juju/naturalsort"
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -29,6 +28,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/internal/naturalsort"
 )
 
 const (

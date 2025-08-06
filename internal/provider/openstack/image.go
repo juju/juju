@@ -63,6 +63,7 @@ func findInstanceSpec(
 		if !e.flavorFilter.AcceptFlavor(flavor) {
 			continue
 		}
+		isSev := flavor.ExtraSpecs["hw:mem_encryption"] == "true"
 		instanceType := instances.InstanceType{
 			Id:       flavor.Id,
 			Name:     flavor.Name,
@@ -70,6 +71,7 @@ func findInstanceSpec(
 			Mem:      uint64(flavor.RAM),
 			CpuCores: uint64(flavor.VCPUs),
 			RootDisk: uint64(flavor.Disk * 1024),
+			IsSev:    isSev,
 			// tags not currently supported on openstack
 		}
 		if ic.Constraints.HasVirtType() {

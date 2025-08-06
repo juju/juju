@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
 
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
@@ -494,7 +495,7 @@ func (s *storageSuite) TestDetachFilesystems(c *tc.C) {
 	c.Assert(results, tc.HasLen, 3)
 	c.Assert(results[0], tc.ErrorIsNil)
 	c.Assert(results[1], tc.ErrorIsNil)
-	c.Assert(results[2], tc.ErrorIsNil)
+	c.Assert(results[2], gc.ErrorMatches, `detaching filesystem 2: instance "inst-42" not found`)
 
 	// TODO (manadart 2018-06-25) We need to check the container config to
 	// ensure it represents the removed device.

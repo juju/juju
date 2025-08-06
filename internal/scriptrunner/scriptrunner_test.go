@@ -63,6 +63,5 @@ func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *tc.C) {
 
 func (*ScriptRunnerSuite) TestScriptRunnerTimeout(c *tc.C) {
 	_, err := scriptrunner.RunCommand("sleep 6", os.Environ(), clock.WallClock, 500*time.Microsecond)
-	c.Assert(err, tc.NotNil)
-	c.Assert(err, tc.ErrorMatches, "command cancelled")
+	c.Assert(err, tc.ErrorMatches, `running command "sleep 6": command cancelled`)
 }

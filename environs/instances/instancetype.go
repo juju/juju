@@ -30,6 +30,9 @@ type InstanceType struct {
 	// OCI.
 	MaxCpuCores *uint64
 	MaxMem      *uint64
+	// True value indicates it supports Secure Encrypted Virtualization.
+	// False on the contrary.
+	IsSev bool
 }
 
 // InstanceTypeNetworking hold relevant information about an instances

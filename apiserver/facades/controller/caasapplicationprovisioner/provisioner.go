@@ -370,10 +370,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting juju oci image path")
-	}
 	addrs, err := a.controllerNodeService.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
@@ -397,7 +393,27 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		Name:    osType,
 		Channel: origin.Platform.Channel,
 	}
-	imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+
+	// TODO(k8s): move to service so k8s broker can be used.
+	// modelImage, err := a.broker.GetModelOperatorDeploymentImage()
+	// if err != nil {
+	//	return nil, errors.Annotatef(err, "getting model operator deployment image")
+	//}
+	modelImage := cfg.CAASImageRepo() + "/" + podcfg.JujudOCIName
+
+	// gets the image repo from the model operator deployment image path.
+	modelImageRepo, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// gets the provisioning info image path using the model repo and agent version.
+	modelImagePath, err := podcfg.GetJujuOCIImagePathFromModelRepo(modelImageRepo, vers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	imageRepoDetails, err := docker.NewImageRepoDetails(modelImageRepo)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
@@ -419,7 +435,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Base:                 base,
-		ImageRepo:            params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(imageRepoDetails), imagePath),
+		ImageRepo:            params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(imageRepoDetails), modelImagePath),
 		CharmModifiedVersion: charmModifiedVersion,
 		Trust:                trustSetting,
 		Scale:                scale,

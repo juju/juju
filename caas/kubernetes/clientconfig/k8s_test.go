@@ -11,6 +11,7 @@ import (
 	"text/template"
 
 	"github.com/juju/tc"
+	"github.com/juju/utils/v3"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -171,12 +172,10 @@ func (s *k8sConfigSuite) SetUpTest(c *tc.C) {
 	s.dir = c.MkDir()
 }
 
-// writeTempKubeConfig writes yaml to a temp file and sets the
-// KUBECONFIG environment variable so that the clientconfig code reads
-// it instead of the default.
+// writeKubeConfigFileToDir writes yaml to a temp dir and file.
 // The caller must close and remove the returned file.
-func (s *k8sConfigSuite) writeTempKubeConfig(c *tc.C, filename string, data string) (*os.File, error) {
-	fullpath := filepath.Join(s.dir, filename)
+func (s *k8sConfigSuite) writeKubeConfigFileToDir(c *tc.C, dir, filename string, data string) (*os.File, error) {
+	fullpath := filepath.Join(dir, filename)
 	err := os.MkdirAll(filepath.Dir(fullpath), 0755)
 	if err != nil {
 		c.Fatal(err.Error())
@@ -185,7 +184,6 @@ func (s *k8sConfigSuite) writeTempKubeConfig(c *tc.C, filename string, data stri
 	if err != nil {
 		c.Fatal(err.Error())
 	}
-	_ = os.Setenv("KUBECONFIG", fullpath)
 
 	f, err := os.Open(fullpath)
 	return f, err
@@ -207,7 +205,7 @@ type newK8sClientConfigTestCase struct {
 }
 
 func (s *k8sConfigSuite) assertNewK8sClientConfig(c *tc.C, testCase newK8sClientConfigTestCase) {
-	f, err := s.writeTempKubeConfig(c, testCase.configYamlFileName, testCase.configYamlContent)
+	f, err := s.writeKubeConfigFileToDir(c, s.dir, testCase.configYamlFileName, testCase.configYamlContent)
 	defer f.Close()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -248,10 +246,9 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *tc.C) {
 }
 
 func (s *k8sConfigSuite) TestKubeConfigPathSnapHome(c *tc.C) {
-	f, err := s.writeTempKubeConfig(c, ".kube/config", singleConfigYAML)
+	f, err := s.writeKubeConfigFileToDir(c, s.dir, ".kube/config", singleConfigYAML)
 	defer f.Close()
 	c.Assert(err, tc.ErrorIsNil)
-	_ = os.Unsetenv("KUBECONFIG")
 	_ = os.Setenv("SNAP_REAL_HOME", s.dir)
 
 	c.Assert(clientconfig.GetKubeConfigPath(), tc.Equals, f.Name())
@@ -261,10 +258,9 @@ func (s *k8sConfigSuite) TestGetSingleConfigSnapHome(c *tc.C) {
 	cred := cloud.NewNamedCredential(
 		"the-user", cloud.UserPassAuthType,
 		map[string]string{"username": "theuser", "password": "thepassword"}, false)
-	f, err := s.writeTempKubeConfig(c, ".kube/config", singleConfigYAML)
+	f, err := s.writeKubeConfigFileToDir(c, s.dir, ".kube/config", singleConfigYAML)
 	defer f.Close()
 	c.Assert(err, tc.ErrorIsNil)
-	_ = os.Unsetenv("KUBECONFIG")
 	_ = os.Setenv("SNAP_REAL_HOME", s.dir)
 
 	cfg, err := clientconfig.NewK8sClientConfigFromReader("", nil, "", "", nil)
@@ -539,4 +535,87 @@ func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *tc.C) {
 			},
 		},
 	})
+}
+
+func (s *k8sConfigSuite) TestLoadValidKubeConfig(c *tc.C) {
+	os.Unsetenv("KUBECONFIG")
+	_ = os.Setenv("HOME", s.dir)
+	defer os.Unsetenv("HOME")
+	// writes default kube config yaml to default path
+	defaultKubeConfigYAML := `apiVersion: v1
+kind: Config
+clusters:
+- name: default-cluster
+  cluster:
+    server: https://localhost:6443
+contexts:
+- name: default-context
+  context:
+    cluster: default-cluster
+    user: default-user
+current-context: default
+users:
+- name: default-user
+  user: {}
+`
+	defaultKubeFilePath := ".kube/config"
+	defaultKubeConfigFile, err := s.writeKubeConfigFileToDir(c, utils.Home(), defaultKubeFilePath, defaultKubeConfigYAML)
+	c.Assert(err, tc.IsNil)
+	defer defaultKubeConfigFile.Close()
+
+	// writes user kube config yaml to user defined path
+	userKubeConfigYAML := `apiVersion: v1
+kind: Config
+clusters:
+- name: local-cluster
+  cluster:
+    server: https://1.1.1.1:9292
+contexts:
+- name: local-context
+  context:
+    cluster: local-cluster
+    user: local-user
+current-context: local
+users:
+- name: local-user
+  user: {}
+`
+	userKubeFilePath := ".kube/notconfig"
+	userKubeConfigFile, err := s.writeKubeConfigFileToDir(c, s.dir, userKubeFilePath, userKubeConfigYAML)
+	c.Assert(err, tc.IsNil)
+	defer userKubeConfigFile.Close()
+
+	// retrives config, this should retrieve from config in default path
+	cfg1, err := clientconfig.GetLocalKubeConfig()
+	c.Assert(err, tc.IsNil)
+
+	c.Assert(len(cfg1.Clusters), tc.Equals, 1)
+	c.Assert(cfg1.Clusters["default-cluster"], tc.NotNil)
+	c.Assert(cfg1.Clusters["default-cluster"].Server, tc.Equals, "https://localhost:6443")
+
+	c.Assert(len(cfg1.Contexts), tc.Equals, 1)
+	c.Assert(cfg1.Contexts["default-context"], tc.NotNil)
+	c.Assert(cfg1.Contexts["default-context"].Cluster, tc.Equals, "default-cluster")
+
+	c.Assert(cfg1.CurrentContext, tc.Equals, "default")
+
+	// set KUBECONFIG env here
+	userKubeConfigFileFullPath, err := filepath.Abs(userKubeConfigFile.Name())
+	c.Assert(err, tc.IsNil)
+	_ = os.Setenv("KUBECONFIG", userKubeConfigFileFullPath)
+	defer os.Unsetenv("KUBECONFIG")
+
+	// retrives config again, this should retrieve from config in user defined path
+	cfg2, err := clientconfig.GetLocalKubeConfig()
+	c.Assert(err, tc.IsNil)
+
+	c.Assert(len(cfg2.Clusters), tc.Equals, 1)
+	c.Assert(cfg2.Clusters["local-cluster"], tc.NotNil)
+	c.Assert(cfg2.Clusters["local-cluster"].Server, tc.Equals, "https://1.1.1.1:9292")
+
+	c.Assert(len(cfg2.Contexts), tc.Equals, 1)
+	c.Assert(cfg2.Contexts["local-context"], tc.NotNil)
+	c.Assert(cfg2.Contexts["local-context"].Cluster, tc.Equals, "local-cluster")
+
+	c.Assert(cfg2.CurrentContext, tc.Equals, "local")
 }

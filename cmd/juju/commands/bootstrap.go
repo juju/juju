@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
-	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4/keyvalues"
 
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/naturalsort"
 	_ "github.com/juju/juju/internal/provider/all" // Import all the providers for bootstrap.
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"

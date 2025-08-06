@@ -4,12 +4,12 @@
 package gen
 
 import (
-	reflect "reflect"
+	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
 
-	facade "github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/internal/rpcreflect"
 )
 
@@ -38,7 +38,7 @@ func ParseFacadeGroup(s string) (FacadeGroup, error) {
 	case "latest", "all", "client", "agent", "jimm":
 		return FacadeGroup(s), nil
 	default:
-		return FacadeGroup(""), errors.NotValidf("facade group")
+		return FacadeGroup(""), errors.NotValidf("facade group %q", s)
 	}
 }
 

@@ -15,10 +15,11 @@ Manage credentials <manage-credentials>
 Manage metadata <manage-metadata>
 Manage controllers <manage-controllers>
 Manage the Juju dashboard <manage-the-juju-dashboard>
-Manage users <manage-users>
-Manage SSH keys <manage-ssh-keys>
 Manage models <manage-models>
+Manage secret backends <manage-secret-backends>
 Manage logs <manage-logs>
+Manage SSH keys <manage-ssh-keys>
+Manage users <manage-users>
 Manage charms or bundles <manage-charms>
 Manage applications <manage-applications>
 Manage resources <manage-charm-resources>
@@ -27,7 +28,6 @@ Manage relations <manage-relations>
 Manage offers <manage-offers>
 Manage units <manage-units>
 Manage secrets <manage-secrets>
-Manage secret backends <manage-secret-backends>
 Manage machines <manage-machines>
 Manage storage <manage-storage>
 Manage storage pools <manage-storage-pools>
@@ -47,10 +47,9 @@ Get a quick sense of how to do things in Juju, from preparing your deployment en
 
 - {ref}`Manage your deployment <manage-your-deployment>`
 
-(administering-juju)=
-## Administering Juju
+## Set up Juju
 
-Everything from how to install or upgrade the `juju` CLI and any desired plugins; connect clouds; bootstrap a Juju controller; stand up the Juju dashboard; plan and set up users, SSH keys, models, and secret backends; and get comfortable extracting and analyzing logs.
+Install the `juju` client and any plugins, add a cloud to the client, bootstrap a Juju controller, connect further clouds to the client or an existing controller, set up the Juju dashboard, add models, configure secret backends, configure logs.
 
 - {ref}`Manage the juju CLI <manage-juju>`
 - {ref}`Manage plugins <manage-plugins>`
@@ -59,21 +58,24 @@ Everything from how to install or upgrade the `juju` CLI and any desired plugins
 - {ref}`Manage metadata <manage-metadata>`
 - {ref}`Manage controllers <manage-controllers>`
 - {ref}`Manage the Juju dashboard <manage-the-juju-dashboard>`
-- {ref}`Manage users <manage-users>`
-- {ref}`Manage SSH keys <manage-ssh-keys>`
 - {ref}`Manage models <manage-models>`
 - {ref}`Manage secret backends <manage-secret-backends>`
 - {ref}`Manage logs <manage-logs>`
 
+## Handle authentication and authorization
 
-(building-with-juju)=
-## Building with Juju
+Set up SSH keys. Add users and control their access to controllers, clouds, models, or application offers.
 
-Deploy, configure, and maintain your infrastructure and applications with Juju.
+- {ref}`Manage SSH keys <manage-ssh-keys>`
+- {ref}`Manage users <manage-users>`
+
+## Deploy infrastructure and applications
+
+Deploy, configure, integrate, scale, etc., charmed applications. This will automatically provision infrastructure, but you can customise it before, during, or after deploy too.
 
 - {ref}`Manage charms or bundles <manage-charms>`
+- {ref}`Manage charm resources <manage-charm-resources>`
 - {ref}`Manage applications <manage-applications>`
-- {ref}`Manage resources <manage-charm-resources>`
 - {ref}`Manage actions <manage-actions>`
 - {ref}`Manage relations <manage-relations>`
 - {ref}`Manage offers <manage-offers>`
@@ -84,4 +86,3 @@ Deploy, configure, and maintain your infrastructure and applications with Juju.
 - {ref}`Manage storage pools <manage-storage-pools>`
 - {ref}`Manage spaces <manage-spaces>`
 - {ref}`Manage subnets <manage-subnets>`
-- {ref}`Manage logs <manage-logs>`
