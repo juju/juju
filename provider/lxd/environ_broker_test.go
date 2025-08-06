@@ -94,13 +94,53 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
-		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
+	res, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
+}
+
+func (s *environBrokerSuite) TestStartInstanceUseZoneFromArgsWhenContainerLocationIsNone(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+
+	// Check that no custom devices were passed - vanilla cloud-init.
+	check := func(spec containerlxd.ContainerSpec) bool {
+		if spec.Config[containerlxd.NetworkConfigKey] != "" {
+			return false
+		}
+		return !(len(spec.Devices) > 0)
+	}
+
+	exp := svr.EXPECT()
+	exp.IsClustered().Times(2).Return(false)
+	exp.Name().Times(2).Return("node01")
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "none"},
+		}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
+	args := s.GetStartInstanceArgs(c)
+	args.AvailabilityZone = "node01"
+	res, err := env.StartInstance(s.callCtx, args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
 func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
@@ -133,13 +173,17 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(nics, nil),
-		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
+	res, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
@@ -205,7 +249,9 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(profileNICs, nil),
-		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
@@ -229,8 +275,10 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 			"subnet-lxdbr0-10.99.0.0/24": {"locutus"},
 		},
 	}
-	_, err := env.StartInstance(s.callCtx, startArgs)
+	res, err := env.StartInstance(s.callCtx, startArgs)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
@@ -283,15 +331,17 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	// we don't bother with detailed parameter assertions here.
 	tExp.CreateInstanceFromImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(createOp, nil)
 	tExp.UpdateInstanceState(gomock.Any(), gomock.Any(), "").Return(startOp, nil)
-	tExp.GetInstance(gomock.Any()).Return(&api.Instance{Type: "container"}, lxdtesting.ETag, nil)
+	tExp.GetInstance(gomock.Any()).Return(&api.Instance{Type: "container", Location: "node01"}, lxdtesting.ETag, nil)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
 
-	_, err = env.StartInstance(s.callCtx, args)
+	res, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
@@ -414,15 +464,17 @@ func (s *environBrokerSuite) TestStartInstanceWithZoneConstraintsAvailable(c *gc
 	// we don't bother with detailed parameter assertions here.
 	tExp.CreateInstanceFromImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(createOp, nil)
 	tExp.UpdateInstanceState(gomock.Any(), gomock.Any(), "").Return(startOp, nil)
-	tExp.GetInstance(gomock.Any()).Return(&api.Instance{Type: "container"}, lxdtesting.ETag, nil)
+	tExp.GetInstance(gomock.Any()).Return(&api.Instance{Type: "container", Location: "node01"}, lxdtesting.ETag, nil)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 
 	args := s.GetStartInstanceArgs(c)
 	args.AvailabilityZone = "node01"
 
-	_, err = env.StartInstance(s.callCtx, args)
+	res, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithZoneConstraintsNotPresent(c *gc.C) {
@@ -500,7 +552,9 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
-		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
@@ -515,8 +569,10 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
-	_, err := env.StartInstance(s.callCtx, args)
+	res, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C) {
@@ -541,7 +597,9 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C
 	exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeVM, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil)
 	exp.ServerVersion().Return("3.10.0")
 	exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil)
-	exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil)
+	exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+		Instance: api.Instance{Location: "node01"},
+	}, nil)
 	exp.HostArch().Return(arch.AMD64)
 
 	args := s.GetStartInstanceArgs(c)
@@ -557,8 +615,10 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C
 	}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
-	_, err := env.StartInstance(s.callCtx, args)
+	res, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
@@ -587,7 +647,9 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
-		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
@@ -595,8 +657,10 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	args.CharmLXDProfiles = []string{"juju-model-test-0"}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
-	_, err := env.StartInstance(s.callCtx, args)
+	res, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {

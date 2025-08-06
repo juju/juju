@@ -407,12 +407,18 @@ func (env *environ) getHardwareCharacteristics(
 	}
 	cores := uint64(container.CPUs())
 	mem := uint64(container.Mem())
+	location := container.Location
+	// In non-cluster mode, the container location has value as "none".
+	// Use the availability zone value from args to make it human friendly.
+	if location == "none" {
+		location = args.AvailabilityZone
+	}
 	return &instance.HardwareCharacteristics{
 		Arch:             &archStr,
 		CpuCores:         &cores,
 		Mem:              &mem,
 		VirtType:         &container.Type,
-		AvailabilityZone: &args.AvailabilityZone,
+		AvailabilityZone: &location,
 	}
 }
 
