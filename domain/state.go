@@ -25,7 +25,7 @@ type TxnRunner interface {
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.
 type StateBase struct {
-	dbMutex sync.RWMutex
+	dbMutex sync.Mutex
 	getDB   database.TxnRunnerFactory
 	db      *txnRunner
 
@@ -52,10 +52,9 @@ func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 // DB returns the database for a given namespace.
 func (st *StateBase) DB(ctx context.Context) (TxnRunner, error) {
 	// Check if the database has already been retrieved.
-	// We optimistically check if the database is not nil, before checking
-	// if the getDB function is nil. This reduces the branching logic for the
-	// common use case.
-	st.dbMutex.RLock()
+	st.dbMutex.Lock()
+	defer st.dbMutex.Unlock()
+
 	if st.db != nil {
 		select {
 		case <-st.db.runner.Dying():
@@ -64,20 +63,12 @@ func (st *StateBase) DB(ctx context.Context) (TxnRunner, error) {
 			// again, they can call DB again and it will perform the full
 			// retrieval.
 			st.db = nil
-			st.dbMutex.RUnlock()
 			return nil, database.ErrDBNotFound
 		default:
 			// The database is still alive, return it.
-			st.dbMutex.RUnlock()
 			return st.db, nil
 		}
 	}
-	st.dbMutex.RUnlock()
-
-	// Move into a write lock to retrieve the database, this should only
-	// happen once, so using the full lock isn't a problem.
-	st.dbMutex.Lock()
-	defer st.dbMutex.Unlock()
 
 	if st.getDB == nil {
 		return nil, errors.New("nil getDB")
