@@ -97,6 +97,13 @@ func (w *WatchableDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.
 	return w.db.StdTxn(ctx, fn)
 }
 
+// Dying returns a channel that is closed when the database connection
+// is no longer usable. This can be used to detect when the database is
+// shutting down or has been closed.
+func (w *WatchableDB) Dying() <-chan struct{} {
+	return w.db.Dying()
+}
+
 // Subscribe returns a subscription for the input options.
 // The subscription is then used to drive watchers.
 func (w *WatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {

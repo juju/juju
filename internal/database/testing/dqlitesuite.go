@@ -279,3 +279,10 @@ func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) erro
 func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
 	return errors.NotImplemented
 }
+
+// Dying returns a channel that is closed when the database connection
+// is no longer usable. This can be used to detect when the database is
+// shutting down or has been closed.
+func (noopTxnRunner) Dying() <-chan struct{} {
+	return make(<-chan struct{})
+}

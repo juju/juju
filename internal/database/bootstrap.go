@@ -194,6 +194,10 @@ func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx)
 	return errors.Trace(StdTxn(ctx, r.db, f))
 }
 
+func (r *txnRunner) Dying() <-chan struct{} {
+	return make(<-chan struct{})
+}
+
 // bootstrapInit is a type for describing a bootstrap operation that
 // initialises a database.
 type bootstrapInit = func(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error

@@ -97,6 +97,13 @@ func (w *TestWatchableDB) StdTxn(ctx context.Context, fn func(context.Context, *
 	return w.db.StdTxn(ctx, fn)
 }
 
+// Dying returns a channel that is closed when the database connection
+// is no longer usable. This can be used to detect when the database is
+// shutting down or has been closed.
+func (w *TestWatchableDB) Dying() <-chan struct{} {
+	return w.catacomb.Dying()
+}
+
 // EventSource returns the event source for this worker.
 func (w *TestWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	return w.mux.Subscribe(opts...)

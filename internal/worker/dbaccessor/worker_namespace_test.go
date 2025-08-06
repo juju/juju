@@ -438,3 +438,7 @@ func (w *workerTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sql
 func (w *workerTrackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
 	return w.db.StdTxn(ctx, fn)
 }
+
+func (w *workerTrackedDB) Dying() <-chan struct{} {
+	return w.db.Dying()
+}
