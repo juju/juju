@@ -1,3 +1,7 @@
+---
+relatedlinks: "[Juju &nbsp; ecosystem &nbsp; docs](https://juju.is/docs), [Terraform &nbsp; Provider &nbsp; Juju &nbsp; docs](https://documentation.ubuntu.com/terraform-provider-juju/), [JAAS &nbsp; docs](https://documentation.ubuntu.com/jaas/), [Jubilant &nbsp; docs](https://documentation.ubuntu.com/jubilant/), [Charmcraft &nbsp; docs](https://documentation.ubuntu.com/charmcraft/), [Ops &nbsp; docs](https://documentation.ubuntu.com/ops/), [Charmlibs &nbsp; docs](https://canonical-charmlibs.readthedocs-hosted.com/)"
+---
+
 (home)=
 # Juju documentation
 
