@@ -107,7 +107,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
-func (s *environBrokerSuite) TestStartInstanceUseZoneFromArgsWhenContainerLocationIsNone(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceUseZoneFromServerNameWhenContainerLocationIsNone(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -121,8 +121,7 @@ func (s *environBrokerSuite) TestStartInstanceUseZoneFromArgsWhenContainerLocati
 	}
 
 	exp := svr.EXPECT()
-	exp.IsClustered().Times(2).Return(false)
-	exp.Name().Times(2).Return("node01")
+	exp.Name().Return("node01")
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
@@ -136,7 +135,6 @@ func (s *environBrokerSuite) TestStartInstanceUseZoneFromArgsWhenContainerLocati
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	args := s.GetStartInstanceArgs(c)
-	args.AvailabilityZone = "node01"
 	res, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.NotNil)

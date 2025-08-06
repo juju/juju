@@ -409,9 +409,9 @@ func (env *environ) getHardwareCharacteristics(
 	mem := uint64(container.Mem())
 	location := container.Location
 	// In non-cluster mode, the container location has value as "none".
-	// Use the availability zone value from args to make it human friendly.
+	// Use the single server name to make it human friendly.
 	if location == "none" {
-		location = args.AvailabilityZone
+		location = env.server().Name()
 	}
 	return &instance.HardwareCharacteristics{
 		Arch:             &archStr,
