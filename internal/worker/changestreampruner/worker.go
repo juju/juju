@@ -150,9 +150,8 @@ func (w *Pruner) prune() (map[string]int64, error) {
 	}
 
 	query, err := sqlair.Prepare(`
-		SELECT namespace AS &ModelNamespace.namespace,
-               model_uuid AS &ModelNamespace.uuid
-        FROM model_namespace;
+SELECT namespace AS &ModelNamespace.namespace, model_uuid AS &ModelNamespace.uuid
+FROM model_namespace;
 	`, ModelNamespace{})
 	if err != nil {
 		return nil, errors.Trace(err)

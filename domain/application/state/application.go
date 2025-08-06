@@ -1257,7 +1257,7 @@ func (st *State) insertCloudServiceAddresses(
 		}
 	}
 
-	insertAddressStmt, err := sqlair.Prepare(`
+	insertAddressStmt, err := st.Prepare(`
 INSERT INTO ip_address (*)
 VALUES ($ipAddress.*);
 `, ipAddress{})
