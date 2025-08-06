@@ -47,20 +47,20 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 	}
 }
 
-func getTimeFieldName[T any]() []string {
+// getTimeFieldNames returns the names of all time.Time fields in the struct type T.
+func getTimeFieldNames[T any]() []string {
 	var (
-		t         T
-		fieldName []string
+		t          T
+		fieldNames []string
 	)
 	val := reflect.TypeOf(t)
-	fmt.Printf("getTimeFieldName: %T\n", t)
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 		if field.Type == reflect.TypeOf(time.Time{}) {
-			fieldName = append(fieldName, field.Name)
+			fieldNames = append(fieldNames, field.Name)
 		}
 	}
-	return fieldName
+	return fieldNames
 }
 
 // TimedSliceAssert returns a WatcherAssert that checks that the watcher has
@@ -70,7 +70,7 @@ func getTimeFieldName[T any]() []string {
 // during the assertion.
 func TimedSliceAssert[T any](expect ...T) WatcherAssert[[]T] {
 	mc := tc.NewMultiChecker()
-	for _, field := range getTimeFieldName[T]() {
+	for _, field := range getTimeFieldNames[T]() {
 		mc.AddExpr(fmt.Sprintf(`_[_].%s`, field), tc.Almost, tc.ExpectedValue)
 	}
 	return func(c *tc.C, changes [][]T) bool {
