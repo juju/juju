@@ -41,6 +41,10 @@ type ObjectStoreServicesGetter interface {
 // controller object store services from the dependency getter.
 type GetControllerServiceFunc func(dependency.Getter, string) (ControllerService, error)
 
+// GetControllerObjectStoreServiceFunc is a function that retrieves the
+// controller object store service from the dependency getter.
+type GetControllerObjectStoreServiceFunc func(dependency.Getter, string) (coreobjectstore.ObjectStoreMetadata, error)
+
 // GetObjectStoreServicesFunc is a function that retrieves the
 // object store services from the dependency getter.
 type GetObjectStoreServicesFunc func(dependency.Getter, string) (ObjectStoreServicesGetter, error)
@@ -72,14 +76,15 @@ type ManifoldConfig struct {
 	FortressName            string
 	S3ClientName            string
 
-	GetControllerService       GetControllerServiceFunc
-	GeObjectStoreServices      GetObjectStoreServicesFunc
-	GetGuardService            GetGuardServiceFunc
-	GetControllerConfigService GetControllerConfigServiceFunc
-	NewWorker                  func(Config) (worker.Worker, error)
-	NewHashFileSystemAccessor  NewHashFileSystemAccessorFunc
-	NewDrainerWorker           NewDrainerWorkerFunc
-	SelectFileHash             SelectFileHashFunc
+	GetControllerService            GetControllerServiceFunc
+	GeObjectStoreServices           GetObjectStoreServicesFunc
+	GetControllerObjectStoreService GetControllerObjectStoreServiceFunc
+	GetGuardService                 GetGuardServiceFunc
+	GetControllerConfigService      GetControllerConfigServiceFunc
+	NewWorker                       func(Config) (worker.Worker, error)
+	NewHashFileSystemAccessor       NewHashFileSystemAccessorFunc
+	NewDrainerWorker                NewDrainerWorkerFunc
+	SelectFileHash                  SelectFileHashFunc
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -104,6 +109,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GeObjectStoreServices == nil {
 		return errors.NotValidf("nil GeObjectStoreServices")
+	}
+	if config.GetControllerObjectStoreService == nil {
+		return errors.NotValidf("nil GetControllerObjectStoreService")
 	}
 	if config.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
@@ -154,6 +162,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	controllerService, err := config.GetControllerService(getter, config.ObjectStoreServicesName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerObjectStoreSerivce, err := config.GetControllerObjectStoreService(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -229,22 +242,23 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	worker, err := config.NewWorker(Config{
-		Agent:                     a,
-		Guard:                     fortress,
-		GuardService:              guardService,
-		ControllerService:         controllerService,
-		ControllerConfigService:   controllerConfigService,
-		ObjectStoreServicesGetter: objectStoreServicesGetter,
-		ObjectStoreFlusher:        objectStoreFlusher,
-		ObjectStoreType:           configObjectStoreType,
-		NewHashFileSystemAccessor: config.NewHashFileSystemAccessor,
-		NewDrainerWorker:          config.NewDrainerWorker,
-		SelectFileHash:            config.SelectFileHash,
-		S3Client:                  s3Client,
-		RootDir:                   dataDir,
-		RootBucketName:            rootBucketName,
-		Logger:                    config.Logger,
-		Clock:                     config.Clock,
+		Agent:                        a,
+		Guard:                        fortress,
+		GuardService:                 guardService,
+		ControllerService:            controllerService,
+		ControllerConfigService:      controllerConfigService,
+		ControllerObjectStoreService: controllerObjectStoreSerivce,
+		ObjectStoreServicesGetter:    objectStoreServicesGetter,
+		ObjectStoreFlusher:           objectStoreFlusher,
+		ObjectStoreType:              configObjectStoreType,
+		NewHashFileSystemAccessor:    config.NewHashFileSystemAccessor,
+		NewDrainerWorker:             config.NewDrainerWorker,
+		SelectFileHash:               config.SelectFileHash,
+		S3Client:                     s3Client,
+		RootDir:                      dataDir,
+		RootBucketName:               rootBucketName,
+		Logger:                       config.Logger,
+		Clock:                        config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -298,6 +312,17 @@ func GeObjectStoreServicesGetter(getter dependency.Getter, name string) (ObjectS
 	return modelMetadataServiceGetter{
 		servicesGetter: services,
 	}, nil
+}
+
+// GetControllerObjectStoreService retrieves the controller object store
+// service using the given service.
+func GetControllerObjectStoreService(getter dependency.Getter, name string) (coreobjectstore.ObjectStoreMetadata, error) {
+	var services services.ControllerObjectStoreServices
+	if err := getter.Get(name, &services); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return services.AgentObjectStore(), nil
 }
 
 // GetGuardService retrieves the GuardService using the given service.

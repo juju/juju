@@ -80,22 +80,23 @@ type ControllerService interface {
 
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
-	Agent                     agent.Agent
-	Guard                     fortress.Guard
-	GuardService              GuardService
-	ControllerService         ControllerService
-	ControllerConfigService   ControllerConfigService
-	ObjectStoreServicesGetter ObjectStoreServicesGetter
-	ObjectStoreFlusher        objectstore.ObjectStoreFlusher
-	ObjectStoreType           objectstore.BackendType
-	NewHashFileSystemAccessor NewHashFileSystemAccessorFunc
-	NewDrainerWorker          NewDrainerWorkerFunc
-	S3Client                  objectstore.Client
-	SelectFileHash            SelectFileHashFunc
-	RootDir                   string
-	RootBucketName            string
-	Logger                    logger.Logger
-	Clock                     clock.Clock
+	Agent                        agent.Agent
+	Guard                        fortress.Guard
+	GuardService                 GuardService
+	ControllerService            ControllerService
+	ControllerConfigService      ControllerConfigService
+	ControllerObjectStoreService objectstore.ObjectStoreMetadata
+	ObjectStoreServicesGetter    ObjectStoreServicesGetter
+	ObjectStoreFlusher           objectstore.ObjectStoreFlusher
+	ObjectStoreType              objectstore.BackendType
+	NewHashFileSystemAccessor    NewHashFileSystemAccessorFunc
+	NewDrainerWorker             NewDrainerWorkerFunc
+	S3Client                     objectstore.Client
+	SelectFileHash               SelectFileHashFunc
+	RootDir                      string
+	RootBucketName               string
+	Logger                       logger.Logger
+	Clock                        clock.Clock
 }
 
 // Validate returns an error if the config cannot be expected to
@@ -115,6 +116,9 @@ func (config Config) Validate() error {
 	}
 	if config.ControllerConfigService == nil {
 		return errors.Errorf("nil ControllerConfigService").Add(coreerrors.NotValid)
+	}
+	if config.ControllerObjectStoreService == nil {
+		return errors.Errorf("nil controllerObjectStoreService").Add(coreerrors.NotValid)
 	}
 	if config.ObjectStoreServicesGetter == nil {
 		return errors.Errorf("nil ObjectStoreServicesGetter").Add(coreerrors.NotValid)
@@ -180,8 +184,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 		guard:        config.Guard,
 		guardService: config.GuardService,
 
-		controllerService:         config.ControllerService,
-		controllerConfigService:   config.ControllerConfigService,
+		controllerService:            config.ControllerService,
+		controllerConfigService:      config.ControllerConfigService,
+		controllerObjectStoreService: config.ControllerObjectStoreService,
+
 		objectStoreServicesGetter: config.ObjectStoreServicesGetter,
 		objectStoreFlusher:        config.ObjectStoreFlusher,
 		objectStoreType:           config.ObjectStoreType,
@@ -224,8 +230,10 @@ type Worker struct {
 	guard        fortress.Guard
 	guardService GuardService
 
-	controllerService         ControllerService
-	controllerConfigService   ControllerConfigService
+	controllerService            ControllerService
+	controllerConfigService      ControllerConfigService
+	controllerObjectStoreService objectstore.ObjectStoreMetadata
+
 	objectStoreServicesGetter ObjectStoreServicesGetter
 	objectStoreFlusher        objectstore.ObjectStoreFlusher
 	objectStoreType           objectstore.BackendType
@@ -320,6 +328,12 @@ func (w *Worker) loop() error {
 			// another. For now, we just log that we're in the draining phase
 			// from file to s3.
 
+			// Drain the agent binary object store, then drain all the models.
+			if err := w.drainAgentBinaries(ctx); err != nil {
+				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
+				return errors.Errorf("draining agent binaries: %w", err)
+			}
+
 			namespaces, err := w.controllerService.GetModelNamespaces(ctx)
 			if err != nil {
 				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
@@ -387,6 +401,37 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (w *Worker) drainAgentBinaries(ctx context.Context) error {
+	w.logger.Infof(ctx, "draining controller agent binaries")
+	signal := make(chan string, 1)
+
+	namespace := "controller"
+	err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
+		fileSystem := w.newFileSystem(namespace, w.rootDir, w.logger)
+		return w.newDrainWorker(
+			signal,
+			fileSystem,
+			w.client,
+			w.controllerObjectStoreService,
+			w.rootBucketName,
+			namespace,
+			w.selectFileHash,
+			w.logger,
+		), nil
+	})
+	if err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+		return errors.Errorf("starting worker for controller agent binaries: %w", err)
+	}
+
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case <-signal:
+		w.logger.Infof(ctx, "drain worker for controller agent binaries completed")
+		return nil
+	}
 }
 
 // drainModels starts a worker for each model in the state and waits for them
