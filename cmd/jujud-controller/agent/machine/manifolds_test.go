@@ -1228,15 +1228,24 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"object-store-drainer": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
+		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
+		"http-client",
 		"is-controller-flag",
+		"lease-manager",
 		"object-store-fortress",
+		"object-store-s3-caller",
 		"object-store-services",
+		"object-store",
 		"query-logger",
 		"state-config-watcher",
+		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"object-store": {
@@ -2168,15 +2177,24 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"object-store-drainer": {
 		"agent",
+		"api-remote-caller",
 		"change-stream",
+		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
+		"http-client",
 		"is-controller-flag",
+		"lease-manager",
 		"object-store-fortress",
+		"object-store-s3-caller",
 		"object-store-services",
+		"object-store",
 		"query-logger",
 		"state-config-watcher",
+		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"object-store": {

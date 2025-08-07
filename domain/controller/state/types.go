@@ -15,3 +15,7 @@ type controllerControllerAgentInfo struct {
 	CAPrivateKey   string `db:"ca_private_key"`
 	SystemIdentity string `db:"system_identity"`
 }
+
+type namespace struct {
+	Namespace string `db:"namespace"`
+}

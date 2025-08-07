@@ -17,7 +17,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -436,46 +435,6 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	select {
 	case <-dispatched2:
 	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
-}
-
-func (s *WorkerSuite) TestUpdateObjectStoreType(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newConfig := maps.Clone(s.controllerConfig)
-	newConfig[controller.ObjectStoreType] = objectstore.S3Backend.String()
-
-	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched1:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("event not handled")
-	}
-
-	// Snap channel is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched2:
-	case <-time.After(testing.ShortWait):
 		c.Fatalf("event not handled")
 	}
 

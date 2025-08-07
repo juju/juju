@@ -48,8 +48,8 @@ type WorkerConfig struct {
 	S3Client                   objectstore.Client
 	APIRemoteCaller            apiremotecaller.APIRemoteCallers
 	NewObjectStoreWorker       internalobjectstore.ObjectStoreWorkerFunc
-	ObjectStoreType            objectstore.BackendType
 	ControllerMetadataService  MetadataService
+	ControllerConfigService    ControllerConfigService
 	ModelMetadataServiceGetter MetadataServiceGetter
 	ModelServiceGetter         ModelServiceGetter
 	ModelClaimGetter           ModelClaimGetter
@@ -85,6 +85,9 @@ func (c *WorkerConfig) Validate() error {
 	if c.ControllerMetadataService == nil {
 		return errors.NotValidf("nil ControllerMetadataService")
 	}
+	if c.ControllerConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigService")
+	}
 	if c.ModelMetadataServiceGetter == nil {
 		return errors.NotValidf("nil ModelMetadataServiceGetter")
 	}
@@ -109,6 +112,7 @@ type objectStoreWorker struct {
 	runner *worker.Runner
 
 	objectStoreRequests chan objectStoreRequest
+	flushWorkers        chan struct{}
 }
 
 // NewWorker creates a new object store worker.
@@ -140,6 +144,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*objectStoreWorker
 		cfg:                 cfg,
 		runner:              runner,
 		objectStoreRequests: make(chan objectStoreRequest),
+		flushWorkers:        make(chan struct{}),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -178,6 +183,11 @@ func (w *objectStoreWorker) loop() (err error) {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
 			}
+
+		case <-w.flushWorkers:
+			if err := w.stopAndRemoveAllWorkers(ctx); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
@@ -190,6 +200,29 @@ func (w *objectStoreWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *objectStoreWorker) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// FlushWorkers flushes the object store workers.
+func (w *objectStoreWorker) FlushWorkers(ctx context.Context) error {
+	// We have to synchronise the flush workers to ensure that we don't
+	// have multiple flushes happening at the same time and that we aren't
+	// creating new workers whilst flushing.
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case w.flushWorkers <- struct{}{}:
+	}
+	return nil
+}
+
+func (w *objectStoreWorker) stopAndRemoveAllWorkers(ctx context.Context) error {
+	for _, namespace := range w.runner.WorkerNames() {
+		err := w.runner.StopAndRemoveWorker(namespace, ctx.Done())
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // GetObjectStore returns a objectStore for the given namespace.
@@ -278,6 +311,11 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 
 		modelUUID := model.UUID(namespace)
 
+		controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		// Grab the claimer for the model.
 		claimer, err := w.cfg.ModelClaimGetter.ForModelUUID(modelUUID)
 		if err != nil {
@@ -293,7 +331,7 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(
 			ctx,
-			internalobjectstore.BackendTypeOrDefault(w.cfg.ObjectStoreType),
+			internalobjectstore.BackendTypeOrDefault(controllerConfig.ObjectStoreType()),
 			namespace,
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
 			internalobjectstore.WithRootBucket(w.cfg.RootBucket),

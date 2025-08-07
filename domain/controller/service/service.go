@@ -19,6 +19,10 @@ type State interface {
 	// GetControllerAgentInfo returns the controller agent information needed by
 	// the controller.
 	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
+
+	// GetModelNamespaces returns the model namespaces of all models in the
+	// state.
+	GetModelNamespaces(ctx context.Context) ([]string, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -48,4 +52,13 @@ func (s *Service) GetControllerAgentInfo(ctx context.Context) (controller.Contro
 	defer span.End()
 
 	return s.st.GetControllerAgentInfo(ctx)
+}
+
+// GetModelNamespaces returns the model namespaces of all models in the
+// state.
+func (s *Service) GetModelNamespaces(ctx context.Context) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.GetModelNamespaces(ctx)
 }

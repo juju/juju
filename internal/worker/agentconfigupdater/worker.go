@@ -162,9 +162,6 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	openTelemetryTailSamplingThreshold := config.OpenTelemetryTailSamplingThreshold()
 	openTelemetryTailSamplingThresholdChanged := openTelemetryTailSamplingThreshold != w.openTelemetryTailSamplingThreshold
 
-	objectStoreType := config.ObjectStoreType()
-	objectStoreTypeChanged := objectStoreType != w.objectStoreType
-
 	changeDetected := queryTracingEnabledChanged ||
 		queryTracingThresholdChanged ||
 		openTelemetryEnabledChanged ||
@@ -172,8 +169,7 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 		openTelemetryInsecureChanged ||
 		openTelemetryStackTracesChanged ||
 		openTelemetrySampleRatioChanged ||
-		openTelemetryTailSamplingThresholdChanged ||
-		objectStoreTypeChanged
+		openTelemetryTailSamplingThresholdChanged
 
 	// If any changes are detected, we need to update the agent config.
 	if !changeDetected {
@@ -214,22 +210,10 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 			w.config.Logger.Debugf(ctx, "setting agent config open telemetry tail sampling threshold: %v => %v", w.openTelemetryTailSamplingThreshold, openTelemetryTailSamplingThreshold)
 			setter.SetOpenTelemetryTailSamplingThreshold(openTelemetryTailSamplingThreshold)
 		}
-		if objectStoreTypeChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config object store type: %v => %v", w.objectStoreType, objectStoreType)
-			setter.SetObjectStoreType(objectStoreType)
-		}
 		return nil
 	})
 	if err != nil {
 		return errors.Errorf("%w: failed to update agent config", err)
-	}
-
-	// If the object store type is set to "s3" then state that the associated
-	// config also needs to be set.
-	if objectStoreType == objectstore.S3Backend {
-		if err := controller.HasCompleteS3ControllerConfig(config); err != nil {
-			w.config.Logger.Warningf(ctx, "object store type is set to s3 but config not set: %v", err)
-		}
 	}
 
 	reason := []string{}
@@ -256,9 +240,6 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	}
 	if openTelemetryTailSamplingThresholdChanged {
 		reason = append(reason, controller.OpenTelemetryTailSamplingThreshold)
-	}
-	if objectStoreTypeChanged {
-		reason = append(reason, controller.ObjectStoreType)
 	}
 
 	return errors.Errorf("%w: controller config changed: %s",

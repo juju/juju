@@ -214,6 +214,9 @@ type ProviderServicesGetter interface {
 // controller domain services, but that would re-introduce a circular
 // dependency. This isn't pretty, but is a necessary evil.
 type ControllerObjectStoreServices interface {
+	// Controller returns the controller service.
+	Controller() *controllerservice.Service
+
 	// ControllerConfig returns the controller configuration service.
 	ControllerConfig() *controllerconfigservice.WatchableService
 

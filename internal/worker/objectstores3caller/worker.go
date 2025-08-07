@@ -20,6 +20,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
 )
 
@@ -131,6 +132,11 @@ func (w *s3Worker) Session(ctx context.Context, fn func(context.Context, objects
 		Func: func() error {
 			w.mutex.Lock()
 			defer w.mutex.Unlock()
+
+			if w.session == nil {
+				return internalerrors.Errorf("no session available").Add(errors.NotSupported)
+			}
+
 			return fn(ctx, w.session)
 		},
 		IsFatalError: func(err error) bool {
@@ -204,6 +210,12 @@ func (w *s3Worker) makeNewClient(ctx context.Context) (objectstore.Session, erro
 	controllerConfig, err := w.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if controllerConfig.ObjectStoreType() != objectstore.S3Backend {
+		// If the object store type is file, then we don't need to create
+		// a new S3 client, just return a noop worker.
+		return nil, nil
 	}
 
 	client, err := w.config.NewClient(

@@ -6,6 +6,8 @@ package services
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
+	controllerservice "github.com/juju/juju/domain/controller/service"
+	controllerstate "github.com/juju/juju/domain/controller/state"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
@@ -38,6 +40,13 @@ func NewObjectStoreServices(
 			modelDB: modelDB,
 		},
 	}
+}
+
+// Controller returns the controller service.
+func (s *ObjectStoreServices) Controller() *controllerservice.Service {
+	return controllerservice.NewService(
+		controllerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+	)
 }
 
 // ControllerConfig returns the controller configuration service.
