@@ -208,7 +208,7 @@ func (c *ControllerAPI) ControllerVersion(ctx context.Context) (params.Controlle
 func (c *ControllerAPI) IdentityProviderURL(ctx context.Context) (params.StringResult, error) {
 	var result params.StringResult
 
-	cfgRes, err := c.ControllerConfig(ctx)
+	cfgRes, err := c.ControllerConfigAPI.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	interrors "github.com/juju/juju/internal/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,50 +29,49 @@ import (
 func (c *ControllerAPI) DestroyController(ctx context.Context, args params.DestroyControllerArgs) error {
 	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(c.controllerUUID))
 	if err != nil {
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
 
 	isControllerModel, err := c.modelInfoService.IsControllerModel(ctx)
 	if err != nil {
-		return interrors.Capture(err)
+		return apiservererrors.ServerError(err)
 
-	}
-	if !isControllerModel {
-		return interrors.Errorf("current model is not the controller model")
+	} else if !isControllerModel {
+		return apiservererrors.ServerError(errors.BadRequestf("current model is not the controller model"))
 	}
 
 	modelUUIDs, err := c.modelService.ListModelUUIDs(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
 	if err := ensureNotBlocked(ctx, c.modelService, c.blockCommandServiceGetter, modelUUIDs, c.logger); err != nil {
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
 
 	// If we are destroying models, we need to tolerate living
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	if args.DestroyModels && len(modelUUIDs) != 0 {
-		return interrors.Errorf("cannot destroy controller with hosted models, use --de")
+	if !args.DestroyModels && len(modelUUIDs) != 0 {
+		return apiservererrors.ServerError(errors.BadRequestf("cannot destroy controller with hosted models"))
 	}
 
 	for _, uuid := range modelUUIDs {
 		svc, err := c.blockCommandServiceGetter(ctx, uuid)
 		if err != nil {
-			return interrors.Capture(err)
+			return apiservererrors.ServerError(err)
 		}
 
 		check := common.NewBlockChecker(svc)
-		if err = check.DestroyAllowed(ctx); interrors.Is(err, modelerrors.NotFound) {
+		if err = check.DestroyAllowed(ctx); internalerrors.Is(err, modelerrors.NotFound) {
 			continue
 		} else if err != nil {
-			return interrors.Capture(err)
+			return apiservererrors.ServerError(err)
 		}
 	}
 
 	if err := checkForceForControllerModel(ctx, c.blockCommandService, c.modelInfoService, args.Force); err != nil {
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
 
 	var force bool
@@ -86,11 +85,11 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 
 	removalService, err := c.removalServiceGetter(ctx, c.controllerModelUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
 	if err := removalService.RemoveController(ctx, force, maxWait); err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
 
 	return nil
@@ -132,7 +131,7 @@ func checkForceForControllerModel(
 ) error {
 	check := common.NewBlockChecker(blockCommandService)
 	if err := check.DestroyAllowed(ctx); err != nil {
-		return interrors.Capture(err)
+		return internalerrors.Capture(err)
 	}
 
 	notForcing := force == nil || !*force
@@ -140,10 +139,10 @@ func checkForceForControllerModel(
 		hasValidCredential, err := modelInfoService.HasValidCredential(ctx)
 
 		if err != nil {
-			return interrors.Capture(err)
+			return internalerrors.Capture(err)
 		}
 		if !hasValidCredential {
-			return interrors.Errorf("invalid cloud credential, use --force")
+			return internalerrors.Errorf("invalid cloud credential, use --force")
 		}
 	}
 
