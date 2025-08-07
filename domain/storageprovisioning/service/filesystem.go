@@ -90,6 +90,16 @@ type FilesystemState interface {
 	// supplied net node.
 	GetFilesystemAttachmentLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
 
+	// GetFilesystemAttachmentParams retrieves the attachment params for the
+	// given filesysatem attachment.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no
+	// filesystem attachment exists for the supplied uuid.
+	GetFilesystemAttachmentParams(
+		context.Context, storageprovisioning.FilesystemAttachmentUUID,
+	) (storageprovisioning.FilesystemAttachmentParams, error)
+
 	// GetFilesystemAttachmentUUIDForFilesystemNetNode returns the filesystem
 	// attachment UUID for the supplied filesystem UUID which is attached to the
 	// given net node UUID.
@@ -119,7 +129,16 @@ type FilesystemState interface {
 	// GetFilesystemLifeForNetNode returns a mapping of filesystem IDs to current
 	// life value for each machine provisioned filesystem that is to be
 	// provisioned by the machine owning the supplied net node.
-	GetFilesystemLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+	GetFilesystemLifeForNetNode(context.Context, domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+
+	// GetFilesystemParams returns the filesystem params for the supplied uuid.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
+	// exists for the uuid.
+	GetFilesystemParams(context.Context, storageprovisioning.FilesystemUUID) (
+		storageprovisioning.FilesystemParams, error,
+	)
 
 	// GetFilesystemUUIDForID returns the UUID for a filesystem with the
 	// supplied id.
@@ -298,6 +317,30 @@ func (s *Service) GetFilesystemAttachmentLife(
 	return life, nil
 }
 
+// GetFilesystemAttachmentParams retrieves the attachment parameters for a given
+// filesystem attachment.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied filesystem attachment UUID is not
+// valid.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the supplied uuid.
+func (s *Service) GetFilesystemAttachmentParams(
+	ctx context.Context,
+	uuid storageprovisioning.FilesystemAttachmentUUID,
+) (storageprovisioning.FilesystemAttachmentParams, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return storageprovisioning.FilesystemAttachmentParams{}, errors.New(
+			"filesystem attachment uuid is not valid",
+		).Add(coreerrors.NotValid)
+	}
+
+	return s.st.GetFilesystemAttachmentParams(ctx, uuid)
+}
+
 // GetFilesystemAttachmentUUIDForFilesystemIDMachine returns the filesystem attachment
 // UUID for the supplied filesystem ID which is attached to the machine.
 //
@@ -454,6 +497,28 @@ func (s *Service) GetFilesystemLife(
 		return -1, errors.Capture(err)
 	}
 	return life, nil
+}
+
+// GetFilesystemParams returns the filesystem params for the supplied uuid.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied filesystem UUID is not valid.
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the uuid.
+func (s *Service) GetFilesystemParams(
+	ctx context.Context,
+	uuid storageprovisioning.FilesystemUUID,
+) (storageprovisioning.FilesystemParams, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return storageprovisioning.FilesystemParams{}, errors.New(
+			"filesystem uuid is not valid",
+		).Add(coreerrors.NotValid)
+	}
+
+	return s.st.GetFilesystemParams(ctx, uuid)
 }
 
 // GetFilesystemUUIDForID returns the UUID for a filesystem with the supplied

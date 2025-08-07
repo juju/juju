@@ -610,3 +610,94 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnitInval
 		fsID, unitUUID, info)
 	c.Assert(err, tc.NotNil)
 }
+
+// TestGetFilesystemParams is a happy path test of [Service.GetFilesystemParams].
+func (s *filesystemSuite) TestGetFilesystemParams(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory)
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	s.state.EXPECT().GetFilesystemParams(gomock.Any(), fsUUID).Return(
+		storageprovisioning.FilesystemParams{
+			Attributes: map[string]string{
+				"foo": "bar",
+			},
+			ID:       "spid",
+			Provider: "myprovider",
+			SizeMiB:  10,
+		}, nil,
+	)
+
+	params, err := svc.GetFilesystemParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemParams{
+		Attributes: map[string]string{
+			"foo": "bar",
+		},
+		ID:       "spid",
+		Provider: "myprovider",
+		SizeMiB:  10,
+	})
+}
+
+// TestGetFilesystemParamsNotFound tests that when no filesystem exists a call
+// to [Service.GetFilesystemparams] returns an error satsifying
+// [storageprovisioningerrors.FilesystemNotFound].
+func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory)
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	s.state.EXPECT().GetFilesystemParams(gomock.Any(), fsUUID).Return(
+		storageprovisioning.FilesystemParams{},
+		storageprovisioningerrors.FilesystemNotFound,
+	)
+
+	_, err := svc.GetFilesystemParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+// TestGetFilesystemAttachmentParams is a happy path test of
+// [Service.GetFilesystemAttachmentParams].
+func (s *filesystemSuite) TestGetFilesystemAttachmentParams(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory)
+	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	s.state.EXPECT().GetFilesystemAttachmentParams(gomock.Any(), fsaUUID).Return(
+		storageprovisioning.FilesystemAttachmentParams{
+			MachineInstanceID: "inst-1",
+			Provider:          "myprovider",
+			ProviderID:        "p-123",
+			MountPoint:        "/var/foo",
+			ReadOnly:          true,
+		}, nil,
+	)
+
+	params, err := svc.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		MachineInstanceID: "inst-1",
+		Provider:          "myprovider",
+		ProviderID:        "p-123",
+		MountPoint:        "/var/foo",
+		ReadOnly:          true,
+	})
+}
+
+// TestGetFilesystemAttachmentParamsNotFound tests that when no filesystem
+// attachment exists for a call to [Service.GetFilesystemAttachmentParams]
+// returns an error satsifying [storageprovisioningerrors.FilesystemNotFound].
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory)
+	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	s.state.EXPECT().GetFilesystemAttachmentParams(gomock.Any(), fsaUUID).Return(
+		storageprovisioning.FilesystemAttachmentParams{},
+		storageprovisioningerrors.FilesystemAttachmentNotFound,
+	)
+
+	_, err := svc.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
