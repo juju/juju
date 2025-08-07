@@ -327,7 +327,7 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 // WatchDraining returns a watcher that watches the draining phase of the
 // object store. The watcher emits the phase changes that either have been
 // added or removed.
-func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.Watcher[struct{}], error) {
+func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.NotifyWatcher, error) {
 	table := s.st.InitialWatchDrainingTable()
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.NamespaceFilter(table, changestream.All),

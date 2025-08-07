@@ -40,7 +40,7 @@ type GuardService interface {
 
 	// WatchDraining returns a watcher that watches the draining phase of the
 	// object store.
-	WatchDraining(ctx context.Context) (watcher.Watcher[struct{}], error)
+	WatchDraining(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // NewWorkerFunc is a function that returns a new worker.
