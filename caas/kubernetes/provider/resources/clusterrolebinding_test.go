@@ -30,7 +30,7 @@ func (s *clusterRoleBindingSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	rbResource := resources.NewClusterRoleBinding("roleBinding1", roleBinding)
-	c.Assert(rbResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(rbResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 	result, err := s.coreClient.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
@@ -38,7 +38,7 @@ func (s *clusterRoleBindingSuite) TestApply(c *gc.C) {
 	// Update.
 	roleBinding.SetAnnotations(map[string]string{"a": "b"})
 	rbResource = resources.NewClusterRoleBinding("roleBinding1", roleBinding)
-	c.Assert(rbResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(rbResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 
 	result, err = s.coreClient.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,7 +59,7 @@ func (s *clusterRoleBindingSuite) TestGet(c *gc.C) {
 
 	rbResource := resources.NewClusterRoleBinding("roleBinding1", &template)
 	c.Assert(len(rbResource.GetAnnotations()), gc.Equals, 0)
-	err = rbResource.Get(context.TODO(), s.coreClient)
+	err = rbResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rbResource.GetName(), gc.Equals, `roleBinding1`)
 	c.Assert(rbResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
@@ -79,10 +79,10 @@ func (s *clusterRoleBindingSuite) TestDelete(c *gc.C) {
 	c.Assert(result.GetName(), gc.Equals, `roleBinding1`)
 
 	rbResource := resources.NewClusterRoleBinding("roleBinding1", &roleBinding)
-	err = rbResource.Delete(context.TODO(), s.coreClient)
+	err = rbResource.Delete(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rbResource.Get(context.TODO(), s.coreClient)
+	err = rbResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.coreClient.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
@@ -103,10 +103,10 @@ func (s *clusterRoleBindingSuite) TestDeleteWithoutPreconditions(c *gc.C) {
 	c.Assert(result.GetName(), gc.Equals, `roleBinding1`)
 
 	rbResource := resources.NewClusterRoleBinding("roleBinding1", nil)
-	err = rbResource.Delete(context.TODO(), s.coreClient)
+	err = rbResource.Delete(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rbResource.Get(context.TODO(), s.coreClient)
+	err = rbResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.coreClient.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
@@ -130,6 +130,7 @@ func (s *clusterRoleBindingSuite) TestEnsureClusterRoleBindingRegressionOnLabelC
 	_, err := crbApi.Ensure(
 		context.TODO(),
 		s.coreClient,
+		s.extendedClient,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,6 +151,7 @@ func (s *clusterRoleBindingSuite) TestEnsureClusterRoleBindingRegressionOnLabelC
 	crbApi.Ensure(
 		context.TODO(),
 		s.coreClient,
+		s.extendedClient,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,6 +196,7 @@ func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *gc.C) {
 	_, err := clusterRoleBinding.Ensure(
 		context.TODO(),
 		s.coreClient,
+		s.extendedClient,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,6 +237,7 @@ func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *gc.C) {
 	_, err = clusterRoleBinding1.Ensure(
 		context.TODO(),
 		s.coreClient,
+		s.extendedClient,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, jc.ErrorIsNil)

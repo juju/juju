@@ -34,7 +34,7 @@ func (s *podSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	dsResource := resources.NewPod("ds1", "test", ds)
-	c.Assert(dsResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(dsResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 	result, err := s.coreClient.CoreV1().Pods("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
@@ -42,7 +42,7 @@ func (s *podSuite) TestApply(c *gc.C) {
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
 	dsResource = resources.NewPod("ds1", "test", ds)
-	c.Assert(dsResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(dsResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 
 	result, err = s.coreClient.CoreV1().Pods("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,7 +65,7 @@ func (s *podSuite) TestGet(c *gc.C) {
 
 	dsResource := resources.NewPod("ds1", "test", &template)
 	c.Assert(len(dsResource.GetAnnotations()), gc.Equals, 0)
-	err = dsResource.Get(context.TODO(), s.coreClient)
+	err = dsResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dsResource.GetName(), gc.Equals, `ds1`)
 	c.Assert(dsResource.GetNamespace(), gc.Equals, `test`)
@@ -87,10 +87,10 @@ func (s *podSuite) TestDelete(c *gc.C) {
 	c.Assert(result.GetName(), gc.Equals, `ds1`)
 
 	dsResource := resources.NewPod("ds1", "test", &ds)
-	err = dsResource.Delete(context.TODO(), s.coreClient)
+	err = dsResource.Delete(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = dsResource.Get(context.TODO(), s.coreClient)
+	err = dsResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.coreClient.CoreV1().Pods("test").Get(context.TODO(), "ds1", metav1.GetOptions{})

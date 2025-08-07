@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	gc "gopkg.in/check.v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -41,7 +42,8 @@ func NewApplicationForTest(
 	modelName string,
 	labelVersion constants.LabelVersion,
 	deploymentType caas.DeploymentType,
-	client kubernetes.Interface,
+	coreClient kubernetes.Interface,
+	extendedClient clientset.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix k8sutils.RandomPrefixFunc,
@@ -49,7 +51,7 @@ func NewApplicationForTest(
 ) ApplicationInterfaceForTest {
 	return newApplication(
 		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
-		client, newWatcher, clock, randomPrefix, newApplier,
+		coreClient, extendedClient, newWatcher, clock, randomPrefix, newApplier,
 	)
 }
 

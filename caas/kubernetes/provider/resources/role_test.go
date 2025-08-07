@@ -31,7 +31,7 @@ func (s *roleSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	roleResource := resources.NewRole("role1", "test", role)
-	c.Assert(roleResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(roleResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 	result, err := s.coreClient.RbacV1().Roles("test").Get(context.TODO(), "role1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
@@ -39,7 +39,7 @@ func (s *roleSuite) TestApply(c *gc.C) {
 	// Update.
 	role.SetAnnotations(map[string]string{"a": "b"})
 	roleResource = resources.NewRole("role1", "test", role)
-	c.Assert(roleResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(roleResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 
 	result, err = s.coreClient.RbacV1().Roles("test").Get(context.TODO(), "role1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +62,7 @@ func (s *roleSuite) TestGet(c *gc.C) {
 
 	roleResource := resources.NewRole("role1", "test", &template)
 	c.Assert(len(roleResource.GetAnnotations()), gc.Equals, 0)
-	err = roleResource.Get(context.TODO(), s.coreClient)
+	err = roleResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(roleResource.GetName(), gc.Equals, `role1`)
 	c.Assert(roleResource.GetNamespace(), gc.Equals, `test`)
@@ -84,10 +84,10 @@ func (s *roleSuite) TestDelete(c *gc.C) {
 	c.Assert(result.GetName(), gc.Equals, `role1`)
 
 	roleResource := resources.NewRole("role1", "test", &role)
-	err = roleResource.Delete(context.TODO(), s.coreClient)
+	err = roleResource.Delete(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = roleResource.Get(context.TODO(), s.coreClient)
+	err = roleResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.coreClient.RbacV1().Roles("test").Get(context.TODO(), "role1", metav1.GetOptions{})

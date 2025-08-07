@@ -20,7 +20,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
-	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
+	ss, err := s.coreClient.AppsV1().StatefulSets(s.namespace).Get(
 		context.Background(),
 		s.appName,
 		metav1.GetOptions{},
@@ -34,7 +34,7 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
-	dep, err := s.client.AppsV1().Deployments(s.namespace).Get(
+	dep, err := s.coreClient.AppsV1().Deployments(s.namespace).Get(
 		context.Background(),
 		s.appName,
 		metav1.GetOptions{},

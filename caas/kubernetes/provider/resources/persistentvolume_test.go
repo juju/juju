@@ -30,7 +30,7 @@ func (s *persistentVolumeSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	dsResource := resources.NewPersistentVolume("ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(dsResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 	result, err := s.coreClient.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
@@ -38,7 +38,7 @@ func (s *persistentVolumeSuite) TestApply(c *gc.C) {
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
 	dsResource = resources.NewPersistentVolume("ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(dsResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 
 	result, err = s.coreClient.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,7 +59,7 @@ func (s *persistentVolumeSuite) TestGet(c *gc.C) {
 
 	dsResource := resources.NewPersistentVolume("ds1", &template)
 	c.Assert(len(dsResource.GetAnnotations()), gc.Equals, 0)
-	err = dsResource.Get(context.TODO(), s.coreClient)
+	err = dsResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dsResource.GetName(), gc.Equals, `ds1`)
 	c.Assert(dsResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
@@ -79,10 +79,10 @@ func (s *persistentVolumeSuite) TestDelete(c *gc.C) {
 	c.Assert(result.GetName(), gc.Equals, `ds1`)
 
 	dsResource := resources.NewPersistentVolume("ds1", &ds)
-	err = dsResource.Delete(context.TODO(), s.coreClient)
+	err = dsResource.Delete(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = dsResource.Get(context.TODO(), s.coreClient)
+	err = dsResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.coreClient.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})

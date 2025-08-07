@@ -31,7 +31,7 @@ func (s *serviceAccountSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	saResource := resources.NewServiceAccount("sa1", "test", sa)
-	c.Assert(saResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(saResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 	result, err := s.coreClient.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
@@ -39,7 +39,7 @@ func (s *serviceAccountSuite) TestApply(c *gc.C) {
 	// Update.
 	sa.SetAnnotations(map[string]string{"a": "b"})
 	saResource = resources.NewServiceAccount("sa1", "test", sa)
-	c.Assert(saResource.Apply(context.TODO(), s.coreClient), jc.ErrorIsNil)
+	c.Assert(saResource.Apply(context.TODO(), s.coreClient, s.extendedClient), jc.ErrorIsNil)
 
 	result, err = s.coreClient.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +62,7 @@ func (s *serviceAccountSuite) TestGet(c *gc.C) {
 
 	saResource := resources.NewServiceAccount("sa1", "test", &template)
 	c.Assert(len(saResource.GetAnnotations()), gc.Equals, 0)
-	err = saResource.Get(context.TODO(), s.coreClient)
+	err = saResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saResource.GetName(), gc.Equals, `sa1`)
 	c.Assert(saResource.GetNamespace(), gc.Equals, `test`)
@@ -84,10 +84,10 @@ func (s *serviceAccountSuite) TestDelete(c *gc.C) {
 	c.Assert(result.GetName(), gc.Equals, `sa1`)
 
 	saResource := resources.NewServiceAccount("sa1", "test", &sa)
-	err = saResource.Delete(context.TODO(), s.coreClient)
+	err = saResource.Delete(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = saResource.Get(context.TODO(), s.coreClient)
+	err = saResource.Get(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.coreClient.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
@@ -127,7 +127,7 @@ func (s *serviceAccountSuite) TestUpdate(c *gc.C) {
 
 func (s *serviceAccountSuite) TestEnsureCreatesNew(c *gc.C) {
 	sa := resources.NewServiceAccount("sa1", "test", &corev1.ServiceAccount{})
-	cleanups, err := sa.Ensure(context.TODO(), s.coreClient)
+	cleanups, err := sa.Ensure(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obj, err := s.coreClient.CoreV1().ServiceAccounts("test").Get(
@@ -162,7 +162,7 @@ func (s *serviceAccountSuite) TestEnsureUpdates(c *gc.C) {
 	}
 
 	resource := resources.NewServiceAccount("sa2", "testing", sa)
-	_, err = resource.Ensure(context.TODO(), s.coreClient)
+	_, err = resource.Ensure(context.TODO(), s.coreClient, s.extendedClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obj, err := s.coreClient.CoreV1().ServiceAccounts("testing").Get(

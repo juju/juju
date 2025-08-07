@@ -37,14 +37,14 @@ func (s *applierSuite) TestRun(c *gc.C) {
 
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(r1),
-		r1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NewNotFound(nil, "")),
-		r1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
+		r1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.NewNotFound(nil, "")),
+		r1.EXPECT().Apply(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 
 		r2.EXPECT().Clone().Return(r2),
-		r2.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NewNotFound(nil, "")),
-		r2.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
+		r2.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.NewNotFound(nil, "")),
+		r2.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), jc.ErrorIsNil)
+	c.Assert(applier.Run(context.TODO(), nil, nil, false), jc.ErrorIsNil)
 }
 
 func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
@@ -65,16 +65,16 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
-		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NewNotFound(nil, "")),
-		r1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(errors.New("something was wrong")),
+		existingR1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.NewNotFound(nil, "")),
+		r1.EXPECT().Apply(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("something was wrong")),
 
 		// rollback.
 		r1.EXPECT().Clone().Return(r1),
-		r1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
+		r1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		// delete the new resource was just created.
-		r1.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
+		r1.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.TODO(), nil, nil, false), gc.ErrorMatches, `something was wrong`)
 }
 
 func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
@@ -100,9 +100,9 @@ func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
 
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
-		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
+		existingR1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `A r1: resource version conflict`)
+	c.Assert(applier.Run(context.TODO(), nil, nil, false), gc.ErrorMatches, `A r1: resource version conflict`)
 }
 
 func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C) {
@@ -123,16 +123,16 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C
 
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
-		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
-		r1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(errors.New("something was wrong")),
+		existingR1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		r1.EXPECT().Apply(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("something was wrong")),
 
 		// rollback.
 		existingR1.EXPECT().Clone().Return(existingR1),
-		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
+		existingR1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		// re-apply the old resource.
-		existingR1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
+		existingR1.EXPECT().Apply(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.TODO(), nil, nil, false), gc.ErrorMatches, `something was wrong`)
 }
 
 func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
@@ -153,16 +153,16 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
-		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
-		r1.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(errors.New("something was wrong")),
+		existingR1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		r1.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("something was wrong")),
 
 		// rollback.
 		existingR1.EXPECT().Clone().Return(existingR1),
-		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
+		existingR1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		// re-apply the old resource.
-		existingR1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
+		existingR1.EXPECT().Apply(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.TODO(), nil, nil, false), gc.ErrorMatches, `something was wrong`)
 }
 
 func (s *applierSuite) TestApplySet(c *gc.C) {
@@ -195,12 +195,12 @@ func (s *applierSuite) TestApplySet(c *gc.C) {
 	applier.ApplySet([]resources.Resource{r1, r2}, []resources.Resource{r2Copy, r3})
 
 	gomock.InOrder(
-		r1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
-		r1.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
-		r2.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
-		r2Copy.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
-		r3.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NotFoundf("missing aye")),
-		r3.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
+		r1.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		r1.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		r2.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		r2Copy.EXPECT().Apply(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		r3.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.NotFoundf("missing aye")),
+		r3.EXPECT().Apply(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), jc.ErrorIsNil)
+	c.Assert(applier.Run(context.TODO(), nil, nil, false), jc.ErrorIsNil)
 }
