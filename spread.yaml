@@ -1,0 +1,159 @@
+project: juju
+kill-timeout: 3h
+workers: 1
+
+environment:
+  CI: "$(HOST: echo $CI)"
+
+backends:
+  lxd:
+    type: adhoc
+    allocate: |
+      BASE="${BASE:-noble}"
+      VM_NAME="${VM_NAME:-juju-ubuntu-${BASE}-${RANDOM}}"
+      DISK="${DISK:-20}"
+      CPU="${CPU:-8}"
+      MEM="${MEM:-32}"
+
+      cloud_config="$(mktemp)"
+      sed "s|SPREAD_PASSWORD|$SPREAD_PASSWORD|g" tests/spread/cloud-config.yaml > "$cloud_config"
+
+      lxc launch --vm \
+        "ubuntu:${BASE}" \
+        "${VM_NAME}" \
+        -c user.user-data="$(cat "$cloud_config")" \
+        -c limits.cpu="${CPU}" \
+        -c limits.memory="${MEM}GiB" \
+        -d root,size="${DISK}GiB"
+
+      # Wait for the spread user
+      while ! lxc exec "${VM_NAME}" -- id -u spread &>/dev/null; do sleep 0.5; done
+
+      rm "$cloud_config"
+
+      # Set the instance address for spread
+      ADDRESS "$(lxc ls -f csv | grep "${VM_NAME}" | cut -d"," -f3 | cut -d" " -f1)"
+    discard: |
+      instance_name="$(lxc ls -f csv | grep juju | grep $SPREAD_SYSTEM_ADDRESS | cut -f1 -d",")"
+      lxc delete -f $instance_name
+
+    prepare: |
+      snap install lxd
+      lxd waitready --timeout=30
+      lxd init --auto
+    
+    systems:
+      - ubuntu-24.04:
+          username: spread
+          workers: 1
+
+  github-ci:
+    type: adhoc
+    manual: true
+    allocate: |
+      sudo sed -i "s|#PasswordAuthentication yes|PasswordAuthentication yes|g" /etc/ssh/sshd_config
+      sudo sed -i "s|KbdInteractiveAuthentication no|KbdInteractiveAuthentication yes|g" /etc/ssh/sshd_config
+      sudo rm -f /etc/ssh/sshd_config.d/60-cloudimg-settings.conf /etc/ssh/sshd_config.d/50-cloud-init.conf
+      sudo systemctl daemon-reload
+      sudo systemctl restart ssh
+
+      sudo useradd spread -s /bin/bash -m
+      echo "spread:$SPREAD_PASSWORD" | sudo chpasswd
+      echo 'spread ALL=(ALL) NOPASSWD:ALL ' | sudo tee /etc/sudoers.d/99-spread-user
+
+      ADDRESS "127.0.0.1"
+    discard: |
+      sudo userdel -f -r spread || true
+      sudo rm -f /etc/sudoers.d/99-spread-user
+
+    prepare: |
+      snap install lxd
+      lxd waitready --timeout=30
+      lxd init --auto
+
+    systems:
+      - ubuntu-22.04:
+          username: spread
+          workers: 1
+      - ubuntu-24.04:
+          username: spread
+          workers: 1
+
+
+suites:
+  tests/spread/:
+    summary: Spread tests
+    prepare: |
+      export PATH="$SPREAD_PATH/../go/bin:$PATH"
+
+      if ! juju controllers | grep -q lxd; then
+        juju bootstrap lxd test
+      fi
+    debug-each: |
+      export PATH="$SPREAD_PATH/../go/bin:$PATH"
+
+      juju status
+    prepare-each: |
+      export PATH="$SPREAD_PATH/../go/bin:$PATH"
+
+      if [[ -v JUJU_MODEL ]] && ! juju add-model "${JUJU_MODEL}"; then
+        juju destroy-model --force --no-prompt --destroy-storage "${JUJU_MODEL}" || true
+        juju add-model "${JUJU_MODEL}"
+        juju set-model-constraints arch="$(dpkg --print-architecture)"
+      fi
+    restore-each: |
+      export PATH="$SPREAD_PATH/../go/bin:$PATH"
+
+      if [[ -v JUJU_MODEL ]]; then
+        juju destroy-model --force --no-prompt --destroy-storage "${JUJU_MODEL}" || true
+      fi
+
+exclude:
+  - _build
+  - _deps
+  - .git
+  - .github
+
+# this needs to be under /root because spread executes the test scripts
+# as root, which means that juju can only see files in root's
+# home directory due to snap confinement.
+path: /root/proj
+
+prepare: |
+  snap refresh --hold
+  if systemctl is-enabled unattended-upgrades.service; then
+    systemctl stop unattended-upgrades.service
+    systemctl mask unattended-upgrades.service
+  fi
+
+  pushd "$SPREAD_PATH"
+
+  GOBIN="$PWD/../go/bin"
+
+  if [[ -f "$GOBIN/juju" ]]; then
+    chown $(id -u):$(id -g) "$GOBIN/juju"
+    chmod a+x "$GOBIN/juju"
+  fi
+
+  if [[ -f "$GOBIN/jujud" ]]; then
+    chown $(id -u):$(id -g) "$GOBIN/jujud"
+    chmod a+x "$GOBIN/jujud"
+  fi
+
+  if [[ ! -f "$GOBIN/juju" ]]; then
+    apt-get update
+    apt-get install -y build-essential
+    sudo snap install go --classic
+    make juju
+    chmod 755 $GOBIN/juju
+  fi
+
+  if [[ ! -f "$GOBIN/jujud" ]]; then
+    apt-get update
+    apt-get install -y build-essential
+    sudo snap install go --classic
+    make jujud-controller
+    chmod 755 $GOBIN/jujud
+  fi
+
+  export PATH="$GOBIN:$PATH"

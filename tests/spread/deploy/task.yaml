@@ -1,0 +1,13 @@
+summary: Run deploy juju-qa-test with just a LXD provider
+systems:
+  - ubuntu-24.04
+kill-timeout: 30m
+environment:
+  JUJU_MODEL: deploy
+
+execute: |
+  pushd "${SPREAD_PATH}/${SPREAD_TASK}"
+
+  export PATH="$SPREAD_PATH/../go/bin:$PATH"
+
+  juju deploy juju-qa-test
