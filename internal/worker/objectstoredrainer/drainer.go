@@ -178,7 +178,7 @@ func (w *drainWorker) drainFile(ctx context.Context, path, hash string, metadata
 	}
 
 	// Ensure we close the reader when we're done.
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// If the file size doesn't match the metadata size, then the file is
 	// potentially corrupt, so we should skip it.

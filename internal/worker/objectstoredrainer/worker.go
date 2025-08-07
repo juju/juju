@@ -6,6 +6,7 @@ package objectstoredrainer
 import (
 	"context"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/juju/clock"
@@ -325,13 +326,21 @@ func (w *Worker) loop() error {
 				return errors.Errorf("getting model namespaces: %w", err)
 			}
 
-			signal, err := w.drainModels(ctx, namespaces)
+			uniqueNamespaces := unique(namespaces)
+			if len(uniqueNamespaces) == 0 {
+				if err := w.completeDraining(ctx); err != nil {
+					_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
+					return errors.Errorf("completing draining: %w", err)
+				}
+			}
+
+			signal, err := w.drainModels(ctx, uniqueNamespaces)
 			if err != nil {
 				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
 				return errors.Errorf("draining models: %w", err)
 			}
 
-			if err := w.waitForDraining(ctx, signal, namespaces); err != nil {
+			if err := w.waitForDraining(ctx, signal, uniqueNamespaces); err != nil {
 				_ = w.guardService.SetDrainingPhase(ctx, objectstore.PhaseError)
 				return errors.Errorf("waiting for draining: %w", err)
 			}
@@ -468,4 +477,20 @@ func (w *Worker) completeDraining(ctx context.Context) error {
 	w.logger.Infof(ctx, "object store draining completed successfully")
 
 	return nil
+}
+
+// unique returns a slice of unique namespaces from the given slice.
+func unique(namespaces []string) []string {
+	uniqueNamespaces := make(map[string]struct{}, len(namespaces))
+	for _, namespace := range namespaces {
+		uniqueNamespaces[namespace] = struct{}{}
+	}
+
+	result := make([]string, 0, len(uniqueNamespaces))
+	for namespace := range uniqueNamespaces {
+		result = append(result, namespace)
+	}
+
+	slices.Sort(result)
+	return result
 }

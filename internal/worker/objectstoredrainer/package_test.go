@@ -77,6 +77,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.s3Client = nil
 		s.s3Session = nil
 		s.hashFileSystemAccessor = nil
+		s.logger = nil
 	})
 
 	return ctrl

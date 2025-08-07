@@ -217,7 +217,8 @@ func (w *objectStoreWorker) FlushWorkers(ctx context.Context) error {
 
 func (w *objectStoreWorker) stopAndRemoveAllWorkers(ctx context.Context) error {
 	for _, namespace := range w.runner.WorkerNames() {
-		if err := w.runner.StopAndRemoveWorker(namespace, ctx.Done()); err != nil && !errors.Is(err, errors.NotFound) {
+		err := w.runner.StopAndRemoveWorker(namespace, ctx.Done())
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 	}
