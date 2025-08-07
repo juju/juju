@@ -230,15 +230,17 @@ type filesystemAttachmentProvisionedInfo struct {
 	ReadOnly   bool   `db:"read_only"`
 }
 
-type storageAttachment struct {
-	UnitUUID  string `db:"unit_uuid"`
-	StorageID string `db:"storage_id"`
+type storageID struct {
+	ID string `db:"storage_id"`
 }
 
-type storageAttachments []storageAttachment
+type storageIDs []storageID
 
-type storageAttachmentLife struct {
-	StorageID string    `db:"storage_id"`
-	UnitUUID  string    `db:"unit_uuid"`
-	Life      life.Life `db:"life_id"`
+type unitUUIDRef struct {
+	UUID string `db:"unit_uuid"`
+}
+
+type storageAttachmentIdentifier struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	UnitUUID            string `db:"unit_uuid"`
 }
