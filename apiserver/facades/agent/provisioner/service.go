@@ -27,6 +27,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
@@ -62,6 +63,11 @@ type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
 	GetModelInfo(context.Context) (model.ModelInfo, error)
+
+	// GetRegionCloudSpec returns a CloudSpec representing the cloud deployment of
+	// this model if supported by the provider. If not, an empty structure is
+	// returned with no error.
+	GetRegionCloudSpec(ctx context.Context) (simplestreams.CloudSpec, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine
