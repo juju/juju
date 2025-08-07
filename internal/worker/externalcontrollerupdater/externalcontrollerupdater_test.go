@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package externalcontrollerupdater_test
+package externalcontrollerupdater
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
+	"github.com/juju/juju/rpc/params"
 )
 
 func TestExternalControllerUpdaterSuite(t *testing.T) {
@@ -55,7 +55,7 @@ func (s *ExternalControllerUpdaterSuite) TestStartStop(c *tc.C) {
 
 	s.client.EXPECT().WatchExternalControllers(gomock.Any()).Return(extCtrlWatcher, nil)
 
-	w, err := externalcontrollerupdater.New(s.client, func(context.Context, *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(context.Context, *api.Info) (ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
@@ -91,7 +91,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c
 		return nil
 	})
 
-	w, err := externalcontrollerupdater.New(s.client, func(_ context.Context, gotInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(_ context.Context, gotInfo *api.Info) (ExternalControllerWatcherClientCloser, error) {
 		defer close(started)
 		c.Assert(gotInfo, tc.DeepEquals, &api.Info{
 			Addrs:  info.Addrs,
@@ -139,7 +139,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *tc
 		return nil
 	})
 
-	w, err := externalcontrollerupdater.New(s.client, func(context.Context, *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(context.Context, *api.Info) (ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
@@ -171,7 +171,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestar
 	})
 	s.watcher.EXPECT().Close()
 
-	w, err := externalcontrollerupdater.New(s.client, func(context.Context, *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(context.Context, *api.Info) (ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
@@ -207,6 +207,57 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestar
 	}
 }
 
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan []string, 1)
+	extCtrlWatcher := watchertest.NewMockStringsWatcher(ch)
+	ch <- []string{coretesting.ControllerTag.Id()}
+
+	s.client.EXPECT().WatchExternalControllers(gomock.Any()).Return(extCtrlWatcher, nil)
+	info := &crossmodel.ControllerInfo{}
+	s.client.EXPECT().ExternalControllerInfo(gomock.Any(), coretesting.ControllerTag.Id()).Return(info, nil)
+
+	notSupportedErr := &params.Error{Code: params.CodeNotSupported}
+	watcherReady := make(chan struct{})
+	watcherFetched := make(chan struct{})
+
+	w, err := New(s.client, func(context.Context, *api.Info) (ExternalControllerWatcherClientCloser, error) {
+		close(watcherReady)
+		select {
+		case <-watcherFetched:
+		case <-time.After(coretesting.LongWait):
+			c.Error("timed out waiting for watcher to be fetched")
+		}
+		return nil, notSupportedErr
+	}, s.clock)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	// Here we synchronise access to the controllerWatcher worker started
+	// by the runner in the updaterWorker. Fetch the single controllerWatcher
+	// worker from the the list of running workers before it is killed and
+	// removed, then check that it is killed with the expected error.
+	select {
+	case <-watcherReady:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for watcher to be ready")
+	}
+	updater, _ := w.(*updaterWorker)
+	c.Assert(updater, tc.NotNil)
+	runner := updater.runner
+	names := runner.WorkerNames()
+	c.Assert(names, tc.HasLen, 1)
+	controllerWatcher, err := runner.Worker(names[0], nil)
+	c.Assert(err, tc.IsNil)
+	close(watcherFetched)
+
+	err = workertest.CheckKilled(c, controllerWatcher)
+	c.Assert(err, tc.IsNil)
+
+	workertest.CheckAlive(c, w)
+}
+
 func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -231,7 +282,7 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *t
 	})
 	s.watcher.EXPECT().Close()
 
-	w, err := externalcontrollerupdater.New(s.client, func(_ context.Context, gotInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(_ context.Context, gotInfo *api.Info) (ExternalControllerWatcherClientCloser, error) {
 		return s.watcher, nil
 	}, s.clock)
 	c.Assert(err, tc.ErrorIsNil)

@@ -50,22 +50,25 @@ configure_multi_nic_netplan() {
 	juju_machine_id=$1
 	hotplug_iface=$2
 
+	juju ssh "${juju_machine_id}" "sudo apt install yq -y"
+
 	# Add an entry to netplan and apply it so the second interface comes online
 	echo "[+] updating netplan and restarting machine agent"
-	# shellcheck disable=SC2086,SC2016
-	juju ssh ${juju_machine_id} 'sudo sh -c "sed -i \"/version:/d\" /etc/netplan/50-cloud-init.yaml"'
-	# shellcheck disable=SC2086,SC2016
-	default_route=$(juju ssh ${juju_machine_id} 'ip route | grep default | cut -d " " -f3')
-	# shellcheck disable=SC2086,SC2016
-	juju ssh ${juju_machine_id} "sudo sh -c 'echo \"            routes:\n                - to: default\n                  via: ${default_route}\n        ${hotplug_iface}:\n            dhcp4: true\n    version: 2\n\" >> /etc/netplan/50-cloud-init.yaml'"
 
-	# shellcheck disable=SC2086,SC2016
+	add_routes_yq='.network.ethernets[].routes = [{\"to\": \"default\", \"via\": \"$(ip route | grep default | cut -d " " -f3)\"}]'
+	add_routes_cmd="sudo yq -i -y \"${add_routes_yq}\" /etc/netplan/50-cloud-init.yaml"
+
+	add_dhcp4_eth_yq=".network.ethernets.${hotplug_iface}.dhcp4 = true"
+	add_dhcp4_eth_cmd="sudo yq -i -y \"${add_dhcp4_eth_yq}\" /etc/netplan/50-cloud-init.yaml"
+
+	juju ssh ${juju_machine_id} "${add_routes_cmd}"
+	juju ssh ${juju_machine_id} "${add_dhcp4_eth_cmd}"
+
 	echo "[+] Reconfiguring netplan:"
 	juju ssh ${juju_machine_id} 'sudo cat /etc/netplan/50-cloud-init.yaml'
-	# shellcheck disable=SC2086,SC2016
 	juju ssh ${juju_machine_id} 'sudo netplan apply' || true
+
 	echo "[+] Applied"
-	# shellcheck disable=SC2086,SC2016
 	juju ssh ${juju_machine_id} 'sudo systemctl restart jujud-machine-*'
 
 	# Wait for the interface to be detected by juju

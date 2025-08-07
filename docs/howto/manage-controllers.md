@@ -374,8 +374,13 @@ If the removal of a controller will result in an **odd** number of systems then 
 (collect-metrics-about-a-controller)=
 ## Collect metrics about a controller
 
-Each controller provides an HTTPS endpoint to expose Prometheus metrics. To feed these metrics into Prometheus, configure Prometheus to scrape the controller's metrics. You can do that automatically via Juju relations or manually.
+Each controller provides an HTTPS endpoint to expose Prometheus metrics.
 
+> See more: [Charmhub | `juju-controller` > Endpoint metrics-endpoint > List of metrics](https://charmhub.io/juju-controller/docs/endpoint-metrics-endpoint-metrics)
+
+To feed these metrics into Prometheus, you must first configure Prometheus to scrape them.
+
+You can do that automatically via Juju relations or manually.
 
 ### Configure Prometheus automatically
 
@@ -385,40 +390,74 @@ Each controller provides an HTTPS endpoint to expose Prometheus metrics. To feed
 >
 > If you're on a Kubernetes cloud: While it is possible to deploy Prometheus directly on the controller model, it's always best to keep your observability setup on a different model (and ideally also a different controller and a different cloud region or cloud).
 
-To configure Prometheus to scrape the controller for metrics automatically, on a Kubernetes cloud add a model; on it, deploy `prometheus-k8s`, either directly or through the `cos-lite` bundle; offer `prometheus-k8s`' `metrics-endpoint` for cross-model relations; switch to the controller model and integrate the controller application with the offer; run `juju status --relations` to verify that the relation is up and running;  and query Prometheus for your metric of interest.
+To configure Prometheus to scrape the controller for metrics automatically, on a Kubernetes cloud add a model; on it, deploy `prometheus-k8s`, either directly or through the [Canonical Observability Stack](https://documentation.ubuntu.com/observability/); offer `prometheus-k8s`' `metrics-endpoint` for cross-model relations; switch to the controller model and integrate the controller application with the offer; wait until `juju status --relations` shows that everything is up and running; query Prometheus for your metric of interest / set up a Grafana dashboard and view the metrics collected by Prometheus there.
 
 
-
-````{dropdown} Sample session
-
+`````{dropdown} Example workflow using Prometheus and Grafana from COS
 
 Assumes your controller application and Prometheus are on different models on the same Kubernetes cloud and that you are deploying Prometheus (`prometheus-k8s`) through the Canonical Observability Stack bundle (`cos-lite`). However, the logic would be entirely the same if they were on the same controller but different clouds (multi-cloud controller setup) or on different controllers on different clouds (except in some cases you may also have to explicitly grant access to the offer).
 
-```text
+First, deploy COS, offer Prometheus, and integrate Prometheus with your controller.
 
+```text
 $ juju add-model observability
 
 $ juju deploy cos-lite
 
 $ watch -n 1 -c juju status -m cos-lite --color
 
-$  juju offer prometheus:metrics-endpoint
+$ juju offer prometheus:metrics-endpoint
 
 $ juju switch controller
 
-$  juju integrate controller admin/cos-lite.prometheus
+$  juju integrate controller admin/observability.prometheus
 
 $  juju status --relations
 
-# Query Prometheus:
-# (where the bit before `9090` is the Prometheus unit's IP address
-# and juju_apisever_request_duration_seconds` is an example metric)
-$  curl 10.1.170.185:9090/api/v1/query?query=juju_apiserver_request_duration_seconds
+```
 
+Now, either query Prometheus directly or set up a Grafana dashboard and view the metrics there.
+
+````{dropdown} Query Prometheus directly
+
+Use `curl` on the pattern `<Prometheus_unit_IP_address>:9090api/v1/query?query=<metric>`. For example:
+
+```text
+$  curl 10.1.170.185:9090/api/v1/query?query=juju_apiserver_request_duration_seconds
 ```
 
 ````
 
+````{dropdown} View metrics in a Grafana dashboard
+
+On the observability model, use the Grafana charm's `get-admin-password` to generate an admin password:
+
+
+```text
+$ juju switch observability
+$ juju run grafana/0 get-admin-password
+# Example output:
+Running operation 1 with 1 task
+  - task 2 on unit-grafana-0
+
+Waiting for task 2...
+admin-password: 0OpLUlxJXQaU
+url: http://10.238.98.110/observability-grafana
+```
+
+On your local machine, open a browser window and copy-paste the Grafana URL. In the username field, enter 'admin'. In the password field, enter the `admin-password`. If everything has gone well, you should now be logged in.
+
+On the new screen, in the top-right, click on the Menu icon, then **Dashboards**. Then, on the new screen, in the top-left, click on **New**, **Upload dashboard JSON file**, and upload your Grafana dashboard definition file, for example, the JSON Grafana-dashboard-definition file below; then, in the IL3-2 field, from the dropdown, select the suggested `juju_observability...` option.
+
+[Juju Controllers-1713888589960.json|attachment](https://discourse.charmhub.io/uploads/short-url/yOxvgum6eo3NmMxPaTRKLOLmbo0.json) (200.9 KB)
+
+
+On the new screen, at the very top, expand the Juju Metrics section and inspect the results.
+
+Make a change to your controller (e.g., run `juju add-model test` to add another model and trigger some more API server connections) and refresh the page to view the updated results!
+
+````
+`````
 
 > See more:
 > - [Charmhub | `juju-controller` > `metrics-endpoint | prometheus-scrape`](https://charmhub.io/juju-controller/integrations#metrics-endpoint)

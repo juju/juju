@@ -313,11 +313,11 @@ if "discourse_prefix" not in html_context and "discourse" in html_context:
 
 intersphinx_mapping = {
     # 'juju': ('https://canonical-juju.readthedocs-hosted.com/en/latest/', None),
-    'tfjuju': ('https://canonical-terraform-provider-juju.readthedocs-hosted.com/en/latest/', None),
+    'tfjuju': ('https://documentation.ubuntu.com/terraform-provider-juju/latest/', None),
     'pyjuju': ('https://pythonlibjuju.readthedocs.io/en/latest/', None),
-    'jaas': ('https://canonical-jaas-documentation.readthedocs-hosted.com/latest/', None),
+    'jaas': ('https://documentation.ubuntu.com/jaas/latest/', None),
     'charmcraft': ('https://canonical-charmcraft.readthedocs-hosted.com/en/latest/', None),
-    'ops': ('https://ops.readthedocs.io/en/latest/', None),
+    'ops': ('https://documentation.ubuntu.com/ops/latest/', None),
 }
 
 #####################

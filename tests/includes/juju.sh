@@ -480,7 +480,7 @@ destroy_model() {
 	echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage --force % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR\|Unable to get the model status from the API" || true)
 	if [[ -n ${CHK} ]]; then
-		printf '\nFound some issues\n'
+		printf '\nFound some issues destroying model\n'
 		cat "${output}"
 		# WARNING. This is a workaround for broken teardown process,
 		# where the model is not destroyed properly. This is a known issue
@@ -554,7 +554,7 @@ destroy_controller() {
 	set +e
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)
 	if [[ -n ${CHK} ]]; then
-		printf '\nFound some issues\n'
+		printf '\nFound some issues destroying controller\n'
 		cat "${output}"
 		# WARNING. This is a workaround for broken teardown process,
 		# where the model is not destroyed properly. This is a known issue

@@ -282,8 +282,15 @@ func (z *lxdAvailabilityZone) Name() string {
 
 // Available implements AvailabilityZone.
 func (z *lxdAvailabilityZone) Available() bool {
-	return strings.EqualFold(z.Status, "online")
+	return strings.EqualFold(z.Status, nodeOnlineStatus)
 }
+
+// Sadly LXD API library using string literals for node status.
+// See https://github.com/canonical/lxd/blob/stable-5.21/lxd/db/node.go#L148.
+// We'll at least define a const for it.
+const (
+	nodeOnlineStatus = "Online"
+)
 
 // AvailabilityZones (ZonedEnviron) returns all availability zones in the
 // environment. For LXD, this means the cluster node names.
@@ -297,7 +304,7 @@ func (env *environ) AvailabilityZones(ctx context.Context) (network.Availability
 			&lxdAvailabilityZone{
 				ClusterMember: api.ClusterMember{
 					ServerName: server.Name(),
-					Status:     "ONLINE",
+					Status:     nodeOnlineStatus,
 				},
 			},
 		}, nil
@@ -309,7 +316,7 @@ func (env *environ) AvailabilityZones(ctx context.Context) (network.Availability
 	}
 	aZones := make(network.AvailabilityZones, len(nodes))
 	for i, n := range nodes {
-		aZones[i] = &lxdAvailabilityZone{n}
+		aZones[i] = &lxdAvailabilityZone{ClusterMember: n}
 	}
 	return aZones, nil
 }
@@ -351,14 +358,43 @@ func (env *environ) InstanceAvailabilityZoneNames(
 func (env *environ) DeriveAvailabilityZones(
 	ctx context.Context, args environs.StartInstanceParams,
 ) ([]string, error) {
+	availabilityZone, err := env.deriveAvailabilityZone(ctx, args)
+	if availabilityZone != "" {
+		return []string{availabilityZone}, errors.Trace(err)
+	}
+	return nil, errors.Trace(err)
+}
+
+func (env *environ) deriveAvailabilityZone(
+	ctx context.Context, args environs.StartInstanceParams,
+) (string, error) {
 	p, err := env.parsePlacement(ctx, args.Placement)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	if p.nodeName == "" {
-		return nil, nil
+
+	if p.nodeName != "" || args.AvailabilityZone == "" {
+		return p.nodeName, nil
 	}
-	return []string{p.nodeName}, nil
+	zones, err := env.AvailabilityZones(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	for _, z := range zones {
+		if z.Name() != args.AvailabilityZone {
+			continue
+		}
+		lxdAZ := z.(*lxdAvailabilityZone)
+		if !lxdAZ.Available() {
+			return "", errors.Errorf(
+				"availability zone %q is %q",
+				z.Name(),
+				lxdAZ.ClusterMember.Status,
+			)
+		}
+		return args.AvailabilityZone, nil
+	}
+	return "", errors.NotValidf("availability zone %q", args.AvailabilityZone)
 }
 
 // TODO: HML 2-apr-2019

@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"github.com/juju/loggo/v2"
-	"github.com/juju/naturalsort"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

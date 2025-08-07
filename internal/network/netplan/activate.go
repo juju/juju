@@ -92,22 +92,21 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	command := fmt.Sprintf("%snetplan generate && netplan apply && sleep 10", params.RunPrefix)
 
 	result, err := scriptrunner.RunCommand(command, environ, params.Clock, params.Timeout)
+	if err != nil {
+		_ = netplan.Rollback()
+		return nil, errors.Annotatef(err, "activating bridge")
+	}
 
+	logger.Debugf(context.TODO(), "Netplan activation result %q %q %d", result.Stderr, result.Stdout, result.Code)
 	activationResult := ActivationResult{
 		Stderr: string(result.Stderr),
 		Stdout: string(result.Stdout),
 		Code:   result.Code,
 	}
 
-	logger.Debugf(context.TODO(), "Netplan activation result %q %q %d", result.Stderr, result.Stdout, result.Code)
-
-	if err != nil {
-		_ = netplan.Rollback()
-		return &activationResult, errors.Errorf("bridge activation error: %s", err)
-	}
 	if result.Code != 0 {
 		_ = netplan.Rollback()
-		return &activationResult, errors.Errorf("bridge activation error code %d", result.Code)
+		return &activationResult, errors.Errorf("activating bridge: error code %d", result.Code)
 	}
 	return nil, nil
 }

@@ -24,9 +24,12 @@ var keyRegExp = regexp.MustCompile("^([a-z](?:-?[a-z0-9]){2,})$")
 type SecretData map[string]string
 
 const (
-	fileSuffix          = "#file"
-	maxValueSizeBytes   = 8 * 1024
-	maxContentSizeBytes = 64 * 1024
+	fileSuffix = "#file"
+	// Ideally we'd use 1MiB as that's what k8s supports, but vault
+	// accepts slightly less so we punt on 1MB which will be supported
+	// everywhere we care about.
+	maxValueSizeBytes   = 1000 * 1000
+	maxContentSizeBytes = 1000 * 1000
 )
 
 // CreateSecretData creates a secret data bag from a list of arguments.
@@ -98,26 +101,24 @@ const base64Suffix = "#base64"
 func encodeBase64(in SecretData) (SecretData, error) {
 	out := make(SecretData, len(in))
 	var contentSize int
-	for k, v := range in {
-		if len(v) > maxValueSizeBytes {
-			return nil, errors.Errorf("secret content for key %q too large: %d bytes", k, len(v))
+	for key, value := range in {
+		if strings.HasSuffix(key, base64Suffix) {
+			key = strings.TrimSuffix(key, base64Suffix)
+		} else {
+			value = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v", value)))
 		}
-		contentSize += len(v)
-		if strings.HasSuffix(k, base64Suffix) {
-			k = strings.TrimSuffix(k, base64Suffix)
-			if !keyRegExp.MatchString(k) {
-				return nil, errors.Errorf("key %q %w", k, coreerrors.NotValid)
-			}
-			out[k] = v
-			continue
+		if !keyRegExp.MatchString(key) {
+			return nil, errors.Errorf("key %q %w", key, coreerrors.NotValid)
 		}
-		if !keyRegExp.MatchString(k) {
-			return nil, errors.Errorf("key %q %w", k, coreerrors.NotValid)
+		valSize := len(value)
+		if valSize > maxValueSizeBytes {
+			return nil, errors.Errorf("base64 encoded secret content for key %q too large: %d bytes", key, valSize)
 		}
-		out[k] = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v", v)))
+		out[key] = value
+		contentSize += valSize
 	}
 	if contentSize > maxContentSizeBytes {
-		return nil, errors.Errorf("secret content too large: %d bytes", contentSize)
+		return nil, errors.Errorf("base64 encoded secret content too large: %d bytes", contentSize)
 	}
 	return out, nil
 }

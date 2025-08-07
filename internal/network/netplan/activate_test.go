@@ -29,7 +29,7 @@ func (s *ActivateSuite) TestNoDevices(c *tc.C) {
 	params := netplan.ActivationParams{}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, tc.IsNil)
-	c.Check(err, tc.ErrorMatches, "no devices specified")
+	c.Assert(err, tc.ErrorMatches, "no devices specified")
 }
 
 func (s *ActivateSuite) TestNoDirectory(c *tc.C) {
@@ -41,7 +41,7 @@ func (s *ActivateSuite) TestNoDirectory(c *tc.C) {
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, tc.IsNil)
-	c.Check(err, tc.ErrorMatches, "open /quite/for/sure/this/doesnotexists.*")
+	c.Assert(err, tc.ErrorMatches, "open /quite/for/sure/this/doesnotexists.*")
 }
 
 func (s *ActivateSuite) TestActivateSuccess(c *tc.C) {
@@ -74,7 +74,7 @@ func (s *ActivateSuite) TestActivateSuccess(c *tc.C) {
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, tc.IsNil)
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *tc.C) {
@@ -107,7 +107,7 @@ func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *tc.C) {
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Check(result, tc.IsNil)
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ActivateSuite) TestActivateFailure(c *tc.C) {
@@ -143,7 +143,7 @@ func (s *ActivateSuite) TestActivateFailure(c *tc.C) {
 	c.Check(result.Stdout, tc.DeepEquals, "This is stdout")
 	c.Check(result.Stderr, tc.DeepEquals, "This is stderr")
 	c.Check(result.Code, tc.Equals, 1)
-	c.Check(err, tc.ErrorMatches, "bridge activation error code 1")
+	c.Check(err, tc.ErrorMatches, "activating bridge: error code 1")
 
 	// old files are in place and unchanged
 	for i, file := range files {
@@ -161,7 +161,7 @@ func (s *ActivateSuite) TestActivateFailure(c *tc.C) {
 			yamlCount++
 		}
 	}
-	c.Check(yamlCount, tc.Equals, len(files))
+	c.Assert(yamlCount, tc.Equals, len(files))
 }
 
 func (s *ActivateSuite) TestActivateTimeout(c *tc.C) {
@@ -194,7 +194,6 @@ func (s *ActivateSuite) TestActivateTimeout(c *tc.C) {
 		err = os.WriteFile(path.Join(tempDir, file), contents[i], 0644)
 		c.Assert(err, tc.ErrorIsNil)
 	}
-	result, err := netplan.BridgeAndActivate(params)
-	c.Check(result, tc.NotNil)
-	c.Check(err, tc.ErrorMatches, "bridge activation error: command cancelled")
+	_, err := netplan.BridgeAndActivate(params)
+	c.Assert(err, tc.ErrorMatches, `activating bridge: running command "sleep 10000 && netplan generate && netplan apply && sleep 10": command cancelled`)
 }

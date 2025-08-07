@@ -137,7 +137,11 @@ join() {
 }
 
 run_govulncheck() {
-	ignore=()
+	ignore=(
+		# The vulnerability below is for a method not used since Juju 1.x.
+		# https://pkg.go.dev/vuln/GO-2025-3798
+		"GO-2025-3798"
+	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
 	echo "Ignoring vulnerabilities: ${ignoreMatcher}"

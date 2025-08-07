@@ -29,9 +29,10 @@ type dummyAPI struct {
 }
 
 type dummyBroker struct {
-	ensureModelOperator func(context.Context, string, string, *caas.ModelOperatorConfig) error
-	modelOperator       func(ctx context.Context) (*caas.ModelOperatorConfig, error)
-	modelOperatorExists func(context.Context) (bool, error)
+	ensureModelOperator             func(context.Context, string, string, *caas.ModelOperatorConfig) error
+	modelOperator                   func(ctx context.Context) (*caas.ModelOperatorConfig, error)
+	modelOperatorExists             func(context.Context) (bool, error)
+	getModelOperatorDeploymentImage func(ctx context.Context) (string, error)
 }
 
 type ModelOperatorManagerSuite struct{}
@@ -60,6 +61,13 @@ func (b *dummyBroker) ModelOperatorExists(ctx context.Context) (bool, error) {
 	return b.modelOperatorExists(ctx)
 }
 
+func (b *dummyBroker) GetModelOperatorDeploymentImage(ctx context.Context) (string, error) {
+	if b.getModelOperatorDeploymentImage == nil {
+		return "ghcr.io/juju/jujud-operator:3.6.9", nil
+	}
+	return b.getModelOperatorDeploymentImage(ctx)
+}
+
 func (a *dummyAPI) ModelOperatorProvisioningInfo(ctx context.Context) (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
 	if a.provInfo == nil {
 		return modeloperatorapi.ModelOperatorProvisioningInfo{}, nil
@@ -86,13 +94,13 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 	var (
 		iteration = 0 // ... n
 
-		apiAddresses = [n][]string{{"fe80:abcd::1"}, {"fe80:abcd::2"}, {"fe80:abcd::3"}}
-		imagePath    = [n]string{"juju/jujud:1", "juju/jujud:2", "juju/jujud:3"}
-		modelUUID    = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
-		ver          = [n]semversion.Number{semversion.MustParse("2.8.2"), semversion.MustParse("2.9.1"), semversion.MustParse("2.9.99")}
-
-		password   = ""
-		lastConfig = (*caas.ModelOperatorConfig)(nil)
+		apiAddresses      = [n][]string{{"fe80:abcd::1"}, {"fe80:abcd::2"}, {"fe80:abcd::3"}}
+		modelUUID         = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
+		imagePath         = [n]string{"docker.io/jujusolutions/jujud-operator:1", "docker.io/jujusolutions/jujud-operator:2", "docker.io/jujusolutions/jujud-operator:3"}
+		ver               = [n]semversion.Number{semversion.MustParse("2.8.2"), semversion.MustParse("2.9.1"), semversion.MustParse("2.9.99")}
+		expectedImagePath = [n]string{"docker.io/jujusolutions/jujud-operator:1", "docker.io/jujusolutions/jujud-operator:2.9.1", "docker.io/jujusolutions/jujud-operator:2.9.99"}
+		password          = ""
+		lastConfig        = (*caas.ModelOperatorConfig)(nil)
 	)
 
 	changed := make(chan struct{})
@@ -116,7 +124,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 			}()
 			lastConfig = conf
 
-			c.Check(conf.ImageDetails.RegistryPath, tc.Equals, imagePath[iteration])
+			c.Check(conf.ImageDetails.RegistryPath, tc.Equals, expectedImagePath[iteration])
 
 			ac, err := agent.ParseConfigData(conf.AgentConf)
 			c.Check(err, tc.ErrorIsNil)
@@ -143,6 +151,9 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 				return nil, errors.NotFoundf("model operator")
 			}
 			return lastConfig, nil
+		},
+		getModelOperatorDeploymentImage: func(ctx context.Context) (string, error) {
+			return imagePath[iteration], nil
 		},
 	}
 

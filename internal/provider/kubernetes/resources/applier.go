@@ -52,7 +52,7 @@ func (op *operation) process(ctx context.Context, api kubernetes.Interface, roll
 	if errors.Is(err, errors.NotFound) {
 		found = false
 	} else if err != nil {
-		return errors.Annotatef(err, "checking if resource %q exists or not", existingRes)
+		return errors.Annotatef(err, "checking if resource %q exists or not", existingRes.ID())
 	}
 	if found {
 		ver := op.resource.GetObjectMeta().GetResourceVersion()

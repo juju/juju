@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/password"
 )
 
@@ -31,6 +32,7 @@ type ModelOperatorBroker interface {
 	EnsureModelOperator(context.Context, string, string, *caas.ModelOperatorConfig) error
 	ModelOperator(ctx context.Context) (*caas.ModelOperatorConfig, error)
 	ModelOperatorExists(ctx context.Context) (bool, error)
+	GetModelOperatorDeploymentImage(ctx context.Context) (string, error)
 }
 
 // ModelOperatorManager defines the worker used for managing model operators in
@@ -125,6 +127,25 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 			password = prevConf.OldPassword()
 			setPassword = false
 		}
+
+		// retrieves model operator deployment image to keep model operator's image the same after migration
+		modelImage, err := m.broker.GetModelOperatorDeploymentImage(ctx)
+		if err != nil {
+			return errors.Annotate(err, "failed to get model deployment image")
+		}
+
+		modelImageRepo, err := podcfg.RecoverRepoFromOperatorPath(modelImage)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		registryPath, err := podcfg.GetJujuOCIImagePathFromModelRepo(modelImageRepo, info.Version)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		info.ImageDetails.RegistryPath = registryPath
+
 	}
 	if setPassword {
 		err := m.api.SetPassword(ctx, password)

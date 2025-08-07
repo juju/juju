@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v10"
 	"github.com/juju/errors"
-	"github.com/juju/naturalsort"
 
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
 )

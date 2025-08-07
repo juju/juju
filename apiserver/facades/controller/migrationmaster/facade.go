@@ -11,7 +11,6 @@ import (
 	"github.com/juju/description/v10"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/naturalsort"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -22,6 +21,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/rpc/params"
 )
 

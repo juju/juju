@@ -22,6 +22,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 )
 
 var logger = internallogger.GetLogger("juju.worker.externalcontrollerupdater")
@@ -263,6 +264,12 @@ func (w *controllerWatcher) loop() error {
 			if err == w.catacomb.ErrDying() {
 				return err
 			} else if err != nil {
+				// If the controller cannot report its own addresses e.g. if it's
+				// behind a load-balancer then stop the worker without error.
+				if params.IsCodeNotSupported(err) {
+					logger.Debugf(ctx, "assuming controller cannot report its own addresses and completing watch for %q", w.tag.Id())
+					return nil
+				}
 				return errors.Trace(err)
 			}
 			_ = w.catacomb.Add(nw)

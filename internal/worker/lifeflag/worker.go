@@ -5,6 +5,7 @@ package lifeflag
 
 import (
 	"context"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -98,7 +99,9 @@ func New(ctx context.Context, config Config) (*Worker, error) {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
-	life     life.Value
+
+	mutex sync.Mutex
+	life  life.Value
 }
 
 // Kill is part of the worker.Worker interface.
@@ -113,6 +116,9 @@ func (w *Worker) Wait() error {
 
 // Check is part of the util.Flag interface.
 func (w *Worker) Check() bool {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
 	return w.config.Result(w.life)
 }
 
@@ -140,17 +146,30 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-watcher.Changes():
-			l, err := w.config.Facade.Life(ctx, w.config.Entity)
-			if w.config.NotFoundIsDead && errors.Is(err, ErrNotFound) {
-				l = life.Dead
-			} else if err != nil {
-				return errors.Trace(err)
-			}
-			if w.config.Result(l) != w.Check() {
-				return ErrValueChanged
+			current := w.Check()
+
+			if err := w.lifeChanged(ctx, current); err != nil {
+				return err
 			}
 		}
 	}
+}
+
+func (w *Worker) lifeChanged(ctx context.Context, current bool) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	var err error
+	w.life, err = w.config.Facade.Life(ctx, w.config.Entity)
+	if w.config.NotFoundIsDead && errors.Is(err, ErrNotFound) {
+		w.life = life.Dead
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if w.config.Result(w.life) != current {
+		return ErrValueChanged
+	}
+	return nil
 }
 
 func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {

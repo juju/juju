@@ -270,6 +270,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *tc.C) {
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
+		sExp.IsClustered().Return(true),
 		sExp.UseTargetServer(gomock.Any(), "node01").Return(jujuTarget, nil),
 		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.HostArch().Return(arch.AMD64),
@@ -364,6 +365,122 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *tc.C) 
 
 	_, err := env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "unknown placement directive.*")
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithZoneConstraintsAvailable(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	target := lxdtesting.NewMockInstanceServer(ctrl)
+	tExp := target.EXPECT()
+	serverRet := &api.Server{}
+	image := &api.Image{Filename: "container-image"}
+
+	tExp.GetServer().Return(serverRet, lxdtesting.ETag, nil)
+	tExp.GetImageAlias("juju/ubuntu@24.04/amd64").Return(&api.ImageAliasesEntry{}, lxdtesting.ETag, nil)
+	tExp.GetImage("").Return(image, lxdtesting.ETag, nil)
+
+	jujuTarget, err := containerlxd.NewServer(target)
+	c.Assert(err, tc.ErrorIsNil)
+
+	members := []api.ClusterMember{
+		{
+			ServerName: "node01",
+			Status:     "ONLINE",
+		},
+		{
+			ServerName: "node02",
+			Status:     "ONLINE",
+		},
+	}
+
+	createOp := lxdtesting.NewMockRemoteOperation(ctrl)
+	createOp.EXPECT().Wait().Return(nil)
+	createOp.EXPECT().GetTarget().Return(&api.Operation{StatusCode: api.Success}, nil)
+
+	startOp := lxdtesting.NewMockOperation(ctrl)
+	startOp.EXPECT().Wait().Return(nil)
+
+	sExp := svr.EXPECT()
+	gomock.InOrder(
+		sExp.HostArch().Return(arch.AMD64),
+		sExp.IsClustered().Return(true),
+		sExp.GetClusterMembers().Return(members, nil),
+		sExp.IsClustered().Return(true),
+		sExp.UseTargetServer(gomock.Any(), "node01").Return(jujuTarget, nil),
+		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		sExp.HostArch().Return(arch.AMD64),
+	)
+
+	// CreateContainerFromSpec is tested in container/lxd.
+	// we don't bother with detailed parameter assertions here.
+	tExp.CreateInstanceFromImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(createOp, nil)
+	tExp.UpdateInstanceState(gomock.Any(), gomock.Any(), "").Return(startOp, nil)
+	tExp.GetInstance(gomock.Any()).Return(&api.Instance{Type: "container"}, lxdtesting.ETag, nil)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+
+	args := s.GetStartInstanceArgs(c)
+	args.AvailabilityZone = "node01"
+
+	_, err = env.StartInstance(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithZoneConstraintsNotPresent(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	members := []api.ClusterMember{{
+		ServerName: "node01",
+		Status:     "ONLINE",
+	}}
+
+	sExp := svr.EXPECT()
+	gomock.InOrder(
+		sExp.HostArch().Return(arch.AMD64),
+		sExp.IsClustered().Return(true),
+		sExp.GetClusterMembers().Return(members, nil),
+	)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+
+	args := s.GetStartInstanceArgs(c)
+	args.AvailabilityZone = "node03"
+
+	_, err := env.StartInstance(c.Context(), args)
+	c.Assert(err, tc.ErrorMatches, `availability zone "node03" not valid`)
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithZoneConstraintsNotAvailable(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	members := []api.ClusterMember{{
+		ServerName: "node01",
+		Status:     "OFFLINE",
+	}}
+
+	sExp := svr.EXPECT()
+	gomock.InOrder(
+		sExp.HostArch().Return(arch.AMD64),
+		sExp.IsClustered().Return(true),
+		sExp.GetClusterMembers().Return(members, nil),
+	)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+
+	args := s.GetStartInstanceArgs(c)
+	args.AvailabilityZone = "node01"
+
+	_, err := env.StartInstance(c.Context(), args)
+	c.Assert(err, tc.ErrorMatches, `availability zone "node01" is "OFFLINE"`)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *tc.C) {
