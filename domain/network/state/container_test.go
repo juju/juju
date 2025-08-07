@@ -271,10 +271,8 @@ func (s *containerSuite) addCharm(c *tc.C) corecharm.ID {
 	charmUUID := corecharmtesting.GenCharmID(c)
 	// The UUID is also used as the reference_name as there is a unique
 	// constraint on the reference_name, revision and source_id.
-	s.query(c, `
-INSERT INTO charm (uuid, reference_name, architecture_id) 
-VALUES (?, ?, 0)
-`, charmUUID, charmUUID)
+	s.query(c, "INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)", charmUUID, charmUUID)
+	s.query(c, "INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, ?)", charmUUID, charmUUID)
 	return charmUUID
 }
 
