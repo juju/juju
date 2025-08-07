@@ -193,6 +193,8 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Se
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
+	logger.Infof("alvin2 deleteCustomResourceDefinitions selector is %s and err is %v", selector.String(), err)
+
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -231,6 +233,7 @@ func (k *kubernetesClient) deleteCustomResources(selectorGetter func(apiextensio
 			}, metav1.ListOptions{
 				LabelSelector: selector.String(),
 			})
+			logger.Infof("alvin2 deletecustomresource selector is %s and err is %v", selector.String(), err)
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
