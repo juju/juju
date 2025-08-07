@@ -7,12 +7,14 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -59,6 +61,10 @@ type UnitState interface {
 	// returning an error satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
 	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
+
+	// UpdateUnitCharm updates the currently running charm marker for the given
+	// unit.
+	UpdateUnitCharm(context.Context, coreunit.Name, corecharm.ID) error
 
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
@@ -363,6 +369,25 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 		return errors.Errorf("updating caas unit %q: %w", unitName, err)
 	}
 	return nil
+}
+
+// UpdateUnitCharm updates the currently running charm marker for the given
+// unit.
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [applicationerrors.UnitIsDead] if the unit is dead.
+// - [applicationerrors.CharmNotFound] if the charm charm does not exist.
+func (s *Service) UpdateUnitCharm(ctx context.Context, unitName coreunit.Name, locator charm.CharmLocator) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.st.UpdateUnitCharm(ctx, unitName, id)
 }
 
 // GetUnitUUID returns the UUID for the named unit.

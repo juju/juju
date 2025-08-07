@@ -705,10 +705,10 @@ func (s *unitSuite) TestCharmURLNotImplemented(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestSetCharmURL(c *tc.C) {
+func (s *unitSuite) TestSetCharm(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, tc.Equals, "Uniter")
-		c.Assert(request, tc.Equals, "SetCharmURL")
+		c.Assert(request, tc.Equals, "SetCharm")
 		c.Assert(arg, tc.DeepEquals, params.EntitiesCharmURL{
 			Entities: []params.EntityCharmURL{
 				{Tag: "unit-mysql-0", CharmURL: "ch:mysql"},
@@ -723,11 +723,11 @@ func (s *unitSuite) TestSetCharmURL(c *tc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetCharmURL(c.Context(), "ch:mysql")
+	err := unit.SetCharm(c.Context(), "ch:mysql")
 	c.Assert(err, tc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestSetCharmURLNotImplemented(c *tc.C) {
+func (s *unitSuite) TestSetCharmNotImplemented(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
 	})
@@ -735,7 +735,7 @@ func (s *unitSuite) TestSetCharmURLNotImplemented(c *tc.C) {
 	client := uniter.NewClient(apiCaller, tag)
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetCharmURL(c.Context(), "ch:mysql")
+	err := unit.SetCharm(c.Context(), "ch:mysql")
 	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 

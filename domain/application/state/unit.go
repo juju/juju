@@ -13,7 +13,7 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/charm"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -1385,7 +1385,7 @@ func (st *State) insertIAASUnit(
 }
 
 type insertUnitArg struct {
-	CharmUUID      charm.ID
+	CharmUUID      corecharm.ID
 	UnitName       coreunit.Name
 	CloudContainer *application.CloudContainer
 	Password       *application.PasswordInfo
@@ -1507,6 +1507,47 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 	if err != nil {
 		return errors.Errorf("updating CAAS unit %q: %w", unitName, err)
 	}
+	return nil
+}
+
+// UpdateUnitCharm updates the currently running charm marker for the given
+// unit.
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [applicationerrors.UnitIsDead] if the unit is dead.
+// - [applicationerrors.CharmNotFound] if the charm does not exist.
+func (st *State) UpdateUnitCharm(ctx context.Context, name coreunit.Name, uuid corecharm.ID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	charmUUID := charmUUID{UUID: uuid}
+	unitName := unitName{Name: name}
+
+	query, err := st.Prepare(`
+UPDATE unit SET charm_uuid = $charmUUID.charm_uuid
+WHERE name = $unitName.name
+`, charmUUID, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDeadByName(ctx, tx, name); err != nil {
+			return errors.Capture(err)
+		}
+		err := tx.Query(ctx, query, charmUUID, unitName).Run()
+		if internaldatabase.IsErrConstraintForeignKey(err) {
+			return errors.Errorf("charm %q not found", uuid).Add(applicationerrors.CharmNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	return nil
 }
 

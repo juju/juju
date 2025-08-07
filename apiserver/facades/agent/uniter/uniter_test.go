@@ -802,6 +802,81 @@ func (s *uniterSuite) TestCharmURL(c *tc.C) {
 	})
 }
 
+func (s *uniterSuite) TestSetCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmURL := "local:foo-43"
+	locator := domaincharm.CharmLocator{
+		Name:     "foo",
+		Source:   domaincharm.LocalSource,
+		Revision: 43,
+	}
+	unitName := coreunit.Name("foo/0")
+
+	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return(nil)
+
+	res, err := s.uniter.SetCharm(c.Context(), params.EntitiesCharmURL{
+		Entities: []params.EntityCharmURL{{
+			Tag:      names.NewUnitTag(unitName.String()).String(),
+			CharmURL: charmURL,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+}
+
+func (s *uniterSuite) TestSetCharmUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmURL := "local:foo-43"
+	locator := domaincharm.CharmLocator{
+		Name:     "foo",
+		Source:   domaincharm.LocalSource,
+		Revision: 43,
+	}
+	unitName := coreunit.Name("foo/0")
+
+	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return(applicationerrors.UnitNotFound)
+
+	res, err := s.uniter.SetCharm(c.Context(), params.EntitiesCharmURL{
+		Entities: []params.EntityCharmURL{{
+			Tag:      names.NewUnitTag(unitName.String()).String(),
+			CharmURL: charmURL,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *uniterSuite) TestSetCharmCharmNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmURL := "local:foo-43"
+	locator := domaincharm.CharmLocator{
+		Name:     "foo",
+		Source:   domaincharm.LocalSource,
+		Revision: 43,
+	}
+	unitName := coreunit.Name("foo/0")
+
+	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return(applicationerrors.CharmNotFound)
+
+	res, err := s.uniter.SetCharm(c.Context(), params.EntitiesCharmURL{
+		Entities: []params.EntityCharmURL{{
+			Tag:      names.NewUnitTag(unitName.String()).String(),
+			CharmURL: charmURL,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
 func (s *uniterSuite) expectGetCharmLocatorByApplicationName(c *tc.C, appName string, charmLocator domaincharm.CharmLocator, err error) {
 	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), appName).Return(charmLocator, err)
 }

@@ -190,8 +190,11 @@ type CharmStore interface {
 	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
 }
 
-// Deprecated: This method is only here until we come back and use the charm
-// locator in the db queries everywhere. For now it's just scaffolding.
+// getCharmID returns the charm ID for the given charm locator.
+// The following errors may be returned:
+// - [applicationerrors.CharmNameNotValid] if the name is not valid.
+// - [applicationerrors.CharmSourceNotValid] if the source is not valid.
+// - [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *Service) getCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
 	if !isValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid

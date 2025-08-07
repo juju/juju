@@ -117,7 +117,7 @@ func (ctx *testContext) makeUnit(c tc.LikeC, unitTag names.UnitTag, l life.Value
 	u.EXPECT().PublicAddress(gomock.Any()).Return(dummyPublicAddress.Value, nil).AnyTimes()
 	u.EXPECT().AvailabilityZone(gomock.Any()).Return("zone-1", nil).AnyTimes()
 
-	u.EXPECT().SetCharmURL(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, curl string) error {
+	u.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, curl string) error {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		u.charmURL = curl

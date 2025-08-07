@@ -1126,40 +1126,40 @@ func (c *MockUnitSetAgentStatusCall) DoAndReturn(f func(context.Context, status.
 	return c
 }
 
-// SetCharmURL mocks base method.
-func (m *MockUnit) SetCharmURL(arg0 context.Context, arg1 string) error {
+// SetCharm mocks base method.
+func (m *MockUnit) SetCharm(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharmURL", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetCharmURL indicates an expected call of SetCharmURL.
-func (mr *MockUnitMockRecorder) SetCharmURL(arg0, arg1 any) *MockUnitSetCharmURLCall {
+// SetCharm indicates an expected call of SetCharm.
+func (mr *MockUnitMockRecorder) SetCharm(arg0, arg1 any) *MockUnitSetCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmURL", reflect.TypeOf((*MockUnit)(nil).SetCharmURL), arg0, arg1)
-	return &MockUnitSetCharmURLCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockUnit)(nil).SetCharm), arg0, arg1)
+	return &MockUnitSetCharmCall{Call: call}
 }
 
-// MockUnitSetCharmURLCall wrap *gomock.Call
-type MockUnitSetCharmURLCall struct {
+// MockUnitSetCharmCall wrap *gomock.Call
+type MockUnitSetCharmCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUnitSetCharmURLCall) Return(arg0 error) *MockUnitSetCharmURLCall {
+func (c *MockUnitSetCharmCall) Return(arg0 error) *MockUnitSetCharmCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitSetCharmURLCall) Do(f func(context.Context, string) error) *MockUnitSetCharmURLCall {
+func (c *MockUnitSetCharmCall) Do(f func(context.Context, string) error) *MockUnitSetCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitSetCharmURLCall) DoAndReturn(f func(context.Context, string) error) *MockUnitSetCharmURLCall {
+func (c *MockUnitSetCharmCall) DoAndReturn(f func(context.Context, string) error) *MockUnitSetCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

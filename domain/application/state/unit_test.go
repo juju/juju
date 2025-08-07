@@ -682,6 +682,55 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *tc.C) {
 	})
 }
 
+func (s *unitStateSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
+	err := s.state.UpdateUnitCharm(c.Context(), "foo/666", "bar")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestUpdateUnitCharmUnitIsDead(c *tc.C) {
+	unitName, unitUUID := s.createNamedIAASUnit(c)
+	s.setUnitLife(c, unitUUID, life.Dead)
+
+	err := s.state.UpdateUnitCharm(c.Context(), unitName, "bar")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+func (s *unitStateSuite) TestUpdateUnitCharmNoCharm(c *tc.C) {
+	unitName, _ := s.createNamedIAASUnit(c)
+
+	err := s.state.UpdateUnitCharm(c.Context(), unitName, "bar")
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
+	unitName, _ := s.createNamedIAASUnit(c)
+
+	id, _, err := s.state.SetCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "bar",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpdateUnitCharm(c.Context(), unitName, id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var gotUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE name=?", unitName).Scan(&gotUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUUID, tc.Equals, id.String())
+}
+
 func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
 	s.createSubnetForCAASModel(c)
 	unitName, _ := s.createNamedIAASUnit(c)
