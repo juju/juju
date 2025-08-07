@@ -2460,7 +2460,7 @@ WHERE  device_uuid = $ipAddress.device_uuid;
 		return errors.Capture(err)
 	}
 
-	upsertAddressStmt, err := sqlair.Prepare(`
+	upsertAddressStmt, err := st.Prepare(`
 INSERT INTO ip_address (*)
 VALUES ($ipAddress.*)
 ON CONFLICT(uuid) DO UPDATE SET
@@ -2513,7 +2513,7 @@ AND unit_uuid = $unitK8sPodPort.unit_uuid;
 		return errors.Capture(err)
 	}
 
-	upsertStmt, err := sqlair.Prepare(`
+	upsertStmt, err := st.Prepare(`
 INSERT INTO k8s_pod_port (*)
 VALUES ($unitK8sPodPort.*)
 ON CONFLICT(unit_uuid, port)

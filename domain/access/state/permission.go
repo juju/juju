@@ -835,7 +835,7 @@ AND    grant_to IN (
        WHERE  name = $permInOut.name
 )
 `
-	deletePermissionStmt, err := sqlair.Prepare(deletePermission, permInOut{})
+	deletePermissionStmt, err := st.Prepare(deletePermission, permInOut{})
 	if err != nil {
 		return errors.Capture(err)
 	}

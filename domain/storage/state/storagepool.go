@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -122,11 +121,11 @@ type keysToKeep []string
 
 func poolAttributesUpdater() (updatePoolAttributesFunc, error) {
 	// Delete any keys no longer in the attributes map.
-	deleteQuery := fmt.Sprintf(`
+	deleteQuery := `
 DELETE FROM  storage_pool_attribute
 WHERE        storage_pool_uuid = $M.uuid
 AND          key NOT IN ($keysToKeep[:])
-`)
+`
 
 	deleteStmt, err := sqlair.Prepare(deleteQuery, sqlair.M{}, keysToKeep{})
 	if err != nil {
@@ -234,7 +233,7 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 		return errors.Capture(err)
 	}
 
-	checkExistanceStmt, err := sqlair.Prepare(`
+	checkExistanceStmt, err := st.Prepare(`
 SELECT &storagePoolIdentifiers.*
 FROM   storage_pool 
 WHERE  uuid = $storagePoolIdentifiers.uuid`, storagePoolIdentifiers{})
@@ -281,7 +280,7 @@ func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainst
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := sqlair.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT   (sp.*) AS (&storagePool.*),
          (sp_attr.*) AS (&poolAttribute.*)
 FROM     storage_pool sp
@@ -318,7 +317,7 @@ func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePo
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := sqlair.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT   (sp.*) AS (&storagePool.*),
          (sp_attr.*) AS (&poolAttribute.*)
 FROM     storage_pool sp
@@ -364,7 +363,7 @@ func (st State) ListStoragePoolsByNamesAndProviders(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	stmt, err := sqlair.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT   (sp.*) AS (&storagePool.*),
          (sp_attr.*) AS (&poolAttribute.*)
 FROM     storage_pool sp
@@ -412,7 +411,7 @@ func (st State) ListStoragePoolsByNames(
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := sqlair.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT   (sp.*) AS (&storagePool.*),
          (sp_attr.*) AS (&poolAttribute.*)
 FROM     storage_pool sp
@@ -458,7 +457,7 @@ func (st State) ListStoragePoolsByProviders(
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := sqlair.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT   (sp.*) AS (&storagePool.*),
          (sp_attr.*) AS (&poolAttribute.*)
 FROM     storage_pool sp
