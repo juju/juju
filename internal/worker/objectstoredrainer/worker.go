@@ -23,6 +23,12 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 )
 
+const (
+	// ErrWorkerInUnknownState is returned when the worker is in an unknown
+	// state.
+	ErrWorkerInUnknownState = errors.ConstError("object store drainer worker is in an unknown state")
+)
+
 // SelectFileHashFunc is a function that selects the file hash from the
 // metadata.
 type SelectFileHashFunc func(objectstore.Metadata) string
@@ -151,14 +157,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 	runner, err := worker.NewRunner(worker.RunnerParams{
 		Name: "objectstore-drainer",
 		IsFatal: func(err error) bool {
+			if errors.Is(err, ErrWorkerInUnknownState) {
+				return true
+			}
 			return false
 		},
-		ShouldRestart: func(err error) bool {
-			return true
-		},
-		RestartDelay: time.Second * 10,
-		Clock:        config.Clock,
-		Logger:       internalworker.WrapLogger(config.Logger),
+		ShouldRestart: internalworker.ShouldRunnerRestart,
+		RestartDelay:  time.Second * 10,
+		Clock:         config.Clock,
+		Logger:        internalworker.WrapLogger(config.Logger),
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -395,7 +402,8 @@ func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan s
 			), nil
 		})
 		if errors.Is(err, coreerrors.AlreadyExists) {
-			continue
+			// This is terminal.
+			return nil, errors.Errorf("worker for model %q: %w", namespace, err).Add(ErrWorkerInUnknownState)
 		} else if err != nil {
 			return nil, errors.Errorf("starting worker for model %q: %w", namespace, err)
 		}
