@@ -297,9 +297,9 @@ func (s *Service) processModelJob(ctx context.Context, job removal.Job) error {
 
 	// If this is the controller model, we need to ensure that any other
 	// models are also not alive/dying.
-	if ok, err := s.modelState.IsControllerModel(ctx, job.EntityUUID); err != nil {
+	if isController, err := s.modelState.IsControllerModel(ctx, job.EntityUUID); err != nil {
 		return errors.Capture(err)
-	} else if ok {
+	} else if isController {
 		models, err := s.controllerState.GetModelUUIDs(ctx)
 		if err != nil {
 			return errors.Errorf("getting controller model UUIDs: %w", err)
