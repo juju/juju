@@ -259,6 +259,94 @@ type volumeStatusInfo struct {
 	UpdatedAt  *time.Time `db:"updated_at"`
 }
 
+// storageInstanceStatusDetails is used to retrieve all required
+// information for a storage instance for status reporting.
+type storageInstanceStatusDetails struct {
+	UUID          string         `db:"uuid"`
+	ID            string         `db:"storage_id"`
+	OwnerUnitName sql.NullString `db:"owner_unit_name"`
+	KindID        int            `db:"storage_kind_id"`
+	LifeID        int            `db:"life_id"`
+}
+
+// storageAttachmentStatusDetails is used to retrieve all required
+// information for a storage attachment for status reporting.
+type storageAttachmentStatusDetails struct {
+	StorageInstanceUUID string         `db:"storage_instance_uuid"`
+	UnitName            string         `db:"unit_name"`
+	MachineName         sql.NullString `db:"machine_name"`
+	LifeID              int            `db:"life_id"`
+}
+
+// filesystemStatusDetails is used to retrieve all required information
+// for a filesystem for status reporting.
+type filesystemStatusDetails struct {
+	UUID   string `db:"uuid"`
+	ID     string `db:"filesystem_id"`
+	LifeID int    `db:"life_id"`
+
+	StatusID  int        `db:"status_id"`
+	Message   string     `db:"message"`
+	UpdatedAt *time.Time `db:"updated_at"`
+
+	StorageID  string         `db:"storage_id"`
+	VolumeID   sql.NullString `db:"volume_id"`
+	ProviderID string         `db:"provider_id"`
+	SizeMiB    uint64         `db:"size_mib"`
+}
+
+// filesystemAttachmentStatusDetails is used to retrieve all required
+// information for a filesystem attachment for status reporting.
+type filesystemAttachmentStatusDetails struct {
+	FilesystemUUID string         `db:"storage_filesystem_uuid"`
+	LifeID         int            `db:"life_id"`
+	UnitName       sql.NullString `db:"unit_name"`
+	MachineName    sql.NullString `db:"machine_name"`
+	MountPoint     string         `db:"mount_point"`
+	ReadOnly       bool           `db:"read_only"`
+}
+
+// volumeStatusDetails is used to retrieve all required information
+// for a volume for status reporting.
+type volumeStatusDetails struct {
+	UUID   string `db:"uuid"`
+	ID     string `db:"volume_id"`
+	LifeID int    `db:"life_id"`
+
+	StatusID  int        `db:"status_id"`
+	Message   string     `db:"message"`
+	UpdatedAt *time.Time `db:"updated_at"`
+
+	StorageID  string `db:"storage_id"`
+	ProviderID string `db:"provider_id"`
+	HardwareID string `db:"hardware_id"`
+	WWN        string `db:"wwn"`
+	SizeMiB    uint64 `db:"size_mib"`
+	Persistent bool   `db:"persistent"`
+}
+
+// volumeAttachmentStatusDetails is used to retrieve all required
+// information for a volume attachment for status reporting.
+type volumeAttachmentStatusDetails struct {
+	VolumeUUID  string         `db:"storage_volume_uuid"`
+	LifeID      int            `db:"life_id"`
+	UnitName    sql.NullString `db:"unit_name"`
+	MachineName sql.NullString `db:"machine_name"`
+	DeviceName  string         `db:"device_name"`
+	DeviceLink  string         `db:"device_link"`
+	BusAddress  string         `db:"bus_address"`
+	ReadOnly    bool           `db:"read_only"`
+}
+
+// volumeAttachmentPlanStatusDetails is used to retrieve all required
+// information for a volume attachment for status reporting.
+type volumeAttachmentPlanStatusDetails struct {
+	VolumeUUID           string         `db:"storage_volume_uuid"`
+	DeviceTypeID         int            `db:"device_type_id"`
+	DeviceAttributeKey   sql.NullString `db:"key"`
+	DeviceAttributeValue sql.NullString `db:"value"`
+}
+
 // modelStatusContext represents a single row from the v_model_state view.
 // These information are used to determine a model's status.
 type modelStatusContext struct {
