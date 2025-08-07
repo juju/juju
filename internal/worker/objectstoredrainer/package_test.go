@@ -22,20 +22,21 @@ type baseSuite struct {
 
 	logger logger.Logger
 
-	agent                     *MockAgent
-	agentConfig               *MockConfig
-	agentConfigSetter         *MockConfigSetter
-	guard                     *MockGuard
-	guardService              *MockGuardService
-	objectStoreService        *MockObjectStoreService
-	objectStoreServicesGetter *MockObjectStoreServicesGetter
-	objectStoreMetadata       *MockObjectStoreMetadata
-	objectStoreFlusher        *MockObjectStoreFlusher
-	controllerService         *MockControllerService
-	controllerConfigService   *MockControllerConfigService
-	s3Client                  *MockClient
-	s3Session                 *MockSession
-	hashFileSystemAccessor    *MockHashFileSystemAccessor
+	agent                         *MockAgent
+	agentConfig                   *MockConfig
+	agentConfigSetter             *MockConfigSetter
+	guard                         *MockGuard
+	guardService                  *MockGuardService
+	objectStoreService            *MockObjectStoreService
+	objectStoreServicesGetter     *MockObjectStoreServicesGetter
+	objectStoreMetadata           *MockObjectStoreMetadata
+	controllerObjectStoreMetadata *MockObjectStoreMetadata
+	objectStoreFlusher            *MockObjectStoreFlusher
+	controllerService             *MockControllerService
+	controllerConfigService       *MockControllerConfigService
+	s3Client                      *MockClient
+	s3Session                     *MockSession
+	hashFileSystemAccessor        *MockHashFileSystemAccessor
 }
 
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -52,6 +53,8 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.objectStoreServicesGetter = NewMockObjectStoreServicesGetter(ctrl)
 	s.objectStoreMetadata = NewMockObjectStoreMetadata(ctrl)
 	s.objectStoreFlusher = NewMockObjectStoreFlusher(ctrl)
+
+	s.controllerObjectStoreMetadata = NewMockObjectStoreMetadata(ctrl)
 
 	s.controllerService = NewMockControllerService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
@@ -78,6 +81,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.s3Session = nil
 		s.hashFileSystemAccessor = nil
 		s.logger = nil
+		s.controllerObjectStoreMetadata = nil
 	})
 
 	return ctrl

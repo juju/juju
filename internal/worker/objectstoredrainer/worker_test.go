@@ -250,15 +250,16 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 func (s *workerSuite) getConfig(c *tc.C) Config {
 	return Config{
-		Agent:                     s.agent,
-		Guard:                     s.guard,
-		GuardService:              s.guardService,
-		ControllerService:         s.controllerService,
-		ControllerConfigService:   s.controllerConfigService,
-		ObjectStoreServicesGetter: s.objectStoreServicesGetter,
-		ObjectStoreFlusher:        s.objectStoreFlusher,
-		ObjectStoreType:           objectstore.FileBackend,
-		S3Client:                  s.s3Client,
+		Agent:                        s.agent,
+		Guard:                        s.guard,
+		GuardService:                 s.guardService,
+		ControllerService:            s.controllerService,
+		ControllerConfigService:      s.controllerConfigService,
+		ObjectStoreServicesGetter:    s.objectStoreServicesGetter,
+		ControllerObjectStoreService: s.controllerObjectStoreMetadata,
+		ObjectStoreFlusher:           s.objectStoreFlusher,
+		ObjectStoreType:              objectstore.FileBackend,
+		S3Client:                     s.s3Client,
 		NewHashFileSystemAccessor: func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
 			return s.hashFileSystemAccessor
 		},

@@ -69,6 +69,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
+	cfg.GetControllerObjectStoreService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
 	cfg.GetGuardService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -115,6 +119,9 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
+		},
+		GetControllerObjectStoreService: func(getter dependency.Getter, name string) (objectstore.ObjectStoreMetadata, error) {
+			return nil, nil
 		},
 		NewHashFileSystemAccessor: func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
 			return nil
