@@ -439,7 +439,7 @@ func (w *Worker) completeDraining(ctx context.Context) error {
 	// new configuration.
 	w.logger.Infof(ctx, "object store is in a completed state, updating agent configuration")
 	if err := w.agent.ChangeConfig(func(setter agent.ConfigSetter) error {
-		w.logger.Debugf(ctx, "setting object store type: %q => %q", w.objectStoreType, w.objectStoreType)
+		w.logger.Debugf(ctx, "setting object store type: %q => %q", setter.ObjectStoreType(), w.objectStoreType)
 		setter.SetObjectStoreType(w.objectStoreType)
 		return nil
 	}); err != nil {

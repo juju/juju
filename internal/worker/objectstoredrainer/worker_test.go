@@ -95,6 +95,7 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	s.objectStoreServicesGetter.EXPECT().ServicesForModel(model.UUID("model-uuid1")).Return(s.objectStoreService)
 	s.objectStoreService.EXPECT().ObjectStore().Return(s.objectStoreMetadata)
 
+	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
 	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
 		return fn(s.agentConfigSetter)
@@ -195,6 +196,7 @@ func (s *workerSuite) TestObjectStoreDrainingDrainingChanged(c *tc.C) {
 	s.objectStoreServicesGetter.EXPECT().ServicesForModel(model.UUID("model-uuid1")).Return(s.objectStoreService)
 	s.objectStoreService.EXPECT().ObjectStore().Return(s.objectStoreMetadata)
 
+	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
 	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.S3Backend)
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
 		return fn(s.agentConfigSetter)
