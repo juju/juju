@@ -93,7 +93,7 @@ func (st *State) GetControllerAgentInfo(ctx context.Context) (controller.Control
 
 // GetModelNamespaces returns the model namespaces of all models in the state.
 func (st *State) GetModelNamespaces(ctx context.Context) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
