@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -118,6 +119,7 @@ func (crd *CustomResourceDefinition) Delete(ctx context.Context, coreClient kube
 
 	selector := utils.LabelsToSelector(crd.getAppLabel(crd.Name))
 
+	logger.Infof("alvin selector in del is %+v", selector)
 	err := api.DeleteCollection(ctx, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
@@ -126,9 +128,18 @@ func (crd *CustomResourceDefinition) Delete(ctx context.Context, coreClient kube
 
 	logger.Infof("alvin logger called for %s and err is %v", crd.Name, err)
 
-	err = crd.Get(ctx, coreClient, extendedClient)
+	resLst, err := api.List(ctx, metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
 	logger.Infof("alvin Get err in Del is %v", err)
-	logger.Infof("alvin Get res after del in Del is %+v", *crd)
+	logger.Infof("alvin Get res after del in Del is %+v", *resLst)
+
+	resLst2, err := api.List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s:%s", constants.LabelJujuAppCreatedBy, crd.Name),
+	})
+	logger.Infof("alvin Get err in Del is %v", err)
+	logger.Infof("alvin Get res2 after del in Del is %+v", *resLst2)
+
 	if k8serrors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
