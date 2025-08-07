@@ -6,8 +6,8 @@ environment:
   JUJU_MODEL: deploy
 
 execute: |
-  pushd "${SPREAD_PATH}/${SPREAD_TASK}"
+  pushd "$PWD/../.."
 
   export PATH="$SPREAD_PATH/../go/bin:$PATH"
 
-  juju deploy juju-qa-test
+  ./spread.sh deploy test_deploy_charms 

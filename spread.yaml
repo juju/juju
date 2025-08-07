@@ -86,7 +86,7 @@ suites:
     prepare: |
       export PATH="$SPREAD_PATH/../go/bin:$PATH"
 
-      if ! juju controllers | grep -q lxd; then
+      if ! juju controllers | grep -q test; then
         juju bootstrap lxd test
       fi
     debug-each: |
