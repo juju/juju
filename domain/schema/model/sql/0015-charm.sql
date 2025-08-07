@@ -148,7 +148,7 @@ CREATE TABLE charm_metadata (
     name TEXT NOT NULL,
     description TEXT,
     summary TEXT,
-    subordinate BOOLEAN DEFAULT FALSE,
+    subordinate BOOLEAN NOT NULL DEFAULT FALSE,
     min_juju_version TEXT,
     run_as_id INT DEFAULT 0,
     -- Assumes is a blob of YAML that will be parsed by the charm to compute
