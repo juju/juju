@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
@@ -580,25 +579,25 @@ type BlockDeviceService interface {
 // StorageProvisioningService provides methods to watch and manage storage
 // provisioning related resources.
 type StorageProvisioningService interface {
-	// GetStorageIDsForUnit returns the storage IDs for the given unit UUID.
+	// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
 	// is not valid.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-	// unit exists for the supplied unit UUID.
-	// - [corestorage.InvalidStorageID] when the provided unit UUID is invalid.
-	GetStorageIDsForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]corestorage.ID, error)
+	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+	GetStorageAttachmentIDsForUnit(
+		ctx context.Context, unitUUID coreunit.UUID,
+	) ([]string, error)
 
-	// GetAttachmentLife retrieves the life of a storage attachment for a unit.
+	// GetStorageAttachmentLife retrieves the life of a storage attachment for a unit.
 	//
 	// The following errors may be returned:
 	// - [coreerrors.NotValid] when the provided unit UUID is not valid.
-	// - [corestorage.InvalidStorageID] when the provided storage attachment ID is not valid.
 	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.AttachmentNotFound] when the
-	// storage attachment does not exist for the unit.
-	GetAttachmentLife(
-		ctx context.Context, unitUUID coreunit.UUID, storageID corestorage.ID,
+	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+	// instance exists for the provided ID.
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage attachment does not exist for the unit.
+	GetStorageAttachmentLife(
+		ctx context.Context, unitUUID coreunit.UUID, storageID string,
 	) (domainlife.Life, error)
 }

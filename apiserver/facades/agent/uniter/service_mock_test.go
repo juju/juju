@@ -24,7 +24,6 @@ import (
 	network "github.com/juju/juju/core/network"
 	relation "github.com/juju/juju/core/relation"
 	status "github.com/juju/juju/core/status"
-	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	application0 "github.com/juju/juju/domain/application"
@@ -2926,80 +2925,80 @@ func (m *MockStorageProvisioningService) EXPECT() *MockStorageProvisioningServic
 	return m.recorder
 }
 
-// GetAttachmentLife mocks base method.
-func (m *MockStorageProvisioningService) GetAttachmentLife(arg0 context.Context, arg1 unit.UUID, arg2 storage.ID) (life0.Life, error) {
+// GetStorageAttachmentIDsForUnit mocks base method.
+func (m *MockStorageProvisioningService) GetStorageAttachmentIDsForUnit(arg0 context.Context, arg1 unit.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAttachmentLife", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetStorageAttachmentIDsForUnit", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageAttachmentIDsForUnit indicates an expected call of GetStorageAttachmentIDsForUnit.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetStorageAttachmentIDsForUnit(arg0, arg1 any) *MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageAttachmentIDsForUnit", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetStorageAttachmentIDsForUnit), arg0, arg1)
+	return &MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall) Return(arg0 []string, arg1 error) *MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall) Do(f func(context.Context, unit.UUID) ([]string, error)) *MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall) DoAndReturn(f func(context.Context, unit.UUID) ([]string, error)) *MockStorageProvisioningServiceGetStorageAttachmentIDsForUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStorageAttachmentLife mocks base method.
+func (m *MockStorageProvisioningService) GetStorageAttachmentLife(arg0 context.Context, arg1 unit.UUID, arg2 string) (life0.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageAttachmentLife", arg0, arg1, arg2)
 	ret0, _ := ret[0].(life0.Life)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAttachmentLife indicates an expected call of GetAttachmentLife.
-func (mr *MockStorageProvisioningServiceMockRecorder) GetAttachmentLife(arg0, arg1, arg2 any) *MockStorageProvisioningServiceGetAttachmentLifeCall {
+// GetStorageAttachmentLife indicates an expected call of GetStorageAttachmentLife.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetStorageAttachmentLife(arg0, arg1, arg2 any) *MockStorageProvisioningServiceGetStorageAttachmentLifeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAttachmentLife", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetAttachmentLife), arg0, arg1, arg2)
-	return &MockStorageProvisioningServiceGetAttachmentLifeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageAttachmentLife", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetStorageAttachmentLife), arg0, arg1, arg2)
+	return &MockStorageProvisioningServiceGetStorageAttachmentLifeCall{Call: call}
 }
 
-// MockStorageProvisioningServiceGetAttachmentLifeCall wrap *gomock.Call
-type MockStorageProvisioningServiceGetAttachmentLifeCall struct {
+// MockStorageProvisioningServiceGetStorageAttachmentLifeCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetStorageAttachmentLifeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageProvisioningServiceGetAttachmentLifeCall) Return(arg0 life0.Life, arg1 error) *MockStorageProvisioningServiceGetAttachmentLifeCall {
+func (c *MockStorageProvisioningServiceGetStorageAttachmentLifeCall) Return(arg0 life0.Life, arg1 error) *MockStorageProvisioningServiceGetStorageAttachmentLifeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceGetAttachmentLifeCall) Do(f func(context.Context, unit.UUID, storage.ID) (life0.Life, error)) *MockStorageProvisioningServiceGetAttachmentLifeCall {
+func (c *MockStorageProvisioningServiceGetStorageAttachmentLifeCall) Do(f func(context.Context, unit.UUID, string) (life0.Life, error)) *MockStorageProvisioningServiceGetStorageAttachmentLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceGetAttachmentLifeCall) DoAndReturn(f func(context.Context, unit.UUID, storage.ID) (life0.Life, error)) *MockStorageProvisioningServiceGetAttachmentLifeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetStorageIDsForUnit mocks base method.
-func (m *MockStorageProvisioningService) GetStorageIDsForUnit(arg0 context.Context, arg1 unit.UUID) ([]storage.ID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStorageIDsForUnit", arg0, arg1)
-	ret0, _ := ret[0].([]storage.ID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetStorageIDsForUnit indicates an expected call of GetStorageIDsForUnit.
-func (mr *MockStorageProvisioningServiceMockRecorder) GetStorageIDsForUnit(arg0, arg1 any) *MockStorageProvisioningServiceGetStorageIDsForUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageIDsForUnit", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetStorageIDsForUnit), arg0, arg1)
-	return &MockStorageProvisioningServiceGetStorageIDsForUnitCall{Call: call}
-}
-
-// MockStorageProvisioningServiceGetStorageIDsForUnitCall wrap *gomock.Call
-type MockStorageProvisioningServiceGetStorageIDsForUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStorageProvisioningServiceGetStorageIDsForUnitCall) Return(arg0 []storage.ID, arg1 error) *MockStorageProvisioningServiceGetStorageIDsForUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceGetStorageIDsForUnitCall) Do(f func(context.Context, unit.UUID) ([]storage.ID, error)) *MockStorageProvisioningServiceGetStorageIDsForUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceGetStorageIDsForUnitCall) DoAndReturn(f func(context.Context, unit.UUID) ([]storage.ID, error)) *MockStorageProvisioningServiceGetStorageIDsForUnitCall {
+func (c *MockStorageProvisioningServiceGetStorageAttachmentLifeCall) DoAndReturn(f func(context.Context, unit.UUID, string) (life0.Life, error)) *MockStorageProvisioningServiceGetStorageAttachmentLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -83,10 +82,8 @@ func (s *storageSuite) TestUnitStorageAttachments(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetStorageIDsForUnit(gomock.Any(), unitUUID).Return(
-		[]corestorage.ID{
-			corestorage.ID("foo/1"),
-		}, nil,
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentIDsForUnit(gomock.Any(), unitUUID).Return(
+		[]string{"foo/1"}, nil,
 	)
 
 	attachments, err := api.UnitStorageAttachments(c.Context(), params.Entities{
@@ -167,7 +164,7 @@ func (s *storageSuite) TestUnitStorageAttachmentsWithInvalidUnitUUID(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetStorageIDsForUnit(gomock.Any(), unitUUID).Return(
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentIDsForUnit(gomock.Any(), unitUUID).Return(
 		nil, coreerrors.NotValid,
 	)
 
@@ -192,7 +189,7 @@ func (s *storageSuite) TestUnitStorageAttachmentsWithUnitNotFound2(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetStorageIDsForUnit(gomock.Any(), unitUUID).Return(
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentIDsForUnit(gomock.Any(), unitUUID).Return(
 		nil, applicationerrors.UnitNotFound,
 	)
 
@@ -217,8 +214,8 @@ func (s *storageSuite) TestUnitStorageAttachmentsWithInvalidStorageID(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetStorageIDsForUnit(gomock.Any(), unitUUID).Return(
-		nil, corestorage.InvalidStorageID,
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentIDsForUnit(gomock.Any(), unitUUID).Return(
+		[]string{"invalid-storage-id"}, nil,
 	)
 
 	results, err := api.UnitStorageAttachments(c.Context(), params.Entities{
@@ -242,9 +239,8 @@ func (s *storageSuite) TestStorageAttachmentLife(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	storageID := corestorage.ID("foo/1")
-	s.mockStorageProvisioningService.EXPECT().GetAttachmentLife(
-		gomock.Any(), unitUUID, storageID,
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), unitUUID, "foo/1",
 	).Return(domainlife.Alive, nil)
 
 	results, err := api.StorageAttachmentLife(c.Context(), params.StorageAttachmentIds{
@@ -327,39 +323,9 @@ func (s *storageSuite) TestStorageAttachmentLifeWithInvalidUnitUUID(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	storageID := corestorage.ID("foo/1")
-	s.mockStorageProvisioningService.EXPECT().GetAttachmentLife(
-		gomock.Any(), unitUUID, storageID,
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), unitUUID, "foo/1",
 	).Return(-1, coreerrors.NotValid)
-
-	results, err := api.StorageAttachmentLife(c.Context(), params.StorageAttachmentIds{
-		Ids: []params.StorageAttachmentId{
-			{
-				StorageTag: "storage-foo-1",
-				UnitTag:    unitTag.String(),
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results, tc.HasLen, 1)
-	result := results.Results[0]
-	c.Assert(result.Error.Code, tc.Equals, params.CodeNotValid)
-}
-
-func (s *storageSuite) TestStorageAttachmentLifeWithInvalidStorageID(c *tc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-
-	unitTag := names.NewUnitTag("wordpress/0")
-	unitName, err := coreunit.NewName(unitTag.Id())
-	c.Assert(err, tc.IsNil)
-	unitUUID := unittesting.GenUnitUUID(c)
-
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	storageID := corestorage.ID("foo/1")
-	s.mockStorageProvisioningService.EXPECT().GetAttachmentLife(
-		gomock.Any(), unitUUID, storageID,
-	).Return(-1, corestorage.InvalidStorageID)
 
 	results, err := api.StorageAttachmentLife(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{
@@ -385,10 +351,37 @@ func (s *storageSuite) TestStorageAttachmentLifeWithUnitNotFound2(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	storageID := corestorage.ID("foo/1")
-	s.mockStorageProvisioningService.EXPECT().GetAttachmentLife(
-		gomock.Any(), unitUUID, storageID,
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), unitUUID, "foo/1",
 	).Return(-1, applicationerrors.UnitNotFound)
+
+	results, err := api.StorageAttachmentLife(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestStorageAttachmentLifeWithStorageInstanceNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), unitUUID, "foo/1",
+	).Return(-1, storageprovisioningerrors.StorageInstanceNotFound)
 
 	results, err := api.StorageAttachmentLife(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{
@@ -414,10 +407,9 @@ func (s *storageSuite) TestStorageAttachmentLifeWithAttachmentNotFound(c *tc.C) 
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	storageID := corestorage.ID("foo/1")
-	s.mockStorageProvisioningService.EXPECT().GetAttachmentLife(
-		gomock.Any(), unitUUID, storageID,
-	).Return(-1, storageprovisioningerrors.AttachmentNotFound)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentLife(
+		gomock.Any(), unitUUID, "foo/1",
+	).Return(-1, storageprovisioningerrors.StorageAttachmentNotFound)
 
 	results, err := api.StorageAttachmentLife(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{

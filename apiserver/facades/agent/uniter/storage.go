@@ -54,27 +54,18 @@ func newStorageAPI(
 func (s *StorageAPI) getUnitUUID(
 	ctx context.Context, tag names.UnitTag,
 ) (coreunit.UUID, error) {
-	unitName, err := coreunit.NewName(tag.Id())
-	if errors.Is(err, coreunit.InvalidUnitName) {
-		return "", internalerrors.Errorf(
-			"invalid unit name %q", tag.Id(),
-		).Add(errors.NotValid)
-	} else if err != nil {
-		return "", internalerrors.Capture(err)
-	}
-
-	unitUUID, err := s.applicationService.GetUnitUUID(ctx, unitName)
+	unitUUID, err := s.applicationService.GetUnitUUID(ctx, coreunit.Name(tag.Id()))
 	switch {
 	case errors.Is(err, coreunit.InvalidUnitName):
 		return "", internalerrors.Errorf(
-			"invalid unit name %q", unitName,
+			"invalid unit name for %q", tag.Id(),
 		).Add(errors.NotValid)
 	case errors.Is(err, applicationerrors.UnitNotFound):
 		return "", internalerrors.Errorf(
-			"unit %q not found", unitName,
+			"unit %q not found", tag.Id(),
 		).Add(errors.NotFound)
 	case err != nil:
-		return "", internalerrors.Errorf("getting unit %q UUID: %w", unitName, err)
+		return "", internalerrors.Errorf("getting unit UUID for %q: %w", tag.Id(), err)
 	}
 	return unitUUID, nil
 }
@@ -101,9 +92,7 @@ func (s *StorageAPI) UnitStorageAttachments(ctx context.Context, args params.Ent
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
-		sIDs, err := s.storageProvisioningService.GetStorageIDsForUnit(
-			ctx, unitUUID,
-		)
+		sIDs, err := s.storageProvisioningService.GetStorageAttachmentIDsForUnit(ctx, unitUUID)
 		switch {
 		case errors.Is(err, coreerrors.NotValid):
 			return nil, internalerrors.Errorf(
@@ -113,19 +102,15 @@ func (s *StorageAPI) UnitStorageAttachments(ctx context.Context, args params.Ent
 			return nil, internalerrors.Errorf(
 				"unit %q not found", unitTag.Id(),
 			).Add(errors.NotFound)
-		case errors.Is(err, corestorage.InvalidStorageID):
-			return nil, internalerrors.Errorf(
-				"invalid storage ID for unit %q", unitTag.Id(),
-			).Add(errors.NotValid)
 		case err != nil:
 			return nil, internalerrors.Errorf(
 				"getting storage IDs for unit %q: %w", unitTag.Id(), err,
 			)
 		}
 
-		var storageAttachmentIds []params.StorageAttachmentId
+		storageAttachmentIds := make([]params.StorageAttachmentId, 0, len(sIDs))
 		for _, sID := range sIDs {
-			if !names.IsValidStorage(sID.String()) {
+			if !names.IsValidStorage(sID) {
 				// This should never happen. But to avoid a panic, we
 				// return an error if we encounter an invalid storage ID.
 				return nil, internalerrors.Errorf(
@@ -134,7 +119,7 @@ func (s *StorageAPI) UnitStorageAttachments(ctx context.Context, args params.Ent
 			}
 			storageAttachmentIds = append(storageAttachmentIds, params.StorageAttachmentId{
 				UnitTag:    unitTag.String(),
-				StorageTag: names.NewStorageTag(sID.String()).String(),
+				StorageTag: names.NewStorageTag(sID).String(),
 			})
 		}
 		return storageAttachmentIds, nil
@@ -195,10 +180,12 @@ func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.Stor
 		storageID, err := corestorage.ParseID(storageTag.Id())
 		if errors.Is(err, corestorage.InvalidStorageID) {
 			return "", internalerrors.Errorf(
-				"invalid storage ID %q for unit %q", arg.StorageTag, unitTag.Id(),
+				"invalid storage ID %q for unit %q", storageTag.Id(), unitTag.Id(),
 			).Add(errors.NotValid)
 		} else if err != nil {
-			return "", internalerrors.Capture(err)
+			return "", internalerrors.Errorf(
+				"parsing storage ID %q for unit %q: %w", storageTag.Id(), unitTag.Id(), err,
+			)
 		}
 
 		unitUUID, err := s.getUnitUUID(ctx, unitTag)
@@ -206,27 +193,28 @@ func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.Stor
 			return "", internalerrors.Capture(err)
 		}
 
-		life, err := s.storageProvisioningService.GetAttachmentLife(ctx, unitUUID, storageID)
+		life, err := s.storageProvisioningService.GetStorageAttachmentLife(ctx, unitUUID, storageID.String())
 		switch {
 		case errors.Is(err, coreerrors.NotValid):
 			return "", internalerrors.Errorf(
 				"invalid unit UUID %q for %q", unitUUID, unitTag.Id(),
 			).Add(errors.NotValid)
-		case errors.Is(err, corestorage.InvalidStorageID):
-			return "", internalerrors.Errorf(
-				"invalid storage ID %q for unit %q", storageID, unitTag.Id(),
-			).Add(errors.NotValid)
 		case errors.Is(err, applicationerrors.UnitNotFound):
 			return "", internalerrors.Errorf(
 				"unit %q not found", unitTag.Id(),
 			).Add(errors.NotFound)
-		case errors.Is(err, storageprovisioningerrors.AttachmentNotFound):
+		case errors.Is(err, storageprovisioningerrors.StorageInstanceNotFound):
 			return "", internalerrors.Errorf(
-				"attachment %q for unit %q not found", arg.StorageTag, unitTag.Id(),
+				"storage instance %q not found for unit %q", storageID, unitTag.Id(),
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound):
+			return "", internalerrors.Errorf(
+				"storage attachment %q for unit %q not found", arg.StorageTag, unitTag.Id(),
 			).Add(errors.NotFound)
 		case err != nil:
 			return "", internalerrors.Errorf(
-				"getting attachment life for storage %q unit %q: %w", arg.StorageTag, unitTag.Id(), err,
+				"getting storage attachment life for storage %q unit %q: %w",
+				arg.StorageTag, unitTag.Id(), err,
 			)
 		}
 		return life.Value()
