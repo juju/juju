@@ -152,7 +152,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfig.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
+	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
@@ -175,7 +175,7 @@ func (s *manifoldSuite) TestStartObjectStoreTypeChangedWhilstDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfig.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
+	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
@@ -198,7 +198,7 @@ func (s *manifoldSuite) TestStartUpdatesObjectStoreType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfig.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
+	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()

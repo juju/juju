@@ -190,22 +190,26 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	currentConfig := a.CurrentConfig()
 	dataDir := currentConfig.DataDir()
 
-	agentsObjectStoreType := currentConfig.ObjectStoreType()
-	configObjectStoreType := controllerConfig.ObjectStoreType()
-	objectStoreTypeChanged := agentsObjectStoreType != configObjectStoreType
-
 	phase, err := guardService.GetDrainingPhase(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// We've bounced whilst draining, so we need to ensure that we don't
-	// change the object store type if we're still draining.
-	if phase.IsDraining() && objectStoreTypeChanged {
-		objectStoreTypeChanged = false
-	}
-
+	var (
+		objectStoreTypeChanged                       bool
+		agentsObjectStoreType, configObjectStoreType coreobjectstore.BackendType
+	)
 	err = a.ChangeConfig(func(cfg agent.ConfigSetter) error {
+		agentsObjectStoreType = cfg.ObjectStoreType()
+		configObjectStoreType = controllerConfig.ObjectStoreType()
+		objectStoreTypeChanged = agentsObjectStoreType != configObjectStoreType
+
+		// We've bounced whilst draining, so we need to ensure that we don't
+		// change the object store type if we're still draining.
+		if phase.IsDraining() && objectStoreTypeChanged {
+			objectStoreTypeChanged = false
+		}
+
 		if objectStoreTypeChanged {
 			config.Logger.Debugf(ctx, "setting object store type: %q => %q", agentsObjectStoreType, configObjectStoreType)
 			cfg.SetObjectStoreType(configObjectStoreType)
