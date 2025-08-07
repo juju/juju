@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -1238,7 +1239,9 @@ func processStorage(
 			}
 			details.Attachments[unitTag.String()] = sad
 		}
-		// Store in a map to get the fs or volume status later.
+		// Store in a map to get the status and location from either the
+		// filesystem or volumes. These are a facade concern, hence why it
+		// is done here.
 		storageMap[v.ID] = &details
 	}
 
@@ -1249,7 +1252,7 @@ func processStorage(
 	filesystemResult := make([]params.FilesystemDetails, 0, len(filesystems))
 	for _, v := range filesystems {
 		details := params.FilesystemDetails{
-			FilesystemTag: names.NewStorageTag(v.ID).String(),
+			FilesystemTag: names.NewFilesystemTag(v.ID).String(),
 			Life:          v.Life,
 			Info: params.FilesystemInfo{
 				ProviderId: v.ProviderID,
@@ -1265,6 +1268,7 @@ func processStorage(
 		if v.VolumeID != nil {
 			details.VolumeTag = names.NewVolumeTag(*v.VolumeID).String()
 		}
+		unitAttachmentLocations := map[string]string{}
 		for unit, fa := range v.UnitAttachments {
 			fad := params.FilesystemAttachmentDetails{
 				Life: fa.Life,
@@ -1276,8 +1280,9 @@ func processStorage(
 			if details.UnitAttachments == nil {
 				details.UnitAttachments = map[string]params.FilesystemAttachmentDetails{}
 			}
-			unitTag := names.NewUnitTag(unit.String())
-			details.UnitAttachments[unitTag.String()] = fad
+			unitTag := names.NewUnitTag(unit.String()).String()
+			details.UnitAttachments[unitTag] = fad
+			unitAttachmentLocations[unitTag] = fa.MountPoint
 		}
 		for machine, fa := range v.MachineAttachments {
 			fad := params.FilesystemAttachmentDetails{
@@ -1290,12 +1295,23 @@ func processStorage(
 			if details.MachineAttachments == nil {
 				details.MachineAttachments = map[string]params.FilesystemAttachmentDetails{}
 			}
-			machineTag := names.NewUnitTag(machine.String())
-			details.MachineAttachments[machineTag.String()] = fad
+			machineTag := names.NewMachineTag(machine.String()).String()
+			details.MachineAttachments[machineTag] = fad
 		}
 		if storage, ok := storageMap[v.StorageID]; ok {
 			if storage.Kind == params.StorageKindFilesystem {
 				storage.Status = details.Status
+
+				// give the storage instance attachment the unit's attachment
+				// location.
+				for k, v := range unitAttachmentLocations {
+					ad, ok := storage.Attachments[k]
+					if !ok {
+						continue
+					}
+					ad.Location = v
+					storage.Attachments[k] = ad
+				}
 			}
 			details.Storage = storage
 		}
@@ -1325,6 +1341,7 @@ func processStorage(
 				Since:  v.Status.Since,
 			},
 		}
+		unitAttachmentLocations := map[string]string{}
 		for unit, va := range v.UnitAttachments {
 			vad := params.VolumeAttachmentDetails{
 				Life: va.Life,
@@ -1345,8 +1362,20 @@ func processStorage(
 			if details.UnitAttachments == nil {
 				details.UnitAttachments = map[string]params.VolumeAttachmentDetails{}
 			}
-			unitTag := names.NewUnitTag(unit.String())
-			details.UnitAttachments[unitTag.String()] = vad
+			unitTag := names.NewUnitTag(unit.String()).String()
+			details.UnitAttachments[unitTag] = vad
+
+			var deviceLinks []string
+			if va.DeviceLink != "" {
+				deviceLinks = append(deviceLinks, vad.DeviceLink)
+			}
+			blockDevicePath, _ := blockdevice.BlockDevicePath(blockdevice.BlockDevice{
+				HardwareId:  v.HardwareID,
+				WWN:         v.WWN,
+				DeviceName:  va.DeviceName,
+				DeviceLinks: deviceLinks,
+			})
+			unitAttachmentLocations[unitTag] = blockDevicePath
 		}
 		for machine, va := range v.MachineAttachments {
 			vad := params.VolumeAttachmentDetails{
@@ -1368,13 +1397,23 @@ func processStorage(
 			if details.MachineAttachments == nil {
 				details.MachineAttachments = map[string]params.VolumeAttachmentDetails{}
 			}
-			machineTag := names.NewUnitTag(machine.String())
-			details.MachineAttachments[machineTag.String()] = vad
+			machineTag := names.NewMachineTag(machine.String()).String()
+			details.MachineAttachments[machineTag] = vad
 		}
 		if storage, ok := storageMap[v.StorageID]; ok {
 			if storage.Kind == params.StorageKindBlock {
 				storage.Status = details.Status
 				storage.Persistent = details.Info.Persistent
+				// give the storage instance attachment the unit's attachment
+				// location.
+				for k, v := range unitAttachmentLocations {
+					ad, ok := storage.Attachments[k]
+					if !ok {
+						continue
+					}
+					ad.Location = v
+					storage.Attachments[k] = ad
+				}
 			}
 			details.Storage = storage
 		}

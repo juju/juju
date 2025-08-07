@@ -181,9 +181,8 @@ func (s *Service) GetStorageInstanceStatuses(
 	}
 	for _, dsa := range storageAttachments {
 		sa := StorageAttachment{
-			Location: dsa.Location,
-			Unit:     dsa.Unit,
-			Machine:  dsa.Machine,
+			Unit:    dsa.Unit,
+			Machine: dsa.Machine,
 		}
 		var err error
 		sa.Life, err = dsa.Life.Value()
@@ -324,12 +323,10 @@ func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
 			vap := VolumeAttachmentPlan{
 				DeviceAttributes: dvap.DeviceAttributes,
 			}
-			// TODO(storage): add a storageprovisioning domain type for device
-			// type for volume attachment plans.
 			switch dvap.DeviceType {
-			case "local":
+			case storageprovisioning.PlanDeviceTypeLocal:
 				vap.DeviceType = internalstorage.DeviceTypeLocal
-			case "iscsi":
+			case storageprovisioning.PlanDeviceTypeISCSI:
 				vap.DeviceType = internalstorage.DeviceTypeISCSI
 			}
 			va.VolumeAttachmentPlan = &vap

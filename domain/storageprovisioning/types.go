@@ -9,3 +9,13 @@ type ResourceTagInfo struct {
 	ControllerUUID   string
 	ApplicationName  string
 }
+
+// PlanDeviceType defines what type of storage attachment plan is required.
+type PlanDeviceType int
+
+const (
+	// PlanDeviceTypeLocal indicates a local attachment.
+	PlanDeviceTypeLocal = iota
+	// PlanDeviceTypeISCSI indicates an iscsi attachment.
+	PlanDeviceTypeISCSI
+)

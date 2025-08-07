@@ -86,6 +86,7 @@ type StatusHistoryRequest struct {
 	Tag    string
 }
 
+// StorageInstance represents the status of a storage instance.
 type StorageInstance struct {
 	ID          string
 	Owner       *unit.Name
@@ -94,13 +95,14 @@ type StorageInstance struct {
 	Attachments map[unit.Name]StorageAttachment
 }
 
+// StorageAttachment represents the status of a storage attachment.
 type StorageAttachment struct {
-	Life     life.Value
-	Unit     unit.Name
-	Machine  *machine.Name
-	Location string
+	Life    life.Value
+	Unit    unit.Name
+	Machine *machine.Name
 }
 
+// Filesystem represents the status of a filesystem.
 type Filesystem struct {
 	ID                 string
 	Life               life.Value
@@ -113,6 +115,7 @@ type Filesystem struct {
 	UnitAttachments    map[unit.Name]FilesystemAttachment
 }
 
+// Volume represents the status of a volume.
 type Volume struct {
 	ID                 string
 	Life               life.Value
@@ -127,12 +130,14 @@ type Volume struct {
 	UnitAttachments    map[unit.Name]VolumeAttachment
 }
 
+// FilesystemAttachment represents the status of a filesystem attachment.
 type FilesystemAttachment struct {
 	Life       life.Value
 	MountPoint string
 	ReadOnly   bool
 }
 
+// VolumeAttachment represents the status of a volume attachment.
 type VolumeAttachment struct {
 	Life                 life.Value
 	DeviceName           string
@@ -142,6 +147,7 @@ type VolumeAttachment struct {
 	VolumeAttachmentPlan *VolumeAttachmentPlan
 }
 
+// VolumeAttachmentPlan represents the status of a volume attachment plan.
 type VolumeAttachmentPlan struct {
 	DeviceType       internalstorage.DeviceType
 	DeviceAttributes map[string]string

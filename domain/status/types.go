@@ -71,23 +71,24 @@ type Machine struct {
 	LXDProfiles             []string
 }
 
+// StorageInstance represents the status of a storage instance.
 type StorageInstance struct {
-	UUID        storage.StorageInstanceUUID
-	ID          string
-	Owner       *unit.Name
-	Kind        storage.StorageKind
-	Life        life.Life
-	Attachments map[unit.Name]StorageAttachment
+	UUID  storage.StorageInstanceUUID
+	ID    string
+	Owner *unit.Name
+	Kind  storage.StorageKind
+	Life  life.Life
 }
 
+// StorageAttachment represents the status of a storage attachment.
 type StorageAttachment struct {
 	StorageInstanceUUID storage.StorageInstanceUUID
 	Life                life.Life
 	Unit                unit.Name
 	Machine             *machine.Name
-	Location            string
 }
 
+// Filesystem represents the status of a filesystem.
 type Filesystem struct {
 	UUID       storageprovisioning.FilesystemUUID
 	ID         string
@@ -99,6 +100,7 @@ type Filesystem struct {
 	SizeMiB    uint64
 }
 
+// Volume represents the status of a volume.
 type Volume struct {
 	UUID       storageprovisioning.VolumeUUID
 	ID         string
@@ -112,6 +114,7 @@ type Volume struct {
 	Persistent bool
 }
 
+// FilesystemAttachment represents the status of a filesystem attachment.
 type FilesystemAttachment struct {
 	FilesystemUUID storageprovisioning.FilesystemUUID
 	Life           life.Life
@@ -121,6 +124,7 @@ type FilesystemAttachment struct {
 	ReadOnly       bool
 }
 
+// VolumeAttachment represents the status of a volume attachment.
 type VolumeAttachment struct {
 	VolumeUUID           storageprovisioning.VolumeUUID
 	Life                 life.Life
@@ -133,7 +137,8 @@ type VolumeAttachment struct {
 	VolumeAttachmentPlan *VolumeAttachmentPlan
 }
 
+// VolumeAttachmentPlan represents the status of a volume attachment plan.
 type VolumeAttachmentPlan struct {
-	DeviceType       string
+	DeviceType       storageprovisioning.PlanDeviceType
 	DeviceAttributes map[string]string
 }
