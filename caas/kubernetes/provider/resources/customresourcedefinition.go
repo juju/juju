@@ -15,7 +15,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/status"
 )
 
@@ -92,14 +94,36 @@ func (crd *CustomResourceDefinition) Get(ctx context.Context, coreClient kuberne
 	return nil
 }
 
+func (crd *CustomResourceDefinition) getAppLabel(appName string) map[string]string {
+	labelVersion := constants.LastLabelVersion
+
+	return utils.LabelsMerge(
+		utils.LabelsForApp(appName, labelVersion),
+	)
+}
+
 // Delete removes the resource.
 func (crd *CustomResourceDefinition) Delete(ctx context.Context, coreClient kubernetes.Interface, extendedClient clientset.Interface) error {
 	logger.Infof("alvin crd in del is %+v", *crd)
 	api := extendedClient.ApiextensionsV1().CustomResourceDefinitions()
 
-	err := api.Delete(ctx, crd.Name, metav1.DeleteOptions{
+	// err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(context.TODO(), metav1.DeleteOptions{
+	// 	PropagationPolicy: constants.DefaultPropagationPolicy(),
+	// }, metav1.ListOptions{
+	// 	LabelSelector: selector.String(),
+	// })
+	// if k8serrors.IsNotFound(err) {
+	// 	return nil
+	// }
+
+	selector := utils.LabelsToSelector(crd.getAppLabel(crd.Name))
+
+	err := api.DeleteCollection(ctx, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	}, metav1.ListOptions{
+		LabelSelector: selector.String(),
 	})
+
 	logger.Infof("alvin logger called for %s and err is %v", crd.Name, err)
 
 	err = crd.Get(ctx, coreClient, extendedClient)

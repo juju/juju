@@ -1004,6 +1004,7 @@ func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) 
 
 // Delete deletes the specified application.
 func (a *app) Delete() error {
+	logger.Infof("alvin Delete called for %s", a.name)
 	logger.Debugf("deleting %s application", a.name)
 	applier := a.newApplier()
 	switch a.deploymentType {
