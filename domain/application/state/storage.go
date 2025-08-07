@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -785,11 +786,9 @@ func (st *State) makeInsertUnitFilesystemArgs(
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
 		fsRval = append(fsRval, insertStorageFilesystem{
-			FilesystemID: corestorage.MakeID(
-				corestorage.Name(instArg.Name), fsIDS[i],
-			).String(),
-			LifeID: int(life.Alive),
-			UUID:   instArg.FilesystemUUID.String(),
+			FilesystemID: fmt.Sprintf("%d", fsIDS[i]),
+			LifeID:       int(life.Alive),
+			UUID:         instArg.FilesystemUUID.String(),
 		})
 		fsInstanceRval = append(fsInstanceRval, insertStorageFilesystemInstance{
 			StorageInstanceUUID:    instArg.UUID.String(),
@@ -996,11 +995,9 @@ func (st *State) makeInsertUnitVolumeArgs(
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
 		vRval = append(vRval, insertStorageVolume{
-			VolumeID: corestorage.MakeID(
-				corestorage.Name(instArg.Name), fsIDS[i],
-			).String(),
-			LifeID: int(life.Alive),
-			UUID:   instArg.VolumeUUID.String(),
+			VolumeID: fmt.Sprintf("%d", fsIDS[i]),
+			LifeID:   int(life.Alive),
+			UUID:     instArg.VolumeUUID.String(),
 		})
 		vInstanceRval = append(vInstanceRval, insertStorageVolumeInstance{
 			StorageInstanceUUID: instArg.UUID.String(),
