@@ -83,7 +83,7 @@ func (s *MigrationService) CreateMachine(ctx context.Context, machineName corema
 	}
 
 	if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, machineName, s.clock); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+		s.logger.Warningf(ctx, "recording machine status history: %w", err)
 	}
 
 	return machineUUID, nil

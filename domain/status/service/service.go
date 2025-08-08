@@ -308,7 +308,7 @@ func (s *Service) SetApplicationStatus(
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(applicationID.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording setting application status history: %v", err)
+		s.logger.Warningf(ctx, "recording setting application status history: %v", err)
 	}
 
 	return nil
@@ -358,7 +358,7 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording setting workload status for unit %q: %v", unitName, err)
+		s.logger.Warningf(ctx, "recording setting workload status for unit %q: %v", unitName, err)
 	}
 	return nil
 }
@@ -418,7 +418,7 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording setting agent status for unit %q: %v", unitName, err)
+		s.logger.Warningf(ctx, "recording setting agent status for unit %q: %v", unitName, err)
 	}
 	return nil
 }
@@ -680,7 +680,7 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.MachineInstanceNamespace.WithID(machineName.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording instance status history: %w", err)
+		s.logger.Warningf(ctx, "recording instance status history: %w", err)
 	}
 
 	return nil
@@ -783,7 +783,7 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.MachineNamespace.WithID(machineName.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+		s.logger.Warningf(ctx, "recording machine status history: %w", err)
 	}
 
 	return nil

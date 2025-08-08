@@ -351,10 +351,10 @@ func (s *Service) CreateModel(
 			Status: corestatus.Available,
 			Since:  ptr(s.clock.Now()),
 		}); err != nil {
-			s.logger.Infof(ctx, "recording status for model %q: %v", modelID, err)
+			s.logger.Warningf(ctx, "recording status for model %q: %v", modelID, err)
 		}
 	} else {
-		s.logger.Infof(ctx, "getting status history for model %q: %v", modelID, err)
+		s.logger.Warningf(ctx, "getting status history for model %q: %v", modelID, err)
 	}
 
 	return modelID, activator, nil
