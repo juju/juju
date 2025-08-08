@@ -1,7 +1,7 @@
 (tutorial)=
 # Get started with Juju
 
-Juju is a tool for provisioning cloud infrastructure and deploying and operating applications on that infrastructure using charms. Charms are software packages that contain instructions for how to operate an application. Juju and charms work together to provide a cloud- and application-agnostic operations solution for any major operation (provision, install, configure, integrate, scale, upgrade, ...) on any type of cloud (Kubernetes or machines).
+Juju is a tool for provisioning cloud infrastructure and deploying and operating applications on that infrastructure using charms. Charms are software packages that contain code for how to operate an application. Juju and charms work together to provide a cloud- and application-agnostic operations solution for any major operation (provision, install, configure, integrate, scale, upgrade, ...) on any type of cloud (Kubernetes or machines).
 
 In this tutorial you will get acquainted with Juju and charms by deploying a chat service on a Kubernetes cloud.
 
@@ -301,7 +301,7 @@ At this point you could add further users and control their permissions. However
 ```{figure} tutorial-provision-deploy.svg
    :alt: A user uses the client to talk to the controller to talk to the cloud and to Charmhub to provision infrastructure and to deploy and operate charmed applications.
 
-   _A user interacts with the client to reach the controller. The controller talks to the cloud and to Charmhub to provision infrastructure and to deploy charms. Next to a deployed charm there is always a Juju agent which is constantly checking state against the Juju controller and executes the deployed charm accordingly to install, configure, and otherwise manage applications._
+   _A user interacts with the client to reach the controller. The controller talks to the cloud and to Charmhub to provision infrastructure and to deploy charms. Next to a deployed charm there is always a Juju agent which periodically checks its internal state against the Juju controller and executes the deployed charm accordingly to install, configure, and otherwise manage applications._
 ```
 
 Anything you provision or deploy and operate with a Juju controller goes onto a workspace called a 'model'. Let's create the model that will hold our chat applications:
