@@ -18,13 +18,6 @@ jobs:
         cloud: ["localhost", "microk8s"]
     steps:
 
-      - name: Install Dependencies
-        shell: bash
-        run: |
-          set -euxo pipefail
-          echo "/snap/bin" >> $GITHUB_PATH
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -96,3 +89,49 @@ jobs:
           export SKIP_DESTROY=true
 
           sg snap_microk8s './main.sh -c microk8s -v smoke_k8s'
+
+  deploy:
+    name: Deploy
+    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
+    timeout-minutes: 60
+    if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup LXD
+        uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
+
+      - name: Wait for LXD
+        run: |
+          while ! ip link show lxdbr0; do
+            echo "Waiting for lxdbr0..."
+            sleep 10
+          done
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Install local Juju
+        shell: bash
+        run: |
+          make go-install
+
+      - name: Deploy test (LXD)
+        shell: bash
+        run: |
+          cd tests
+          export MODEL_ARCH=$(go env GOARCH)
+          export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false"
+
+          # Skip destroy to keep the environment up.
+          export SKIP_DESTROY=true
+
+          # Skip these tests for now, as they rely on cmrs
+          ./main.sh -v -s 'test_cmr_bundles_export_overlay' deploy
