@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
@@ -44,6 +43,7 @@ import (
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ControllerServices provides access to the services required by the apiserver.
@@ -214,7 +214,7 @@ type statusHistoryGetter struct {
 func (l statusHistoryGetter) GetStatusHistoryForModel(ctx context.Context, modelUUID model.UUID) (modelservice.StatusHistory, error) {
 	loggerContext, err := l.loggerContextGetter.GetLoggerContext(ctx, modelUUID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	logger := loggerContext.GetLogger("juju.services")
