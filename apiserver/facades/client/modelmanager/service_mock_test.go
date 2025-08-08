@@ -400,49 +400,6 @@ func (c *MockModelServiceDefaultModelCloudInfoCall) DoAndReturn(f func(context.C
 	return c
 }
 
-// DeleteModel mocks base method.
-func (m *MockModelService) DeleteModel(arg0 context.Context, arg1 model.UUID, arg2 ...model0.DeleteModelOption) error {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "DeleteModel", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteModel indicates an expected call of DeleteModel.
-func (mr *MockModelServiceMockRecorder) DeleteModel(arg0, arg1 any, arg2 ...any) *MockModelServiceDeleteModelCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteModel", reflect.TypeOf((*MockModelService)(nil).DeleteModel), varargs...)
-	return &MockModelServiceDeleteModelCall{Call: call}
-}
-
-// MockModelServiceDeleteModelCall wrap *gomock.Call
-type MockModelServiceDeleteModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelServiceDeleteModelCall) Return(arg0 error) *MockModelServiceDeleteModelCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelServiceDeleteModelCall) Do(f func(context.Context, model.UUID, ...model0.DeleteModelOption) error) *MockModelServiceDeleteModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceDeleteModelCall) DoAndReturn(f func(context.Context, model.UUID, ...model0.DeleteModelOption) error) *MockModelServiceDeleteModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetModelUser mocks base method.
 func (m *MockModelService) GetModelUser(arg0 context.Context, arg1 model.UUID, arg2 user.Name) (model.ModelUserInfo, error) {
 	m.ctrl.T.Helper()
@@ -1163,44 +1120,6 @@ func (c *MockModelInfoServiceCreateModelWithAgentVersionStreamCall) Do(f func(co
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelInfoServiceCreateModelWithAgentVersionStreamCall) DoAndReturn(f func(context.Context, semversion.Number, agentbinary.AgentStream) error) *MockModelInfoServiceCreateModelWithAgentVersionStreamCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// DeleteModel mocks base method.
-func (m *MockModelInfoService) DeleteModel(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteModel", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteModel indicates an expected call of DeleteModel.
-func (mr *MockModelInfoServiceMockRecorder) DeleteModel(arg0 any) *MockModelInfoServiceDeleteModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteModel", reflect.TypeOf((*MockModelInfoService)(nil).DeleteModel), arg0)
-	return &MockModelInfoServiceDeleteModelCall{Call: call}
-}
-
-// MockModelInfoServiceDeleteModelCall wrap *gomock.Call
-type MockModelInfoServiceDeleteModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelInfoServiceDeleteModelCall) Return(arg0 error) *MockModelInfoServiceDeleteModelCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelInfoServiceDeleteModelCall) Do(f func(context.Context) error) *MockModelInfoServiceDeleteModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelInfoServiceDeleteModelCall) DoAndReturn(f func(context.Context) error) *MockModelInfoServiceDeleteModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
