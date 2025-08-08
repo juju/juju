@@ -67,6 +67,7 @@ type ControllerDomainServicesFn func(
 	objectstore.NamespacedObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
+	logger.LoggerContextGetter,
 ) services.ControllerDomainServices
 
 // ModelDomainServicesFn is a function that returns a model domain services.
@@ -239,12 +240,14 @@ func NewControllerDomainServices(
 	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
+	loggerContextGetter logger.LoggerContextGetter,
 ) services.ControllerDomainServices {
 	return domainservices.NewControllerServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		controllerObjectStoreGetter,
 		clock,
 		logger,
+		loggerContextGetter,
 	)
 }
 

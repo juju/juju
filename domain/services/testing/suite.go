@@ -282,6 +282,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 			}),
 			clock,
 			logger,
+			loggertesting.WrapCheckLogForContextGetter(c),
 		)
 		modelServices := domainservices.NewModelServices(
 			modelUUID,

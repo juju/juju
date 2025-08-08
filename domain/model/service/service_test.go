@@ -30,7 +30,6 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
@@ -98,7 +97,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *serviceSuite) newStubService(c *tc.C) *Service {
 	return NewService(
 		s.state,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		newStatusHistoryGetter(c),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -107,7 +106,7 @@ func (s *serviceSuite) newStubService(c *tc.C) *Service {
 func (s *serviceSuite) newService(c *tc.C) *Service {
 	return NewService(
 		s.mockState,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		newStatusHistoryGetter(c),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -117,7 +116,7 @@ func (s *serviceSuite) newWatchableService(c *tc.C) *WatchableService {
 	return NewWatchableService(
 		s.mockState,
 		s.mockWatcherFactory,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		newStatusHistoryGetter(c),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

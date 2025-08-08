@@ -4,11 +4,14 @@
 package services
 
 import (
+	"context"
+
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
 	accessservice "github.com/juju/juju/domain/access/service"
@@ -47,9 +50,9 @@ import (
 type ControllerServices struct {
 	serviceFactoryBase
 
-	dbDeleter             database.DBDeleter
-	clock                 clock.Clock
 	controllerObjectStore objectstore.NamespacedObjectStoreGetter
+	clock                 clock.Clock
+	loggerContextGetter   logger.LoggerContextGetter
 }
 
 // NewControllerServices returns a new registry which uses the provided controllerDB
@@ -59,14 +62,16 @@ func NewControllerServices(
 	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
+	loggerContextGetter logger.LoggerContextGetter,
 ) *ControllerServices {
 	return &ControllerServices{
 		serviceFactoryBase: serviceFactoryBase{
 			controllerDB: controllerDB,
 			logger:       logger,
 		},
-		clock:                 clock,
 		controllerObjectStore: controllerObjectStoreGetter,
+		clock:                 clock,
+		loggerContextGetter:   loggerContextGetter,
 	}
 }
 
@@ -100,7 +105,10 @@ func (s *ControllerServices) Model() *modelservice.WatchableService {
 	return modelservice.NewWatchableService(
 		statecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.controllerWatcherFactory("model"),
-		domain.NewStatusHistory(logger, s.clock),
+		statusHistoryGetter{
+			loggerContextGetter: s.loggerContextGetter,
+			clock:               s.clock,
+		},
 		s.clock,
 		logger,
 	)
@@ -195,4 +203,20 @@ func (s *ControllerServices) ControllerAgentBinaryStore() *agentbinaryservice.Ag
 		s.logger.Child("agentbinary"),
 		s.controllerObjectStore,
 	)
+}
+
+type statusHistoryGetter struct {
+	loggerContextGetter logger.LoggerContextGetter
+	clock               clock.Clock
+}
+
+// GetLoggerContext returns a logger context for the given model UUID.
+func (l statusHistoryGetter) GetStatusHistoryForModel(ctx context.Context, modelUUID model.UUID) (modelservice.StatusHistory, error) {
+	loggerContext, err := l.loggerContextGetter.GetLoggerContext(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	logger := loggerContext.GetLogger("juju.services")
+	return domain.NewStatusHistory(logger, l.clock), nil
 }

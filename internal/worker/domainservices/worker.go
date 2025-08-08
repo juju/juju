@@ -125,6 +125,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		controllerObjectStoreGetter,
 		config.Clock,
 		config.Logger,
+		config.LoggerContextGetter,
 	)
 	w := &domainServicesWorker{
 		ctrlFactory: ctrlFactory,

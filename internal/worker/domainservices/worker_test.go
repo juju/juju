@@ -122,6 +122,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			objectstore.NamespacedObjectStoreGetter,
 			clock.Clock,
 			logger.Logger,
+			logger.LoggerContextGetter,
 		) services.ControllerDomainServices {
 			return s.controllerDomainServices
 		},

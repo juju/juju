@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
@@ -119,7 +120,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 	modelService := service.NewWatchableService(
 		st,
 		watcherFactory,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		newStatusHistoryGetter(c),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -201,7 +202,7 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 	modelService := service.NewWatchableService(
 		st,
 		watcherFactory,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		newStatusHistoryGetter(c),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -286,7 +287,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	modelService := service.NewWatchableService(
 		st,
 		watcherFactory,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		newStatusHistoryGetter(c),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -390,4 +391,27 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	})
 
 	harness.Run(c, struct{}{})
+}
+
+type statusHistoryGetter struct {
+	loggerContextGetter logger.LoggerContextGetter
+	clock               clock.Clock
+}
+
+func newStatusHistoryGetter(c *tc.C) service.StatusHistoryGetter {
+	return statusHistoryGetter{
+		loggerContextGetter: loggertesting.WrapCheckLogForContextGetter(c),
+		clock:               clock.WallClock,
+	}
+}
+
+// GetLoggerContext returns a logger context for the given model UUID.
+func (l statusHistoryGetter) GetStatusHistoryForModel(ctx context.Context, modelUUID coremodel.UUID) (service.StatusHistory, error) {
+	loggerContext, err := l.loggerContextGetter.GetLoggerContext(ctx, modelUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := loggerContext.GetLogger("juju.services")
+	return domain.NewStatusHistory(logger, l.clock), nil
 }

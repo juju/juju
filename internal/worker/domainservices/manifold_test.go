@@ -220,7 +220,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestNewControllerDomainServices(c *tc.C) {
-	factory := NewControllerDomainServices(s.dbGetter, s.modelObjectStoreGetter, s.clock, s.logger)
+	factory := NewControllerDomainServices(s.dbGetter, s.modelObjectStoreGetter, s.clock, s.logger, s.loggerContextGetter)
 	c.Assert(factory, tc.NotNil)
 }
 
@@ -245,7 +245,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 	s.loggerContextGetter.EXPECT().GetLoggerContext(gomock.Any(), coremodel.UUID("model")).Return(s.loggerContext, nil)
 	s.loggerContext.EXPECT().GetLogger("juju.services").Return(s.logger)
 
-	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.modelObjectStoreGetter, s.clock, s.logger)
+	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.modelObjectStoreGetter, s.clock, s.logger, s.loggerContextGetter)
 	factory := NewDomainServicesGetter(
 		ctrlFactory,
 		s.dbGetter,
@@ -308,6 +308,7 @@ func noopControllerDomainServices(
 	objectstore.NamespacedObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
+	logger.LoggerContextGetter,
 ) services.ControllerDomainServices {
 	return nil
 }

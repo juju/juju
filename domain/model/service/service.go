@@ -58,6 +58,13 @@ type StatusHistory interface {
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 }
 
+// StatusHistoryGetter provides a way to retrieve status history for a model.
+type StatusHistoryGetter interface {
+	// GetStatusHistoryForModel returns the status history for the model
+	// identified by the model UUID.
+	GetStatusHistoryForModel(ctx context.Context, modelUUID coremodel.UUID) (StatusHistory, error)
+}
+
 // State is the model state required by this service.
 type State interface {
 	ModelTypeState
@@ -161,10 +168,10 @@ type State interface {
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
-	st            State
-	logger        logger.Logger
-	clock         clock.Clock
-	statusHistory StatusHistory
+	st                  State
+	logger              logger.Logger
+	clock               clock.Clock
+	statusHistoryGetter StatusHistoryGetter
 }
 
 var (
@@ -174,15 +181,15 @@ var (
 // NewService returns a new Service for interacting with a models state.
 func NewService(
 	st State,
-	statusHistory StatusHistory,
+	statusHistoryGetter StatusHistoryGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		st:            st,
-		logger:        logger,
-		clock:         clock,
-		statusHistory: statusHistory,
+		st:                  st,
+		logger:              logger,
+		clock:               clock,
+		statusHistoryGetter: statusHistoryGetter,
 	}
 }
 
@@ -230,16 +237,16 @@ type WatchableService struct {
 func NewWatchableService(
 	st State,
 	watcherFactory WatcherFactory,
-	statusHistory StatusHistory,
+	statusHistoryGetter StatusHistoryGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			st:            st,
-			statusHistory: statusHistory,
-			clock:         clock,
-			logger:        logger,
+			st:                  st,
+			statusHistoryGetter: statusHistoryGetter,
+			clock:               clock,
+			logger:              logger,
 		},
 		watcherFactory: watcherFactory,
 	}
@@ -339,11 +346,15 @@ func (s *Service) CreateModel(
 		return "", nil, errors.Errorf("creating model %q: %w", args.Name, err)
 	}
 
-	if err := s.statusHistory.RecordStatus(ctx, status.ModelNamespace.WithID(modelID.String()), corestatus.StatusInfo{
-		Status: corestatus.Available,
-		Since:  ptr(s.clock.Now()),
-	}); err != nil {
-		s.logger.Infof(ctx, "recording status for model %q: %v", modelID, err)
+	if statusHistory, err := s.statusHistoryGetter.GetStatusHistoryForModel(ctx, modelID); err == nil {
+		if err := statusHistory.RecordStatus(ctx, status.ModelNamespace.WithID(modelID.String()), corestatus.StatusInfo{
+			Status: corestatus.Available,
+			Since:  ptr(s.clock.Now()),
+		}); err != nil {
+			s.logger.Infof(ctx, "recording status for model %q: %v", modelID, err)
+		}
+	} else {
+		s.logger.Infof(ctx, "getting status history for model %q: %v", modelID, err)
 	}
 
 	return modelID, activator, nil
