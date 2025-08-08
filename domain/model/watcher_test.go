@@ -232,7 +232,8 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 	// Verifies that watchers do not receive any changes when newly unactivated
 	// models are created.
 	harness.AddTest(c, func(c *tc.C) {
-		activateModel(c.Context())
+		err := activateModel(c.Context())
+		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		// Get the change.
 		w.AssertChange()
