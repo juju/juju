@@ -371,7 +371,7 @@ SELECT    (si.uuid, si.storage_id, si.life_id, cs.storage_kind_id) AS (&storageI
 FROM      storage_instance si
 LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
 LEFT JOIN unit u ON suo.unit_uuid=u.uuid
-LEFT JOIN charm_storage cs ON si.charm_uuid=cs.charm_uuid
+LEFT JOIN charm_storage cs ON si.charm_uuid=cs.charm_uuid AND cs.name=si.storage_name
 `, storageInstanceStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -642,7 +642,7 @@ func (st *ModelState) GetVolumeAttachments(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT DISTINCT (sva.storage_volume_uuid, sva.life_id) AS (&volumeAttachmentStatusDetails.*),
+SELECT DISTINCT (sva.storage_volume_uuid, sva.life_id, sva.read_only) AS (&volumeAttachmentStatusDetails.*),
                 bd.name AS &volumeAttachmentStatusDetails.device_name,
                 bd.bus_address AS &volumeAttachmentStatusDetails.bus_address,
                 first_value(bdld.name) OVER bdld_first AS &volumeAttachmentStatusDetails.device_link,
@@ -666,6 +666,9 @@ SELECT    &volumeAttachmentPlanStatusDetails.*
 FROM      storage_volume_attachment_plan svap
 LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uuid=svap.uuid
 `, volumeAttachmentPlanStatusDetails{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
 	var out []volumeAttachmentStatusDetails
 	var vapOut []volumeAttachmentPlanStatusDetails

@@ -15,8 +15,9 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
+	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storageprovisioning"
 	internalcharm "github.com/juju/juju/internal/charm"
-	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // Application represents the status of an application.
@@ -90,7 +91,7 @@ type StatusHistoryRequest struct {
 type StorageInstance struct {
 	ID          string
 	Owner       *unit.Name
-	Kind        internalstorage.StorageKind
+	Kind        storage.StorageKind
 	Life        life.Value
 	Attachments map[unit.Name]StorageAttachment
 }
@@ -149,6 +150,6 @@ type VolumeAttachment struct {
 
 // VolumeAttachmentPlan represents the status of a volume attachment plan.
 type VolumeAttachmentPlan struct {
-	DeviceType       internalstorage.DeviceType
+	DeviceType       storageprovisioning.PlanDeviceType
 	DeviceAttributes map[string]string
 }

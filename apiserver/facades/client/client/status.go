@@ -36,9 +36,11 @@ import (
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/relation"
 	statusservice "github.com/juju/juju/domain/status/service"
+	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -1354,8 +1356,13 @@ func processStorage(
 			}
 			if vap := va.VolumeAttachmentPlan; vap != nil {
 				pi := params.VolumeAttachmentPlanInfo{
-					DeviceType:       vap.DeviceType,
 					DeviceAttributes: vap.DeviceAttributes,
+				}
+				switch vap.DeviceType {
+				case storageprovisioning.PlanDeviceTypeLocal:
+					pi.DeviceType = internalstorage.DeviceTypeLocal
+				case storageprovisioning.PlanDeviceTypeISCSI:
+					pi.DeviceType = internalstorage.DeviceTypeISCSI
 				}
 				vad.VolumeAttachmentInfo.PlanInfo = &pi
 			}
@@ -1389,8 +1396,13 @@ func processStorage(
 			}
 			if vap := va.VolumeAttachmentPlan; vap != nil {
 				pi := params.VolumeAttachmentPlanInfo{
-					DeviceType:       vap.DeviceType,
 					DeviceAttributes: vap.DeviceAttributes,
+				}
+				switch vap.DeviceType {
+				case storageprovisioning.PlanDeviceTypeLocal:
+					pi.DeviceType = internalstorage.DeviceTypeLocal
+				case storageprovisioning.PlanDeviceTypeISCSI:
+					pi.DeviceType = internalstorage.DeviceTypeISCSI
 				}
 				vad.VolumeAttachmentInfo.PlanInfo = &pi
 			}

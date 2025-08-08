@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
-	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // StorageState provides access to storage related state methods.
@@ -162,20 +161,14 @@ func (s *Service) GetStorageInstanceStatuses(
 	storageMap := map[storage.StorageInstanceUUID]*StorageInstance{}
 	for _, dsi := range storageInstances {
 		si := StorageInstance{
-			ID: dsi.ID,
+			ID:    dsi.ID,
+			Kind:  dsi.Kind,
+			Owner: dsi.Owner,
 		}
 		var err error
 		si.Life, err = dsi.Life.Value()
 		if err != nil {
 			return nil, errors.Capture(err)
-		}
-		switch dsi.Kind {
-		case storage.StorageKindBlock:
-			si.Kind = internalstorage.StorageKindBlock
-		case storage.StorageKindFilesystem:
-			si.Kind = internalstorage.StorageKindFilesystem
-		default:
-			si.Kind = internalstorage.StorageKindUnknown
 		}
 		storageMap[dsi.UUID] = &si
 	}
@@ -322,12 +315,7 @@ func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
 		if dvap := dva.VolumeAttachmentPlan; dvap != nil {
 			vap := VolumeAttachmentPlan{
 				DeviceAttributes: dvap.DeviceAttributes,
-			}
-			switch dvap.DeviceType {
-			case storageprovisioning.PlanDeviceTypeLocal:
-				vap.DeviceType = internalstorage.DeviceTypeLocal
-			case storageprovisioning.PlanDeviceTypeISCSI:
-				vap.DeviceType = internalstorage.DeviceTypeISCSI
+				DeviceType:       dvap.DeviceType,
 			}
 			va.VolumeAttachmentPlan = &vap
 		}

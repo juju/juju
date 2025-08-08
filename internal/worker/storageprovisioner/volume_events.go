@@ -601,7 +601,7 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 				HardwareId: v.HardwareId,
 				WWN:        v.WWN,
 				Pool:       "", // pool
-				SizeMiB:       v.Size,
+				SizeMiB:    v.Size,
 				Persistent: v.Persistent,
 			},
 		}

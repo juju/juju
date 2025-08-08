@@ -26,7 +26,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -838,7 +837,7 @@ WHERE storage_instance_uuid IN ($S[:])
 
 	rval := make([]insertStorageFilesystemAttachment, 0, len(dbVals))
 	for _, val := range dbVals {
-		uuid, err := domainstorageprov.NewFilesystemAttachmentUUID()
+		uuid, err := storageprovisioning.NewFilesystemAttachmentUUID()
 		if err != nil {
 			return nil, errors.Errorf(
 				"generating new filesystem %q attachment uuid for net node uuid %q: %w",
@@ -1047,7 +1046,7 @@ WHERE storage_instance_uuid IN ($S[:])
 
 	rval := make([]insertStorageVolumeAttachment, 0, len(dbVals))
 	for _, val := range dbVals {
-		uuid, err := domainstorageprov.NewVolumeAttachmentUUID()
+		uuid, err := storageprovisioning.NewVolumeAttachmentUUID()
 		if err != nil {
 			return nil, errors.Errorf(
 				"generating new volume %q attachment uuid for net node uuid %q: %w",
