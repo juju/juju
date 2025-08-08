@@ -1042,10 +1042,21 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 		Results: make([]params.FilesystemParamsResult, 0, len(args.Entities)),
 	}
 
+	var fsModelTags map[string]string
 	one := func(arg params.Entity) (params.FilesystemParams, error) {
 		tag, err := names.ParseFilesystemTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
 			return params.FilesystemParams{}, apiservererrors.ErrPerm
+		}
+
+		if fsModelTags == nil {
+			fsModelTags, err = s.storageProvisioningService.
+				GetStorageResourceTagsForModel(ctx)
+			if err != nil {
+				return params.FilesystemParams{}, errors.Errorf(
+					"getting filesystem model tags: %w", err,
+				)
+			}
 		}
 
 		uuid, err := s.storageProvisioningService.GetFilesystemUUIDForID(
@@ -1068,7 +1079,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 			FilesystemTag: tag.String(),
 			Provider:      fsParams.Provider,
 			Size:          fsParams.SizeMiB,
-			Tags:          fsParams.Tags,
+			Tags:          fsModelTags,
 		}
 
 		for k, v := range fsParams.Attributes {
@@ -1166,6 +1177,9 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 				"filesystem attachment for filesystem %q and host %q not found",
 				filesystemTag, hostTag,
 			).Add(coreerrors.NotFound)
+		}
+		if err != nil {
+			return params.FilesystemAttachmentParams{}, errors.Capture(err)
 		}
 
 		return params.FilesystemAttachmentParams{

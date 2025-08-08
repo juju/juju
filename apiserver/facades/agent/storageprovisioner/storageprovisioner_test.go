@@ -507,6 +507,9 @@ func (s *provisionerSuite) TestFilesystemParamsNotFound(c *tc.C) {
 
 	tag := names.NewFilesystemTag("123")
 
+	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+		gomock.Any(),
+	).Return(map[string]string{}, nil).AnyTimes()
 	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
@@ -531,6 +534,9 @@ func (s *provisionerSuite) TestFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
+	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+		gomock.Any(),
+	).Return(map[string]string{}, nil).AnyTimes()
 	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
@@ -557,6 +563,11 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
+	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+		gomock.Any(),
+	).Return(map[string]string{
+		"tag1": "value1",
+	}, nil)
 	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
@@ -572,9 +583,6 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 		ID:       "fs-id123",
 		Provider: "myprovider",
 		SizeMiB:  10,
-		Tags: map[string]string{
-			"tag1": "value1",
-		},
 	}, nil)
 
 	results, err := s.api.FilesystemParams(c.Context(), params.Entities{

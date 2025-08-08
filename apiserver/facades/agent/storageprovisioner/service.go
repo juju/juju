@@ -132,6 +132,11 @@ type StorageProvisioningService interface {
 		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
 	) (domainlife.Life, error)
 
+	// GetFilesystemParams returns the filesystem params for the supplied uuid.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
+	// when no filesystem exists for the provided filesystem UUID.
 	GetFilesystemParams(
 		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
 	) (storageprovisioning.FilesystemParams, error)
@@ -241,6 +246,10 @@ type StorageProvisioningService interface {
 	GetFilesystemAttachmentLife(
 		ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
 	) (domainlife.Life, error)
+
+	// GetStorageResourceTagsForModel returns the tags to apply to storage in this
+	// model.
+	GetStorageResourceTagsForModel(ctx context.Context) (map[string]string, error)
 
 	// GetVolumeAttachmentIDs returns the [storageprovisioning.VolumeAttachmentID]
 	// information for each volume attachment UUID supplied. If a UUID does not

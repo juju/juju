@@ -874,6 +874,45 @@ func (c *MockStorageProvisioningServiceGetFilesystemUUIDForIDCall) DoAndReturn(f
 	return c
 }
 
+// GetStorageResourceTagsForModel mocks base method.
+func (m *MockStorageProvisioningService) GetStorageResourceTagsForModel(arg0 context.Context) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageResourceTagsForModel", arg0)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageResourceTagsForModel indicates an expected call of GetStorageResourceTagsForModel.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetStorageResourceTagsForModel(arg0 any) *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageResourceTagsForModel", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetStorageResourceTagsForModel), arg0)
+	return &MockStorageProvisioningServiceGetStorageResourceTagsForModelCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetStorageResourceTagsForModelCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetStorageResourceTagsForModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall) Return(arg0 map[string]string, arg1 error) *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall) Do(f func(context.Context) (map[string]string, error)) *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetVolumeAttachmentIDs mocks base method.
 func (m *MockStorageProvisioningService) GetVolumeAttachmentIDs(arg0 context.Context, arg1 []string) (map[string]storageprovisioning.VolumeAttachmentID, error) {
 	m.ctrl.T.Helper()
