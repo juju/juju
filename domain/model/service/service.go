@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/cloud"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -161,6 +163,7 @@ type State interface {
 type Service struct {
 	st            State
 	logger        logger.Logger
+	clock         clock.Clock
 	statusHistory StatusHistory
 }
 
@@ -171,12 +174,14 @@ var (
 // NewService returns a new Service for interacting with a models state.
 func NewService(
 	st State,
-	logger logger.Logger,
 	statusHistory StatusHistory,
+	clock clock.Clock,
+	logger logger.Logger,
 ) *Service {
 	return &Service{
 		st:            st,
 		logger:        logger,
+		clock:         clock,
 		statusHistory: statusHistory,
 	}
 }
@@ -224,15 +229,17 @@ type WatchableService struct {
 // underlying state and the ability to create watchers.
 func NewWatchableService(
 	st State,
-	logger logger.Logger,
 	watcherFactory WatcherFactory,
 	statusHistory StatusHistory,
+	clock clock.Clock,
+	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			st:            st,
-			logger:        logger,
 			statusHistory: statusHistory,
+			clock:         clock,
+			logger:        logger,
 		},
 		watcherFactory: watcherFactory,
 	}
@@ -328,7 +335,18 @@ func (s *Service) CreateModel(
 	}
 
 	activator, err := createModel(ctx, s.st, modelID, args)
-	return modelID, activator, err
+	if err != nil {
+		return "", nil, errors.Errorf("creating model %q: %w", args.Name, err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, status.ModelNamespace.WithID(modelID.String()), corestatus.StatusInfo{
+		Status: corestatus.Available,
+		Since:  ptr(s.clock.Now()),
+	}); err != nil {
+		s.logger.Infof(ctx, "recording status for model %q: %v", modelID, err)
+	}
+
+	return modelID, activator, nil
 }
 
 // createModel is responsible for creating a new model from start to finish with
@@ -779,4 +797,8 @@ func watchModelCloudCredential(
 		return nil, errors.Errorf("watching model cloud and credential: %w", err)
 	}
 	return result, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

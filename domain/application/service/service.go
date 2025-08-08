@@ -117,7 +117,7 @@ func (s *Service) recordUnitStatusHistory(
 		Present:    true,
 	}); err == nil && agentStatus != nil {
 		if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
-			s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
+			s.logger.Infof(ctx, "recording agent status for unit %q: %v", unitName, err)
 		}
 	}
 
@@ -126,7 +126,7 @@ func (s *Service) recordUnitStatusHistory(
 		Present:    true,
 	}); err == nil && workloadStatus != nil {
 		if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
-			s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
+			s.logger.Infof(ctx, "recording workload status for unit %q: %v", unitName, err)
 		}
 	}
 
@@ -147,10 +147,10 @@ func (s *Service) recordInitMachinesStatusHistory(
 	}
 	for _, machineName := range machineNames {
 		if err := s.statusHistory.RecordStatus(ctx, status.MachineNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
-			s.logger.Infof(ctx, "failed recording machine %q status history: %w", machineName, err)
+			s.logger.Infof(ctx, "recording machine %q status history: %w", machineName, err)
 		}
 		if err := s.statusHistory.RecordStatus(ctx, status.MachineInstanceNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
-			s.logger.Infof(ctx, "failed recording machine instance %q status history: %w", machineName, err)
+			s.logger.Infof(ctx, "recording machine instance %q status history: %w", machineName, err)
 		}
 	}
 }

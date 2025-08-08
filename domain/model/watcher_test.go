@@ -118,9 +118,10 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 
 	modelService := service.NewWatchableService(
 		st,
-		loggertesting.WrapCheckLog(c),
 		watcherFactory,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	// Create a controller service watcher.
@@ -199,9 +200,10 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 
 	modelService := service.NewWatchableService(
 		st,
-		loggertesting.WrapCheckLog(c),
 		watcherFactory,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	// Create a new unactivated model named test-model.
@@ -283,9 +285,10 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 
 	modelService := service.NewWatchableService(
 		st,
-		loggertesting.WrapCheckLog(c),
 		watcherFactory,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := modelService.WatchModelCloudCredential(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)

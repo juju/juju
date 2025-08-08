@@ -99,9 +99,10 @@ func (s *ControllerServices) Model() *modelservice.WatchableService {
 	logger := s.logger.Child("model")
 	return modelservice.NewWatchableService(
 		statecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		logger,
 		s.controllerWatcherFactory("model"),
 		domain.NewStatusHistory(logger, s.clock),
+		s.clock,
+		logger,
 	)
 }
 

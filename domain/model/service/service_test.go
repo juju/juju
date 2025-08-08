@@ -96,19 +96,30 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *serviceSuite) newStubService(c *tc.C) *Service {
-	return NewService(s.state, loggertesting.WrapCheckLog(c), domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock))
+	return NewService(
+		s.state,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 }
 
 func (s *serviceSuite) newService(c *tc.C) *Service {
-	return NewService(s.mockState, loggertesting.WrapCheckLog(c), domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock))
+	return NewService(
+		s.mockState,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 }
 
 func (s *serviceSuite) newWatchableService(c *tc.C) *WatchableService {
 	return NewWatchableService(
 		s.mockState,
-		loggertesting.WrapCheckLog(c),
 		s.mockWatcherFactory,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 }
 
