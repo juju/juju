@@ -92,12 +92,6 @@ type DomainServicesSuite struct {
 	ProviderFactory providertracker.ProviderFactory
 }
 
-type stubDBDeleter struct{}
-
-func (s stubDBDeleter) DeleteDB(namespace string) error {
-	return nil
-}
-
 // ControllerDomainServices conveniently constructs a domain services for the
 // controller model.
 func (s *DomainServicesSuite) ControllerDomainServices(c *tc.C) services.DomainServices {
@@ -283,12 +277,12 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 		}
 		controllerServices := domainservices.NewControllerServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
-			stubDBDeleter{},
 			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
 				return objectStore, nil
 			}),
 			clock,
 			logger,
+			loggertesting.WrapCheckLogForContextGetter(c),
 		)
 		modelServices := domainservices.NewModelServices(
 			modelUUID,

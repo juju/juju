@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -40,10 +39,6 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig(c)
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig(c)
-	cfg.DBDeleter = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -98,7 +93,6 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 func (s *workerSuite) getConfig(c *tc.C) Config {
 	return Config{
 		DBGetter:              s.dbGetter,
-		DBDeleter:             s.dbDeleter,
 		ProviderFactory:       s.providerFactory,
 		ObjectStoreGetter:     s.objectStoreGetter,
 		StorageRegistryGetter: s.storageRegistryGetter,
@@ -125,10 +119,10 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 		},
 		NewControllerDomainServices: func(
 			changestream.WatchableDBGetter,
-			coredatabase.DBDeleter,
 			objectstore.NamespacedObjectStoreGetter,
 			clock.Clock,
 			logger.Logger,
+			logger.LoggerContextGetter,
 		) services.ControllerDomainServices {
 			return s.controllerDomainServices
 		},

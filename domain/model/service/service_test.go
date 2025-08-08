@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -93,6 +94,34 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *serviceSuite) newStubService(c *tc.C) *Service {
+	return NewService(
+		s.state,
+		newStatusHistoryGetter(c),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
+func (s *serviceSuite) newService(c *tc.C) *Service {
+	return NewService(
+		s.mockState,
+		newStatusHistoryGetter(c),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
+func (s *serviceSuite) newWatchableService(c *tc.C) *WatchableService {
+	return NewWatchableService(
+		s.mockState,
+		s.mockWatcherFactory,
+		newStatusHistoryGetter(c),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
 func (s *serviceSuite) setupControllerModel(c *tc.C) {
 	adminUUID := usertesting.GenUserUUID(c)
 	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
@@ -109,7 +138,7 @@ func (s *serviceSuite) setupControllerModel(c *tc.C) {
 		Regions: []string{"ap-southeast-2"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	modelID, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "controller-cloud",
 		CloudRegion: "ap-southeast-2",
@@ -146,7 +175,7 @@ func (s *serviceSuite) TestControllerModelOwnerUsername(c *tc.C) {
 }
 
 func (s *serviceSuite) TestCreateModelInvalidArgs(c *tc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -164,7 +193,7 @@ func (s *serviceSuite) TestModelCreation(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -186,7 +215,7 @@ func (s *serviceSuite) TestModelCreation(c *tc.C) {
 }
 
 func (s *serviceSuite) TestCheckExistsNoModel(c *tc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	id := modeltesting.GenModelUUID(c)
 	exists, err := svc.CheckModelExists(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
@@ -209,7 +238,7 @@ func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:         "aws",
 		CloudRegion:   "myregion",
@@ -225,7 +254,7 @@ func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *tc.C) {
 
 func (s *serviceSuite) TestModelCreationInvalidCloud(c *tc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{}
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -242,7 +271,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "noexist",
@@ -265,7 +294,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *tc.C) {
 	notFoundUser, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, _, err = svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -283,7 +312,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *tc.C) {
 		Regions:     []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -306,7 +335,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 		Regions:     []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -331,7 +360,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *tc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *tc.C) {
 	id := modeltesting.GenModelUUID(c)
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	err := svc.UpdateCredential(c.Context(), id, credential.Key{
 		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "foo",
@@ -354,7 +383,7 @@ func (s *serviceSuite) TestUpdateModelCredential(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -389,7 +418,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -419,7 +448,7 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -459,7 +488,7 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -494,7 +523,7 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -510,59 +539,10 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
-func (s *serviceSuite) TestDeleteModel(c *tc.C) {
-	cred := credential.Key{
-		Cloud: "aws",
-		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
-	}
-	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.Key{
-			cred.String(): cred,
-		},
-		Regions: []string{"myregion"},
-	}
-
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	id, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
-		Cloud:       "aws",
-		CloudRegion: "myregion",
-		Credential:  cred,
-		AdminUsers:  []user.UUID{s.userUUID},
-		Name:        "my-awesome-model",
-		Qualifier:   "prod",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(activator(c.Context()), tc.ErrorIsNil)
-
-	_, exists := s.state.models[id]
-	c.Assert(exists, tc.IsTrue)
-
-	err = svc.DeleteModel(c.Context(), id, model.WithDeleteDB())
-	c.Assert(err, tc.ErrorIsNil)
-	_, exists = s.state.models[id]
-	c.Assert(exists, tc.IsFalse)
-
-	_, exists = s.deleter.deleted[id.String()]
-	c.Assert(exists, tc.IsTrue)
-}
-
-type notFoundDeleter struct{}
-
-func (d notFoundDeleter) DeleteDB(string) error {
-	return modelerrors.NotFound
-}
-
-func (s *serviceSuite) TestDeleteModelNotFound(c *tc.C) {
-	svc := NewService(s.state, notFoundDeleter{}, loggertesting.WrapCheckLog(c))
-	err := svc.DeleteModel(c.Context(), modeltesting.GenModelUUID(c), model.WithDeleteDB())
-	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
-}
-
 // TestListAllModelsNoResults is asserting that when no models exist the return
 // value of ListAllModels is an empty slice.
 func (s *serviceSuite) TestListAllModelsNoResults(c *tc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	models, err := svc.ListAllModels(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(models), tc.Equals, 1)
@@ -573,11 +553,7 @@ func (s *serviceSuite) TestListAllModelsNoResults(c *tc.C) {
 func (s *serviceSuite) TestListAllModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	id1 := modeltesting.GenModelUUID(c)
 	id2 := modeltesting.GenModelUUID(c)
@@ -654,7 +630,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 // an empty model result.
 func (s *serviceSuite) TestListModelsForNonExistentUser(c *tc.C) {
 	fakeUserID := usertesting.GenUserUUID(c)
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	models, err := svc.ListModelsForUser(c.Context(), fakeUserID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(len(models), tc.Equals, 0)
@@ -676,7 +652,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 	usr1 := usertesting.GenUserUUID(c)
 	s.state.users[usr1] = usertesting.GenNewName(c, "tlm")
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	id1, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
@@ -730,41 +706,6 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 	})
 }
 
-// TestImportModel is asserting the happy path for importing a model.
-func (s *serviceSuite) TestImportModel(c *tc.C) {
-	cred := credential.Key{
-		Cloud: "aws",
-		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
-	}
-	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.Key{
-			cred.String(): cred,
-		},
-		Regions: []string{"myregion"},
-	}
-
-	modelID := modeltesting.GenModelUUID(c)
-
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	activator, err := svc.ImportModel(c.Context(), model.ModelImportArgs{
-		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
-			Cloud:       "aws",
-			CloudRegion: "myregion",
-			Credential:  cred,
-			AdminUsers:  []user.UUID{s.userUUID},
-			Name:        "my-awesome-model",
-			Qualifier:   "prod",
-		},
-		UUID: modelID,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(activator(c.Context()), tc.ErrorIsNil)
-
-	_, exists := s.state.models[modelID]
-	c.Assert(exists, tc.IsTrue)
-}
-
 // TestControllerModelNotFound is testing that if we ask the service for the
 // controller model and it doesn't exist we get back a [modelerrors.NotFound]
 // error. This should be a very unlikely scenario but we need to test the
@@ -776,11 +717,7 @@ func (s *serviceSuite) TestControllerModelNotFound(c *tc.C) {
 		coremodel.Model{}, modelerrors.NotFound,
 	)
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 	_, err := svc.ControllerModel(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
@@ -796,7 +733,7 @@ func (s *serviceSuite) TestControllerModel(c *tc.C) {
 		Owner: usertesting.GenNewName(c, "owner"),
 	}
 
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	modelID := s.state.controllerModelUUID
 	model, err := svc.ControllerModel(c.Context())
 	c.Check(err, tc.ErrorIsNil)
@@ -823,7 +760,7 @@ func (s *serviceSuite) TestGetModelUsers(c *tc.C) {
 		"456": jimName,
 		"789": adminName,
 	}
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	modelUserInfo, err := svc.GetModelUsers(c.Context(), uuid)
 	c.Assert(err, tc.IsNil)
 	c.Check(modelUserInfo, tc.SameContents, []coremodel.ModelUserInfo{{
@@ -845,7 +782,7 @@ func (s *serviceSuite) TestGetModelUsers(c *tc.C) {
 }
 
 func (s *serviceSuite) TestGetModelUsersBadUUID(c *tc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, err := svc.GetModelUsers(c.Context(), "bad-uuid)")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -860,7 +797,7 @@ func (s *serviceSuite) TestGetModelUser(c *tc.C) {
 		"456": jimName,
 		"789": adminName,
 	}
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	modelUserInfo, err := svc.GetModelUser(c.Context(), uuid, bobName)
 	c.Assert(err, tc.IsNil)
 	c.Check(modelUserInfo, tc.Equals, coremodel.ModelUserInfo{
@@ -872,13 +809,13 @@ func (s *serviceSuite) TestGetModelUser(c *tc.C) {
 }
 
 func (s *serviceSuite) TestGetModelUserBadUUID(c *tc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, err := svc.GetModelUser(c.Context(), "bad-uuid", usertesting.GenNewName(c, "bob"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetModelUserZeroUserName(c *tc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, err := svc.GetModelUser(c.Context(), modeltesting.GenModelUUID(c), user.Name{})
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNameNotValid)
 }
@@ -907,11 +844,7 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *tc.C) {
 
 	s.mockState.EXPECT().CloudSupportsAuthType(gomock.Any(), "foo", cloud.EmptyAuthType)
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	_, _, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
 		Cloud:       "foo",
@@ -935,11 +868,7 @@ func (s *serviceSuite) TestDefaultModelCloudInfoNotFound(c *tc.C) {
 		modelerrors.NotFound,
 	)
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	_, _, err := svc.DefaultModelCloudInfo(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
@@ -965,11 +894,7 @@ func (s *serviceSuite) TestDefaultModelCloudInfoNotFound(c *tc.C) {
 func (s *serviceSuite) TestDefaultModelCloudInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	// There exists to ways for the controller model to not be found. This is
 	// asserting the second path where the code get's the uuid but the model
@@ -995,12 +920,7 @@ func (s *serviceSuite) TestDefaultModelCloudInfo(c *tc.C) {
 func (s *serviceSuite) TestWatchActivatedModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	ctx := c.Context()
-	svc := NewWatchableService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-		s.mockWatcherFactory,
-	)
+	svc := s.newWatchableService(c)
 
 	// Set up necessary mock return values.
 	s.mockState.EXPECT().InitialWatchActivatedModelsStatement().Return(
@@ -1099,11 +1019,7 @@ func (s *serviceSuite) TestWatchActivatedModelsMapper(c *tc.C) {
 func (s *serviceSuite) TestGetModelByNameAndQualifierSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelName := "test"
@@ -1139,11 +1055,7 @@ func (s *serviceSuite) TestGetModelByNameAndQualifierSuccess(c *tc.C) {
 func (s *serviceSuite) TestGetModelByNameAndQualifierInvalidQualifier(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	modelName := "test"
 
@@ -1157,11 +1069,7 @@ func (s *serviceSuite) TestGetModelByNameAndQualifierInvalidQualifier(c *tc.C) {
 func (s *serviceSuite) TestGetModelByNameAndQualifierNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	modelName := "test"
 	s.mockState.EXPECT().GetModelByName(gomock.Any(), "prod", modelName).Return(
@@ -1183,11 +1091,7 @@ func (s *serviceSuite) TestGetModelLife(c *tc.C) {
 		nil,
 	)
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	result, err := svc.GetModelLife(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1197,11 +1101,7 @@ func (s *serviceSuite) TestGetModelLife(c *tc.C) {
 func (s *serviceSuite) TestGetModelLifeInvalidUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	_, err := svc.GetModelLife(c.Context(), "!!!!")
 	c.Assert(err, tc.ErrorMatches, `*.not valid`)
@@ -1217,11 +1117,7 @@ func (s *serviceSuite) TestGetModelLifeNotFound(c *tc.C) {
 		modelerrors.NotFound,
 	)
 
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.newService(c)
 
 	_, err := svc.GetModelLife(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
@@ -1241,12 +1137,7 @@ func (s *serviceSuite) TestWatchModelCloudCredential(c *tc.C) {
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(watcher, nil)
 
-	svc := NewWatchableService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-		s.mockWatcherFactory,
-	)
+	svc := s.newWatchableService(c)
 	w, err := svc.WatchModelCloudCredential(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1273,7 +1164,7 @@ func (s *serviceSuite) TestListModelUUIDsForUser(c *tc.C) {
 		[]coremodel.UUID{modelUUID}, nil,
 	)
 
-	svc := NewService(s.mockState, s.mockModelDeleter, loggertesting.WrapCheckLog(c))
+	svc := s.newService(c)
 	uuids, err := svc.ListModelUUIDsForUser(c.Context(), s.userUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(uuids, tc.SameContents, []coremodel.UUID{modelUUID})
@@ -1289,7 +1180,7 @@ func (s *serviceSuite) TestListModelUUIDsForUserNotFound(c *tc.C) {
 		nil, accesserrors.UserNotFound,
 	)
 
-	svc := NewService(s.mockState, s.mockModelDeleter, loggertesting.WrapCheckLog(c))
+	svc := s.newService(c)
 	_, err := svc.ListModelUUIDsForUser(c.Context(), s.userUUID)
 	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
@@ -1298,7 +1189,7 @@ func (s *serviceSuite) TestListModelUUIDsForUserNotFound(c *tc.C) {
 // uuids for a user is asked for and the user uuid is not valid the caller gets
 // an error satisfying [coreerrors.NotValid].
 func (s *serviceSuite) TestListModelUUIDsForUserNotValid(c *tc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	svc := s.newStubService(c)
 	_, err := svc.ListModelUUIDsForUser(c.Context(), "not-a-uuid")
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -1314,7 +1205,7 @@ func (s *serviceSuite) TestGetControllerModelUUID(c *tc.C) {
 		nil,
 	)
 
-	svc := NewService(s.mockState, s.mockModelDeleter, loggertesting.WrapCheckLog(c))
+	svc := s.newService(c)
 	obtainedControllerModelUUID, err := svc.GetControllerModelUUID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedControllerModelUUID, tc.DeepEquals, expectedControllerModelUUID)
@@ -1330,7 +1221,7 @@ func (s *serviceSuite) TestGetControllerModelUUIDNotFound(c *tc.C) {
 		errors.New("boom"),
 	)
 
-	svc := NewService(s.mockState, s.mockModelDeleter, loggertesting.WrapCheckLog(c))
+	svc := s.newService(c)
 	_, err := svc.GetControllerModelUUID(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }

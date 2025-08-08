@@ -29,4 +29,7 @@ var (
 
 	// VolumeNamespace is the namespace for volume status.
 	VolumeNamespace = statushistory.Namespace{Kind: status.KindVolume}
+
+	// ModelNamespace is the namespace for model status.
+	ModelNamespace = statushistory.Namespace{Kind: status.KindModel}
 )

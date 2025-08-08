@@ -55,10 +55,6 @@ func TestModelServiceSuite(t *testing.T) {
 	tc.Run(t, &modelServiceSuite{})
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 // environVersionProviderGetter provides a test implementation of
 // [EnvironVersionProviderFunc] that uses the mocked [EnvironVersionProvider] on
 // this suite.

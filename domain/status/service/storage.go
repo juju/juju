@@ -75,7 +75,7 @@ func (s *Service) SetFilesystemStatus(
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.FilesystemNamespace.WithID(uuid.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording filesystem status history: %v", err)
+		s.logger.Warningf(ctx, "recording filesystem status history: %v", err)
 	}
 
 	return nil
@@ -112,7 +112,7 @@ func (s *Service) SetVolumeStatus(
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.VolumeNamespace.WithID(uuid.String()), statusInfo); err != nil {
-		s.logger.Infof(ctx, "failed recording volume status history: %v", err)
+		s.logger.Warningf(ctx, "recording volume status history: %v", err)
 	}
 
 	return nil

@@ -131,7 +131,7 @@ func (s *ProviderService) CreateIAASApplication(
 
 	if args.ApplicationStatus != nil {
 		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus); err != nil {
-			s.logger.Infof(ctx, "failed recording IAAS application status history: %w", err)
+			s.logger.Warningf(ctx, "recording IAAS application status history: %w", err)
 		}
 	}
 	s.recordInitMachinesStatusHistory(ctx, machineNames)
@@ -176,7 +176,7 @@ func (s *ProviderService) CreateCAASApplication(
 
 	if args.ApplicationStatus != nil {
 		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus); err != nil {
-			s.logger.Infof(ctx, "failed recording CAAS application status history: %w", err)
+			s.logger.Warningf(ctx, "recording CAAS application status history: %w", err)
 		}
 	}
 

@@ -15,7 +15,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -43,10 +42,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig(c)
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig(c)
-	cfg.DBAccessorName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -108,7 +103,6 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SSHImporterPurpose).Return(s.httpClient, nil)
 
 	getter := map[string]any{
-		"dbaccessor":      s.dbDeleter,
 		"changestream":    s.dbGetter,
 		"providerfactory": s.providerFactory,
 		"objectstore":     s.objectStoreGetter,
@@ -119,7 +113,6 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	}
 
 	manifold := Manifold(ManifoldConfig{
-		DBAccessorName:              "dbaccessor",
 		ChangeStreamName:            "changestream",
 		ProviderFactoryName:         "providerfactory",
 		ObjectStoreName:             "objectstore",
@@ -146,7 +139,6 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
-		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
 		LoggerContextGetter:         s.loggerContextGetter,
@@ -175,7 +167,6 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
-		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
 		LoggerContextGetter:         s.loggerContextGetter,
@@ -204,7 +195,6 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
-		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
 		LoggerContextGetter:         s.loggerContextGetter,
@@ -230,7 +220,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestNewControllerDomainServices(c *tc.C) {
-	factory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.modelObjectStoreGetter, s.clock, s.logger)
+	factory := NewControllerDomainServices(s.dbGetter, s.modelObjectStoreGetter, s.clock, s.logger, s.loggerContextGetter)
 	c.Assert(factory, tc.NotNil)
 }
 
@@ -255,7 +245,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 	s.loggerContextGetter.EXPECT().GetLoggerContext(gomock.Any(), coremodel.UUID("model")).Return(s.loggerContext, nil)
 	s.loggerContext.EXPECT().GetLogger("juju.services").Return(s.logger)
 
-	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.modelObjectStoreGetter, s.clock, s.logger)
+	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.modelObjectStoreGetter, s.clock, s.logger, s.loggerContextGetter)
 	factory := NewDomainServicesGetter(
 		ctrlFactory,
 		s.dbGetter,
@@ -278,7 +268,6 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		DBAccessorName:      "dbaccessor",
 		ChangeStreamName:    "changestream",
 		ProviderFactoryName: "providerfactory",
 		ObjectStoreName:     "objectstore",
@@ -316,10 +305,10 @@ func noopDomainServicesGetter(
 
 func noopControllerDomainServices(
 	changestream.WatchableDBGetter,
-	coredatabase.DBDeleter,
 	objectstore.NamespacedObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
+	logger.LoggerContextGetter,
 ) services.ControllerDomainServices {
 	return nil
 }

@@ -4,12 +4,15 @@
 package services
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain"
 	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
 	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
@@ -40,34 +43,35 @@ import (
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ControllerServices provides access to the services required by the apiserver.
 type ControllerServices struct {
 	serviceFactoryBase
 
-	dbDeleter             database.DBDeleter
-	clock                 clock.Clock
 	controllerObjectStore objectstore.NamespacedObjectStoreGetter
+	clock                 clock.Clock
+	loggerContextGetter   logger.LoggerContextGetter
 }
 
 // NewControllerServices returns a new registry which uses the provided controllerDB
 // function to obtain a controller database.
 func NewControllerServices(
 	controllerDB changestream.WatchableDBFactory,
-	dbDeleter database.DBDeleter,
 	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
+	loggerContextGetter logger.LoggerContextGetter,
 ) *ControllerServices {
 	return &ControllerServices{
 		serviceFactoryBase: serviceFactoryBase{
 			controllerDB: controllerDB,
 			logger:       logger,
 		},
-		dbDeleter:             dbDeleter,
-		clock:                 clock,
 		controllerObjectStore: controllerObjectStoreGetter,
+		clock:                 clock,
+		loggerContextGetter:   loggerContextGetter,
 	}
 }
 
@@ -97,11 +101,16 @@ func (s *ControllerServices) ControllerNode() *controllernodeservice.WatchableSe
 
 // Model returns the model service.
 func (s *ControllerServices) Model() *modelservice.WatchableService {
+	logger := s.logger.Child("model")
 	return modelservice.NewWatchableService(
 		statecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.dbDeleter,
-		s.logger,
 		s.controllerWatcherFactory("model"),
+		statusHistoryGetter{
+			loggerContextGetter: s.loggerContextGetter,
+			clock:               s.clock,
+		},
+		s.clock,
+		logger,
 	)
 }
 
@@ -194,4 +203,20 @@ func (s *ControllerServices) ControllerAgentBinaryStore() *agentbinaryservice.Ag
 		s.logger.Child("agentbinary"),
 		s.controllerObjectStore,
 	)
+}
+
+type statusHistoryGetter struct {
+	loggerContextGetter logger.LoggerContextGetter
+	clock               clock.Clock
+}
+
+// GetLoggerContext returns a logger context for the given model UUID.
+func (l statusHistoryGetter) GetStatusHistoryForModel(ctx context.Context, modelUUID model.UUID) (modelservice.StatusHistory, error) {
+	loggerContext, err := l.loggerContextGetter.GetLoggerContext(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	logger := loggerContext.GetLogger("juju.services")
+	return domain.NewStatusHistory(logger, l.clock), nil
 }

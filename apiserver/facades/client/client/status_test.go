@@ -93,11 +93,13 @@ func (s *statusSuite) TestStatusHistoryNoBulk(c *tc.C) {
 	})
 	c.Check(results.Results, tc.DeepEquals, []params.StatusHistoryResult{{
 		Error: &params.Error{
-			Message: "multiple requests are not supported",
+			Message: "multiple requests",
+			Code:    "not supported",
 		},
 	}, {
 		Error: &params.Error{
-			Message: "multiple requests are not supported",
+			Message: "multiple requests",
+			Code:    "not supported",
 		},
 	}})
 }
@@ -123,7 +125,8 @@ func (s *statusSuite) TestStatusHistoryInvalidKind(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results, tc.DeepEquals, []params.StatusHistoryResult{{
 		Error: &params.Error{
-			Message: `invalid status history kind "blah"`,
+			Message: `status history kind "blah"`,
+			Code:    "not valid",
 		},
 	}})
 }

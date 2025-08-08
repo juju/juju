@@ -29,7 +29,6 @@ import (
 // ManifoldConfig holds the information necessary to run a domain services
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	DBAccessorName              string
 	ChangeStreamName            string
 	ProviderFactoryName         string
 	ObjectStoreName             string
@@ -65,10 +64,10 @@ type DomainServicesGetterFn func(
 // factory.
 type ControllerDomainServicesFn func(
 	changestream.WatchableDBGetter,
-	coredatabase.DBDeleter,
 	objectstore.NamespacedObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
+	logger.LoggerContextGetter,
 ) services.ControllerDomainServices
 
 // ModelDomainServicesFn is a function that returns a model domain services.
@@ -87,9 +86,6 @@ type ModelDomainServicesFn func(
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.DBAccessorName == "" {
-		return errors.NotValidf("empty DBAccessorName")
-	}
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
 	}
@@ -141,7 +137,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.ChangeStreamName,
-			config.DBAccessorName,
 			config.ProviderFactoryName,
 			config.ObjectStoreName,
 			config.StorageRegistryName,
@@ -162,11 +157,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	var dbGetter changestream.WatchableDBGetter
 	if err := getter.Get(config.ChangeStreamName, &dbGetter); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var dbDeleter coredatabase.DBDeleter
-	if err := getter.Get(config.DBAccessorName, &dbDeleter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -207,7 +197,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
-		DBDeleter:                   dbDeleter,
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
@@ -248,17 +237,17 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 // NewControllerDomainServices returns a new controller domain services.
 func NewControllerDomainServices(
 	dbGetter changestream.WatchableDBGetter,
-	dbDeleter coredatabase.DBDeleter,
 	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
+	loggerContextGetter logger.LoggerContextGetter,
 ) services.ControllerDomainServices {
 	return domainservices.NewControllerServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
-		dbDeleter,
 		controllerObjectStoreGetter,
 		clock,
 		logger,
+		loggerContextGetter,
 	)
 }
 

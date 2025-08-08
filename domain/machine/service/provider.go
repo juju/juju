@@ -113,7 +113,7 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 
 	for _, machineName := range machineNames {
 		if err := recordCreateMachineStatusHistory(ctx, s.statusHistory, machineName, s.clock); err != nil {
-			s.logger.Infof(ctx, "failed recording machine status history: %w", err)
+			s.logger.Warningf(ctx, "recording machine status history: %w", err)
 		}
 	}
 

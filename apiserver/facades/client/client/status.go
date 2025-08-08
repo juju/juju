@@ -51,7 +51,7 @@ func (c *Client) StatusHistory(ctx context.Context, requests params.StatusHistor
 	if num := len(requests.Requests); num == 0 {
 		return statusHistoryResultsError(nil, num)
 	} else if num != 1 {
-		return statusHistoryResultsError(internalerrors.Errorf("multiple requests are not supported"), num)
+		return statusHistoryResultsError(internalerrors.Errorf("multiple requests").Add(errors.NotSupported), num)
 	}
 
 	// We know we only have one request, so we can just use the first one.
@@ -59,7 +59,7 @@ func (c *Client) StatusHistory(ctx context.Context, requests params.StatusHistor
 
 	kind := status.HistoryKind(request.Kind)
 	if !kind.Valid() {
-		return statusHistoryResultError(internalerrors.Errorf("invalid status history kind %q", request.Kind))
+		return statusHistoryResultError(internalerrors.Errorf("status history kind %q", request.Kind).Add(errors.NotValid))
 	}
 
 	tag, err := names.ParseTag(request.Tag)

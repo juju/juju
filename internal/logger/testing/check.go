@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 )
 
 // CheckLogger is an interface that can be used to log messages to a
@@ -201,4 +202,19 @@ func (c checkLoggerContext) Config() logger.Config {
 // we cut things across.
 func (c checkLoggerContext) AddWriter(name string, writer loggo.Writer) error {
 	return errors.NotImplementedf("AddWriter")
+}
+
+// WrapCheckLogForContextGetter returns a logger.LoggerContextGetter that
+// creates loggers that log to the given CheckLogger.
+func WrapCheckLogForContextGetter(log CheckLogger) logger.LoggerContextGetter {
+	return loggerContextGetter(func(ctx context.Context, modelUUID model.UUID) logger.LoggerContext {
+		return WrapCheckLogForContext(log)
+	})
+}
+
+type loggerContextGetter func(ctx context.Context, modelUUID model.UUID) logger.LoggerContext
+
+// GetLoggerContext returns a logger context for the given model UUID.
+func (c loggerContextGetter) GetLoggerContext(ctx context.Context, modelUUID model.UUID) (logger.LoggerContext, error) {
+	return c(ctx, modelUUID), nil
 }

@@ -8,12 +8,14 @@ import (
 	"database/sql"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
@@ -115,7 +117,13 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
 	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 
-	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
+	modelService := service.NewWatchableService(
+		st,
+		watcherFactory,
+		newStatusHistoryGetter(c),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	// Create a controller service watcher.
 	watcher, err := modelService.WatchActivatedModels(ctx)
@@ -182,15 +190,6 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	// Verifies that watchers do not receive changes when models are deleted.
-	harness.AddTest(c, func(c *tc.C) {
-		// Deletes model from table. This should not trigger a change event.
-		err := modelService.DeleteModel(ctx, modelUUID)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-
 	harness.Run(c, []string(nil))
 }
 
@@ -200,7 +199,13 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 
 	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 
-	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
+	modelService := service.NewWatchableService(
+		st,
+		watcherFactory,
+		newStatusHistoryGetter(c),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	// Create a new unactivated model named test-model.
 	modelName := "test-model"
@@ -227,18 +232,10 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 	// Verifies that watchers do not receive any changes when newly unactivated
 	// models are created.
 	harness.AddTest(c, func(c *tc.C) {
-		activateModel(c.Context())
-	}, func(w watchertest.WatcherC[struct{}]) {
-		// Get the change.
-		w.AssertChange()
-	})
-
-	// Verifies that watchers do not receive changes when models are deleted.
-	harness.AddTest(c, func(c *tc.C) {
-		// Deletes model from table. This should not trigger a change event.
-		err := modelService.DeleteModel(c.Context(), modelUUID)
+		err := activateModel(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
+		// Get the change.
 		w.AssertChange()
 	})
 
@@ -288,7 +285,13 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	err = st.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
+	modelService := service.NewWatchableService(
+		st,
+		watcherFactory,
+		newStatusHistoryGetter(c),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 	watcher, err := modelService.WatchModelCloudCredential(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -389,4 +392,27 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	})
 
 	harness.Run(c, struct{}{})
+}
+
+type statusHistoryGetter struct {
+	loggerContextGetter logger.LoggerContextGetter
+	clock               clock.Clock
+}
+
+func newStatusHistoryGetter(c *tc.C) service.StatusHistoryGetter {
+	return statusHistoryGetter{
+		loggerContextGetter: loggertesting.WrapCheckLogForContextGetter(c),
+		clock:               clock.WallClock,
+	}
+}
+
+// GetLoggerContext returns a logger context for the given model UUID.
+func (l statusHistoryGetter) GetStatusHistoryForModel(ctx context.Context, modelUUID coremodel.UUID) (service.StatusHistory, error) {
+	loggerContext, err := l.loggerContextGetter.GetLoggerContext(ctx, modelUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := loggerContext.GetLogger("juju.services")
+	return domain.NewStatusHistory(logger, l.clock), nil
 }
