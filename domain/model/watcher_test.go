@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -115,7 +116,12 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
 	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 
-	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
+	modelService := service.NewWatchableService(
+		st,
+		loggertesting.WrapCheckLog(c),
+		watcherFactory,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+	)
 
 	// Create a controller service watcher.
 	watcher, err := modelService.WatchActivatedModels(ctx)
@@ -182,15 +188,6 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	// Verifies that watchers do not receive changes when models are deleted.
-	harness.AddTest(c, func(c *tc.C) {
-		// Deletes model from table. This should not trigger a change event.
-		err := modelService.DeleteModel(ctx, modelUUID)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-
 	harness.Run(c, []string(nil))
 }
 
@@ -200,7 +197,12 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 
 	st := statecontroller.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 
-	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
+	modelService := service.NewWatchableService(
+		st,
+		loggertesting.WrapCheckLog(c),
+		watcherFactory,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+	)
 
 	// Create a new unactivated model named test-model.
 	modelName := "test-model"
@@ -230,15 +232,6 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 		activateModel(c.Context())
 	}, func(w watchertest.WatcherC[struct{}]) {
 		// Get the change.
-		w.AssertChange()
-	})
-
-	// Verifies that watchers do not receive changes when models are deleted.
-	harness.AddTest(c, func(c *tc.C) {
-		// Deletes model from table. This should not trigger a change event.
-		err := modelService.DeleteModel(c.Context(), modelUUID)
-		c.Assert(err, tc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
@@ -288,7 +281,12 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	err = st.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
+	modelService := service.NewWatchableService(
+		st,
+		loggertesting.WrapCheckLog(c),
+		watcherFactory,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+	)
 	watcher, err := modelService.WatchModelCloudCredential(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

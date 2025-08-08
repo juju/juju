@@ -25,7 +25,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination domainservices_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices,ModelDomainServices,DomainServices,DomainServicesGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination database_mock_test.go github.com/juju/juju/core/database DBDeleter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
@@ -41,9 +40,8 @@ type baseSuite struct {
 	loggerContext       *MockLoggerContext
 	loggerContextGetter *MockLoggerContextGetter
 
-	clock     clock.Clock
-	dbDeleter *MockDBDeleter
-	dbGetter  *MockWatchableDBGetter
+	clock    clock.Clock
+	dbGetter *MockWatchableDBGetter
 
 	domainServicesGetter     *MockDomainServicesGetter
 	controllerDomainServices *MockControllerDomainServices
@@ -78,7 +76,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.loggerContextGetter = NewMockLoggerContextGetter(ctrl)
 
 	s.clock = clock.WallClock
-	s.dbDeleter = NewMockDBDeleter(ctrl)
 	s.dbGetter = NewMockWatchableDBGetter(ctrl)
 
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
@@ -104,6 +101,39 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelLeaseManagerGetter = NewMockModelLeaseManagerGetter(ctrl)
 
 	s.publicKeyImporter = sshimporter.NewImporter(&http.Client{})
+
+	c.Cleanup(func() {
+		s.logger = nil
+		s.loggerContext = nil
+		s.loggerContextGetter = nil
+
+		s.clock = nil
+		s.dbGetter = nil
+
+		s.domainServicesGetter = nil
+		s.controllerDomainServices = nil
+		s.modelDomainServices = nil
+
+		s.provider = nil
+		s.providerFactory = nil
+
+		s.objectStore = nil
+		s.objectStoreGetter = nil
+		s.controllerObjectStoreGetter = nil
+		s.modelObjectStoreGetter = nil
+
+		s.storageRegistryGetter = nil
+		s.modelStorageRegistryGetter = nil
+
+		s.httpClientGetter = nil
+		s.httpClient = nil
+
+		s.leaseManager = nil
+		s.leaseManagerGetter = nil
+		s.modelLeaseManagerGetter = nil
+
+		s.publicKeyImporter = nil
+	})
 
 	return ctrl
 }

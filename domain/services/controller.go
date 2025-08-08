@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain"
 	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
 	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
@@ -55,7 +56,6 @@ type ControllerServices struct {
 // function to obtain a controller database.
 func NewControllerServices(
 	controllerDB changestream.WatchableDBFactory,
-	dbDeleter database.DBDeleter,
 	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
@@ -65,7 +65,6 @@ func NewControllerServices(
 			controllerDB: controllerDB,
 			logger:       logger,
 		},
-		dbDeleter:             dbDeleter,
 		clock:                 clock,
 		controllerObjectStore: controllerObjectStoreGetter,
 	}
@@ -97,11 +96,12 @@ func (s *ControllerServices) ControllerNode() *controllernodeservice.WatchableSe
 
 // Model returns the model service.
 func (s *ControllerServices) Model() *modelservice.WatchableService {
+	logger := s.logger.Child("model")
 	return modelservice.NewWatchableService(
 		statecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.dbDeleter,
-		s.logger,
+		logger,
 		s.controllerWatcherFactory("model"),
+		domain.NewStatusHistory(logger, s.clock),
 	)
 }
 

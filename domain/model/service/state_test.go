@@ -50,6 +50,9 @@ type dummyDeleter struct {
 }
 
 func (d *dummyDeleter) DeleteDB(namespace string) error {
+	if namespace == deletedID {
+		return modelerrors.NotFound
+	}
 	d.deleted[namespace] = struct{}{}
 	return nil
 }

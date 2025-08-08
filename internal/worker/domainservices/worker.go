@@ -27,9 +27,6 @@ import (
 
 // Config is the configuration required for domain services worker.
 type Config struct {
-	// DBDeleter is used to delete databases.
-	DBDeleter coredatabase.DBDeleter
-
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter changestream.WatchableDBGetter
 
@@ -72,9 +69,6 @@ type Config struct {
 
 // Validate validates the domain services configuration.
 func (config Config) Validate() error {
-	if config.DBDeleter == nil {
-		return errors.NotValidf("nil DBDeleter")
-	}
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
 	}
@@ -128,7 +122,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 	ctrlFactory := config.NewControllerDomainServices(
 		config.DBGetter,
-		config.DBDeleter,
 		controllerObjectStoreGetter,
 		config.Clock,
 		config.Logger,

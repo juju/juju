@@ -102,9 +102,6 @@ type ModelService interface {
 	// either cloud or credential specified.
 	DefaultModelCloudInfo(context.Context) (string, string, error)
 
-	// DeleteModel deletes the give model.
-	DeleteModel(context.Context, coremodel.UUID, ...model.DeleteModelOption) error
-
 	// ListAllModels returns a list of all models.
 	ListAllModels(context.Context) ([]coremodel.Model, error)
 
@@ -204,9 +201,6 @@ type ModelInfoService interface {
 	CreateModelWithAgentVersionStream(
 		context.Context, semversion.Number, agentbinary.AgentStream,
 	) error
-
-	// DeleteModel is responsible for deleting a model.
-	DeleteModel(context.Context) error
 
 	// GetModelInfo returns the readonly model information for the model in
 	// question.

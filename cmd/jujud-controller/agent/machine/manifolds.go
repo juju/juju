@@ -578,7 +578,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		domainServicesName: workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
-			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
 			ObjectStoreName:             objectStoreFacadeName,

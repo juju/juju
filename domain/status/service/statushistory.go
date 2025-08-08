@@ -22,7 +22,7 @@ func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryReq
 	if err != nil {
 		return nil, errors.Errorf("reading status history: %v", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	now := s.clock.Now()
 
@@ -90,6 +90,11 @@ func matches(hr statushistory.HistoryRecord, req StatusHistoryRequest, now time.
 
 	case status.KindMachineInstance:
 		if hr.Kind != status.KindMachineInstance {
+			return false, nil
+		}
+
+	case status.KindModel:
+		if hr.Kind != status.KindModel {
 			return false, nil
 		}
 

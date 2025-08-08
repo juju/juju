@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/statushistory"
 )
 
 // ModelActivator describes a closure type that must be called after creating a
@@ -44,6 +46,14 @@ type ModelTypeState interface {
 	// If no cloud exists for the provided name then an error of
 	// [clouderrors.NotFound] will be returned.
 	CloudType(context.Context, string) (string, error)
+}
+
+// StatusHistory records status information into a generalized way.
+type StatusHistory interface {
+	// RecordStatus records the given status information.
+	// If the status data cannot be marshalled, it will not be recorded, instead
+	// the error will be logged under the data_error key.
+	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 }
 
 // State is the model state required by this service.
@@ -146,19 +156,12 @@ type State interface {
 	InitialWatchModelTableName() string
 }
 
-// ModelDeleter is an interface for deleting models.
-type ModelDeleter interface {
-	// DeleteDB is responsible for removing a model from Juju and all of it's
-	// associated metadata.
-	DeleteDB(string) error
-}
-
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
-	st           State
-	modelDeleter ModelDeleter
-	logger       logger.Logger
+	st            State
+	logger        logger.Logger
+	statusHistory StatusHistory
 }
 
 var (
@@ -168,13 +171,13 @@ var (
 // NewService returns a new Service for interacting with a models state.
 func NewService(
 	st State,
-	modelDeleter ModelDeleter,
 	logger logger.Logger,
+	statusHistory StatusHistory,
 ) *Service {
 	return &Service{
-		st:           st,
-		modelDeleter: modelDeleter,
-		logger:       logger,
+		st:            st,
+		logger:        logger,
+		statusHistory: statusHistory,
 	}
 }
 
@@ -219,16 +222,17 @@ type WatchableService struct {
 
 // NewWatchableService provides a new Service for interacting with the
 // underlying state and the ability to create watchers.
-func NewWatchableService(st State,
-	modelDeleter ModelDeleter,
+func NewWatchableService(
+	st State,
 	logger logger.Logger,
 	watcherFactory WatcherFactory,
+	statusHistory StatusHistory,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			st:           st,
-			modelDeleter: modelDeleter,
-			logger:       logger,
+			st:            st,
+			logger:        logger,
+			statusHistory: statusHistory,
 		},
 		watcherFactory: watcherFactory,
 	}
@@ -323,7 +327,7 @@ func (s *Service) CreateModel(
 		)
 	}
 
-	activator, err := s.createModel(ctx, modelID, args)
+	activator, err := createModel(ctx, s.st, modelID, args)
 	return modelID, activator, err
 }
 
@@ -355,12 +359,13 @@ func (s *Service) CreateModel(
 // - [modelerrors.CredentialNotValid]: When the cloud credential for the model
 // is not valid. This means that either the credential is not supported with
 // the cloud or the cloud doesn't support having an empty credential.
-func (s *Service) createModel(
+func createModel(
 	ctx context.Context,
+	st State,
 	id coremodel.UUID,
 	args model.GlobalModelCreationArgs,
 ) (func(context.Context) error, error) {
-	modelType, err := ModelTypeForCloud(ctx, s.st, args.Cloud)
+	modelType, err := ModelTypeForCloud(ctx, st, args.Cloud)
 	if err != nil {
 		return nil, errors.Errorf(
 			"determining model type when creating model %q: %w",
@@ -382,7 +387,7 @@ func (s *Service) createModel(
 	}
 
 	if args.Credential.IsZero() {
-		supports, err := s.st.CloudSupportsAuthType(ctx, args.Cloud, cloud.EmptyAuthType)
+		supports, err := st.CloudSupportsAuthType(ctx, args.Cloud, cloud.EmptyAuthType)
 		if err != nil {
 			return nil, errors.Errorf(
 				"checking if cloud %q support empty authentication for new model %q: %w",
@@ -399,42 +404,10 @@ func (s *Service) createModel(
 	}
 
 	activator := ModelActivator(func(ctx context.Context) error {
-		return s.st.Activate(ctx, id)
+		return st.Activate(ctx, id)
 	})
 
-	return activator, s.st.Create(ctx, id, modelType, args)
-}
-
-// ImportModel is responsible for importing an existing model into this Juju
-// controller. The caller must explicitly specify the agent version that is in
-// use for the imported model.
-//
-// Models created by this function must be activated using the returned
-// ModelActivator.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists]: When the model uuid is already in use or a
-// model with the same name and owner already exists.
-// - [errors.NotFound]: When the cloud, cloud region, or credential do not
-// exist.
-// - [github.com/juju/juju/domain/access/errors.NotFound]: When the owner of the
-// model can not be found.
-// - [secretbackenderrors.NotFound] When the secret backend for the model
-// cannot be found.
-func (s *Service) ImportModel(
-	ctx context.Context,
-	args model.ModelImportArgs,
-) (func(context.Context) error, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := args.Validate(); err != nil {
-		return nil, errors.Errorf(
-			"cannot validate model import args: %w", err,
-		)
-	}
-
-	return s.createModel(ctx, args.UUID, args.GlobalModelCreationArgs)
+	return activator, st.Create(ctx, id, modelType, args)
 }
 
 // ControllerModel returns the model used for housing the Juju controller.
@@ -474,50 +447,6 @@ func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Mod
 	}
 
 	return s.st.GetModel(ctx, uuid)
-}
-
-// DeleteModel is responsible for removing a model from Juju and all of it's
-// associated metadata.
-// - errors.NotValid: When the model uuid is not valid.
-// - modelerrors.NotFound: When the model does not exist.
-func (s *Service) DeleteModel(
-	ctx context.Context,
-	uuid coremodel.UUID,
-	opts ...model.DeleteModelOption,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	options := model.DefaultDeleteModelOptions()
-	for _, fn := range opts {
-		fn(options)
-	}
-
-	if err := uuid.Validate(); err != nil {
-		return errors.Errorf("delete model, uuid: %w", err)
-	}
-
-	// Delete common items from the model. This helps to ensure that the
-	// model is cleaned up correctly.
-	if err := s.st.Delete(ctx, uuid); err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return errors.Errorf("delete model: %w", err)
-	}
-
-	// If the db should not be deleted then we can return early.
-	if !options.DeleteDB() {
-		s.logger.Infof(ctx, "skipping model deletion, model database will still be present")
-		return nil
-	}
-
-	// Delete the db completely from the system. Currently, this will remove
-	// the db from the dbaccessor, but it will not drop the db (currently not
-	// supported in dqlite). For now we do a best effort to remove all items
-	// with in the db.
-	if err := s.modelDeleter.DeleteDB(uuid.String()); err != nil {
-		return errors.Errorf("delete model: %w", err)
-	}
-
-	return nil
 }
 
 // ListModelUUIDs returns a list of all model UUIDs in the controller that are

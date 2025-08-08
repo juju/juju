@@ -152,7 +152,7 @@ func (i *importModelConstraintsOperation) Name() string {
 // Setup is responsible for taking the model migration scope and creating the
 // needed services used during import.
 func (i *importModelOperation) Setup(scope modelmigration.Scope) error {
-	i.modelImportService = modelservice.NewService(
+	i.modelImportService = modelservice.NewMigrationService(
 		statecontroller.NewState(scope.ControllerDB()),
 		scope.ModelDeleter(),
 		i.logger,
