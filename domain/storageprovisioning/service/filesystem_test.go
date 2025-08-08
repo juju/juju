@@ -641,7 +641,7 @@ func (s *filesystemSuite) TestGetFilesystemParams(c *tc.C) {
 }
 
 // TestGetFilesystemParamsNotFound tests that when no filesystem exists a call
-// to [Service.GetFilesystemparams] returns an error satsifying
+// to [Service.GetFilesystemparams] returns an error satisfying
 // [storageprovisioningerrors.FilesystemNotFound].
 func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -687,7 +687,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParams(c *tc.C) {
 
 // TestGetFilesystemAttachmentParamsNotFound tests that when no filesystem
 // attachment exists for a call to [Service.GetFilesystemAttachmentParams]
-// returns an error satsifying [storageprovisioningerrors.FilesystemNotFound].
+// returns an error satisfying [storageprovisioningerrors.FilesystemNotFound].
 func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory)

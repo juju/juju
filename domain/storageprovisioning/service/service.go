@@ -301,6 +301,7 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 		key, value, ok := strings.Cut(pair, "=")
 		if !ok {
 			return nil, errors.Errorf("malformed resource tag %q", pair)
+
 		}
 		if strings.HasPrefix(key, tags.JujuTagPrefix) {
 			continue

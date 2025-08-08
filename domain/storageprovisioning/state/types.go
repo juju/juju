@@ -87,6 +87,24 @@ func (l filesystemLives) Iter(yield func(string, life.Life) bool) {
 	}
 }
 
+// filesystemAttachmentParams represents the attachment params for a filesystem
+// attachment from the model database.
+type filesystemAttachmentParams struct {
+	MachineInstanceID sql.Null[string] `db:"machine_instance_id"`
+	Type              sql.Null[string] `db:"type"`
+	ProviderID        sql.Null[string] `db:"provider_id"`
+	MountPoint        sql.Null[string] `db:"mount_point"`
+	ReadOnly          sql.Null[bool]   `db:"read_only"`
+}
+
+// filesystemParams represents the attachment params for a filesystem from the
+// model database.
+type filesystemParams struct {
+	FilesystemID string           `db:"filesystem_id"`
+	Type         sql.Null[string] `db:"type"`
+	SizeMiB      uint64           `db:"size_mib"`
+}
+
 // filesystemUUID represents the UUID of a record in the filesystem table.
 type filesystemUUID entityUUID
 
@@ -114,6 +132,70 @@ type volumeAttachmentIDs struct {
 	VolumeID    string         `db:"volume_id"`
 	MachineName sql.NullString `db:"machine_name"`
 	UnitName    sql.NullString `db:"unit_name"`
+}
+
+type filesystem struct {
+	FilesystemID string           `db:"filesystem_id"`
+	ProviderID   string           `db:"provider_id"`
+	VolumeID     sql.Null[string] `db:"volume_id"`
+	SizeMiB      uint64           `db:"size_mib"`
+}
+
+type filesystemAttachment struct {
+	FilesystemID string `db:"filesystem_id"`
+	MountPoint   string `db:"mount_point"`
+	ReadOnly     bool   `db:"read_only"`
+}
+
+// filesystemAttachmentProvisionedInfo is used to set the provisioned info for
+// a filesystem attachment.
+type filesystemAttachmentProvisionedInfo struct {
+	UUID       string `db:"uuid"`
+	MountPoint string `db:"mount_point"`
+	ReadOnly   bool   `db:"read_only"`
+}
+
+// filesystemProvisionedInfo is used to set the provisioned info for a
+// filesystem.
+type filesystemProvisionedInfo struct {
+	UUID       string `db:"uuid"`
+	ProviderID string `db:"provider_id"`
+	SizeMiB    uint64 `db:"size_mib"`
+}
+
+// filesystemTemplate represents the combination of storage directives, charm
+// storage and provider type.
+type filesystemTemplate struct {
+	StorageName  string `db:"storage_name"`
+	SizeMiB      uint64 `db:"size_mib"`
+	Count        int    `db:"count"`
+	MaxCount     int    `db:"count_max"`
+	ProviderType string `db:"storage_type"`
+	ReadOnly     bool   `db:"read_only"`
+	Location     string `db:"location"`
+}
+
+// modelResourceTagInfo represents the information about model resource tag
+// information for storage.
+type modelResourceTagInfo struct {
+	ResourceTags   string `db:"resource_tags"`
+	ModelUUID      string `db:"uuid"`
+	ControllerUUID string `db:"controller_uuid"`
+}
+
+// storageNameAttributes represents each key/value attribute for a given storage
+// derived from the provider/pool used to provisioner the storage.
+type storageNameAttributes struct {
+	StorageName string `db:"storage_name"`
+	Key         string `db:"key"`
+	Value       string `db:"value"`
+}
+
+// storagePoolAttribute represent a single attribute from the
+// storage_pool_attribute table.
+type storagePoolAttribute struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
 }
 
 // volumeAttachmentPlanLife represents the life of a volume attachment plan in
@@ -159,6 +241,9 @@ type volumeLife struct {
 // volumeLives is a convenience type that facilitates transforming a slice
 // of [volumeLife] values to a map.
 type volumeLives []volumeLife
+
+// volumeUUID represents the UUID of a record in the volume table.
+type volumeUUID entityUUID
 
 // Iter provides a seq2 implementation for iterating the values of
 // [volumeLives].

@@ -56,7 +56,8 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 	storageInstanceUUID := s.newStorageInstance(c, "")
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
-	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
+	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
+	s.setFilesystemProviderID(c, fsUUID, "fs-123")
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
 	st := NewState(s.TxnRunnerFactory())
 
@@ -76,8 +77,9 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 // TestGetFilesystemWithBackingVolume tests getting a filesystem's information
 // by id when it isn't backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
-	storageInstanceUUID := s.newStorageInstance(c, "")
-	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
+	storageInstanceUUID := s.newStorageInstance(c)
+	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
+	s.setFilesystemProviderID(c, fsUUID, "fs-123")
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
 	st := NewState(s.TxnRunnerFactory())
 
@@ -111,7 +113,8 @@ func (s *filesystemSuite) TestGetFilesystemNotFoundError(c *tc.C) {
 // It just means that the filesystem is not backed by a volume in the model.
 func (s *filesystemSuite) TestGetFilesystemNotAttachedToStorageInstance(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	fsUUID, fsID := s.newMachineFilesystemWithSize(c, "fs-123", 100)
+	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
+	s.setFilesystemProviderID(c, fsUUID, "fs-123")
 
 	fs, err := st.GetFilesystem(c.Context(), fsUUID)
 
@@ -126,7 +129,9 @@ func (s *filesystemSuite) TestGetFilesystemAttachment(c *tc.C) {
 
 	netNodeUUID := s.newNetNode(c)
 	fsUUID, fsID := s.newMachineFilesystem(c)
-	uuid := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
+	uuid := s.newMachineFilesystemAttachmentWithMount(
+		c, fsUUID, netNodeUUID, "/mnt/", true,
+	)
 
 	result, err := st.GetFilesystemAttachment(c.Context(), uuid)
 
@@ -837,6 +842,167 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoNotFound(c *
 		storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
+// TestGetFilesystemParamsNotFound checks that when asking for filesystem params
+// and the filesystem doesn't exist the caller gets back an error satisfying
+// [storageprovisioningerrors.FilesystemNotFound].
+func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	_, err := st.GetFilesystemParams(c.Context(), fsUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
+// TestGetFilesystemParamsUsingProvider is testing getting filesystem params
+// where the associated storage instance is referencing a provider type.
+func (s *filesystemSuite) TestGetFilesystemParamsUsingProvider(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	suuid := s.newStorageInstanceWithProviderType(c, "myprovider")
+	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+
+	params, err := st.GetFilesystemParams(c.Context(), fsUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemParams{
+		Attributes: map[string]string{},
+		ID:         fsID,
+		Provider:   "myprovider",
+		SizeMiB:    100,
+	})
+}
+
+// TestGetFilesystemParamsUsingPool is testing getting filesystem params
+// where the associated storage instance is referencing a storage pool.
+func (s *filesystemSuite) TestGetFilesystemParamsUsingPool(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", map[string]string{
+		"foo": "bar",
+	})
+	suuid := s.newStorageInstanceWithPool(c, poolUUID)
+	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+
+	params, err := st.GetFilesystemParams(c.Context(), fsUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemParams{
+		Attributes: map[string]string{
+			"foo": "bar",
+		},
+		ID:       fsID,
+		Provider: "mypoolprovider",
+		SizeMiB:  100,
+	})
+}
+
+// TestGetFilesystemAttachmentParamsNotFound is testing that when asking for the
+// params of a filesystem attachment that does not exist the caller gets back an
+// error satisfying [storageprovisioningerrors.FilesystemAttachmentNotFound].
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	_, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingProviderAndMachine(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	netNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+	suuid := s.newStorageInstanceWithProviderType(c, "myprovider")
+	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
+	s.setFilesystemProviderID(c, fsUUID, "provider-id")
+	fsaUUID := s.newMachineFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "/var/foo", true)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+
+	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		MachineInstanceID: "machine-id-123",
+		Provider:          "myprovider",
+		ProviderID:        "provider-id",
+		MountPoint:        "/var/foo",
+		ReadOnly:          true,
+	})
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingPoolAndMachine(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	netNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	suuid := s.newStorageInstanceWithPool(c, poolUUID)
+	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
+	s.setFilesystemProviderID(c, fsUUID, "provider-id")
+	fsaUUID := s.newMachineFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "/var/foo", true)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+
+	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		MachineInstanceID: "machine-id-123",
+		Provider:          "canonical",
+		ProviderID:        "provider-id",
+		MountPoint:        "/var/foo",
+		ReadOnly:          true,
+	})
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingProviderAndUnit(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "myapp")
+	s.newUnitWithNetNode(c, "myapp/0", appUUID, netNodeUUID)
+	suuid := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider")
+	fsUUID, _ := s.newModelFilesystem(c)
+	s.setFilesystemProviderID(c, fsUUID, "provider-id")
+	fsaUUID := s.newModelFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "/var/foo", true)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+
+	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		MachineInstanceID: "",
+		Provider:          "myprovider",
+		ProviderID:        "provider-id",
+		MountPoint:        "/var/foo",
+		ReadOnly:          true,
+	})
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingPoolAndUnit(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "myapp")
+	s.newUnitWithNetNode(c, "myapp/0", appUUID, netNodeUUID)
+	poolUUID := s.newStoragePool(c, "mybigstoragepool", "poolprovider", nil)
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID)
+	fsUUID, _ := s.newModelFilesystem(c)
+	s.setFilesystemProviderID(c, fsUUID, "provider-id")
+	fsaUUID := s.newModelFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "/var/foo", true)
+	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
+
+	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
+		MachineInstanceID: "",
+		Provider:          "poolprovider",
+		ProviderID:        "provider-id",
+		MountPoint:        "/var/foo",
+		ReadOnly:          true,
+	})
+}
+
 // changeFilesystemLife is a utility function for updating the life value of a
 // filesystem.
 func (s *filesystemSuite) changeFilesystemLife(
@@ -873,22 +1039,22 @@ WHERE  uuid = ?
 func (s *filesystemSuite) newMachineFilesystem(c *tc.C) (
 	storageprovisioning.FilesystemUUID, string,
 ) {
-	return s.newMachineFilesystemWithSize(c, "", 100)
+	return s.newMachineFilesystemWithSize(c, 100)
 }
 
 // newMachineFilesystem creates a new filesystem in the model with machine
 // provision scope and the supplied size. Returned is the uuid and filesystem
 // id of the entity.
 func (s *filesystemSuite) newMachineFilesystemWithSize(
-	c *tc.C, providerID string, size uint64,
+	c *tc.C, size uint64,
 ) (storageprovisioning.FilesystemUUID, string) {
 	fsUUID := domaintesting.GenFilesystemUUID(c)
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 	_, err := s.DB().Exec(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provider_id, size_mib, provision_scope_id)
-VALUES (?, ?, 0, ?, ?, 1)
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, size_mib, provision_scope_id)
+VALUES (?, ?, 0, ?, 1)
 	`,
-		fsUUID.String(), fsID, providerID, size)
+		fsUUID.String(), fsID, size)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return fsUUID, fsID
@@ -921,6 +1087,18 @@ func (s *filesystemSuite) newMachineFilesystemAttachment(
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
+	return s.newMachineFilesystemAttachmentWithMount(
+		c, fsUUID, netNodeUUID, "/mnt", false,
+	)
+}
+
+func (s *filesystemSuite) newMachineFilesystemAttachmentWithMount(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	mountPoint string,
+	readOnly bool,
+) storageprovisioning.FilesystemAttachmentUUID {
 	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
 
 	_, err := s.DB().ExecContext(
@@ -933,9 +1111,14 @@ INSERT INTO storage_filesystem_attachment (uuid,
                                            mount_point,
                                            read_only,
                                            provision_scope_id)
-VALUES (?, ?, ?, 0, '/mnt/', true, 1)
+VALUES (?, ?, ?, 0, ?, ?, 1)
 `,
-		attachmentUUID.String(), fsUUID.String(), netNodeUUID.String())
+		attachmentUUID.String(),
+		fsUUID.String(),
+		netNodeUUID.String(),
+		mountPoint,
+		readOnly,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID
@@ -949,6 +1132,18 @@ func (s *filesystemSuite) newModelFilesystemAttachment(
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
+	return s.newModelFilesystemAttachmentWithMount(
+		c, fsUUID, netNodeUUID, "/mnt", false,
+	)
+}
+
+func (s *filesystemSuite) newModelFilesystemAttachmentWithMount(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	mountPoint string,
+	readOnly bool,
+) storageprovisioning.FilesystemAttachmentUUID {
 	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
 
 	_, err := s.DB().ExecContext(
@@ -958,11 +1153,33 @@ INSERT INTO storage_filesystem_attachment (uuid,
                                            storage_filesystem_uuid,
                                            net_node_uuid,
                                            life_id,
+                                           mount_point,
+                                           read_only,
                                            provision_scope_id)
-VALUES (?, ?, ?, 0, 0)
+VALUES (?, ?, ?, 0, ?, ?, 0)
 `,
-		attachmentUUID.String(), fsUUID, netNodeUUID.String())
+		attachmentUUID.String(),
+		fsUUID,
+		netNodeUUID.String(),
+		mountPoint,
+		readOnly,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID
+}
+
+func (s *filesystemSuite) setFilesystemProviderID(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	providerID string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_filesystem
+SET    provider_id = ?
+WHERE  uuid = ?
+`,
+		providerID, fsUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
 }

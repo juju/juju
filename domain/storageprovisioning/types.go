@@ -3,11 +3,18 @@
 
 package storageprovisioning
 
-type ResourceTagInfo struct {
+// ApplicationResourceTagInfo represents storage tag information in the context
+// of an application.
+type ApplicationResourceTagInfo struct {
+	ApplicationName string
+	ModelResourceTagInfo
+}
+
+// ModelResourceTagInfo represents storage tag information from the model.
+type ModelResourceTagInfo struct {
 	BaseResourceTags string
 	ModelUUID        string
 	ControllerUUID   string
-	ApplicationName  string
 }
 
 // PlanDeviceType defines what type of storage attachment plan is required.
