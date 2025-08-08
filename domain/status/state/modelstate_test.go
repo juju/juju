@@ -739,7 +739,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatus(c *tc.C) {
 
 	now := time.Now()
 
-	s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.setK8sPodStatus(ctx, tx, unitUUID, status.StatusInfo[status.K8sPodStatusType]{
 			Status:  status.K8sPodStatusRunning,
 			Message: "it's running",
@@ -747,6 +747,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatus(c *tc.C) {
 			Since:   &now,
 		})
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	sts, err := s.state.GetUnitK8sPodStatus(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1201,8 +1202,10 @@ func (s *modelStateSuite) TestGetAllApplicationStatuses(c *tc.C) {
 		Data:    []byte(`{"bar": "foo"}`),
 		Since:   ptr(time.Now()),
 	}
-	s.state.SetApplicationStatus(c.Context(), app1ID, app1Status)
-	s.state.SetApplicationStatus(c.Context(), app2ID, app2Status)
+	err := s.state.SetApplicationStatus(c.Context(), app1ID, app1Status)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetApplicationStatus(c.Context(), app2ID, app2Status)
+	c.Assert(err, tc.ErrorIsNil)
 
 	statuses, err := s.state.GetAllApplicationStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1319,6 +1322,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1329,6 +1333,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1412,6 +1417,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("0")),
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusIdle,
 						Message: "it's idle",
@@ -1438,6 +1444,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("1")),
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusError,
 						Message: "error",
@@ -1496,6 +1503,9 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 	appUUID1, units1 := s.createApplication(c, "sub", life.Alive, true, appStatus, u2, u3)
 	c.Assert(units1, tc.HasLen, 2)
 	for _, unit := range units1 {
+		// This will cause the subordinates to have incorrect machine names
+		// in the checking code, but we're not setting up full relations. So
+		// this ends up being a bit of a hack.
 		s.setApplicationSubordinate(c, units0[0], unit)
 	}
 
@@ -1528,6 +1538,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("0")),
 					SubordinateNames: map[coreunit.Name]struct{}{
 						"sub/0": {},
 						"sub/1": {},
@@ -1575,6 +1586,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 						Source:       "charmhub",
 						Architecture: architecture.ARM64,
 					},
+					MachineName: ptr(coremachine.Name("1")),
 				},
 				"sub/1": {
 					Life:            life.Alive,
@@ -1603,6 +1615,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 						Source:       "charmhub",
 						Architecture: architecture.ARM64,
 					},
+					MachineName: ptr(coremachine.Name("2")),
 				},
 			},
 		},
@@ -1647,6 +1660,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1657,6 +1671,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1708,6 +1723,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1719,6 +1735,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1788,6 +1805,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1798,6 +1816,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1859,6 +1878,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1869,6 +1889,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					MachineName:     ptr(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -2074,16 +2095,18 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.SetMachineStatus(c.Context(), mName0.String(), status.StatusInfo[status.MachineStatusType]{
+	err = s.state.SetMachineStatus(c.Context(), mName0.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
 		Message: "it's started",
 		Data:    []byte(`{"foo": "bar"}`),
 	})
-	s.state.SetMachineStatus(c.Context(), mName1.String(), status.StatusInfo[status.MachineStatusType]{
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetMachineStatus(c.Context(), mName1.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusPending,
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
 	statuses, err := s.state.GetMachineFullStatuses(c.Context())
@@ -2211,16 +2234,18 @@ func (s *modelStateSuite) TestGetAllMachineStatuses(c *tc.C) {
 	_, machineName1 := s.createMachine(c)
 	_, machineName2 := s.createMachine(c)
 
-	s.state.SetMachineStatus(c.Context(), machineName1.String(), status.StatusInfo[status.MachineStatusType]{
+	err := s.state.SetMachineStatus(c.Context(), machineName1.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
 		Message: "it's started",
 		Data:    []byte(`{"foo": "bar"}`),
 	})
-	s.state.SetMachineStatus(c.Context(), machineName2.String(), status.StatusInfo[status.MachineStatusType]{
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetMachineStatus(c.Context(), machineName2.String(), status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusPending,
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
 	statuses, err := s.state.GetAllMachineStatuses(c.Context())
@@ -2390,16 +2415,18 @@ func (s *modelStateSuite) TestGetAllInstanceStatuses(c *tc.C) {
 	_, machineName1 := s.createMachine(c)
 	_, machineName2 := s.createMachine(c)
 
-	s.state.SetInstanceStatus(c.Context(), machineName1.String(), status.StatusInfo[status.InstanceStatusType]{
+	err := s.state.SetInstanceStatus(c.Context(), machineName1.String(), status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 	})
-	s.state.SetInstanceStatus(c.Context(), machineName2.String(), status.StatusInfo[status.InstanceStatusType]{
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetInstanceStatus(c.Context(), machineName2.String(), status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusPending,
 		Message: "it's pending",
 		Data:    []byte(`{"bar": "foo"}`),
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
 	statuses, err := s.state.GetAllInstanceStatuses(c.Context())
