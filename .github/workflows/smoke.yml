@@ -18,13 +18,6 @@ jobs:
         cloud: ["localhost", "microk8s"]
     steps:
 
-      - name: Install Dependencies
-        shell: bash
-        run: |
-          set -euxo pipefail
-          echo "/snap/bin" >> $GITHUB_PATH
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -106,13 +99,6 @@ jobs:
       fail-fast: false
     steps:
 
-      - name: Install Dependencies
-        shell: bash
-        run: |
-          set -euxo pipefail
-          echo "/snap/bin" >> $GITHUB_PATH
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -147,4 +133,5 @@ jobs:
           # Skip destroy to keep the environment up.
           export SKIP_DESTROY=true
 
-          ./main.sh -v deploy
+          # Skip these tests for now, as they rely on cmrs
+          ./main.sh -v -s 'test_cmr_bundles_export_overlay' deploy

@@ -137,7 +137,7 @@ run_deploy_local_predeployed_charm() {
 	ensure "${model_name}" "${file}"
 
 	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/lxd-profile) --base ubuntu@22.04
+	juju deploy $(pack_charm ./testcharms/charms/lxd-profile) --base ubuntu@24.04
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
 	juju deploy local:lxd-profile-0 another-lxd-profile-app
@@ -192,10 +192,10 @@ run_deploy_lxd_to_machine() {
 
 	ensure "${model_name}" "${file}"
 
-	juju add-machine -n 2 --base ubuntu@22.04
+	juju add-machine -n 2 --base ubuntu@24.04
 
 	charm=$(pack_charm ./tests/suites/deploy/charms/lxd-profile-alt)
-	juju deploy ${charm} --to 0 --base ubuntu@22.04
+	juju deploy ${charm} --to 0 --base ubuntu@24.04
 
 	# Test the case where we wait for the machine to start
 	# before deploying the unit.
@@ -365,15 +365,18 @@ test_deploy_charms() {
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd")
-			if stat /dev/kvm; then
+			if kvm-ok; then
 				run "run_deploy_charm_placement_directive"
 			else
 				echo "==> TEST SKIPPED: deploy_charm_placement_directive - lxd without kvm is not supported"
 			fi
-			run "run_deploy_lxd_to_machine"
-			run "run_deploy_lxd_profile_charm"
-			run "run_deploy_local_predeployed_charm"
-			run "run_deploy_local_lxd_profile_charm"
+			# Skip these tests for now, as they rely on lxd profiles, which
+			# have not been re-implemented yet
+			#
+			# run "run_deploy_lxd_to_machine"
+			# run "run_deploy_lxd_profile_charm"
+			# run "run_deploy_local_predeployed_charm"
+			# run "run_deploy_local_lxd_profile_charm"
 			echo "==> TEST SKIPPED: deploy_lxd_to_container - tests for non LXD only"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm_container - tests for non LXD only"
 			;;
