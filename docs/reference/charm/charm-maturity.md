@@ -192,11 +192,11 @@ The charm can expose provides/requires interfaces for integration ready to be ad
 
 #### The charm respects juju model-config
 
-Most developers are keenly aware of their own charm's configs, without being aware that juju model-config is another point of administrative control.
+Most developers are keenly aware of their own charm's configs, without being aware that `juju model-config` is another point of administrative control.
 
 | Objectives  | Tips, examples, further reading |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Avoid duplicating configuration options that is best controlled at a model perspective: <p>&#8226; juju-http-proxy, juju-https-proxy, juju-no-proxy should influence the charms behavior when the charm or charmed application makes any http request. | A [Github project](https://github.com/canonical/charms.proxylib) provides a library to help charms direct url requests and subprocess calls through the model configured proxy environment. |
+| Avoid duplicating configuration options that are best controlled at a model level: <p>&#8226; `juju-http-proxy`, `juju-https-proxy`, `juju-no-proxy` should influence the charm's behavior when the charm or charm workload makes any HTTP request. | A [Github project](https://github.com/canonical/charms.proxylib) provides a library to help charms direct url requests and subprocess calls through the model-configured proxy environment. |
 
 #### The charm upgrades the application safely
 
