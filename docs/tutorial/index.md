@@ -1,7 +1,7 @@
 (tutorial)=
 # Get started with Juju
 
-Juju is a tool for provisioning cloud infrastructure as well as deploying and operating applications on that infrastructure using charms. Charms are software packages that contain instructions for how to operate an application. Juju and charms work together to provide a cloud- and application-agnostic operations solution for any major operation (provision, install, configure, integrate, scale, upgrade, ...) on any type of cloud (Kubernetes or machines).
+Juju is a tool for provisioning cloud infrastructure and deploying and operating applications on that infrastructure using charms. Charms are software packages that contain instructions for how to operate an application. Juju and charms work together to provide a cloud- and application-agnostic operations solution for any major operation (provision, install, configure, integrate, scale, upgrade, ...) on any type of cloud (Kubernetes or machines).
 
 In this tutorial you will get acquainted with Juju and charms by deploying a chat service on a Kubernetes cloud.
 
@@ -263,7 +263,7 @@ to create a new model to deploy k8s workloads.
 
 This will use ingredients from your client, the `juju-controller` charm from Charmhub and a pod from MicroK8s (backed by your current node -- your VM) to give you a running Juju controller.
 
-Now, to be fully operational a controller needs access to a cloud and to Charmhub (or a local source for charms).Our controller already has access to our 'microk8s' cloud -- this access was granted implicitly through bootstrap. Also, as before, so long as you're connected to the internet, your controller has access to Charmhub too. Your controller is all set!
+Now, to be fully operational a controller needs access to a cloud and to Charmhub (or a local source for charms). Our controller already has access to our 'microk8s' cloud -- this access was granted implicitly through bootstrap. Also, as before, so long as you're connected to the internet, your controller has access to Charmhub too. Your controller is all set!
 
 At this point we could connect to it further clouds or set up the Juju dashboard. For the purpose of this tutorial, however, we will skip ahead to talking about users and permissions.
 
