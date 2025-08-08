@@ -5,27 +5,31 @@
 
 In Juju, (starting with Juju 3.0) a **secret** is a sensitive bit of information (e.g., account credential, password, certificate, SSH key, API key, encryption key, etc.) that a {ref}`charm <charm>` needs to know.
 
-
-
 ## Secret taxonomy
 
 (charm-secret)=
-### Charm
+### Charm secret
+
+```{versionadded} 3.0.0
+```
 
 A **charm secret** is a secret created by a charm. A charm secret is shared with another charm (the secret 'observer') over relation data. The secret is tied to the lifecycle of the relation.
 
 (unit-secret)=
-#### Unit
+#### Unit secret
 
 A **unit secret** is a {ref}`charm secret <charm-secret>` created by a unit and owned by the unit.
 
 (application-secret)=
-#### Application
+#### Application secret
 
 An **application secret** is a {ref}`charm secret <charm-secret>` created by the leader unit and (because the leader unit does not have a fixed identity) owned by the application (i.e., when the leader unit changes, the secret is owned by the new leader).
 
 (user-secret)=
-### User
+### User secret
+
+```{versionadded} 3.3.0
+```
 
 A **user secret** is a secret created by a {ref}`user <user>` with a {ref}`model admin access level <user-access-model-admin>` and (because this does not have a fixed identity) owned by the model. A user secret is shared with a charm (the secret 'observer') via a configuration option. The charm must support the configuration option.
 
