@@ -239,6 +239,7 @@ For more information see [CODING.md](CODING.md)
 
 ```
 git pull upstream 3.6 --rebase
+git push --force
 ```
 
 10. Stage, commit and push regularly to your fork. Make sure your commit messages
