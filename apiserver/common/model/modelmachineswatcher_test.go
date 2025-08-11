@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/model"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -66,8 +65,7 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *tc.C) {
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
 	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
+
 	e := model.NewModelMachinesWatcher(
 		s.machineService,
 		s.watcherRegistry,
@@ -75,5 +73,5 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *tc.C) {
 	)
 	_, err := e.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
-	c.Assert(resources.Count(), tc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), tc.Equals, 0)
 }

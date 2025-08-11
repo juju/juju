@@ -112,9 +112,6 @@ type apiHandler struct {
 	// serverHost is the host:port of the API server that the client
 	// connected to.
 	serverHost string
-
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	resources *common.Resources
 }
 
 var _ = (*apiHandler)(nil)
@@ -172,7 +169,6 @@ func newAPIHandler(
 		objectStore:           objectStore,
 		objectStoreGetter:     objectStoreGetter,
 		controllerObjectStore: controllerObjectStore,
-		resources:             common.NewResources(),
 		watcherRegistry:       registry,
 		shared:                srv.shared,
 		rpcConn:               rpcConn,
@@ -183,12 +179,6 @@ func newAPIHandler(
 	}
 
 	return r, nil
-}
-
-// Resources returns the common resources.
-// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-func (r *apiHandler) Resources() *common.Resources {
-	return r.resources
 }
 
 // WatcherRegistry returns the watcher registry for tracking watchers between
@@ -255,7 +245,6 @@ func (r *apiHandler) Kill() {
 	if err := r.watcherRegistry.Wait(); err != nil {
 		logger.Infof(context.TODO(), "error waiting for watcher registry to stop: %v", err)
 	}
-	r.resources.StopAll()
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.
@@ -397,9 +386,6 @@ type apiRootHandler interface {
 	ControllerObjectStore() objectstore.ObjectStore
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
-	// Resources returns the common resources.
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	Resources() *common.Resources
 	// WatcherRegistry returns the watcher registry for tracking watchers
 	// between API calls.
 	WatcherRegistry() facade.WatcherRegistry
@@ -433,9 +419,6 @@ type apiRoot struct {
 	// on. There are some exceptions to this rule, but they are exceptions that
 	// prove the rule.
 	modelUUID model.UUID
-
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	resources *common.Resources
 }
 
 // newAPIRoot returns a new apiRoot.
@@ -456,7 +439,6 @@ func newAPIRoot(
 		controllerObjectStore: root.ControllerObjectStore(),
 		shared:                root.SharedContext(),
 		facades:               facades,
-		resources:             root.Resources(),
 		watcherRegistry:       root.WatcherRegistry(),
 		authorizer:            root.Authorizer(),
 		objectCache:           make(map[objectKey]reflect.Value),
