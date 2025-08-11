@@ -29,12 +29,12 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
@@ -87,7 +87,7 @@ type apiHandler struct {
 
 	// watcherRegistry is the registry for tracking watchers between API calls
 	// for a given model UUID.
-	watcherRegistry facade.WatcherRegistry
+	watcherRegistry watcherregistry.WatcherRegistry
 
 	// authInfo represents the authentication info established with this client
 	// connection.
@@ -135,6 +135,7 @@ func newAPIHandler(
 	objectStore objectstore.ObjectStore,
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
+	watcherRegistry watcherregistry.WatcherRegistry,
 	modelUUID model.UUID,
 	controllerOnlyLogin bool,
 	connectionID uint64,
@@ -159,11 +160,6 @@ func newAPIHandler(
 		}
 	}
 
-	registry, err := registry.NewRegistry(srv.clock, registry.WithLogger(logger.Child("registry", corelogger.WATCHERS)))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	r := &apiHandler{
 		domainServices:        domainServices,
 		domainServicesGetter:  domainServicesGetter,
@@ -171,7 +167,7 @@ func newAPIHandler(
 		objectStore:           objectStore,
 		objectStoreGetter:     objectStoreGetter,
 		controllerObjectStore: controllerObjectStore,
-		watcherRegistry:       registry,
+		watcherRegistry:       watcherRegistry,
 		shared:                srv.shared,
 		rpcConn:               rpcConn,
 		modelUUID:             modelUUID,
@@ -185,7 +181,7 @@ func newAPIHandler(
 
 // WatcherRegistry returns the watcher registry for tracking watchers between
 // API calls.
-func (r *apiHandler) WatcherRegistry() facade.WatcherRegistry {
+func (r *apiHandler) WatcherRegistry() watcherregistry.WatcherRegistry {
 	return r.watcherRegistry
 }
 
@@ -243,10 +239,7 @@ func (r *apiHandler) CloseConn() error {
 // Kill implements rpc.Killer, cleaning up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *apiHandler) Kill() {
-	r.watcherRegistry.Kill()
-	if err := r.watcherRegistry.Wait(); err != nil {
-		logger.Infof(context.TODO(), "error waiting for watcher registry to stop: %v", err)
-	}
+	r.watcherRegistry.Close()
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.
@@ -390,7 +383,7 @@ type apiRootHandler interface {
 	SharedContext() *sharedServerContext
 	// WatcherRegistry returns the watcher registry for tracking watchers
 	// between API calls.
-	WatcherRegistry() facade.WatcherRegistry
+	WatcherRegistry() watcherregistry.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
 	// ModelUUID returns the UUID of the model that the API is operating on.
@@ -409,7 +402,7 @@ type apiRoot struct {
 	controllerObjectStore objectstore.ObjectStore
 	shared                *sharedServerContext
 	facades               *facade.Registry
-	watcherRegistry       facade.WatcherRegistry
+	watcherRegistry       watcherregistry.WatcherRegistry
 	authorizer            facade.Authorizer
 	objectMutex           sync.RWMutex
 	objectCache           map[objectKey]reflect.Value
@@ -693,7 +686,7 @@ func (ctx *facadeContext) Dispose() {
 }
 
 // WatcherRegistry is part of the facade.ModelContext interface.
-func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
+func (ctx *facadeContext) WatcherRegistry() watcherregistry.WatcherRegistry {
 	return ctx.r.watcherRegistry
 }
 

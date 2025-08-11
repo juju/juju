@@ -44,7 +44,7 @@ func (s *suite) TestPing(c *tc.C) {
 		<-time.After(testhelpers.ShortWait)
 	}
 
-	workertest.CheckKill(c, p)
+	workertest.CleanKill(c, p)
 }
 
 func (s *suite) TestPingAfterKilled(c *tc.C) {
@@ -59,7 +59,7 @@ func (s *suite) TestPingAfterKilled(c *tc.C) {
 	}
 
 	p := NewPinger(action, s.clock, time.Second)
-	workertest.CheckKill(c, p)
+	workertest.CleanKill(c, p)
 
 	p.Ping()
 }

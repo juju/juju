@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -105,7 +106,7 @@ type ModelContext interface {
 	// WatcherRegistry returns the watcher registry for this context. The
 	// watchers are per-connection, and are cleaned up when the connection
 	// is closed.
-	WatcherRegistry() WatcherRegistry
+	WatcherRegistry() watcherregistry.WatcherRegistry
 
 	// ID returns a string that should almost always be "", unless
 	// this is a watcher facade, in which case it exists in lieu of
