@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -47,7 +46,6 @@ type uniterSuiteBase struct {
 	testing.ApiServerSuite
 
 	authorizer        apiservertesting.FakeAuthorizer
-	resources         *common.Resources
 	watcherRegistry   *MockWatcherRegistry
 	leadershipRevoker *leadershipRevoker
 	uniter            *uniter.UniterAPI
@@ -85,11 +83,6 @@ func (s *uniterSuiteBase) SetUpTest(c *tc.C) {
 		revoked: set.NewStrings(),
 	}
 
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
-
 	s.leadershipChecker = &fakeLeadershipChecker{false}
 	s.uniter = s.newUniterAPI(c, s.authorizer)
 	s.PatchValue(&k8s.NewK8sClients, k8stesting.NoopFakeK8sClients)
@@ -102,7 +95,6 @@ func (s *uniterSuiteBase) setupState(c *tc.C) {}
 
 func (s *uniterSuiteBase) facadeContext(c *tc.C) facadetest.ModelContext {
 	return facadetest.ModelContext{
-		Resources_:         s.resources,
 		WatcherRegistry_:   s.watcherRegistry,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,

@@ -25,7 +25,6 @@ import (
 type ModelContext struct {
 	Auth_                facade.Authorizer
 	Dispose_             func()
-	Resources_           facade.Resources
 	WatcherRegistry_     facade.WatcherRegistry
 	ID_                  string
 	ControllerUUID_      string
@@ -65,12 +64,6 @@ func (c ModelContext) Auth() facade.Authorizer {
 // Dispose is part of the facade.ModelContext interface.
 func (c ModelContext) Dispose() {
 	c.Dispose_()
-}
-
-// Resources is part of the facade.ModelContext interface.
-// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-func (c ModelContext) Resources() facade.Resources {
-	return c.Resources_
 }
 
 // WatcherRegistry returns the watcher registry for this c. The

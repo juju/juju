@@ -16,6 +16,7 @@ import (
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
@@ -169,13 +170,13 @@ type AgentAPI struct {
 	applicationService      ApplicationService
 	machineService          MachineService
 	auth                    facade.Authorizer
-	resources               facade.Resources
+	watcherRegistry         facade.WatcherRegistry
 }
 
 // NewAgentAPI returns an agent API facade.
 func NewAgentAPI(
 	auth facade.Authorizer,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	agentPasswordService AgentPasswordService,
 	controllerService ControllerService,
 	controllerConfigService ControllerConfigService,
@@ -185,7 +186,6 @@ func NewAgentAPI(
 	machineService MachineService,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
-	watcherRegistry facade.WatcherRegistry,
 ) *AgentAPI {
 	getCanChange := func(context.Context) (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
@@ -206,7 +206,7 @@ func NewAgentAPI(
 		applicationService:      applicationService,
 		machineService:          machineService,
 		auth:                    auth,
-		resources:               resources,
+		watcherRegistry:         watcherRegistry,
 	}
 }
 
@@ -370,11 +370,13 @@ func (api *AgentAPI) WatchCredentials(ctx context.Context, args params.Entities)
 		// Consume the initial event. Technically, API calls to Watch
 		// 'transmit' the initial event in the Watch response. But
 		// NotifyWatchers have no state to transmit.
-		if _, ok := <-watch.Changes(); ok {
-			results.Results[i].NotifyWatcherId = api.resources.Register(watch)
-		} else {
-			watch.Kill()
-			results.Results[i].Error = apiservererrors.ServerError(watch.Wait())
+		id, _, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watch)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i] = params.NotifyWatchResult{
+			NotifyWatcherId: id,
 		}
 	}
 	return results, nil

@@ -708,12 +708,6 @@ func (ctx *facadeContext) Dispose() {
 	ctx.r.dispose(ctx.key)
 }
 
-// Resources is part of the facade.ModelContext interface.
-// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-func (ctx *facadeContext) Resources() facade.Resources {
-	return ctx.r.resources
-}
-
 // WatcherRegistry is part of the facade.ModelContext interface.
 func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
 	return ctx.r.watcherRegistry

@@ -59,7 +59,6 @@ type ModelConfigService interface {
 type API struct {
 	modelTag names.ModelTag
 
-	resources      facade.Resources
 	authorizer     facade.Authorizer
 	logger         corelogger.Logger
 	networkService NetworkService
@@ -73,14 +72,12 @@ func (api *API) checkCanRead(ctx context.Context) error {
 // a common.NetworkBacking
 func newAPIWithBacking(
 	modelTag names.ModelTag,
-	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	networkService NetworkService,
 ) *API {
 	return &API{
 		modelTag:       modelTag,
-		resources:      resources,
 		authorizer:     authorizer,
 		logger:         logger,
 		networkService: networkService,

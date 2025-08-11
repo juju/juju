@@ -49,7 +49,6 @@ type controllerSuite struct {
 	controllerConfigAttrs map[string]any
 
 	controller       *controller.ControllerAPI
-	resources        *common.Resources
 	watcherRegistry  facade.WatcherRegistry
 	authorizer       apiservertesting.FakeAuthorizer
 	context          facadetest.MultiModelContext
@@ -112,9 +111,6 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
-
 	owner := names.NewLocalUserTag("test-admin")
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      owner,
@@ -124,7 +120,6 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	s.leadershipReader = noopLeadershipReader{}
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			Resources_:        s.resources,
 			WatcherRegistry_:  s.watcherRegistry,
 			Auth_:             s.authorizer,
 			DomainServices_:   s.ControllerDomainServices(c),
@@ -282,7 +277,6 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {
 	}
 	endPoint, err := controller.LatestAPI(c.Context(), facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			Resources_:      s.resources,
 			Auth_:           anAuthoriser,
 			DomainServices_: s.ControllerDomainServices(c),
 			Logger_:         loggertesting.WrapCheckLog(c),
@@ -397,7 +391,6 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *tc.C) {
 		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
-				Resources_:      common.NewResources(),
 				Auth_:           authorizer,
 				DomainServices_: s.ControllerDomainServices(c),
 				Logger_:         loggertesting.WrapCheckLog(c),
@@ -609,7 +602,6 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *tc.C) {
 		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
-				Resources_:      s.resources,
 				Auth_:           anAuthoriser,
 				DomainServices_: s.ControllerDomainServices(c),
 				Logger_:         loggertesting.WrapCheckLog(c),
@@ -688,7 +680,6 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *tc.C) {
 		c.Context(),
 		facadetest.MultiModelContext{
 			ModelContext: facadetest.ModelContext{
-				Resources_:      s.resources,
 				Auth_:           anAuthoriser,
 				DomainServices_: s.ControllerDomainServices(c),
 				Logger_:         loggertesting.WrapCheckLog(c),

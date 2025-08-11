@@ -30,7 +30,6 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 
 	return newAPIWithBacking(
 		names.NewModelTag(ctx.ModelUUID().String()),
-		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Logger().Child("subnets"),
 		ctx.DomainServices().Network(),

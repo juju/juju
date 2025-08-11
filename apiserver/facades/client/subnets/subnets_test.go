@@ -26,7 +26,6 @@ import (
 // All future facade tests should be added to this suite.
 type SubnetsSuite struct {
 	testing.BaseSuite
-	mockResource       *facademocks.MockResources
 	mockAuthorizer     *facademocks.MockAuthorizer
 	mockNetworkService *MockNetworkService
 
@@ -83,7 +82,6 @@ func (s *SubnetsSuite) TestSubnetsByCIDR(c *tc.C) {
 func (s *SubnetsSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.mockResource = facademocks.NewMockResources(ctrl)
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
@@ -92,7 +90,6 @@ func (s *SubnetsSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	tag := names.NewModelTag(modeltesting.GenModelUUID(c).String())
 	s.facade = newAPIWithBacking(
 		tag,
-		s.mockResource,
 		s.mockAuthorizer,
 		loggertesting.WrapCheckLog(c),
 		s.mockNetworkService,

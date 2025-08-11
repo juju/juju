@@ -176,6 +176,11 @@ func (r *Registry) Count() int {
 	return int(atomic.LoadInt64(&r.counter))
 }
 
+// Report returns a map of the current state of the registry.
+func (r *Registry) Report() map[string]any {
+	return r.runner.Report()
+}
+
 func (r *Registry) loop() error {
 	<-r.catacomb.Dying()
 	return r.catacomb.ErrDying()
