@@ -17,6 +17,7 @@ type InstanceMutaterState interface {
 	state.EntityFinder
 
 	ModelName() (string, error)
+	ModelUUID() (string, error)
 	Application(appName string) (Application, error)
 	Charm(curl string) (Charm, error)
 	Machine(id string) (Machine, error)

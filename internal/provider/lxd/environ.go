@@ -14,6 +14,7 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"
@@ -135,12 +136,8 @@ func (env *environ) initProfile() error {
 	return err
 }
 
-func (env *environ) shortModelUUID() string {
-	return env.uuid[:shortModelIdLength]
-}
-
 func (env *environ) profileName() string {
-	return fmt.Sprintf("juju-%s-%s", env.name, env.shortModelUUID())
+	return fmt.Sprintf("juju-%s-%s", env.name, names.NewModelTag(env.uuid).ShortId())
 }
 
 // Name returns the name of the environ.
@@ -238,7 +235,7 @@ func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 		}
 	}
 
-	return env.destroyProfile(ctx)
+	return env.destroyModelProfile()
 }
 
 // DestroyController implements the Environ interface.
@@ -283,15 +280,13 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	return errors.Trace(env.server().RemoveContainers(names))
 }
 
-func (env *environ) destroyProfile(ctx context.ProviderCallContext) error {
+func (env *environ) destroyModelProfile() error {
 	server := env.server()
-	hasProfile, err := server.HasProfile(env.profileName())
+	profile := env.profileName()
+	err := server.DeleteProfile(profile)
+	logger.Debugf("deleted profile %q", profile)
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return errors.Trace(err)
-	}
-	if hasProfile {
-		return errors.Trace(server.DeleteProfile(env.profileName()))
+		logger.Debugf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
 	}
 
 	return nil

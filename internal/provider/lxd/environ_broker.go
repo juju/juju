@@ -454,9 +454,40 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 		}
 	}
 
+	var profiles []string
+	for _, name := range names {
+		containerProfiles, err := env.server().GetContainerProfiles(name)
+		if err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		}
+		profiles = append(profiles, containerProfiles...)
+	}
+
+	var profilesToDelete []string
+	for _, profile := range profiles {
+		// Delete the profiles for the charms assigned to this machine.
+		// Charm profiles have the naming scheme as "juju-<model>-<shortuuid>-<appname>-<rev>".
+		// Model profile is deleted in the Destroy function of the environ.
+		isCharmProfile := profile != "default" && strings.HasPrefix(profile, fmt.Sprintf("%s-", env.profileName()))
+		if isCharmProfile {
+			logger.Debugf("found profile %q", profile)
+			profilesToDelete = append(profilesToDelete, profile)
+		}
+	}
+
 	err := env.server().RemoveContainers(names)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+
+	for _, profile := range profilesToDelete {
+		err = env.server().DeleteProfile(profile)
+		logger.Debugf("deleted profile %q", profile)
+		if err != nil {
+			logger.Debugf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+		}
+	}
+
+	return nil
 }
