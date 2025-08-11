@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/internal/charm"
 )
 
+const subordinate = true
+
 type containerSuite struct {
 	linkLayerBaseSuite
 }
@@ -70,7 +72,7 @@ func (s *containerSuite) TestGetMachineSpaceConstraints(c *tc.C) {
 func (s *containerSuite) TestGetMachineAppBindingsBoundEndpoints(c *tc.C) {
 	// Arrange. Set up a unit of an application with a bound endpoint,
 	// assigned to a machine.
-	cUUID := s.addCharm(c)
+	cUUID := s.addCharm(c, !subordinate)
 	rUUID := s.addCharmRelation(c, cUUID, charm.Relation{
 		Name:  "whatever",
 		Role:  charm.RoleProvider,
@@ -102,7 +104,7 @@ func (s *containerSuite) TestGetMachineAppBindingsDefaultBinding(c *tc.C) {
 
 	// Arrange. Set up a unit of an application with a non-bound endpoint,
 	// but *with* a non-alpha default binding, assigned to a machine.
-	cUUID := s.addCharm(c)
+	cUUID := s.addCharm(c, !subordinate)
 	rUUID := s.addCharmRelation(c, cUUID, charm.Relation{
 		Name:  "whatever",
 		Role:  charm.RoleProvider,
@@ -130,6 +132,52 @@ func (s *containerSuite) TestGetMachineAppBindingsDefaultBinding(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bound, tc.HasLen, 1)
 	c.Check(bound[0].UUID, tc.Equals, spUUID)
+}
+
+func (s *containerSuite) TestGetMachineAppBindingsSubordinatesDiscounted(c *tc.C) {
+	// Arrange. Set up a unit of a principal application with a bound endpoint,
+	// assigned to a machine.
+	// Do the same set-up for a subordinate application with a binding to
+	// a different space.
+	pcUUID := s.addCharm(c, !subordinate)
+	prUUID := s.addCharmRelation(c, pcUUID, charm.Relation{
+		Name:  "primary-relation",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	})
+
+	pSpUUID := s.addSpace(c)
+
+	pAppUUID := s.addApplication(c, pcUUID, "primary")
+	_ = s.addApplicationEndpoint(c, pAppUUID, prUUID, pSpUUID)
+
+	nUUID := s.addNetNode(c)
+	mUUID := s.addMachine(c, "0", nUUID)
+	_ = s.addUnit(c, "primary/0", pAppUUID, pcUUID, nUUID)
+
+	scUUID := s.addCharm(c, subordinate)
+
+	srUUID := s.addCharmRelation(c, scUUID, charm.Relation{
+		Name:  "subordinate-relation",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	})
+
+	sSpUUID := s.addSpace(c)
+
+	sAppUUID := s.addApplication(c, scUUID, "secondary")
+	_ = s.addApplicationEndpoint(c, sAppUUID, srUUID, sSpUUID)
+
+	_ = s.addUnit(c, "secondary/0", pAppUUID, pcUUID, nUUID)
+
+	// Act.
+	bound, err := s.state.GetMachineAppBindings(c.Context(), mUUID.String())
+
+	// Assert that only the primary space is returned;
+	// not the one to which the subordinate is bound.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bound, tc.HasLen, 1)
+	c.Check(bound[0].UUID, tc.Equals, pSpUUID)
 }
 
 func (s *containerSuite) TestNICsInSpaces(c *tc.C) {
@@ -248,12 +296,16 @@ func (s *containerSuite) TestGetContainerNetworkingMethod(c *tc.C) {
 }
 
 // addCharm inserts a new charm into the database and returns the UUID.
-func (s *containerSuite) addCharm(c *tc.C) corecharm.ID {
+func (s *containerSuite) addCharm(c *tc.C, subordinate bool) corecharm.ID {
 	charmUUID := corecharmtesting.GenCharmID(c)
+
 	// The UUID is also used as the reference_name as there is a unique
 	// constraint on the reference_name, revision and source_id.
-	s.query(c, "INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)", charmUUID, charmUUID)
-	s.query(c, "INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, ?)", charmUUID, charmUUID)
+	s.query(c, "INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, charmUUID)
+	s.query(c, "INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, ?, ?)",
+		charmUUID, charmUUID, subordinate)
+
 	return charmUUID
 }
 
