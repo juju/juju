@@ -966,44 +966,6 @@ func (c *MockModelContextRequestRecorderCall) DoAndReturn(f func() facade.Reques
 	return c
 }
 
-// Resources mocks base method.
-func (m *MockModelContext) Resources() facade.Resources {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Resources")
-	ret0, _ := ret[0].(facade.Resources)
-	return ret0
-}
-
-// Resources indicates an expected call of Resources.
-func (mr *MockModelContextMockRecorder) Resources() *MockModelContextResourcesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockModelContext)(nil).Resources))
-	return &MockModelContextResourcesCall{Call: call}
-}
-
-// MockModelContextResourcesCall wrap *gomock.Call
-type MockModelContextResourcesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelContextResourcesCall) Return(arg0 facade.Resources) *MockModelContextResourcesCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelContextResourcesCall) Do(f func() facade.Resources) *MockModelContextResourcesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextResourcesCall) DoAndReturn(f func() facade.Resources) *MockModelContextResourcesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SingularClaimer mocks base method.
 func (m *MockModelContext) SingularClaimer() (lease.Claimer, error) {
 	m.ctrl.T.Helper()

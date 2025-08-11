@@ -363,7 +363,7 @@ func (s *uniterLegacySuite) TestWatchRelationUnits(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestWatchUnitAddressesHash(c *tc.C) {
-	c.Assert(s.resources.Count(), tc.Equals, 0)
+	c.Assert(s.watcherRegistry.Count(), tc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -392,8 +392,9 @@ func (s *uniterLegacySuite) TestWatchUnitAddressesHash(c *tc.C) {
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), tc.Equals, 1)
-	resource := s.resources.Get("1")
+	c.Assert(s.watcherRegistry.Count(), tc.Equals, 1)
+	resource, err := s.watcherRegistry.Get("1")
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in
