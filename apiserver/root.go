@@ -140,9 +140,6 @@ func newAPIHandler(
 	connectionID uint64,
 	serverHost string,
 ) (*apiHandler, error) {
-	// We return a core errors NotFound because we are still mixing
-	// mongo State and domain service calls and this is easier till
-	// we fully convert across.
 	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -153,7 +150,12 @@ func newAPIHandler(
 		// request to decide whether the users should be redirected to
 		// the new controller for this model or not.
 		if _, migErr := domainServices.Model().ModelRedirection(ctx, modelUUID); migErr != nil {
-			return nil, errors.NotFoundf("model %q", modelUUID) // return errors.NotFound on any error
+			// Return not found on any error.
+			// TODO (stickupkid): This is very brute force. What if there
+			// is an error with the database? The caller will assume that it
+			// is no longer on this controller. If we return a different error
+			// then it can at least retry the request.
+			return nil, errors.NotFoundf("model %q", modelUUID)
 		}
 	}
 
