@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/offer"
 	"github.com/juju/juju/internal/uuid"
@@ -22,6 +23,9 @@ type AccessService interface {
 		ctx context.Context,
 		spec corepermission.UserAccessSpec,
 	) (corepermission.UserAccess, error)
+
+	// GetUserByName returns the user with the given name.
+	GetUserByName(ctx context.Context, name user.Name) (user.User, error)
 
 	// UpdatePermission updates the permission on the target for the given subject
 	// (user). If the subject is an external user, and they do not exist, they are
@@ -47,6 +51,13 @@ type ModelService interface {
 type OfferService interface {
 	// GetOfferUUID returns the uuid for the provided offer URL.
 	GetOfferUUID(ctx context.Context, offerURL *crossmodel.OfferURL) (uuid.UUID, error)
+
+	// GetOffers returns offer details for all offers satisfying any of the
+	// provided filters.
+	GetOffers(
+		ctx context.Context,
+		filters []offer.OfferFilter,
+	) ([]*offer.OfferDetails, error)
 
 	// Offer updates an existing offer, or creates a new offer if it does not exist.
 	// Permissions are created for a new offer only.
