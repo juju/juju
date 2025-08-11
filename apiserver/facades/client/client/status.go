@@ -1067,7 +1067,7 @@ func (c *statusContext) processApplicationRelations(
 		if err != nil {
 			return nil, nil, err
 		}
-		relationName := ep.Relation.Name
+		relationName := ep.Name
 		eps, err := relation.RelatedEndpoints(name)
 		if err != nil {
 			return nil, nil, err
