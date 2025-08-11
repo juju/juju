@@ -3523,6 +3523,9 @@
                         "model-name": {
                             "type": "string"
                         },
+                        "model-uuid": {
+                            "type": "string"
+                        },
                         "profile-changes": {
                             "type": "array",
                             "items": {
@@ -3534,6 +3537,7 @@
                     "required": [
                         "instance-id",
                         "model-name",
+                        "model-uuid",
                         "profile-changes",
                         "current-profiles",
                         "error"
