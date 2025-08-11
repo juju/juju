@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
@@ -26,7 +25,6 @@ import (
 type baseStorageSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
 	controllerUUID string
@@ -54,7 +52,6 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.unitTag = names.NewUnitTag("mysql/0")
 	s.machineTag = names.NewMachineTag("1234")
 
-	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
 	s.stub.ResetCalls()
 	s.blockDeviceGetter = &mockBlockDeviceGetter{}

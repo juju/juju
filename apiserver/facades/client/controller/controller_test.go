@@ -18,7 +18,6 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
@@ -692,7 +691,6 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *tc.C) {
 }
 
 type accessSuite struct {
-	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
 	accessService       *mocks.MockControllerAccessService
@@ -706,8 +704,6 @@ func TestAccessSuite(t *stdtesting.T) {
 }
 
 func (s *accessSuite) SetUpTest(c *tc.C) {
-	s.resources = common.NewResources()
-
 	owner := names.NewUserTag("owner")
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      owner,
