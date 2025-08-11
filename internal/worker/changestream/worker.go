@@ -170,10 +170,17 @@ func (w *changeStreamWorker) GetWatchableDB(ctx context.Context, namespace strin
 			return nil, errors.Trace(err)
 		}
 
-		mux, err := w.cfg.NewWatchableDB(w.cfg.AgentTag, db, fileNotifyWatcher{
-			fileNotifier: w.cfg.FileNotifyWatcher,
-			fileName:     namespace,
-		}, w.cfg.Clock, w.cfg.Metrics.ForNamespace(namespace), w.cfg.Logger)
+		mux, err := w.cfg.NewWatchableDB(
+			w.cfg.AgentTag,
+			db,
+			fileNotifyWatcher{
+				fileNotifier: w.cfg.FileNotifyWatcher,
+				fileName:     namespace,
+			},
+			w.cfg.Clock,
+			w.cfg.Metrics.ForNamespace(namespace),
+			w.cfg.Logger.Child(coredatabase.ShortNamespace(namespace)),
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

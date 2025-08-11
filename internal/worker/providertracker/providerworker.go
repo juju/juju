@@ -339,7 +339,7 @@ func (w *providerWorker) initTrackerWorker(ctx context.Context, namespace string
 				w.config.GetIAASProvider,
 				w.config.GetCAASProvider,
 			),
-			Logger: w.config.Logger,
+			Logger: w.config.Logger.Child(database.ShortNamespace(namespace)),
 		})
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -25,7 +25,16 @@ func (*ImportTest) TestImports(c *tc.C) {
 	// This package should only depend on other core packages.
 	// If this test fails with a non-core package, please check the dependencies.
 	c.Assert(found, tc.SameContents, []string{
+		"core/credential",
 		"core/database",
+		"core/errors",
+		"core/life",
+		"core/model",
+		"core/permission",
+		"core/semversion",
+		"core/status",
+		"core/user",
 		"internal/errors",
+		"internal/uuid",
 	})
 }

@@ -444,7 +444,7 @@ func readTableNames(c *tc.C, w coredatabase.TxnRunner) []string {
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var table string

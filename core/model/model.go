@@ -157,3 +157,10 @@ func QualifierFromUserTag(u names.UserTag) Qualifier {
 	).Replace(validQualifier)
 	return Qualifier(validQualifier)
 }
+
+// ShortModelUUID returns a short version of the model UUID.
+func ShortModelUUID(uuid UUID) string {
+	// Taken from:
+	// https://github.com/juju/names/blob/b50ca77a4137d8a23ec895d76d051d88248ecdee/model.go#L12
+	return uuid.String()[:6]
+}
