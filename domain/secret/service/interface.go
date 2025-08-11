@@ -11,7 +11,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -192,40 +191,4 @@ type SecretBackendState interface {
 	// GetActiveModelSecretBackend returns the active secret backend ID and config for the given model.
 	// It returns an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 	GetActiveModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, *provider.ModelBackendConfig, error)
-}
-
-// WatcherFactory describes methods for creating watchers.
-type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new watcher that filters changes from the
-	// input base watcher's db/queue. Change-log events will be emitted only if
-	// the filter accepts them, and dispatching the notifications via the
-	// Changes channel. A filter option is required, though additional filter
-	// options can be provided.
-	NewNamespaceWatcher(
-		initialQuery eventsource.NamespaceQuery,
-		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
-	) (watcher.StringsWatcher, error)
-
-	// NewNotifyMapperWatcher returns a new watcher that receives changes from
-	// the input base watcher's db/queue. A single filter option is required,
-	// though additional filter options can be provided. Filtering of values is
-	// done first by the filter, and then subsequently by the mapper. Based on
-	// the mapper's logic a subset of them (or none) may be emitted.
-	NewNotifyMapperWatcher(
-		mapper eventsource.Mapper,
-		filter eventsource.FilterOption,
-		filterOpts ...eventsource.FilterOption,
-	) (watcher.NotifyWatcher, error)
-
-	// NewNamespaceMapperWatcher returns a new watcher that filters changes from the
-	// input base watcher's db/queue. Change-log events will be emitted only if
-	// the filter accepts them, and dispatching the notifications via the
-	// Changes channel. A filter option is required, though additional filter
-	// options can be provided. The mapper is used to transform the changes
-	// before they are emitted.
-	NewNamespaceMapperWatcher(
-		initialQuery eventsource.NamespaceQuery,
-		mapper eventsource.Mapper,
-		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
-	) (watcher.StringsWatcher, error)
 }

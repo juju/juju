@@ -28,6 +28,45 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided.
+	NewNamespaceWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from
+	// the input base watcher's db/queue. A single filter option is required,
+	// though additional filter options can be provided. Filtering of values is
+	// done first by the filter, and then subsequently by the mapper. Based on
+	// the mapper's logic a subset of them (or none) may be emitted.
+	NewNotifyMapperWatcher(
+		summary string,
+		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+
+	// NewNamespaceMapperWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided. The mapper is used to transform the changes
+	// before they are emitted.
+	NewNamespaceMapperWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+}
+
 // WatchableService provides the API for working with the secret service.
 type WatchableService struct {
 	SecretService
@@ -55,11 +94,16 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// TODO (stickupkid): This should just be one watcher. Attempting to
+	// stitch two watchers together at this level will not result in ordered
+	// changes.
+
 	tableLocal, queryLocal := s.secretState.InitialWatchStatementForConsumedSecretsChange(unitName)
 	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are only interested in CREATE changes because
 		// the secret_revision.revision is immutable anyway.
 		queryLocal,
+		"consumed secrets watcher",
 		eventsource.NamespaceFilter(tableLocal, changestream.Changed),
 	)
 	if err != nil {
@@ -77,6 +121,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	wRemote, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are interested in both CREATE and UPDATE changes on secret_reference table.
 		queryRemote,
+		"consumed remote secrets watcher",
 		eventsource.NamespaceFilter(tableRemote, changestream.All),
 	)
 	if err != nil {
@@ -102,6 +147,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 	table, query := s.secretState.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		query,
+		fmt.Sprintf("remote consumed secrets watcher for %q", appName),
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
@@ -127,6 +173,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
+
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 
 	tableSecrets, querySecrets := s.secretState.InitialWatchStatementForOwnedSecrets(appOwners, unitOwners)
@@ -153,6 +200,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		initialQuery,
+		fmt.Sprintf("obsolete watcher for %q", owners),
 		obsoleteWatcherMapperFunc(
 			s.logger,
 			s.secretState,
@@ -343,6 +391,7 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context
 	table, query := s.secretState.InitialWatchStatementForSecretsRevisionExpiryChanges(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		query,
+		fmt.Sprintf("secret revision expiry watcher for %q", owners),
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
@@ -370,6 +419,7 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context
 func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -378,6 +428,7 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 	table, query := s.secretState.InitialWatchStatementForSecretsRotationChanges(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		query,
+		fmt.Sprintf("secret rotation watcher for %q", owners),
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
@@ -425,6 +476,7 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 	}
 
 	wObsolete, err := s.watcherFactory.NewNotifyMapperWatcher(
+		"obsolete user secrets watcher",
 		mapper,
 		eventsource.NamespaceFilter(
 			s.secretState.NamespaceForWatchSecretRevisionObsolete(),
@@ -436,6 +488,7 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 	}
 
 	wAutoPrune, err := s.watcherFactory.NewNotifyMapperWatcher(
+		"auto prune user secrets watcher",
 		mapper,
 		eventsource.NamespaceFilter(
 			s.secretState.NamespaceForWatchSecretMetadata(),

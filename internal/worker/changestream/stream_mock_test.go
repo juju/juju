@@ -180,10 +180,10 @@ func (c *MockWatchableDBWorkerStdTxnCall) DoAndReturn(f func(context.Context, fu
 }
 
 // Subscribe mocks base method.
-func (m *MockWatchableDBWorker) Subscribe(arg0 ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (m *MockWatchableDBWorker) Subscribe(arg0 string, arg1 ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Subscribe", varargs...)
@@ -193,9 +193,10 @@ func (m *MockWatchableDBWorker) Subscribe(arg0 ...changestream.SubscriptionOptio
 }
 
 // Subscribe indicates an expected call of Subscribe.
-func (mr *MockWatchableDBWorkerMockRecorder) Subscribe(arg0 ...any) *MockWatchableDBWorkerSubscribeCall {
+func (mr *MockWatchableDBWorkerMockRecorder) Subscribe(arg0 any, arg1 ...any) *MockWatchableDBWorkerSubscribeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockWatchableDBWorker)(nil).Subscribe), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockWatchableDBWorker)(nil).Subscribe), varargs...)
 	return &MockWatchableDBWorkerSubscribeCall{Call: call}
 }
 
@@ -211,13 +212,13 @@ func (c *MockWatchableDBWorkerSubscribeCall) Return(arg0 changestream.Subscripti
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockWatchableDBWorkerSubscribeCall) Do(f func(...changestream.SubscriptionOption) (changestream.Subscription, error)) *MockWatchableDBWorkerSubscribeCall {
+func (c *MockWatchableDBWorkerSubscribeCall) Do(f func(string, ...changestream.SubscriptionOption) (changestream.Subscription, error)) *MockWatchableDBWorkerSubscribeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatchableDBWorkerSubscribeCall) DoAndReturn(f func(...changestream.SubscriptionOption) (changestream.Subscription, error)) *MockWatchableDBWorkerSubscribeCall {
+func (c *MockWatchableDBWorkerSubscribeCall) DoAndReturn(f func(string, ...changestream.SubscriptionOption) (changestream.Subscription, error)) *MockWatchableDBWorkerSubscribeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

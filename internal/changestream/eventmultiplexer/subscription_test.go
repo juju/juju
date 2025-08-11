@@ -28,7 +28,7 @@ func TestSubscriptionSuite(t *stdtesting.T) {
 func (s *subscriptionSuite) TestSubscriptionIsDone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0)
+	sub := newSubscription(0, "foo")
 	defer workertest.DirtyKill(c, sub)
 
 	workertest.CleanKill(c, sub)
@@ -43,7 +43,7 @@ func (s *subscriptionSuite) TestSubscriptionIsDone(c *tc.C) {
 func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0)
+	sub := newSubscription(0, "foo")
 	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
@@ -73,7 +73,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *tc.C) {
 func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithCancelledContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0)
+	sub := newSubscription(0, "foo")
 	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
@@ -111,7 +111,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithCancelledCo
 func (s *subscriptionSuite) TestDispatchTimeoutKillsSubscription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0)
+	sub := newSubscription(0, "foo")
 	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
@@ -151,7 +151,7 @@ func (s *subscriptionSuite) TestDispatchTimeoutKillsSubscription(c *tc.C) {
 func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sub := newSubscription(0)
+	sub := newSubscription(0, "foo")
 	defer workertest.DirtyKill(c, sub)
 
 	changes := ChangeSet{changeEvent{

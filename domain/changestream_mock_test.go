@@ -213,10 +213,10 @@ func (m *MockEventSource) EXPECT() *MockEventSourceMockRecorder {
 }
 
 // Subscribe mocks base method.
-func (m *MockEventSource) Subscribe(arg0 ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (m *MockEventSource) Subscribe(arg0 string, arg1 ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Subscribe", varargs...)
@@ -226,9 +226,10 @@ func (m *MockEventSource) Subscribe(arg0 ...changestream.SubscriptionOption) (ch
 }
 
 // Subscribe indicates an expected call of Subscribe.
-func (mr *MockEventSourceMockRecorder) Subscribe(arg0 ...any) *MockEventSourceSubscribeCall {
+func (mr *MockEventSourceMockRecorder) Subscribe(arg0 any, arg1 ...any) *MockEventSourceSubscribeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockEventSource)(nil).Subscribe), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockEventSource)(nil).Subscribe), varargs...)
 	return &MockEventSourceSubscribeCall{Call: call}
 }
 
@@ -244,13 +245,13 @@ func (c *MockEventSourceSubscribeCall) Return(arg0 changestream.Subscription, ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEventSourceSubscribeCall) Do(f func(...changestream.SubscriptionOption) (changestream.Subscription, error)) *MockEventSourceSubscribeCall {
+func (c *MockEventSourceSubscribeCall) Do(f func(string, ...changestream.SubscriptionOption) (changestream.Subscription, error)) *MockEventSourceSubscribeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEventSourceSubscribeCall) DoAndReturn(f func(...changestream.SubscriptionOption) (changestream.Subscription, error)) *MockEventSourceSubscribeCall {
+func (c *MockEventSourceSubscribeCall) DoAndReturn(f func(string, ...changestream.SubscriptionOption) (changestream.Subscription, error)) *MockEventSourceSubscribeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

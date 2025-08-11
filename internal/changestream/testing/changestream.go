@@ -98,8 +98,8 @@ func (w *TestWatchableDB) StdTxn(ctx context.Context, fn func(context.Context, *
 }
 
 // EventSource returns the event source for this worker.
-func (w *TestWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
-	return w.mux.Subscribe(opts...)
+func (w *TestWatchableDB) Subscribe(summary string, opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+	return w.mux.Subscribe(summary, opts...)
 }
 
 // Kill stops the test change stream.

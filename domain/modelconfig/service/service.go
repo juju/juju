@@ -73,6 +73,7 @@ type WatcherFactory interface {
 	// options can be provided.
 	NewNamespaceWatcher(
 		initialQuery eventsource.NamespaceQuery,
+		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 }
@@ -439,6 +440,7 @@ func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	// is quite large.
 	return s.watcherFactory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
+		"model config watcher",
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchModelConfig(), changestream.All),
 	)
 }

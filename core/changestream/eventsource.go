@@ -13,7 +13,7 @@ import (
 type EventSource interface {
 	// Subscribe returns a subscription that can receive events from
 	// a change stream according to the input subscription options.
-	Subscribe(opts ...SubscriptionOption) (Subscription, error)
+	Subscribe(summary string, opts ...SubscriptionOption) (Subscription, error)
 }
 
 // WatchableDB describes the ability to run transactions against a database

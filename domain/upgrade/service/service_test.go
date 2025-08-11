@@ -168,10 +168,12 @@ func (s *serviceSuite) TestWatchForUpgradeReady(c *tc.C) {
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
 
-	s.watcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).DoAndReturn(func(_ eventsource.Mapper, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
-		c.Assert(fo.Namespace(), tc.Equals, "upgrade_info_controller_node")
-		return nw, nil
-	})
+	s.watcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ string, _ eventsource.Mapper, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			c.Assert(fo.Namespace(), tc.Equals, "upgrade_info_controller_node")
+			return nw, nil
+		},
+	)
 
 	watcher, err := s.service.WatchForUpgradeReady(c.Context(), s.upgradeUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -183,10 +185,12 @@ func (s *serviceSuite) TestWatchForUpgradeState(c *tc.C) {
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
 
-	s.watcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).DoAndReturn(func(_ eventsource.Mapper, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
-		c.Assert(fo.Namespace(), tc.Equals, "upgrade_info")
-		return nw, nil
-	})
+	s.watcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ string, _ eventsource.Mapper, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			c.Assert(fo.Namespace(), tc.Equals, "upgrade_info")
+			return nw, nil
+		},
+	)
 
 	watcher, err := s.service.WatchForUpgradeState(c.Context(), s.upgradeUUID, coreupgrade.Started)
 	c.Assert(err, tc.ErrorIsNil)

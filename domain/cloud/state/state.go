@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -759,6 +760,7 @@ VALUES      ($cloudType.*)`, dbCloudType)
 func (st *State) WatchCloud(
 	ctx context.Context,
 	getWatcher func(
+		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
@@ -792,7 +794,10 @@ WHERE name = $cloudID.name`, cloud)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	result, err := getWatcher(eventsource.PredicateFilter("cloud", changestream.All, eventsource.EqualsPredicate(cloud.UUID)))
+	result, err := getWatcher(
+		fmt.Sprintf("cloud watcher for %q", cloudName),
+		eventsource.PredicateFilter("cloud", changestream.All, eventsource.EqualsPredicate(cloud.UUID)),
+	)
 	if err != nil {
 		return result, errors.Errorf("watching cloud: %w", err)
 	}

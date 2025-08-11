@@ -1044,6 +1044,7 @@ func (s *WatchableService) WatchCharms(ctx context.Context) (watcher.StringsWatc
 
 	return s.watcherFactory.NewUUIDsWatcher(
 		s.st.NamespaceForWatchCharm(),
+		"charms watcher",
 		changestream.All,
 	)
 }

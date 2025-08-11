@@ -9,7 +9,6 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -35,27 +34,6 @@ type State interface {
 	InitialWatchStatementForSecretBackendRotationChanges() (string, string)
 	GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error)
 	NamespaceForWatchModelSecretBackend() string
-}
-
-// WatcherFactory describes methods for creating watchers.
-type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new watcher that filters changes from the
-	// input base watcher's db/queue. Change-log events will be emitted only if
-	// the filter accepts them, and dispatching the notifications via the
-	// Changes channel. A filter option is required, though additional filter
-	// options can be provided.
-	NewNamespaceWatcher(
-		initialQuery eventsource.NamespaceQuery,
-		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
-	) (watcher.StringsWatcher, error)
-
-	// NewNotifyWatcher returns a new watcher that filters changes from the input
-	// base watcher's db/queue. A single filter option is required, though
-	// additional filter options can be provided.
-	NewNotifyWatcher(
-		filter eventsource.FilterOption,
-		filterOpts ...eventsource.FilterOption,
-	) (watcher.NotifyWatcher, error)
 }
 
 // AdminBackendConfigGetterFunc returns a function that gets the

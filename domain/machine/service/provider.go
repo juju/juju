@@ -226,7 +226,7 @@ func (s *ProviderService) UpdateLXDProfiles(ctx context.Context, modelName, mach
 		return nil, errors.Errorf("getting provider: %w", err)
 	}
 
-	profileArgs, err := s.Service.st.GetLXDProfilesForMachine(ctx, machineID)
+	profileArgs, err := s.st.GetLXDProfilesForMachine(ctx, machineID)
 	if err != nil {
 		return nil, errors.Errorf("updating LXD profiles in the model for machine %s: %w", machineID, err)
 	}

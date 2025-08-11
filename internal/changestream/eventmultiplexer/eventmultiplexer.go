@@ -109,14 +109,15 @@ func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger logg
 
 // Subscribe creates a new subscription to the event queue. Options can be
 // provided to allow filter during the dispatching phase.
-func (e *EventMultiplexer) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (e *EventMultiplexer) Subscribe(summary string, opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	result := make(chan requestSubscriptionResult)
 	select {
 	case <-e.catacomb.Dying():
 		return nil, database.ErrEventMultiplexerDying
 	case e.subscriptionCh <- requestSubscription{
-		opts:   opts,
-		result: result,
+		summary: summary,
+		opts:    opts,
+		result:  result,
 	}:
 	}
 
@@ -251,7 +252,7 @@ func (e *EventMultiplexer) loop() error {
 			term.Done(false, e.catacomb.Dying())
 
 		case request := <-e.subscriptionCh:
-			sub := newSubscription(atomic.AddUint64(&e.subscriptionsCount, 1))
+			sub := newSubscription(atomic.AddUint64(&e.subscriptionsCount, 1), request.summary)
 
 			if err := e.catacomb.Add(sub); err != nil {
 				sub.Kill()
@@ -402,7 +403,7 @@ func (e *EventMultiplexer) cleanupDeadSubscriptions(ctx context.Context) {
 	for id, sub := range e.subscriptions {
 		select {
 		case <-sub.Done():
-			e.logger.Debugf(ctx, "removing dead subscription %d", id)
+			e.logger.Debugf(ctx, "removing dead subscription %d (%s)", id, sub.Summary())
 			e.unsubscribe(id, sub)
 		default:
 		}

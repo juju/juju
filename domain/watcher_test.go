@@ -40,7 +40,7 @@ func (*watcherSuite) TestNewUUIDsWatcherFail(c *tc.C) {
 		return nil, errors.New("fail getting db instance")
 	}, nil)
 
-	_, err := factory.NewUUIDsWatcher("random_namespace", changestream.All)
+	_, err := factory.NewUUIDsWatcher("random_namespace", "test watcher", changestream.All)
 	c.Assert(err, tc.ErrorMatches, "creating base watcher: fail getting db instance")
 }
 
@@ -55,7 +55,7 @@ func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *tc.C) {
 		}, nil
 	}, nil)
 
-	w, err := factory.NewUUIDsWatcher("external_controller", changestream.All)
+	w, err := factory.NewUUIDsWatcher("external_controller", "test watcher", changestream.All)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -89,6 +89,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *tc.C) {
 
 	w, err := factory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
+		"test watcher",
 		eventsource.NamespaceFilter("some_namespace", changestream.All),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -124,6 +125,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 
 	w, err := factory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges("SELECT uuid from some_namespace"),
+		"test watcher",
 		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {
 			return transform.Slice(ce, func(c changestream.ChangeEvent) string {
 				return c.Changed()

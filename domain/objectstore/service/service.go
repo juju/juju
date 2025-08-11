@@ -84,6 +84,7 @@ type WatcherFactory interface {
 	// options can be provided.
 	NewNamespaceWatcher(
 		initialQuery eventsource.NamespaceQuery,
+		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
@@ -91,6 +92,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
@@ -254,9 +256,13 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 // added or removed.
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	// TODO (stickupkid): Wire up context.Context to the watcher.
+	_, span := trace.Start(context.Background(), trace.NameFromFunc())
+	defer span.End()
+
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges(stmt),
+		"objectstore watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 }
@@ -328,8 +334,12 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 // object store. The watcher emits the phase changes that either have been
 // added or removed.
 func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.NotifyWatcher, error) {
+	_, span := trace.Start(context.Background(), trace.NameFromFunc())
+	defer span.End()
+
 	table := s.st.InitialWatchDrainingTable()
 	return s.watcherFactory.NewNotifyWatcher(
+		"objectstore draining watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 }

@@ -99,8 +99,8 @@ func (w *WatchableDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.
 
 // Subscribe returns a subscription for the input options.
 // The subscription is then used to drive watchers.
-func (w *WatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
-	return w.mux.Subscribe(opts...)
+func (w *WatchableDB) Subscribe(summary string, opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+	return w.mux.Subscribe(summary, opts...)
 }
 
 // Report returns the report from the stream muxer.

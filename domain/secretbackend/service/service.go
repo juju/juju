@@ -667,6 +667,29 @@ func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.U
 	return result, nil
 }
 
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided.
+	NewNamespaceWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		summary string,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+}
+
 // WatchableService defines a service that can be watched for changes.
 type WatchableService struct {
 	Service
@@ -711,6 +734,7 @@ func (s *WatchableService) WatchSecretBackendRotationChanges(ctx context.Context
 	tableName, initialQ := s.st.InitialWatchStatementForSecretBackendRotationChanges()
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		InitialNamespaceChanges(initialQ),
+		"secret backend rotation watcher",
 		eventsource.NamespaceFilter(tableName, changestream.All),
 	)
 	if err != nil {
@@ -725,6 +749,7 @@ func (s *WatchableService) WatchModelSecretBackendChanged(ctx context.Context, m
 	defer span.End()
 
 	w, err := s.watcherFactory.NewNotifyWatcher(
+		"model secret backend changed watcher",
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchModelSecretBackend(),
 			changestream.Changed,

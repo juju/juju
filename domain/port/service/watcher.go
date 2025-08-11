@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -47,6 +48,7 @@ type WatcherFactory interface {
 	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
 		initialQuery eventsource.NamespaceQuery,
+		summary string,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -57,6 +59,7 @@ type WatcherFactory interface {
 	// done first by the filter, and then subsequently by the mapper. Based on
 	// the mapper's logic a subset of them (or none) may be emitted.
 	NewNotifyMapperWatcher(
+		summary string,
 		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -94,6 +97,7 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 	table, statement := s.st.InitialWatchMachineOpenedPortsStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges(statement),
+		"machine opened ports watcher",
 		s.endpointToMachineMapper,
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
@@ -107,6 +111,7 @@ func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, a
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyMapperWatcher(
+		fmt.Sprintf("opened ports watcher for %q", applicationUUID),
 		s.filterForApplication(applicationUUID),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchOpenedPort(), changestream.All),
 	)

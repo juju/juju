@@ -18,6 +18,8 @@ import (
 type NotifyWatcher struct {
 	*BaseWatcher
 
+	summary string
+
 	out        chan struct{}
 	filterOpts []changestream.SubscriptionOption
 	mapper     Mapper
@@ -28,9 +30,10 @@ type NotifyWatcher struct {
 // additional filter options can be provided.
 func NewNotifyWatcher(
 	base *BaseWatcher,
+	summary string,
 	filterOption FilterOption, filterOptions ...FilterOption,
 ) (*NotifyWatcher, error) {
-	return NewNotifyMapperWatcher(base, defaultMapper, filterOption, filterOptions...)
+	return NewNotifyMapperWatcher(base, summary, defaultMapper, filterOption, filterOptions...)
 }
 
 // NewNotifyMapperWatcher returns a new watcher that receives changes from the
@@ -39,7 +42,9 @@ func NewNotifyWatcher(
 // by the filter, and then subsequently by the mapper. Based on the mapper's
 // logic a subset of them (or none) may be emitted.
 func NewNotifyMapperWatcher(
-	base *BaseWatcher, mapper Mapper,
+	base *BaseWatcher,
+	summary string,
+	mapper Mapper,
 	filterOption FilterOption, filterOptions ...FilterOption,
 ) (*NotifyWatcher, error) {
 	filters := append([]FilterOption{filterOption}, filterOptions...)
@@ -61,6 +66,7 @@ func NewNotifyMapperWatcher(
 
 	w := &NotifyWatcher{
 		BaseWatcher: base,
+		summary:     summary,
 		out:         make(chan struct{}),
 		filterOpts:  opts,
 		mapper:      mapper,
@@ -82,7 +88,7 @@ func (w *NotifyWatcher) loop() error {
 
 	defer close(w.out)
 
-	subscription, err := w.watchableDB.Subscribe(w.filterOpts...)
+	subscription, err := w.watchableDB.Subscribe(w.summary, w.filterOpts...)
 	if err != nil {
 		return errors.Errorf("subscribing to namespaces: %w", err)
 	}

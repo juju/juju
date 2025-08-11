@@ -28,6 +28,7 @@ type NamespaceWatcher struct {
 	// TODO (manadart 2023-05-24): Consider making this plural (composite key)
 	// if/when it is supported by the change log table structure and stream.
 	initialQuery NamespaceQuery
+	summary      string
 
 	out        chan []string
 	filterOpts []changestream.SubscriptionOption
@@ -40,9 +41,17 @@ type NamespaceWatcher struct {
 func NewNamespaceWatcher(
 	base *BaseWatcher,
 	initialQuery NamespaceQuery,
+	summary string,
 	filterOption FilterOption, filterOptions ...FilterOption,
 ) (watcher.StringsWatcher, error) {
-	return NewNamespaceMapperWatcher(base, initialQuery, defaultMapper, filterOption, filterOptions...)
+	return NewNamespaceMapperWatcher(
+		base,
+		initialQuery,
+		summary,
+		defaultMapper,
+		filterOption,
+		filterOptions...,
+	)
 }
 
 // NewNamespaceMapperWatcher returns a new watcher that receives changes from
@@ -52,7 +61,9 @@ func NewNamespaceWatcher(
 // logic a subset of them (or none) may be emitted.
 func NewNamespaceMapperWatcher(
 	base *BaseWatcher,
-	initialQuery NamespaceQuery, mapper Mapper,
+	initialQuery NamespaceQuery,
+	summary string,
+	mapper Mapper,
 	filterOption FilterOption, filterOptions ...FilterOption,
 ) (watcher.StringsWatcher, error) {
 	filters := append([]FilterOption{filterOption}, filterOptions...)
@@ -74,6 +85,7 @@ func NewNamespaceMapperWatcher(
 
 	w := &NamespaceWatcher{
 		BaseWatcher:  base,
+		summary:      summary,
 		out:          make(chan []string),
 		initialQuery: initialQuery,
 		filterOpts:   opts,
@@ -96,7 +108,7 @@ func (w *NamespaceWatcher) loop() error {
 
 	defer close(w.out)
 
-	subscription, err := w.watchableDB.Subscribe(w.filterOpts...)
+	subscription, err := w.watchableDB.Subscribe(w.summary, w.filterOpts...)
 	if err != nil {
 		return errors.Errorf("subscribing to namespaces: %w", err)
 	}

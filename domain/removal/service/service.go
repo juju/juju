@@ -83,11 +83,12 @@ type ModelDBState interface {
 type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
 	// input table name that match the input mask.
-	NewUUIDsWatcher(tableName string, changeMask changestream.ChangeType) (watcher.StringsWatcher, error)
+	NewUUIDsWatcher(tableName, summary string, changeMask changestream.ChangeType) (watcher.StringsWatcher, error)
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes from
 	// the input base watcher's db/queue.
 	NewNamespaceMapperWatcher(
 		initialQuery eventsource.NamespaceQuery,
+		summary string,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -267,7 +268,9 @@ func NewWatchableService(
 // WatchRemovals watches for scheduled removal jobs.
 // The returned watcher emits the UUIDs of any inserted or updated jobs.
 func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
-	w, err := s.watcherFactory.NewUUIDsWatcher(s.modelState.NamespaceForWatchRemovals(), changestream.Changed)
+	w, err := s.watcherFactory.NewUUIDsWatcher(
+		s.modelState.NamespaceForWatchRemovals(),
+		"removals watcher", changestream.Changed)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for removals: %w", err)
 	}
@@ -289,6 +292,7 @@ func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
 		initialQuery,
+		"entity removals watcher",
 		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {
 			var results []string
 			for _, c := range ce {

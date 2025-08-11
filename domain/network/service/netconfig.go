@@ -81,7 +81,7 @@ func (s *Service) GetAllDevicesByMachineNames(ctx context.Context) (map[machine.
 	}
 	return transform.Map(machineNamesToNodeUUIDs, func(machineName string,
 		nodeUUID string) (machine.Name, []network.NetInterface) {
-		devs, _ := devByNodeUUIDs[nodeUUID]
+		devs := devByNodeUUIDs[nodeUUID]
 		return machine.Name(machineName), devs
 	}), nil
 }

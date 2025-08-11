@@ -31,10 +31,11 @@ func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger logger.Logg
 // NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
 // input table name that match the input mask.
 func (f *WatcherFactory) NewUUIDsWatcher(
-	tableName string, changeMask changestream.ChangeType,
+	tableName, summary string, changeMask changestream.ChangeType,
 ) (watcher.StringsWatcher, error) {
 	w, err := f.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges("SELECT uuid from "+tableName),
+		summary,
 		eventsource.NamespaceFilter(tableName, changeMask),
 	)
 	return w, errors.Capture(err)
@@ -46,6 +47,7 @@ func (f *WatcherFactory) NewUUIDsWatcher(
 // filter option is required, though additional filter options can be provided.
 func (f *WatcherFactory) NewNamespaceWatcher(
 	initialQuery eventsource.NamespaceQuery,
+	summary string,
 	filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 ) (watcher.StringsWatcher, error) {
 	base, err := f.newBaseWatcher()
@@ -53,7 +55,7 @@ func (f *WatcherFactory) NewNamespaceWatcher(
 		return nil, errors.Errorf("creating base watcher: %w", err)
 	}
 
-	return eventsource.NewNamespaceWatcher(base, initialQuery, filterOption, filterOptions...)
+	return eventsource.NewNamespaceWatcher(base, initialQuery, summary, filterOption, filterOptions...)
 }
 
 // NewNamespaceMapperWatcher returns a new watcher that receives changes from
@@ -65,6 +67,7 @@ func (f *WatcherFactory) NewNamespaceWatcher(
 // additional filter options can be provided.
 func (f *WatcherFactory) NewNamespaceMapperWatcher(
 	initialQuery eventsource.NamespaceQuery,
+	summary string,
 	mapper eventsource.Mapper,
 	filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 ) (watcher.StringsWatcher, error) {
@@ -74,7 +77,7 @@ func (f *WatcherFactory) NewNamespaceMapperWatcher(
 	}
 
 	return eventsource.NewNamespaceMapperWatcher(
-		base, initialQuery, mapper, filterOption, filterOptions...,
+		base, initialQuery, summary, mapper, filterOption, filterOptions...,
 	)
 }
 
@@ -82,6 +85,7 @@ func (f *WatcherFactory) NewNamespaceMapperWatcher(
 // base watcher's db/queue. A single filter option is required, though
 // additional filter options can be provided.
 func (f *WatcherFactory) NewNotifyWatcher(
+	summary string,
 	filter eventsource.FilterOption,
 	filterOpts ...eventsource.FilterOption,
 ) (watcher.NotifyWatcher, error) {
@@ -90,7 +94,7 @@ func (f *WatcherFactory) NewNotifyWatcher(
 		return nil, errors.Errorf("creating base watcher: %w", err)
 	}
 
-	return eventsource.NewNotifyWatcher(base, filter, filterOpts...)
+	return eventsource.NewNotifyWatcher(base, summary, filter, filterOpts...)
 }
 
 // NewNotifyMapperWatcher returns a new watcher that receives changes from the
@@ -99,6 +103,7 @@ func (f *WatcherFactory) NewNotifyWatcher(
 // by the filter, and then subsequently by the mapper. Based on the mapper's
 // logic a subset of them (or none) may be emitted.
 func (f *WatcherFactory) NewNotifyMapperWatcher(
+	summary string,
 	mapper eventsource.Mapper,
 	filter eventsource.FilterOption,
 	filterOpts ...eventsource.FilterOption,
@@ -108,7 +113,7 @@ func (f *WatcherFactory) NewNotifyMapperWatcher(
 		return nil, errors.Errorf("creating base watcher: %w", err)
 	}
 
-	return eventsource.NewNotifyMapperWatcher(base, mapper, filter, filterOpts...)
+	return eventsource.NewNotifyMapperWatcher(base, summary, mapper, filter, filterOpts...)
 }
 
 func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {

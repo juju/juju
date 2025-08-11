@@ -322,7 +322,7 @@ func findParent(parentName string, nics map[string][]network.NetInterface) *netw
 //   - If using the device name directly, always replace "." with "-"
 //     to make sure that bridges from VLANs won't break.
 func bridgeNameForDevice(device string) string {
-	device = strings.Replace(device, ".", "-", -1)
+	device = strings.ReplaceAll(device, ".", "-")
 	switch {
 	case len(device) < 13:
 		return fmt.Sprintf("br-%s", device)
@@ -337,7 +337,11 @@ func bridgeNameForDevice(device string) string {
 }
 
 func (s *ProviderService) guestDevices(
-	ctx context.Context, mUUID machine.UUID, nodeUUID string, spaceUUIDs []string, nics map[string][]network.NetInterface,
+	ctx context.Context,
+	mUUID machine.UUID,
+	nodeUUID string,
+	spaceUUIDs []string,
+	nics map[string][]network.NetInterface,
 ) ([]network.NetInterface, error) {
 	var (
 		guestDevices []network.NetInterface
