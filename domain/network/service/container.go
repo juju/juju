@@ -140,18 +140,18 @@ func (s *Service) spacesAndDevicesForMachine(
 
 	s.logger.Infof(ctx, "machine %q needs spaces %v", guestUUID, spaceNames)
 
-	nodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, hostUUID.String())
+	hostNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, hostUUID.String())
 	if err != nil {
 		return "", nil, nil, errors.Errorf("retrieving net node for machine %q: %w", hostUUID, err)
 	}
 
-	nics, err := s.st.NICsInSpaces(ctx, nodeUUID)
+	nics, err := s.st.NICsInSpaces(ctx, hostNodeUUID)
 	if err != nil {
 		return "", nil, nil, errors.Errorf("retrieving NICs for machine %q: %w", hostUUID, err)
 	}
 
-	s.logger.Debugf(ctx, "devices by space for machine %q: %#v", guestUUID, nics)
-	return nodeUUID, spaceUUIDs, nics, nil
+	s.logger.Debugf(ctx, "devices by space for host machine %q: %#v", hostUUID, nics)
+	return hostNodeUUID, spaceUUIDs, nics, nil
 }
 
 // spaceRequirementsForMachine returns UUID-to-name for the *positive*
