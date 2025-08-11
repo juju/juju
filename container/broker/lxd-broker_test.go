@@ -276,7 +276,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c
 	mockApi := mocks.NewMockAPICalls(ctrl)
 	mockManager := testing.NewMockTestLXDManager(ctrl)
 	mockManager.EXPECT().LXDProfileNames(containerTag.Id()).Return([]string{
-		lxdprofile.Name("foo", "bar", 1),
+		lxdprofile.Name("foo", "shortid", "bar", 1),
 	}, nil)
 
 	broker, err := broker.NewLXDBroker(
@@ -288,6 +288,6 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c
 	profileNames, err := nameRetriever.LXDProfileNames(containerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(profileNames, jc.DeepEquals, []string{
-		lxdprofile.Name("foo", "bar", 1),
+		lxdprofile.Name("foo", "shortid", "bar", 1),
 	})
 }

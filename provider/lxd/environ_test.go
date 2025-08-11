@@ -154,7 +154,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
+		{"DeleteProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 	})
 }
 
@@ -182,12 +182,11 @@ func (s *environSuite) TestDestroyShouldCleanupProfile(c *gc.C) {
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 		{"DeleteProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 	})
 }
 
-func (s *environSuite) TestDestroySkipDestroyingMissingProfile(c *gc.C) {
+func (s *environSuite) TestDestroyNoReturnErrIfDeleteProfileFails(c *gc.C) {
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": {{
 			Name: "not-ours",
@@ -201,6 +200,7 @@ func (s *environSuite) TestDestroySkipDestroyingMissingProfile(c *gc.C) {
 			},
 		}},
 	}
+	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, fmt.Errorf("unknown profile"))
 
 	err := s.Env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +212,7 @@ func (s *environSuite) TestDestroySkipDestroyingMissingProfile(c *gc.C) {
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
+		{"DeleteProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 	})
 }
 
@@ -296,7 +296,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
+		{"DeleteProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{machine1.Name}}},
 		{"StorageSupported", nil},
@@ -342,7 +342,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
+		{"DeleteProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{}}},
 	})
@@ -352,7 +352,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 		"GetStoragePools",
 		"GetStoragePoolVolumes",
 		"GetStoragePoolVolumes",
-		"HasProfile",
+		"DeleteProfile",
 		"AliveContainers",
 		"RemoveContainers")
 }
@@ -392,7 +392,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"HasProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
+		{"DeleteProfile", []interface{}{fmt.Sprintf("juju-%s-2d02ee", s.Env.Name())}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{}}},
 		{"StorageSupported", nil},
@@ -440,8 +440,8 @@ var _ = gc.Suite(&environCloudProfileSuite{})
 
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 	defer s.setup(c, nil).Finish()
-	s.expectHasProfileFalse("juju-controller")
-	s.expectCreateProfile("juju-controller", nil)
+	s.expectHasProfileFalse("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", nil)
 
 	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
@@ -449,8 +449,8 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c *gc.C) {
 	defer s.setup(c, nil).Finish()
-	s.expectForProfileCreateRace("juju-controller")
-	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
+	s.expectForProfileCreateRace("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", errors.New("The profile already exists"))
 
 	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
@@ -458,8 +458,8 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 
 func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *gc.C) {
 	defer s.setup(c, map[string]interface{}{"project": "my-project"}).Finish()
-	s.expectHasProfileFalse("juju-controller")
-	s.expectCreateProfile("juju-controller", nil)
+	s.expectHasProfileFalse("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", nil)
 
 	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
@@ -544,13 +544,13 @@ func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
 
 	exp := s.svr.EXPECT()
 	exp.GetContainerProfiles("testname").Return([]string{
-		lxdprofile.Name("foo", "bar", 1),
+		lxdprofile.Name("foo", "shortid", "bar", 1),
 	}, nil)
 
 	result, err := s.lxdEnv.LXDProfileNames("testname")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []string{
-		lxdprofile.Name("foo", "bar", 1),
+		lxdprofile.Name("foo", "shortid", "bar", 1),
 	})
 }
 
