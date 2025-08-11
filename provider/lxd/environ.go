@@ -33,7 +33,6 @@ import (
 var _ environs.HardwareCharacteristicsDetector = (*environ)(nil)
 
 const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://documentation.ubuntu.com/lxd/en/latest/explanation/performance_tuning/`
-const shortModelIdLength = 6
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
