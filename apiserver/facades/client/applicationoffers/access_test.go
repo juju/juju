@@ -12,8 +12,10 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
@@ -421,6 +423,77 @@ func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *gc.C)
 		}}}
 
 	result, err := s.api.ModifyOfferAccess(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.OneError(), jc.ErrorIsNil)
+}
+
+type offerAdminAccessSuite struct {
+	baseSuite
+	authorizer *MockAuthorizer
+}
+
+var _ = gc.Suite(&offerAdminAccessSuite{})
+
+func (s *offerAdminAccessSuite) getAPI(c *gc.C) *applicationoffers.OffersAPIv5 {
+	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
+		return &stubApplicationOffers{}
+	}
+
+	resources := common.NewResources()
+	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+
+	api, err := applicationoffers.CreateOffersAPI(
+		getApplicationOffers, nil, getFakeControllerInfo,
+		s.mockState, s.mockStatePool, s.authorizer, resources, nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return api
+}
+
+func (s *offerAdminAccessSuite) setupOffer(modelUUID, modelName, owner, offerName string) string {
+	model := &mockModel{uuid: modelUUID, name: modelName, owner: owner, modelType: state.ModelTypeIAAS}
+	s.mockState.allmodels = []applicationoffers.Model{model}
+	st := &mockState{
+		modelUUID:         modelUUID,
+		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
+		users:             make(map[string]applicationoffers.User),
+		accessPerms:       make(map[offerAccess]permission.Access),
+		model:             model,
+	}
+	s.mockStatePool.st[modelUUID] = st
+	uuid := utils.MustNewUUID().String()
+	st.applicationOffers[offerName] = jujucrossmodel.ApplicationOffer{OfferUUID: uuid}
+	return uuid
+}
+
+// TestModifyOfferAccessForOfferAdminPermission tests modifying offer access
+// when authorized as offer admin.
+func (s *offerAdminAccessSuite) TestModifyOfferAccessForOfferAdminPermission(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.authorizer = NewMockAuthorizer(ctrl)
+
+	s.authorizer.EXPECT().AuthClient().Return(true).AnyTimes()
+	s.authorizer.EXPECT().GetAuthTag().Return(names.NewUserTag("admin"))
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(authentication.ErrorEntityMissingPermission)
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, gomock.AssignableToTypeOf(names.ModelTag{})).Return(authentication.ErrorEntityMissingPermission)
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, gomock.AssignableToTypeOf(names.ApplicationOfferTag{})).Return(nil)
+
+	modelUUID := utils.MustNewUUID().String()
+	s.setupOffer(modelUUID, "test", "admin", "someoffer")
+	st := s.mockStatePool.st[modelUUID]
+	st.(*mockState).users["luke"] = &mockUser{"luke"}
+
+	args := params.ModifyOfferAccessRequest{
+		Changes: []params.ModifyOfferAccess{{
+			UserTag:  "user-luke",
+			Action:   params.GrantOfferAccess,
+			Access:   params.OfferReadAccess,
+			OfferURL: "admin/test.someoffer",
+		}}}
+
+	result, err := s.getAPI(c).ModifyOfferAccess(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.OneError(), jc.ErrorIsNil)
 }

@@ -251,29 +251,26 @@ func (api *OffersAPIv5) modifyOneOfferAccess(user names.UserTag, modelUUID strin
 		return errors.Trace(err)
 	}
 
-	canModifyOffer := isControllerAdmin
-	if !canModifyOffer {
+	if !isControllerAdmin {
+		// If not a controller admin, the api user must have admin access to the model
+		// or the offer.
 		err = api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag())
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		}
-		canModifyOffer = err == nil
-	}
-
-	if !canModifyOffer {
-		offer, err := backend.ApplicationOffer(url.ApplicationName)
-		if err != nil {
-			return apiservererrors.ErrPerm
+		if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			offer, err := backend.ApplicationOffer(url.ApplicationName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = api.Authorizer.HasPermission(permission.AdminAccess, names.NewApplicationOfferTag(offer.OfferUUID))
+			if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+				return errors.Trace(err)
+			}
+			if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+				return apiservererrors.ErrPerm
+			}
 		}
-		access, err := backend.GetOfferAccess(offer.OfferUUID, user)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		} else if err == nil {
-			canModifyOffer = access == permission.AdminAccess
-		}
-	}
-	if !canModifyOffer {
-		return apiservererrors.ErrPerm
 	}
 
 	targetUserTag, err := names.ParseUserTag(arg.UserTag)
