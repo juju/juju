@@ -214,6 +214,7 @@ func (m *Machine) WatchContainers() (watcher.StringsWatcher, error) {
 // any changes are required to a machine's lxd profiles.
 type UnitProfileInfo struct {
 	ModelName       string
+	ModelUUID       string
 	InstanceId      instance.Id
 	ProfileChanges  []UnitProfileChanges
 	CurrentProfiles []string
@@ -241,6 +242,7 @@ func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 	returnResult := &UnitProfileInfo{
 		InstanceId:      result.InstanceId,
 		ModelName:       result.ModelName,
+		ModelUUID:       result.ModelUUID,
 		CurrentProfiles: result.CurrentProfiles,
 	}
 	profileChanges := make([]UnitProfileChanges, len(result.ProfileChanges))
