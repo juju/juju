@@ -22,9 +22,9 @@ const AppName = "juju"
 var Prefix = fmt.Sprintf("%s-", AppName)
 
 // Name returns a serialisable name that we can use to identify profiles
-// juju-<model>-<application>-<charm-revision>
-func Name(modelName, appName string, revision int) string {
-	return fmt.Sprintf("%s%s-%s-%d", Prefix, modelName, appName, revision)
+// juju-<model>-<shortModelID>-<application>-<charm-revision>
+func Name(modelName, shortModelID string, appName string, revision int) string {
+	return fmt.Sprintf("%s%s-%s-%s-%d", Prefix, modelName, shortModelID, appName, revision)
 }
 
 // FilterLXDProfileNames ensures that the LXD profile names are unique yet preserve
