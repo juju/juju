@@ -119,7 +119,7 @@ func (s *integrationSuite) TearDownTest(c *tc.C) {
 		workertest.CleanKill(c, s.worker)
 	}
 	if s.db != nil {
-		s.db.Close()
+		_ = s.db.Close()
 	}
 	s.DqliteSuite.TearDownTest(c)
 }
