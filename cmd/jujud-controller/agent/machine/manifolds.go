@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/environs"
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charmhub"
@@ -887,12 +888,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
-			RequiresBootstrap:       bootstrap.RequiresBootstrap,
-			PopulateControllerCharm: bootstrap.PopulateIAASControllerCharm,
-			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
-			Clock:                   config.Clock,
 			ProviderFactoryName:     providerTrackerName,
 			StorageRegistryName:     storageRegistryName,
+			RequiresBootstrap:       bootstrap.RequiresBootstrap,
+			PopulateControllerCharm: bootstrap.PopulateIAASControllerCharm,
+			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
+			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
+			Clock:                   config.Clock,
 
 			AgentBinaryUploader:          bootstrap.IAASAgentBinaryUploader,
 			ControllerCharmDeployer:      bootstrap.IAASControllerCharmUploader,
@@ -1109,12 +1111,13 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
-			RequiresBootstrap:       bootstrap.RequiresBootstrap,
-			PopulateControllerCharm: bootstrap.PopulateCAASControllerCharm,
-			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
-			Clock:                   config.Clock,
 			ProviderFactoryName:     providerTrackerName,
 			StorageRegistryName:     storageRegistryName,
+			RequiresBootstrap:       bootstrap.RequiresBootstrap,
+			PopulateControllerCharm: bootstrap.PopulateCAASControllerCharm,
+			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
+			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
+			Clock:                   config.Clock,
 
 			AgentBinaryUploader:          bootstrap.CAASAgentBinaryUploader,
 			ControllerCharmDeployer:      bootstrap.CAASControllerCharmUploader,

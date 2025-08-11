@@ -20,10 +20,12 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -69,6 +71,14 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// StatusHistory records status information into a generalized way.
+type StatusHistory interface {
+	// RecordStatus records the given status information.
+	// If the status data cannot be marshalled, it will not be recorded, instead
+	// the error will be logged under the data_error key.
+	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
+}
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName           string
@@ -86,6 +96,7 @@ type ManifoldConfig struct {
 	PopulateControllerCharm      PopulateControllerCharmFunc
 	BootstrapAddressFinderGetter BootstrapAddressFinderGetter
 	AgentFinalizer               AgentFinalizerFunc
+	StatusHistory                StatusHistory
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -114,12 +125,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.StorageRegistryName == "" {
 		return errors.NotValidf("empty StorageRegistryName")
 	}
-	if cfg.Logger == nil {
-		return errors.NotValidf("nil Logger")
-	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
-	}
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
@@ -140,6 +145,15 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.AgentFinalizer == nil {
 		return errors.NotValidf("nil AgentFinalizer")
+	}
+	if cfg.StatusHistory == nil {
+		return errors.NotValidf("nil StatusHistory")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -274,6 +288,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UnitPassword:               unitPassword,
 				ServiceManagerGetter:       serviceManagerGetter,
 				BootstrapAddressFinder:     config.BootstrapAddressFinderGetter(providerFactory, controllerModel.UUID.String()),
+				StatusHistory:              config.StatusHistory,
 				Logger:                     config.Logger,
 				Clock:                      config.Clock,
 			})

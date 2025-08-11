@@ -136,7 +136,8 @@ func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 			PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 				return nil
 			},
-			Logger: s.logger,
+			StatusHistory: s.statusHistory,
+			Logger:        s.logger,
 		},
 	}
 	cleanup, err := w.seedAgentBinary(c.Context(), c.MkDir())
@@ -336,7 +337,6 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc ControllerCharmDeployerFunc) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Logger:                     s.logger,
 		Agent:                      s.agent,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		BootstrapUnlocker:          s.bootstrapUnlocker,
@@ -370,7 +370,9 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
 			return nil
 		},
-		Clock: clock.WallClock,
+		StatusHistory: s.statusHistory,
+		Logger:        s.logger,
+		Clock:         clock.WallClock,
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
 	return w

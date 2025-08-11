@@ -4,11 +4,13 @@
 package bootstrap
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/domain"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
@@ -55,7 +57,8 @@ type baseSuite struct {
 	httpClient                 *MockHTTPClient
 	httpClientGetter           *MockHTTPClientGetter
 
-	logger logger.Logger
+	statusHistory StatusHistory
+	logger        logger.Logger
 }
 
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -88,6 +91,36 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.httpClientGetter = NewMockHTTPClientGetter(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
+	s.statusHistory = domain.NewStatusHistory(s.logger, clock.WallClock)
+
+	c.Cleanup(func() {
+		s.agent = nil
+		s.agentConfig = nil
+		s.controllerAgentBinaryStore = nil
+		s.objectStore = nil
+		s.objectStoreGetter = nil
+		s.storageRegistryGetter = nil
+		s.bootstrapUnlocker = nil
+		s.domainServices = nil
+		s.controllerConfigService = nil
+		s.cloudService = nil
+		s.storageService = nil
+		s.agentPasswordService = nil
+		s.applicationService = nil
+		s.controllerNodeService = nil
+		s.modelConfigService = nil
+		s.machineService = nil
+		s.keyManagerService = nil
+		s.userService = nil
+		s.networkService = nil
+		s.bakeryConfigService = nil
+		s.flagService = nil
+		s.httpClient = nil
+		s.httpClientGetter = nil
+
+		s.logger = nil
+		s.statusHistory = nil
+	})
 
 	return ctrl
 }

@@ -129,6 +129,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
 			return nil
 		},
+		StatusHistory: s.statusHistory,
 	}
 }
 
