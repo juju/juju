@@ -72,7 +72,7 @@ sp-convert-excalidraw-to-svg:
 
 sp-install: $(VENVDIR)
 
-sp-run: sp-install
+sp-run: sp-install sp-convert-excalidraw-to-svg
 	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml "$(SOURCEDIR)" --host $(SPHINX_HOST) --port $(SPHINX_PORT) "$(BUILDDIR)" $(SPHINXOPTS)
 
 # Doesn't depend on $(BUILDDIR) to rebuild properly at every run.
