@@ -55,3 +55,10 @@ type OfferService interface {
 		args offer.ApplicationOfferArgs,
 	) error
 }
+
+// RemovalService defines operations for removing juju entities,
+// such as offers.
+type RemovalService interface {
+	// RemoveOffer removes the offer from the model.
+	RemoveOffer(ctx context.Context, offerUUID uuid.UUID, force bool) error
+}
