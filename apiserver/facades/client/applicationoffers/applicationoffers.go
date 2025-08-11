@@ -5,7 +5,24 @@ package applicationoffers
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/juju/names/v6"
+
+	"github.com/juju/juju/apiserver/authentication"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
+	corecrossmodel "github.com/juju/juju/core/crossmodel"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/offer"
+	offererrors "github.com/juju/juju/domain/offer/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -18,11 +35,37 @@ type OffersAPIv5 struct {
 // OffersAPI implements the cross model interface and is the concrete
 // implementation of the api end point.
 type OffersAPI struct {
+	authorizer     facade.Authorizer
+	controllerUUID string
+	modelUUID      model.UUID
+
+	accessService AccessService
+	modelService  ModelService
+
+	offerServiceGetter func(c context.Context, modelUUID model.UUID) (OfferService, error)
 }
 
 // createAPI returns a new application offers OffersAPI facade.
-func createOffersAPI() (*OffersAPI, error) {
-	api := &OffersAPI{}
+func createOffersAPI(
+	authorizer facade.Authorizer,
+	controllerUUID string,
+	modelUUID model.UUID,
+	accessService AccessService,
+	modelService ModelService,
+	offerServiceGetter func(c context.Context, modelUUID model.UUID) (OfferService, error),
+) (*OffersAPI, error) {
+	if !authorizer.AuthClient() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	api := &OffersAPI{
+		authorizer:         authorizer,
+		controllerUUID:     controllerUUID,
+		modelUUID:          modelUUID,
+		accessService:      accessService,
+		modelService:       modelService,
+		offerServiceGetter: offerServiceGetter,
+	}
 	return api, nil
 }
 
@@ -40,7 +83,78 @@ func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers
 	// enforce rate limiting.
 	// This API will be deprecated in the future and replaced once we refactor
 	// the API (5.0 and beyond).
-	return params.ErrorResults{}, nil
+	numOffers := len(all.Offers)
+	if numOffers != 1 {
+		return params.ErrorResults{}, errors.Errorf("expected exactly one offer, got %d", numOffers)
+	}
+
+	handleErr := func(err error) params.ErrorResults {
+		return params.ErrorResults{Results: []params.ErrorResult{{
+			Error: apiservererrors.ServerError(err),
+		}}}
+	}
+
+	apiUserTag, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return handleErr(apiservererrors.ErrPerm), nil
+	}
+
+	one := all.Offers[0]
+	offerModelUUID := api.modelUUID
+	if one.ModelTag != "" {
+		modelTag, err := names.ParseModelTag(one.ModelTag)
+		if err != nil {
+			return handleErr(err), nil
+		}
+		offerModelUUID = model.UUID(modelTag.Id())
+	}
+
+	// checkAPIUserAdmin on the offer model.
+	if err := api.checkAPIUserAdmin(ctx, offerModelUUID); err != nil {
+		msgerr := errors.Errorf("checking user %q has admin permission on model %q: %w", apiUserTag.String(), offerModelUUID.String(), apiservererrors.ErrPerm)
+		return handleErr(msgerr), nil
+	}
+
+	applicationOfferArgs, ownerTag, err := api.parseApplicationOfferArgs(apiUserTag, one)
+	if err != nil {
+		return handleErr(err), nil
+	}
+
+	// If the owner and caller are not the same, checkAdmin for the offer model.
+	if apiUserTag != ownerTag {
+		if err := api.checkAdmin(ctx, ownerTag, offerModelUUID); err != nil {
+			msgerr := errors.Errorf("checking user %q has admin permission on model %q: %w", ownerTag.String(), offerModelUUID.String(), err).Add(coreerrors.NotValid)
+			return handleErr(msgerr), nil
+		}
+	}
+
+	offerService, err := api.offerServiceGetter(ctx, offerModelUUID)
+	if err != nil {
+		return handleErr(err), nil
+	}
+
+	err = offerService.Offer(ctx, applicationOfferArgs)
+	return handleErr(err), nil
+}
+
+func (api *OffersAPI) parseApplicationOfferArgs(
+	apiUser names.UserTag,
+	addOfferParams params.AddApplicationOffer,
+) (offer.ApplicationOfferArgs, names.UserTag, error) {
+	owner := apiUser
+	if addOfferParams.OwnerTag != "" {
+		var err error
+		if owner, err = names.ParseUserTag(addOfferParams.OwnerTag); err != nil {
+			return offer.ApplicationOfferArgs{}, names.UserTag{}, err
+		}
+	}
+	result := offer.ApplicationOfferArgs{
+		OfferName:       addOfferParams.OfferName,
+		ApplicationName: addOfferParams.ApplicationName,
+		Endpoints:       addOfferParams.Endpoints,
+		OwnerName:       coreuser.NameFromTag(owner),
+	}
+	return result, owner, nil
 }
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
@@ -51,11 +165,191 @@ func (api *OffersAPI) ListApplicationOffers(ctx context.Context, filters params.
 
 // ModifyOfferAccess changes the application offer access granted to users.
 func (api *OffersAPI) ModifyOfferAccess(ctx context.Context, args params.ModifyOfferAccessRequest) (result params.ErrorResults, _ error) {
-	return params.ErrorResults{}, nil
+	result = params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	// Delay checking permission until the models are known. The api user
+	// must have one of the following:
+	// * superuser access to the controller
+	// * admin access for the model
+	// * admin access for the offer
+	// Offer access is kept in the controller database, not in a model database.
+
+	offerURLs := make([]string, len(args.Changes))
+	for i, arg := range args.Changes {
+		offerURLs[i] = arg.OfferURL
+	}
+	apiUserTag, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return result, apiservererrors.ErrPerm
+	}
+	models, err := api.getModelsFromOffers(ctx, apiUserTag, offerURLs...)
+	if err != nil {
+		return result, errors.Capture(err)
+	}
+
+	for i, arg := range args.Changes {
+		if models[i].err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(models[i].err)
+			continue
+		}
+		err = api.modifyOneOfferAccess(
+			ctx,
+			apiUserTag,
+			models[i].url,
+			models[i].model.UUID.String(),
+			arg,
+		)
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+func (api *OffersAPI) modifyOneOfferAccess(
+	ctx context.Context,
+	apiUserTag names.UserTag,
+	offerURL *corecrossmodel.OfferURL,
+	modelUUID string,
+	arg params.ModifyOfferAccess,
+) error {
+
+	offerService, err := api.offerServiceGetter(ctx, model.UUID(modelUUID))
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	offerUUID, err := offerService.GetOfferUUID(ctx, offerURL)
+	if errors.Is(err, offererrors.OfferNotFound) {
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "offer %q not found", offerURL)
+	} else if err != nil {
+		return errors.Errorf("getting offer uuid of %q: %w", offerURL.String(), err)
+	}
+
+	if err := api.checkAPIUserAdmin(ctx, model.UUID(modelUUID)); err != nil {
+		apiUserName := coreuser.NameFromTag(apiUserTag)
+		accessLevel, err := api.accessService.ReadUserAccessLevelForTarget(ctx, apiUserName, permission.ID{
+			ObjectType: permission.Offer,
+			Key:        offerUUID.String(),
+		})
+		if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
+			return apiservererrors.ErrPerm
+		}
+		if accessLevel != permission.AdminAccess {
+			return apiservererrors.ErrPerm
+		}
+	}
+
+	return api.changeOfferAccess(ctx, offerUUID.String(), arg.UserTag, arg.Action, permission.Access(arg.Access))
+}
+
+// changeOfferAccess performs the requested access grant or revoke action for the
+// specified user on the specified application offer.
+func (api *OffersAPI) changeOfferAccess(
+	ctx context.Context,
+	offerUUID string,
+	targetUser string,
+	action params.OfferAction,
+	accessLevel permission.Access,
+) error {
+	targetUserTag, err := names.ParseUserTag(targetUser)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	targetUserName := coreuser.NameFromTag(targetUserTag)
+
+	var change permission.AccessChange
+	switch action {
+	case params.GrantOfferAccess:
+		change = permission.Grant
+	case params.RevokeOfferAccess:
+		change = permission.Revoke
+	default:
+		return errors.Errorf("unknown action %q", action)
+	}
+
+	err = api.accessService.UpdatePermission(ctx, access.UpdatePermissionArgs{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Offer,
+				Key:        offerUUID,
+			},
+			Access: accessLevel,
+		},
+		Change:  change,
+		Subject: targetUserName,
+	})
+	if err != nil {
+		return errors.Errorf("could not %s offer access for %q: %w", change, targetUserName, err)
+	}
+	return nil
+}
+
+type offerModel struct {
+	url   *corecrossmodel.OfferURL
+	model model.Model
+	err   error
+}
+
+// getModelsFromOffers returns a slice of models corresponding to the
+// specified offer URLs. Each result item has either a model or an error.
+func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTag, offerURLs ...string) ([]offerModel, error) {
+	// Cache the models found so far so we don't look them up more than once.
+	modelsCache := make(map[string]model.Model)
+	oneModel := func(offerURL string) (*corecrossmodel.OfferURL, model.Model, error) {
+		url, err := corecrossmodel.ParseOfferURL(offerURL)
+		if err != nil {
+			return nil, model.Model{}, errors.Capture(err)
+		}
+		modelPath := fmt.Sprintf("%s/%s", url.ModelQualifier, url.ModelName)
+		if foundModel, ok := modelsCache[modelPath]; ok {
+			return url, foundModel, nil
+		}
+
+		modelQualifier := url.ModelQualifier
+		if modelQualifier == "" {
+			modelQualifier = user.Id()
+		}
+		m, err := api.modelForName(ctx, url.ModelName, modelQualifier)
+		if err != nil {
+			return nil, model.Model{}, errors.Capture(err)
+		}
+		return url, m, nil
+	}
+
+	result := make([]offerModel, len(offerURLs))
+	for i, offerURL := range offerURLs {
+		var om offerModel
+		om.url, om.model, om.err = oneModel(offerURL)
+		result[i] = om
+	}
+	return result, nil
+}
+
+// modelForName returns the model details for the specified model name,
+// along with the absolute model path used in the lookup.
+//
+// The following errors may be returned:
+// - [coreerrors.NotFound] when no model with the given name exists.
+// - [coreerrors.NotValid] when ownerName is not valid.
+func (api *OffersAPI) modelForName(ctx context.Context, modelName, ownerName string) (model.Model, error) {
+	qualifier := model.QualifierFromUserTag(names.NewUserTag(ownerName))
+	m, err := api.modelService.GetModelByNameAndQualifier(ctx, modelName, qualifier)
+	if errors.Is(err, modelerrors.NotFound) {
+		return model.Model{}, errors.Errorf(`model "%s/%s": %w`, ownerName, modelName, coreerrors.NotFound)
+	} else if errors.Is(err, accesserrors.UserNameNotValid) {
+		return model.Model{}, errors.Errorf("user name %q: %w", ownerName, coreerrors.NotValid)
+	}
+
+	return m, errors.Capture(err)
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
 func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
+
 	return params.ApplicationOffersResults{}, nil
 }
 
@@ -79,4 +373,31 @@ func (api *OffersAPI) RemoteApplicationInfo(ctx context.Context, args params.Off
 // DestroyOffers removes the offers specified by the given URLs, forcing if necessary.
 func (api *OffersAPI) DestroyOffers(ctx context.Context, args params.DestroyApplicationOffers) (params.ErrorResults, error) {
 	return params.ErrorResults{}, nil
+}
+
+// checkAdmin ensures that the specified in user is a model or controller admin.
+func (api *OffersAPI) checkAdmin(
+	ctx context.Context, user names.UserTag, modelUUID model.UUID,
+) error {
+	controllerTag := names.NewControllerTag(api.controllerUUID)
+	err := api.authorizer.EntityHasPermission(ctx, user, permission.SuperuserAccess, controllerTag)
+	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		err = api.authorizer.EntityHasPermission(ctx, user, permission.AdminAccess, names.NewModelTag(modelUUID.String()))
+	}
+	return errors.Capture(err)
+}
+
+// checkAdmin ensures that the specified in user is a model or controller admin.
+func (api *OffersAPI) checkAPIUserAdmin(
+	ctx context.Context, modelUUID model.UUID,
+) error {
+	controllerTag := names.NewControllerTag(api.controllerUUID)
+	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return errors.Capture(err)
+	} else if err == nil {
+		return nil
+	}
+
+	return api.authorizer.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(modelUUID.String()))
 }

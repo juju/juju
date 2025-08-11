@@ -13,6 +13,11 @@ import (
 // AccessChange represents a change in access level.
 type AccessChange string
 
+// String returns the access change as a string.
+func (a AccessChange) String() string {
+	return string(a)
+}
+
 const (
 	// Grant represents a change in access level to grant.
 	Grant AccessChange = "grant"

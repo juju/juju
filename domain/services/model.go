@@ -59,6 +59,9 @@ import (
 	modelproviderstate "github.com/juju/juju/domain/modelprovider/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
+	offerservice "github.com/juju/juju/domain/offer/service"
+	offerstatecontroller "github.com/juju/juju/domain/offer/state/controller"
+	offerstatemodel "github.com/juju/juju/domain/offer/state/model"
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
@@ -520,6 +523,21 @@ func (s *ModelServices) ModelProvider() *modelproviderservice.Service {
 		modelproviderstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.logger.Child("modelprovider"),
 		providertracker.ProviderRunner[modelproviderservice.ProviderWithSecretToken](s.providerFactory, s.modelUUID.String()),
+	)
+}
+
+// Offer returns the service for persisting and retrieving offers
+// for the current model and the controller model.
+func (s *ModelServices) Offer() *offerservice.Service {
+	return offerservice.NewService(
+		offerstatecontroller.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+			s.logger.Child("offer.state.controller")),
+		offerstatemodel.NewState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+			s.logger.Child("offer.state.model"),
+		),
+		s.logger.Child("offer.service"),
 	)
 }
 

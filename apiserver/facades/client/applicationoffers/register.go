@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/model"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -43,6 +44,21 @@ func makeOffersAPIV5(facadeContext facade.MultiModelContext) (*OffersAPIv5, erro
 }
 
 // makeOffersAPI returns a new application offers OffersAPI facade.
-func makeOffersAPI(_ facade.MultiModelContext) (*OffersAPI, error) {
-	return createOffersAPI()
+func makeOffersAPI(ctx facade.MultiModelContext) (*OffersAPI, error) {
+
+	offerServiceGetter := func(c context.Context, modelUUID model.UUID) (OfferService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Offer(), nil
+	}
+	return createOffersAPI(
+		ctx.Auth(),
+		ctx.ControllerUUID(),
+		ctx.ModelUUID(),
+		ctx.DomainServices().Access(),
+		ctx.DomainServices().Model(),
+		offerServiceGetter,
+	)
 }

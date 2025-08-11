@@ -36,6 +36,7 @@ import (
 	modelproviderservice "github.com/juju/juju/domain/modelprovider/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	offerservice "github.com/juju/juju/domain/offer/service"
 	portservice "github.com/juju/juju/domain/port/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
@@ -163,6 +164,8 @@ type ModelDomainServices interface {
 	// ModelProvider returns a service for accessing info relevant to the
 	// provider for a model.
 	ModelProvider() *modelproviderservice.Service
+	// Offer returns a service for managing offers.
+	Offer() *offerservice.Service
 
 	// Stub returns the stub service. A special service that collects temporary
 	// methods required for wiring together domains which are not completely
