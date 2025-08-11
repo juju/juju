@@ -17,6 +17,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 )
 
@@ -75,7 +76,7 @@ func (testingAPIRootHandler) ModelUUID() model.UUID {
 }
 
 // WatcherRegistry returns a new WatcherRegistry.
-func (testingAPIRootHandler) WatcherRegistry() facade.WatcherRegistry {
+func (testingAPIRootHandler) WatcherRegistry() watcherregistry.WatcherRegistry {
 	return nil
 }
 

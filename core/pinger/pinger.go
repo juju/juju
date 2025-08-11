@@ -59,6 +59,11 @@ func (pt *Pinger) Wait() error {
 	return pt.tomb.Wait()
 }
 
+// Dying returns a channel that is closed when the Pinger is killed.
+func (pt *Pinger) Dying() <-chan struct{} {
+	return pt.tomb.Dying()
+}
+
 // loop waits for a reset signal, otherwise it performs
 // the initially passed action.
 func (pt *Pinger) loop() error {

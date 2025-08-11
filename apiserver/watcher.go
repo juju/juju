@@ -15,12 +15,13 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc/params"
 )
 
 type watcherCommon struct {
 	id              string
-	watcherRegistry facade.WatcherRegistry
+	watcherRegistry watcherregistry.WatcherRegistry
 	dispose         func()
 }
 

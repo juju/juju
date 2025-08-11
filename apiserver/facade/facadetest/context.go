@@ -19,13 +19,14 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 )
 
 // ModelContext implements facade.ModelContext in the simplest possible way.
 type ModelContext struct {
 	Auth_                facade.Authorizer
 	Dispose_             func()
-	WatcherRegistry_     facade.WatcherRegistry
+	WatcherRegistry_     watcherregistry.WatcherRegistry
 	ID_                  string
 	ControllerUUID_      string
 	ControllerModelUUID_ model.UUID
@@ -69,7 +70,7 @@ func (c ModelContext) Dispose() {
 // WatcherRegistry returns the watcher registry for this c. The
 // watchers are per-connection, and are cleaned up when the connection
 // is closed.
-func (c ModelContext) WatcherRegistry() facade.WatcherRegistry {
+func (c ModelContext) WatcherRegistry() watcherregistry.WatcherRegistry {
 	return c.WatcherRegistry_
 }
 
