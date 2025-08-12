@@ -51,7 +51,7 @@ func (s ObjectStoreService) WatchModel(ctx context.Context) (watcher.NotifyWatch
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
-		"model watcher",
+		"object store model watcher",
 		eventsource.NamespaceFilter("model", changestream.All),
 		eventsource.NamespaceFilter("model_life", changestream.All),
 	)

@@ -88,7 +88,7 @@ func (s *WatchableProviderService) Watch() (watcher.StringsWatcher, error) {
 	// is quite large.
 	return s.watcherFactory.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
-		"model config watcher",
+		"provider model config watcher",
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchModelConfig(), changestream.All),
 	)
 }

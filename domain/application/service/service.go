@@ -281,7 +281,7 @@ func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName
 	table, query := s.st.InitialWatchStatementUnitLife(appName)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		query,
-		fmt.Sprintf("application life watcher for %q", appName),
+		fmt.Sprintf("application unit life watcher for %q", appName),
 		lifeMapper,
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
@@ -807,7 +807,7 @@ func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitNam
 
 	unitNamespace, principalNamespace, resolvedNamespace := s.st.NamespaceForWatchUnitForLegacyUniter()
 	return s.watcherFactory.NewNotifyWatcher(
-		fmt.Sprintf("unit watcher for legacy uniter for %q", unitName),
+		fmt.Sprintf("legacy uniter unit watcher for %q", unitName),
 		eventsource.PredicateFilter(
 			unitNamespace,
 			changestream.All,
