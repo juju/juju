@@ -1,5 +1,5 @@
 name: juju
-version: 3.6.9
+version: 3.6.10
 summary: Juju - a model-driven operator lifecycle manager for K8s and machines
 license: AGPL-3.0
 description: |
