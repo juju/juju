@@ -65,7 +65,7 @@ Anything you type after the VM shell prompt (`ubuntu@my-juju-vm:~$`) will run on
 
 
 At any point:
-- To exit the shell, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`C`) or type `exit`.
+- To exit the shell, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`D`) or type `exit`.
 - To stop the VM after exiting the VM shell, run `multipass stop my-juju-vm`.
 - To restart the VM and re-open a shell into it, type `multipass shell my-juju-vm`.
 
