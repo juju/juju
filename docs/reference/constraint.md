@@ -1,7 +1,7 @@
 (constraint)=
 # Constraint
 
-In Juju, a **constraint** is a key-value pair that represents a specification that can be passed to certain `juju` commands /command flags to customise the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju. 
+In Juju, a **constraint** is a key-value pair that represents a specification that can be passed to certain `juju` commands /command flags to customise the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju.
 
 If the resource is a bare metal machine or a virtual machine, a constraint represents a minimum, whereas if the resource is a system container or a Kubernetes container it represents a maximum.
 
@@ -53,7 +53,7 @@ The architecture. <br> <br>**Valid values:** `amd64`, `arm64`, `ppc64el`, `s390x
 (constraint-container)=
 ## `container`
 
-Indicates that a machine must be the specified container type. <p> **Valid values:** `lxd`, `kvm`. 
+Indicates that a machine must be the specified container type. <p> **Valid values:** `lxd`, `kvm`.
 
 (constraint-cores)=
 ## `cores`
@@ -67,7 +67,12 @@ Abstract CPU power. <br> <br> **Type:** integer, where 100 units is roughly equi
 (constraint-image-id)=
 ## `image-id`
 
-| <a href="#heading--image-id"><h4 id="heading--image-id">`image-id`</h4></a> | (Starting with `3.2`) The image ID. If not nil, indicates that a machine must use the specified image. <br> <br> **Note:** Not supported by all providers. Value is provider-specific.  Also, when applied during `juju deploy`, must be used in conjunction with the `--base` flag of the command -- the `image-id` will specify the image to be used for the provisioned machines and the `--base` will specify the charm revision to be deployed on those machines. |
+```{versionadded} 3.2.0
+```
+
+The image ID. If not nil, indicates that a machine must use the specified image.
+
+**Note:** Not supported by all providers. Value is provider-specific.  Also, when applied during `juju deploy`, must be used in conjunction with the `--base` flag of the command -- the `image-id` will specify the image to be used for the provisioned machines and the `--base` will specify the charm revision to be deployed on those machines.
 
 (constraint-instance-role)=
 ## `instance-role`
@@ -92,7 +97,7 @@ Disk space on the root drive (MiB). An optional suffix of M/G/T/P is used as per
 (constraint-root-disk-source)=
 ## `root-disk-source`
 
-Name of the storage pool or location the root disk is from. <p> **Note:** `root-disk-source` has different behaviour with each provider. 
+Name of the storage pool or location the root disk is from. <p> **Note:** `root-disk-source` has different behaviour with each provider.
 
 (constraint-spaces)=
 ## `spaces`
