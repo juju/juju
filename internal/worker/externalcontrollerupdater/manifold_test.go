@@ -28,7 +28,7 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 func (s *ManifoldConfigSuite) validConfig() externalcontrollerupdater.ManifoldConfig {
 	return externalcontrollerupdater.ManifoldConfig{
 		APICallerName: "api-caller",
-		NewExternalControllerWatcherClient: func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
+		NewExternalControllerWatcherClient: func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, string, error) {
 			panic("should not be called")
 		},
 	}

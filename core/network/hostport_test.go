@@ -231,6 +231,266 @@ func (s *HostPortSuite) TestSortHostPorts(c *gc.C) {
 	)
 }
 
+func (s *HostPortSuite) TestSortHostsPorts(c *gc.C) {
+	in := []network.SpaceHostPorts{
+		{
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.62",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		}, {
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.56",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		}, {
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.113",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		},
+	}
+	sort.Sort(network.HostsPortsSlice(in))
+	c.Assert(in, jc.DeepEquals, []network.SpaceHostPorts{
+		{
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.113",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		}, {
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.56",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		}, {
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.62",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		},
+	})
+}
+
+func (s *HostPortSuite) TestDupeAndSortHostsPorts(c *gc.C) {
+	in := []network.SpaceHostPorts{
+		{
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.62",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		}, {
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.56",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		}, {
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.113",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		},
+	}
+	out := network.DupeAndSort(in)
+	c.Assert(out, jc.DeepEquals, []network.SpaceHostPorts{
+		{
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.113",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		}, {
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.56",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		}, {
+			{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.62",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
+				},
+				NetPort: 17070,
+			}, {
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
+				},
+				NetPort: 17070,
+			},
+		},
+	})
+}
+
 var netAddrTests = []struct {
 	addr   network.SpaceAddress
 	port   int

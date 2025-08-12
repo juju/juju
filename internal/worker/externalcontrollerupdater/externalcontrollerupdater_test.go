@@ -52,9 +52,9 @@ func (s *ExternalControllerUpdaterSuite) TestStartStop(c *gc.C) {
 
 	s.client.EXPECT().WatchExternalControllers().Return(extCtrlWatcher, nil)
 
-	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, error) {
-		return s.watcher, nil
-	}, s.clock)
+	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, string, error) {
+		return s.watcher, "10.0.0.1", nil
+	}, s.clock, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
@@ -83,15 +83,15 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersStartStop(c
 	})
 	s.watcher.EXPECT().Close()
 
-	w, err := New(s.client, func(gotInfo *api.Info) (ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(gotInfo *api.Info) (ExternalControllerWatcherClientCloser, string, error) {
 		defer close(started)
 		c.Assert(gotInfo, jc.DeepEquals, &api.Info{
 			Addrs:  info.Addrs,
 			Tag:    names.NewUserTag("jujuanonymous"),
 			CACert: info.CACert,
 		})
-		return s.watcher, nil
-	}, s.clock)
+		return s.watcher, "10.0.0.1", nil
+	}, s.clock, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -124,9 +124,9 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersError(c *gc
 		close(done)
 	})
 
-	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, error) {
-		return s.watcher, nil
-	}, s.clock)
+	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, string, error) {
+		return s.watcher, "10.0.0.1", nil
+	}, s.clock, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -156,9 +156,9 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorRestar
 	})
 	s.watcher.EXPECT().Close()
 
-	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, error) {
-		return s.watcher, nil
-	}, s.clock)
+	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, string, error) {
+		return s.watcher, "10.0.0.1", nil
+	}, s.clock, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -196,15 +196,15 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersNotSupporte
 	watcherReady := make(chan struct{})
 	watcherFetched := make(chan struct{})
 
-	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, error) {
+	w, err := New(s.client, func(*api.Info) (ExternalControllerWatcherClientCloser, string, error) {
 		close(watcherReady)
 		select {
 		case <-watcherFetched:
 		case <-time.After(coretesting.LongWait):
 			c.Error("timed out waiting for watcher to be fetched")
 		}
-		return nil, notSupportedErr
-	}, s.clock)
+		return nil, "", notSupportedErr
+	}, s.clock, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -256,9 +256,9 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *g
 	})
 	s.watcher.EXPECT().Close()
 
-	w, err := New(s.client, func(gotInfo *api.Info) (ExternalControllerWatcherClientCloser, error) {
-		return s.watcher, nil
-	}, s.clock)
+	w, err := New(s.client, func(gotInfo *api.Info) (ExternalControllerWatcherClientCloser, string, error) {
+		return s.watcher, "10.0.0.1", nil
+	}, s.clock, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -287,6 +287,58 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersChange(c *g
 	case <-done:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for controller update")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersNoChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan []string, 1)
+	extCtrlWatcher := watchertest.NewMockStringsWatcher(ch)
+	ch <- []string{coretesting.ControllerTag.Id()}
+
+	s.client.EXPECT().WatchExternalControllers().Return(extCtrlWatcher, nil)
+	info := crossmodel.ControllerInfo{
+		ControllerTag: coretesting.ControllerTag,
+		Alias:         "alias",
+		Addrs:         []string{"10.6.6.6", "10.6.6.7"},
+		CACert:        coretesting.CACert,
+	}
+	s.client.EXPECT().ExternalControllerInfo(coretesting.ControllerTag.Id()).Return(&info, nil)
+
+	change := make(chan struct{}, 1)
+	infoWatcher := watchertest.NewMockNotifyWatcher(change)
+
+	s.watcher.EXPECT().WatchControllerInfo().DoAndReturn(func() (corewatcher.NotifyWatcher, error) {
+		return infoWatcher, nil
+	})
+	s.watcher.EXPECT().Close()
+
+	done := make(chan struct{})
+	w, err := New(s.client, func(gotInfo *api.Info) (ExternalControllerWatcherClientCloser, string, error) {
+		return s.watcher, "10.0.0.1", nil
+	}, s.clock, func() {
+		close(done)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.CleanKill(c, w)
+
+	newInfo := &crosscontroller.ControllerInfo{
+		// Re-order the addresses to ensure order doesn't matter.
+		Addrs:  []string{"10.6.6.7", "10.6.6.6"},
+		CACert: coretesting.CACert,
+	}
+	s.watcher.EXPECT().ControllerInfo().Return(newInfo, nil)
+
+	change <- struct{}{}
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for controller watcher")
 	}
 
 	workertest.CleanKill(c, w)

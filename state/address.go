@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"reflect"
-	"sort"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -164,7 +163,8 @@ func (st *State) getOpsForHostPortsChange(
 
 	// Queue an update operation if the host/port collections differ.
 	extantHostPorts := networkHostsPorts(extantHostPortDoc.APIHostPorts)
-	if !hostsPortsEqual(newHostPorts, extantHostPorts) {
+	newHostPortData := networkHostsPortsForCompare(newHostPorts)
+	if !hostsPortsEqual(newHostPortData, extantHostPorts) {
 		ops = []txn.Op{{
 			C:  controllersC,
 			Id: key,
@@ -483,50 +483,40 @@ func networkHostsPorts(hsps [][]hostPort) []network.SpaceHostPorts {
 	return netHostsPorts
 }
 
+// networkHostsPortsForCompare returns a copy of in with only the values
+// stored in the database filled in. This allows a meaningful sort to be done.
+func networkHostsPortsForCompare(in []network.SpaceHostPorts) []network.SpaceHostPorts {
+	netHostsPorts := make([]network.SpaceHostPorts, len(in))
+	for i, hps := range in {
+		netHostsPorts[i] = make(network.SpaceHostPorts, len(hps))
+		for j, hp := range hps {
+			netHostsPorts[i][j] = network.SpaceHostPort{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: hp.Value,
+						Type:  hp.Type,
+						Scope: hp.Scope,
+					},
+					SpaceID: hp.SpaceID,
+				},
+				NetPort: hp.NetPort,
+			}
+		}
+	}
+	return netHostsPorts
+}
+
 // addressEqual checks that two slices of network addresses are equal.
 func addressesEqual(a, b []network.SpaceAddress) bool {
 	return reflect.DeepEqual(a, b)
-}
-
-func dupeAndSort(a []network.SpaceHostPorts) []network.SpaceHostPorts {
-	var result []network.SpaceHostPorts
-
-	for _, val := range a {
-		var inner network.SpaceHostPorts
-		inner = append(inner, val...)
-		sort.Sort(inner)
-		result = append(result, inner)
-	}
-	sort.Sort(hostsPortsSlice(result))
-	return result
-}
-
-type hostsPortsSlice []network.SpaceHostPorts
-
-func (hp hostsPortsSlice) Len() int      { return len(hp) }
-func (hp hostsPortsSlice) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
-func (hp hostsPortsSlice) Less(i, j int) bool {
-	lhs := (hostPortsSlice)(hp[i]).String()
-	rhs := (hostPortsSlice)(hp[j]).String()
-	return lhs < rhs
-}
-
-type hostPortsSlice []network.SpaceHostPort
-
-func (hp hostPortsSlice) String() string {
-	var result string
-	for _, val := range hp {
-		result += fmt.Sprintf("%s-%d ", val.SpaceAddress, val.Port())
-	}
-	return result
 }
 
 // hostsPortsEqual checks that two arrays of network hostports are equal.
 func hostsPortsEqual(a, b []network.SpaceHostPorts) bool {
 	// Make a copy of all the values so we don't mutate the args in order
 	// to determine if they are the same while we mutate the slice to order them.
-	aPrime := dupeAndSort(a)
-	bPrime := dupeAndSort(b)
+	aPrime := network.DupeAndSort(a)
+	bPrime := network.DupeAndSort(b)
 	return reflect.DeepEqual(aPrime, bPrime)
 }
 

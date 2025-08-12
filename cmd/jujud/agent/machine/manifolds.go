@@ -13,10 +13,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
-	pubsub "github.com/juju/pubsub/v2"
+	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
-	version "github.com/juju/version/v2"
-	worker "github.com/juju/worker/v3"
+	"github.com/juju/version/v2"
+	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -293,13 +293,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 
 	newExternalControllerWatcherClient := func(apiInfo *api.Info) (
-		externalcontrollerupdater.ExternalControllerWatcherClientCloser, error,
+		externalcontrollerupdater.ExternalControllerWatcherClientCloser, string, error,
 	) {
 		conn, err := apicaller.NewExternalControllerConnection(apiInfo)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, "", errors.Trace(err)
 		}
-		return crosscontroller.NewClient(conn), nil
+		return crosscontroller.NewClient(conn), conn.IPAddr(), nil
 	}
 
 	var externalUpdateProxyFunc func(proxy.Settings) error
