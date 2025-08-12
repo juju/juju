@@ -262,7 +262,7 @@ func (s *Service) modelScheduleRemoval(
 		return "", errors.Errorf("model: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q and %q", jobUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)
 	return jobUUID, nil
 }
 
