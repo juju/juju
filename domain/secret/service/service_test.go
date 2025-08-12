@@ -2174,7 +2174,7 @@ func (s *serviceSuite) TestWatchObsolete(c *tc.C) {
 	defer ctrl.Finish()
 
 	mockWatcherFactory := NewMockWatcherFactory(ctrl)
-	mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(
 			_ eventsource.NamespaceQuery,
 			_ string,
