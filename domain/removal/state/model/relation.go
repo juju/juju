@@ -26,7 +26,7 @@ func (st *State) RelationExists(ctx context.Context, rUUID string) (bool, error)
 
 	relationUUID := entityUUID{UUID: rUUID}
 	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   relation
 WHERE  uuid = $entityUUID.uuid`, relationUUID)
 	if err != nil {

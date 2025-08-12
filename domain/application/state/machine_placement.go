@@ -126,7 +126,7 @@ WHERE  machine_uuid = $entityUUID.uuid
 func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName string) (entityUUID, error) {
 	machineNameParam := entityName{Name: mName}
 	machineUUIDoutput := entityUUID{}
-	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE name = $entityName.name`
+	query := `SELECT &entityUUID.uuid FROM machine WHERE name = $entityName.name`
 	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDoutput)
 	if err != nil {
 		return entityUUID{}, errors.Capture(err)

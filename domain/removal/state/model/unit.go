@@ -24,7 +24,7 @@ func (st *State) UnitExists(ctx context.Context, uUUID string) (bool, error) {
 
 	unitUUID := entityUUID{UUID: uUUID}
 	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   unit
 WHERE  uuid = $entityUUID.uuid`, unitUUID)
 	if err != nil {

@@ -263,8 +263,8 @@ func (s *WatchableService) WatchRemovals(ctx context.Context) (watcher.StringsWa
 
 	w, err := s.watcherFactory.NewUUIDsWatcher(
 		ctx,
-		"removals watcher",
 		s.modelState.NamespaceForWatchRemovals(),
+		"removals watcher",
 		changestream.Changed,
 	)
 	if err != nil {

@@ -413,7 +413,7 @@ WHERE      m.uuid = $entityUUID.uuid
 func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (entityUUID, error) {
 	machineNameParam := machineName{Name: mName}
 	machineUUIDOutput := entityUUID{}
-	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE name = $machineName.name`
+	query := `SELECT &entityUUID.uuid FROM machine WHERE name = $machineName.name`
 	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDOutput)
 	if err != nil {
 		return entityUUID{}, errors.Capture(err)
@@ -472,7 +472,7 @@ func (st *State) GetMachineParentUUID(ctx context.Context, uuid string) (machine
 
 	// Prepare query for checking that the machine exists.
 	currentMachineUUID := entityUUID{UUID: uuid}
-	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE uuid = $entityUUID.uuid`
+	query := `SELECT &entityUUID.uuid FROM machine WHERE uuid = $entityUUID.uuid`
 	queryStmt, err := st.Prepare(query, currentMachineUUID)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -529,7 +529,7 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (machine
 
 	var uuid entityUUID
 	currentMachineName := machineName{Name: name}
-	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE name = $machineName.name`
+	query := `SELECT &entityUUID.uuid FROM machine WHERE name = $machineName.name`
 	queryStmt, err := st.Prepare(query, uuid, currentMachineName)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -601,7 +601,7 @@ func (st *State) SetKeepInstance(ctx context.Context, mName machine.Name, keep b
 	machineUUID := entityUUID{}
 	machineNameParam := machineName{Name: mName}
 	machineExistsQuery := `
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   machine
 WHERE  name = $machineName.name`
 	machineExistsStmt, err := st.Prepare(machineExistsQuery, machineUUID, machineNameParam)
@@ -711,7 +711,7 @@ func (st *State) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, pr
 
 	queryMachineUUID := entityUUID{UUID: mUUID}
 	checkMachineExistsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   machine
 WHERE  machine.uuid = $entityUUID.uuid`, queryMachineUUID)
 	if err != nil {
@@ -923,7 +923,7 @@ func (st *State) SetMachineHostname(ctx context.Context, mUUID string, hostname 
 	}
 
 	currentMachineUUID := entityUUID{UUID: mUUID}
-	query := `SELECT uuid AS &entityUUID.uuid FROM machine WHERE uuid = $entityUUID.uuid`
+	query := `SELECT &entityUUID.uuid FROM machine WHERE uuid = $entityUUID.uuid`
 	queryStmt, err := st.Prepare(query, currentMachineUUID)
 	if err != nil {
 		return errors.Capture(err)

@@ -30,7 +30,7 @@ func (st *State) ModelExists(ctx context.Context, mUUID string) (bool, error) {
 
 	modelUUID := entityUUID{UUID: mUUID}
 	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   model
 WHERE  uuid = $entityUUID.uuid`, modelUUID)
 	if err != nil {

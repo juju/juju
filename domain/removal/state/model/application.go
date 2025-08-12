@@ -25,7 +25,7 @@ func (st *State) ApplicationExists(ctx context.Context, aUUID string) (bool, err
 
 	applicationUUID := entityUUID{UUID: aUUID}
 	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   application
 WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 	if err != nil {
@@ -75,7 +75,7 @@ AND    life_id = 0`, applicationUUID)
 	// because we want to ensure that the application is not alive, and
 	// that no units are alive at the same time. Preventing any races.
 	selectUnitUUIDsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   unit
 WHERE  application_uuid = $entityUUID.uuid
 AND    life_id = 0`, applicationUUID)

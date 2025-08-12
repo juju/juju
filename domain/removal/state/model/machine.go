@@ -26,7 +26,7 @@ func (st *State) MachineExists(ctx context.Context, mUUID string) (bool, error) 
 
 	machineUUID := entityUUID{UUID: mUUID}
 	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   machine
 WHERE  uuid = $entityUUID.uuid`, machineUUID)
 	if err != nil {
