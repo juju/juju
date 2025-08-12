@@ -15,6 +15,15 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+const (
+	// ErrProviderWorkerDying is returned when the provider worker is dying.
+	ErrProviderWorkerDying = errors.ConstError("provider worker is dying")
+
+	// ErrProviderNotFound is used to indicate that the provider worker
+	// for the given namespace could not be found.
+	ErrProviderNotFound = errors.ConstError("provider not found for namespace")
+)
+
 // Provider in the intersection of a environs.Environ and a caas.Broker.
 //
 // We ideally don't want to import the environs package here, but I've not

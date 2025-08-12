@@ -43,18 +43,18 @@ func (m *MockDBGetter) EXPECT() *MockDBGetterMockRecorder {
 }
 
 // GetDB mocks base method.
-func (m *MockDBGetter) GetDB(arg0 string) (database.TxnRunner, error) {
+func (m *MockDBGetter) GetDB(arg0 context.Context, arg1 string) (database.TxnRunner, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDB", arg0)
+	ret := m.ctrl.Call(m, "GetDB", arg0, arg1)
 	ret0, _ := ret[0].(database.TxnRunner)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDB indicates an expected call of GetDB.
-func (mr *MockDBGetterMockRecorder) GetDB(arg0 any) *MockDBGetterGetDBCall {
+func (mr *MockDBGetterMockRecorder) GetDB(arg0, arg1 any) *MockDBGetterGetDBCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockDBGetter)(nil).GetDB), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockDBGetter)(nil).GetDB), arg0, arg1)
 	return &MockDBGetterGetDBCall{Call: call}
 }
 
@@ -70,13 +70,13 @@ func (c *MockDBGetterGetDBCall) Return(arg0 database.TxnRunner, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDBGetterGetDBCall) Do(f func(string) (database.TxnRunner, error)) *MockDBGetterGetDBCall {
+func (c *MockDBGetterGetDBCall) Do(f func(context.Context, string) (database.TxnRunner, error)) *MockDBGetterGetDBCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDBGetterGetDBCall) DoAndReturn(f func(string) (database.TxnRunner, error)) *MockDBGetterGetDBCall {
+func (c *MockDBGetterGetDBCall) DoAndReturn(f func(context.Context, string) (database.TxnRunner, error)) *MockDBGetterGetDBCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -102,6 +102,44 @@ func NewMockTxnRunner(ctrl *gomock.Controller) *MockTxnRunner {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTxnRunner) EXPECT() *MockTxnRunnerMockRecorder {
 	return m.recorder
+}
+
+// Dying mocks base method.
+func (m *MockTxnRunner) Dying() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dying")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// Dying indicates an expected call of Dying.
+func (mr *MockTxnRunnerMockRecorder) Dying() *MockTxnRunnerDyingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dying", reflect.TypeOf((*MockTxnRunner)(nil).Dying))
+	return &MockTxnRunnerDyingCall{Call: call}
+}
+
+// MockTxnRunnerDyingCall wrap *gomock.Call
+type MockTxnRunnerDyingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTxnRunnerDyingCall) Return(arg0 <-chan struct{}) *MockTxnRunnerDyingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTxnRunnerDyingCall) Do(f func() <-chan struct{}) *MockTxnRunnerDyingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTxnRunnerDyingCall) DoAndReturn(f func() <-chan struct{}) *MockTxnRunnerDyingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // StdTxn mocks base method.

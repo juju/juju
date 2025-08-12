@@ -34,10 +34,10 @@ var tagsTests = []struct {
 	tag         string
 	expectedErr string
 }{
-	{"user-admin", "permission denied"},
-	{"unit-wut-4", "permission denied"},
-	{"definitelynotatag", `"definitelynotatag" is not a valid tag`},
-	{"machine-5", "permission denied"},
+	{tag: "user-admin", expectedErr: "permission denied"},
+	{tag: "unit-wut-4", expectedErr: "permission denied"},
+	{tag: "definitelynotatag", expectedErr: `"definitelynotatag" is not a valid tag`},
+	{tag: "machine-5", expectedErr: "permission denied"},
 }
 
 func (s *retryStrategySuite) SetUpTest(c *tc.C) {
@@ -69,7 +69,7 @@ func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	args := params.Entities{Entities: []params.Entity{{"unit-mysql-1"}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-1"}}}
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
 		config.New(false, map[string]any{
@@ -175,7 +175,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	args := params.Entities{Entities: []params.Entity{{"unit-mysql-1"}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-1"}}}
 	res, err := s.strategy.WatchRetryStrategy(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
@@ -208,7 +208,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategy(c *tc.C) {
 	notifyCh := make(chan []string, 1)
 	notifyCh <- []string{}
 	watcher := watchertest.NewMockStringsWatcher(notifyCh)
-	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	args := params.Entities{Entities: []params.Entity{

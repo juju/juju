@@ -30,7 +30,7 @@ func NewState(factory coreDB.TxnRunnerFactory) *State {
 
 // Put implements autocert.Cache.Put.
 func (st *State) Put(ctx context.Context, name string, data []byte) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -66,7 +66,7 @@ VALUES ($dbAutocert.*)
 
 // Get implements autocert.Cache.Get.
 func (st *State) Get(ctx context.Context, name string) ([]byte, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -98,7 +98,7 @@ WHERE  name = $dbAutocert.name`
 
 // Delete implements autocert.Cache.Delete.
 func (st *State) Delete(ctx context.Context, name string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

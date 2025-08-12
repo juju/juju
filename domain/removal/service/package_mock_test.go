@@ -158,6 +158,45 @@ func (c *MockControllerDBStateGetModelLifeCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetModelUUIDs mocks base method.
+func (m *MockControllerDBState) GetModelUUIDs(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelUUIDs", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelUUIDs indicates an expected call of GetModelUUIDs.
+func (mr *MockControllerDBStateMockRecorder) GetModelUUIDs(arg0 any) *MockControllerDBStateGetModelUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelUUIDs", reflect.TypeOf((*MockControllerDBState)(nil).GetModelUUIDs), arg0)
+	return &MockControllerDBStateGetModelUUIDsCall{Call: call}
+}
+
+// MockControllerDBStateGetModelUUIDsCall wrap *gomock.Call
+type MockControllerDBStateGetModelUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDBStateGetModelUUIDsCall) Return(arg0 []string, arg1 error) *MockControllerDBStateGetModelUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDBStateGetModelUUIDsCall) Do(f func(context.Context) ([]string, error)) *MockControllerDBStateGetModelUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDBStateGetModelUUIDsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockControllerDBStateGetModelUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MarkModelAsDead mocks base method.
 func (m *MockControllerDBState) MarkModelAsDead(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -1145,6 +1184,45 @@ func (c *MockModelDBStateGetUnitLifeCall) Do(f func(context.Context, string) (li
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateGetUnitLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsControllerModel mocks base method.
+func (m *MockModelDBState) IsControllerModel(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerModel", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsControllerModel indicates an expected call of IsControllerModel.
+func (mr *MockModelDBStateMockRecorder) IsControllerModel(arg0, arg1 any) *MockModelDBStateIsControllerModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModel", reflect.TypeOf((*MockModelDBState)(nil).IsControllerModel), arg0, arg1)
+	return &MockModelDBStateIsControllerModelCall{Call: call}
+}
+
+// MockModelDBStateIsControllerModelCall wrap *gomock.Call
+type MockModelDBStateIsControllerModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateIsControllerModelCall) Return(arg0 bool, arg1 error) *MockModelDBStateIsControllerModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateIsControllerModelCall) Do(f func(context.Context, string) (bool, error)) *MockModelDBStateIsControllerModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateIsControllerModelCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelDBStateIsControllerModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -259,10 +259,10 @@ func (s *infoSuite) TestGetAllUnitAddressesInSpaces(c *tc.C) {
 		return unitAddress{
 			SpaceAddress: corenetwork.SpaceAddress{
 				MachineAddress: corenetwork.MachineAddress{
-					Value: addr.SpaceAddress.MachineAddress.Value,
-					CIDR:  addr.SpaceAddress.MachineAddress.CIDR,
+					Value: addr.Value,
+					CIDR:  addr.CIDR,
 				},
-				SpaceID: addr.SpaceAddress.SpaceID,
+				SpaceID: addr.SpaceID,
 			},
 			Device: addr.Device,
 			MAC:    addr.MAC,

@@ -46,7 +46,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *tc.C) {
 
 	notifyCh := make(chan []string)
 	watcher := watchertest.NewMockStringsWatcher(notifyCh)
-	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
@@ -66,7 +66,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *tc.C) {
 
 	notifyCh := make(chan []string)
 	watcher := watchertest.NewMockStringsWatcher(notifyCh)
-	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "192.168.0.0/24"}), nil)
@@ -91,7 +91,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *tc.C) {
 
 	notifyCh := make(chan []string)
 	watcher := watchertest.NewMockStringsWatcher(notifyCh)
-	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)

@@ -385,7 +385,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		return internalstorage.NotImplementedProviderRegistry{}
 	})
 	state := state.NewState(
-		func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
+		func(context.Context) (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

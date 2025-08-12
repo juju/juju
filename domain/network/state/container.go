@@ -21,7 +21,7 @@ import (
 func (st *State) GetMachineSpaceConstraints(
 	ctx context.Context, machineUUID string,
 ) ([]internal.SpaceName, []internal.SpaceName, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -73,7 +73,7 @@ WHERE  m.machine_uuid = $entityUUID.uuid`
 // GetMachineAppBindings returns the bound spaces for applications
 // with units assigned to the machine with the input UUID.
 func (st *State) GetMachineAppBindings(ctx context.Context, machineUUID string) ([]internal.SpaceName, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -129,7 +129,7 @@ WHERE  m.uuid = $entityUUID.uuid`
 // NICsInSpaces returns the link-layer devices on the machine with the
 // input net node UUID, indexed by the spaces that they are in.
 func (st *State) NICsInSpaces(ctx context.Context, nodeUUID string) (map[string][]network.NetInterface, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -214,7 +214,7 @@ WHERE  d.net_node_uuid = $entityUUID.uuid`
 // GetContainerNetworkingMethod returns the model's configured value
 // for container-networking-method.
 func (st *State) GetContainerNetworkingMethod(ctx context.Context) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -244,7 +244,7 @@ func (st *State) GetContainerNetworkingMethod(ctx context.Context) (string, erro
 // and device name to locate the CIDR of the subnet that it is connected to,
 // in the input space.
 func (st *State) GetSubnetCIDRForDevice(ctx context.Context, nodeUUID, deviceName, spaceUUID string) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

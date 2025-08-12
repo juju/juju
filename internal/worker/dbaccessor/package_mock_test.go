@@ -856,6 +856,44 @@ func (m *MockTrackedDB) EXPECT() *MockTrackedDBMockRecorder {
 	return m.recorder
 }
 
+// Dying mocks base method.
+func (m *MockTrackedDB) Dying() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dying")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// Dying indicates an expected call of Dying.
+func (mr *MockTrackedDBMockRecorder) Dying() *MockTrackedDBDyingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dying", reflect.TypeOf((*MockTrackedDB)(nil).Dying))
+	return &MockTrackedDBDyingCall{Call: call}
+}
+
+// MockTrackedDBDyingCall wrap *gomock.Call
+type MockTrackedDBDyingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTrackedDBDyingCall) Return(arg0 <-chan struct{}) *MockTrackedDBDyingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTrackedDBDyingCall) Do(f func() <-chan struct{}) *MockTrackedDBDyingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTrackedDBDyingCall) DoAndReturn(f func() <-chan struct{}) *MockTrackedDBDyingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Kill mocks base method.
 func (m *MockTrackedDB) Kill() {
 	m.ctrl.T.Helper()

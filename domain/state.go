@@ -25,7 +25,7 @@ type TxnRunner interface {
 // StateBase defines a base struct for requesting a database. This will cache
 // the database for the lifetime of the struct.
 type StateBase struct {
-	dbMutex sync.RWMutex
+	dbMutex sync.Mutex
 	getDB   database.TxnRunnerFactory
 	db      *txnRunner
 
@@ -50,29 +50,31 @@ func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 }
 
 // DB returns the database for a given namespace.
-func (st *StateBase) DB() (TxnRunner, error) {
+func (st *StateBase) DB(ctx context.Context) (TxnRunner, error) {
 	// Check if the database has already been retrieved.
-	// We optimistically check if the database is not nil, before checking
-	// if the getDB function is nil. This reduces the branching logic for the
-	// common use case.
-	st.dbMutex.RLock()
-	if st.db != nil {
-		db := st.db
-		st.dbMutex.RUnlock()
-		return db, nil
-	}
-	st.dbMutex.RUnlock()
-
-	// Move into a write lock to retrieve the database, this should only
-	// happen once, so using the full lock isn't a problem.
 	st.dbMutex.Lock()
 	defer st.dbMutex.Unlock()
+
+	if st.db != nil {
+		select {
+		case <-st.db.runner.Dying():
+			// The database is no longer usable, so we can remove it from the
+			// cache and return an error. If the the consumer wants to try
+			// again, they can call DB again and it will perform the full
+			// retrieval.
+			st.db = nil
+			return nil, database.ErrDBNotFound
+		default:
+			// The database is still alive, return it.
+			return st.db, nil
+		}
+	}
 
 	if st.getDB == nil {
 		return nil, errors.New("nil getDB")
 	}
 
-	db, err := st.getDB()
+	db, err := st.getDB(ctx)
 	if err != nil {
 		return nil, errors.Errorf("invoking getDB: %w", err)
 	}
@@ -122,7 +124,7 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 // perform state changes and must not be used to execute queries outside of the
 // state scope. This includes performing goroutines or other async operations.
 func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting database: %w", err)
 	}

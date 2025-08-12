@@ -203,8 +203,8 @@ func (s *DqliteSuite) OpenDBForNamespace(c *tc.C, domain string, foreignKey bool
 }
 
 // TxnRunnerFactory returns a DBFactory that returns the given database.
-func (s *DqliteSuite) TxnRunnerFactory() func() (coredatabase.TxnRunner, error) {
-	return func() (coredatabase.TxnRunner, error) {
+func (s *DqliteSuite) TxnRunnerFactory() func(context.Context) (coredatabase.TxnRunner, error) {
+	return func(context.Context) (coredatabase.TxnRunner, error) {
 		return s.trackedDB, nil
 	}
 }
@@ -278,4 +278,11 @@ func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) erro
 // The input context can be used by the caller to cancel this process.
 func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
 	return errors.NotImplemented
+}
+
+// Dying returns a channel that is closed when the database connection
+// is no longer usable. This can be used to detect when the database is
+// shutting down or has been closed.
+func (noopTxnRunner) Dying() <-chan struct{} {
+	return make(<-chan struct{})
 }

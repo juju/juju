@@ -30,7 +30,7 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 //
 // It is a convenient function to setup test with a specific database state
 func (s *baseSuite) runQuery(c *tc.C, query string) error {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	if err != nil {
 		return err
 	}

@@ -27,7 +27,7 @@ import (
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
 func (st *State) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (corenetwork.SpaceAddresses, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -64,7 +64,7 @@ WHERE     ua.unit_uuid = $entityUUID.uuid
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist
 func (st *State) GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (corenetwork.SpaceAddresses, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -106,7 +106,7 @@ WHERE     u.uuid = $entityUUID.uuid
 //   - [applicationerrors.UnitNotFound] if the unit does not exist or is not
 //     a controller application unit.
 func (st *State) GetControllerUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -142,7 +142,7 @@ WHERE  u.name = $unitName.name
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

@@ -19,14 +19,14 @@ import (
 
 // RelationExists returns true if a relation exists with the input UUID.
 func (st *State) RelationExists(ctx context.Context, rUUID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
 	relationUUID := entityUUID{UUID: rUUID}
 	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   relation
 WHERE  uuid = $entityUUID.uuid`, relationUUID)
 	if err != nil {
@@ -52,7 +52,7 @@ WHERE  uuid = $entityUUID.uuid`, relationUUID)
 // EnsureRelationNotAlive ensures that there is no relation
 // identified by the input UUID, that is still alive.
 func (st *State) EnsureRelationNotAlive(ctx context.Context, rUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -84,7 +84,7 @@ AND    life_id = 0`, relationUUID)
 func (st *State) RelationScheduleRemoval(
 	ctx context.Context, removalUUID, relUUID string, force bool, when time.Time,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -113,7 +113,7 @@ func (st *State) RelationScheduleRemoval(
 
 // GetRelationLife returns the life of the relation with the input UUID.
 func (st *State) GetRelationLife(ctx context.Context, rUUID string) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -149,7 +149,7 @@ WHERE  uuid = $entityUUID.uuid`, relationLife, relationUUID)
 // UnitNamesInScope returns the names of units in
 // the scope of the relation with the input UUID.
 func (st *State) UnitNamesInScope(ctx context.Context, rUUID string) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -189,7 +189,7 @@ WHERE  re.relation_uuid = $entityUUID.uuid`, uName{}, relationUUID)
 // associated settings for a relation. It effectively departs all
 // units from the scope of the input relation immediately.
 func (st *State) DeleteRelationUnits(ctx context.Context, rUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -257,7 +257,7 @@ WHERE  relation_endpoint_uuid IN (
 // Note that if any units are in scope, this will return a
 // constraint violation error.
 func (st *State) DeleteRelation(ctx context.Context, rUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

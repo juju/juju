@@ -103,7 +103,7 @@ func (s *State) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.
 	}
 	s.logger.Debugf(ctx, "saving %d metadata", len(metadata))
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -218,7 +218,7 @@ VALUES ($inputMetadata.*)`, inputMetadata{})
 
 // DeleteMetadataWithImageID deletes all metadata associated with the given image ID from the database.
 func (s *State) DeleteMetadataWithImageID(ctx context.Context, imageID string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -241,7 +241,7 @@ WHERE image_id = $metadataImageID.image_id`, metadataImageID{})
 // It constructs a dynamic SQL query using the supplied criteria and executes it to fetch matching records.
 // Returns [cloudmetadataerrors.NotFound] if none are found with this criteria.
 func (s *State) FindMetadata(ctx context.Context, criteria cloudimagemetadata.MetadataFilter) ([]cloudimagemetadata.Metadata, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -359,7 +359,7 @@ func (s *State) AllCloudImageMetadata(ctx context.Context) ([]cloudimagemetadata
 //
 // Custom images doesn't expire.
 func (s *State) tryCleanUpExpiredMetadata(ctx context.Context) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

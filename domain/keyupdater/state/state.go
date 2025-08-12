@@ -29,7 +29,7 @@ func (s *State) CheckMachineExists(
 	ctx context.Context,
 	name coremachine.Name,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting database to check if machine %q exists: %w",
@@ -73,7 +73,7 @@ WHERE name = $machineName.name
 
 // GetModelUUID returns the uuid for the model represented by this state.
 func (s *State) GetModelUUID(ctx context.Context) (model.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return model.UUID(""), errors.Errorf(
 			"getting database to get the model uuid: %w", err,

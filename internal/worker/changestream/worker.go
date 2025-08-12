@@ -105,20 +105,7 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 				return false
 			}
 
-			// The database is not found, we do not want to restart the
-			// worker in this case.
-			if errors.Is(err, coredatabase.ErrDBNotFound) {
-				return false
-			}
-
-			// If the database is dead, then we should collapse the whole change
-			// stream worker, but this got here first, so we just want to
-			// prevent additional noise.
-			if errors.Is(err, coredatabase.ErrDBDead) {
-				return false
-			}
-
-			return true
+			return internalworker.ShouldRunnerRestart(err)
 		},
 		Clock:  cfg.Clock,
 		Logger: internalworker.WrapLogger(cfg.Logger),
@@ -169,7 +156,7 @@ func (w *changeStreamWorker) Report() map[string]any {
 }
 
 // GetWatchableDB returns a new WatchableDB for the given namespace.
-func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+func (w *changeStreamWorker) GetWatchableDB(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
 	if mux, err := w.workerFromCache(namespace); err != nil {
 		return nil, errors.Trace(err)
 	} else if mux != nil {
@@ -177,8 +164,8 @@ func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.Watc
 	}
 
 	// If the worker doesn't exist yet, create it.
-	if err := w.runner.StartWorker(context.TODO(), namespace, func(ctx context.Context) (worker.Worker, error) {
-		db, err := w.cfg.DBGetter.GetDB(namespace)
+	if err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
+		db, err := w.cfg.DBGetter.GetDB(ctx, namespace)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -197,9 +184,13 @@ func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.Watc
 
 	// Block until the worker is started and ready to go.
 	mux, err := w.runner.Worker(namespace, w.catacomb.Dying())
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
+	if mux == nil {
+		return nil, coredatabase.ErrDBNotFound
+	}
+
 	return mux.(WatchableDBWorker), nil
 }
 

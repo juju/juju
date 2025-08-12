@@ -43,7 +43,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 // identified by key. If no credential is found then an error of
 // [credentialerrors.NotFound] is returned.
 func (st *State) CredentialUUIDForKey(ctx context.Context, key corecredential.Key) (corecredential.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -103,7 +103,7 @@ func (st *State) GetModelCredentialStatus(
 	ctx context.Context,
 	uuid coremodel.UUID,
 ) (corecredential.Key, bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return corecredential.Key{}, false, errors.Capture(err)
 	}
@@ -168,7 +168,7 @@ WHERE  uuid = $modelUUID.uuid`,
 // If the owner of the credential can't be found then an error satisfying
 // [usererrors.NotFound] will be returned.
 func (st *State) UpsertCloudCredential(ctx context.Context, key corecredential.Key, credential credential.CloudCredentialInfo) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -440,7 +440,7 @@ WHERE  uuid = $credentialUUID.uuid
 // - [credentialerrors.NotFound] when no credential is found for the
 // given uuid.
 func (st *State) InvalidateCloudCredential(ctx context.Context, uuid corecredential.UUID, reason string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -465,7 +465,7 @@ func (st *State) InvalidateModelCloudCredential(
 	uuid coremodel.UUID,
 	reason string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -514,7 +514,7 @@ WHERE  uuid = $modelUUID.uuid`,
 // CloudCredentialsForOwner returns the owner's cloud credentials for a given
 // cloud, keyed by credential name.
 func (st *State) CloudCredentialsForOwner(ctx context.Context, owner coreuser.Name, cloudName string) (map[string]credential.CloudCredentialResult, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -576,7 +576,7 @@ AND    cloud.name = $ownerAndCloudName.cloud_name
 
 // CloudCredential returns the cloud credential for the given details.
 func (st *State) CloudCredential(ctx context.Context, key corecredential.Key) (credential.CloudCredentialResult, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return credential.CloudCredentialResult{}, errors.Capture(err)
 	}
@@ -649,7 +649,7 @@ func (st *State) GetCloudCredential(
 	ctx context.Context,
 	id corecredential.UUID,
 ) (credential.CloudCredentialResult, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return credential.CloudCredentialResult{}, errors.Capture(err)
 	}
@@ -714,7 +714,7 @@ WHERE  uuid = $M.id
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
 func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner coreuser.Name) (map[corecredential.Key]credential.CloudCredentialResult, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -785,7 +785,7 @@ AND    user.name = $ownerName.name
 
 // RemoveCloudCredential removes a cloud credential with the given name, cloud and owner..
 func (st *State) RemoveCloudCredential(ctx context.Context, key corecredential.Key) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -844,13 +844,14 @@ WHERE  cloud_credential_uuid = $credentialUUID.uuid
 func (st *State) WatchCredential(
 	ctx context.Context,
 	getWatcher func(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
 	key corecredential.Key,
 ) (watcher.NotifyWatcher, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -865,6 +866,7 @@ func (st *State) WatchCredential(
 		return nil, errors.Capture(err)
 	}
 	result, err := getWatcher(
+		ctx,
 		fmt.Sprintf("watching credential for %q", id),
 		eventsource.PredicateFilter("cloud_credential", changestream.All, eventsource.EqualsPredicate(id.String())),
 	)
@@ -876,7 +878,7 @@ func (st *State) WatchCredential(
 
 // ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
 func (st *State) ModelsUsingCloudCredential(ctx context.Context, key corecredential.Key) (map[coremodel.UUID]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

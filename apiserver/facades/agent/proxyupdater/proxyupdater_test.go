@@ -85,7 +85,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C
 	modelConfigChanges := make(chan []string, 1)
 	modelConfigWatcher := watchertest.NewMockStringsWatcher(modelConfigChanges)
 	modelConfigChanges <- []string{}
-	s.modelConfigService.EXPECT().Watch().Return(modelConfigWatcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(modelConfigWatcher, nil)
 
 	apiHostPortsForAgentsChanged := make(chan struct{}, 1)
 	hostPortWatcher := watchertest.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
@@ -101,7 +101,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C
 
 func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
 	entities := params.Entities{
-		make([]params.Entity, 1),
+		Entities: make([]params.Entity, 1),
 	}
 	entities.Entities[0].Tag = s.tag.String()
 	return entities

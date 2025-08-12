@@ -169,6 +169,7 @@ type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
 	// input table name that match the input mask.
 	NewUUIDsWatcher(
+		ctx context.Context,
 		namespace, summary string, changeMask changestream.ChangeType,
 	) (watcher.StringsWatcher, error)
 
@@ -176,6 +177,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		summary string,
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
@@ -187,6 +189,7 @@ type WatcherFactory interface {
 	// by the filter, and then subsequently by the mapper. Based on the mapper's
 	// logic a subset of them (or none) may be emitted.
 	NewNotifyMapperWatcher(
+		ctx context.Context,
 		summary string,
 		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
@@ -198,6 +201,7 @@ type WatcherFactory interface {
 	// accepts them, and dispatching the notifications via the Changes channel. A
 	// filter option is required, though additional filter options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
@@ -211,6 +215,7 @@ type WatcherFactory interface {
 	// mapper's logic a subset of them (or none) may be emitted. A filter option
 	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialStateQuery eventsource.NamespaceQuery,
 		summary string,
 		mapper eventsource.Mapper,
@@ -280,6 +285,7 @@ func (s *WatchableService) WatchApplicationUnitLife(ctx context.Context, appName
 
 	table, query := s.st.InitialWatchStatementUnitLife(appName)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		query,
 		fmt.Sprintf("application unit life watcher for %q", appName),
 		lifeMapper,
@@ -297,6 +303,7 @@ func (s *WatchableService) WatchUnitLife(ctx context.Context, unitName coreunit.
 	// update WatchApplicationUnitLife to use this new custom change event.
 	table, _ := s.st.InitialWatchStatementUnitLife(unitName.Application())
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("unit life watcher for %q", unitName),
 		eventsource.PredicateFilter(
 			table,
@@ -342,6 +349,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 		return nil, nil
 	}
 	return s.watcherFactory.NewNotifyMapperWatcher(
+		ctx,
 		fmt.Sprintf("application scale watcher for %q", appName),
 		mapper,
 		eventsource.PredicateFilter(
@@ -360,6 +368,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		query,
 		"applications with pending charms watcher",
 		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
@@ -446,6 +455,7 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("application watcher for %q", name),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchApplication(),
@@ -473,6 +483,7 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 	}
 
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("application config watcher for %q", name),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchApplicationConfig(),
@@ -508,6 +519,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 
 	table, query := s.st.InitialWatchStatementApplicationConfigHash(name)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 			initialResults, err := query(ctx, txn)
 			if err != nil {
@@ -568,6 +580,7 @@ func (s *WatchableService) WatchApplicationSettings(ctx context.Context, appName
 	}
 
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("application settings watcher for %q", appName),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchApplicationSetting(),
@@ -607,6 +620,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 
 	ipAddressTable, appEndpointTable, query := s.st.InitialWatchStatementUnitAddressesHash(appUUID, netNodeUUID)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 			initialResults, err := query(ctx, txn)
 			if err != nil {
@@ -669,6 +683,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 
 	unitAddRemoveNamespace, query := s.st.InitialWatchStatementUnitInsertDeleteOnNetNode(desiredNetNodeUUID)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 			initialResults, err := query(ctx, txn)
 			if err != nil {
@@ -722,6 +737,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 func (s *WatchableService) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
 	applicationNamespace, query := s.st.InitialWatchStatementApplications()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		query,
 		"applications watcher",
 		eventsource.NamespaceFilter(applicationNamespace, changestream.All),
@@ -747,6 +763,7 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 
 	exposedToSpaces, exposedToCIDRs := s.st.NamespaceForWatchApplicationExposed()
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("application exposed watcher for %q", name),
 		eventsource.PredicateFilter(
 			exposedToSpaces,
@@ -772,6 +789,7 @@ func (s *WatchableService) WatchUnitAddresses(ctx context.Context, unitName core
 	}
 
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("unit addresses watcher for %q", unitName),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchNetNodeAddress(),
@@ -807,6 +825,7 @@ func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitNam
 
 	unitNamespace, principalNamespace, resolvedNamespace := s.st.NamespaceForWatchUnitForLegacyUniter()
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		fmt.Sprintf("legacy uniter unit watcher for %q", unitName),
 		eventsource.PredicateFilter(
 			unitNamespace,

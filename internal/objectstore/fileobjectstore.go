@@ -413,7 +413,7 @@ func (t *fileObjectStore) loop() error {
 		return errors.Errorf("cleaning up temp files: %w", err)
 	}
 
-	watcher, err := t.metadataService.Watch()
+	watcher, err := t.metadataService.Watch(ctx)
 	if err != nil {
 		return errors.Errorf("creating metadata watcher: %w", err)
 	}

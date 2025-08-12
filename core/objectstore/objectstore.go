@@ -22,6 +22,10 @@ const (
 	// worker is taking too long to drain. This is used to indicate to
 	// *third parties* that the object store worker is draining.
 	ErrTimeoutWaitingForDraining = errors.ConstError("timeout waiting for object store draining to complete")
+
+	// ErrObjectStoreNotFound is used to indicate that the object store
+	// for the given namespace could not be found.
+	ErrObjectStoreNotFound = errors.ConstError("object store not found for namespace")
 )
 
 // Client provides access to the object store.

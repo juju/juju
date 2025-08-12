@@ -36,7 +36,7 @@ func (s *mergeLinkLayerSuite) SetUpTest(c *tc.C) {
 func (s *mergeLinkLayerSuite) Txn(
 	c *tc.C, state *State, fn func(ctx context.Context, tx *sqlair.TX) error,
 ) error {
-	db, err := state.DB()
+	db, err := state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	return db.Txn(c.Context(), fn)
 }

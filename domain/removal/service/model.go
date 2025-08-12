@@ -23,6 +23,10 @@ type ModelState interface {
 	// UUID.
 	ModelExists(ctx context.Context, modelUUID string) (bool, error)
 
+	// IsControllerModel returns true if the model with the input UUID is
+	// the controller model.
+	IsControllerModel(ctx context.Context, modelUUID string) (bool, error)
+
 	// EnsureModelNotAliveCascade ensures that there is no model identified
 	// by the input model UUID, that is still alive.
 	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) (removal.ModelArtifacts, error)
@@ -65,6 +69,23 @@ func (s *Service) RemoveModel(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if controllerModel, err := s.modelState.IsControllerModel(ctx, modelUUID.String()); err != nil {
+		return "", errors.Capture(err)
+	} else if controllerModel && !force {
+		return "", errors.Errorf("cannot remove controller model %q without force", modelUUID).Add(
+			removalerrors.ForceRequired,
+		)
+	}
+
+	return s.removeModel(ctx, modelUUID, force, wait)
+}
+
+func (s *Service) removeModel(
+	ctx context.Context,
+	modelUUID model.UUID,
+	force bool,
+	wait time.Duration,
+) (removal.UUID, error) {
 	// We have to perform the following steps in the following order, to ensure
 	// that we can be reentrant during the removal process:
 	// 1. Check the model exists in the controller database. If it does not,
@@ -241,7 +262,7 @@ func (s *Service) modelScheduleRemoval(
 		return "", errors.Errorf("model: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q and %q", jobUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)
 	return jobUUID, nil
 }
 
@@ -274,6 +295,25 @@ func (s *Service) processModelJob(ctx context.Context, job removal.Job) error {
 		return errors.Errorf("model %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
+	// If this is the controller model, we need to ensure that any other
+	// models are also not alive/dying.
+	if isController, err := s.modelState.IsControllerModel(ctx, job.EntityUUID); err != nil {
+		return errors.Capture(err)
+	} else if isController {
+		models, err := s.controllerState.GetModelUUIDs(ctx)
+		if err != nil {
+			return errors.Errorf("getting controller model UUIDs: %w", err)
+		}
+
+		modelsExist, err := s.aliveOrDyingModelsExist(ctx, models)
+		if err != nil {
+			return errors.Errorf("checking if all models are dead: %w", err)
+		} else if modelsExist {
+			return errors.Errorf("cannot remove controller model %q while other models are not dead", job.EntityUUID).Add(
+				removalerrors.RemovalJobIncomplete)
+		}
+	}
+
 	if err := s.modelState.MarkModelAsDead(ctx, job.EntityUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return errors.Errorf("marking model %q as dead: %w", job.EntityUUID, err)
 	}
@@ -285,4 +325,20 @@ func (s *Service) processModelJob(ctx context.Context, job removal.Job) error {
 	s.logger.Infof(ctx, "model %q marked as dead", job.EntityUUID)
 
 	return nil
+}
+
+func (s *Service) aliveOrDyingModelsExist(ctx context.Context, modelUUIDs []string) (bool, error) {
+	for _, modelUUID := range modelUUIDs {
+		mLife, err := s.controllerState.GetModelLife(ctx, modelUUID)
+		if errors.Is(err, modelerrors.NotFound) {
+			continue
+		} else if err != nil {
+			return false, errors.Errorf("getting model %q life: %w", modelUUID, err)
+		}
+
+		if mLife != life.Dead {
+			return true, nil
+		}
+	}
+	return false, nil
 }

@@ -478,7 +478,7 @@ func (s *addRelationSuite) TestAddRelationWithID(c *tc.C) {
 
 func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 	// Arrange:
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	appUUID1 := s.addApplication(c, "application-1")
@@ -581,7 +581,7 @@ func (s *addRelationSuite) TestInferEndpoints(c *tc.C) {
 
 func (s *addRelationSuite) TestInferEndpointsError(c *tc.C) {
 	// Arrange:
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	// Create endpoints on applications:
@@ -2141,7 +2141,7 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
 	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	// Act
@@ -2170,7 +2170,7 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *tc.C) {
 
 	// Arrange
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	// Act
@@ -3946,7 +3946,7 @@ func (s *relationSuite) TestInsertRelationUnitHappyPath(c *tc.C) {
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Insert relation unit
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var relationUnitUUID string
@@ -3973,7 +3973,7 @@ func (s *relationSuite) TestInsertRelationUnitRelationUUIDDoesNotExist(c *tc.C) 
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Insert relation unit with non-existent relation UUID
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -4006,7 +4006,7 @@ func (s *relationSuite) TestInsertRelationUnitUnitUUIDDoesNotExist(c *tc.C) {
 	unitUUID := coreunittesting.GenUnitUUID(c)
 
 	// Act: Insert relation unit with non-existent unit UUID
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {

@@ -78,6 +78,7 @@ type WatcherFactory interface {
 	// mapper's logic a subset of them (or none) may be emitted. A filter option
 	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialStateQuery eventsource.NamespaceQuery,
 		summary string,
 		mapper eventsource.Mapper,
@@ -89,6 +90,7 @@ type WatcherFactory interface {
 	// accepts them, and dispatching the notifications via the Changes channel. A
 	// filter option is required, though additional filter options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
@@ -98,6 +100,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		summary string,
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
@@ -141,7 +144,9 @@ func (s *Service) WatchMachineCloudInstance(
 	ns := s.st.NamespaceForWatchMachineCloudInstance()
 	filter := eventsource.PredicateFilter(ns, changestream.All,
 		eventsource.EqualsPredicate(machineUUID.String()))
+
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		"machine cloud instance watcher",
 		filter,
 	)

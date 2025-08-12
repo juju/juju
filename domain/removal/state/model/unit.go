@@ -17,14 +17,14 @@ import (
 
 // UnitExists returns true if a unit exists with the input UUID.
 func (st *State) UnitExists(ctx context.Context, uUUID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
 	unitUUID := entityUUID{UUID: uUUID}
 	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   unit
 WHERE  uuid = $entityUUID.uuid`, unitUUID)
 	if err != nil {
@@ -52,7 +52,7 @@ WHERE  uuid = $entityUUID.uuid`, unitUUID)
 // machine, it will cascade and the machine is also set to dying. The
 // affected machine UUID is returned.
 func (st *State) EnsureUnitNotAliveCascade(ctx context.Context, uUUID string) (machineUUID string, err error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -179,7 +179,7 @@ AND    life_id = 0`, entityUUID{})
 func (st *State) UnitScheduleRemoval(
 	ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -208,7 +208,7 @@ func (st *State) UnitScheduleRemoval(
 
 // GetUnitLife returns the life of the unit with the input UUID.
 func (st *State) GetUnitLife(ctx context.Context, uUUID string) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -228,7 +228,7 @@ func (st *State) GetUnitLife(ctx context.Context, uUUID string) (life.Life, erro
 // unit name for a unit identified by the input UUID. If the unit does not
 // exist, it returns an error.
 func (st *State) GetApplicationNameAndUnitNameByUnitUUID(ctx context.Context, uUUID string) (string, string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -261,7 +261,7 @@ WHERE     u.uuid = $entityUUID.uuid;`, applicationUnitName{}, unitUUID)
 
 // MarkUnitAsDead marks the unit with the input UUID as dead.
 func (st *State) MarkUnitAsDead(ctx context.Context, uUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -295,7 +295,7 @@ AND    life_id = 1`, unitUUID)
 
 // DeleteUnit removes a unit from the database completely.
 func (st *State) DeleteUnit(ctx context.Context, unitUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

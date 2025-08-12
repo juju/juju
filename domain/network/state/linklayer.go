@@ -19,7 +19,7 @@ import (
 //   - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
 //     if such a machine does not exist.
 func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -51,7 +51,7 @@ func (st *State) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) 
 // Returns a map of NetNodeUUID to a slice of NetInterface and an error if
 // any operation fails during execution.
 func (st *State) GetAllLinkLayerDevicesByNetNodeUUIDs(ctx context.Context) (map[string][]network.NetInterface, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

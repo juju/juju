@@ -85,16 +85,9 @@ type ModelService interface {
 	// UpdateCredential is responsible for updating the cloud credential
 	// associated with a model. The cloud credential must be of the same cloud type
 	// as that of the model.
-	// The following error types can be expected to be returned:
-	// - modelerrors.NotFound: When the model does not exist.
-	// - errors.NotFound: When the cloud or credential cannot be found.
-	// - errors.NotValid: When the cloud credential is not of the same cloud as the
-	// model or the model uuid is not valid.
 	UpdateCredential(ctx context.Context, uuid coremodel.UUID, key credential.Key) error
 
 	// Model returns the model associated with the provided uuid.
-	// The following error types can be expected to be returned:
-	// - [modelerrors.NotFound]: When the model does not exist.
 	Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error)
 
 	// DefaultModelCloudInfo returns the default cloud name and region name
@@ -115,50 +108,38 @@ type ModelService interface {
 	// ListModelUUIDsForUser returns a list of model UUIDs that the supplied
 	// user has access to. If the user supplied does not have access to any
 	// models then an empty slice is returned.
-	// The following errors can be expected:
-	// - [github.com/juju/juju/core/errors.NotValid] when the user uuid supplied
-	// is not valid.
-	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
-	// does not exist.
 	ListModelUUIDsForUser(context.Context, coreuser.UUID) ([]coremodel.UUID, error)
 
 	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
-	// If the model cannot be found it will return
-	// [github.com/juju/juju/domain/model/errors.NotFound].
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 
 	// GetModelUser will retrieve basic information about the specified model
 	// user.
-	// If the model cannot be found it will return
-	// [github.com/juju/juju/domain/model/errors.NotFound].
-	// If the user cannot be found it will return
-	//[github.com/juju/juju/domain/model/errors.UserNotFoundOnModel].
 	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error)
 }
 
 // ModelDefaultsService defines a interface for interacting with the model
 // defaults.
 type ModelDefaultsService interface {
-	// CloudDefaults returns the default attribute details for a specified cloud.
-	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	// CloudDefaults returns the default attribute details for a specified
+	// cloud.
 	CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error)
 
-	// UpdateCloudDefaults saves the specified default attribute details for a cloud.
-	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	// UpdateCloudDefaults saves the specified default attribute details for a
+	// cloud.
 	UpdateCloudDefaults(ctx context.Context, cloudName string, updateAttrs map[string]any) error
 
-	// UpdateCloudRegionDefaults saves the specified default attribute details for a cloud region.
-	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	// UpdateCloudRegionDefaults saves the specified default attribute details
+	// for a cloud region.
 	UpdateCloudRegionDefaults(ctx context.Context, cloudName, regionName string, updateAttrs map[string]any) error
 
-	// RemoveCloudDefaults deletes the specified default attribute details for a cloud.
-	// It returns an error satisfying [clouderrors.NotFound] if the cloud doesn't exist.
+	// RemoveCloudDefaults deletes the specified default attribute details for a
+	// cloud.
 	RemoveCloudDefaults(ctx context.Context, cloudName string, removeAttrs []string) error
 
 	// RemoveCloudRegionDefaults deletes the specified default attributes for a
-	// cloud region. It returns an error satisfying [clouderrors.NotFound] if
-	// the cloud doesn't exist.
+	// cloud region.
 	RemoveCloudRegionDefaults(ctx context.Context, cloudName, regionName string, removeAttrs []string) error
 }
 
@@ -168,36 +149,18 @@ type ModelInfoService interface {
 	// CreateModel is responsible for creating a new model within the model
 	// database. Upon creating the model any information required in the model's
 	// provider will be initialised.
-	//
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
-	// uuid is already in use.
 	CreateModel(context.Context) error
 
 	// CreateModelWithAgentVersion is responsible for creating a new model within
 	// the model database using the specified agent version. Upon creating the
 	// model any information required in the model's provider will be
 	// initialised.
-	//
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
-	// uuid is already in use.
-	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotSupported]
-	// when the agent version is not supported.
 	CreateModelWithAgentVersion(context.Context, semversion.Number) error
 
 	// CreateModelWithAgentVersionStream is responsible for creating a new model
 	// within the model database using the specified agent version and agent
 	// stream. Upon creating the model any information required in the model's
 	// provider will be initialised.
-	//
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/domain/model/errors.AlreadyExists] when the model
-	// uuid is already in use.
-	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotSupported]
-	// when the agent version is not supported.
-	// - [github.com/juju/juju/core/errors.NotValid] when the agent stream is
-	// not valid.
 	CreateModelWithAgentVersionStream(
 		context.Context, semversion.Number, agentbinary.AgentStream,
 	) error
@@ -208,23 +171,13 @@ type ModelInfoService interface {
 
 	// GetModelSummary returns a summary of the current model as a
 	// [coremodel.ModelSummary] type.
-	// The following error types can be expected:
-	// - [modelerrors.NotFound] when the model does not exist.
 	GetModelSummary(ctx context.Context) (coremodel.ModelSummary, error)
 
 	// GetUserModelSummary returns a summary of the current model from the
 	// provided user's perspective.
-	// The following error types can be expected:
-	// - [modelerrors.NotFound] when the model does not exist.
-	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
-	// is not found for the given user uuid.
-	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
-	// user does not have access to the model.
 	GetUserModelSummary(ctx context.Context, userUUID coreuser.UUID) (coremodel.UserModelSummary, error)
 
 	// IsControllerModel returns true if the model is the controller model.
-	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/model/errors.NotFound] when the model does not exist.
 	IsControllerModel(ctx context.Context) (bool, error)
 
 	// HasValidCredential returns true if the model has a valid credential.
@@ -242,18 +195,12 @@ type CredentialService interface {
 // AccessService defines a interface for interacting the users and permissions
 // of a controller.
 type AccessService interface {
-	// The following errors can be expected:
-	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when no user
-	// exists for the supplied user name.
-	// - [github.com/juju/juju/domain/access/errors.UserNameNotValid] when the
-	// user name is not valid.
+	// GetUserUUIDByName returns the UUID of the user with the given name.
 	GetUserUUIDByName(context.Context, coreuser.Name) (coreuser.UUID, error)
 	// UpdatePermission updates the access level for a user of the model.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// LastModelLogin will return the last login time of the specified
 	// user.
-	// [github.com/juju/juju/domain/access/errors.UserNeverAccessedModel] will
-	// be returned if there is no record of the user logging in to this model.
 	LastModelLogin(context.Context, coreuser.Name, coremodel.UUID) (time.Time, error)
 }
 

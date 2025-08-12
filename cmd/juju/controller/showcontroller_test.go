@@ -76,7 +76,6 @@ func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *tc.C) {
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
     agent-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
 `
 	s.createTestClientStore(c)
@@ -90,7 +89,6 @@ mallards:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
   models:
     controller:
@@ -122,7 +120,6 @@ k8s-controller:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-a-k8s-ca-cert
   controller-nodes:
     "0":
@@ -149,7 +146,6 @@ func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *tc.C) {
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
     agent-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
 `
 	s.createTestClientStore(c)
@@ -163,7 +159,6 @@ mallards:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
   models:
     controller:
@@ -192,7 +187,6 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *tc.C) {
     cloud: mallards
     region: mallards1
     agent-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
 `
 	store := s.createTestClientStore(c)
@@ -219,7 +213,6 @@ mallards:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
   models:
     controller:
@@ -252,7 +245,6 @@ aws-test:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
   controller-machines:
     "0":
@@ -288,7 +280,6 @@ aws-test:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
   controller-machines:
     "0":
@@ -316,7 +307,6 @@ mark-test-prodstack:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-a-ca-cert
   account:
     user: admin
@@ -330,7 +320,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *tc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -339,7 +329,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *tc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *tc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -362,7 +352,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *tc.C) {
 	store.CurrentControllerName = "aws-test"
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0"},"1":{"instance-id":"id-1"},"2":{"instance-id":"id-2"},"3":{"instance-id":"id-3"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"prod/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json")
 }
@@ -473,7 +463,6 @@ func (s *ShowControllerSuite) TestShowControllerWithCAFingerprint(c *tc.C) {
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
     agent-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: |-
       -----BEGIN CERTIFICATE-----
       MIICHDCCAcagAwIBAgIUfzWn5ktGMxD6OiTgfiZyvKdM+ZYwDQYJKoZIhvcNAQEL
@@ -501,7 +490,6 @@ mallards:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-fingerprint: 93:D9:8E:B8:99:36:E8:8E:23:D5:95:5E:81:29:80:B2:D2:89:A7:38:20:7B:1B:BD:96:C8:D9:C1:03:88:55:70
     ca-cert: |-
       -----BEGIN CERTIFICATE-----
@@ -564,7 +552,6 @@ aws-test:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
   controller-machines:
     "0":
@@ -601,7 +588,6 @@ aws-test:
     agent-version: 999.99.99
     agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
     controller-model-version: 999.99.99
-    mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
   current-model: prod/controller
   account:

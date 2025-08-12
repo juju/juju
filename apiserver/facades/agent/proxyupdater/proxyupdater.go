@@ -65,7 +65,7 @@ func NewAPIV2(
 func (api *API) oneWatch(ctx context.Context) params.NotifyWatchResult {
 	var result params.NotifyWatchResult
 
-	modelConfigWatcher, err := api.modelConfigService.Watch()
+	modelConfigWatcher, err := api.modelConfigService.Watch(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result

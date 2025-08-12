@@ -49,7 +49,7 @@ func NewState(
 
 // Create inserts all of the information about a newly created model.
 func (s *ModelState) Create(ctx context.Context, args model.ModelDetailArgs) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -61,7 +61,7 @@ func (s *ModelState) Create(ctx context.Context, args model.ModelDetailArgs) err
 
 // Delete deletes a model.
 func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -143,7 +143,7 @@ func getModelUUID(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) 
 func (s *ModelState) GetModelConstraints(
 	ctx context.Context,
 ) (constraints.Constraints, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return constraints.Constraints{}, errors.Capture(err)
 	}
@@ -467,7 +467,7 @@ func (s *ModelState) SetModelConstraints(
 	ctx context.Context,
 	cons constraints.Constraints,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -629,7 +629,7 @@ func insertConstraintZones(
 // - [modelerrors.NotFound] when no model record has been established in the
 // database.
 func (s *ModelState) GetControllerUUID(ctx context.Context) (uuid.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return uuid.UUID{}, errors.Capture(err)
 	}
@@ -661,7 +661,7 @@ func (s *ModelState) GetControllerUUID(ctx context.Context) (uuid.UUID, error) {
 // If no model has been set then an error satisfying
 // [modelerrors.NotFound] is returned.
 func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
@@ -782,7 +782,7 @@ func (s *ModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelMetric
 		return coremodel.ModelMetrics{}, err
 	}
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coremodel.ModelMetrics{}, errors.Capture(err)
 	}
@@ -816,7 +816,7 @@ func (s *ModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelMetric
 // set in the database. If no model exists then an error satisfying
 // [modelerrors.NotFound] is returned.
 func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -847,7 +847,7 @@ func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
 // - [modelerrors.NotFound] when no read only model has been established in the
 // model's state layer.
 func (s *ModelState) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -878,7 +878,7 @@ func (s *ModelState) GetModelCloudRegionAndCredential(
 	ctx context.Context,
 	uuid coremodel.UUID,
 ) (string, string, credential.Key, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", "", credential.Key{}, errors.Capture(err)
 	}
@@ -945,7 +945,7 @@ WHERE uuid = $dbModelUUID.uuid
 func (s *ModelState) GetModelInfoSummary(
 	ctx context.Context,
 ) (model.ModelInfoSummary, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return model.ModelInfoSummary{}, errors.Capture(err)
 	}
@@ -1104,7 +1104,7 @@ func InsertModelInfo(
 // The following errors may be returned:
 // - [modelerrors.NotFound] when the model does not exist.
 func (s *ModelState) IsControllerModel(ctx context.Context) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}

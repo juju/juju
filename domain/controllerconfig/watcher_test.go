@@ -4,6 +4,7 @@
 package controllerconfig
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -30,7 +31,8 @@ func TestWatcherSuite(t *testing.T) {
 func (s *watcherSuite) TestWatchControllerConfig(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_config")
 
-	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableService(
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),

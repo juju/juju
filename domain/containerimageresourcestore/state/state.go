@@ -37,7 +37,7 @@ func (s *State) GetContainerImageMetadata(
 	ctx context.Context,
 	storageKey string,
 ) (containerimageresourcestore.ContainerImageMetadata, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return containerimageresourcestore.ContainerImageMetadata{}, errors.Capture(err)
 	}
@@ -84,7 +84,7 @@ func (s *State) PutContainerImageMetadata(
 	storageKey string,
 	registryPath, userName, password string,
 ) (store.ID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return store.ID{}, errors.Capture(err)
 	}
@@ -152,7 +152,7 @@ VALUES      ($containerImageMetadata.*)
 // storage. containerimageresourcestoreerrors.ContainerImageMetadataNotFound is
 // returned if the resource does not exist.
 func (s *State) RemoveContainerImageMetadata(ctx context.Context, storageKey string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

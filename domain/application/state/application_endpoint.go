@@ -26,7 +26,7 @@ import (
 // endpoints are indexed by the application name for the application which they
 // belong to.
 func (st *State) GetAllEndpointBindings(ctx context.Context) (map[string]map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -141,7 +141,7 @@ JOIN   application a ON a.uuid = aee.application_uuid
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID coreapplication.ID) (map[string]network.SpaceUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -161,7 +161,7 @@ func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID cor
 // GetApplicationsBoundToSpace returns the names of the applications bound to
 // the given space.
 func (st *State) GetApplicationsBoundToSpace(ctx context.Context, uuid string) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -210,7 +210,7 @@ SELECT name AS &applicationName.name FROM (
 //   - [applicationerrors.ApplicationNotFound] is returned if the application
 //     doesn't exist.
 func (st *State) GetApplicationEndpointNames(ctx context.Context, appUUID coreapplication.ID) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -237,7 +237,7 @@ func (st *State) GetApplicationEndpointNames(ctx context.Context, appUUID coreap
 // for the specified application.
 // The following errors may be returned:
 func (st *State) MergeApplicationEndpointBindings(ctx context.Context, appID string, bindings map[string]string, force bool) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

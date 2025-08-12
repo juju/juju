@@ -252,9 +252,9 @@ func (s *serviceSuite) TestWatch(c *tc.C) {
 	stmt := "SELECT key FROM objectstore"
 	s.state.EXPECT().InitialWatchStatement().Return(table, stmt)
 
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any()).Return(watcher, nil)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(watcher, nil)
 
-	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()
+	w, err := NewWatchableService(s.state, s.watcherFactory).Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }

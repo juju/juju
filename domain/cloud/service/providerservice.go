@@ -21,6 +21,7 @@ type ProviderState interface {
 	WatchCloud(
 		ctx context.Context,
 		getWatcher func(
+			ctx context.Context,
 			summary string,
 			filter eventsource.FilterOption,
 			filterOpts ...eventsource.FilterOption,

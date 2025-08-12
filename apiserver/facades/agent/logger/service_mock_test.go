@@ -81,18 +81,18 @@ func (c *MockModelConfigServiceModelConfigCall) DoAndReturn(f func(context.Conte
 }
 
 // Watch mocks base method.
-func (m *MockModelConfigService) Watch() (watcher.Watcher[[]string], error) {
+func (m *MockModelConfigService) Watch(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Watch")
+	ret := m.ctrl.Call(m, "Watch", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Watch indicates an expected call of Watch.
-func (mr *MockModelConfigServiceMockRecorder) Watch() *MockModelConfigServiceWatchCall {
+func (mr *MockModelConfigServiceMockRecorder) Watch(arg0 any) *MockModelConfigServiceWatchCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockModelConfigService)(nil).Watch))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockModelConfigService)(nil).Watch), arg0)
 	return &MockModelConfigServiceWatchCall{Call: call}
 }
 
@@ -108,13 +108,13 @@ func (c *MockModelConfigServiceWatchCall) Return(arg0 watcher.Watcher[[]string],
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelConfigServiceWatchCall) Do(f func() (watcher.Watcher[[]string], error)) *MockModelConfigServiceWatchCall {
+func (c *MockModelConfigServiceWatchCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockModelConfigServiceWatchCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelConfigServiceWatchCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockModelConfigServiceWatchCall {
+func (c *MockModelConfigServiceWatchCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockModelConfigServiceWatchCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

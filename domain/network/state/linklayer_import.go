@@ -19,7 +19,7 @@ import (
 // ImportLinkLayerDevices is part of the [service.LinkLayerDeviceState]
 // interface.
 func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -27,6 +27,7 @@ func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.Im
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		lookups, err := st.getNetConfigLookups(ctx, tx)
 		if err != nil {
+			return errors.Capture(err)
 		}
 
 		llds, parents, providers, err := transformImportData(input, lookups.deviceType, lookups.virtualPortType)
@@ -292,7 +293,7 @@ func transformAddressesFromImportData(input []internal.ImportLinkLayerDevice,
 // AllMachinesAndNetNodes is part of the [service.LinkLayerDeviceState]
 // interface.
 func (st *State) AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

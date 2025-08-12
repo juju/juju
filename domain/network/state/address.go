@@ -15,7 +15,7 @@ import (
 // GetNetNodeAddresses fetches network node addresses associated with
 // a given node UUID.
 func (st *State) GetNetNodeAddresses(ctx context.Context, nodeUUID string) (corenetwork.SpaceAddresses, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

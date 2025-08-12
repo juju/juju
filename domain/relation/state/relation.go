@@ -73,7 +73,7 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 	relation.Endpoint,
 	relation.Endpoint,
 	error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return relation.Endpoint{}, relation.Endpoint{}, errors.Capture(err)
 	}
@@ -135,7 +135,7 @@ func (st *State) InferRelationUUIDByEndpoints(
 	ctx context.Context,
 	epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
 ) (corerelation.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -184,7 +184,7 @@ func (st *State) SetRelationWithID(
 	id uint64,
 ) (corerelation.UUID, error) {
 	var relUUID corerelation.UUID
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return relUUID, errors.Capture(err)
 	}
@@ -297,7 +297,7 @@ func (st *State) ApplicationRelationsInfo(
 	ctx context.Context,
 	appID application.ID,
 ) ([]relation.EndpointRelationData, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -399,7 +399,7 @@ AND    ae.application_uuid = $relationAndApplicationUUID.application_uuid
 // database. It returns the list of endpoints, the life status and
 // identification data (UUID and ID) for each relation.
 func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -429,7 +429,7 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.Relation
 //   - [applicationerrors.ApplicationNotFound] is returned if application ID
 //     doesn't refer an existing application.
 func (st *State) GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -469,7 +469,7 @@ func (st *State) GetGoalStateRelationDataForApplication(
 	ctx context.Context,
 	applicationID application.ID,
 ) ([]relation.GoalStateRelationData, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -524,7 +524,7 @@ func (st *State) GetOtherRelatedEndpointApplicationData(
 	relUUID corerelation.UUID,
 	applicationID application.ID,
 ) (relation.OtherApplicationForWatcher, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return relation.OtherApplicationForWatcher{}, errors.Capture(err)
 	}
@@ -623,7 +623,7 @@ WHERE  application_uuid = $applicationID.uuid
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID
 //     relating to the relation ID cannot be found.
 func (st *State) GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -665,7 +665,7 @@ func (st *State) GetRelationEndpointScope(
 	relUUID corerelation.UUID,
 	appID application.ID,
 ) (charm.RelationScope, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -721,7 +721,7 @@ AND     application_uuid = $applicationID.uuid
 //     is not found.
 func (st *State) GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (
 	corerelation.EndpointUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -784,7 +784,7 @@ func (st *State) GetRelationsStatusForUnit(
 	ctx context.Context,
 	unitUUID unit.UUID,
 ) ([]relation.RelationUnitStatusResult, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -926,7 +926,7 @@ func (st *State) GetRegularRelationUUIDByEndpointIdentifiers(
 	ctx context.Context,
 	endpoint1, endpoint2 corerelation.EndpointIdentifier,
 ) (corerelation.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -999,7 +999,7 @@ func (st *State) GetPeerRelationUUIDByEndpointIdentifiers(
 	ctx context.Context,
 	endpoint corerelation.EndpointIdentifier,
 ) (corerelation.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1052,7 +1052,7 @@ AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID
 //     is not found.
 func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	var result relation.RelationDetailsResult
 	if err != nil {
 		return result, errors.Capture(err)
@@ -1077,7 +1077,7 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 // the relation_unit table is that the unit has departed, and thus, the related
 // row has been deleted.
 func (st *State) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (relation.RelationUnitsChange, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return relation.RelationUnitsChange{}, errors.Capture(err)
 	}
@@ -1178,7 +1178,7 @@ func (st *State) GetRelationUnit(
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
 ) (corerelation.UnitUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	var result corerelation.UnitUUID
 	if err != nil {
 		return result, errors.Capture(err)
@@ -1236,7 +1236,7 @@ AND    re.relation_uuid = $getRelationUnit.relation_uuid`, args)
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] if the relation cannot be found.
 func (st *State) IsPeerRelation(ctx context.Context, relUUID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -1284,7 +1284,7 @@ func (st *State) EnterScope(
 	unitName unit.Name,
 	settings map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1358,7 +1358,7 @@ func (st *State) NeedsSubordinateUnit(
 	relationUUID corerelation.UUID,
 	principalUnitName unit.Name,
 ) (*application.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1909,7 +1909,7 @@ AND    u.uuid = $relationUnit.unit_uuid
 //   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
 //     found.
 func (st *State) LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2007,7 +2007,7 @@ func (st *State) GetRelationApplicationSettings(
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
 ) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2051,7 +2051,7 @@ func (st *State) SetRelationApplicationSettings(
 	applicationID application.ID,
 	settings map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2118,7 +2118,7 @@ func (st *State) SetRelationApplicationAndUnitSettings(
 	relationUnitUUID corerelation.UnitUUID,
 	applicationSettings, unitSettings map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2158,7 +2158,7 @@ func (st *State) GetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 ) (map[string]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2200,7 +2200,7 @@ func (st *State) SetRelationUnitSettings(
 	relationUnitUUID corerelation.UnitUUID,
 	settings map[string]string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2541,7 +2541,7 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 	ctx context.Context,
 	unitUUID unit.UUID,
 ) (application.ID, application.ID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -2631,7 +2631,7 @@ func (st *State) GetMapperDataForWatchLifeSuspendedStatus(
 	relUUID corerelation.UUID,
 	appID application.ID,
 ) (relation.RelationLifeSuspendedData, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return relation.RelationLifeSuspendedData{}, errors.Capture(err)
 	}
@@ -2707,7 +2707,7 @@ WHERE  r.uuid = $watcherMapperData.uuid
 func (st *State) DeleteImportedRelations(
 	ctx context.Context,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2743,7 +2743,7 @@ func (st *State) DeleteImportedRelations(
 // ExportRelations returns all relation information to be exported for the
 // model.
 func (st *State) ExportRelations(ctx context.Context) ([]relation.ExportRelation, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

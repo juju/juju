@@ -146,7 +146,7 @@ type ModelConfigService interface {
 	ModelConfig(ctx context.Context) (*config.Config, error)
 	// Watch returns a watcher that returns keys for any changes to model
 	// config.
-	Watch() (watcher.StringsWatcher, error)
+	Watch(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // ControllerService defines the methods that the controller facade

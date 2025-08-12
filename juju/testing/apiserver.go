@@ -544,7 +544,7 @@ type stubDBGetter struct {
 	db changestream.WatchableDB
 }
 
-func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
+func (s stubDBGetter) GetWatchableDB(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
 	if namespace != "controller" {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}

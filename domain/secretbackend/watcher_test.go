@@ -4,6 +4,7 @@
 package secretbackend_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -39,7 +40,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secretbackend_rotation_changes")
 
 	logger := loggertesting.WrapCheckLog(c)
-	state := state.NewState(func() (database.TxnRunner, error) { return factory() }, logger)
+	state := state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }, logger)
 
 	svc := service.NewWatchableService(
 		state, logger,
@@ -162,7 +163,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 
 func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model_secretbackend_changes")
-	txnRunnerFactory := func() (database.TxnRunner, error) { return factory() }
+	txnRunnerFactory := func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }
 
 	logger := loggertesting.WrapCheckLog(c)
 	state := state.NewState(txnRunnerFactory, logger)

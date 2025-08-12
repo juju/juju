@@ -109,7 +109,7 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *tc.C) {
 	notifyCh := make(chan []string, 1)
 	notifyCh <- []string{}
 	watcher := watchertest.NewMockStringsWatcher(notifyCh)
-	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 

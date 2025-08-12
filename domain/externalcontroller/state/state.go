@@ -35,7 +35,7 @@ func (st *State) Controller(
 	ctx context.Context,
 	controllerUUID string,
 ) (*crossmodel.ControllerInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -74,7 +74,7 @@ WHERE  ctrl.uuid = $Controller.uuid`
 // ControllersForModels returns the external controllers for the given model
 // UUIDs. If no model UUIDs are provided, then no controllers are returned.
 func (st *State) ControllersForModels(ctx context.Context, modelUUIDs ...string) ([]crossmodel.ControllerInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -121,7 +121,7 @@ func (st *State) UpdateExternalController(
 	ctx context.Context,
 	ci crossmodel.ControllerInfo,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -136,7 +136,7 @@ func (st *State) UpdateExternalController(
 // ImportExternalControllers imports the list of ControllerInfo
 // external controllers on one single transaction.
 func (st *State) ImportExternalControllers(ctx context.Context, infos []crossmodel.ControllerInfo) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -271,7 +271,7 @@ func (st *State) ModelsForController(
 	ctx context.Context,
 	controllerUUID string,
 ) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

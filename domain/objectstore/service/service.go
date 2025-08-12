@@ -83,6 +83,7 @@ type WatcherFactory interface {
 	// Changes channel. A filter option is required, though additional filter
 	// options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
@@ -92,6 +93,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -254,13 +256,13 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
-func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
-	// TODO (stickupkid): Wire up context.Context to the watcher.
-	_, span := trace.Start(context.Background(), trace.NameFromFunc())
+func (s *WatchableService) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		eventsource.InitialNamespaceChanges(stmt),
 		"objectstore watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
@@ -290,6 +292,9 @@ func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory
 
 // SetDrainingPhase sets the phase of the object store to draining.
 func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if !phase.IsValid() {
 		return errors.Errorf("invalid phase %q", phase)
 	}
@@ -321,6 +326,9 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 
 // GetDrainingPhase returns the phase of the object store.
 func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (objectstore.Phase, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		return objectstore.PhaseUnknown, nil
@@ -334,11 +342,12 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 // object store. The watcher emits the phase changes that either have been
 // added or removed.
 func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(context.Background(), trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table := s.st.InitialWatchDrainingTable()
 	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		"objectstore draining watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)

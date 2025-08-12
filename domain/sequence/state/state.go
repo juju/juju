@@ -31,7 +31,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // GetSequencesForExport returns the sequences for export. This is used to
 // retrieve the sequences for export in the database.
 func (s *State) GetSequencesForExport(ctx context.Context) (map[string]uint64, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (s *State) GetSequencesForExport(ctx context.Context) (map[string]uint64, e
 // ImportSequences imports the sequences from the given map. This is used to
 // import the sequences from the database.
 func (s *State) ImportSequences(ctx context.Context, seqs map[string]uint64) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (s *State) ImportSequences(ctx context.Context, seqs map[string]uint64) err
 
 // RemoveAllSequences removes all sequences from the database.
 func (s *State) RemoveAllSequences(ctx context.Context) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}

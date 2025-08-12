@@ -41,3 +41,7 @@ func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) erro
 func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
 	return coreerrors.NotImplemented
 }
+
+func (noopTxnRunner) Dying() <-chan struct{} {
+	return make(<-chan struct{})
+}

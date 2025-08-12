@@ -102,7 +102,6 @@ type ControllerAccessAPI interface {
 	GetControllerAccess(ctx context.Context, user string) (permission.Access, error)
 	ModelStatus(ctx context.Context, models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels(ctx context.Context) ([]base.UserModel, error)
-	MongoVersion(ctx context.Context) (string, error)
 	IdentityProviderURL(ctx context.Context) (string, error)
 	ControllerVersion(ctx context.Context) (controller.ControllerVersion, error)
 	Close() error
@@ -172,7 +171,6 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		var (
 			details           ShowControllerDetails
 			allModels         []base.UserModel
-			mongoVersion      string
 			controllerVersion string
 			agentGitCommit    string
 		)
@@ -215,12 +213,6 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				if err := c.SetControllerModels(c.store, controllerName, allModels); err != nil {
 					details.Errors = append(details.Errors, err.Error())
 				}
-			}
-			// Fetch mongoVersion if the apiserver supports it
-			mongoVersion, err = client.MongoVersion(ctx)
-			if err != nil && !errors.Is(err, errors.NotSupported) {
-				details.Errors = append(details.Errors, err.Error())
-				mongoVersion = "(error)"
 			}
 		}
 
@@ -267,7 +259,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 
 		c.convertControllerForShow(&details, controllerName, one, access, allModels,
-			modelStatusResults, mongoVersion, controllerVersion, agentGitCommit, identityURL)
+			modelStatusResults, controllerVersion, agentGitCommit, identityURL)
 		controllers[controllerName] = details
 	}
 	return c.out.Write(ctx, controllers)
@@ -413,7 +405,6 @@ func (c *showControllerCommand) convertControllerForShow(
 	access string,
 	allModels []base.UserModel,
 	modelStatusResults []base.ModelStatus,
-	mongoVersion string,
 	controllerVersion string,
 	agentGitCommit string,
 	identityURL string,
@@ -431,7 +422,6 @@ func (c *showControllerCommand) convertControllerForShow(
 		AgentVersion:           details.AgentVersion,
 		AgentGitCommit:         agentGitCommit,
 		ControllerModelVersion: controllerVersion,
-		MongoVersion:           mongoVersion,
 		IdentityURL:            identityURL,
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)

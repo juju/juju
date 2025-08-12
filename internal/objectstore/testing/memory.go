@@ -100,7 +100,7 @@ func (s *objectStore) RemoveMetadata(ctx context.Context, path string) error {
 }
 
 // Watch implements objectstore.ObjectStoreMetadata.
-func (*objectStore) Watch() (watcher.Watcher[[]string], error) {
+func (*objectStore) Watch(context.Context) (watcher.Watcher[[]string], error) {
 	return nil, errors.NotImplementedf("watching not implemented")
 }
 

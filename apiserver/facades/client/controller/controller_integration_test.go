@@ -51,7 +51,7 @@ func (s *ControllerIntegrationSuite) SetUpTest(c *tc.C) {
 
 	api := s.OpenControllerAPI(c)
 	s.client = controller.NewClient(api)
-	s.AddCleanup(func(*tc.C) { s.client.Close() })
+	s.AddCleanup(func(*tc.C) { _ = s.client.Close() })
 }
 
 func (s *ControllerIntegrationSuite) TestWatchModelSummaries(c *tc.C) {

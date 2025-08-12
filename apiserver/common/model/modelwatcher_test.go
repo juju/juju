@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	stdtesting "testing"
@@ -53,7 +54,7 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *tc.C) {
 	ch := make(chan []string)
 	w := watchertest.NewMockStringsWatcher(ch)
 
-	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
 		wg.Add(1)
 		time.AfterFunc(testing.ShortWait, func() {
 			defer wg.Done()
@@ -83,7 +84,7 @@ func (s *modelWatcherSuite) TestWatchFailure(c *tc.C) {
 	ch := make(chan []string)
 	w := watchertest.NewMockStringsWatcher(ch)
 
-	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		wg.Add(1)
 		time.AfterFunc(testing.ShortWait, func() {
 			defer wg.Done()

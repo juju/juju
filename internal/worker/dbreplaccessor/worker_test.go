@@ -44,7 +44,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 
 	w.Kill()
 
-	_, err := dbw.GetDB("anything")
+	_, err := dbw.GetDB(c.Context(), "anything")
 	c.Assert(err, tc.ErrorIs, database.ErrDBReplAccessorDying)
 }
 
@@ -70,7 +70,7 @@ func (s *workerSuite) TestGetDB(c *tc.C) {
 	dbw := w.(*dbReplWorker)
 	ensureStartup(c, dbw)
 
-	runner, err := dbw.GetDB("anything")
+	runner, err := dbw.GetDB(c.Context(), "anything")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(runner, tc.NotNil)
 }
@@ -94,7 +94,7 @@ func (s *workerSuite) TestGetDBNotFound(c *tc.C) {
 	dbw := w.(*dbReplWorker)
 	ensureStartup(c, dbw)
 
-	_, err := dbw.GetDB("other")
+	_, err := dbw.GetDB(c.Context(), "other")
 
 	// The error isn't passed through, although we really should expose this
 	// in the runner.
@@ -123,13 +123,13 @@ func (s *workerSuite) TestGetDBFound(c *tc.C) {
 	dbw := w.(*dbReplWorker)
 	ensureStartup(c, dbw)
 
-	runner, err := dbw.GetDB("anything")
+	runner, err := dbw.GetDB(c.Context(), "anything")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(runner, tc.NotNil)
 
 	// Notice that no additional changes are expected.
 
-	runner, err = dbw.GetDB("anything")
+	runner, err = dbw.GetDB(c.Context(), "anything")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(runner, tc.NotNil)
 }

@@ -61,7 +61,7 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 		ChangeMask: changestream.All,
 		Namespace:  "test_namespace",
 	}
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), matcher)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher)
 
 	_, err := NewService(s.state, s.watcherFactory).
 		WatchModelProvisionedVolumes(c.Context())
@@ -94,7 +94,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 		Predicate:  netNodeUUID.String(),
 	}
 	s.watcherFactory.EXPECT().NewNamespaceMapperWatcher(
-		gomock.Any(), gomock.Any(), gomock.Any(), matcher,
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), matcher,
 	)
 
 	_, err = NewService(s.state, s.watcherFactory).
@@ -145,7 +145,7 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 		ChangeMask: changestream.All,
 		Namespace:  "test_namespace",
 	}
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), matcher)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher)
 
 	_, err := NewService(s.state, s.watcherFactory).
 		WatchModelProvisionedVolumeAttachments(c.Context())
@@ -178,7 +178,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 		Predicate:  netNodeUUID.String(),
 	}
 	s.watcherFactory.EXPECT().NewNamespaceMapperWatcher(
-		gomock.Any(), gomock.Any(), gomock.Any(), matcher,
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), matcher,
 	)
 
 	_, err = NewService(s.state, s.watcherFactory).
@@ -238,7 +238,7 @@ func (s *volumeSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 		Predicate:  netNodeUUID.String(),
 	}
 	s.watcherFactory.EXPECT().NewNamespaceMapperWatcher(
-		gomock.Any(), gomock.Any(), gomock.Any(), matcher,
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), matcher,
 	)
 
 	_, err = NewService(s.state, s.watcherFactory).

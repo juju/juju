@@ -58,7 +58,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "cloud")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, logger)
-	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+	st := state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return watchableDBFactory(ctx) })
 
 	service := service.NewWatchableService(st, watcherFactory, loggertesting.WrapCheckLog(c))
 

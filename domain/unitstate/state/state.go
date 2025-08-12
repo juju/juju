@@ -32,7 +32,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // empty.
 // If no unit with the namw exists, a [errors.UnitNotFound] error is returned.
 func (st *State) GetUnitState(ctx context.Context, name coreunit.Name) (unitstate.RetrievedUnitState, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return unitstate.RetrievedUnitState{}, errors.Capture(err)
 	}
@@ -111,7 +111,7 @@ func (st *State) SetUnitState(ctx context.Context, as unitstate.UnitState) error
 		return errors.Errorf("invalid unit name: %q", as.Name)
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

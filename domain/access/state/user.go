@@ -49,7 +49,7 @@ func (st *UserState) AddUser(
 	external bool,
 	creatorUUID user.UUID,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -72,7 +72,7 @@ func (st *UserState) AddUserWithPermission(
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -96,7 +96,7 @@ func (st *UserState) AddUserWithPasswordHash(
 	passwordHash string,
 	salt []byte,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -120,7 +120,7 @@ func (st *UserState) AddUserWithActivationKey(
 	permission permission.AccessSpec,
 	activationKey []byte,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -138,7 +138,7 @@ func (st *UserState) AddUserWithActivationKey(
 // (last login, disabled) from the database. If no users exist an empty slice
 // will be returned.
 func (st *UserState) GetAllUsers(ctx context.Context, includeDisabled bool) ([]user.User, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting DB access: %w", err)
 	}
@@ -187,7 +187,7 @@ WHERE  u.removed = false
 // UUID from the database. If the user does not exist an error that satisfies
 // accesserrors.UserNotFound will be returned.
 func (st *UserState) GetUser(ctx context.Context, uuid user.UUID) (user.User, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return user.User{}, errors.Errorf("getting DB access: %w", err)
 	}
@@ -268,7 +268,7 @@ AND user.removed = false`
 // (last login, disabled) specified by name from the database. If the user does
 // not exist an error that satisfies accesserrors.UserNotFound will be returned.
 func (st *UserState) GetUserByName(ctx context.Context, name user.Name) (user.User, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return user.User{}, errors.Errorf("getting DB access: %w", err)
 	}
@@ -322,7 +322,7 @@ func (st *UserState) GetUserUUIDByName(
 	ctx context.Context,
 	name user.Name,
 ) (user.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Errorf("getting DB access: %w", err)
 	}
@@ -340,7 +340,7 @@ func (st *UserState) GetUserUUIDByName(
 // If the user does not exist an error that satisfies accesserrors.UserNotFound
 // will be returned, otherwise unauthorized will be returned.
 func (st *UserState) GetUserByAuth(ctx context.Context, name user.Name, password auth.Password) (user.User, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return user.User{}, errors.Errorf("getting DB access: %w", err)
 	}
@@ -402,7 +402,7 @@ AND    user.removed = false
 // user. If no user exists for the given user name then an error that satisfies
 // accesserrors.UserNotFound will be returned.
 func (st *UserState) RemoveUser(ctx context.Context, name user.Name) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -485,7 +485,7 @@ WHERE user_public_ssh_key_id IN (SELECT id
 // activation key. If no user is found for the supplied user name an error
 // is returned that satisfies accesserrors.UserNotFound.
 func (st *UserState) SetActivationKey(ctx context.Context, name user.Name, activationKey []byte) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -520,7 +520,7 @@ func (st *UserState) SetActivationKey(ctx context.Context, name user.Name, activ
 // user name. If the user does not exist an error that satisfies
 // accesserrors.UserNotFound will be returned.
 func (st *UserState) GetActivationKey(ctx context.Context, name user.Name) ([]byte, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting DB access: %w", err)
 	}
@@ -567,7 +567,7 @@ SELECT (*) AS (&dbActivationKey.*) FROM user_activation_key WHERE user_uuid = $M
 // password hash and salt. If no user is found for the supplied user name an error
 // is returned that satisfies accesserrors.UserNotFound.
 func (st *UserState) SetPasswordHash(ctx context.Context, name user.Name, passwordHash string, salt []byte) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -603,7 +603,7 @@ func (st *UserState) SetPasswordHash(ctx context.Context, name user.Name, passwo
 // If the user does not exist an error that satisfies
 // accesserrors.UserNotFound will be returned.
 func (st *UserState) EnableUserAuthentication(ctx context.Context, name user.Name) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -644,7 +644,7 @@ UPDATE SET disabled = false`
 // DisableUserAuthentication will disable the user with the supplied user name. If the user does
 // not exist an error that satisfies accesserrors.UserNotFound will be returned.
 func (st *UserState) DisableUserAuthentication(ctx context.Context, name user.Name) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -810,7 +810,7 @@ func AddUserWithPermission(
 // - [accesserrors.UserNotFound] when the user cannot be found.
 // - [modelerrors.NotFound] if no model by the given modelUUID exists.
 func (st *UserState) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, lastLogin time.Time) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting DB access: %w", err)
 	}
@@ -866,7 +866,7 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 // - [accesserrors.UserNeverAccessedModel] if there is no record of the user
 // accessing the model.
 func (st *UserState) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return time.Time{}, errors.Errorf("getting DB access: %w", err)
 	}

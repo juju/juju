@@ -45,11 +45,18 @@ func (t *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx
 	})
 }
 
+// Dying returns a channel that is closed when the database connection
+// is no longer usable. This can be used to detect when the database is
+// shutting down or has been closed.
+func (t *txnRunner) Dying() <-chan struct{} {
+	return make(<-chan struct{})
+}
+
 type singularDBGetter struct {
 	runner coredatabase.TxnRunner
 }
 
-func (s singularDBGetter) GetDB(name string) (coredatabase.TxnRunner, error) {
+func (s singularDBGetter) GetDB(ctx context.Context, name string) (coredatabase.TxnRunner, error) {
 	return s.runner, nil
 }
 
@@ -62,8 +69,8 @@ func SingularDBGetter(runner coredatabase.TxnRunner) coredatabase.DBGetter {
 
 // ConstFactory returns a changestream.WatchableDB factory function from just a
 // database.TxnRunner.
-func ConstFactory(runner coredatabase.TxnRunner) func() (changestream.WatchableDB, error) {
-	return func() (changestream.WatchableDB, error) {
+func ConstFactory(runner coredatabase.TxnRunner) func(context.Context) (changestream.WatchableDB, error) {
+	return func(context.Context) (changestream.WatchableDB, error) {
 		return constWatchableDB{
 			TxnRunner: runner,
 		}, nil

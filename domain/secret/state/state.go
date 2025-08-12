@@ -47,7 +47,7 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *Stat
 // GetModelUUID returns the uuid of the model,
 // or an error satisfying [modelerrors.NotFound]
 func (st State) GetModelUUID(ctx context.Context) (coremodel.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1043,7 +1043,7 @@ func (st State) GetOwnedSecretIDs(
 		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1106,7 +1106,7 @@ func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 	// TODO(secrets) - use all filter terms
 	labels domainsecret.Labels,
 ) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -1152,7 +1152,7 @@ func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 // GetSecret returns the secret with the given URI, returning an error satisfying [secreterrors.SecretNotFound]
 // if the secret does not exist.
 func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1178,7 +1178,7 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 // GetLatestRevision returns the latest revision number for the specified secret,
 // returning an error satisfying [secreterrors.SecretNotFound] if the secret does not exist.
 func (st State) GetLatestRevision(ctx context.Context, uri *coresecrets.URI) (int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
@@ -1211,7 +1211,7 @@ WHERE  sr.secret_id = $secretInfo.secret_id
 
 // GetRotationExpiryInfo returns the rotation expiry information for the specified secret.
 func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1258,7 +1258,7 @@ GROUP BY sr.secret_id`, input, result)
 
 // GetRotatePolicy returns the rotate policy for the specified secret.
 func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return coresecrets.RotateNever, errors.Capture(err)
 	}
@@ -1357,7 +1357,7 @@ FROM   secret_metadata sm
 func (st State) ListCharmSecrets(ctx context.Context,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -1488,7 +1488,7 @@ FROM   secret_metadata sm
 
 // ListUserSecretsToDrain returns secret drain revision info for any user secrets.
 func (st State) ListUserSecretsToDrain(ctx context.Context) ([]*coresecrets.SecretMetadataForDrain, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1536,7 +1536,7 @@ func (st State) ListCharmSecretsToDrain(
 		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1626,7 +1626,7 @@ func (st State) GetUserSecretURIByLabel(ctx context.Context, label string) (*cor
 		return nil, errors.Errorf("empty secret label %w", coreerrors.NotValid)
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1671,7 +1671,7 @@ func (st State) GetURIByConsumerLabel(ctx context.Context, label string, unitNam
 		return nil, errors.Errorf("empty secret label %w", coreerrors.NotValid)
 	}
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1759,7 +1759,7 @@ WHERE  secret_id = $secretRevision.secret_id
 func (st State) GetSecretValue(
 	ctx context.Context, uri *coresecrets.URI, revision int) (coresecrets.SecretData, *coresecrets.ValueRef, error,
 ) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
@@ -1890,7 +1890,7 @@ FROM (SELECT * FROM local UNION SELECT * FROM remote)`
 func (st State) GetSecretConsumer(
 	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name,
 ) (*coresecrets.SecretConsumerMetadata, int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, 0, errors.Capture(err)
 	}
@@ -1985,7 +1985,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 func (st State) SaveSecretConsumer(
 	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name, md *coresecrets.SecretConsumerMetadata,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2071,7 +2071,7 @@ ON CONFLICT DO NOTHING`
 
 // AllSecretConsumers loads all local secret consumers keyed by secret id.
 func (st State) AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2114,7 +2114,7 @@ FROM   secret_unit_consumer suc
 func (st State) GetSecretRemoteConsumer(
 	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name,
 ) (*coresecrets.SecretConsumerMetadata, int, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, 0, errors.Capture(err)
 	}
@@ -2191,7 +2191,7 @@ WHERE  rev.secret_id = $secretInfo.secret_id`
 func (st State) SaveSecretRemoteConsumer(
 	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name, md *coresecrets.SecretConsumerMetadata,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2234,7 +2234,7 @@ ON CONFLICT(secret_id, unit_name) DO UPDATE SET
 
 // AllSecretRemoteConsumers loads all secret remote consumers keyed by secret id.
 func (st State) AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2269,7 +2269,7 @@ FROM   secret_remote_unit_consumer suc
 // UpdateRemoteSecretRevision records the latest revision
 // of the specified cross model secret.
 func (st State) UpdateRemoteSecretRevision(ctx context.Context, uri *coresecrets.URI, latestRevision int) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2318,7 +2318,7 @@ ON CONFLICT(secret_id) DO UPDATE SET
 // AllRemoteSecrets returns consumer info for secrets stored in
 // an external model.
 func (st State) AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2361,7 +2361,7 @@ FROM   secret_unit_consumer suc
 // If an attempt is made to change an existing permission's scope or subject type, an error
 // satisfying [secreterrors.InvalidSecretPermissionChange] is returned.
 func (st State) GrantAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.GrantParams) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2556,7 +2556,7 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 // It returns an error satisfying [secreterrors.SecretNotFound] if the
 // secret is not found.
 func (st State) RevokeAccess(ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2604,7 +2604,7 @@ AND    subject_uuid = $secretPermission.subject_uuid`
 func (st State) GetSecretAccess(
 	ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams,
 ) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -2655,7 +2655,7 @@ AND    subject_id = $secretAccessor.subject_id`
 func (st State) GetSecretAccessScope(
 	ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams,
 ) (*domainsecret.AccessScope, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2711,7 +2711,7 @@ AND    subject_id = $secretAccessor.subject_id`
 func (st State) GetSecretGrants(
 	ctx context.Context, uri *coresecrets.URI, role coresecrets.SecretRole,
 ) ([]domainsecret.GrantParams, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2767,7 +2767,7 @@ AND    subject_type_id != $M.remote_application_type`
 
 // AllSecretGrants returns access details for all local secrets, keyed on secret id.
 func (st State) AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2815,7 +2815,7 @@ type (
 func (st State) ListGrantedSecretsForBackend(
 	ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role coresecrets.SecretRole,
 ) ([]*coresecrets.SecretRevisionRef, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2896,7 +2896,7 @@ AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($u
 // GetSecretRevisionID returns the revision UUID for the specified secret URI and revision,
 // or an error satisfying [secreterrors.SecretRevisionNotFound] if the revision is not found.
 func (st State) GetSecretRevisionID(ctx context.Context, uri *coresecrets.URI, revision int) (string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -2977,7 +2977,7 @@ HAVING   suc.current_revision < MAX(sr.revision)`
 func (st State) GetConsumedSecretURIsWithChanges(
 	ctx context.Context, unitName coreunit.Name, revisionIDs ...string,
 ) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3081,7 +3081,7 @@ HAVING   suc.current_revision < sr.latest_revision`
 func (st State) GetConsumedRemoteSecretURIsWithChanges(
 	ctx context.Context, unitName coreunit.Name, secretIDs ...string,
 ) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3195,7 +3195,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 func (st State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	ctx context.Context, appName string, revUUIDs ...string,
 ) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3294,7 +3294,7 @@ func (st State) GetRevisionIDsForObsolete(
 	if len(revisionUUIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, nil
 	}
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3417,7 +3417,7 @@ func (st State) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, rev
 // DeleteObsoleteUserSecretRevisions deletes the obsolete user secret revisions.
 // It returns the string format UUID of the deleted revisions.
 func (st State) DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3635,7 +3635,7 @@ DELETE FROM secret WHERE id = $secretID.id`
 
 // SecretRotated updates the next rotation time for the specified secret.
 func (st State) SecretRotated(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -3754,7 +3754,7 @@ func (st State) ChangeSecretBackend(
 	if valueRef == nil && len(data) == 0 {
 		return errors.New("either valueRef or data must be set")
 	}
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -3825,7 +3825,7 @@ func (st State) InitialWatchStatementForSecretsRotationChanges(
 func (st State) GetSecretsRotationChanges(
 	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string,
 ) ([]domainsecret.RotationInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3953,7 +3953,7 @@ func (st State) InitialWatchStatementForSecretsRevisionExpiryChanges(
 func (st State) GetSecretsRevisionExpiryChanges(
 	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 ) ([]domainsecret.ExpiryInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3962,7 +3962,7 @@ func (st State) GetSecretsRevisionExpiryChanges(
 
 // GetObsoleteUserSecretRevisionReadyToPrune returns the specified user secret revision with secret ID if it is ready to prune.
 func (st State) GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) ([]string, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

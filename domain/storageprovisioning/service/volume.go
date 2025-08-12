@@ -361,6 +361,7 @@ func (s *Service) WatchModelProvisionedVolumes(
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumes()
 	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		initialQuery,
 		"model provisioned volume watcher",
 		eventsource.NamespaceFilter(ns, changestream.All))
@@ -399,6 +400,7 @@ func (s *Service) WatchMachineProvisionedVolumes(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery,
 		fmt.Sprintf("machine provisioned volume watcher for %q", machineUUID),
 		mapper, filter)
@@ -419,9 +421,12 @@ func (s *Service) WatchModelProvisionedVolumeAttachments(
 	defer span.End()
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumeAttachments()
-	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		initialQuery,
 		"model provisioned volume attachment watcher",
-		eventsource.NamespaceFilter(ns, changestream.All))
+		eventsource.NamespaceFilter(ns, changestream.All),
+	)
 }
 
 // WatchMachineProvisionedVolumeAttachments returns a watcher that emits volume
@@ -458,6 +463,7 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery,
 		fmt.Sprintf("machine provisioned volume attachment watcher for %q", machineUUID),
 		mapper, filter)
@@ -502,6 +508,7 @@ func (s *Service) WatchVolumeAttachmentPlans(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery,
 		fmt.Sprintf("volume attachment plan watcher for %q", machineUUID),
 		mapper, filter)

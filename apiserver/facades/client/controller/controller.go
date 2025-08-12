@@ -69,7 +69,7 @@ type ControllerAPI struct {
 	accessService               ControllerAccessService
 	modelService                ModelService
 	modelInfoService            ModelInfoService
-	blockCommandService         common.BlockCommandService
+	blockCommandService         BlockCommandService
 	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error)
 	credentialServiceGetter     func(context.Context, coremodel.UUID) (CredentialService, error)
 	upgradeServiceGetter        func(context.Context, coremodel.UUID) (UpgradeService, error)
@@ -81,6 +81,7 @@ type ControllerAPI struct {
 	blockCommandServiceGetter   func(context.Context, coremodel.UUID) (BlockCommandService, error)
 	cloudSpecServiceGetter      func(context.Context, coremodel.UUID) (ModelProviderService, error)
 	machineServiceGetter        func(context.Context, coremodel.UUID) (MachineService, error)
+	removalServiceGetter        func(context.Context, coremodel.UUID) (RemovalService, error)
 	proxyService                ProxyService
 	modelExporter               func(context.Context, coremodel.UUID) (ModelExporter, error)
 	store                       objectstore.ObjectStore
@@ -105,7 +106,7 @@ func NewControllerAPI(
 	accessService ControllerAccessService,
 	modelService ModelService,
 	modelInfoService ModelInfoService,
-	blockCommandService common.BlockCommandService,
+	blockCommandService BlockCommandService,
 	modelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error),
 	credentialServiceGetter func(context.Context, coremodel.UUID) (CredentialService, error),
 	upgradeServiceGetter func(context.Context, coremodel.UUID) (UpgradeService, error),
@@ -117,6 +118,7 @@ func NewControllerAPI(
 	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error),
 	cloudSpecServiceGetter func(context.Context, coremodel.UUID) (ModelProviderService, error),
 	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
+	removalServiceGetter func(context.Context, coremodel.UUID) (RemovalService, error),
 	proxyService ProxyService,
 	modelExporter func(context.Context, coremodel.UUID) (ModelExporter, error),
 	store objectstore.ObjectStore,
@@ -169,6 +171,7 @@ func NewControllerAPI(
 		blockCommandServiceGetter:   blockCommandServiceGetter,
 		cloudSpecServiceGetter:      cloudSpecServiceGetter,
 		machineServiceGetter:        machineServiceGetter,
+		removalServiceGetter:        removalServiceGetter,
 		modelMigrationServiceGetter: modelMigrationServiceGetter,
 		proxyService:                proxyService,
 		modelExporter:               modelExporter,
@@ -205,7 +208,7 @@ func (c *ControllerAPI) ControllerVersion(ctx context.Context) (params.Controlle
 func (c *ControllerAPI) IdentityProviderURL(ctx context.Context) (params.StringResult, error) {
 	var result params.StringResult
 
-	cfgRes, err := c.ControllerConfig(ctx)
+	cfgRes, err := c.ControllerConfigAPI.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

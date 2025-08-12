@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
@@ -41,27 +42,6 @@ type Provider interface {
 	Destroy(ctx context.Context) error
 }
 
-// ControllerDBState describes retrieval and persistence methods for entity
-// removal in the controller database.
-type ControllerDBState interface {
-	// ModelExists returns true if a model exists with the input model
-	// UUID.
-	ModelExists(ctx context.Context, modelUUID string) (bool, error)
-
-	// GetModelLife retrieves the life state of a model.
-	GetModelLife(ctx context.Context, modelUUID string) (life.Life, error)
-
-	// EnsureModelNotAliveCascade ensures that there is no model identified
-	// by the input model UUID, that is still alive.
-	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) error
-
-	// MarkModelAsDead marks the model with the input UUID as dead.
-	MarkModelAsDead(ctx context.Context, modelUUID string) error
-
-	// DeleteModel removes the model with the input UUID from the database.
-	DeleteModel(ctx context.Context, modelUUID string) error
-}
-
 // ModelDBState describes retrieval and persistence methods for entity removal
 // in the model database.
 type ModelDBState interface {
@@ -83,10 +63,16 @@ type ModelDBState interface {
 type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
 	// input table name that match the input mask.
-	NewUUIDsWatcher(tableName, summary string, changeMask changestream.ChangeType) (watcher.StringsWatcher, error)
+	NewUUIDsWatcher(
+		ctx context.Context,
+		tableName, summary string,
+		changeMask changestream.ChangeType,
+	) (watcher.StringsWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes from
 	// the input base watcher's db/queue.
 	NewNamespaceMapperWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
 		mapper eventsource.Mapper,
@@ -101,6 +87,8 @@ type Service struct {
 
 	leadershipRevoker leadership.Revoker
 	provider          providertracker.ProviderGetter[Provider]
+
+	modelUUID model.UUID
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -249,6 +237,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 	leadershipRevoker leadership.Revoker,
 	provider providertracker.ProviderGetter[Provider],
+	modelUUID model.UUID,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
@@ -258,6 +247,7 @@ func NewWatchableService(
 			modelState:        modelState,
 			leadershipRevoker: leadershipRevoker,
 			provider:          provider,
+			modelUUID:         modelUUID,
 			clock:             clock,
 			logger:            logger,
 		},
@@ -267,10 +257,16 @@ func NewWatchableService(
 
 // WatchRemovals watches for scheduled removal jobs.
 // The returned watcher emits the UUIDs of any inserted or updated jobs.
-func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchRemovals(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	w, err := s.watcherFactory.NewUUIDsWatcher(
+		ctx,
 		s.modelState.NamespaceForWatchRemovals(),
-		"removals watcher", changestream.Changed)
+		"removals watcher",
+		changestream.Changed,
+	)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for removals: %w", err)
 	}
@@ -278,7 +274,10 @@ func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
 }
 
 // WatchEntityRemovals watches for scheduled removal jobs for specific entities.
-func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchEntityRemovals(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	initialQuery, filterNames := s.modelState.NamespaceForWatchEntityRemovals()
 
 	if len(filterNames) == 0 {
@@ -291,6 +290,7 @@ func (s *WatchableService) WatchEntityRemovals() (watcher.StringsWatcher, error)
 	}
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
 		initialQuery,
 		"entity removals watcher",
 		func(ctx context.Context, ce []changestream.ChangeEvent) ([]string, error) {

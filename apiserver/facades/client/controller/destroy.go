@@ -5,15 +5,18 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	commonmodel "github.com/juju/juju/apiserver/common/model"
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -26,38 +29,67 @@ import (
 func (c *ControllerAPI) DestroyController(ctx context.Context, args params.DestroyControllerArgs) error {
 	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(c.controllerUUID))
 	if err != nil {
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
+	}
+
+	isControllerModel, err := c.modelInfoService.IsControllerModel(ctx)
+	if err != nil {
+		return apiservererrors.ServerError(err)
+
+	} else if !isControllerModel {
+		return apiservererrors.ServerError(errors.BadRequestf("current model is not the controller model"))
 	}
 
 	modelUUIDs, err := c.modelService.ListModelUUIDs(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
-
 	if err := ensureNotBlocked(ctx, c.modelService, c.blockCommandServiceGetter, modelUUIDs, c.logger); err != nil {
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
 
 	// If we are destroying models, we need to tolerate living
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	err = commonmodel.DestroyController(
-		ctx,
-		modelUUIDs,
-		c.blockCommandService,
-		c.modelInfoService,
-		c.modelService,
-		func(ctx context.Context, u model.UUID) (commonmodel.BlockCommandService, error) {
-			return c.blockCommandServiceGetter(ctx, u)
-		},
-		args.DestroyModels, args.DestroyStorage,
-		args.Force, args.MaxWait, args.ModelTimeout,
-	)
+	if !args.DestroyModels && len(modelUUIDs) != 0 {
+		return apiservererrors.ServerError(errors.BadRequestf("cannot destroy controller with hosted models"))
+	}
 
+	for _, uuid := range modelUUIDs {
+		svc, err := c.blockCommandServiceGetter(ctx, uuid)
+		if err != nil {
+			return apiservererrors.ServerError(err)
+		}
+
+		check := common.NewBlockChecker(svc)
+		if err = check.DestroyAllowed(ctx); internalerrors.Is(err, modelerrors.NotFound) {
+			continue
+		} else if err != nil {
+			return apiservererrors.ServerError(err)
+		}
+	}
+
+	if err := checkForceForControllerModel(ctx, c.blockCommandService, c.modelInfoService, args.Force); err != nil {
+		return apiservererrors.ServerError(err)
+	}
+
+	var force bool
+	if args.Force != nil {
+		force = *args.Force
+	}
+	var maxWait time.Duration
+	if args.MaxWait != nil {
+		maxWait = *args.MaxWait
+	}
+
+	removalService, err := c.removalServiceGetter(ctx, c.controllerModelUUID)
 	if err != nil {
+		return apiservererrors.ServerError(err)
+	}
+	if err := removalService.RemoveController(ctx, force, maxWait); err != nil {
 		c.logger.Warningf(ctx, "failed destroying controller: %v", err)
-		return errors.Trace(err)
+		return apiservererrors.ServerError(err)
 	}
 
 	return nil
@@ -70,7 +102,6 @@ func ensureNotBlocked(
 	uuids []model.UUID,
 	logger corelogger.Logger,
 ) error {
-
 	// If there are blocks let the user know.
 	for _, uuid := range uuids {
 		blockService, err := blockCommandServiceGetter(ctx, uuid)
@@ -88,5 +119,32 @@ func ensureNotBlocked(
 			return apiservererrors.OperationBlockedError("found blocks in controller models")
 		}
 	}
+
+	return nil
+}
+
+func checkForceForControllerModel(
+	ctx context.Context,
+	blockCommandService BlockCommandService,
+	modelInfoService ModelInfoService,
+	force *bool,
+) error {
+	check := common.NewBlockChecker(blockCommandService)
+	if err := check.DestroyAllowed(ctx); err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	notForcing := force == nil || !*force
+	if notForcing {
+		hasValidCredential, err := modelInfoService.HasValidCredential(ctx)
+
+		if err != nil {
+			return internalerrors.Capture(err)
+		}
+		if !hasValidCredential {
+			return internalerrors.Errorf("invalid cloud credential, use --force")
+		}
+	}
+
 	return nil
 }

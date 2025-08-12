@@ -52,7 +52,7 @@ func (s *State) CheckModelExists(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 ) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -96,7 +96,7 @@ func (s *State) CloudType(
 	ctx context.Context,
 	name string,
 ) (string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -157,7 +157,7 @@ func (s *State) Create(
 	modelType coremodel.ModelType,
 	input model.GlobalModelCreationArgs,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -230,7 +230,7 @@ func Create(
 // If the model does not exist then an error satisfying [modelerrors.NotFound]
 // will be returned.
 func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coremodel.Model{}, errors.Capture(err)
 	}
@@ -251,7 +251,7 @@ func (s *State) GetModelByName(
 	modelQualifier string,
 	modelName string,
 ) (coremodel.Model, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coremodel.Model{}, errors.Capture(err)
 	}
@@ -302,7 +302,7 @@ AND    qualifier = $dbNames.qualifier
 // information. If no model exists for the provided UUID then an error
 // satisfying [modelerrors.NotFound] will be returned.
 func (s *State) GetModelState(ctx context.Context, uuid coremodel.UUID) (model.ModelState, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return model.ModelState{}, errors.Capture(err)
 	}
@@ -343,7 +343,7 @@ SELECT &dbModelState.* FROM v_model_state WHERE uuid = $dbModelUUID.uuid
 // If no controller model exists then an error satisfying [modelerrors.NotFound]
 // is returned.
 func (s *State) GetControllerModelUUID(ctx context.Context) (coremodel.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coremodel.UUID(""), errors.Capture(err)
 	}
@@ -379,7 +379,7 @@ FROM   controller
 // controller model exists then an error satisfying [modelerrors.NotFound] is
 // returned.
 func (s *State) GetControllerModel(ctx context.Context) (coremodel.Model, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coremodel.Model{}, errors.Capture(err)
 	}
@@ -430,7 +430,7 @@ func (s *State) GetModelSeedInformation(
 ) (coremodel.ModelInfo, error) {
 	// WARNING (tlm): You are potentially working with half initialized model
 	// information in this function be careful!
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
@@ -764,7 +764,7 @@ func (s *State) Delete(
 	ctx context.Context,
 	uuid coremodel.UUID,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -833,7 +833,7 @@ func (s *State) Delete(
 // returned. If the model has previously been activated a
 // [modelerrors.AlreadyActivated] error will be returned.
 func (s *State) Activate(ctx context.Context, uuid coremodel.UUID) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -907,7 +907,7 @@ WHERE uuid = $dbUUID.uuid
 func (s *State) GetModelTypes(ctx context.Context) ([]coremodel.ModelType, error) {
 	rval := []coremodel.ModelType{}
 
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return rval, errors.Capture(err)
 	}
@@ -940,7 +940,7 @@ func (s *State) GetModelTypes(ctx context.Context) ([]coremodel.ModelType, error
 // ListAllModels returns a slice of all models in the controller. If no models
 // exist an empty slice is returned.
 func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -980,7 +980,7 @@ func (s *State) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 
 // ListModelUUIDs returns a list of all model UUIDs in the system that are active.
 func (s *State) ListModelUUIDs(ctx context.Context) ([]coremodel.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1018,7 +1018,7 @@ func (s *State) ListModelUUIDsForUser(
 	ctx context.Context,
 	userUUID user.UUID,
 ) ([]coremodel.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1074,7 +1074,7 @@ func (s *State) ListModelsForUser(
 	ctx context.Context,
 	userID user.UUID,
 ) ([]coremodel.Model, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1125,7 +1125,7 @@ WHERE  uuid IN (SELECT grant_on
 // permissions on the given model UUID.
 // If the model cannot be found it will return [modelerrors.NotFound].
 func (st *State) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1183,7 +1183,7 @@ func (s *State) GetModelSummary(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 ) (model.ModelSummary, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return model.ModelSummary{}, errors.Capture(err)
 	}
@@ -1284,7 +1284,7 @@ func (s *State) GetUserModelSummary(
 	userUUID user.UUID,
 	modelUUID coremodel.UUID,
 ) (model.UserModelSummary, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return model.UserModelSummary{}, errors.Capture(err)
 	}
@@ -1371,7 +1371,7 @@ func (s *State) GetModelCloudInfo(
 	ctx context.Context,
 	uuid coremodel.UUID,
 ) (string, string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -1421,7 +1421,7 @@ func (st *State) GetModelCloudAndCredential(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 ) (corecloud.UUID, credential.UUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -1457,7 +1457,7 @@ WHERE  m.uuid = $dbModelCloudCredentialUUID.uuid
 // error is returned. If no namespace has been provisioned for the model then a
 // [modelerrors.ModelNamespaceNotFound] error is returned.
 func (s *State) NamespaceForModel(ctx context.Context, id coremodel.UUID) (string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1785,7 +1785,7 @@ func (s *State) UpdateCredential(
 	uuid coremodel.UUID,
 	key credential.Key,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1803,7 +1803,7 @@ func (s *State) CloudSupportsAuthType(
 	cloudName string,
 	authType cloud.AuthType,
 ) (bool, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -2035,7 +2035,7 @@ func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.U
 	if len(uuids) == 0 {
 		return nil, nil
 	}
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2076,7 +2076,7 @@ WHERE uuid IN ($S[:])
 // - [modelerrors.NotFound]: When the model does not exist.
 // - [modelerrors.NotActivated]: When the model has not been activated.
 func (st *State) GetModelLife(ctx context.Context, uuid coremodel.UUID) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -2117,7 +2117,7 @@ WHERE uuid = $dbModelLife.uuid;
 // The following errors may be returned:
 // - [modelerrors.NotFound] when the model no longer exists.
 func (st *State) HasValidCredential(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}

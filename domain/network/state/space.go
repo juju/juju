@@ -39,7 +39,7 @@ func (st *State) AddSpace(
 	providerID network.Id,
 	subnetIDs []string,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -96,7 +96,7 @@ func (st *State) GetSpace(
 	ctx context.Context,
 	uuid network.SpaceUUID,
 ) (*network.SpaceInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -133,7 +133,7 @@ func (st *State) GetSpaceByName(
 	ctx context.Context,
 	name network.SpaceName,
 ) (*network.SpaceInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -174,7 +174,7 @@ func (st *State) GetAllSpaces(
 	ctx context.Context,
 ) (network.SpaceInfos, error) {
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -210,7 +210,7 @@ func (st *State) UpdateSpace(
 	uuid network.SpaceUUID,
 	name network.SpaceName,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

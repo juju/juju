@@ -34,7 +34,7 @@ func NewMigrationState(factory database.TxnRunnerFactory) *MigrationState {
 // "application-leadership" leases and we also check if the lease has expired
 // and remove it if it has.
 func (s *MigrationState) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

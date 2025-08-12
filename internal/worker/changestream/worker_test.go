@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
+	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -83,7 +84,7 @@ func (s *workerSuite) TestKillGetWatchableDBError(c *tc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), "controller").Return(s.TxnRunner(), nil)
 	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
 	s.watchableDBWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
@@ -98,13 +99,13 @@ func (s *workerSuite) TestKillGetWatchableDBError(c *tc.C) {
 	defer workertest.DirtyKill(c, w)
 	stream, _ := w.(changestream.WatchableDBGetter)
 
-	_, err := stream.GetWatchableDB("controller")
+	_, err := stream.GetWatchableDB(c.Context(), "controller")
 	c.Assert(err, tc.ErrorIsNil)
 
 	close(done)
 	workertest.CleanKill(c, w)
 
-	_, err = stream.GetWatchableDB("controller")
+	_, err = stream.GetWatchableDB(c.Context(), "controller")
 	c.Assert(err, tc.ErrorIs, coredatabase.ErrChangeStreamDying)
 }
 
@@ -115,7 +116,7 @@ func (s *workerSuite) TestEventSource(c *tc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), "controller").Return(s.TxnRunner(), nil)
 	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
 	s.watchableDBWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
@@ -132,7 +133,7 @@ func (s *workerSuite) TestEventSource(c *tc.C) {
 	stream, ok := w.(changestream.WatchableDBGetter)
 	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
-	wdb, err := stream.GetWatchableDB("controller")
+	wdb, err := stream.GetWatchableDB(c.Context(), "controller")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(wdb, tc.NotNil)
 
@@ -144,7 +145,7 @@ func (s *workerSuite) TestEventSourceEmptyNamespace(c *tc.C) {
 
 	s.expectClock()
 
-	s.dbGetter.EXPECT().GetDB("").Return(s.TxnRunner(), errors.NotValid)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), "").Return(s.TxnRunner(), errors.NotValid)
 
 	w := s.newWorker(c, 1)
 	defer workertest.CleanKill(c, w)
@@ -152,8 +153,8 @@ func (s *workerSuite) TestEventSourceEmptyNamespace(c *tc.C) {
 	stream, ok := w.(changestream.WatchableDBGetter)
 	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
-	_, err := stream.GetWatchableDB("")
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	_, err := stream.GetWatchableDB(c.Context(), "")
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
 func (s *workerSuite) TestEventSourceCalledTwice(c *tc.C) {
@@ -163,7 +164,7 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *tc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), "controller").Return(s.TxnRunner(), nil)
 	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
 	s.watchableDBWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
@@ -181,10 +182,10 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *tc.C) {
 	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
 	// Ensure that the event queue is only created once.
-	_, err := stream.GetWatchableDB("controller")
+	_, err := stream.GetWatchableDB(c.Context(), "controller")
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = stream.GetWatchableDB("controller")
+	_, err = stream.GetWatchableDB(c.Context(), "controller")
 	c.Assert(err, tc.ErrorIsNil)
 
 	close(done)
@@ -198,7 +199,7 @@ func (s *workerSuite) TestEventSourceCalledWithError(c *tc.C) {
 	// Test that the worker doesn't restart in the face of a ErrDBNotFound
 	// error.
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), coredatabase.ErrDBNotFound)
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), "controller").Return(s.TxnRunner(), coredatabase.ErrDBNotFound)
 	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
 
 	w := s.newWorker(c, 1)
@@ -208,8 +209,8 @@ func (s *workerSuite) TestEventSourceCalledWithError(c *tc.C) {
 	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
 	// Ensure that the event queue is only created once.
-	_, err := stream.GetWatchableDB("controller")
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	_, err := stream.GetWatchableDB(c.Context(), "controller")
+	c.Assert(err, tc.ErrorIs, coredatabase.ErrDBNotFound)
 }
 
 func (s *workerSuite) newWorker(c *tc.C, attempts int) worker.Worker {

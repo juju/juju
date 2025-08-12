@@ -86,7 +86,7 @@ func CreateTestModel(
 	c.Assert(err, tc.ErrorIsNil)
 
 	userName := usertesting.GenNewName(c, "test-user"+name)
-	runner, err := txnRunner()
+	runner, err := txnRunner(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	CreateInternalSecretBackend(c, runner)

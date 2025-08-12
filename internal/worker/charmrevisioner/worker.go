@@ -58,7 +58,7 @@ type ModelConfigService interface {
 	ModelConfig(context.Context) (*config.Config, error)
 
 	// Watch returns a watcher that notifies of changes to the model config.
-	Watch() (watcher.StringsWatcher, error)
+	Watch(context.Context) (watcher.StringsWatcher, error)
 }
 
 // ApplicationService provides access to applications.
@@ -223,7 +223,7 @@ func (w *revisionUpdateWorker) loop() error {
 	// charmhub client to use the new URL.
 
 	modelConfigService := w.config.ModelConfigService
-	configWatcher, err := modelConfigService.Watch()
+	configWatcher, err := modelConfigService.Watch(ctx)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}

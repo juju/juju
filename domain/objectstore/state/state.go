@@ -31,7 +31,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 
 // GetMetadata returns the persistence metadata for the specified path.
 func (s *State) GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Capture(err)
 	}
@@ -65,7 +65,7 @@ WHERE path = $dbMetadata.path`, metadata)
 // GetMetadataBySHA256 returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
 func (s *State) GetMetadataBySHA256(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Capture(err)
 	}
@@ -101,7 +101,7 @@ WHERE sha_256 = $sha256Ident.sha_256`, metadata, sha256Ident)
 // GetMetadataBySHA256Prefix returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
 func (s *State) GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Capture(err)
 	}
@@ -136,7 +136,7 @@ WHERE sha_256 LIKE $sha256IdentPrefix.sha_256_prefix || '%'`, metadata, sha256Id
 
 // ListMetadata returns the persistence metadata.
 func (s *State) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ FROM v_object_store_metadata`, dbMetadata{})
 
 // PutMetadata adds a new specified path for the persistence metadata.
 func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -266,7 +266,7 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 
 // RemoveMetadata removes the specified key for the persistence path.
 func (s *State) RemoveMetadata(ctx context.Context, path string) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -329,7 +329,7 @@ AND NOT EXISTS (
 
 // SetDrainingPhase sets the phase of the object store to draining.
 func (s *State) SetDrainingPhase(ctx context.Context, uuid string, phase coreobjectstore.Phase) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -370,7 +370,7 @@ ON CONFLICT (uuid) DO UPDATE SET
 
 // GetActiveDrainingPhase returns the phase of the object store.
 func (s *State) GetActiveDrainingPhase(ctx context.Context) (string, coreobjectstore.Phase, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}

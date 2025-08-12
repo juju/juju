@@ -200,7 +200,7 @@ func (s *State) AddPublicKeysForUser(
 	userUUID user.UUID,
 	publicKeys []keymanager.PublicKey,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting database for adding public keys to user %q on model %q: %w",
@@ -296,7 +296,7 @@ func (s *State) EnsurePublicKeysForUser(
 	userUUID user.UUID,
 	publicKeys []keymanager.PublicKey,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting database for ensuring public keys on user %q in model %q: %w",
@@ -388,7 +388,7 @@ func (s *State) GetAllUsersPublicKeys(
 	ctx context.Context,
 	modelUUID model.UUID,
 ) (map[user.Name][]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +454,7 @@ func (s *State) GetPublicKeysForUser(
 	modelUUID model.UUID,
 	userUUID user.UUID,
 ) ([]coressh.PublicKey, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -528,7 +528,7 @@ func (s *State) GetPublicKeysDataForUser(
 	modelUUID model.UUID,
 	userUUID user.UUID,
 ) ([]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -602,7 +602,7 @@ func (s *State) DeletePublicKeysForUser(
 	userUUID user.UUID,
 	keyIds []string,
 ) error {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}

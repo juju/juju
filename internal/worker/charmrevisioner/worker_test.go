@@ -69,7 +69,7 @@ func (s *WorkerSuite) TestTriggerFetch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	watcher := watchertest.NewMockStringsWatcher(make(chan []string))
-	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
 	ch := make(chan time.Time)
 
@@ -121,7 +121,7 @@ func (s *WorkerSuite) TestTriggerModelConfig(c *tc.C) {
 
 	ch := make(chan []string)
 	watcher := watchertest.NewMockStringsWatcher(ch)
-	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
 	done := make(chan struct{})
 
@@ -1217,7 +1217,7 @@ func (s *WorkerSuite) newWorker(c *tc.C) *revisionUpdateWorker {
 func (s *WorkerSuite) expectWatcher(c *tc.C) {
 	ch := make(chan []string)
 	watcher := watchertest.NewMockStringsWatcher(ch)
-	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
 		return nil
 	})

@@ -35,7 +35,7 @@ import (
 //     that subnet UUID. The instance-poller reconciliation will match it based
 //     on provider subnet ID if it can; see [SetProviderNetConfig].
 func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []network.NetInterface) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -156,7 +156,7 @@ func (st *State) reconcileNetConfigDevices(
 				ParentUUID: parentUUID,
 			})
 		} else {
-			st.logger.Warningf(context.TODO(), "parent device %q for %q not found in incoming or existing data",
+			st.logger.Warningf(ctx, "parent device %q for %q not found in incoming or existing data",
 				n.ParentDeviceName, n.Name)
 		}
 	}

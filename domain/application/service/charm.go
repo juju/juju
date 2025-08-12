@@ -1043,6 +1043,7 @@ func (s *WatchableService) WatchCharms(ctx context.Context) (watcher.StringsWatc
 	defer span.End()
 
 	return s.watcherFactory.NewUUIDsWatcher(
+		ctx,
 		s.st.NamespaceForWatchCharm(),
 		"charms watcher",
 		changestream.All,

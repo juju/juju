@@ -7,7 +7,4 @@
 // so, it will put a document in the Juju database, so that the next time the
 // user runs `juju status`, they can see that there is an update available. This
 // worker also sends anonymised usage metrics to Charmhub when it polls.
-//
-// This worker doesn't contain much business logic - most of the work is
-// delegated to the facade call.
 package charmrevisioner

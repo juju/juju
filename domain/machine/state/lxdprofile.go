@@ -15,7 +15,7 @@ import (
 // GetLXDProfilesForMachine returns lxd profile names mapped to the
 // lxd profile they represent for applications on the given machine.
 func (st *State) GetLXDProfilesForMachine(ctx context.Context, mName string) ([]internal.CreateLXDProfileDetails, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

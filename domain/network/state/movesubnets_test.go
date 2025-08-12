@@ -64,7 +64,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesNoMachines(c *tc.C) 
 	// Create subnet in a space, and a second space
 	subnetUUID := s.addSubnet(c, "192.168.1.0/24", s.addSpace(c, "from-space"))
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -105,7 +105,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppBindingSuccess(c 
 	appUUID := s.addApplication(c, charmUUID, fromSpaceUUID)
 	s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -152,7 +152,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingSu
 	s.addApplicationEndpoint(c, coreapplication.ID(appUUID), charmRelationUUID, fromSpaceUUID)
 	s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -192,7 +192,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesPositiveConstraintSu
 	machineUUID := s.addMachine(c, "machine-1", nodeUUID)
 	s.addSpaceConstraint(c, machineUUID.String(), "from-space", true)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -232,7 +232,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppBindingFailure(c 
 	s.addUnit(c, appUUID, charmUUID, nodeUUID)
 	s.addMachine(c, "machine-1", nodeUUID)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -283,7 +283,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingFa
 	s.addUnit(c, appUUID, charmUUID, nodeUUID)
 	s.addMachine(c, "machine-1", nodeUUID)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -326,7 +326,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesPositiveConstraintFa
 	machineUUID := s.addMachine(c, "machine-1", nodeUUID)
 	s.addSpaceConstraint(c, machineUUID.String(), "from-space", true)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -396,7 +396,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesMultipleFailure(c *t
 	s.addUnit(c, appUUID, charmUUID, nodeUUID3)
 	s.addMachine(c, "machine-3", nodeUUID3)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -440,7 +440,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsJoiningSpaceNoMachines(c *tc.C) {
 	subnetUUID := s.addSubnet(c, "192.168.1.0/24", s.addSpace(c, "from-space"))
 	toSpaceUUID := s.addSpace(c, "to-space")
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -482,7 +482,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsJoiningSpaceNoViolations(c *tc.C)
 	machineUUID := s.addMachine(c, "machine-1", nodeUUID)
 	s.addSpaceConstraint(c, machineUUID.String(), "to-space", false)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -522,7 +522,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsJoiningSpaceWithViolations(c *tc.
 	machineUUID := s.addMachine(c, "machine-1", nodeUUID)
 	s.addSpaceConstraint(c, machineUUID.String(), "to-space", false)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -575,7 +575,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsJoiningSpaceMultipleViolations(c 
 	s.addSpaceConstraint(c, machineUUID1.String(), "to-space", false)
 	s.addSpaceConstraint(c, machineUUID2.String(), "to-space", false)
 
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.IsNil)
 
 	// Act
@@ -848,12 +848,12 @@ JOIN space ON space.uuid = subnet.space_uuid
 // addSpace inserts a new space with the given name into the database
 // and returns its UUID.
 func (s *spaceMachineSuite) addSpace(c *tc.C, name string) string {
-	return s.linkLayerBaseSuite.addSpaceWithName(c, name)
+	return s.addSpaceWithName(c, name)
 }
 
 // addSpaceConstraint adds a space constraint to a machine with a given UUID,
 // associating it with a space name and include/exclude behavior.
 // It returns the generated constraint UUID for the added space constraint.
 func (s *spaceMachineSuite) addSpaceConstraint(c *tc.C, machineUUID, spaceName string, positive bool) string {
-	return s.linkLayerBaseSuite.addMachineSpaceConstraint(c, machineUUID, spaceName, positive)
+	return s.addMachineSpaceConstraint(c, machineUUID, spaceName, positive)
 }

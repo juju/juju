@@ -39,7 +39,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 // BlockDevices returns the BlockDevices for the specified machine.
 // Returns an error satisfying machinerrors.NotFound if the machine does not exist.
 func (st *State) BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -124,7 +124,7 @@ WHERE  machine.name = $M.name
 // Previously recorded block devices not in the list will be removed.
 // Returns an error satisfying machinerrors.NotFound if the machine does not exist.
 func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -258,7 +258,7 @@ func blockDevicesChanged(oldDevices, newDevices []blockdevice.BlockDevice) bool 
 
 // MachineBlockDevices retrieves block devices for all machines.
 func (st *State) MachineBlockDevices(ctx context.Context) ([]blockdevice.MachineBlockDevice, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -367,13 +367,14 @@ WHERE machine_uuid = $M.machine_uuid
 func (st *State) WatchBlockDevices(
 	ctx context.Context,
 	getWatcher func(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
 	machineId string,
 ) (watcher.NotifyWatcher, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -395,6 +396,7 @@ func (st *State) WatchBlockDevices(
 	}
 
 	baseWatcher, err := getWatcher(
+		ctx,
 		fmt.Sprintf("block devices watcher for %q", machineId),
 		eventsource.PredicateFilter("block_device", changestream.All, eventsource.EqualsPredicate(machineUUID)),
 	)

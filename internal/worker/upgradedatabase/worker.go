@@ -444,7 +444,7 @@ func (w *upgradeDBWorker) performUpgrade(ctx context.Context, upgradeUUID domain
 func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
 	w.logger.Infof(ctx, "upgrading controller database from: %v to: %v", w.fromVersion, w.toVersion)
 
-	db, err := w.dbGetter.GetDB(coredatabase.ControllerNS)
+	db, err := w.dbGetter.GetDB(ctx, coredatabase.ControllerNS)
 	if err != nil {
 		return errors.Annotatef(err, "controller db")
 	}
@@ -476,7 +476,7 @@ func (w *upgradeDBWorker) upgradeModels(ctx context.Context) error {
 }
 
 func (w *upgradeDBWorker) upgradeModel(ctx context.Context, modelUUID coremodel.UUID) error {
-	db, err := w.dbGetter.GetDB(modelUUID.String())
+	db, err := w.dbGetter.GetDB(ctx, modelUUID.String())
 	if err != nil {
 		return errors.Annotatef(err, "model db %s", modelUUID)
 	}

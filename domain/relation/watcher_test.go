@@ -644,7 +644,7 @@ func (s *watcherSuite) setupTestWatchPeerRelationUnit(c *tc.C) testWatchPeerRela
 }
 
 func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *service.WatchableService {
-	modelDB := func() (database.TxnRunner, error) {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 

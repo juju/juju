@@ -276,18 +276,18 @@ func (c *MockObjectStoreMetadataRemoveMetadataCall) DoAndReturn(f func(context.C
 }
 
 // Watch mocks base method.
-func (m *MockObjectStoreMetadata) Watch() (watcher.Watcher[[]string], error) {
+func (m *MockObjectStoreMetadata) Watch(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Watch")
+	ret := m.ctrl.Call(m, "Watch", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Watch indicates an expected call of Watch.
-func (mr *MockObjectStoreMetadataMockRecorder) Watch() *MockObjectStoreMetadataWatchCall {
+func (mr *MockObjectStoreMetadataMockRecorder) Watch(arg0 any) *MockObjectStoreMetadataWatchCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockObjectStoreMetadata)(nil).Watch))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockObjectStoreMetadata)(nil).Watch), arg0)
 	return &MockObjectStoreMetadataWatchCall{Call: call}
 }
 
@@ -303,13 +303,13 @@ func (c *MockObjectStoreMetadataWatchCall) Return(arg0 watcher.Watcher[[]string]
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockObjectStoreMetadataWatchCall) Do(f func() (watcher.Watcher[[]string], error)) *MockObjectStoreMetadataWatchCall {
+func (c *MockObjectStoreMetadataWatchCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockObjectStoreMetadataWatchCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStoreMetadataWatchCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockObjectStoreMetadataWatchCall {
+func (c *MockObjectStoreMetadataWatchCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockObjectStoreMetadataWatchCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

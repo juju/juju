@@ -23,17 +23,22 @@ type TxnRunner interface {
 	// which the input function is executed.
 	// The input context can be used by the caller to cancel this process.
 	StdTxn(context.Context, func(context.Context, *sql.Tx) error) error
+
+	// Dying returns a channel that is closed when the database connection
+	// is no longer usable. This can be used to detect when the database is
+	// shutting down or has been closed.
+	Dying() <-chan struct{}
 }
 
 // TxnRunnerFactory aliases a function that
 // returns a database.TxnRunner or an error.
-type TxnRunnerFactory = func() (TxnRunner, error)
+type TxnRunnerFactory = func(context.Context) (TxnRunner, error)
 
 // NewTxnRunnerFactoryForNamespace returns a TxnRunnerFactory
 // for the input namespaced factory function and namespace.
-func NewTxnRunnerFactoryForNamespace[T TxnRunner](f func(string) (T, error), ns string) TxnRunnerFactory {
-	return func() (TxnRunner, error) {
-		r, err := f(ns)
+func NewTxnRunnerFactoryForNamespace[T TxnRunner](f func(context.Context, string) (T, error), ns string) TxnRunnerFactory {
+	return func(ctx context.Context) (TxnRunner, error) {
+		r, err := f(ctx, ns)
 		return r, errors.Capture(err)
 	}
 }

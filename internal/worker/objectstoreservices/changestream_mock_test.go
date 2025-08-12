@@ -10,6 +10,7 @@
 package objectstoreservices
 
 import (
+	context "context"
 	reflect "reflect"
 
 	changestream "github.com/juju/juju/core/changestream"
@@ -40,18 +41,18 @@ func (m *MockWatchableDBGetter) EXPECT() *MockWatchableDBGetterMockRecorder {
 }
 
 // GetWatchableDB mocks base method.
-func (m *MockWatchableDBGetter) GetWatchableDB(arg0 string) (changestream.WatchableDB, error) {
+func (m *MockWatchableDBGetter) GetWatchableDB(arg0 context.Context, arg1 string) (changestream.WatchableDB, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetWatchableDB", arg0)
+	ret := m.ctrl.Call(m, "GetWatchableDB", arg0, arg1)
 	ret0, _ := ret[0].(changestream.WatchableDB)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetWatchableDB indicates an expected call of GetWatchableDB.
-func (mr *MockWatchableDBGetterMockRecorder) GetWatchableDB(arg0 any) *MockWatchableDBGetterGetWatchableDBCall {
+func (mr *MockWatchableDBGetterMockRecorder) GetWatchableDB(arg0, arg1 any) *MockWatchableDBGetterGetWatchableDBCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWatchableDB", reflect.TypeOf((*MockWatchableDBGetter)(nil).GetWatchableDB), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWatchableDB", reflect.TypeOf((*MockWatchableDBGetter)(nil).GetWatchableDB), arg0, arg1)
 	return &MockWatchableDBGetterGetWatchableDBCall{Call: call}
 }
 
@@ -67,13 +68,13 @@ func (c *MockWatchableDBGetterGetWatchableDBCall) Return(arg0 changestream.Watch
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockWatchableDBGetterGetWatchableDBCall) Do(f func(string) (changestream.WatchableDB, error)) *MockWatchableDBGetterGetWatchableDBCall {
+func (c *MockWatchableDBGetterGetWatchableDBCall) Do(f func(context.Context, string) (changestream.WatchableDB, error)) *MockWatchableDBGetterGetWatchableDBCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatchableDBGetterGetWatchableDBCall) DoAndReturn(f func(string) (changestream.WatchableDB, error)) *MockWatchableDBGetterGetWatchableDBCall {
+func (c *MockWatchableDBGetterGetWatchableDBCall) DoAndReturn(f func(context.Context, string) (changestream.WatchableDB, error)) *MockWatchableDBGetterGetWatchableDBCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -18,14 +19,14 @@ import (
 // This uses the *model* database table, not the *controller* model table.
 // The model table with one row should exist until the model is removed.
 func (st *State) ModelExists(ctx context.Context, mUUID string) (bool, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
 	modelUUID := entityUUID{UUID: mUUID}
 	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.uuid
 FROM   model
 WHERE  uuid = $entityUUID.uuid`, modelUUID)
 	if err != nil {
@@ -51,7 +52,7 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 // EnsureModelNotAliveCascade ensures that there is no model identified
 // by the input model UUID, that is still alive.
 func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -82,7 +83,7 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 
 // GetModelLife retrieves the life state of a model.
 func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -101,7 +102,7 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 // MarkModelAsDead marks the model with the input UUID as dead.
 // If there are model dependents, then this will return an error.
 func (st *State) MarkModelAsDead(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -135,7 +136,7 @@ AND    life_id = 1`, modelUUID)
 
 // DeleteModel deletes all artifacts associated with a model.
 func (st *State) DeleteModel(ctx context.Context, mUUID string) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -208,6 +209,34 @@ WHERE grant_on = $entityUUID.uuid;
 		return errors.Errorf("deleting model: %w", err)
 	}
 	return nil
+}
+
+// GetModelUUIDs retrieves the UUIDs of all models in the controller.
+func (st *State) GetModelUUIDs(ctx context.Context) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   model;
+`, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing get model UUIDs query: %w", err)
+	}
+
+	var modelUUIDs []entityUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&modelUUIDs)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting model UUIDs: %w", err)
+	}
+
+	return transform.Slice(modelUUIDs, func(e entityUUID) string {
+		return e.UUID
+	}), nil
 }
 
 func (st *State) getModelLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {

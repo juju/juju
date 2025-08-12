@@ -22,11 +22,6 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
-const (
-	// ErrProviderWorkerDying is returned when the provider worker is dying.
-	ErrProviderWorkerDying = errors.ConstError("provider worker is dying")
-)
-
 // Config describes the dependencies of a Worker.
 //
 // It's arguable that it should be called WorkerConfig, because of the heavy
@@ -153,7 +148,7 @@ func (w *providerWorker) Provider() (Provider, error) {
 	tracker, err := w.workerFromCache(namespace)
 	if err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
-			return nil, ErrProviderWorkerDying
+			return nil, providertracker.ErrProviderWorkerDying
 		}
 
 		return nil, errors.Trace(err)
@@ -165,7 +160,7 @@ func (w *providerWorker) Provider() (Provider, error) {
 	// Otherwise return an error.
 	select {
 	case <-w.catacomb.Dying():
-		return nil, ErrProviderWorkerDying
+		return nil, providertracker.ErrProviderWorkerDying
 	default:
 		return nil, errors.NotFoundf("provider")
 	}
@@ -189,7 +184,7 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 	tracker, err := w.workerFromCache(namespace)
 	if err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
-			return nil, ErrProviderWorkerDying
+			return nil, providertracker.ErrProviderWorkerDying
 		}
 
 		return nil, errors.Trace(err)
@@ -206,7 +201,7 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 	select {
 	case w.requests <- req:
 	case <-w.catacomb.Dying():
-		return nil, ErrProviderWorkerDying
+		return nil, providertracker.ErrProviderWorkerDying
 	case <-ctx.Done():
 		return nil, errors.Trace(ctx.Err())
 	}
@@ -220,7 +215,7 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 			return nil, errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return nil, ErrProviderWorkerDying
+		return nil, providertracker.ErrProviderWorkerDying
 	case <-ctx.Done():
 		return nil, errors.Trace(ctx.Err())
 	}
@@ -228,11 +223,11 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
 	tracked, err := w.trackedRunner.Worker(namespace, w.catacomb.Dying())
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if tracked == nil {
-		return nil, errors.NotFoundf("provider")
+		return nil, providertracker.ErrProviderNotFound
 	}
 	return tracked.(*trackerWorker).Provider(), nil
 }

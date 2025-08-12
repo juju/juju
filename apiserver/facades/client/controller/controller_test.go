@@ -101,11 +101,11 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 		controllerCfg[key] = value
 	}
 
-	s.DomainServicesSuite.ControllerConfig = controllerCfg
+	s.ControllerConfig = controllerCfg
 	s.DomainServicesSuite.SetUpTest(c)
 
 	domainServiceGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), domainServiceGetter(s.ControllerModelUUID), controllerCfg)
+	jujujujutesting.SeedDatabase(c, s.TxnRunner(), domainServiceGetter(s.ControllerModelUUID), controllerCfg)
 
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
@@ -233,6 +233,13 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		}
 		return svc.ModelMigration(), nil
 	}
+	removalServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.RemovalService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Removal(), nil
+	}
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
@@ -256,6 +263,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		blockCommandServiceGetter,
 		cloudSpecServiceGetter,
 		machineServiceGetter,
+		removalServiceGetter,
 		domainServices.Proxy(),
 		func(c context.Context, modelUUID model.UUID) (controller.ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID)
@@ -331,7 +339,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	models := []model.Model{
 		{
-			UUID:      s.DomainServicesSuite.DefaultModelUUID,
+			UUID:      s.DefaultModelUUID,
 			Name:      "test",
 			Qualifier: "prod",
 			ModelType: model.IAAS,
@@ -346,7 +354,7 @@ func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
 
 	c.Assert(list.Models, tc.DeepEquals, []params.ModelBlockInfo{
 		{
-			UUID:      s.DomainServicesSuite.DefaultModelUUID.String(),
+			UUID:      s.DefaultModelUUID.String(),
 			Name:      "test",
 			Qualifier: "prod",
 			Blocks: []string{
@@ -412,8 +420,10 @@ func (s *controllerSuite) TestRemoveBlocks(c *tc.C) {
 
 	otherDomainServices := s.ModelDomainServices(c, s.DefaultModelUUID)
 	otherBlockCommands := otherDomainServices.BlockCommand()
-	otherBlockCommands.SwitchBlockOn(c.Context(), blockcommand.ChangeBlock, "TestChangeBlock")
-	otherBlockCommands.SwitchBlockOn(c.Context(), blockcommand.DestroyBlock, "TestChangeBlock")
+	err := otherBlockCommands.SwitchBlockOn(c.Context(), blockcommand.ChangeBlock, "TestChangeBlock")
+	c.Assert(err, tc.ErrorIsNil)
+	err = otherBlockCommands.SwitchBlockOn(c.Context(), blockcommand.DestroyBlock, "TestChangeBlock")
+	c.Assert(err, tc.ErrorIsNil)
 
 	otherBlocks, err := otherBlockCommands.GetBlocks(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -734,6 +744,7 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		s.accessService,
 		s.modelService,
+		nil,
 		nil,
 		nil,
 		nil,

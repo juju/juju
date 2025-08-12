@@ -8,6 +8,8 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
@@ -36,6 +38,8 @@ func ShouldWorkerUninstall(err error) error {
 		modelerrors.NotFound,
 		database.ErrDBDead,
 		database.ErrDBNotFound,
+		objectstore.ErrObjectStoreNotFound,
+		providertracker.ErrProviderNotFound,
 	) {
 		return dependency.ErrUninstall
 	}
@@ -48,5 +52,7 @@ func ShouldRunnerRestart(err error) bool {
 		modelerrors.NotFound,
 		database.ErrDBDead,
 		database.ErrDBNotFound,
+		objectstore.ErrObjectStoreNotFound,
+		providertracker.ErrProviderNotFound,
 	)
 }

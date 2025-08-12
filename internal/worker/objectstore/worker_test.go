@@ -17,6 +17,7 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -73,6 +74,23 @@ func (s *workerSuite) TestGetObjectStore(c *tc.C) {
 	objectStore, err := worker.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(objectStore, tc.NotNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestGetObjectStoreNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	worker := w.(*objectStoreWorker)
+	_, err := worker.GetObjectStore(c.Context(), "denied")
+	c.Assert(err, tc.ErrorIs, objectstore.ErrObjectStoreNotFound)
 
 	workertest.CleanKill(c, w)
 }
@@ -159,7 +177,10 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		TracerGetter:    &stubTracerGetter{},
 		S3Client:        s.s3Client,
 		APIRemoteCaller: s.apiRemoteCaller,
-		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
+		NewObjectStoreWorker: func(_ context.Context, _ objectstore.BackendType, ns string, _ ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
+			if ns == "denied" {
+				return nil, database.ErrDBNotFound
+			}
 			atomic.AddInt64(&s.called, 1)
 			return newStubTrackedObjectStore(s.trackedObjectStore), nil
 		},

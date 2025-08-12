@@ -42,7 +42,7 @@ type architecture struct {
 }
 
 func (s *stateSuite) TestArchitectureIDsByName(c *tc.C) {
-	db, err := s.state.DB()
+	db, err := s.state.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var loadArchsStmt *sqlair.Statement
@@ -258,16 +258,17 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadataWithInvalidArchitecture(c *t
 // TestDeleteMetadataWithImageID verifies that the DeleteMetadataWithImageID method correctly removes specified entries from the cloud_image_metadata table.
 func (s *stateSuite) TestDeleteMetadataWithImageID(c *tc.C) {
 	// Arrange
-	s.runQuery(c, `
+	err := s.runQuery(c, `
 INSERT INTO cloud_image_metadata (uuid, created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
 VALUES 
 ('a', datetime('now','localtime'), 'custom', 'stream', 'region-1', '22.04',0, 'virtType-test', 'rootStorageType-test', 42, 'to-keep'),
 ('b', datetime('now','localtime'), 'custom', 'stream', 'region-2', '22.04',0, 'virtType-test', 'rootStorageType-test', 3, 'to-delete'),
 ('c', datetime('now','localtime'), 'custom', 'stream', 'region-3', '22.04',0, 'virtType-test', 'rootStorageType-test', 42, 'to-delete')
 `)
+	c.Assert(err, tc.ErrorIsNil)
 
 	//  Act
-	err := s.state.DeleteMetadataWithImageID(c.Context(), "to-delete")
+	err = s.state.DeleteMetadataWithImageID(c.Context(), "to-delete")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

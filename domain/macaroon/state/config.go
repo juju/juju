@@ -38,7 +38,7 @@ func (st *BakeryConfigState) InitialiseBakeryConfig(
 	externalUsersThirdPartyKey,
 	offersThirdPartyKey *bakery.KeyPair,
 ) error {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -70,7 +70,7 @@ func (st *BakeryConfigState) InitialiseBakeryConfig(
 
 // GetLocalUsersKey returns the key pair used with the local users bakery.
 func (st *BakeryConfigState) GetLocalUsersKey(ctx context.Context) (*bakery.KeyPair, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -100,7 +100,7 @@ func (st *BakeryConfigState) GetLocalUsersKey(ctx context.Context) (*bakery.KeyP
 
 // GetLocalUsersThirdPartyKey returns the third party key pair used with the local users bakery.
 func (st *BakeryConfigState) GetLocalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -131,7 +131,7 @@ func (st *BakeryConfigState) GetLocalUsersThirdPartyKey(ctx context.Context) (*b
 
 // GetExternalUsersThirdPartyKey returns the third party key pair used with the external users bakery.
 func (st *BakeryConfigState) GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -162,7 +162,7 @@ func (st *BakeryConfigState) GetExternalUsersThirdPartyKey(ctx context.Context) 
 
 // GetOffersThirdPartyKey returns the key pair used with the cross model offers bakery.
 func (st *BakeryConfigState) GetOffersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

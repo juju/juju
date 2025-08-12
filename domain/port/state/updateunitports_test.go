@@ -98,7 +98,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsSingleUnit(c *tc.C) {
 	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var opendPorts []network.PortRange
@@ -128,7 +128,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsMultipleUnits(c *tc.C)
 	}, network.GroupedPortRanges{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var opendPorts []network.PortRange
@@ -160,7 +160,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsMultipleUnitsOnNetNode
 	}, network.GroupedPortRanges{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var opendPorts []network.PortRange
@@ -185,7 +185,7 @@ func (s *updateUnitPortsSuite) TestGetWildcardEndpointOpenedPorts(c *tc.C) {
 	}, network.GroupedPortRanges{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var portRanges []network.PortRange
@@ -204,7 +204,7 @@ func (s *updateUnitPortsSuite) TestGetWildcardEndpointOpenedPortsIgnoresOtherEnd
 	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var portRanges []network.PortRange
@@ -222,7 +222,7 @@ func (s *updateUnitPortsSuite) TestGetEndpointsForPopulatedUnit(c *tc.C) {
 	ctx := c.Context()
 	s.initialiseOpenPort(c, st)
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var endpoints []string
@@ -239,7 +239,7 @@ func (s *updateUnitPortsSuite) TestGetEndpointsForUnpopulatedUnit(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := c.Context()
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var endpoints []string

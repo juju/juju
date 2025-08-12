@@ -675,6 +675,7 @@ type WatcherFactory interface {
 	// Changes channel. A filter option is required, though additional filter
 	// options can be provided.
 	NewNamespaceWatcher(
+		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
@@ -684,6 +685,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		ctx context.Context,
 		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -728,11 +730,12 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
 func (s *WatchableService) WatchSecretBackendRotationChanges(ctx context.Context) (watcher.SecretBackendRotateWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	tableName, initialQ := s.st.InitialWatchStatementForSecretBackendRotationChanges()
 	w, err := s.watcherFactory.NewNamespaceWatcher(
+		ctx,
 		InitialNamespaceChanges(initialQ),
 		"secret backend rotation watcher",
 		eventsource.NamespaceFilter(tableName, changestream.All),
@@ -745,10 +748,11 @@ func (s *WatchableService) WatchSecretBackendRotationChanges(ctx context.Context
 
 // WatchSecretBackendChanged notifies when the model secret backend has changed.
 func (s *WatchableService) WatchModelSecretBackendChanged(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	w, err := s.watcherFactory.NewNotifyWatcher(
+		ctx,
 		"model secret backend changed watcher",
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchModelSecretBackend(),

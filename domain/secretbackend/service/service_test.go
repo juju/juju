@@ -1409,7 +1409,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	s.mockStringWatcher.EXPECT().Kill().AnyTimes()
 
 	s.mockState.EXPECT().InitialWatchStatementForSecretBackendRotationChanges().Return("table", "SELECT * FROM table")
-	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any()).Return(s.mockStringWatcher, nil)
+	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(s.mockStringWatcher, nil)
 	s.mockState.EXPECT().GetSecretBackendRotateChanges(gomock.Any(), backendID1, backendID2).Return([]watcher.SecretBackendRotateChange{
 		{
 			ID:              backendID1,
@@ -1675,7 +1675,7 @@ func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *tc.C) {
 	mockNotifyWatcher.EXPECT().Kill().AnyTimes()
 
 	s.mockState.EXPECT().NamespaceForWatchModelSecretBackend().Return("model_secret_backend")
-	s.mockWatcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any()).Return(mockNotifyWatcher, nil)
+	s.mockWatcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockNotifyWatcher, nil)
 
 	w, err := svc.WatchModelSecretBackendChanged(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
