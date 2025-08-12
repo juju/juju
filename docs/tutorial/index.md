@@ -1,16 +1,16 @@
 (tutorial)=
 # Get started with Juju
 
-Juju is an application orchestration tool for charmed applications -- that is, applications whose installation, configuration, integration, scaling, upgrading, etc., operations have been defined in a way that Juju can interpret in software packages called 'charms'.
+Juju is a tool for provisioning cloud infrastructure and deploying and operating applications on that infrastructure using charms. Charms are software packages that contain code for how to operate an application. Juju and charms work together to provide a cloud- and application-agnostic operations solution for any major operation (provision, install, configure, integrate, scale, upgrade, ...) on any type of cloud (Kubernetes or machines).
 
-In this tutorial you will get acquainted with Juju and charms by deploying a chat service.
+In this tutorial you will get acquainted with Juju and charms by deploying a chat service on a Kubernetes cloud.
 
 What you'll need:
 - A workstation that has sufficient resources to launch a virtual machine with 4 CPUs, 8 GB RAM, and 50 GB disk space.
 - Familiarity with a terminal.
 
 What you'll do:
-- Set up an isolated test environment with Multipass, then set up Juju with a localhost Kubernetes cloud, and use it to deploy, configure, and integrate the charms required to set up a chat service based on Mattermost and PostgreSQL.
+- Set up an isolated test environment with Multipass, then set up Juju with a localhost MicroK8s cloud, and use it to deploy, configure, and integrate the charms required to set up a chat service based on Mattermost and PostgreSQL.
 
 ## Set up an isolated test environment
 
@@ -59,31 +59,26 @@ See "man sudo_root" for details.
 
 ```
 
-Anything you type after the VM shell prompt will run on the VM.
+(If the VM launch fails, run `multipass delete --purge my-juju-vm` to clean up, then try the launch line again.)
 
-```{dropdown} Tips for usage
+Anything you type after the VM shell prompt (`ubuntu@my-juju-vm:~$`) will run on the VM.
+
 
 At any point:
-- To exit the shell, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`C`) or type `exit`.
+- To exit the shell, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`D`) or type `exit`.
 - To stop the VM after exiting the VM shell, run `multipass stop my-juju-vm`.
 - To restart the VM and re-open a shell into it, type `multipass shell my-juju-vm`.
 
-```
-```{dropdown} Tips for troubleshooting
-
-If the VM launch fails, run `multipass delete --purge my-juju-vm` to clean up, then try the launch line again.
-
-```
 
 ## Set up Juju
 
 ```{figure} tutorial-setup.svg
-   :alt: Juju consists of a client and a controller and both need access to a cloud and to Charmhub
+   :alt: Juju consists of a client and a controller and needs access to a cloud and to Charmhub
 
-   _Juju consists of at least a client and a controller, and both need access to a cloud and to Charmhub._
+   _Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; or a local source of charms)._
 ```
 
-The way Juju works is that you use a client to talk to a controller; the controller talks to {ref}`clouds <list-of-supported-clouds>` to provision infrastructure and to [Charmhub](https://charmhub.io/) (or a local source for charms) to get charms to deploy, configure, integrate, scale, upgrade, etc., applications on that infrastructure; and the controller itself must live on a cloud resource, so before you do any of that you must use the client to talk to a cloud and Charmhub to bootstrap the controller into the cloud. Let's go ahead and prepare all those pieces and make sure your Juju is good to go!
+The way Juju works is that you use a client to talk to a controller; the controller talks to a cloud to provision infrastructure and to [Charmhub](https://charmhub.io/) (or a local source for charms) to get charms to deploy, configure, integrate, scale, upgrade, etc., applications on that infrastructure; and the controller itself must live on a cloud resource, so before you do any of that you must use the client to talk to a cloud and Charmhub to bootstrap the controller into the cloud. Let's prepare all those pieces and make sure your Juju is good to go!
 
 
 ### Prepare your cloud
@@ -92,7 +87,7 @@ To Juju a cloud is anything that has an API where you can request compute, stora
 
 This includes traditional machine clouds (Amazon AWS, Google GCE, Microsoft Azure, but also MAAS, OpenStack, Oracle OCI, and LXD) as well as Kubernetes clusters (Amazon EKS, Google GKE, Microsoft AKS but also Canonical Kubernetes or MicroK8s).
 
-Among these is MicroK8s, a low-ops, minimal production Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster ([see more](https://documentation.ubuntu.com/juju/3.6/reference/cloud/list-of-supported-clouds/the-microk8s-cloud-and-juju/)). Let's set it up on your VM:
+In this tutorial we will use MicroK8s, a lightweight Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster. Let's set it up on your VM:
 
 ```{terminal}
 :user: ubuntu
@@ -186,11 +181,11 @@ Congratulations, your cloud is ready!
 
 ### Prepare Charmhub
 
-If you have access to the internet you're all set -- Juju will be able to reach Charmhub!
+Your Juju can automatically reach Charmhub -- nothing to be done.
 
 ### Set up the `juju` CLI client
 
-In Juju a (user-facing) client is anything that can talk to a Juju controller. That currently includes the `juju` CLI, the `terraform` CLI when used with the `juju` provider plugin, two Python clients, and a JavaScript client. However, to get a Juju controller you need the `juju` CLI client and it must have access to a cloud and Charmhub. Let's go ahead and set it up!
+In Juju a (user-facing) client is anything that can talk to a Juju controller. That currently includes the `juju` CLI, the `terraform` CLI when used with the `juju` provider plugin, two Python clients, and a JavaScript client. However, to get a Juju controller you need the `juju` CLI client and it must have access to a cloud and Charmhub. Let's set it up!
 
 In your VM, install the `juju` CLI client:
 
@@ -209,12 +204,20 @@ Now, ensure the client has access to your cloud (i.e., knows where to find your 
 :host: my-juju-vm
 :input: juju clouds --client
 
-# Output should show microk8s.
-# If it doesn't: Exit the VM (`exit`), re-enter it (`multipass shell my-juju-vm`), then try again.
+Only clouds with registered credentials are shown.
+There are more clouds, use --all to see them.
+You can bootstrap a new controller using one of these clouds...
+
+Clouds available on the client:
+Cloud      Regions  Default    Type  Credentials  Source    Description
+localhost  1        localhost  lxd   0            built-in  LXD Container Hypervisor
+microk8s   1        localhost  k8s   1            built-in  A Kubernetes Cluster
 
 ```
 
-Ensure also that the client has access to Charmhub by launching a random query, e.g., "ingress", and asking for more information about one of the results it shows:
+(If this doesn't show any output: Exit the VM (`exit`), re-enter it (`multipass shell my-juju-vm`), then try again.)
+
+Ensure also that the client has access to Charmhub by performing a random search, e.g., using the keyword "ingress", and then asking for more information about one of the results it shows:
 
 ```{terminal}
 :user: ubuntu
@@ -230,18 +233,7 @@ Ensure also that the client has access to Charmhub by launching a random query, 
 # For the full features and more info see directly the charm's page on Charmhub.
 ```
 
-Our `juju` client is ready! Sneak a peek at what it can do (`juju help commands` -- you can pipe a query to zoom in on feature: `juju help commands | grep application`). Check status (`juju status` and `juju debug-log` -- not much to see there yet). Keep going...
-
-```{tip}
-
-Split your terminal window into 3 (or open 3 terminal windows). In all, access your Multipass VM shell (`multipass shell my-juju-vm`) and then:
-
-**Shell 1:** Keep using it as you've already been doing so far, namely to type the commands in this tutorial.
-
-**Shell 2:** Run `juju status --relations --color --watch 1s` to watch your deployment status evolve. Things are all right if your `App Status` and your `Unit - Workload` reach `active` and your `Unit - Agent` reaches `idle`. To exit and return to the terminal prompt, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`C`).
-
-**Shell 3:** Run `juju debug-log -m controller` to watch all the details behind your deployment status. (Especially useful when things don't evolve as expected. In that case, please get in touch.)
-```
+Our `juju` client is ready! Take a quick look at what it can do: `juju help commands`. (You can also pipe a query to zoom in on feature: `juju help commands | grep application`.)
 
 ### Set up a Juju controller
 
@@ -269,26 +261,9 @@ to create a new model to deploy k8s workloads.
 
 ```
 
-This will use ingredients from your client (especially the Juju agent binaries), the `juju-controller` charm from Charmhub and a pod from MicroK8s (backed by your current node -- your VM) to give you a running Juju controller.
+This will use ingredients from your client, the `juju-controller` charm from Charmhub and a pod from MicroK8s (backed by your current node -- your VM) to give you a running Juju controller.
 
-
-Take a moment to appreciate what this looks like:
-- On the MicroK8s side (in MicroK8s' database) you've now got:
-  1. a 'controller' namespace (`kubectl get namespaces`) holding
-  1. a 'controller-0' pod (`kubectl -n controller-my-first-juju-controller get pods`) holding
-  1. 3 containers: 'api-server', 'charm', 'mongodb' (`kubectl -n controller describe pod controller-0`).
-- On the Juju side (in the Juju controller's database) you've now got:
-  1. a Juju 'my-first-juju-controller' controller (i.e., control plane), with access to the 'microk8s' cloud (`juju show-controller my-first-juju-controller`), and holding
-  1. a Juju model (i.e., workspace; corresponding to a Kubernetes namespace) implicitly called 'controller', using resources from the 'microk8s' cloud (`juju switch controller`, then `juju show-model controller`), and  holding
-  1. a Juju application (i.e., deployed charm -- in this case, the `juju-controller` charm) called 'controller' with a Juju unit (i.e., replica; corresponding to a Kubernetes pod) called 'controller/0', deployed on a resource from the 'microk8s' cloud (`juju status`), and holding
-  1. the same 3 containers we saw on the MicroK8s side (`juju ssh --container [api-server | charm | mongodb] 0`), which hold the various bits of a running Juju controller:
-    - 'charm': contains a Juju unit agent and `juju-controller` charm code. The Juju unit agent sends requests to the Juju controller agent (see next item) to check the unit's target state against the state in the database (see two items down) and progresses the unit's state by executing the charm code.
-    - 'api-server': contains Pebble, a lightweight process supervisor, and the Juju controller agent, which also wraps the Juju API server. The controller agent reads and writes to the database (see next item).
-    - 'mongodb': contains Juju's database.
-
-These details are specific to Kubernetes, bootstrap, and the controller application, but this is fundamentally how Juju operates for all clouds, all operations, and all applications: the cloud provides a resource and Charmhub provides charms, and the result is a resource that holds the Juju unit agent and the charm code, where the Juju unit agent always pings the Juju controller agent to reconcile state, then executes the charm code accordingly, and the charm reacts as it's been programmed to react, e.g., by installing a workload.
-
-Back to our main concern, to be fully operational a controller needs access to a cloud and to Charmhub (or a local source for charms). We saw just now that our controller already has access to our 'microk8s' cloud -- this access was granted implicitly through bootstrap. Also, as before, so long as you're connected to the internet, your controller has access to Charmhub too. Your controller is all set!
+Now, to be fully operational a controller needs access to a cloud and to Charmhub (or a local source for charms). Our controller already has access to our 'microk8s' cloud -- this access was granted implicitly through bootstrap. Also, as before, so long as you're connected to the internet, your controller has access to Charmhub too. Your controller is all set!
 
 At this point we could connect to it further clouds or set up the Juju dashboard. For the purpose of this tutorial, however, we will skip ahead to talking about users and permissions.
 
@@ -300,7 +275,7 @@ At this point we could connect to it further clouds or set up the Juju dashboard
    _A user is any person that can log in to a Juju controller._
 ```
 
-Your client and controller can already talk to a cloud and Charmhub, but they don't run on their own -- enter the user! In Juju, the user is any person that can log in to a controller, and what they can do can be controlled at the level of the controller or some of the smaller entities associated with that controller. As the entity that has bootstrapped the controller, you have automatically been logged in and given `superuser` access. (It's why you were able to SSH into the controller unit!) Let's verify:
+Your client and controller can already talk to a cloud and Charmhub, but they don't run on their own -- enter the user! In Juju, the user is any person that can log in to a controller, and what they can do can be controlled at the level of the controller or some of the smaller entities associated with that controller. As the entity that has bootstrapped the controller, you have automatically been logged in and given `superuser` access. Let's verify:
 
 ```{terminal}
 :user: ubuntu
@@ -319,17 +294,17 @@ date-created: 3 hours ago
 last-connection: just now
 ```
 
-At this point you could go ahead and add further users and control their permissions. However, for the purpose of this tutorial, we will skip ahead and deploy our chat service!
+At this point you could add further users and control their permissions. However, for the purpose of this tutorial, we will skip ahead and deploy our chat service!
 
 ## Provision infrastructure and operate applications
 
 ```{figure} tutorial-provision-deploy.svg
    :alt: A user uses the client to talk to the controller to talk to the cloud and to Charmhub to provision infrastructure and to deploy and operate charmed applications.
 
-   _A user uses the client to talk to the controller to talk to the cloud and to Charmhub to provision infrastructure and to deploy and operate charmed applications. The way this works is that any application unit created by Juju contains a unit agent that is constantly checking state with the controller agent and progressing the unit's state by executing the charm code to install, configure, etc., applications._
+   _A user interacts with the client to reach the controller. The controller talks to the cloud and to Charmhub to provision infrastructure and to deploy charms. Next to a deployed charm there is always a Juju agent which periodically checks its internal state against the Juju controller and executes the deployed charm accordingly to install, configure, and otherwise manage applications._
 ```
 
-As you could see from the controller bootstrap step, anything you provision or deploy and operate with a Juju controller goes onto a workspace called a 'model'. Let's create the model that will hold our chat applications:
+Anything you provision or deploy and operate with a Juju controller goes onto a workspace called a 'model'. Let's create the model that will hold our chat applications:
 
 ```{terminal}
 :user: ubuntu
@@ -351,9 +326,6 @@ First, [Mattermost](https://charmhub.io/mattermost-k8s):
 :input: juju deploy mattermost-k8s --constraints "mem=2G"
 Deployed "mattermost-k8s" from charm-hub charm "mattermost-k8s", revision 27 in channel latest/stable on ubuntu@20.04/stable
 ```
-
-<!--
-A popular open source application for that is Mattermost ([see more](https://mattermost.com/)).  A search on Charmhub reveals there is already a suitable charm for this application, the `mattermost-k8s` charm ([see more](https://charmhub.io/mattermost-k8s)). Moreover, a quick look at this charm's docs shows that, to satisfy this application's dependency on PostgreSQL, this charm also supports easy integration with PostgreSQL through the `postgresql-k8s` charm ([see more](https://charmhub.io/postgresql-k8s)), though traffic from PostgreSQL must be TLS-encrypted, something that can be satisfied, for our tutorial purposes, through further integration with the application deployed from the `self-signed-certificates` charm ([see more](https://charmhub.io/self-signed-certificates)). -->
 
 Now, its dependencies. Mattermost needs a PostgreSQL database, and [its charmed version supports an easy way to integrate with such a database](https://charmhub.io/mattermost-k8s/integrations#db). Let's deploy [PostgreSQL](https://charmhub.io/postgresql-k8s) in the recommended way, from track 14 with risk `stable`; with `--trust` -- i.e., permission to use our cloud credentials (this charm needs to create and manage some Kubernetes resources); because we're just playing around, setting [the `profile` config](https://charmhub.io/postgresql-k8s/configurations#profile) to `testing`, so we don't use too many resources; and, just for fun, with `-n 2`, that is, two replicas (in a real life setting you'll want to distribute them over multiple nodes -- something Juju would do automatically here too, except we're doing everything on a single node).
 
@@ -425,20 +397,6 @@ Time to test the results! From the output of `juju status`> `Unit` > `mattermost
 ```
 
 Congratulations, your chat service is up and running!
-
-As before, take a moment to appreciate what this looks like:
-
-- On the MicroK8s side (in MicroK8s' database) you've now got:
-  1. a 'chat' namespace (`kubectl get namespaces`) holding
-  1. pods named after Mattermost, PostgreSQL, and Self Signed Certificates (`kubectl -n chat pods`), each holding
-  1. a 'charm' container and one or more workload-related containers (e.g., try `kubectl -n chat describe pod postgresql-k8s-0`).
-- On the Juju side (in Juju controller's database) you've now got:
-  1. a Juju model called 'chat', associated with the 'my-first-juju-controller' controller, using resources from the 'microk8s' cloud (`juju show-model chat`), and holding
-  1. Juju applications for Mattermost, PostgreSQL, and Self Signed Certificates, with one or more Juju units, deployed on a resource from the 'microk8s' cloud (`juju status`), each holding
-  1. a 'charm' container holding a Juju unit agent and charm code and one more more worload-related containers.
-  1. a relation and relation databags holding the data the integrated applications read and write for the purpose of their integration.
-
-Thus, whenever you type `juju deploy` into your `juju` CLI client, the client talks to the controller, which talks to clouds to get resources and to Charmhub to get charms, and the result is a resource that contains a Juju unit agent, charm code, and whatever else executing the charm code may install, e.g., PostgreSQL. Any subsequent operation affecting the deployed application follows a similar flow, with the unit agent always pinging the controller agent to find out what its unit's target state should be and then sending hooks to the charm to get it to react in ways that will make the unit's state match the target state, e.g., by installing or configuring something. Application integration works exactly the same, with the units of the applications involved in the relation exchanging data through the controller agent, infollowing a star topology.
 
 At this point you can keep your current Juju setup to experiment further or proceed to the next section to tear things down.
 
