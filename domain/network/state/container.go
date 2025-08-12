@@ -93,10 +93,10 @@ SELECT DISTINCT
        s.name AS &spaceConstraint.space
 FROM   machine m
        JOIN unit u ON m.net_node_uuid = u.net_node_uuid
+       JOIN application a ON u.application_uuid = a.uuid
        JOIN all_bound b ON u.application_uuid = b.application_uuid
-       JOIN space s ON b.space_uuid = s.uuid
-WHERE  m.uuid = $entityUUID.uuid
-AND    s.name IS NOT NULL`
+       JOIN space s ON IFNULL(b.space_uuid, a.space_uuid) = s.uuid
+WHERE  m.uuid = $entityUUID.uuid`
 
 	stmt, err := st.Prepare(qry, mUUID, spaceConstraint{})
 	if err != nil {

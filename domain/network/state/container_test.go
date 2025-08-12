@@ -67,7 +67,7 @@ func (s *containerSuite) TestGetMachineSpaceConstraints(c *tc.C) {
 	c.Check(neg[0].UUID, tc.Equals, negSpace)
 }
 
-func (s *containerSuite) TestGetMachineAppBindings(c *tc.C) {
+func (s *containerSuite) TestGetMachineAppBindingsBoundEndpoints(c *tc.C) {
 	db := s.DB()
 
 	// Arrange. Set up a unit of an application with a bound endpoint,
@@ -96,6 +96,49 @@ func (s *containerSuite) TestGetMachineAppBindings(c *tc.C) {
 	ctx := c.Context()
 
 	_, err := db.ExecContext(ctx, "UPDATE ip_address SET subnet_uuid = ? WHERE uuid = ?", subUUID, addrUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	bound, err := s.state.GetMachineAppBindings(ctx, mUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bound, tc.HasLen, 1)
+	c.Check(bound[0].UUID, tc.Equals, spUUID)
+}
+
+func (s *containerSuite) TestGetMachineAppBindingsDefaultBinding(c *tc.C) {
+	db := s.DB()
+
+	// Arrange. Set up a unit of an application with a non-bound endpoint,
+	// but *with* a non-alpha default binding, assigned to a machine.
+	// Ensure the machine has a NIC connected to the bound space.
+	cUUID := s.addCharm(c)
+	rUUID := s.addCharmRelation(c, cUUID, charm.Relation{
+		Name:  "whatever",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	})
+
+	spUUID := s.addSpace(c)
+	subUUID := s.addSubnet(c, "192.168.10.0/24", spUUID)
+
+	appUUID := s.addApplication(c, cUUID, "app1")
+	_ = s.addApplicationEndpoint(c, appUUID, rUUID, "")
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "UPDATE application SET space_uuid = ?", spUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	nUUID := s.addNetNode(c)
+	mUUID := s.addMachine(c, "0", nUUID)
+	_ = s.addUnit(c, "app1/0", appUUID, cUUID, nUUID)
+
+	dUUID := s.addLinkLayerDevice(c, nUUID, "eth0", "mac-address", corenetwork.EthernetDevice)
+	addrUUID := s.addIPAddress(c, dUUID, nUUID, "192.168.10.10/24", 0)
+
+	_, err = db.ExecContext(ctx, "UPDATE ip_address SET subnet_uuid = ? WHERE uuid = ?", subUUID, addrUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act

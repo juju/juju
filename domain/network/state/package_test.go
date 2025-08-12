@@ -83,7 +83,7 @@ func (s *linkLayerBaseSuite) addApplicationEndpoint(
 	c *tc.C, applicationUUID coreapplication.ID, charmRelationUUID string, boundSpaceUUID string) string {
 	applicationEndpointUUID := uuid.MustNewUUID().String()
 	s.query(c, `
-INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid, space_uuid)
 VALUES (?, ?, ?, ?)
 `, applicationEndpointUUID, applicationUUID, charmRelationUUID, nilZeroPtr(boundSpaceUUID))
 	return applicationEndpointUUID
