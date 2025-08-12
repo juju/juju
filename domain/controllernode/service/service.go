@@ -372,6 +372,7 @@ type WatcherFactory interface {
 	// input base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		summary string,
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
@@ -403,6 +404,7 @@ func (s *WatchableService) WatchControllerNodes(ctx context.Context) (watcher.No
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
+		"controller nodes watcher",
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchControllerNodes(),
 			changestream.All,
@@ -418,6 +420,7 @@ func (s *WatchableService) WatchControllerAPIAddresses(ctx context.Context) (wat
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
+		"controller api addresses watcher",
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerAPIAddresses(), changestream.All),
 	)
 }

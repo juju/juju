@@ -292,7 +292,7 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 		ChangeMask: changestream.All,
 		Namespace:  "test_namespace",
 	}
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), matcher)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), matcher)
 
 	_, err := NewService(s.state, s.watcherFactory).
 		WatchModelProvisionedFilesystems(c.Context())
@@ -325,7 +325,7 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 		Predicate:  netNodeUUID.String(),
 	}
 	s.watcherFactory.EXPECT().NewNamespaceMapperWatcher(
-		gomock.Any(), gomock.Any(), matcher,
+		gomock.Any(), gomock.Any(), gomock.Any(), matcher,
 	)
 
 	_, err = NewService(s.state, s.watcherFactory).
@@ -376,7 +376,7 @@ func (s *filesystemSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C
 		ChangeMask: changestream.All,
 		Namespace:  "test_namespace",
 	}
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), matcher)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), matcher)
 
 	_, err := NewService(s.state, s.watcherFactory).
 		WatchModelProvisionedFilesystemAttachments(c.Context())
@@ -409,7 +409,7 @@ func (s *filesystemSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc
 		Predicate:  netNodeUUID.String(),
 	}
 	s.watcherFactory.EXPECT().NewNamespaceMapperWatcher(
-		gomock.Any(), gomock.Any(), matcher,
+		gomock.Any(), gomock.Any(), gomock.Any(), matcher,
 	)
 
 	_, err = NewService(s.state, s.watcherFactory).

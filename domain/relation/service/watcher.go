@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -29,12 +30,14 @@ import (
 // in the relation domain.
 type WatcherFactory interface {
 	NewNotifyWatcher(
+		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 
 	NewNamespaceMapperWatcher(
 		initialQuery eventsource.NamespaceQuery,
+		summary string,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -88,6 +91,7 @@ func (s *WatchableService) WatchLifeSuspendedStatus(
 	}
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		w.GetInitialQuery(),
+		fmt.Sprintf("life suspended status watcher for %q", unitUUID),
 		w.GetMapper(),
 		w.GetFirstFilterOption(),
 		w.GetFilterOptions()...,
@@ -439,5 +443,10 @@ func (s *WatchableService) WatchRelatedUnits(
 	filters := transform.Slice(namespaces, func(ns string) eventsource.FilterOption {
 		return eventsource.NamespaceFilter(ns, changestream.All)
 	})
-	return s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filters[0], filters[1:]...)
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		initialQuery,
+		fmt.Sprintf("related units watcher for %q in %q", unitUUID, relationUUID),
+		mapper,
+		filters[0], filters[1:]...,
+	)
 }

@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/canonical/sqlair"
@@ -366,6 +367,7 @@ WHERE machine_uuid = $M.machine_uuid
 func (st *State) WatchBlockDevices(
 	ctx context.Context,
 	getWatcher func(
+		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
@@ -393,6 +395,7 @@ func (st *State) WatchBlockDevices(
 	}
 
 	baseWatcher, err := getWatcher(
+		fmt.Sprintf("block devices watcher for %q", machineId),
 		eventsource.PredicateFilter("block_device", changestream.All, eventsource.EqualsPredicate(machineUUID)),
 	)
 	if err != nil {

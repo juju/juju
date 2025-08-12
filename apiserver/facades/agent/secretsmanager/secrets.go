@@ -555,6 +555,7 @@ func (s *SecretsManagerAPI) charmSecretOwnersFromArgs(authTag names.Tag, args pa
 		}
 		result = append(result, owner)
 	}
+
 	return result, nil
 }
 

@@ -353,15 +353,12 @@ func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUU
 	}
 
 	validAuthTypes, err := validAuthTypesForCloud(ctx, tx, key.Cloud)
-	if err != nil {
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("no valid cloud auth types: %w", err)
+	} else if err != nil {
 		return nil, errors.Errorf("loading cloud auth types: %w", err)
 	}
-	if errors.Is(err, sqlair.ErrNoRows) {
-		if err != nil {
-			return nil, errors.Errorf("no valid cloud auth types: %w", err)
-		}
-		return nil, nil
-	}
+
 	var validAuthTypeNames []string
 	for _, at := range validAuthTypes {
 		if at.Type == credential.AuthType {
@@ -709,7 +706,7 @@ WHERE  uuid = $M.id
 		CloudName: rows[0].CloudName,
 	}
 	for _, row := range rows {
-		rval.CloudCredentialInfo.Attributes[row.AttributeKey] = row.AttributeValue
+		rval.Attributes[row.AttributeKey] = row.AttributeValue
 	}
 	return rval, nil
 }
@@ -847,6 +844,7 @@ WHERE  cloud_credential_uuid = $credentialUUID.uuid
 func (st *State) WatchCredential(
 	ctx context.Context,
 	getWatcher func(
+		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
@@ -867,6 +865,7 @@ func (st *State) WatchCredential(
 		return nil, errors.Capture(err)
 	}
 	result, err := getWatcher(
+		fmt.Sprintf("watching credential for %q", id),
 		eventsource.PredicateFilter("cloud_credential", changestream.All, eventsource.EqualsPredicate(id.String())),
 	)
 	if err != nil {

@@ -790,12 +790,14 @@ func (s *watchableServiceSuite) TestWatchControllerNode(c *tc.C) {
 	var namespace string
 
 	ch := make(chan struct{}, 1)
-	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any()).DoAndReturn(func(fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
-		namespace = fo.Namespace()
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(summary string, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			namespace = fo.Namespace()
 
-		watcher := watchertest.NewMockNotifyWatcher(ch)
-		return watcher, nil
-	})
+			watcher := watchertest.NewMockNotifyWatcher(ch)
+			return watcher, nil
+		},
+	)
 
 	s.state.EXPECT().NamespaceForWatchControllerNodes().Return("controller-nodes")
 
@@ -810,9 +812,11 @@ func (s *watchableServiceSuite) TestWatchControllerNode(c *tc.C) {
 func (s *watchableServiceSuite) TestWatchControllerNodeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any()).DoAndReturn(func(fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
-		return nil, internalerrors.Errorf("boom")
-	})
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(summary string, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			return nil, internalerrors.Errorf("boom")
+		},
+	)
 
 	s.state.EXPECT().NamespaceForWatchControllerNodes().Return("controller-nodes")
 

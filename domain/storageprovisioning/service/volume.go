@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
@@ -361,6 +362,7 @@ func (s *Service) WatchModelProvisionedVolumes(
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumes()
 	return s.watcherFactory.NewNamespaceWatcher(
 		initialQuery,
+		"model provisioned volume watcher",
 		eventsource.NamespaceFilter(ns, changestream.All))
 }
 
@@ -397,7 +399,9 @@ func (s *Service) WatchMachineProvisionedVolumes(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
-		initialQuery, mapper, filter)
+		initialQuery,
+		fmt.Sprintf("machine provisioned volume watcher for %q", machineUUID),
+		mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -416,6 +420,7 @@ func (s *Service) WatchModelProvisionedVolumeAttachments(
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedVolumeAttachments()
 	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
+		"model provisioned volume attachment watcher",
 		eventsource.NamespaceFilter(ns, changestream.All))
 }
 
@@ -452,7 +457,10 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
-	w, err := s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filter)
+	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		initialQuery,
+		fmt.Sprintf("machine provisioned volume attachment watcher for %q", machineUUID),
+		mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -493,7 +501,10 @@ func (s *Service) WatchVolumeAttachmentPlans(
 		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
-	w, err := s.watcherFactory.NewNamespaceMapperWatcher(initialQuery, mapper, filter)
+	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		initialQuery,
+		fmt.Sprintf("volume attachment plan watcher for %q", machineUUID),
+		mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

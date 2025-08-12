@@ -36,6 +36,7 @@ type ProviderState interface {
 	WatchCredential(
 		ctx context.Context,
 		getWatcher func(
+			summary string,
 			filter eventsource.FilterOption,
 			filterOpts ...eventsource.FilterOption,
 		) (watcher.NotifyWatcher, error),

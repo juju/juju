@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/juju/clock"
@@ -200,7 +201,9 @@ type WatcherFactory interface {
 	// starts with the current state of the system, preventing data loss from
 	// prior events.
 	NewNamespaceMapperWatcher(
-		initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
+		initialStateQuery eventsource.NamespaceQuery,
+		summary string,
+		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
@@ -208,6 +211,7 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		summary string,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
@@ -218,6 +222,7 @@ type WatcherFactory interface {
 	// by the filter, and then subsequently by the mapper. Based on the mapper's
 	// logic a subset of them (or none) may be emitted.
 	NewNotifyMapperWatcher(
+		summary string,
 		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -721,6 +726,7 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.St
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges(query),
+		"activated models watcher",
 		mapper,
 		eventsource.NamespaceFilter(modelTableName, changestream.All),
 	)
@@ -732,6 +738,7 @@ func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UU
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
+		"model watcher",
 		eventsource.PredicateFilter("model", changestream.All, eventsource.EqualsPredicate(modelUUID.String())),
 	)
 }
@@ -797,6 +804,7 @@ func watchModelCloudCredential(
 	}
 
 	result, err := watcherFactory.NewNotifyMapperWatcher(
+		fmt.Sprintf("model cloud and credential watcher for %q", modelUUID),
 		mapper,
 		eventsource.PredicateFilter("model", changestream.Changed, eventsource.EqualsPredicate(modelUUID.String())),
 		eventsource.PredicateFilter("cloud", changestream.Changed, eventsource.EqualsPredicate(cloudUUID.String())),

@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corechangestream "github.com/juju/juju/core/changestream"
@@ -486,6 +487,7 @@ func (s *Service) WatchModelProvisionedFilesystems(
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystems()
 	return s.watcherFactory.NewNamespaceWatcher(
 		initialQuery,
+		"model provisioned filesystem watcher",
 		eventsource.NamespaceFilter(ns, corechangestream.All))
 }
 
@@ -522,7 +524,9 @@ func (s *Service) WatchMachineProvisionedFilesystems(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
-		initialQuery, mapper, filter)
+		initialQuery,
+		fmt.Sprintf("machine provisioned filesystem watcher for %q", machineUUID),
+		mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -541,6 +545,7 @@ func (s *Service) WatchModelProvisionedFilesystemAttachments(
 
 	ns, initialQuery := s.st.InitialWatchStatementModelProvisionedFilesystemAttachments()
 	return s.watcherFactory.NewNamespaceWatcher(initialQuery,
+		"model provisioned filesystem attachment watcher",
 		eventsource.NamespaceFilter(ns, corechangestream.All))
 }
 
@@ -578,7 +583,9 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
-		initialQuery, mapper, filter)
+		initialQuery,
+		fmt.Sprintf("machine provisioned filesystem attachment watcher for %q", machineUUID),
+		mapper, filter)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

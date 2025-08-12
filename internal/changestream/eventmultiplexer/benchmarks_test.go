@@ -27,7 +27,7 @@ func (*mockMetrics) DispatchErrorsInc()                               {}
 
 func benchmarkSignal(b *testing.B, changes ChangeSet) {
 	c := &tc.TBC{TB: b}
-	sub := newSubscription(0)
+	sub := newSubscription(0, "foo")
 	defer workertest.CleanKill(c, sub)
 
 	ctx := c.Context()
@@ -39,7 +39,8 @@ func benchmarkSignal(b *testing.B, changes ChangeSet) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		sub.dispatch(ctx, changes)
+		err := sub.dispatch(ctx, changes)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	workertest.CleanKill(c, sub)
@@ -99,7 +100,7 @@ func benchmarkSubscriptions(b *testing.B, numSubs, numEvents int, ns string) {
 
 	completed := make([]chan<- struct{}, 0, numSubs)
 	for i := 0; i < numSubs; i++ {
-		sub, err := em.Subscribe(changestream.Namespace(ns, changestreamtesting.Update))
+		sub, err := em.Subscribe("foo", changestream.Namespace(ns, changestreamtesting.Update))
 		c.Assert(err, tc.IsNil)
 
 		done := consume(b, sub)

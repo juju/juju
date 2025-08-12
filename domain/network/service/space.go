@@ -131,7 +131,7 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 			return errors.Capture(err)
 		}
 
-		s.Service.logger.Infof(ctx, "discovered spaces: %s", spaces.String())
+		s.logger.Infof(ctx, "discovered spaces: %s", spaces.String())
 
 		providerSpaces := NewProviderSpaces(s, s.logger)
 		if err := providerSpaces.saveSpaces(ctx, spaces); err != nil {
@@ -142,12 +142,12 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 			return errors.Capture(err)
 		}
 		for _, warning := range warnings {
-			s.Service.logger.Tracef(ctx, warning)
+			s.logger.Tracef(ctx, warning)
 		}
 		return nil
 	}
 
-	s.Service.logger.Debugf(ctx, "environ does not support space discovery, falling back to subnet discovery")
+	s.logger.Debugf(ctx, "environ does not support space discovery, falling back to subnet discovery")
 	subnets, err := networkProvider.Subnets(ctx, nil)
 	if err != nil {
 		return errors.Capture(err)

@@ -5,14 +5,12 @@ package eventmultiplexer
 
 import (
 	"sync/atomic"
-	time "time"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
-	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination change_mock_test.go github.com/juju/juju/core/changestream Term
@@ -69,12 +67,7 @@ func (s *baseSuite) dispatchTerm(c *tc.C, terms chan<- changestream.Term) <-chan
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-
-		select {
-		case terms <- s.term:
-		case <-time.After(jujutesting.ShortWait):
-			c.Fatal("timed out waiting to enqueue event")
-		}
+		terms <- s.term
 	}()
 	return done
 }

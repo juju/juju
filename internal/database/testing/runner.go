@@ -77,7 +77,7 @@ type constWatchableDB struct {
 
 // Subscribe returns a subscription that can receive events from
 // a change stream according to the input subscription options.
-func (constWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (constWatchableDB) Subscribe(summary string, opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	return constSubscription{}, nil
 }
 

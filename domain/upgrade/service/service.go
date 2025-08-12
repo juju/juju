@@ -43,6 +43,7 @@ type WatcherFactory interface {
 	// done first by the filter, and then subsequently by the mapper. Based on
 	// the mapper's logic a subset of them (or none) may be emitted.
 	NewNotifyMapperWatcher(
+		summary string,
 		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
@@ -205,6 +206,7 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		}), nil
 	}
 	return s.watcherFactory.NewNotifyMapperWatcher(
+		"upgrade ready watcher",
 		mapper,
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchUpgradeReady(),
@@ -237,6 +239,7 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		}), nil
 	}
 	return s.watcherFactory.NewNotifyMapperWatcher(
+		"upgrade state watcher",
 		mapper,
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchUpgradeState(),

@@ -26,8 +26,9 @@ const (
 )
 
 type requestSubscription struct {
-	opts   []changestream.SubscriptionOption
-	result chan requestSubscriptionResult
+	summary string
+	opts    []changestream.SubscriptionOption
+	result  chan requestSubscriptionResult
 }
 
 type requestSubscriptionResult struct {
@@ -38,8 +39,9 @@ type requestSubscriptionResult struct {
 // subscription represents a subscriber in the event queue. It holds a tomb,
 // so that we can tie the lifecycle of a subscription to the event queue.
 type subscription struct {
-	tomb tomb.Tomb
-	id   uint64
+	tomb    tomb.Tomb
+	id      uint64
+	summary string
 
 	topics  map[string]struct{}
 	changes chan ChangeSet
@@ -47,9 +49,10 @@ type subscription struct {
 	dispatchTimeout time.Duration
 }
 
-func newSubscription(id uint64) *subscription {
+func newSubscription(id uint64, summary string) *subscription {
 	sub := &subscription{
 		id:              id,
+		summary:         summary,
 		changes:         make(chan ChangeSet),
 		topics:          make(map[string]struct{}),
 		dispatchTimeout: DefaultSignalTimeout,
@@ -70,6 +73,15 @@ func (s *subscription) Changes() <-chan []changestream.ChangeEvent {
 // has been closed.
 func (s *subscription) Done() <-chan struct{} {
 	return s.tomb.Dying()
+}
+
+// Summary provides a summary of the subscription, which can be used for
+// debugging purposes.
+func (s *subscription) Summary() string {
+	if s.summary != "" {
+		return s.summary
+	}
+	return "unknown"
 }
 
 // Kill implements worker.Worker.

@@ -604,7 +604,7 @@ type stubWatchableDB struct {
 	database.TxnRunner
 }
 
-func (stubWatchableDB) Subscribe(...changestream.SubscriptionOption) (changestream.Subscription, error) {
+func (stubWatchableDB) Subscribe(string, ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	return nil, nil
 }
 

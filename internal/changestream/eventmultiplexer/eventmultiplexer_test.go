@@ -55,7 +55,7 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+	sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Kill, then bump the loop so it comes around to the top and cleans up.
@@ -84,7 +84,7 @@ func (s *eventMultiplexerSuite) TestDispatch(c *tc.C) {
 	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+	sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
@@ -167,7 +167,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *tc.C, opts ...changestre
 
 	subs := make([]changestream.Subscription, 10)
 	for i := 0; i < len(subs); i++ {
-		sub, err := queue.Subscribe(opts...)
+		sub, err := queue.Subscribe("foo", opts...)
 		c.Assert(err, tc.ErrorIsNil)
 
 		subs[i] = sub
@@ -187,14 +187,10 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *tc.C, opts ...changestre
 		go func(i int, sub changestream.Subscription) {
 			defer wg.Done()
 
-			select {
-			case events := <-sub.Changes():
-				c.Assert(events, tc.HasLen, 1)
-				c.Check(events[0].Type(), tc.DeepEquals, changestreamtesting.Update)
-				c.Check(events[0].Namespace(), tc.DeepEquals, "topic")
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
-			}
+			events := <-sub.Changes()
+			c.Assert(events, tc.HasLen, 1)
+			c.Check(events[0].Type(), tc.DeepEquals, changestreamtesting.Update)
+			c.Check(events[0].Namespace(), tc.DeepEquals, "topic")
 		}(i, sub)
 	}
 
@@ -221,7 +217,7 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+	sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectEmptyTerm(c, changeEvent{
@@ -262,10 +258,10 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, queue)
 
-	sub0, err := queue.Subscribe(changestream.Namespace("foo", changestreamtesting.Create))
+	sub0, err := queue.Subscribe("foo", changestream.Namespace("foo", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
-	sub1, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+	sub1, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
@@ -314,7 +310,7 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+	sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
@@ -363,7 +359,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 		subs[i] = sub
 	}
@@ -387,8 +383,6 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 				subs[len(subs)-1-i].Kill()
 			case <-sub.Done():
 				subs[len(subs)-1-i].Kill()
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
 			}
 		}(i, sub)
 	}
@@ -434,7 +428,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
 
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 		subs[i] = sub
 	}
@@ -462,8 +456,6 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 					subs[len(subs)-1-i].Kill()
 					wg.Done()
 				}()
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
 			}
 		}(sub, i)
 	}
@@ -510,7 +502,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOnDispatchTimeout(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe()
+	sub, err := queue.Subscribe("foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Shorten the dispatch timeout in order to trigger Unsubscribe sooner.
@@ -554,7 +546,7 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 		subs[i] = sub
 	}
@@ -571,14 +563,10 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 	wg := newWaitGroup(uint64(len(subs)))
 	for i, sub := range subs {
 		go func(sub changestream.Subscription, i int) {
-			select {
-			case <-sub.Changes():
-				go func() {
-					defer wg.Done()
-				}()
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
-			}
+			<-sub.Changes()
+			go func() {
+				defer wg.Done()
+			}()
 		}(sub, i)
 	}
 
@@ -624,7 +612,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 		subs[i] = sub
 	}
@@ -643,26 +631,22 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 	wg := newWaitGroup(uint64(len(subs)))
 	for i, sub := range subs {
 		go func(sub changestream.Subscription, i int) {
-			select {
-			case _, ok := <-sub.Changes():
-				if !ok {
-					wg.Done()
-					return
-				}
-
-				go func() {
-					defer wg.Done()
-
-					// This will cause a race to close the channel, but that's
-					// fine, as we're only interested in the first one.
-					once.Do(func() {
-						close(ch)
-					})
-
-				}()
-			case <-time.After(testing.ShortWait):
-				c.Fatalf("timed out waiting for sub %d event", i)
+			_, ok := <-sub.Changes()
+			if !ok {
+				wg.Done()
+				return
 			}
+
+			go func() {
+				defer wg.Done()
+
+				// This will cause a race to close the channel, but that's
+				// fine, as we're only interested in the first one.
+				once.Do(func() {
+					close(ch)
+				})
+
+			}()
 		}(sub, i)
 	}
 
@@ -729,7 +713,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *tc.C) {
 	<-time.After(testing.ShortWait)
 	workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe()
+	sub, err := queue.Subscribe("foo")
 	c.Assert(err, tc.ErrorIs, database.ErrEventMultiplexerDying)
 	c.Check(sub, tc.IsNil)
 }
@@ -754,7 +738,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
-		sub, err := queue.Subscribe()
+		sub, err := queue.Subscribe("foo")
 		c.Assert(err, tc.ErrorIsNil)
 		subs = append(subs, sub)
 	}
@@ -801,14 +785,14 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *tc.C) {
 
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 
 		subs = append(subs, sub)
 	}
 
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
-		"subscriptions":        10,
+		"subscriptions":        len(subs),
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
 		"dispatch-error-count": 0,
@@ -836,6 +820,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *tc.C
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
 		sub, err := queue.Subscribe(
+			"foo",
 			changestream.Namespace("topic", changestreamtesting.Create),
 			changestream.Namespace("foo", changestreamtesting.Update),
 		)
@@ -845,7 +830,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *tc.C
 	}
 
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
-		"subscriptions":        10,
+		"subscriptions":        len(subs),
 		"subscriptions-by-ns":  2,
 		"subscriptions-all":    0,
 		"dispatch-error-count": 0,
@@ -873,6 +858,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *tc.
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
 		sub, err := queue.Subscribe(
+			"foo",
 			changestream.Namespace("topic", changestreamtesting.Update),
 			changestream.Namespace("topic", changestreamtesting.Update),
 		)
@@ -882,7 +868,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *tc.
 	}
 
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
-		"subscriptions":        10,
+		"subscriptions":        len(subs),
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
 		"dispatch-error-count": 0,
@@ -910,6 +896,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
 		sub, err := queue.Subscribe(
+			"foo",
 			changestream.Namespace("topic", changestreamtesting.Create),
 			changestream.Namespace("topic", changestreamtesting.Update),
 		)
@@ -919,7 +906,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	}
 
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
-		"subscriptions":        10,
+		"subscriptions":        len(subs),
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
 		"dispatch-error-count": 0,
@@ -946,7 +933,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
+	sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
