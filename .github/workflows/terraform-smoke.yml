@@ -17,7 +17,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
 
       - name: Checkout juju
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -55,7 +55,7 @@ jobs:
           juju version
 
       - name: Find terraform provider for juju latest release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: 'juju/terraform-provider-juju'
           #path: terraform-provider-juju

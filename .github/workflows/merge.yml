@@ -27,7 +27,7 @@ jobs:
           echo "target=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ steps.branch.outputs.source }}
