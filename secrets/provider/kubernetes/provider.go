@@ -176,7 +176,6 @@ func configToK8sRestConfig(cfg *backendConfig) (*rest.Config, error) {
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
 func (p k8sProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
-	logger.Infof("alvin clean up secrets called for %q, removed %v", tag, removed)
 	if tag == nil {
 		// This should never happen.
 		// Because this method is used for uniter facade only.
@@ -259,7 +258,6 @@ func IsBuiltInName(backendName string) bool {
 func (p k8sProvider) RestrictedConfig(
 	adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	logger.Infof("alvin restricted config called for %q, owned %v, read %v", consumer, owned, read)
 	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
 
 	if consumer == nil {
@@ -514,7 +512,6 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 	var out *rbacv1.Role
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			logger.Infof("alvin5 retry called for updateRole")
 			api := k.client.RbacV1().Roles(k.namespace)
 
 			// Always fetch the latest before update attempt
@@ -759,12 +756,10 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 		}
 	} else {
 		role.Rules = rulesForSecretAccess(k.namespace, false, role.Rules, owned, read, removed)
-		logger.Infof("alvin3 update role called for role %s", role.Name)
 
 		_, err = k.updateRole(ctx, role)
 	}
 	if err != nil {
-		logger.Errorf("alvin3 found err: %v", err)
 		return cleanups, errors.Trace(err)
 	}
 	rb := &rbacv1.RoleBinding{
@@ -829,7 +824,6 @@ func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *r
 	var out *rbacv1.ClusterRole
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			logger.Infof("alvin6 retry called for updateClusterRole")
 			api := k.client.RbacV1().ClusterRoles()
 
 			// Always fetch the latest before update attempt
@@ -941,14 +935,14 @@ func (k *kubernetesClient) ensureClusterBindingForSecretAccessToken(
 	if err == nil {
 		cleanups = append(cleanups, crCleanups...)
 	} else {
-		return cleanups, errors.Annotatef(err, "alvin1 disambiguating cluster role name %q", baseName)
+		return cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
 	}
 
 	clusterRoleBinding, crbCleanups, err := k.ensureDisambiguatedClusterRoleBinding(ctx, saName, baseName, clusterRole.Name, labels, annotations)
 	if err == nil {
 		cleanups = append(cleanups, crbCleanups...)
 	} else {
-		return cleanups, errors.Annotatef(err, "alvin2 disambiguating cluster role binding name %q", baseName)
+		return cleanups, errors.Annotatef(err, "disambiguating cluster role binding name %q", baseName)
 	}
 
 	// Ensure role binding exists before we return to avoid a race where a client
@@ -1032,14 +1026,12 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 	}
 
 	if k.isControllerModel {
-		logger.Infof("alvin hit controller model")
 		cbCleanups, err := k.ensureClusterBindingForSecretAccessToken(ctx, sa.Name, baseResourceName, labels, annotations, owned, read, removed)
 		cleanups = append(cleanups, cbCleanups...)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
 	} else {
-		logger.Infof("alvin hit non controller model")
 		// For roles and role bindings created in the namespace set up to hold the secrets,
 		// we assume that the service account, role, role binding all share the same disambiguated
 		// name as the service account. This is reasonable since it's not expected that anything
@@ -1136,7 +1128,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 	for {
 		if proposedName, err = model.DisambiguateResourceNameWithSuffixLength(
 			k.modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
-			return nil, cleanups, errors.Annotatef(err, "alvin3 disambiguating cluster role name %q", baseName)
+			return nil, cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
 		}
 		_, err = k.client.RbacV1().ClusterRoles().Get(ctx, proposedName, v1.GetOptions{})
 		if err == nil {
@@ -1187,7 +1179,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 	for {
 		if proposedName, err = model.DisambiguateResourceNameWithSuffixLength(
 			k.modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
-			return nil, cleanups, errors.Annotatef(err, "alvin4 disambiguating cluster role name %q", baseName)
+			return nil, cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
 		}
 		_, err = k.client.RbacV1().ClusterRoleBindings().Get(ctx, proposedName, v1.GetOptions{})
 		if err == nil {
