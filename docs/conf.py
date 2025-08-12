@@ -128,6 +128,9 @@ html_context = {
     "repo_folder": "/docs/",
     # Docs branch in the repo; used in links for viewing the source files
     'repo_default_branch': 'main',
+    # TODO: To enable or disable the Previous / Next buttons at the bottom of pages
+    # Valid options: none, prev, next, both
+    "sequential_nav": "both",
 }
 
 # Project slug; see https://meta.discourse.org/t/what-is-category-slug/87897
