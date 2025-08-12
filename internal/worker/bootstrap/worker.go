@@ -19,12 +19,14 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -72,6 +74,7 @@ type WorkerConfig struct {
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
 	ServiceManagerGetter       ServiceManagerGetterFunc
+	StatusHistory              StatusHistory
 	Logger                     logger.Logger
 	Clock                      clock.Clock
 }
@@ -144,17 +147,20 @@ func (c *WorkerConfig) Validate() error {
 	if c.AgentFinalizer == nil {
 		return errors.NotValidf("nil AgentFinalizer")
 	}
-	if c.Logger == nil {
-		return errors.NotValidf("nil Logger")
-	}
-	if c.Clock == nil {
-		return errors.NotValidf("nil Clock")
+	if c.StatusHistory == nil {
+		return errors.NotValidf("nil StatusHistory")
 	}
 	if c.BootstrapAddressFinder == nil {
 		return errors.NotValidf("nil BootstrapAddressFinder")
 	}
 	if err := c.ControllerModel.UUID.Validate(); err != nil {
 		return fmt.Errorf("controller model id: %w", err)
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -292,6 +298,19 @@ func (w *bootstrapWorker) loop() error {
 	w.reportInternalState(stateCompleted)
 
 	w.cfg.BootstrapUnlocker.Unlock()
+
+	// Write the domain status history for the model. We don't care if this
+	// fails, but we also are trying to ensure it's written only once. By
+	// writing it here, we know that at the very least that the bootstrap
+	// worker hasn't been restarted.
+	modelUUID := w.cfg.ControllerModel.UUID
+	if err := w.cfg.StatusHistory.RecordStatus(ctx, status.ModelNamespace.WithID(modelUUID.String()), corestatus.StatusInfo{
+		Status: corestatus.Available,
+		Since:  ptr(w.cfg.Clock.Now()),
+	}); err != nil {
+		w.logger.Warningf(ctx, "recording status for model %q: %v", modelUUID, err)
+	}
+
 	return nil
 }
 
@@ -305,7 +324,6 @@ func (w *bootstrapWorker) seedMacaroonConfig(ctx context.Context) error {
 
 func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 	// Any failure should be retryable, so we can re-attempt to bootstrap.
-
 	controllerCfg, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -589,4 +607,8 @@ func initialStoragePools(registry storage.ProviderRegistry, poolParams map[strin
 		result = append(result, pool)
 	}
 	return result, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
