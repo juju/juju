@@ -147,7 +147,7 @@ func (a *AuthContext) CheckOfferAccessCaveat(caveat string) (*offerPermissionChe
 func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]checkers.Caveat, error) {
 	authlogger.Debugf("authenticate local offer access: %+v", details)
 	if err := a.checkOfferAccess(a.systemState.UserPermission, details.User, details.OfferUUID); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "offer access check for user %q to offer %q in model %q", details.User, details.OfferUUID, details.SourceModelUUID)
 	}
 
 	firstPartyCaveats := []checkers.Caveat{
