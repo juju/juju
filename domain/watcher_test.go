@@ -71,7 +71,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
-	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			CREATE TABLE some_namespace (
 				uuid TEXT NOT NULL PRIMARY KEY
@@ -79,6 +79,7 @@ func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *tc.C) {
 		`)
 		return err
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
 		return &watchableDB{
@@ -107,7 +108,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
 
-	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			CREATE TABLE some_namespace (
 				uuid TEXT NOT NULL PRIMARY KEY
@@ -115,6 +116,7 @@ func (s *watcherSuite) TestNewNamespaceMapperWatcherSuccess(c *tc.C) {
 		`)
 		return err
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
 		return &watchableDB{
@@ -164,7 +166,7 @@ func (s *watcherSuite) expectSourceWithSub() {
 	s.sub.EXPECT().Kill()
 	s.sub.EXPECT().Done().Return(done).AnyTimes()
 
-	s.events.EXPECT().Subscribe(gomock.Any()).Return(s.sub, nil)
+	s.events.EXPECT().Subscribe(gomock.Any(), gomock.Any()).Return(s.sub, nil)
 }
 
 type watchableDB struct {

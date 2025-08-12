@@ -77,7 +77,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.eventsource = NewMockEventSource(ctrl)
 	s.watchableDB = watchableDBShim{
-		TxnRunner:   s.DqliteSuite.TxnRunner(),
+		TxnRunner:   s.TxnRunner(),
 		EventSource: s.eventsource,
 	}
 	s.sub = NewMockSubscription(ctrl)

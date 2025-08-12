@@ -34,7 +34,7 @@ func TestNamespaceSuite(t *stdtesting.T) {
 
 func (s *namespaceSuite) SetUpTest(c *tc.C) {
 	s.DqliteSuite.SetUpTest(c)
-	s.DqliteSuite.ApplyDDL(c, schemaDDLApplier{})
+	s.ApplyDDL(c, schemaDDLApplier{})
 }
 
 func (s *namespaceSuite) TestInitialStateSent(c *tc.C) {
@@ -54,6 +54,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace(
 			"random_namespace",
 			changestream.All,
@@ -108,7 +109,8 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace(
+		"test watcher",
+		subscriptionOptionMatcher{opt: changestream.Namespace(
 			"random_namespace",
 			changestream.All,
 		)},
@@ -173,6 +175,7 @@ func (s *namespaceSuite) TestDeltasSent(c *tc.C) {
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace(
 			"external_controller",
 			changestream.All,
@@ -239,7 +242,8 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *tc.C) {
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace(
+		"test watcher",
+		subscriptionOptionMatcher{opt: changestream.Namespace(
 			"external_controller",
 			changestream.All,
 		)},
@@ -321,7 +325,8 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *tc.C) {
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace(
+		"test watcher",
+		subscriptionOptionMatcher{opt: changestream.Namespace(
 			"external_controller",
 			changestream.All,
 		)},
@@ -382,6 +387,7 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *tc.C) {
 	// The specific table doesn't matter here. Only that exists to read from.
 	// We don't need any initial data.
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace(
 			"external_controller",
 			changestream.All,

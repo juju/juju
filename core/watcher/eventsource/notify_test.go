@@ -49,6 +49,7 @@ func (s *notifySuite) TestNotificationsByNamespaceFilter(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -134,6 +135,7 @@ func (s *notifySuite) TestNotificationsByPredicateFilter(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -213,6 +215,7 @@ func (s *notifySuite) TestNotificationsByMapperError(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -277,6 +280,7 @@ func (s *notifySuite) TestNotificationsSent(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -328,6 +332,7 @@ func (s *notifySuite) TestSubscriptionDoneKillsWorker(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
@@ -350,7 +355,8 @@ func (s *notifySuite) TestEnsureCloseOnCleanKill(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		"test watcher",
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w, err := NewNotifyWatcher(s.newBaseWatcher(c),
@@ -377,6 +383,7 @@ func (s *notifySuite) TestEnsureCloseOnDirtyKill(c *tc.C) {
 	subExp.Kill()
 
 	s.eventsource.EXPECT().Subscribe(
+		"test watcher",
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
