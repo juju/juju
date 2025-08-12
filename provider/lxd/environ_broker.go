@@ -480,7 +480,7 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
 	}
-
+	logger.Infof("[adis][stopinstances] profilestodelete: %+v", profilesToDelete)
 	for _, profile := range profilesToDelete {
 		err = env.server().DeleteProfile(profile)
 		logger.Debugf("deleted profile %q", profile)
