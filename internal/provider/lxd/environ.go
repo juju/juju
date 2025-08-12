@@ -283,10 +283,11 @@ func (env *environ) destroyModelProfile() error {
 	server := env.server()
 	profile := env.profileName()
 	err := server.DeleteProfile(profile)
-	logger.Debugf("deleted profile %q", profile)
 	if err != nil {
 		logger.Debugf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
 	}
+
+	logger.Infof("[adis] deleted profile %q", profile)
 
 	return nil
 }
@@ -504,7 +505,9 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 		return report(errors.Trace(err))
 	}
 
+	logger.Infof("[adis][provider][assignlxdprofiles] deleteprofiles %+v", deleteProfiles)
 	for _, name := range deleteProfiles {
+		logger.Infof("[adis][provider][assignlxdprofiles] deleted profile %q", name)
 		if err := server.DeleteProfile(name); err != nil {
 			// most likely the failure is because the profile is already in use
 			logger.Debugf("failed to delete profile %q: %s", name, err)
