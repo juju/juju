@@ -532,6 +532,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_storage_volume_attachment_plan_update_life_machine_provisioning",
 		"trg_log_storage_volume_attachment_plan_delete_life_machine_provisioning",
 
+		"trg_log_storage_filesystem_attachment_delete",
+		"trg_log_storage_filesystem_attachment_insert",
+		"trg_log_storage_filesystem_attachment_update",
+
 		"trg_log_subnet_delete",
 		"trg_log_subnet_insert",
 		"trg_log_subnet_update",
