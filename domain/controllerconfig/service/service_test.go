@@ -158,7 +158,7 @@ func (s *serviceSuite) TestUpdateControllerValidationIgnored(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestWatch(c *tc.C) {
+func (s *serviceSuite) TestWatchControllerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	q := "the query does not matter"

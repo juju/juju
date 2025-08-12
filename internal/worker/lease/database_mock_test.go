@@ -41,6 +41,44 @@ func (m *MockTxnRunner) EXPECT() *MockTxnRunnerMockRecorder {
 	return m.recorder
 }
 
+// Dying mocks base method.
+func (m *MockTxnRunner) Dying() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dying")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// Dying indicates an expected call of Dying.
+func (mr *MockTxnRunnerMockRecorder) Dying() *MockTxnRunnerDyingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dying", reflect.TypeOf((*MockTxnRunner)(nil).Dying))
+	return &MockTxnRunnerDyingCall{Call: call}
+}
+
+// MockTxnRunnerDyingCall wrap *gomock.Call
+type MockTxnRunnerDyingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTxnRunnerDyingCall) Return(arg0 <-chan struct{}) *MockTxnRunnerDyingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTxnRunnerDyingCall) Do(f func() <-chan struct{}) *MockTxnRunnerDyingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTxnRunnerDyingCall) DoAndReturn(f func() <-chan struct{}) *MockTxnRunnerDyingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // StdTxn mocks base method.
 func (m *MockTxnRunner) StdTxn(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
 	m.ctrl.T.Helper()

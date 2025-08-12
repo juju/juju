@@ -279,7 +279,7 @@ func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
 // Watch returns a watcher that returns keys for any changes to controller
 // config.
 func (s *WatchableService) WatchControllerConfig(ctx context.Context) (watcher.StringsWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	namespaces := s.st.NamespaceForWatchControllerConfig()
