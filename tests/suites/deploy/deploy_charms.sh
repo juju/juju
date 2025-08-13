@@ -137,12 +137,12 @@ run_deploy_local_predeployed_charm() {
 	ensure "${model_name}" "${file}"
 
 	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/lxd-profile) --base ubuntu@24.04
-	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
+	juju deploy $(pack_charm ./testcharms/charms/ubuntu-plus) --base ubuntu@24.04
+	wait_for "ubuntu-plus" "$(idle_condition "ubuntu-plus")"
 
-	juju deploy local:lxd-profile-0 another-lxd-profile-app
-	wait_for "another-lxd-profile-app" "$(idle_condition "another-lxd-profile-app")"
-	wait_for "active" '.applications["another-lxd-profile-app"] | ."application-status".current'
+	juju deploy local:ubuntu-plus-0 another-ubuntu-plus-app
+	wait_for "another-ubuntu-plus-app" "$(idle_condition "another-ubuntu-plus-app")"
+	wait_for "active" '.applications["another-ubuntu-plus-app"] | ."application-status".current'
 
 	destroy_model "${model_name}"
 }
@@ -375,7 +375,7 @@ test_deploy_charms() {
 			#
 			# run "run_deploy_lxd_to_machine"
 			# run "run_deploy_lxd_profile_charm"
-			# run "run_deploy_local_predeployed_charm"
+			run "run_deploy_local_predeployed_charm"
 			# run "run_deploy_local_lxd_profile_charm"
 			echo "==> TEST SKIPPED: deploy_lxd_to_container - tests for non LXD only"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm_container - tests for non LXD only"
