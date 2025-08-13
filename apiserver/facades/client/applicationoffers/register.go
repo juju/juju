@@ -45,13 +45,19 @@ func makeOffersAPIV5(facadeContext facade.MultiModelContext) (*OffersAPIv5, erro
 
 // makeOffersAPI returns a new application offers OffersAPI facade.
 func makeOffersAPI(ctx facade.MultiModelContext) (*OffersAPI, error) {
-
 	offerServiceGetter := func(c context.Context, modelUUID model.UUID) (OfferService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return svc.Offer(), nil
+	}
+	removalServiceGetter := func(c context.Context, modelUUID model.UUID) (RemovalService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Removal(), nil
 	}
 	return createOffersAPI(
 		ctx.Auth(),
@@ -60,5 +66,6 @@ func makeOffersAPI(ctx facade.MultiModelContext) (*OffersAPI, error) {
 		ctx.DomainServices().Access(),
 		ctx.DomainServices().Model(),
 		offerServiceGetter,
+		removalServiceGetter,
 	)
 }

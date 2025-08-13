@@ -42,7 +42,8 @@ type OffersAPI struct {
 	accessService AccessService
 	modelService  ModelService
 
-	offerServiceGetter func(c context.Context, modelUUID model.UUID) (OfferService, error)
+	offerServiceGetter   func(c context.Context, modelUUID model.UUID) (OfferService, error)
+	removalServiceGetter func(c context.Context, modelUUID model.UUID) (RemovalService, error)
 }
 
 // createAPI returns a new application offers OffersAPI facade.
@@ -53,18 +54,20 @@ func createOffersAPI(
 	accessService AccessService,
 	modelService ModelService,
 	offerServiceGetter func(c context.Context, modelUUID model.UUID) (OfferService, error),
+	removalServiceGetter func(c context.Context, modelUUID model.UUID) (RemovalService, error),
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	api := &OffersAPI{
-		authorizer:         authorizer,
-		controllerUUID:     controllerUUID,
-		modelUUID:          modelUUID,
-		accessService:      accessService,
-		modelService:       modelService,
-		offerServiceGetter: offerServiceGetter,
+		authorizer:           authorizer,
+		controllerUUID:       controllerUUID,
+		modelUUID:            modelUUID,
+		accessService:        accessService,
+		modelService:         modelService,
+		offerServiceGetter:   offerServiceGetter,
+		removalServiceGetter: removalServiceGetter,
 	}
 	return api, nil
 }
@@ -367,7 +370,56 @@ func (api *OffersAPI) RemoteApplicationInfo(ctx context.Context, args params.Off
 
 // DestroyOffers removes the offers specified by the given URLs, forcing if necessary.
 func (api *OffersAPI) DestroyOffers(ctx context.Context, args params.DestroyApplicationOffers) (params.ErrorResults, error) {
-	return params.ErrorResults{}, nil
+	result := make([]params.ErrorResult, len(args.OfferURLs))
+
+	user, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return params.ErrorResults{}, apiservererrors.ErrPerm
+	}
+	models, err := api.getModelsFromOffers(ctx, user, args.OfferURLs...)
+	if err != nil {
+		return params.ErrorResults{}, errors.Capture(err)
+	}
+
+	for i, one := range args.OfferURLs {
+		err := api.destroyOneOffer(ctx, models[i], one, args.Force)
+		result[i].Error = apiservererrors.ServerError(err)
+	}
+
+	return params.ErrorResults{Results: result}, nil
+}
+
+func (api *OffersAPI) destroyOneOffer(ctx context.Context, offerModel offerModel, offerString string, force bool) error {
+	if offerModel.err != nil {
+		return offerModel.err
+	}
+
+	url, err := corecrossmodel.ParseOfferURL(offerString)
+	if err != nil {
+		return err
+	}
+
+	modelUUID := offerModel.model.UUID
+	if err := api.checkAPIUserAdmin(ctx, modelUUID); err != nil {
+		return apiservererrors.ErrPerm
+	}
+
+	offerService, err := api.offerServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return err
+	}
+
+	removalService, err := api.removalServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return err
+	}
+
+	offerUUID, err := offerService.GetOfferUUID(ctx, url)
+	if err != nil {
+		return err
+	}
+
+	return removalService.RemoveOffer(ctx, offerUUID, force)
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.

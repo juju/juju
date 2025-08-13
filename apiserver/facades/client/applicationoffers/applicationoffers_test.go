@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/offer"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -25,10 +27,11 @@ import (
 )
 
 type offerSuite struct {
-	authorizer    *MockAuthorizer
-	accessService *MockAccessService
-	modelService  *MockModelService
-	offerService  *MockOfferService
+	authorizer     *MockAuthorizer
+	accessService  *MockAccessService
+	modelService   *MockModelService
+	offerService   *MockOfferService
+	removalService *MockRemovalService
 }
 
 func TestOfferSuite(t *testing.T) {
@@ -480,18 +483,120 @@ func (s *offerSuite) TestModifyOfferAccessPermissionDenied(c *tc.C) {
 	}})
 }
 
+func (s *offerSuite) TestDestroyOffers(c *tc.C) {
+	s.testDestroyOffers(c, false)
+}
+
+func (s *offerSuite) TestDestroyOffersForce(c *tc.C) {
+	s.testDestroyOffers(c, true)
+}
+
+func (s *offerSuite) testDestroyOffers(c *tc.C, force bool) {
+	s.setupMocks(c).Finish()
+
+	// Arrange
+	offerAPI := s.offerAPI(c)
+
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred@external/prod.hosted-mysql")
+	modelUUID := s.expectGetModelByNameAndQualifier(c, names.NewUserTag("fred@external"), offerURL.ModelName)
+	s.setupAuthUser("simon")
+	s.setupCheckAPIUserAdmin(offerAPI.controllerUUID, names.NewModelTag(modelUUID))
+	offerUUID := uuid.MustNewUUID()
+	s.offerService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
+	s.removalService.EXPECT().RemoveOffer(gomock.Any(), offerUUID, force).Return(nil)
+
+	args := params.DestroyApplicationOffers{
+		Force:     force,
+		OfferURLs: []string{offerURL.String()},
+	}
+
+	// Act
+	results, err := offerAPI.DestroyOffers(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *offerSuite) TestDestroyOffersPermission(c *tc.C) {
+	s.setupMocks(c).Finish()
+
+	// Arrange
+	offerAPI := s.offerAPI(c)
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred@external/prod.hosted-mysql")
+	modelUUID := s.expectGetModelByNameAndQualifier(c, names.NewUserTag("fred@external"), offerURL.ModelName)
+	s.setupAuthUser("simon")
+	s.expectNotSuperuser()
+	s.expectNoModelAdminAccessPermissions(modelUUID)
+
+	args := params.DestroyApplicationOffers{
+		OfferURLs: []string{offerURL.String()},
+	}
+
+	// Act
+	results, err := offerAPI.DestroyOffers(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, `permission denied`)
+}
+
+func (s *offerSuite) TestDestroyOffersModelErrors(c *tc.C) {
+	s.setupMocks(c).Finish()
+
+	// Arrange
+	authUserTag := s.setupAuthUser("simon")
+	s.expectNotSuperuser()
+	offerAPI := s.offerAPI(c)
+
+	s.modelService.EXPECT().GetModelByNameAndQualifier(
+		gomock.Any(),
+		"badmodel",
+		model.QualifierFromUserTag(authUserTag),
+	).Return(model.Model{}, modelerrors.NotFound)
+	s.modelService.EXPECT().GetModelByNameAndQualifier(
+		gomock.Any(),
+		"badmodel",
+		model.QualifierFromUserTag(names.NewUserTag("garbage")),
+	).Return(model.Model{}, accesserrors.UserNameNotValid)
+
+	args := params.DestroyApplicationOffers{
+		OfferURLs: []string{
+			"garbage/badmodel.someoffer", "badmodel.someoffer",
+		},
+	}
+
+	// Act
+	results, err := offerAPI.DestroyOffers(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results, tc.DeepEquals, []params.ErrorResult{
+		{
+			Error: &params.Error{Message: `user name "garbage": not valid`, Code: "not valid"},
+		}, {
+			Error: &params.Error{Message: `model "simon/badmodel": not found`, Code: "not found"},
+		},
+	})
+}
+
 func (s *offerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = NewMockAccessService(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
 	s.modelService = NewMockModelService(ctrl)
 	s.offerService = NewMockOfferService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
 
 	c.Cleanup(func() {
 		s.accessService = nil
 		s.authorizer = nil
 		s.modelService = nil
 		s.offerService = nil
+		s.removalService = nil
 	})
 	return ctrl
 }
@@ -512,7 +617,7 @@ func (s *offerSuite) expectGetModelByNameAndQualifier(c *tc.C, authUserTag names
 		UUID: modeltesting.GenModelUUID(c),
 	}
 	qualifier := model.QualifierFromUserTag(authUserTag)
-	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "model", qualifier).Return(modelInfo, nil)
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, qualifier).Return(modelInfo, nil)
 	return modelInfo.UUID.String()
 }
 
@@ -533,6 +638,9 @@ func (s *offerSuite) offerAPI(c *tc.C) *OffersAPI {
 		modelService:   s.modelService,
 		offerServiceGetter: func(_ context.Context, _ model.UUID) (OfferService, error) {
 			return s.offerService, nil
+		},
+		removalServiceGetter: func(_ context.Context, _ model.UUID) (RemovalService, error) {
+			return s.removalService, nil
 		},
 	}
 }
