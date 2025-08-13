@@ -356,27 +356,35 @@ run_user_secret_drain() {
 }
 
 run_test_add_multiple_secrets_parallel() {
-	ctrl_log_file_name='multiple-secrets-parallel-k8s-controller'
-	ctrl_log_file="${TEST_DIR}/${ctrl_log_file_name}.log"
-	trap 'rm -f "$ctrl_log_file"' EXIT
-
-	juju switch controller
-	if ! seq 1 100 | xargs -n1 -P5 sh -c 'juju add-secret "test$1" "foo=bar$1"' _ > "$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
-		echo "Failed: could not add multiple secrets in parallel."
-		exit 1
-	fi
+	controller_name='multiple-secrets-parallel-k8s-controller'
+	ctrl_log_file="${TEST_DIR}/${controller_name}.log"
 
 	model_name='multiple-secrets-parallel-k8s'
-	file="${TEST_DIR}/${model_name}.log"
-	trap 'rm -f "$file"' EXIT
+	model_log_file="${TEST_DIR}/${model_name}.log"
 
-	juju add-model "$model_name"
-	if ! seq 1 100 | xargs -n1 -P5 sh -c 'juju add-secret "test$1" "foo=bar$1"' _ > "$file" 2>&1 || grep -iq 'error' "$file"; then
-		echo "Failed: could not add multiple secrets in parallel."
+	cleanup_resources() {
+		rm -f "$ctrl_log_file" "$model_log_file"
 		destroy_model "$model_name"
+		destroy_controller "$controller_name"
+	}
+
+	trap cleanup_resources EXIT HUP INT TERM
+
+	bootstrap_custom_controller "$controller_name" microk8s
+		
+	juju switch controller
+	# check logs during juju add-secret in controller model for any errors
+	if ! seq 1 100 | xargs -n1 -P5 sh -c 'juju add-secret "test$1" "foo=bar$1"' _ > "$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
+		echo "Failed: could not add multiple secrets in parallel for controller model."
 		exit 1
 	fi
-	destroy_model "$model_name"
+
+	juju add-model "$model_name"
+	# check logs during juju add-secret in non-controller model for any errors
+	if ! seq 1 100 | xargs -n1 -P5 sh -c 'juju add-secret "test$1" "foo=bar$1"' _ > "$model_log_file" 2>&1 || grep -iq 'error' "$model_log_file"; then
+		echo "Failed: could not add multiple secrets in parallel for non-controller model."
+		exit 1
+	fi
 }
 
 prepare_vault() {

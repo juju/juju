@@ -130,7 +130,6 @@ func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, erro
 
 // DrainBackendConfigInfo returns the secret backend config for the drain worker to use.
 func DrainBackendConfigInfo(backendID string, model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
-	logger.Infof("alvin DrainBackendConfigInfo for %q", backendID)
 	adminModelCfg, err := AdminBackendConfigInfo(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
@@ -183,7 +182,6 @@ func SecretCleanupBackendConfigInfo(model Model, backendID string) (*provider.Mo
 // The result includes config for all relevant backends, including the id
 // of the current active backend.
 func BackendConfigInfo(model Model, sameController bool, backendIDs []string, wantAll bool, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
-	logger.Infof("alvin BackendConfigInfo for %v", backendIDs)
 	adminModelCfg, err := AdminBackendConfigInfo(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
@@ -219,7 +217,6 @@ func backendConfigInfo(
 	model Model, backendID string, adminCfg *provider.ModelBackendConfig,
 	authTag names.Tag, leadershipChecker leadership.Checker, sameController, forDrain bool,
 ) (*provider.ModelBackendConfig, error) {
-	logger.Infof("testing backendConfigInfo called for %q", backendID)
 	p, err := GetProvider(adminCfg.BackendType)
 	if err != nil {
 		return nil, errors.Trace(err)
