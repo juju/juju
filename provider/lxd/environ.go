@@ -449,6 +449,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) e
 			Devices:     put.Devices,
 		},
 	}
+	logger.Infof("[adis][environ][maybewritelxdprofile] post: %+v", post)
 	if err = server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}
