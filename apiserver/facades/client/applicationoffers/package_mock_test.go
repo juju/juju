@@ -16,6 +16,7 @@ import (
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
+	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
 	offer "github.com/juju/juju/domain/offer"
 	uuid "github.com/juju/juju/internal/uuid"
@@ -80,6 +81,45 @@ func (c *MockAccessServiceCreatePermissionCall) Do(f func(context.Context, permi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockAccessServiceCreatePermissionCall) DoAndReturn(f func(context.Context, permission.UserAccessSpec) (permission.UserAccess, error)) *MockAccessServiceCreatePermissionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUserByName mocks base method.
+func (m *MockAccessService) GetUserByName(arg0 context.Context, arg1 user.Name) (user.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserByName", arg0, arg1)
+	ret0, _ := ret[0].(user.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserByName indicates an expected call of GetUserByName.
+func (mr *MockAccessServiceMockRecorder) GetUserByName(arg0, arg1 any) *MockAccessServiceGetUserByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockAccessService)(nil).GetUserByName), arg0, arg1)
+	return &MockAccessServiceGetUserByNameCall{Call: call}
+}
+
+// MockAccessServiceGetUserByNameCall wrap *gomock.Call
+type MockAccessServiceGetUserByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAccessServiceGetUserByNameCall) Return(arg0 user.User, arg1 error) *MockAccessServiceGetUserByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAccessServiceGetUserByNameCall) Do(f func(context.Context, user.Name) (user.User, error)) *MockAccessServiceGetUserByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAccessServiceGetUserByNameCall) DoAndReturn(f func(context.Context, user.Name) (user.User, error)) *MockAccessServiceGetUserByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -242,6 +282,45 @@ func (c *MockOfferServiceGetOfferUUIDCall) Do(f func(context.Context, *crossmode
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOfferServiceGetOfferUUIDCall) DoAndReturn(f func(context.Context, *crossmodel.OfferURL) (uuid.UUID, error)) *MockOfferServiceGetOfferUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetOffers mocks base method.
+func (m *MockOfferService) GetOffers(arg0 context.Context, arg1 []offer.OfferFilter) ([]*offer.OfferDetails, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOffers", arg0, arg1)
+	ret0, _ := ret[0].([]*offer.OfferDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOffers indicates an expected call of GetOffers.
+func (mr *MockOfferServiceMockRecorder) GetOffers(arg0, arg1 any) *MockOfferServiceGetOffersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOffers", reflect.TypeOf((*MockOfferService)(nil).GetOffers), arg0, arg1)
+	return &MockOfferServiceGetOffersCall{Call: call}
+}
+
+// MockOfferServiceGetOffersCall wrap *gomock.Call
+type MockOfferServiceGetOffersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOfferServiceGetOffersCall) Return(arg0 []*offer.OfferDetails, arg1 error) *MockOfferServiceGetOffersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOfferServiceGetOffersCall) Do(f func(context.Context, []offer.OfferFilter) ([]*offer.OfferDetails, error)) *MockOfferServiceGetOffersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOfferServiceGetOffersCall) DoAndReturn(f func(context.Context, []offer.OfferFilter) ([]*offer.OfferDetails, error)) *MockOfferServiceGetOffersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

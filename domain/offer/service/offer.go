@@ -113,3 +113,9 @@ func (s *Service) Offer(
 	err = errors.Errorf("failed to create access for offer %q: %w", args.OfferName, err)
 	return errors.Capture(err)
 }
+
+// GetOffers returns offer details for all offers satisfying any of the
+// provided filters.
+func (s *Service) GetOffers(ctx context.Context, filters []offer.OfferFilter) ([]*offer.OfferDetails, error) {
+	return nil, coreerrors.NotImplemented
+}

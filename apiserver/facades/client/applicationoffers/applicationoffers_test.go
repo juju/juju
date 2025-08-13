@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/application/charm"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/offer"
 	"github.com/juju/juju/internal/errors"
@@ -581,6 +583,247 @@ func (s *offerSuite) TestDestroyOffersModelErrors(c *tc.C) {
 			Error: &params.Error{Message: `model "simon/badmodel": not found`, Code: "not found"},
 		},
 	})
+}
+
+func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerAPI := s.offerAPI(c)
+	adminTag := s.setupAuthUser("admin")
+	s.authorizer.EXPECT().EntityHasPermission(gomock.Any(), adminTag, permission.SuperuserAccess, names.NewControllerTag(offerAPI.controllerUUID)).Return(nil)
+	adminUser := user.User{DisplayName: "fred smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
+
+	modelName := "prod"
+	modelOwnerTag := names.NewUserTag("fred@external")
+
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		UUID:      modeltesting.GenModelUUID(c),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+
+	domainFilters := []offer.OfferFilter{
+		{
+			OfferName:        "hosted-db2",
+			Endpoints:        make([]offer.EndpointFilterTerm, 0),
+			AllowedConsumers: make([]string, 0),
+			ConnectedUsers:   make([]string, 0),
+		}, {
+			OfferName:        "testing",
+			Endpoints:        make([]offer.EndpointFilterTerm, 0),
+			AllowedConsumers: make([]string, 0),
+			ConnectedUsers:   make([]string, 0),
+		},
+	}
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*offer.OfferDetails{
+		{
+			OfferUUID:              uuid.MustNewUUID().String(),
+			OfferName:              domainFilters[0].OfferName,
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []offer.OfferEndpoint{
+				{Name: "db"},
+			},
+		}, {
+			OfferUUID:              uuid.MustNewUUID().String(),
+			OfferName:              domainFilters[1].OfferName,
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []offer.OfferEndpoint{
+				{Name: "endpoint"},
+			},
+		},
+	}
+	s.offerService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelQualifier: modelOwnerTag.Id(),
+				ModelName:      modelName,
+				OfferName:      "hosted-db2",
+			}, {
+				ModelQualifier: modelOwnerTag.Id(),
+				ModelName:      modelName,
+				OfferName:      "testing",
+			},
+		},
+	}
+
+	// Act
+	obtained, err := offerAPI.ListApplicationOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained.Results, tc.HasLen, 2)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
+	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.Ignore)
+	c.Assert(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
+		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+			OfferURL:               "fred-external/prod.hosted-db2",
+			OfferName:              "hosted-db2",
+			ApplicationDescription: "testing application",
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Users: []params.OfferUserDetails{
+				{UserName: "admin", DisplayName: "fred smith", Access: "admin"},
+			}},
+		ApplicationName: "test-app",
+		CharmURL:        "ch:amd64/app-42",
+	})
+	c.Assert(obtained.Results[1], mc, params.ApplicationOfferAdminDetailsV5{
+		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+			OfferURL:               "fred-external/prod.testing",
+			OfferName:              "testing",
+			ApplicationDescription: "testing application",
+			Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
+			Users: []params.OfferUserDetails{
+				{UserName: "admin", DisplayName: "fred smith", Access: "admin"},
+			}},
+		ApplicationName: "test-app",
+		CharmURL:        "ch:amd64/app-42",
+	})
+}
+
+func (s *offerSuite) TestListApplicationOffersError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerAPI := s.offerAPI(c)
+	adminTag := s.setupAuthUser("admin")
+	s.authorizer.EXPECT().EntityHasPermission(gomock.Any(), adminTag, permission.SuperuserAccess, names.NewControllerTag(offerAPI.controllerUUID)).Return(nil)
+	adminUser := user.User{DisplayName: "fred smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
+
+	modelName := "prod"
+	modelOwnerTag := names.NewUserTag("fred@external")
+
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		UUID:      modeltesting.GenModelUUID(c),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+
+	domainFilters := []offer.OfferFilter{
+		{
+			OfferName:        "hosted-db2",
+			Endpoints:        make([]offer.EndpointFilterTerm, 0),
+			AllowedConsumers: make([]string, 0),
+			ConnectedUsers:   make([]string, 0),
+		}, {
+			OfferName:        "testing",
+			Endpoints:        make([]offer.EndpointFilterTerm, 0),
+			AllowedConsumers: make([]string, 0),
+			ConnectedUsers:   make([]string, 0),
+		},
+	}
+	s.offerService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(nil, errors.New("some error"))
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelQualifier: modelOwnerTag.Id(),
+				ModelName:      modelName,
+				OfferName:      "hosted-db2",
+			}, {
+				ModelQualifier: modelOwnerTag.Id(),
+				ModelName:      modelName,
+				OfferName:      "testing",
+			},
+		},
+	}
+
+	// Act
+	_, err := offerAPI.ListApplicationOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "some error")
+
+}
+
+func (s *offerSuite) TestListApplicationOffersPermission(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerAPI := s.offerAPI(c)
+	adminTag := s.setupAuthUser("admin")
+	s.authorizer.EXPECT().EntityHasPermission(gomock.Any(), adminTag, permission.SuperuserAccess, names.NewControllerTag(offerAPI.controllerUUID)).Return(authentication.ErrorEntityMissingPermission)
+	adminUser := user.User{DisplayName: "fred smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
+
+	modelName := "prod"
+	foundModel := model.Model{
+		Name: modelName,
+		UUID: modeltesting.GenModelUUID(c),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.QualifierFromUserTag(adminTag)).Return(foundModel, nil)
+	s.authorizer.EXPECT().EntityHasPermission(gomock.Any(), adminTag, permission.AdminAccess, names.NewModelTag(foundModel.UUID.String())).Return(authentication.ErrorEntityMissingPermission)
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelName: modelName,
+				OfferName: "hosted-db2",
+			}, {
+				ModelName: modelName,
+				OfferName: "testing",
+			},
+		},
+	}
+
+	// Act
+	_, err := offerAPI.ListApplicationOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.DeepEquals, &params.Error{
+		Message: "permission denied", Code: "unauthorized access"},
+	)
+}
+
+func (s *offerSuite) TestListFilterRequiresModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.setupAuthUser("admin")
+	filter := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				OfferName:       "hosted-db2",
+				ApplicationName: "test",
+			},
+		},
+	}
+
+	// Act
+	_, err := s.offerAPI(c).ListApplicationOffers(c.Context(), filter)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "application offer filter must specify a model name")
+}
+
+func (s *offerSuite) TestListRequiresFilter(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.setupAuthUser("admin")
+
+	// Act
+	_, err := s.offerAPI(c).ListApplicationOffers(c.Context(), params.OfferFilters{})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "at least one offer filter is required")
 }
 
 func (s *offerSuite) setupMocks(c *tc.C) *gomock.Controller {

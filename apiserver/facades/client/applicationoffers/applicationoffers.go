@@ -6,22 +6,29 @@ package applicationoffers
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
+	"sort"
 
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal/charms"
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/offer"
 	offererrors "github.com/juju/juju/domain/offer/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -38,6 +45,7 @@ type OffersAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
 	modelUUID      model.UUID
+	logger         corelogger.Logger
 
 	accessService AccessService
 	modelService  ModelService
@@ -55,6 +63,7 @@ func createOffersAPI(
 	modelService ModelService,
 	offerServiceGetter func(c context.Context, modelUUID model.UUID) (OfferService, error),
 	removalServiceGetter func(c context.Context, modelUUID model.UUID) (RemovalService, error),
+	logger corelogger.Logger,
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -68,6 +77,7 @@ func createOffersAPI(
 		modelService:         modelService,
 		offerServiceGetter:   offerServiceGetter,
 		removalServiceGetter: removalServiceGetter,
+		logger:               logger,
 	}
 	return api, nil
 }
@@ -160,10 +170,240 @@ func (api *OffersAPI) parseApplicationOfferArgs(
 	return result, owner, nil
 }
 
-// ListApplicationOffers gets deployed details about application offers that match given filter.
-// The results contain details about the deployed applications such as connection count.
+// ListApplicationOffers gets deployed details about application offers that
+// match given filter. The results contain details about the deployed
+// applications such as connection count.
 func (api *OffersAPI) ListApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
-	return params.QueryApplicationOffersResultsV5{}, nil
+	var result params.QueryApplicationOffersResultsV5
+
+	apiUser, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return params.QueryApplicationOffersResultsV5{}, apiservererrors.ErrPerm
+	}
+
+	offers, err := api.getApplicationOffersDetails(ctx, apiUser, filters)
+	if err != nil {
+		return result, apiservererrors.ServerError(err)
+	}
+	result.Results = offers
+	return result, nil
+}
+
+// getApplicationOffersDetails gets details about remote applications that match given filter.
+func (api *OffersAPI) getApplicationOffersDetails(
+	ctx context.Context,
+	apiUser names.UserTag,
+	filters params.OfferFilters,
+) ([]params.ApplicationOfferAdminDetailsV5, error) {
+	// If there are no filters specified, that's an error since the
+	// caller is expected to specify at the least one or more models
+	// to avoid an unbounded query across all models.
+	if len(filters.Filters) == 0 {
+		return nil, errors.New("at least one offer filter is required")
+	}
+
+	// Gather all the filter details for doing a query for each model.
+	models, filtersPerModel, err := api.getModelFilters(ctx, apiUser, filters)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Ensure the result is deterministic.
+	allUUIDs := slices.Collect(maps.Keys(filtersPerModel))
+	sort.Strings(allUUIDs)
+
+	// Get the apiUserDisplayName, it'll be the same for all models.
+	apiUserDisplayName, err := api.userDisplayName(ctx, apiUser)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Do the per model queries.
+	var result []params.ApplicationOfferAdminDetailsV5
+	for _, modelUUID := range allUUIDs {
+		filters := filtersPerModel[modelUUID]
+		offers, err := api.applicationOffersFromModel(ctx, modelUUID, apiUser, apiUserDisplayName, filters)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		m, ok := models[modelUUID]
+		if !ok {
+			api.logger.Errorf(ctx, "list offers programming error: model %q not in slice", modelUUID)
+			continue
+		}
+
+		for _, offerDetails := range offers {
+			offerDetails.OfferURL = corecrossmodel.MakeURL(m.Qualifier.String(), m.Name, offerDetails.OfferName, "")
+			result = append(result, offerDetails)
+		}
+
+		// TODO (cmr)
+		// Add offer connections if apiUser is superuser, model or offer admin
+	}
+	return result, nil
+}
+
+// getModelFilters splits the specified filters per model and returns
+// the model and filter details for each.
+func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag, filters params.OfferFilters) (
+	models map[string]model.Model,
+	filtersPerModel map[string][]offer.OfferFilter,
+	_ error,
+) {
+	models = make(map[string]model.Model)
+	filtersPerModel = make(map[string][]offer.OfferFilter)
+
+	// Group the filters per model and then query each model with the relevant filters
+	// for that model.
+	modelUUIDs := make(map[string]string)
+	for _, f := range filters.Filters {
+		if f.ModelName == "" {
+			return nil, nil, errors.New("application offer filter must specify a model name")
+		}
+		modelQualifier := f.ModelQualifier
+		if modelQualifier == "" {
+			modelQualifier = apiUser.Id()
+		}
+		var (
+			modelUUID string
+			ok        bool
+		)
+		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
+			var err error
+			model, err := api.modelForName(ctx, f.ModelName, modelQualifier)
+			if err != nil {
+				return nil, nil, errors.Capture(err)
+			}
+			// Record the UUID and model for next time.
+			modelUUID = model.UUID.String()
+			modelUUIDs[f.ModelName] = modelUUID
+			models[modelUUID] = model
+		}
+
+		// Record the filter and model details against the model UUID.
+		filters := filtersPerModel[modelUUID]
+		filter, err := makeOfferFilterFromParams(f)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
+		filters = append(filters, filter)
+		filtersPerModel[modelUUID] = filters
+	}
+	return models, filtersPerModel, nil
+}
+
+// applicationOffersFromModel gets details about remote applications that match given filters.
+func (api *OffersAPI) applicationOffersFromModel(
+	ctx context.Context,
+	modelUUID string,
+	apiUser names.UserTag,
+	apiUserDisplayName string,
+	filters []offer.OfferFilter,
+) ([]params.ApplicationOfferAdminDetailsV5, error) {
+	if err := api.checkAdmin(ctx, apiUser, model.UUID(modelUUID)); err != nil {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	// Get the relevant service for the specified model.
+	offerService, err := api.offerServiceGetter(ctx, model.UUID(modelUUID))
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	offers, err := offerService.GetOffers(ctx, filters)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Process data.
+	var results []params.ApplicationOfferAdminDetailsV5
+	for _, appOffer := range offers {
+		offerParams := api.makeOfferParams(model.UUID(modelUUID), appOffer)
+
+		offerParams.Users = []params.OfferUserDetails{{
+			UserName:    apiUser.Id(),
+			DisplayName: apiUserDisplayName,
+			Access:      permission.AdminAccess.String(),
+		}}
+		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		results = append(results, params.ApplicationOfferAdminDetailsV5{
+			ApplicationOfferDetailsV5: *offerParams,
+			ApplicationName:           appOffer.ApplicationName,
+			CharmURL:                  charmURL,
+		})
+	}
+	return results, nil
+}
+
+func (api *OffersAPI) makeOfferParams(
+	modelUUID model.UUID,
+	offer *offer.OfferDetails,
+) *params.ApplicationOfferDetailsV5 {
+
+	result := params.ApplicationOfferDetailsV5{
+		SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
+		OfferName:              offer.OfferName,
+		OfferUUID:              offer.OfferUUID,
+		ApplicationDescription: offer.ApplicationDescription,
+	}
+
+	for _, ep := range offer.Endpoints {
+		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      charm.RelationRole(ep.Role),
+			Limit:     ep.Limit,
+		})
+
+	}
+	return &result
+}
+
+func makeOfferFilterFromParams(filter params.OfferFilter) (offer.OfferFilter, error) {
+	offerFilter := offer.OfferFilter{
+		OfferName:              filter.OfferName,
+		ApplicationName:        filter.ApplicationName,
+		ApplicationDescription: filter.ApplicationDescription,
+		Endpoints:              make([]offer.EndpointFilterTerm, len(filter.Endpoints)),
+		AllowedConsumers:       make([]string, len(filter.AllowedConsumerTags)),
+		ConnectedUsers:         make([]string, len(filter.ConnectedUserTags)),
+	}
+	for i, ep := range filter.Endpoints {
+		offerFilter.Endpoints[i] = offer.EndpointFilterTerm{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      domaincharm.RelationRole(ep.Role),
+		}
+	}
+	for i, tag := range filter.AllowedConsumerTags {
+		u, err := names.ParseUserTag(tag)
+		if err != nil {
+			return offer.OfferFilter{}, errors.Capture(err)
+		}
+		offerFilter.AllowedConsumers[i] = u.Id()
+	}
+	for i, tag := range filter.ConnectedUserTags {
+		u, err := names.ParseUserTag(tag)
+		if err != nil {
+			return offer.OfferFilter{}, errors.Capture(err)
+		}
+		offerFilter.ConnectedUsers[i] = u.Id()
+	}
+	return offerFilter, nil
+}
+
+func (api *OffersAPI) userDisplayName(ctx context.Context, userTag names.UserTag) (string, error) {
+	var displayName string
+	user, err := api.accessService.GetUserByName(ctx, coreuser.NameFromTag(userTag))
+	if err != nil && !errors.Is(err, accesserrors.UserNotFound) {
+		return "", errors.Capture(err)
+	} else if err == nil {
+		displayName = user.DisplayName
+	}
+	return displayName, nil
 }
 
 // ModifyOfferAccess changes the application offer access granted to users.

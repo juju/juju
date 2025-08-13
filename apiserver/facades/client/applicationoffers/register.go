@@ -67,5 +67,6 @@ func makeOffersAPI(ctx facade.MultiModelContext) (*OffersAPI, error) {
 		ctx.DomainServices().Model(),
 		offerServiceGetter,
 		removalServiceGetter,
+		ctx.Logger().Child("applicationoffers"),
 	)
 }
