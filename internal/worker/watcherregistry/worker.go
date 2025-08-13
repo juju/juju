@@ -22,18 +22,11 @@ import (
 
 const (
 	// DefaultNamespace is the default namespace for watchers.
-	DefaultNamespace = "w-"
+	DefaultNamespace = "w"
 
 	// ErrWatcherRegistryClosed is returned when the watcher registry is closed.
 	ErrWatcherRegistryClosed = errors.ConstError("watcher registry closed")
 )
-
-// Watcher is an interface that defines a worker that can be watched.
-type Watcher interface {
-	worker.Worker
-
-	Dying() <-chan struct{}
-}
 
 // WatcherRegistry holds all the watchers for a connection.
 // It allows the registration of watchers that will be cleaned up when a
@@ -41,18 +34,18 @@ type Watcher interface {
 type WatcherRegistry interface {
 	// Get returns the watcher for the given id, or nil if there is no such
 	// watcher.
-	Get(string) (Watcher, error)
+	Get(string) (worker.Worker, error)
 	// Register registers the given watcher. It returns a unique identifier for the
 	// watcher which can then be used in subsequent API requests to refer to the
 	// watcher.
-	Register(context.Context, Watcher) (string, error)
+	Register(context.Context, worker.Worker) (string, error)
 
 	// RegisterNamed registers the given watcher. Callers must supply a unique
 	// name for the given watcher. It is an error to try to register another
 	// watcher with the same name as an already registered name.
 	// It is also an error to supply a name that is an integer string, since that
 	// collides with the auto-naming from Register.
-	RegisterNamed(context.Context, string, Watcher) error
+	RegisterNamed(context.Context, string, worker.Worker) error
 
 	// Stop stops the resource with the given id and unregisters it.
 	// It returns any error from the underlying Stop call.
@@ -60,8 +53,9 @@ type WatcherRegistry interface {
 	// been unregistered.
 	Stop(id string) error
 
-	// Close stops all resources and unregisters them.
-	Close() error
+	// StopAll stops all resources and unregisters them. The registry is then
+	// considered closed and no further registrations are allowed.
+	StopAll() error
 
 	// Count returns the number of resources currently held.
 	Count() int
@@ -141,6 +135,8 @@ func (w *Worker) GetWatcherRegistry(ctx context.Context, id uint64) (WatcherRegi
 		id:     strconv.FormatUint(id, 10),
 		runner: w.runner,
 		dying:  w.catacomb.Dying(),
+
+		namespaceCounter: 0,
 	}, nil
 }
 
@@ -153,33 +149,39 @@ type trackedWorker struct {
 	id     string
 	runner *worker.Runner
 
-	dying <-chan struct{}
-
-	counter          int64
-	namespaceCounter int64
-
+	dying  <-chan struct{}
 	closed atomic.Bool
+
+	namespaceCounter int64
 }
 
 // Get returns the watcher for the given id, or nil if there is no such
 // watcher.
-func (r *trackedWorker) Get(id string) (Watcher, error) {
-	w, err := r.runner.Worker(r.ns(id), r.dying)
-	if err != nil {
+func (r *trackedWorker) Get(id string) (worker.Worker, error) {
+	if r.closed.Load() {
+		return nil, errors.Errorf("watcher %q %w", id, coreerrors.NotFound).
+			Add(ErrWatcherRegistryClosed)
+	}
+
+	w, err := r.runner.Worker(r.prefixNamespace(id), r.dying)
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil, errors.Errorf("watcher %q %w", id, coreerrors.NotFound)
+	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return w.(Watcher), nil
+	return w, nil
 }
 
 // Register registers the given watcher. It returns a unique identifier for the
 // watcher which can then be used in subsequent API requests to refer to the
 // watcher.
-func (r *trackedWorker) Register(ctx context.Context, w Watcher) (string, error) {
+func (r *trackedWorker) Register(ctx context.Context, w worker.Worker) (string, error) {
 	nsCounter := atomic.AddInt64(&r.namespaceCounter, 1)
 	namespace := fmt.Sprintf("%s-%d", DefaultNamespace, nsCounter)
 
-	err := r.register(ctx, namespace, w)
-	if err != nil {
+	if err := r.register(ctx, namespace, w); errors.Is(err, coreerrors.NotFound) {
+		return "", errors.Errorf("watcher %q %w", namespace, coreerrors.NotFound)
+	} else if err != nil {
 		return "", errors.Capture(err)
 	}
 	return namespace, nil
@@ -190,37 +192,16 @@ func (r *trackedWorker) Register(ctx context.Context, w Watcher) (string, error)
 // watcher with the same name as an already registered name.
 // It is also an error to supply a name that is an integer string, since that
 // collides with the auto-naming from Register.
-func (r *trackedWorker) RegisterNamed(ctx context.Context, namespace string, w Watcher) error {
+func (r *trackedWorker) RegisterNamed(ctx context.Context, namespace string, w worker.Worker) error {
 	if _, err := strconv.Atoi(namespace); err == nil {
 		return errors.Errorf("namespace %q %w", namespace, coreerrors.NotValid)
 	}
 
-	return r.register(ctx, namespace, w)
-}
-
-func (r *trackedWorker) register(ctx context.Context, namespace string, w Watcher) error {
-	if r.closed.Load() {
-		return ErrWatcherRegistryClosed
-	}
-
-	// Make sure that the watcher is not already set to dying. If it is, we
-	// don't want to create a new worker for it.
-	select {
-	case <-w.Dying():
-		return errors.Errorf("watcher %q is already dying", namespace)
-	case <-ctx.Done():
-		return errors.Capture(ctx.Err())
-	default:
-	}
-
-	err := r.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
-		if r.closed.Load() {
-			return nil, ErrWatcherRegistryClosed
-		}
-
-		return w, nil
-	})
-	if err != nil {
+	if err := r.register(ctx, namespace, w); errors.Is(err, coreerrors.NotFound) {
+		return errors.Errorf("watcher %q %w", namespace, coreerrors.NotFound)
+	} else if errors.Is(err, coreerrors.AlreadyExists) {
+		return errors.Errorf("worker %q %w", namespace, coreerrors.AlreadyExists)
+	} else if err != nil {
 		return errors.Capture(err)
 	}
 	return nil
@@ -231,23 +212,21 @@ func (r *trackedWorker) register(ctx context.Context, namespace string, w Watche
 // It does not return an error if the resource has already
 // been unregistered.
 func (r *trackedWorker) Stop(id string) error {
-	if err := r.runner.StopAndRemoveWorker(r.ns(id), r.dying); err != nil {
+	if err := r.runner.StopAndRemoveWorker(r.prefixNamespace(id), r.dying); err != nil {
 		return errors.Capture(err)
 	}
-	atomic.AddInt64(&r.counter, -1)
 	return nil
 }
 
-// StopAll stops all resources and unregisters them.
-func (r *trackedWorker) Close() error {
+// StopAll stops all resources and unregisters them. The registry is then
+// considered closed and no further registrations are allowed.
+func (r *trackedWorker) StopAll() error {
 	// We don't care if the closed flag was already set, we just want to
 	// ensure that we don't try to register any more watchers.
 	_ = r.closed.Swap(true)
 
-	workerNames := r.runner.WorkerNames()
-
-	for _, name := range workerNames {
-		if !strings.HasPrefix(name, r.id+"-") {
+	for _, name := range r.runner.WorkerNames() {
+		if !r.isOwnedByNamespace(name) {
 			continue
 		}
 
@@ -255,16 +234,45 @@ func (r *trackedWorker) Close() error {
 			return errors.Capture(err)
 		}
 	}
-
-	atomic.SwapInt64(&r.counter, 0)
 	return nil
 }
 
 // Count returns the number of resources currently held.
 func (r *trackedWorker) Count() int {
-	return int(atomic.LoadInt64(&r.counter))
+	var amount int
+	for _, name := range r.runner.WorkerNames() {
+		if !r.isOwnedByNamespace(name) {
+			continue
+		}
+		amount++
+	}
+	return amount
 }
 
-func (r *trackedWorker) ns(id string) string {
-	return fmt.Sprintf("%s-%s", r.id, id)
+func (r *trackedWorker) register(ctx context.Context, namespace string, w worker.Worker) error {
+	if r.closed.Load() {
+		return ErrWatcherRegistryClosed
+	}
+
+	scopedNamespace := r.prefixNamespace(namespace)
+	err := r.runner.StartWorker(ctx, scopedNamespace, func(ctx context.Context) (worker.Worker, error) {
+		if r.closed.Load() {
+			return nil, ErrWatcherRegistryClosed
+		}
+
+		return w, nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (r *trackedWorker) prefixNamespace(id string) string {
+	return fmt.Sprintf("%s#%s", r.id, id)
+}
+
+func (r *trackedWorker) isOwnedByNamespace(id string) bool {
+	return strings.HasPrefix(id, r.id+"#")
 }
