@@ -16,7 +16,7 @@ type ApplicationOfferArgs struct {
 	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
-	// Endpoints is the collection of endpoint names offered (internal->published).
+	// Endpoints is the collection of endpoint names offered.
 	// The map allows for advertised endpoint names to be aliased.
 	Endpoints map[string]string
 
