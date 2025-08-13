@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/offer"
 	"github.com/juju/juju/internal/uuid"
@@ -23,18 +22,6 @@ type AccessService interface {
 		ctx context.Context,
 		spec corepermission.UserAccessSpec,
 	) (corepermission.UserAccess, error)
-
-	// ReadUserAccessLevelForTarget returns the user access level for the
-	// given user on the given target. A NotValid error is returned if the
-	// subject (user) string is empty, or the target is not valid. Any errors
-	// from the state layer are passed through.
-	// If the access level of a user cannot be found then
-	// [accesserrors.AccessNotFound] is returned.
-	ReadUserAccessLevelForTarget(
-		ctx context.Context,
-		subject user.Name,
-		target corepermission.ID,
-	) (corepermission.Access, error)
 
 	// UpdatePermission updates the permission on the target for the given subject
 	// (user). If the subject is an external user, and they do not exist, they are

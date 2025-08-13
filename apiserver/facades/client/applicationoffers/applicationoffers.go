@@ -229,16 +229,11 @@ func (api *OffersAPI) modifyOneOfferAccess(
 		return errors.Errorf("getting offer uuid of %q: %w", offerURL.String(), err)
 	}
 
+	// The api user must have superuser permission on the controller,
+	// admin permission on the model or offer to continue.
 	if err := api.checkAPIUserAdmin(ctx, model.UUID(modelUUID)); err != nil {
-		apiUserName := coreuser.NameFromTag(apiUserTag)
-		accessLevel, err := api.accessService.ReadUserAccessLevelForTarget(ctx, apiUserName, permission.ID{
-			ObjectType: permission.Offer,
-			Key:        offerUUID.String(),
-		})
-		if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
-			return apiservererrors.ErrPerm
-		}
-		if accessLevel != permission.AdminAccess {
+		err = api.authorizer.EntityHasPermission(ctx, apiUserTag, permission.AdminAccess, names.NewApplicationOfferTag(offerUUID.String()))
+		if err != nil {
 			return apiservererrors.ErrPerm
 		}
 	}
@@ -393,11 +388,9 @@ func (api *OffersAPI) checkAPIUserAdmin(
 ) error {
 	controllerTag := names.NewControllerTag(api.controllerUUID)
 	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
-	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		return errors.Capture(err)
-	} else if err == nil {
-		return nil
+	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		err = api.authorizer.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(modelUUID.String()))
 	}
 
-	return api.authorizer.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(modelUUID.String()))
+	return errors.Capture(err)
 }

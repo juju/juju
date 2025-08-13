@@ -16,7 +16,6 @@ import (
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
-	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
 	offer "github.com/juju/juju/domain/offer"
 	uuid "github.com/juju/juju/internal/uuid"
@@ -81,45 +80,6 @@ func (c *MockAccessServiceCreatePermissionCall) Do(f func(context.Context, permi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockAccessServiceCreatePermissionCall) DoAndReturn(f func(context.Context, permission.UserAccessSpec) (permission.UserAccess, error)) *MockAccessServiceCreatePermissionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ReadUserAccessLevelForTarget mocks base method.
-func (m *MockAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 user.Name, arg2 permission.ID) (permission.Access, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTarget", arg0, arg1, arg2)
-	ret0, _ := ret[0].(permission.Access)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReadUserAccessLevelForTarget indicates an expected call of ReadUserAccessLevelForTarget.
-func (mr *MockAccessServiceMockRecorder) ReadUserAccessLevelForTarget(arg0, arg1, arg2 any) *MockAccessServiceReadUserAccessLevelForTargetCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessLevelForTarget", reflect.TypeOf((*MockAccessService)(nil).ReadUserAccessLevelForTarget), arg0, arg1, arg2)
-	return &MockAccessServiceReadUserAccessLevelForTargetCall{Call: call}
-}
-
-// MockAccessServiceReadUserAccessLevelForTargetCall wrap *gomock.Call
-type MockAccessServiceReadUserAccessLevelForTargetCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockAccessServiceReadUserAccessLevelForTargetCall) Return(arg0 permission.Access, arg1 error) *MockAccessServiceReadUserAccessLevelForTargetCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceReadUserAccessLevelForTargetCall) Do(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

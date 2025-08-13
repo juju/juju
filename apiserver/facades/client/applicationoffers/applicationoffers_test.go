@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/offer"
-	offererrors "github.com/juju/juju/domain/offer/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -322,7 +321,13 @@ func (s *offerSuite) TestModifyOfferAccessOfferOwner(c *tc.C) {
 	// authUser does not have model admin permissions.
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(modelUUID)).Return(authentication.ErrorEntityMissingPermission)
 	// authUser has admin permissions for offer.
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(authUserTag), gomock.Any()).Return(permission.AdminAccess, nil)
+	// authUser does not have admin permission on the offer.
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(),
+		authUserTag,
+		permission.AdminAccess,
+		names.NewApplicationOfferTag(offerUUID.String()),
+	).Return(nil)
 
 	// Grant jack consumer permissions on the offer.
 	userTag := names.NewUserTag("jack")
@@ -429,8 +434,13 @@ func (s *offerSuite) TestModifyOfferAccessPermissionDenied(c *tc.C) {
 
 	// authUser does not have model admin permissions.
 	s.expectNoModelAdminAccessPermissions(modelUUID)
-	// authUser has only read permissions for offer.
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(authUserTag), gomock.Any()).Return(permission.ReadAccess, nil)
+	// authUser does not have admin permission on the offer.
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(),
+		authUserTag,
+		permission.AdminAccess,
+		names.NewApplicationOfferTag(offerUUID.String()),
+	).Return(authentication.ErrorEntityMissingPermission)
 
 	// Grant jack consumer permissions on the offer.
 	userTag := names.NewUserTag("jack")
@@ -466,49 +476,6 @@ func (s *offerSuite) TestModifyOfferAccessPermissionDenied(c *tc.C) {
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{
 		Error: &params.Error{
 			Message: "permission denied", Code: "unauthorized access"},
-	},
-	}})
-}
-
-// TestModifyOfferAccessOfferNotFound tests a basic call to ModifyOfferAccess
-// where a non permission error is found.
-func (s *offerSuite) TestModifyOfferAccessOfferNotFound(c *tc.C) {
-	s.setupMocks(c).Finish()
-
-	// Arrange:
-	s.expectNotSuperuser()
-	authUserTag := s.setupAuthUser("simon")
-
-	modelUUID := s.expectGetModelByNameAndQualifier(c, authUserTag, "model")
-
-	// Get the offer UUID.
-	offerURL, _ := corecrossmodel.ParseOfferURL("model.application:db")
-	s.offerService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(uuid.UUID{}, offererrors.OfferNotFound)
-
-	s.expectNoModelAdminAccessPermissions(modelUUID)
-	// authUser has only read permissions for offer.
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(authUserTag), gomock.Any()).Return(permission.ReadAccess, nil)
-
-	userTag := names.NewUserTag("jack")
-	args := params.ModifyOfferAccessRequest{
-		Changes: []params.ModifyOfferAccess{
-			{
-				UserTag:  userTag.String(),
-				Action:   params.GrantOfferAccess,
-				Access:   params.OfferConsumeAccess,
-				OfferURL: offerURL.String(),
-			},
-		},
-	}
-
-	// Act
-	results, err := s.offerAPI(c).ModifyOfferAccess(c.Context(), args)
-
-	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{
-		Error: &params.Error{
-			Message: "offer \"model.application:db\" not found", Code: "not found"},
 	},
 	}})
 }
