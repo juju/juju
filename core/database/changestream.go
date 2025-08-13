@@ -31,5 +31,11 @@ func ShortNamespace(namespace string) string {
 	if namespace == ControllerNS {
 		return ControllerNS
 	}
+	// If the namespace is less than or equal to 6 characters, return it as is.
+	// This shouldn't happen for model UUIDs, but is a safeguard, when we have
+	// namespace that is not a model UUID.
+	if len(namespace) < 6 {
+		return namespace
+	}
 	return model.ShortModelUUID(model.UUID(namespace))
 }
