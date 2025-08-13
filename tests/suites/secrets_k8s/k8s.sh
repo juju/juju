@@ -355,6 +355,30 @@ run_user_secret_drain() {
 	destroy_model "$model_name"
 }
 
+run_test_add_multiple_secrets_parallel() {
+	ctrl_log_file_name='multiple-secrets-parallel-k8s-controller'
+	ctrl_log_file="${TEST_DIR}/${ctrl_log_file_name}.log"
+	trap 'rm -f "$ctrl_log_file"' EXIT
+
+	juju switch controller
+	if ! seq 1 100 | xargs -n1 -P5 sh -c 'juju add-secret "test$1" "foo=bar$1"' _ > "$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
+		echo "Failed: could not add multiple secrets in parallel."
+		exit 1
+	fi
+
+	model_name='multiple-secrets-parallel-k8s'
+	file="${TEST_DIR}/${model_name}.log"
+	trap 'rm -f "$file"' EXIT
+
+	juju add-model "$model_name"
+	if ! seq 1 100 | xargs -n1 -P5 sh -c 'juju add-secret "test$1" "foo=bar$1"' _ > "$file" 2>&1 || grep -iq 'error' "$file"; then
+		echo "Failed: could not add multiple secrets in parallel."
+		destroy_model "$model_name"
+		exit 1
+	fi
+	destroy_model "$model_name"
+}
+
 prepare_vault() {
 	if ! which "vault" >/dev/null 2>&1; then
 		sudo snap install vault
@@ -436,5 +460,20 @@ test_user_secret_drain() {
 		cd .. || exit
 
 		run "run_user_secret_drain"
+	)
+}
+
+test_add_multiple_secrets_parallel() {
+if [ "$(skip 'test_add_multiple_secrets_parallel')" ]; then
+		echo "==> TEST SKIPPED: test_add_multiple_secrets_parallel"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_test_add_multiple_secrets_parallel"
 	)
 }
