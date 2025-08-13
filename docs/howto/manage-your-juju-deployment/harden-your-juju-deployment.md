@@ -17,17 +17,17 @@ If you want to go one step further, take your cloud (and the entire deployment) 
 
 ## Harden the client and the agent binaries
 
-When you install Juju (= the `juju` CLI client + the Juju agent binaries) on Linux, you're installing it from a strictly confined snap. Make sure to keep this snap up to date.
+When you install Juju (= the `juju` CLI client + the Juju agent binaries) on Linux, you're installing it from a strictly confined snap. Snaps update by themselves. In short, nothing you need to do here!
 
 > See more: [Snapcraft | Snap confinement](https://snapcraft.io/docs/snap-confinement), {ref}`manage-juju`, {ref}`juju-roadmap-and-releases`
 
 ## Harden the controller(s)
 
-In a typical Juju workflow you allow your client to read your locally stored cloud credentials, then copy them to the controller, so that the controller can use them to authenticate with the cloud. However, for some clouds Juju now supports a workflow where your (client and) controller doesn't need to know your credentials directly -- you can just supply an instance profile (AWS) or a managed identity (Azure). One way to harden your controller is to take advantage of this workflow.
+In a typical Juju workflow you allow your client to read your locally stored cloud credentials, then copy them to the controller, so that the controller can use them to authenticate with the cloud. However, for some clouds, Juju now supports a workflow where  neither your nor your controller know your credentials directly -- you can just supply an instance profile (AWS) or a managed identity (Azure). One way to harden your controller is to take advantage of this workflow.
 
 > See more: {ref}`bootstrap-a-controller`, {ref}`cloud-ec2`, {ref}`cloud-azure`
 
-(Like all the cloud resources provisioned through Juju,) the cloud resource(s) (machines or containers) that a controller is deployed on by default run the latest Ubuntu LTS.  This Ubuntu is *not* CIS- and DISA-STIG-compliant (see more: [Ubuntu | The Ubuntu Security Guide](https://ubuntu.com/security/certifications/docs/usg)). However, it is by default behind a firewall, inside a VPC, with only the following three ports opened -- as well as hardened (through security groups) -- by default:
+Like all the cloud resources provisioned through Juju, the cloud resources (machines or containers) that a controller is deployed on run the latest Ubuntu LTS.  This Ubuntu is *not* CIS- and DISA-STIG-compliant (see more: [Ubuntu | The Ubuntu Security Guide](https://ubuntu.com/security/certifications/docs/usg)). However, it is behind a firewall, inside a VPC, with only the following three ports opened -- as well as hardened (through security groups) -- by default:
 
 - (always:) `17070`, to allow access from clients and agents;
 - (in high-availability scenarios): mongo
@@ -51,13 +51,13 @@ On a MAAS cloud there is no MAAS-based firewall. In that case it is better to ha
 
 When you bootstrap a controller into a cloud, you automatically become a user with controller admin access. Make sure to change your password, and choose a strong password.
 
-Also, when you create other users (whether human or for an application), take advantage of Juju's granular access levels to grant access to clouds, controllers, models, or application offers only as needed. Revoke or remove any users that are no longer needed.
+Also, when you create other users (whether human or for an application), take advantage of Juju's granular access levels to grant access to clouds, controllers, models, or application offers only as needed. Disable or remove any users that are no longer needed.
 
 > See more: {ref}`user`, {ref}`user-access-levels`, {ref}`manage-users`
 
 ## Harden the model(s)
 
-Within a single controller, living on a particular cloud, you can have multiple users, each of which can have different models (i.e., workspaces or namespaces), each of which can be associated with a different credential for a different cloud. Juju thus supports multi-tenancy.
+Within a single controller, living on a particular cloud, you can have multiple users. Each user can have their own models (i.e., workspaces or namespaces). Each model can be associated with a different credential for a different cloud. Juju thus supports multi-tenancy.
 
 You can also restrict user access to a model and also restrict the commands that any user can perform on a given model.
 

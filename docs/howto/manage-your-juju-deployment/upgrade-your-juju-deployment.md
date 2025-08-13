@@ -5,9 +5,9 @@
 
 This document shows how to upgrade your deployment -- the general logic and order, whether you upgrade in whole or in part, whether you are on Kubernetes or machines.
 
-This typically involves upgrading Juju itself -- the client, the controller (i.e., all the agents in the controller model + the internal database), and the models (i.e., all the agents in the non-controller models). Additionally, for all the applications on your models, you may want to upgrade their charm.
+This typically involves upgrading Juju itself -- the client, the controller (i.e., all the agents in the controller model), and the models (i.e., all the agents in the non-controller models). Additionally, for all the applications on your models, you may want to upgrade their charm.
 
-None of these upgrades are systematically related (e.g., compatibility between Juju component versions is based on overlap in the supported facades, and compatibility between charms and Juju versions is charm-specific, so to know if a particular version combination is possible you'll need to consult the release notes for all these various parts).
+None of these upgrades are systematically related.
 
 > See more: {ref}`upgrading-things`, {ref}`juju-cross-version-compatibility`, {ref}`juju-roadmap-and-releases`, individual charm releases
 

@@ -72,7 +72,7 @@ Abstract CPU power. <br> <br> **Type:** integer, where 100 units is roughly equi
 
 The image ID. If not nil, indicates that a machine must use the specified image.
 
-**Note:** Not supported by all providers. Value is provider-specific.  Also, when applied during `juju deploy`, must be used in conjunction with the `--base` flag of the command -- the `image-id` will specify the image to be used for the provisioned machines and the `--base` will specify the charm revision to be deployed on those machines.
+**Note:** Not supported by all providers. Value is provider-specific.  Also, when applied during `juju deploy`, must be used in conjunction with the `--base` flag of the command -- the `image-id` will specify the image to be used for the provisioned machines and the `--base` will specify the operating system  used by the image to be deployed on those machines.
 
 (constraint-instance-role)=
 ## `instance-role`

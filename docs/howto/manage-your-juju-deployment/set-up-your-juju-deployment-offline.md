@@ -100,7 +100,7 @@ juju bootstrap --model-default apt-mirror=$MIRROR_APT aws
 ````{dropdown} Example: Have all models use local resources for both Juju agent binaries and cloud images
 
 
-Get the resources for Juju agent binaries and cloud images locally; define and export export environment variables pointing to them; then set the `agent-metadata-url` and `image-metadata-url` model configuration keys to point to those environment variables. For example:
+Get the resources for Juju agent binaries and cloud images locally; create simplestreams for these binaries and images (`juju metadata`); define and export export environment variables pointing to the simplestreams; then set the `agent-metadata-url` and `image-metadata-url` model configuration keys to point to those environment variables. For example:
 
 ``` text
 juju bootstrap \

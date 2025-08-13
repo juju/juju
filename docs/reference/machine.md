@@ -21,7 +21,7 @@ When you deploy an {ref}`application <application>` on a machine, there is usual
 
 ## Machines and system (LXD) containers
 
-In Juju, they are both essentially the same -- 'machines'.  For example, most Juju CLI commands that target machines can actually target system containers in the exact same way.
+In Juju, they are both essentially the same -- 'machines'.  For example, most `juju` CLI commands that target machines can actually target system containers in the exact same way.
 
 
 ````{dropdown} Example
@@ -60,13 +60,6 @@ Machine  State    Address         Inst id              Base          AZ  Message
 ## Machine designations
 
 In Juju, many different commands have a machine argument. The shape of this argument depends on whether the machine is existing vs. new and a regular cloud instance vs. a LXD container on top of a regular cloud instance. The argument can also contain combinations, in comma-separated format. The examples below illustrate all the various cases:
-
-<!--
-- When the machine is a regular cloud instance, the ID is numeric, e.g., `1`.
-- When the machine is a LXD container provisioned on top of a regular cloud instance, the ID will take the form `<host instance ID>/lxd/<container ID>`, e.g., `0/lxd/4`.
-- When the target machine does not yet exist, and thus does not yet have an ID, it is omitted.
-- When the target container 'machine' does not yet exist but the target host instance does, so its ID is known, the ID will take the form `lxd:<host instance ID>`, e.g., `lxd:4`. When the target is more than one machine, the IDs can be specified at the same time, in comma-separated format. For more concreteness, some examples along with their gloss:
--->
 
 | shape of the machine argument | meaning|
 |-|-|

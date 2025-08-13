@@ -158,7 +158,7 @@ mkdir -p ~/.local/share
 # sudo chown -f -R $USER:$USER /var/snap/juju/current/microk8s/credentials/client.config
 
 # Register your MicroK8s cloud with Juju:
-# Not necessary --juju recognises a localhost MicroK8s cloud automatically, as you can see by running 'juju clouds'.
+# Not necessary -- juju recognises a localhost MicroK8s cloud automatically, as you can see by running 'juju clouds'.
 juju clouds
 # (If for any reason this doesn't happen, you can register it manually using 'juju add-k8s microk8s'.)
 
@@ -185,7 +185,7 @@ juju status
 lxc network set lxdbr0 ipv6.address none
 
 # Register your LXD cloud with Juju:
-# Not necessary --juju recognises a localhost LXD cloud automatically, as you can see by running 'juju clouds'.
+# Not necessary -- juju recognises a localhost LXD cloud automatically, as you can see by running 'juju clouds'.
 juju clouds
 # The LXD cloud appears under the name 'localhost'
 
