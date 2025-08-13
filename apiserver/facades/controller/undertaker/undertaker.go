@@ -4,7 +4,9 @@
 package undertaker
 
 import (
+	"fmt"
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,7 +22,8 @@ import (
 
 // For testing.
 var (
-	GetProvider = provider.Provider
+	GetProvider    = provider.Provider
+	GetEnvProvider = environs.Provider
 )
 
 // UndertakerAPI implements the API used by the model undertaker worker.
@@ -116,6 +119,35 @@ func (u *UndertakerAPI) RemoveModelSecrets() error {
 		}
 	}
 	return nil
+}
+
+func (u *UndertakerAPI) RemoveModelProfile() error {
+	model, err := u.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	param := params.Entities{Entities: []params.Entity{{Tag: model.Tag().String()}}}
+	cloudSpecResults, err := u.CloudSpec(param)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(cloudSpecResults.Results) != 1 {
+		return fmt.Errorf("expected cloud spec results to return 1 entity, got %d", len(cloudSpecResults.Results))
+	}
+
+	cloudSpec := cloudSpecResults.Results[0]
+	env, err := GetEnvProvider(cloudSpec.Result.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelProfileDestroyer, ok := env.(environs.ModelProfileDestroyer)
+	if !ok {
+		return nil
+	}
+
+	profileName := fmt.Sprintf("juju-%s-%s", model.Name(), model.ModelTag().ShortId())
+	return modelProfileDestroyer.DestroyProfile(profileName, model.EnvironVersion())
 }
 
 func (u *UndertakerAPI) removeModelSecretsForBackend(cfg *provider.ModelBackendConfig) error {
