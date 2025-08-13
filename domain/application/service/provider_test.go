@@ -74,7 +74,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 				},
 			},
 			Constraints: constraints.Constraints{
-				Arch: ptr(arch.AMD64),
+				Arch: ptr(arch.ARM64),
 			},
 		},
 	}}
@@ -143,7 +143,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("arch=amd64"),
+		Constraints: coreconstraints.MustParse("arch=arm64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -214,6 +214,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 			"":         "default",
 			"provider": "beta",
 		},
+		Constraints: coreconstraints.MustParse("arch=arm64"),
 	}, AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(receivedArgs, tc.DeepEquals, us)
@@ -234,6 +235,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
 		application.DefaultStorageProvisioners{}, nil,
 	)
@@ -280,6 +282,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 			Data:    map[string]interface{}{"active": true},
 			Since:   now,
 		},
+		Constraints: coreconstraints.MustParse("arch=arm64"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(receivedArgs.Status, tc.DeepEquals, status)
@@ -328,7 +331,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -370,7 +373,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 			DownloadSize:       42,
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
-		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints:          coreconstraints.MustParse("arch=arm64 cores=4 cpu-power=75"),
 	}, AddIAASUnitArg{
 		AddUnitArg: AddUnitArg{
 			Placement: &instance.Placement{
@@ -425,7 +428,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -466,7 +469,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 			DownloadSize:       42,
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
-		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 	}, AddIAASUnitArg{
 		AddUnitArg: AddUnitArg{
 			Placement: &instance.Placement{
@@ -551,7 +554,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -618,7 +621,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 			DownloadSize:       42,
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
-		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 	}, AddIAASUnitArg{
 		AddUnitArg: AddUnitArg{
 			Placement: &instance.Placement{
@@ -705,7 +708,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -777,7 +780,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 			DownloadSize:       42,
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
-		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
 			"foo-data": {
 				PoolUUID: &blockDeviceStoragePoolUUID,
@@ -810,7 +813,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -828,7 +831,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 				Channel: charm.Channel{
 					Risk: charm.Stable,
 				},
-				Architectures: []string{"amd64"},
+				Architectures: []string{"arm64"},
 			},
 		},
 	}).MinTimes(1)
@@ -849,7 +852,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 			DownloadSize:       42,
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
-		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 	}, AddIAASUnitArg{
 		AddUnitArg: AddUnitArg{
 			Placement: &instance.Placement{
@@ -911,7 +914,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=amd64"),
+		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -959,7 +962,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
 		PendingResources:     []resource.UUID{resourceUUID},
-		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75"),
+		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -1025,7 +1028,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithNoCharmName(c *tc.C)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
 	}, AddApplicationArgs{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
@@ -1087,7 +1090,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllRe
 			Channel: charm.Channel{
 				Risk: charm.Stable,
 			},
-			Architectures: []string{"amd64"},
+			Architectures: []string{"arm64"},
 		}},
 	}).MinTimes(1)
 
@@ -1098,6 +1101,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllRe
 		AddApplicationArgs{
 			ReferenceName:     "foo",
 			ResolvedResources: nil,
+			Constraints:       coreconstraints.MustParse("arch=arm64"),
 		})
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 	c.Assert(err, tc.ErrorMatches,
@@ -1212,6 +1216,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 
 	rErr := errors.New("boom")
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
@@ -1241,6 +1246,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
+		Constraints: coreconstraints.MustParse("arch=arm64"),
 	})
 	c.Check(err, tc.ErrorIs, rErr)
 	c.Assert(err, tc.ErrorMatches, `creating IAAS application "foo": boom`)
@@ -1283,6 +1289,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 				},
 				StorageToAttach: []storage.StorageInstanceUUID{""},
 				StorageToOwn:    []storage.StorageInstanceUUID{""},
+			},
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
 			},
 		},
 		Platform: deployment.Platform{
@@ -1337,6 +1346,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
 			OS: "ubuntu",
@@ -1344,6 +1354,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 				Track: "24.04",
 			},
 		},
+		Constraints: coreconstraints.MustParse("arch=amd64"),
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
@@ -1440,6 +1451,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 				StorageToAttach: []storage.StorageInstanceUUID{"", "", ""},
 				StorageToOwn:    []storage.StorageInstanceUUID{"", "", ""},
 			},
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
+			},
 		},
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
@@ -1494,6 +1508,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
 			OS: "ubuntu",
@@ -1501,6 +1516,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 				Track: "24.04",
 			},
 		},
+		Constraints: coreconstraints.MustParse("arch=amd64"),
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
@@ -1593,6 +1609,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 				StorageToAttach: []storage.StorageInstanceUUID{""},
 				StorageToOwn:    []storage.StorageInstanceUUID{""},
 			},
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
+			},
 		},
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
@@ -1647,6 +1666,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
 			OS: "ubuntu",
@@ -1654,6 +1674,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 				Track: "24.04",
 			},
 		},
+		Constraints: coreconstraints.MustParse("arch=amd64"),
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
@@ -1746,6 +1767,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 				StorageToAttach: []storage.StorageInstanceUUID{"", ""},
 				StorageToOwn:    []storage.StorageInstanceUUID{"", ""},
 			},
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
+			},
 		},
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
@@ -1800,6 +1824,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
 			OS: "ubuntu",
@@ -1807,6 +1832,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 				Track: "24.04",
 			},
 		},
+		Constraints: coreconstraints.MustParse("arch=amd64"),
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
@@ -1893,6 +1919,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 					Since:   now,
 				},
 			},
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
+			},
 		},
 		Platform: platform,
 	}}
@@ -1929,6 +1958,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 		},
 	}
 
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Base: corebase.Base{
 			OS: "ubuntu",
@@ -1936,9 +1967,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 				Track: "24.04",
 			},
 		},
+		Constraints: coreconstraints.MustParse("arch=amd64"),
 	}).Return(nil)
 
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
 		application.DefaultStorageProvisioners{
 			FilesystemProviderType: ptr("fast"),
@@ -2181,10 +2212,8 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{}).Return(nil)
-
 	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{})
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *tc.C) {
@@ -2272,12 +2301,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	returnedCharm := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Subordinate: false,
-		},
-	}
-	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -2346,12 +2369,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	returnedCharm := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Subordinate: false,
-		},
-	}
-	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -2383,7 +2400,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
@@ -2419,12 +2435,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	returnedCharm := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Subordinate: false,
-		},
-	}
-	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -2433,7 +2443,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 		},
 		Constraints: coreconstraints.MustParse("arch=amd64 container=lxd cores=4 instance-role=instance-role instance-type=instance-type mem=1024M root-disk=1024M root-disk-source=root-disk-source tags=tag1,tag2 spaces=space1 virt-type=virt-type zones=zone1,zone2 allocate-public-ip=true"),
 	}).Return(nil)
-	s.expectModelConstraints(c, unitUUID, appUUID)
+	s.expectModelConstraints(appUUID)
 
 	var received []application.AddCAASUnitArg
 	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
@@ -2477,12 +2487,6 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 		},
 	}}
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	returnedCharm := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Subordinate: false,
-		},
-	}
-	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -2545,12 +2549,6 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	returnedCharm := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Subordinate: false,
-		},
-	}
-	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	placement := &instance.Placement{
@@ -2592,12 +2590,6 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	}).Return(nil)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	returnedCharm := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Subordinate: false,
-		},
-	}
-	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), appUUID).Return(returnedCharm, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	s.state.EXPECT().AddIAASUnits(gomock.Any(), appUUID, gomock.Any()).Return([]coreunit.Name{"foo/0"}, nil, nil)
@@ -2616,26 +2608,28 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSupported(c *tc.C) {
+func (s *providerServiceSuite) TestResolveApplicationConstraintsNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, errors.Errorf("not supported %w", coreerrors.NotSupported))
 
-	_, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{}, false)
+	_, err := s.service.ResolveApplicationConstraints(c.Context(), coreconstraints.Value{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
-func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidator(c *tc.C) {
+func (s *providerServiceSuite) TestResolveApplicationConstraintsNilValidator(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 
-	cons, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{}, false)
+	cons, err := s.service.ResolveApplicationConstraints(c.Context(), coreconstraints.Value{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cons, tc.DeepEquals, coreconstraints.Value{})
+	// We should always fill in the arch, even if it's not in the model constraints.
+	c.Check(cons, tc.DeepEquals, coreconstraints.Value{Arch: ptr(arch.AMD64)})
 }
 
-func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraintsNotFound(c *tc.C) {
+func (s *providerServiceSuite) TestResolveApplicationConstraintsConstraintsNotFound(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
@@ -2648,11 +2642,11 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraint
 		constraints.EncodeConstraints(constraints.Constraints{})).
 		Return(coreconstraints.Value{}, nil)
 
-	_, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{}, false)
+	_, err := s.service.ResolveApplicationConstraints(c.Context(), coreconstraints.Value{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordinateWithArch(c *tc.C) {
+func (s *providerServiceSuite) TestResolveApplicationConstraintsithArch(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
@@ -2669,48 +2663,12 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 			Arch: ptr(arch.AMD64),
 		}, nil)
 
-	merged, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{
-		Arch: ptr(arch.AMD64),
-	}, false)
+	merged, err := s.service.ResolveApplicationConstraints(c.Context(), coreconstraints.MustParse("arch=amd64"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
 }
 
-func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsSubordinateWithArch(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
-	defer ctrl.Finish()
-
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
-
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
-		RootDiskSource: ptr("source-disk"),
-		Mem:            ptr(uint64(42)),
-	}, modelerrors.ConstraintsNotFound)
-
-	s.validator.EXPECT().Merge(
-		constraints.EncodeConstraints(constraints.Constraints{
-			RootDiskSource: ptr("source-disk"),
-			Mem:            ptr(uint64(42)),
-		}),
-		constraints.EncodeConstraints(constraints.Constraints{
-			Arch: ptr(arch.AMD64),
-		})).
-		Return(coreconstraints.Value{
-			Arch:           ptr(arch.AMD64),
-			RootDiskSource: ptr("source-disk"),
-			Mem:            ptr(uint64(42)),
-		}, nil)
-
-	merged, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{
-		Arch: ptr(arch.AMD64),
-	}, true)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
-	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")
-	c.Check(*merged.Mem, tc.Equals, uint64(42))
-}
-
-func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordinateWithoutArch(c *tc.C) {
+func (s *providerServiceSuite) TestResolveApplicationConstraintsWithoutArch(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
@@ -2732,11 +2690,9 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 			Mem:            ptr(uint64(42)),
 		}, nil)
 
-	merged, err := s.service.mergeApplicationAndModelConstraints(c.Context(), constraints.Constraints{
-		RootDiskSource: ptr("source-disk"),
-	}, false)
+	merged, err := s.service.ResolveApplicationConstraints(c.Context(), coreconstraints.MustParse("root-disk-source=source-disk"))
 	c.Assert(err, tc.ErrorIsNil)
-	// Default arch should be added in this case.
+	// Default arch should be added.
 	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
 	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")
 	c.Check(*merged.Mem, tc.Equals, uint64(42))
@@ -2784,7 +2740,7 @@ func (s *providerServiceSuite) expectAppConstraints(c *tc.C, unitUUID coreunit.U
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
 }
 
-func (s *providerServiceSuite) expectModelConstraints(c *tc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
+func (s *providerServiceSuite) expectModelConstraints(appUUID coreapplication.ID) {
 	modelConstraints := constraints.Constraints{
 		Arch:           ptr("amd64"),
 		Container:      ptr(instance.LXD),

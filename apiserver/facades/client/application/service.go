@@ -332,6 +332,11 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error
+
+	// ResolveApplicationConstraints resolves given application constraints, taking
+	// into account the model constraints, and any default constraint values that
+	// exist
+	ResolveApplicationConstraints(ctx context.Context, appCons constraints.Value) (constraints.Value, error)
 }
 
 type ResolveService interface {

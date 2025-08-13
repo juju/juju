@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -116,9 +117,10 @@ func (s *ProviderService) CreateIAASApplication(
 	}
 
 	// Precheck any instances that are being created.
-	if err := s.precheckInstances(ctx, appArg.Platform, transform.Slice(unitArgs, func(arg application.AddIAASUnitArg) application.AddUnitArg {
-		return arg.AddUnitArg
-	})); err != nil {
+	if err := s.precheckInstances(ctx, appArg.Platform,
+		transform.Slice(unitArgs, func(arg application.AddIAASUnitArg) application.AddUnitArg {
+			return arg.AddUnitArg
+		})); err != nil {
 		return "", errors.Errorf("prechecking instances: %w", err)
 	}
 
@@ -130,7 +132,9 @@ func (s *ProviderService) CreateIAASApplication(
 	s.logger.Infof(ctx, "created IAAS application %q with ID %q", appName, appID)
 
 	if args.ApplicationStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus); err != nil {
+		if err := s.statusHistory.RecordStatus(
+			ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus,
+		); err != nil {
 			s.logger.Warningf(ctx, "recording IAAS application status history: %w", err)
 		}
 	}
@@ -175,7 +179,9 @@ func (s *ProviderService) CreateCAASApplication(
 	s.logger.Infof(ctx, "created CAAS application %q with ID %q", appName, appID)
 
 	if args.ApplicationStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus); err != nil {
+		if err := s.statusHistory.RecordStatus(
+			ctx, status.ApplicationNamespace.WithID(appName), *args.ApplicationStatus,
+		); err != nil {
 			s.logger.Warningf(ctx, "recording CAAS application status history: %w", err)
 		}
 	}
@@ -228,7 +234,9 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 // error is returned.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
+func (s *ProviderService) SetApplicationConstraints(
+	ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value,
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -245,7 +253,9 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 // AddIAASUnits adds the specified units to the IAAS application, returning an
 // error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application doesn't exist. If no units are provided, it will return nil.
-func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, units ...AddIAASUnitArg) ([]coreunit.Name, []coremachine.Name, error) {
+func (s *ProviderService) AddIAASUnits(
+	ctx context.Context, appName string, units ...AddIAASUnitArg,
+) ([]coreunit.Name, []coremachine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -287,9 +297,11 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 		return nil, nil, errors.Errorf("making IAAS unit args: %w", err)
 	}
 
-	if err := s.precheckInstances(ctx, origin.Platform, transform.Slice(args, func(arg application.AddIAASUnitArg) application.AddUnitArg {
-		return arg.AddUnitArg
-	})); err != nil {
+	if err := s.precheckInstances(
+		ctx, origin.Platform, transform.Slice(args, func(arg application.AddIAASUnitArg) application.AddUnitArg {
+			return arg.AddUnitArg
+		}),
+	); err != nil {
 		return nil, nil, errors.Errorf("pre-checking instances: %w", err)
 	}
 
@@ -312,7 +324,9 @@ func (s *ProviderService) AddIAASUnits(ctx context.Context, appName string, unit
 // AddCAASUnits adds the specified units to the CAAS application, returning an
 // error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application doesn't exist. If no units are provided, it will return nil.
-func (s *ProviderService) AddCAASUnits(ctx context.Context, appName string, units ...AddUnitArg) ([]coreunit.Name, error) {
+func (s *ProviderService) AddCAASUnits(
+	ctx context.Context, appName string, units ...AddUnitArg,
+) ([]coreunit.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -525,6 +539,18 @@ func (s *ProviderService) RegisterCAASUnit(
 	return unitName, pass, nil
 }
 
+// ResolveApplicationConstraints resolves given application constraints, taking
+// into account the model constraints, and any hard-coded default constraint values
+// that exist.
+func (s *ProviderService) ResolveApplicationConstraints(
+	ctx context.Context, appCons coreconstraints.Value,
+) (coreconstraints.Value, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.resolveApplicationConstraints(ctx, appCons)
+}
+
 // getRegisterCAASUnitStorageArgs is responsible for fetching the storage
 // arguments required to register a CAAS unit in the model. This func considers
 // pre existing storage already in the model for the unit and that of storage
@@ -702,14 +728,38 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	args AddApplicationArgs,
 	units ...AddIAASUnitArg,
 ) (string, application.AddIAASApplicationArg, []application.AddIAASUnitArg, error) {
+	if err := s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
+		return "", application.AddIAASApplicationArg{}, nil,
+			errors.Errorf("validating create application args: %w", err)
+	}
+
+	// Subordinate applications are not allowed to have constraints, so no point
+	// in trying to resolve them.
+	// Also, we know that the charm must have a non-nil meta, since we have already
+	// validated the args.
+	cons := coreconstraints.Value{}
+	if !charm.Meta().Subordinate {
+		var err error
+		cons, err = s.resolveApplicationConstraints(ctx, args.Constraints)
+		if err != nil {
+			return "", application.AddIAASApplicationArg{}, nil,
+				errors.Errorf("merging IAAS application and model constraints: %w", err)
+		}
+
+		// Sometimes the arch on the origin platform is not set. But sometimes an arch
+		// is passed in through constraints instead (or at least, after resolve we
+		// will have a value). Ensure we these two params don't contradict each other,
+		// and ensure they are set to the same value.
+		if origin.Platform.Architecture != "" && origin.Platform.Architecture != *cons.Arch {
+			return "", application.AddIAASApplicationArg{}, nil,
+				errors.Errorf("arch in platform and constraints for application do not match")
+		}
+		origin.Platform.Architecture = *cons.Arch
+	}
+
 	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
-	}
-
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints), charm.Meta().Subordinate)
-	if err != nil {
-		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("merging IAAS application and model constraints: %w", err)
 	}
 
 	storageDirectives := makeStorageDirectiveFromApplicationArg(
@@ -735,14 +785,30 @@ func (s *ProviderService) makeCAASApplicationArg(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (string, application.AddCAASApplicationArg, []application.AddCAASUnitArg, error) {
+	if err := s.validateCreateApplicationArgs(ctx, name, charm, origin, args); err != nil {
+		return "", application.AddCAASApplicationArg{}, nil,
+			errors.Errorf("validating create application args: %w", err)
+	}
+
+	cons, err := s.resolveApplicationConstraints(ctx, args.Constraints)
+	if err != nil {
+		return "", application.AddCAASApplicationArg{}, nil,
+			errors.Errorf("merging CAAS application and model constraints: %w", err)
+	}
+
+	// Sometimes the arch on the origin platform is not set. But sometimes an arch
+	// is passed in through constraints instead (or at least, after resolve we
+	// will have a value). Ensure we these two params don't contradict each other,
+	// and ensure they are set to the same value.
+	if origin.Platform.Architecture != "" && origin.Platform.Architecture != *cons.Arch {
+		return "", application.AddCAASApplicationArg{}, nil,
+			errors.Errorf("arch in platform and constraints for application do not match")
+	}
+	origin.Platform.Architecture = *cons.Arch
+
 	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
-	}
-
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints), charm.Meta().Subordinate)
-	if err != nil {
-		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("merging CAAS application and model constraints: %w", err)
 	}
 
 	storageDirectives := makeStorageDirectiveFromApplicationArg(arg.StorageDirectives)
@@ -758,20 +824,20 @@ func (s *ProviderService) makeCAASApplicationArg(
 	}, unitArgs, nil
 }
 
-func (s *ProviderService) makeApplicationArg(
+func (s *ProviderService) validateCreateApplicationArgs(
 	ctx context.Context,
 	name string,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
-) (string, application.BaseAddApplicationArg, error) {
+) error {
 	if err := validateCharmAndApplicationParams(
 		name,
 		args.ReferenceName,
 		charm,
 		origin,
 	); err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("invalid application args: %w", err)
+		return errors.Errorf("invalid application args: %w", err)
 	}
 
 	err := validateApplicationStorageDirectiveParams(
@@ -781,23 +847,33 @@ func (s *ProviderService) makeApplicationArg(
 		s.storageProviderValidator,
 	)
 	if err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf(
+		return errors.Errorf(
 			"invalid storage directive overrides: %w", err,
 		)
 	}
 
 	if err := validateDownloadInfoParams(origin.Source, args.DownloadInfo); err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("invalid application args: %w", err)
+		return errors.Errorf("invalid application args: %w", err)
 	}
 
 	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("create application: %w", err)
+		return errors.Errorf("create application: %w", err)
 	}
 
 	if err := validateDeviceConstraints(args.Devices, charm.Meta()); err != nil {
-		return "", application.BaseAddApplicationArg{}, errors.Errorf("validating device constraints: %w", err)
+		return errors.Errorf("validating device constraints: %w", err)
 	}
 
+	return nil
+}
+
+func (s *ProviderService) makeApplicationArg(
+	ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+) (string, application.BaseAddApplicationArg, error) {
 	appArg, err := makeCreateApplicationArgs(ctx, s.st, charm, origin, args)
 	if err != nil {
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
@@ -841,19 +917,15 @@ func (s *ProviderService) precheckInstances(
 	return nil
 }
 
-func (s *ProviderService) makeApplicationConstraints(ctx context.Context, appUUID coreapplication.ID) (coreconstraints.Value, error) {
+func (s *ProviderService) makeApplicationConstraints(
+	ctx context.Context, appUUID coreapplication.ID,
+) (coreconstraints.Value, error) {
 	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
 	if err != nil {
 		return coreconstraints.Value{}, errors.Errorf("getting application constraints: %w", err)
 	}
 
-	// We must get the charm to know if it's a subordinate.
-	charm, err := s.st.GetCharmByApplicationID(ctx, appUUID)
-	if err != nil {
-		return coreconstraints.Value{}, errors.Errorf("getting application charm for subordinate: %w", err)
-	}
-
-	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons, charm.Metadata.Subordinate)
+	cons, err := s.resolveApplicationConstraints(ctx, constraints.EncodeConstraints(appCons))
 	if err != nil {
 		return coreconstraints.Value{}, errors.Capture(err)
 	}
@@ -861,52 +933,47 @@ func (s *ProviderService) makeApplicationConstraints(ctx context.Context, appUUI
 	return cons, nil
 }
 
+// constraintsValidator queries the provider for a constraints validator.
+// If the provider doesn't support constraints validation, then we return
+// a default validator
 func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstraints.Validator, error) {
 	provider, err := s.provider(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		// Not validating constraints, as the provider doesn't support it.
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	validator, err := provider.ConstraintsValidator(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
+	} else if validator == nil {
+		return coreconstraints.NewValidator(), nil
 	}
 
 	return validator, nil
 }
 
-func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appCons constraints.Constraints, isSubordinate bool) (coreconstraints.Value, error) {
-	// If the provider doesn't support constraints validation, then we can
-	// just return the zero value.
+func (s *ProviderService) resolveApplicationConstraints(
+	ctx context.Context, appCons coreconstraints.Value,
+) (coreconstraints.Value, error) {
 	validator, err := s.constraintsValidator(ctx)
-	if err != nil || validator == nil {
+	if err != nil {
 		return coreconstraints.Value{}, errors.Capture(err)
 	}
-
 	modelCons, err := s.st.GetModelConstraints(ctx)
 	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
 		return coreconstraints.Value{}, errors.Errorf("retrieving model constraints constraints: %w	", err)
 	}
 
-	mergedCons, err := validator.Merge(constraints.EncodeConstraints(modelCons), constraints.EncodeConstraints(appCons))
+	mergedCons, err := validator.Merge(constraints.EncodeConstraints(modelCons), appCons)
 	if err != nil {
 		return coreconstraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
 	}
 
-	// Always ensure that we snapshot the application architecture when adding
-	// the application. If no architecture in the constraints, then look at
-	// the model constraints. If no architecture is found in the model, use the
-	// default architecture (amd64).
-	snapshotCons := mergedCons
-	if !isSubordinate && !snapshotCons.HasArch() {
-		a := coreconstraints.ArchOrDefault(snapshotCons, nil)
-		snapshotCons.Arch = &a
+	if !mergedCons.HasArch() {
+		mergedCons.Arch = ptr(arch.DefaultArchitecture)
 	}
 
-	return snapshotCons, nil
+	return mergedCons, nil
 }
 
 func (s *ProviderService) validateConstraints(ctx context.Context, cons coreconstraints.Value) error {

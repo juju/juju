@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charm/resource"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
@@ -350,6 +351,8 @@ type deployFromRepositoryValidator struct {
 // arguments. Returned is a deployTemplate which contains validated
 // data necessary to deploy the application.
 // Where possible, errors will be grouped and returned as a list.
+//
+// TODO(juju 5): Push this into the service layer
 func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
@@ -603,21 +606,24 @@ func (v *deployFromRepositoryValidator) createOrigin(ctx context.Context, arg pa
 // Return an error if the placement platform and user provided base do not
 // match.
 func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg params.DeployFromRepositoryArg) (corecharm.Platform, bool, error) {
-	argArch := arg.Cons.Arch
 	argBase := arg.Base
 	var usedModelDefaultBase bool
 
-	// Try argBase with provided argArch and argBase first.
-	platform := corecharm.Platform{}
-	if argArch != nil {
-		platform.Architecture = *argArch
+	// ResolveApplicationConstraints handles falling back to the model constraints
+	// and, as a special case for Arch, to DefaultArchitecture. This means that
+	// it is guaranteed that Arch is set.
+	// This isn't ideal, because we resolve the constraints later within the service,
+	// but we need to calculate the arch here correctly to ensure we resolve the
+	// correct charm from charmhub. Ideally, this whole package would be pushed
+	// into the service layer.
+	resolvedCons, err := v.applicationService.ResolveApplicationConstraints(ctx, arg.Cons)
+	if err != nil {
+		return corecharm.Platform{}, usedModelDefaultBase, internalerrors.Errorf("resolving application constraints: %w", err)
 	}
-	// Fallback to model defaults if set. DefaultArchitecture otherwise.
-	if platform.Architecture == "" {
-		// TODO(CodingCookieRookie): Add logic for getting arch from model constraints
-		// and setting as platform arch
-		platform.Architecture = arch.DefaultArchitecture
+	platform := corecharm.Platform{
+		Architecture: *resolvedCons.Arch,
 	}
+
 	if argBase != nil {
 		base, err := corebase.ParseBase(argBase.Name, argBase.Channel)
 		if err != nil {
@@ -628,7 +634,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 	}
 
 	// Initial validation of platform from known data.
-	_, err := corecharm.ParsePlatform(platform.String())
+	_, err = corecharm.ParsePlatform(platform.String())
 	if err != nil && !errors.Is(err, errors.BadRequest) {
 		return corecharm.Platform{}, usedModelDefaultBase, err
 	}
