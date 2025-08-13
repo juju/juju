@@ -18,6 +18,7 @@ type InstanceMutaterState interface {
 
 	ModelName() (string, error)
 	ModelUUID() (string, error)
+	ModelVersion() (int, error)
 	Application(appName string) (Application, error)
 	Charm(curl string) (Charm, error)
 	Machine(id string) (Machine, error)

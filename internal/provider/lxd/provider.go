@@ -28,6 +28,13 @@ import (
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 )
 
+const (
+	// ProviderVersion1 introduces unique profile names.
+	ProviderVersion1 = 1
+
+	currentProviderVersion = ProviderVersion1
+)
+
 // LXCConfigReader reads files required for the LXC configuration.
 type LXCConfigReader interface {
 	// ReadConfig takes a path and returns a LXCConfig.
@@ -140,7 +147,7 @@ func NewProvider() environs.CloudEnvironProvider {
 
 // Version is part of the EnvironProvider interface.
 func (*environProvider) Version() int {
-	return 0
+	return currentProviderVersion
 }
 
 // Open implements environs.EnvironProvider.
@@ -148,6 +155,7 @@ func (p *environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
+	logger.Infof("[adis][environprovider][open] cloud: %+v", args.Cloud)
 	env, err := newEnviron(
 		p,
 		args.Cloud,

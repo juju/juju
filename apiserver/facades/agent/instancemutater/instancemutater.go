@@ -103,6 +103,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 	result.InstanceId = lxdProfileInfo.InstanceId
 	result.ModelName = lxdProfileInfo.ModelName
 	result.ModelUUID = lxdProfileInfo.ModelUUID
+	result.ModelVersion = lxdProfileInfo.ModelVersion
 	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
 	result.ProfileChanges = lxdProfileInfo.ProfileUnits
 
@@ -314,6 +315,7 @@ type lxdProfileInfo struct {
 	InstanceId      instance.Id
 	ModelName       string
 	ModelUUID       string
+	ModelVersion    int
 	MachineProfiles []string
 	ProfileUnits    []params.ProfileInfoResult
 }
@@ -378,12 +380,17 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
+	modelVersion, err := api.st.ModelVersion()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
 	return lxdProfileInfo{
 		InstanceId:      instId,
 		ModelName:       modelName,
 		ModelUUID:       modelUUID,
 		MachineProfiles: machineProfiles,
 		ProfileUnits:    changeResults,
+		ModelVersion:    modelVersion,
 	}, nil
 }
 

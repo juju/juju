@@ -389,6 +389,7 @@ func (m *containerManager) MaybeWriteLXDProfile(pName string, put lxdprofile.Pro
 			Devices:     put.Devices,
 		},
 	}
+	logger.Infof("[adis][containermanager][maybewritelxdprofile] post: %+v", post)
 	if err = m.server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}
