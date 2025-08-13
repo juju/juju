@@ -1082,13 +1082,15 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 			logger.Tracef("no profile to return for %q", unit.Name())
 			continue
 		}
+		profileName := lxdprofile.Name(ctx.modelName, ctx.modelTag.ShortId(), app.Name(), ch.Revision())
+
 		resPro = append(resPro, &params.ContainerLXDProfile{
 			Profile: params.CharmLXDProfile{
 				Config:      profile.Config,
 				Description: profile.Description,
 				Devices:     profile.Devices,
 			},
-			Name: lxdprofile.Name(ctx.modelName, ctx.modelTag.ShortId(), app.Name(), ch.Revision()),
+			Name: profileName,
 		})
 	}
 

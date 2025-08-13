@@ -483,10 +483,11 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 	logger.Infof("[adis][stopinstances] profilestodelete: %+v", profilesToDelete)
 	for _, profile := range profilesToDelete {
 		err = env.server().DeleteProfile(profile)
-		logger.Debugf("deleted profile %q", profile)
 		if err != nil {
-			logger.Debugf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+			logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+			continue
 		}
+		logger.Debugf("deleted profile %q", profile)
 	}
 
 	return nil

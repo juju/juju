@@ -233,8 +233,7 @@ func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
-
-	return env.destroyModelProfile()
+	return nil
 }
 
 // DestroyController implements the Environ interface.
@@ -279,15 +278,16 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	return errors.Trace(env.server().RemoveContainers(names))
 }
 
-func (env *environ) destroyModelProfile() error {
+// DestroyProfile implements ModelProfileDestroyer
+func (env *environ) DestroyProfile(profileName string) error {
 	server := env.server()
-	profile := env.profileName()
-	err := server.DeleteProfile(profile)
+	err := server.DeleteProfile(profileName)
 	if err != nil {
-		logger.Debugf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+		logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profileName, err.Error())
+		return nil
 	}
 
-	logger.Infof("[adis] deleted profile %q", profile)
+	logger.Infof("deleted profile %q", profileName)
 
 	return nil
 }
@@ -446,6 +446,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) e
 			Devices:     put.Devices,
 		},
 	}
+	logger.Infof("[adis][environ][maybewritelxdprofile] post: %+v", post)
 	if err = server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}

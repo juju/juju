@@ -423,6 +423,12 @@ type ControllerDestroyer interface {
 	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
 }
 
+// ModelProfileDestroyer deletes a model LXD profile.
+// Right now, only the LXD provider implements this.
+type ModelProfileDestroyer interface {
+	DestroyProfile(profileName string) error
+}
+
 type ResourceAdopter interface {
 	// AdoptResources is called when the model is moved from one
 	// controller to another using model migration. Some providers tag
