@@ -239,7 +239,7 @@ func (r *apiHandler) CloseConn() error {
 // Kill implements rpc.Killer, cleaning up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *apiHandler) Kill() {
-	r.watcherRegistry.Close()
+	r.watcherRegistry.StopAll()
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.

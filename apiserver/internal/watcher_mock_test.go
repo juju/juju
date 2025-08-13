@@ -10,6 +10,7 @@
 package internal_test
 
 import (
+	context "context"
 	reflect "reflect"
 
 	worker "github.com/juju/worker/v4"
@@ -175,18 +176,18 @@ func (m *MockWatcherRegistry) EXPECT() *MockWatcherRegistryMockRecorder {
 }
 
 // Register mocks base method.
-func (m *MockWatcherRegistry) Register(arg0 worker.Worker) (string, error) {
+func (m *MockWatcherRegistry) Register(arg0 context.Context, arg1 worker.Worker) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Register", arg0)
+	ret := m.ctrl.Call(m, "Register", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Register indicates an expected call of Register.
-func (mr *MockWatcherRegistryMockRecorder) Register(arg0 any) *MockWatcherRegistryRegisterCall {
+func (mr *MockWatcherRegistryMockRecorder) Register(arg0, arg1 any) *MockWatcherRegistryRegisterCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockWatcherRegistry)(nil).Register), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockWatcherRegistry)(nil).Register), arg0, arg1)
 	return &MockWatcherRegistryRegisterCall{Call: call}
 }
 
@@ -202,13 +203,13 @@ func (c *MockWatcherRegistryRegisterCall) Return(arg0 string, arg1 error) *MockW
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockWatcherRegistryRegisterCall) Do(f func(worker.Worker) (string, error)) *MockWatcherRegistryRegisterCall {
+func (c *MockWatcherRegistryRegisterCall) Do(f func(context.Context, worker.Worker) (string, error)) *MockWatcherRegistryRegisterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatcherRegistryRegisterCall) DoAndReturn(f func(worker.Worker) (string, error)) *MockWatcherRegistryRegisterCall {
+func (c *MockWatcherRegistryRegisterCall) DoAndReturn(f func(context.Context, worker.Worker) (string, error)) *MockWatcherRegistryRegisterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

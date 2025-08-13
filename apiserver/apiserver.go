@@ -56,6 +56,7 @@ import (
 	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
@@ -238,6 +239,9 @@ type ServerConfig struct {
 	// ObjectStoreGetter returns an object store for the given namespace.
 	// This is used for retrieving blobs for charms and agents.
 	ObjectStoreGetter objectstore.ObjectStoreGetter
+
+	// WatcherRegistryGetter is used to register and manage watchers.
+	WatcherRegistryGetter watcherregistry.WatcherRegistryGetter
 }
 
 // Validate validates the API server configuration.
@@ -294,6 +298,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.ObjectStoreGetter == nil {
 		return errors.NotValidf("missing ObjectStoreGetter")
+	}
+	if c.WatcherRegistryGetter == nil {
+		return errors.NotValidf("missing WatcherRegistryGetter")
 	}
 	return nil
 }
@@ -354,6 +361,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		machineTag:              cfg.Tag,
 		dataDir:                 cfg.DataDir,
 		logDir:                  cfg.LogDir,
+		watcherRegistryGetter:   cfg.WatcherRegistryGetter,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
