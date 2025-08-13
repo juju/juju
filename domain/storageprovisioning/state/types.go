@@ -314,3 +314,5 @@ type storageAttachmentIdentifier struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	UnitUUID            string `db:"unit_uuid"`
 }
+
+type storageInstanceUUIDs []string

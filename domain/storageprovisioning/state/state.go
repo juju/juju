@@ -10,8 +10,10 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
+	coredatabase "github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -467,6 +469,64 @@ WHERE  unit_uuid = $unitUUIDRef.unit_uuid`, input, storageID{})
 	return storageIDs, nil
 }
 
+// GetStorageIDsForUnit retrieves the storage IDs for a specific unit and
+// storage instances.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+func (st *State) GetStorageIDsForUnit(
+	ctx context.Context,
+	unitUUID string,
+	storageInstanceUUIDStrs []string,
+) ([]string, error) {
+	if len(storageInstanceUUIDStrs) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	unitRef := unitUUIDRef{UUID: unitUUID}
+	sIUUIDs := storageInstanceUUIDs(storageInstanceUUIDStrs)
+	stmt, err := st.Prepare(`
+SELECT &storageID.*
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  sa.unit_uuid = $unitUUIDRef.unit_uuid
+AND    sa.storage_instance_uuid IN ($storageInstanceUUIDs[:])`, unitRef, sIUUIDs, storageID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var ids storageIDs
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if exists, err := st.checkUnitExists(ctx, tx, unitUUID); err != nil {
+			return errors.Capture(err)
+		} else if !exists {
+			return errors.Errorf("unit %q does not exist", unitUUID).Add(
+				applicationerrors.UnitNotFound,
+			)
+		}
+
+		err := tx.Query(ctx, stmt, unitRef, sIUUIDs).GetAll(&ids)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No storage attachments for the unit, return an empty slice.
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	storageIDs := make([]string, 0, len(ids))
+	for _, id := range ids {
+		storageIDs = append(storageIDs, id.ID)
+	}
+	return storageIDs, nil
+}
+
 // GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by its ID.
 //
 // The following errors may be returned:
@@ -563,4 +623,53 @@ AND    storage_instance_uuid = $storageAttachmentIdentifier.storage_instance_uui
 		return -1, errors.Capture(err)
 	}
 	return domainlife.Life(attachmentLife.LifeID), nil
+}
+
+// InitialWatchStatementForUnitStorageAttachments returns the initial watch
+// statement for unit storage attachments.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+func (st *State) InitialWatchStatementForUnitStorageAttachments(
+	ctx context.Context,
+	unitUUID string,
+) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		input := unitUUIDRef{UUID: unitUUID}
+		stmt, err := st.Prepare(`
+SELECT &storageID.*
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  sa.unit_uuid = $unitUUIDRef.unit_uuid
+`, input, storageID{})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		var ids storageIDs
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			if exists, err := st.checkUnitExists(ctx, tx, unitUUID); err != nil {
+				return errors.Capture(err)
+			} else if !exists {
+				return errors.Errorf("unit %q does not exist", unitUUID).Add(
+					applicationerrors.UnitNotFound,
+				)
+			}
+
+			err := tx.Query(ctx, stmt, input).GetAll(&ids)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				// No storage attachments for the unit, return an empty slice.
+				return nil
+			}
+			return err
+		})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		storageIDs := make([]string, 0, len(ids))
+		for _, id := range ids {
+			storageIDs = append(storageIDs, id.ID)
+		}
+		return storageIDs, nil
+	}
+	return "storage_attachment", queryFunc
 }
