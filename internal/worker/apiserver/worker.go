@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 )
 
 // Config is the configuration required for running an API server worker.
@@ -43,6 +44,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
+	WatcherRegistryGetter             watcherregistry.WatcherRegistryGetter
 
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter                changestream.WatchableDBGetter
@@ -121,6 +123,9 @@ func (config Config) Validate() error {
 	if config.JWTParser == nil {
 		return errors.NotValidf("nil JWTParser")
 	}
+	if config.WatcherRegistryGetter == nil {
+		return errors.NotValidf("nil WatcherRegistryGetter")
+	}
 	return nil
 }
 
@@ -183,6 +188,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ControllerConfigService:       config.ControllerConfigService,
 		TracerGetter:                  config.TracerGetter,
 		ObjectStoreGetter:             config.ObjectStoreGetter,
+		WatcherRegistryGetter:         config.WatcherRegistryGetter,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

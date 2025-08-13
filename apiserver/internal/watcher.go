@@ -23,7 +23,7 @@ type Watcher[T any] interface {
 type WatcherRegistry interface {
 	// Register registers a watcher and returns a string that can be used
 	// to unregister it.
-	Register(worker.Worker) (string, error)
+	Register(context.Context, worker.Worker) (string, error)
 }
 
 // FirstResult checks whether the first set of returned changes are
@@ -50,7 +50,7 @@ func EnsureRegisterWatcher[T any](ctx context.Context, reg WatcherRegistry, w ev
 	if err != nil {
 		return "", changes, errors.Trace(err)
 	}
-	id, err := reg.Register(w)
+	id, err := reg.Register(ctx, w)
 	if err != nil {
 		return "", changes, errors.Trace(err)
 	}

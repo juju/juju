@@ -22,6 +22,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	objectstore "github.com/juju/juju/core/objectstore"
 	services "github.com/juju/juju/internal/services"
+	watcherregistry "github.com/juju/juju/internal/worker/watcherregistry"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -1006,10 +1007,10 @@ func (c *MockModelContextSingularClaimerCall) DoAndReturn(f func() (lease.Claime
 }
 
 // WatcherRegistry mocks base method.
-func (m *MockModelContext) WatcherRegistry() facade.WatcherRegistry {
+func (m *MockModelContext) WatcherRegistry() watcherregistry.WatcherRegistry {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatcherRegistry")
-	ret0, _ := ret[0].(facade.WatcherRegistry)
+	ret0, _ := ret[0].(watcherregistry.WatcherRegistry)
 	return ret0
 }
 
@@ -1026,19 +1027,19 @@ type MockModelContextWatcherRegistryCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelContextWatcherRegistryCall) Return(arg0 facade.WatcherRegistry) *MockModelContextWatcherRegistryCall {
+func (c *MockModelContextWatcherRegistryCall) Return(arg0 watcherregistry.WatcherRegistry) *MockModelContextWatcherRegistryCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelContextWatcherRegistryCall) Do(f func() facade.WatcherRegistry) *MockModelContextWatcherRegistryCall {
+func (c *MockModelContextWatcherRegistryCall) Do(f func() watcherregistry.WatcherRegistry) *MockModelContextWatcherRegistryCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextWatcherRegistryCall) DoAndReturn(f func() facade.WatcherRegistry) *MockModelContextWatcherRegistryCall {
+func (c *MockModelContextWatcherRegistryCall) DoAndReturn(f func() watcherregistry.WatcherRegistry) *MockModelContextWatcherRegistryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -10,6 +10,7 @@
 package uniter_test
 
 import (
+	context "context"
 	reflect "reflect"
 
 	worker "github.com/juju/worker/v4"
@@ -37,44 +38,6 @@ func NewMockWatcherRegistry(ctrl *gomock.Controller) *MockWatcherRegistry {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWatcherRegistry) EXPECT() *MockWatcherRegistryMockRecorder {
 	return m.recorder
-}
-
-// Count mocks base method.
-func (m *MockWatcherRegistry) Count() int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Count")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// Count indicates an expected call of Count.
-func (mr *MockWatcherRegistryMockRecorder) Count() *MockWatcherRegistryCountCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Count", reflect.TypeOf((*MockWatcherRegistry)(nil).Count))
-	return &MockWatcherRegistryCountCall{Call: call}
-}
-
-// MockWatcherRegistryCountCall wrap *gomock.Call
-type MockWatcherRegistryCountCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockWatcherRegistryCountCall) Return(arg0 int) *MockWatcherRegistryCountCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockWatcherRegistryCountCall) Do(f func() int) *MockWatcherRegistryCountCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatcherRegistryCountCall) DoAndReturn(f func() int) *MockWatcherRegistryCountCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // Get mocks base method.
@@ -116,55 +79,19 @@ func (c *MockWatcherRegistryGetCall) DoAndReturn(f func(string) (worker.Worker, 
 	return c
 }
 
-// Kill mocks base method.
-func (m *MockWatcherRegistry) Kill() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Kill")
-}
-
-// Kill indicates an expected call of Kill.
-func (mr *MockWatcherRegistryMockRecorder) Kill() *MockWatcherRegistryKillCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockWatcherRegistry)(nil).Kill))
-	return &MockWatcherRegistryKillCall{Call: call}
-}
-
-// MockWatcherRegistryKillCall wrap *gomock.Call
-type MockWatcherRegistryKillCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockWatcherRegistryKillCall) Return() *MockWatcherRegistryKillCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockWatcherRegistryKillCall) Do(f func()) *MockWatcherRegistryKillCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatcherRegistryKillCall) DoAndReturn(f func()) *MockWatcherRegistryKillCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Register mocks base method.
-func (m *MockWatcherRegistry) Register(arg0 worker.Worker) (string, error) {
+func (m *MockWatcherRegistry) Register(arg0 context.Context, arg1 worker.Worker) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Register", arg0)
+	ret := m.ctrl.Call(m, "Register", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Register indicates an expected call of Register.
-func (mr *MockWatcherRegistryMockRecorder) Register(arg0 any) *MockWatcherRegistryRegisterCall {
+func (mr *MockWatcherRegistryMockRecorder) Register(arg0, arg1 any) *MockWatcherRegistryRegisterCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockWatcherRegistry)(nil).Register), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockWatcherRegistry)(nil).Register), arg0, arg1)
 	return &MockWatcherRegistryRegisterCall{Call: call}
 }
 
@@ -180,29 +107,29 @@ func (c *MockWatcherRegistryRegisterCall) Return(arg0 string, arg1 error) *MockW
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockWatcherRegistryRegisterCall) Do(f func(worker.Worker) (string, error)) *MockWatcherRegistryRegisterCall {
+func (c *MockWatcherRegistryRegisterCall) Do(f func(context.Context, worker.Worker) (string, error)) *MockWatcherRegistryRegisterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatcherRegistryRegisterCall) DoAndReturn(f func(worker.Worker) (string, error)) *MockWatcherRegistryRegisterCall {
+func (c *MockWatcherRegistryRegisterCall) DoAndReturn(f func(context.Context, worker.Worker) (string, error)) *MockWatcherRegistryRegisterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RegisterNamed mocks base method.
-func (m *MockWatcherRegistry) RegisterNamed(arg0 string, arg1 worker.Worker) error {
+func (m *MockWatcherRegistry) RegisterNamed(arg0 context.Context, arg1 string, arg2 worker.Worker) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterNamed", arg0, arg1)
+	ret := m.ctrl.Call(m, "RegisterNamed", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RegisterNamed indicates an expected call of RegisterNamed.
-func (mr *MockWatcherRegistryMockRecorder) RegisterNamed(arg0, arg1 any) *MockWatcherRegistryRegisterNamedCall {
+func (mr *MockWatcherRegistryMockRecorder) RegisterNamed(arg0, arg1, arg2 any) *MockWatcherRegistryRegisterNamedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterNamed", reflect.TypeOf((*MockWatcherRegistry)(nil).RegisterNamed), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterNamed", reflect.TypeOf((*MockWatcherRegistry)(nil).RegisterNamed), arg0, arg1, arg2)
 	return &MockWatcherRegistryRegisterNamedCall{Call: call}
 }
 
@@ -218,13 +145,13 @@ func (c *MockWatcherRegistryRegisterNamedCall) Return(arg0 error) *MockWatcherRe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockWatcherRegistryRegisterNamedCall) Do(f func(string, worker.Worker) error) *MockWatcherRegistryRegisterNamedCall {
+func (c *MockWatcherRegistryRegisterNamedCall) Do(f func(context.Context, string, worker.Worker) error) *MockWatcherRegistryRegisterNamedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatcherRegistryRegisterNamedCall) DoAndReturn(f func(string, worker.Worker) error) *MockWatcherRegistryRegisterNamedCall {
+func (c *MockWatcherRegistryRegisterNamedCall) DoAndReturn(f func(context.Context, string, worker.Worker) error) *MockWatcherRegistryRegisterNamedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -263,44 +190,6 @@ func (c *MockWatcherRegistryStopCall) Do(f func(string) error) *MockWatcherRegis
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockWatcherRegistryStopCall) DoAndReturn(f func(string) error) *MockWatcherRegistryStopCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Wait mocks base method.
-func (m *MockWatcherRegistry) Wait() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Wait")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Wait indicates an expected call of Wait.
-func (mr *MockWatcherRegistryMockRecorder) Wait() *MockWatcherRegistryWaitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockWatcherRegistry)(nil).Wait))
-	return &MockWatcherRegistryWaitCall{Call: call}
-}
-
-// MockWatcherRegistryWaitCall wrap *gomock.Call
-type MockWatcherRegistryWaitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockWatcherRegistryWaitCall) Return(arg0 error) *MockWatcherRegistryWaitCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockWatcherRegistryWaitCall) Do(f func() error) *MockWatcherRegistryWaitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatcherRegistryWaitCall) DoAndReturn(f func() error) *MockWatcherRegistryWaitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

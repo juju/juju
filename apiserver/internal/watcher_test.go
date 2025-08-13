@@ -81,7 +81,7 @@ func (s *suite) TestEnsureRegisterWatcher(c *tc.C) {
 	changes <- contents
 
 	s.watcher.EXPECT().Changes().Return(changes)
-	s.watcherRegistry.EXPECT().Register(s.watcher).Return("id", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.watcher).Return("id", nil)
 
 	id, res, err := internal.EnsureRegisterWatcher[[]string](c.Context(), s.watcherRegistry, s.watcher)
 	c.Assert(err, tc.ErrorIsNil)
@@ -97,7 +97,7 @@ func (s *suite) TestEnsureRegisterWatcherWithError(c *tc.C) {
 	changes <- contents
 
 	s.watcher.EXPECT().Changes().Return(changes)
-	s.watcherRegistry.EXPECT().Register(s.watcher).Return("id", errors.New("boom"))
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.watcher).Return("id", errors.New("boom"))
 
 	_, _, err := internal.EnsureRegisterWatcher[[]string](c.Context(), s.watcherRegistry, s.watcher)
 	c.Assert(err, tc.ErrorMatches, "boom")
