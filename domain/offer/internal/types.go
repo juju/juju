@@ -19,7 +19,7 @@ type CreateOfferArgs struct {
 	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
-	// Endpoints is the collection of endpoint names offered (internal->published).
+	// Endpoints is the collection of endpoint names offered.
 	Endpoints []string
 
 	// OfferName is the name of the offer.
@@ -32,14 +32,17 @@ func MakeCreateOfferArgs(in offer.ApplicationOfferArgs, offerUUID uuid.UUID) Cre
 	return CreateOfferArgs{
 		UUID:            offerUUID,
 		ApplicationName: in.ApplicationName,
-		Endpoints:       slices.Collect(maps.Keys(in.Endpoints)),
-		OfferName:       in.OfferName,
+		// There was an original intention to allow for endpoint aliases,
+		// however it was never implemented. Just use the maps keys from
+		// here.
+		Endpoints: slices.Collect(maps.Keys(in.Endpoints)),
+		OfferName: in.OfferName,
 	}
 }
 
 // UpdateOfferArgs contains parameters used to update an offer.
 type UpdateOfferArgs struct {
-	// Endpoints is the collection of endpoint names offered (internal->published).
+	// Endpoints is the collection of endpoint names offered.
 	// The map allows for advertised endpoint names to be aliased.
 	Endpoints map[string]string
 

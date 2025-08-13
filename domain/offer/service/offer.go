@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/offer"
 	offererrors "github.com/juju/juju/domain/offer/errors"
+	"github.com/juju/juju/domain/offer/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -19,22 +20,25 @@ import (
 // ModelDBState describes retrieval and persistence methods for offers
 // in the model database..
 type ModelDBState interface {
-	// CreateOffer creates an offer.
+	// CreateOffer creates an offer and links the endpoints to it.
 	CreateOffer(
 		context.Context,
-		offer.ApplicationOfferArgs,
-	) (uuid.UUID, error)
+		internal.CreateOfferArgs,
+	) error
 
-	// DeleteOffer deletes the provided offer.
-	DeleteOffer(
+	// DeleteFailedOffer deletes the provided offer, used after adding
+	// permissions failed. Assumes that the offer is never used, no
+	// checking of relations is required.
+	DeleteFailedOffer(
 		context.Context,
 		uuid.UUID,
 	) error
 
 	// UpdateOffer updates the endpoints of the given offer.
 	UpdateOffer(
-		context.Context,
-		offer.ApplicationOfferArgs,
+		ctx context.Context,
+		offerName string,
+		offerEndpoints []string,
 	) error
 }
 
@@ -43,7 +47,14 @@ type ModelDBState interface {
 type ControllerDBState interface {
 	// CreateOfferAccess give the offer owner AdminAccess and EveryoneUserName
 	// ReadAccess for the provided offer.
-	CreateOfferAccess(context.Context, uuid.UUID, user.Name) error
+	CreateOfferAccess(
+		ctx context.Context,
+		permissionUUID, offerUUID, ownerUUID uuid.UUID,
+	) error
+
+	// GetUserUUIDByName returns the UUID of the user provided exists, has not
+	// been removed and is not disabled.
+	GetUserUUIDByName(ctx context.Context, name user.Name) (uuid.UUID, error)
 }
 
 // Service provides the API for working with offers.
@@ -85,32 +96,50 @@ func (s *Service) Offer(
 		args.OfferName = args.ApplicationName
 	}
 
+	offerUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	permissionUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	createArgs := internal.MakeCreateOfferArgs(args, offerUUID)
+
 	// Attempt to update the offer, return if successful or an error other than
 	// OfferNotFound is received.
-	err := s.modelState.UpdateOffer(ctx, args)
+	err = s.modelState.UpdateOffer(ctx, createArgs.OfferName, createArgs.Endpoints)
 	if err == nil {
 		return nil
 	} else if !errors.Is(err, offererrors.OfferNotFound) {
-		return errors.Errorf("failed to update offer: %w", err)
+		return errors.Errorf("update offer: %w", err)
+	}
+
+	// Verify the owner exists, has not been removed, and
+	// is not disabled before creating. Other users can
+	// update an offer, such an admin.
+	ownerUUID, err := s.controllerState.GetUserUUIDByName(ctx, args.OwnerName)
+	if err != nil {
+		return errors.Errorf("create offer: %w", err)
 	}
 
 	// The offer does not exist, create it.
-	addedOfferUUID, err := s.modelState.CreateOffer(ctx, args)
+	err = s.modelState.CreateOffer(ctx, createArgs)
 	if err != nil {
-		return errors.Errorf("failed to create offer: %w", err)
+		return errors.Errorf("create offer: %w", err)
 	}
 
-	err = s.controllerState.CreateOfferAccess(ctx, addedOfferUUID, args.OwnerName)
+	err = s.controllerState.CreateOfferAccess(ctx, permissionUUID, offerUUID, ownerUUID)
 	if err == nil {
 		return nil
 	}
 
 	// If we fail to create offer access rows, delete the offer.
-	deleteErr := s.modelState.DeleteOffer(ctx, addedOfferUUID)
+	deleteErr := s.modelState.DeleteFailedOffer(ctx, offerUUID)
 	if deleteErr != nil {
 		err = errors.Join(err, deleteErr)
 	}
-	err = errors.Errorf("failed to create access for offer %q: %w", args.OfferName, err)
+	err = errors.Errorf("creating access for offer %q: %w", args.OfferName, err)
 	return errors.Capture(err)
 }
 
