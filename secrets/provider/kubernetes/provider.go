@@ -740,7 +740,7 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 		return cleanups, errors.Trace(err)
 	}
 	if errors.Is(err, errors.NotFound) {
-		_, err = k.createRole(ctx,
+		role, err = k.createRole(ctx,
 			&rbacv1.Role{
 				ObjectMeta: v1.ObjectMeta{
 					Name:        sa.Name,
