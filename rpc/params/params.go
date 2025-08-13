@@ -1482,6 +1482,7 @@ type CharmProfilingInfoResult struct {
 	InstanceId      instance.Id         `json:"instance-id"`
 	ModelName       string              `json:"model-name"`
 	ModelUUID       string              `json:"model-uuid"`
+	ModelVersion    int                 `json:"model-version"`
 	ProfileChanges  []ProfileInfoResult `json:"profile-changes"`
 	CurrentProfiles []string            `json:"current-profiles"`
 	Error           *Error              `json:"error"`

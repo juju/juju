@@ -5,6 +5,7 @@ package lxdprofile
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,9 +22,25 @@ const AppName = "juju"
 // the validity of the names (see FilterLXDProfileNames)
 var Prefix = fmt.Sprintf("%s-", AppName)
 
+// BuildName returns a profile name based on the given model version.
+func BuildName(modelVersion int, modelName, shortModelID string, appName string, revision int) string {
+	log.Printf("[adis][buildname] modelname: %s with version %d", modelName, modelVersion)
+	oldVersion := 0
+	if modelVersion == oldVersion {
+		return Name(modelName, appName, revision)
+	}
+	return NameNewVersion(modelName, shortModelID, appName, revision)
+}
+
 // Name returns a serialisable name that we can use to identify profiles
+// juju-<model>-<application>-<charm-revision>
+func Name(modelName, appName string, revision int) string {
+	return fmt.Sprintf("%s%s-%s-%d", Prefix, modelName, appName, revision)
+}
+
+// NameNewVersion returns a serialisable name that we can use to identify profiles
 // juju-<model>-<shortModelID>-<application>-<charm-revision>
-func Name(modelName, shortModelID string, appName string, revision int) string {
+func NameNewVersion(modelName, shortModelID string, appName string, revision int) string {
 	return fmt.Sprintf("%s%s-%s-%s-%d", Prefix, modelName, shortModelID, appName, revision)
 }
 

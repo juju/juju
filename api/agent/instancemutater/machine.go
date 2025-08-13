@@ -215,6 +215,7 @@ func (m *Machine) WatchContainers() (watcher.StringsWatcher, error) {
 type UnitProfileInfo struct {
 	ModelName       string
 	ModelUUID       string
+	ModelVersion    int
 	InstanceId      instance.Id
 	ProfileChanges  []UnitProfileChanges
 	CurrentProfiles []string
@@ -244,6 +245,7 @@ func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 		ModelName:       result.ModelName,
 		ModelUUID:       result.ModelUUID,
 		CurrentProfiles: result.CurrentProfiles,
+		ModelVersion:    result.ModelVersion,
 	}
 	profileChanges := make([]UnitProfileChanges, len(result.ProfileChanges))
 	for i, change := range result.ProfileChanges {

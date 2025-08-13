@@ -5,6 +5,7 @@ package instancemutater
 
 import (
 	"fmt"
+	"github.com/juju/juju/provider/lxd"
 	"strings"
 	"sync"
 	"time"
@@ -231,6 +232,11 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	}
 
 	modelProfileName := fmt.Sprintf("%s-%s", info.ModelName, names.NewModelTag(info.ModelUUID).ShortId())
+	// Models before version 1 doesn't have a short ID suffix in the profile name.
+	if info.ModelVersion < lxd.ProviderVersion1 {
+		modelProfileName = info.ModelName
+	}
+
 	expectedProfiles := m.context.getRequiredLXDProfiles(modelProfileName)
 	for _, p := range post {
 		if p.Profile != nil {
@@ -282,7 +288,7 @@ func (m MutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo)
 			continue
 		}
 		modelShortId := names.NewModelTag(info.ModelUUID).ShortId()
-		name := lxdprofile.Name(info.ModelName, modelShortId, pu.ApplicationName, pu.Revision)
+		name := lxdprofile.BuildName(info.ModelVersion, info.ModelName, modelShortId, pu.ApplicationName, pu.Revision)
 		if oldName != "" && name != oldName {
 			// add the old profile name to the result, so the profile can
 			// be deleted from the lxd server.
