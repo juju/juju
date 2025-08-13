@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/juju/juju/core/application"
@@ -100,6 +101,19 @@ type State interface {
 	GetStorageAttachmentLife(
 		ctx context.Context, unitUUID, storageInstanceUUID string,
 	) (domainlife.Life, error)
+
+	// GetStorageIDsForUnit retrieves the storage IDs for a specific unit and
+	// storage instances.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
+	GetStorageIDsForUnit(
+		ctx context.Context, unitUUID string, storageInstanceUUIDStrs []string,
+	) ([]string, error)
+
+	// InitialWatchStatementForUnitStorageAttachments returns the initial watch
+	// statement for unit storage attachments.
+	InitialWatchStatementForUnitStorageAttachments(ctx context.Context, unitUUID string) (string, eventsource.NamespaceQuery)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -308,4 +322,37 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 	rval[tags.JujuModel] = info.ModelUUID
 
 	return rval, nil
+}
+
+// WatchUnitStorageAttachments returns a watcher that emits the storage IDs
+// for the provided unit when the unit's storage attachments are changed.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+func (s *Service) WatchUnitStorageAttachments(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	tableName, initialQuery := s.st.InitialWatchStatementForUnitStorageAttachments(ctx, unitUUID.String())
+	return s.watcherFactory.NewNamespaceMapperWatcher(ctx,
+		initialQuery,
+		fmt.Sprintf("storage attachment watcher for unit %q", unitUUID),
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+			if len(changes) == 0 {
+				return nil, nil
+			}
+			storageInstanceUUIDs := make([]string, 0, len(changes))
+			for _, change := range changes {
+				storageInstanceUUIDs = append(storageInstanceUUIDs, change.Changed())
+			}
+			storageIDs, err := s.st.GetStorageIDsForUnit(
+				ctx, unitUUID.String(), storageInstanceUUIDs,
+			)
+			if err != nil {
+				return nil, errors.Errorf("getting storage IDs for unit %q: %w", unitUUID, err)
+			}
+			return storageIDs, nil
+		},
+		eventsource.NamespaceFilter(tableName, changestream.All),
+	)
 }
