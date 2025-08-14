@@ -19,7 +19,7 @@ If you want to go one step further, take your cloud (and the entire deployment) 
 
 The `juju` CLI client can be installed from a strictly confined snap. The strict confinement means the client cannot do malicious things. The snap means the client updates by itself. All in all, you don't need to take any action.
 
-The Juju agent binaries come in the same package as the `juju` CLI client. However, when you deploy them (e.g., to bootstrap a controller or deploy an application), they're no longer in a snap, so no longer benefit from snap protections.
+The Juju agent binaries come in the same package as the `juju` CLI client. However, when you deploy them (e.g., to bootstrap a controller or deploy an application), they're no longer in a snap, so no longer benefit from snap protections. Also, the Juju controller agent needs root access. Juju unit agents typically need root access too, except for Kubernetes charms that support rootless access (for more on rootless charms see {ref}`harden-the-applications`).
 
 > See more: [Snapcraft | Snap confinement](https://snapcraft.io/docs/snap-confinement), {ref}`manage-juju`, {ref}`juju-roadmap-and-releases`
 
@@ -65,6 +65,7 @@ You can also restrict user access to a model and also restrict the commands that
 
 > See more: {ref}`manage-models`
 
+(harden-the-applications)=
 ## Harden the applications
 
 When you deploy (an) application(s) from a charm or a bundle, choose the charm / bundle carefully:
