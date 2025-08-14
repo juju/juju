@@ -16,7 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
-	charmtesting "github.com/juju/juju/core/charm/testing"
+	corecharm "github.com/juju/juju/core/charm"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -39,7 +39,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := application.GenID(c)
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 
 	done := make(chan struct{})
 
@@ -89,7 +89,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := application.GenID(c)
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 
 	done := make(chan struct{})
 
@@ -146,7 +146,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := application.GenID(c)
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 
 	done := make(chan struct{})
 
@@ -196,7 +196,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := application.GenID(c)
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 
 	done := make(chan struct{})
 
@@ -233,7 +233,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := application.GenID(c)
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 
 	done := make(chan struct{})
 

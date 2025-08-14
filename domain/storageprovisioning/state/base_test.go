@@ -11,7 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
-	charmtesting "github.com/juju/juju/core/charm/testing"
+	corecharm "github.com/juju/juju/core/charm"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
@@ -67,7 +67,7 @@ VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpace
 
 // newCharm creates a new charm in the model and returns the uuid for it.
 func (s *baseSuite) newCharm(c *tc.C) string {
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(
 		c.Context(), func(ctx context.Context, tx *sql.Tx) error {

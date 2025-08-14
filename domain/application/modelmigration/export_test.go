@@ -11,7 +11,7 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
-	charmtesting "github.com/juju/juju/core/charm/testing"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -64,7 +64,7 @@ func (s *exportApplicationSuite) TestApplicationExportError(c *tc.C) {
 func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
@@ -84,7 +84,7 @@ func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *tc.C) {
 func (s *exportApplicationSuite) TestApplicationExportIAASApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
@@ -149,7 +149,7 @@ func (s *exportApplicationSuite) TestApplicationExportIAASApplications(c *tc.C) 
 func (s *exportApplicationSuite) TestApplicationExportCAASApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
@@ -332,7 +332,7 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *tc.C) {
 func (s *exportApplicationSuite) TestExportScalingState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus-k8s",
@@ -421,7 +421,7 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 	spaceUUID := networktesting.GenSpaceUUID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{

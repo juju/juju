@@ -10,7 +10,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/network"
@@ -295,7 +294,7 @@ func (s *containerSuite) TestGetContainerNetworkingMethod(c *tc.C) {
 
 // addCharm inserts a new charm into the database and returns the UUID.
 func (s *containerSuite) addCharm(c *tc.C, subordinate bool) corecharm.ID {
-	charmUUID := corecharmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	// The UUID is also used as the reference_name as there is a unique
 	// constraint on the reference_name, revision and source_id.

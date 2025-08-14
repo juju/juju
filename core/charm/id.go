@@ -21,6 +21,16 @@ func NewID() (ID, error) {
 	return ID(uuid.String()), nil
 }
 
+// GenCharmID can be used in testing for generating a charm ID that is
+// checked for subsequent errors.
+func GenCharmID(c interface{ Fatal(...any) }) ID {
+	id, err := NewID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return id
+}
+
 // ParseID returns a new ID from the given string. If the string is not a valid
 // uuid an error satisfying [errors.NotValid] will be returned.
 func ParseID(value string) (ID, error) {

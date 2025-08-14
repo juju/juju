@@ -13,7 +13,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
@@ -82,7 +81,7 @@ func (s *migrationServiceSuite) TestGetCharmIDInvalidSource(c *tc.C) {
 func (s *migrationServiceSuite) TestGetCharmID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	rev := 42
 
@@ -102,7 +101,7 @@ func (s *migrationServiceSuite) TestGetCharm(c *tc.C) {
 
 	// Conversion of the metadata tests is done in the types package.
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
@@ -134,7 +133,7 @@ func (s *migrationServiceSuite) TestGetCharm(c *tc.C) {
 func (s *migrationServiceSuite) TestGetCharmInvalidMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
@@ -154,7 +153,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidMetadata(c *tc.C) {
 func (s *migrationServiceSuite) TestGetCharmInvalidManifest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
@@ -181,7 +180,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidManifest(c *tc.C) {
 func (s *migrationServiceSuite) TestGetCharmInvalidActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
@@ -208,7 +207,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidActions(c *tc.C) {
 func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
@@ -235,7 +234,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *tc.C) {
 func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
@@ -256,7 +255,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *tc.C) {
 func (s *migrationServiceSuite) TestGetCharmCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{}, nil, applicationerrors.CharmNotFound)
@@ -413,7 +412,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *tc.C, modelType corem
 	defer s.setupMocks(c).Finish()
 
 	id := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -82,7 +81,7 @@ func (s *charmServiceSuite) TestGetCharmIDInvalidSource(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	rev := 42
 
@@ -100,7 +99,7 @@ func (s *charmServiceSuite) TestGetCharmID(c *tc.C) {
 func (s *charmServiceSuite) TestIsControllerCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -118,7 +117,7 @@ func (s *charmServiceSuite) TestIsControllerCharm(c *tc.C) {
 func (s *charmServiceSuite) TestIsControllerCharmCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -135,7 +134,7 @@ func (s *charmServiceSuite) TestIsControllerCharmCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestIsCharmAvailable(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -153,7 +152,7 @@ func (s *charmServiceSuite) TestIsCharmAvailable(c *tc.C) {
 func (s *charmServiceSuite) TestIsCharmAvailableCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -170,7 +169,7 @@ func (s *charmServiceSuite) TestIsCharmAvailableCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestSupportsContainers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -188,7 +187,7 @@ func (s *charmServiceSuite) TestSupportsContainers(c *tc.C) {
 func (s *charmServiceSuite) TestSupportsContainersCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -207,7 +206,7 @@ func (s *charmServiceSuite) TestGetCharm(c *tc.C) {
 
 	// Conversion of the metadata tests is done in the types package.
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", 42, charm.LocalSource).Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{
@@ -244,7 +243,7 @@ func (s *charmServiceSuite) TestGetCharm(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", 42, charm.LocalSource).Return(id, applicationerrors.CharmNotFound)
 
@@ -262,7 +261,7 @@ func (s *charmServiceSuite) TestGetCharmMetadata(c *tc.C) {
 
 	// Conversion of the metadata tests is done in the types package.
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -290,7 +289,7 @@ func (s *charmServiceSuite) TestGetCharmMetadata(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmMetadataCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -307,7 +306,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmLXDProfile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -336,7 +335,7 @@ func (s *charmServiceSuite) TestGetCharmLXDProfile(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmLXDProfileCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -353,7 +352,7 @@ func (s *charmServiceSuite) TestGetCharmLXDProfileCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmMetadataName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -371,7 +370,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataName(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmMetadataNameCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -388,7 +387,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataNameCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmMetadataDescription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -406,7 +405,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataDescription(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmMetadataDescriptionCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -423,7 +422,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataDescriptionCharmNotFound(c *tc.C
 func (s *charmServiceSuite) TestGetCharmMetadataStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -455,7 +454,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataStorage(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmMetadataStorageCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -472,7 +471,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataStorageCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmMetadataResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -504,7 +503,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataResources(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmMetadataResourcesCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -521,7 +520,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataResourcesCharmNotFound(c *tc.C) 
 func (s *charmServiceSuite) TestCharmManifest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -545,7 +544,7 @@ func (s *charmServiceSuite) TestCharmManifest(c *tc.C) {
 func (s *charmServiceSuite) TestCharmManifestInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -564,7 +563,7 @@ func (s *charmServiceSuite) TestCharmManifestInvalid(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -594,7 +593,7 @@ func (s *charmServiceSuite) TestGetCharmActions(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -624,7 +623,7 @@ func (s *charmServiceSuite) TestGetCharmConfig(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmArchivePath(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -642,7 +641,7 @@ func (s *charmServiceSuite) TestGetCharmArchivePath(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmArchivePathCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -659,7 +658,7 @@ func (s *charmServiceSuite) TestGetCharmArchivePathCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmArchive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	archive := io.NopCloser(strings.NewReader("archive-content"))
 
 	locator := charm.CharmLocator{
@@ -698,7 +697,7 @@ func (s *charmServiceSuite) TestGetCharmArchiveBySHA256Prefix(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmArchiveCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -715,7 +714,7 @@ func (s *charmServiceSuite) TestGetCharmArchiveCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestSetCharmAvailable(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -732,7 +731,7 @@ func (s *charmServiceSuite) TestSetCharmAvailable(c *tc.C) {
 func (s *charmServiceSuite) TestSetCharmAvailableCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -749,7 +748,7 @@ func (s *charmServiceSuite) TestSetCharmAvailableCharmNotFound(c *tc.C) {
 func (s *charmServiceSuite) TestSetCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
@@ -823,7 +822,7 @@ func (s *charmServiceSuite) TestSetCharmCharmhubWithNoDownloadInfo(c *tc.C) {
 func (s *charmServiceSuite) TestSetCharmCharmhub(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
@@ -1127,7 +1126,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJujuBlah(c *tc
 func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
@@ -1201,7 +1200,7 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationNameToReservedName(c *tc.
 func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
@@ -1245,7 +1244,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c
 func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
@@ -1358,7 +1357,7 @@ func (s *charmServiceSuite) TestListCharmLocatorsWithoutName(c *tc.C) {
 func (s *charmServiceSuite) TestGetCharmDownloadInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	expected := &charm.DownloadInfo{
 		Provenance:         charm.ProvenanceDownload,
@@ -1383,7 +1382,7 @@ func (s *charmServiceSuite) TestGetCharmDownloadInfo(c *tc.C) {
 func (s *charmServiceSuite) TestGetAvailableCharmArchiveSHA256(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -1434,7 +1433,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *tc.C
 	stat, err := file.Stat()
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
@@ -1520,7 +1519,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 	stat, err := file.Stat()
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
@@ -1571,7 +1570,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *tc.C) {
 	stat, err := file.Stat()
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
@@ -1633,7 +1632,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingCharmNotFou
 	reader, err := os.Open(path)
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().IsImportingModel(gomock.Any()).Return(true, nil)
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, applicationerrors.CharmNotFound)
@@ -1659,7 +1658,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedStore
 	stat, err := reader.Stat()
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	s.state.EXPECT().IsImportingModel(gomock.Any()).Return(true, nil)
@@ -1694,7 +1693,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 	stat, err := file.Stat()
 	c.Assert(err, tc.ErrorIsNil)
 
-	charmID := charmtesting.GenCharmID(c)
+	charmID := corecharm.GenCharmID(c)
 	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{

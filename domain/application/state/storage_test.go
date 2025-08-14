@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	coremodel "github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -101,7 +100,7 @@ type charmStorageArg struct {
 }
 
 func (s *baseStorageSuite) insertCharmWithStorage(c *tc.C, stor ...charmStorageArg) string {
-	uuid := charmtesting.GenCharmID(c).String()
+	uuid := corecharm.GenCharmID(c).String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
@@ -690,7 +689,7 @@ func (s *baseStorageSuite) TestAttachStorageUnsupportedStorageName(c *tc.C) {
 
 	unitUUID, _ := s.createUnitWithCharm(c, filesystemStorage)
 
-	charmUUID2 := charmtesting.GenCharmID(c).String()
+	charmUUID2 := corecharm.GenCharmID(c).String()
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		err := insertCharmStateWithRevision(ctx, c, tx, charmUUID2, 666)
 		if err != nil {

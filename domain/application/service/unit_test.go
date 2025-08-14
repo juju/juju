@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
-	charmtesting "github.com/juju/juju/core/charm/testing"
+	corecharm "github.com/juju/juju/core/charm"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -78,7 +78,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmCharmNotFound(c *tc.C) {
 func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	unitName := coreunit.Name("bar/0")
 
 	locator := charm.CharmLocator{
@@ -96,7 +96,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	unitName := coreunit.Name("bar/0")
 
 	locator := charm.CharmLocator{

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -143,7 +142,7 @@ func (s *applicationServiceSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
 func (s *applicationServiceSuite) TestGetCharmLocatorByApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharmLocatorByCharmID(gomock.Any(), id).Return(applicationcharm.CharmLocator{
@@ -191,7 +190,7 @@ func (s *applicationServiceSuite) TestGetAsyncCharmDownloadInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
@@ -227,7 +226,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	appUUID := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
@@ -273,7 +272,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *tc
 	defer s.setupMocks(c).Finish()
 
 	appUUID := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
@@ -301,7 +300,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *tc.
 	defer s.setupMocks(c).Finish()
 
 	appUUID := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
@@ -332,7 +331,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *t
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
 
 	appUUID := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
 		CharmUUID: "blah",
@@ -363,7 +362,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *tc.C) {
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
 
 	appUUID := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
@@ -405,7 +404,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 
 	appUUID := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
 		CharmUUID: charmUUID,
@@ -856,7 +855,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := coreapplication.GenID(c)
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	appConfig := map[string]application.ApplicationConfig{
 		"foo": {

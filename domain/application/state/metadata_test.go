@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
-	charmtesting "github.com/juju/juju/core/charm/testing"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -418,7 +418,7 @@ func (s *metadataSuite) TestDecodeMetadata(c *tc.C) {
 }
 
 func (s *metadataSuite) TestEncodeMetadata(c *tc.C) {
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	result, err := encodeMetadata(id, charm.Metadata{
 		Name:           "foo",

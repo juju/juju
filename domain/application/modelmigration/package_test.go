@@ -8,7 +8,7 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
-	charmtesting "github.com/juju/juju/core/charm/testing"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	unit "github.com/juju/juju/core/unit"
@@ -49,7 +49,7 @@ func (s *exportSuite) expectApplication(c *tc.C) {
 }
 
 func (s *exportSuite) expectApplicationFor(c *tc.C, name string) {
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      name,

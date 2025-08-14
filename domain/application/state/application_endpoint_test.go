@@ -14,7 +14,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -53,7 +52,7 @@ func (s *applicationEndpointStateSuite) SetUpTest(c *tc.C) {
 
 	// Arrange suite context, same for all tests:
 	s.appID = coreapplication.GenID(c)
-	s.charmUUID = charmtesting.GenCharmID(c)
+	s.charmUUID = corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error

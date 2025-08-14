@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
@@ -1960,7 +1959,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *tc.
 // later resolution.
 func (s *resourceSuite) TestAddResourcesBeforeApplication(c *tc.C) {
 	// Setup charm resources only
-	charmUUID := testing.GenCharmID(c)
+	charmUUID := charm.GenCharmID(c)
 	data := []resourceData{
 		{
 			CharmUUID:   charmUUID.String(),

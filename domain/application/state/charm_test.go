@@ -16,7 +16,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corerelation "github.com/juju/juju/core/relation"
@@ -41,7 +40,7 @@ func TestCharmStateSuite(t *testing.T) {
 func (s *charmStateSuite) TestGetCharmIDCharmhubCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -71,7 +70,7 @@ VALUES (?, 'foo')
 func (s *charmStateSuite) TestGetCharmIDLocalCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -272,7 +271,7 @@ func (s *charmStateSuite) TestGetCharmIDWithNoCharm(c *tc.C) {
 func (s *charmStateSuite) TestIsControllerCharmWithNoCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.IsControllerCharm(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -281,7 +280,7 @@ func (s *charmStateSuite) TestIsControllerCharmWithNoCharm(c *tc.C) {
 func (s *charmStateSuite) TestIsControllerCharmWithControllerCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
@@ -305,7 +304,7 @@ func (s *charmStateSuite) TestIsControllerCharmWithControllerCharm(c *tc.C) {
 func (s *charmStateSuite) TestIsControllerCharmWithNoControllerCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
@@ -329,7 +328,7 @@ func (s *charmStateSuite) TestIsControllerCharmWithNoControllerCharm(c *tc.C) {
 func (s *charmStateSuite) TestIsSubordinateCharmWithNoCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.IsSubordinateCharm(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -338,7 +337,7 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithNoCharm(c *tc.C) {
 func (s *charmStateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
@@ -362,7 +361,7 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *tc.C) {
 func (s *charmStateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
@@ -387,7 +386,7 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *tc.C) 
 func (s *charmStateSuite) TestSupportsContainersWithNoCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.SupportsContainers(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -396,7 +395,7 @@ func (s *charmStateSuite) TestSupportsContainersWithNoCharm(c *tc.C) {
 func (s *charmStateSuite) TestSupportsContainersWithContainers(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
@@ -430,7 +429,7 @@ func (s *charmStateSuite) TestSupportsContainersWithContainers(c *tc.C) {
 func (s *charmStateSuite) TestSupportsContainersWithNoContainers(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
@@ -454,7 +453,7 @@ func (s *charmStateSuite) TestSupportsContainersWithNoContainers(c *tc.C) {
 func (s *charmStateSuite) TestIsCharmAvailableWithNoCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.IsCharmAvailable(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -463,7 +462,7 @@ func (s *charmStateSuite) TestIsCharmAvailableWithNoCharm(c *tc.C) {
 func (s *charmStateSuite) TestIsCharmAvailableWithAvailable(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id, available) VALUES (?, 'ubuntu', 0, true)`, id.String())
@@ -487,7 +486,7 @@ func (s *charmStateSuite) TestIsCharmAvailableWithAvailable(c *tc.C) {
 func (s *charmStateSuite) TestIsCharmAvailableWithNotAvailable(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id, available) VALUES (?, 'ubuntu', 0, false)`, id.String())
@@ -511,7 +510,7 @@ func (s *charmStateSuite) TestIsCharmAvailableWithNotAvailable(c *tc.C) {
 func (s *charmStateSuite) TestSetCharmAvailableWithNoCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := st.SetCharmAvailable(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -520,7 +519,7 @@ func (s *charmStateSuite) TestSetCharmAvailableWithNoCharm(c *tc.C) {
 func (s *charmStateSuite) TestSetCharmAvailable(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available, reference_name, architecture_id) VALUES (?, false, 'ubuntu', 0)`, id.String())
@@ -551,7 +550,7 @@ func (s *charmStateSuite) TestSetCharmAvailable(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmMetadataWithNoCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetCharmMetadata(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -560,7 +559,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithNoCharm(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmMetadata(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -588,7 +587,7 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmMetadataName(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -606,7 +605,7 @@ func (s *charmStateSuite) TestGetCharmMetadataName(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmMetadataNameNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetCharmMetadataName(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -615,7 +614,7 @@ func (s *charmStateSuite) TestGetCharmMetadataNameNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmMetadataDescription(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -633,7 +632,7 @@ func (s *charmStateSuite) TestGetCharmMetadataDescription(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmMetadataDescriptionNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetCharmMetadataDescription(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -642,7 +641,7 @@ func (s *charmStateSuite) TestGetCharmMetadataDescriptionNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmMetadataWithTagsAndCategories(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	// Ensure that duplicate tags and categories are correctly inserted and
@@ -688,7 +687,7 @@ VALUES (?, 0, 'foo'), (?, 1, 'foo'), (?, 2,'bar')
 func (s *charmStateSuite) TestGetCharmMetadataWithTerms(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	// Ensure that duplicate terms are correctly inserted and extracted.
@@ -724,7 +723,7 @@ VALUES (?, 0, 'alpha'), (?, 1, 'beta'), (?, 2, 'beta')
 func (s *charmStateSuite) TestGetCharmMetadataWithRelation(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	charmUUID := id.String()
 
 	// Ensure that relations are correctly extracted.
@@ -793,10 +792,10 @@ VALUES
 func (s *charmStateSuite) TestGetCharmMetadataWithExtraBindings(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
-	uuid2 := charmtesting.GenCharmID(c).String()
-	uuid3 := charmtesting.GenCharmID(c).String()
+	uuid2 := corecharm.GenCharmID(c).String()
+	uuid3 := corecharm.GenCharmID(c).String()
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -838,7 +837,7 @@ VALUES
 func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithNoProperties(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	// Ensure that storage with no properties is correctly extracted.
@@ -915,7 +914,7 @@ INSERT INTO charm_storage (
 func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithProperties(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	// Ensure that storage with properties is correctly extracted.
@@ -1008,7 +1007,7 @@ INSERT INTO charm_storage_property (
 func (s *charmStateSuite) TestGetCharmMetadataWithDevices(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	var expected charm.Metadata
@@ -1066,7 +1065,7 @@ INSERT INTO charm_device (
 func (s *charmStateSuite) TestGetCharmMetadataWithResources(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	var expected charm.Metadata
@@ -1126,7 +1125,7 @@ INSERT INTO charm_resource (
 func (s *charmStateSuite) TestGetCharmMetadataWithContainersWithNoMounts(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	var expected charm.Metadata
@@ -1176,7 +1175,7 @@ INSERT INTO charm_container (
 func (s *charmStateSuite) TestGetCharmMetadataWithContainersWithMounts(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	var expected charm.Metadata
@@ -2374,7 +2373,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMoun
 func (s *charmStateSuite) TestGetCharmManifest(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	var expected charm.Manifest
@@ -2500,7 +2499,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmManifestCharmNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetCharmManifest(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -2509,7 +2508,7 @@ func (s *charmStateSuite) TestGetCharmManifestCharmNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmLXDProfile(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -2538,7 +2537,7 @@ WHERE uuid = ?
 func (s *charmStateSuite) TestGetCharmLXDProfileCharmNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, _, err := st.GetCharmLXDProfile(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -2547,7 +2546,7 @@ func (s *charmStateSuite) TestGetCharmLXDProfileCharmNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmLXDProfileLXDProfileNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -2568,7 +2567,7 @@ VALUES (?, false, 'ubuntu', 0)`, uuid)
 func (s *charmStateSuite) TestGetCharmConfig(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -2697,7 +2696,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmConfig(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmConfigCharmNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetCharmConfig(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -2706,7 +2705,7 @@ func (s *charmStateSuite) TestGetCharmConfigCharmNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmConfigEmpty(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -2727,7 +2726,7 @@ func (s *charmStateSuite) TestGetCharmConfigEmpty(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmActions(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -2816,7 +2815,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmActions(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmActionsCharmNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetCharmActions(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -2825,7 +2824,7 @@ func (s *charmStateSuite) TestGetCharmActionsCharmNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmActionsEmpty(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -2900,7 +2899,7 @@ func (s *charmStateSuite) TestSetCharmWithDuplicatedEndpointNames(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetCharmArchivePath(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -2959,7 +2958,7 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadataInsertAdditionalHashKind(c 
 func (s *charmStateSuite) TestGetCharmArchiveMetadataCharmNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, _, err := st.GetCharmArchiveMetadata(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -3247,7 +3246,7 @@ func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotAvailable(c *tc.C
 func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetAvailableCharmArchiveSHA256(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -3258,7 +3257,7 @@ func (s *charmStateSuite) TestResolveMigratingUploadedCharmNotFound(c *tc.C) {
 
 	objectStoreUUID := objectstore.GenUUID(c)
 
-	_, err := st.ResolveMigratingUploadedCharm(c.Context(), charmtesting.GenCharmID(c), charm.ResolvedMigratingUploadedCharm{
+	_, err := st.ResolveMigratingUploadedCharm(c.Context(), corecharm.GenCharmID(c), charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -3347,7 +3346,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetLatestPendingCharmhubCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3372,7 +3371,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharm(c *tc.C) {
 func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmForAnotherArch(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3393,10 +3392,10 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithMultipleCharms(c 
 	// Revision doesn't matter here, we only care about the latest insertion
 	// time.
 
-	id0 := charmtesting.GenCharmID(c)
+	id0 := corecharm.GenCharmID(c)
 	uuid0 := id0.String()
 
-	id1 := charmtesting.GenCharmID(c)
+	id1 := corecharm.GenCharmID(c)
 	uuid1 := id1.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3428,10 +3427,10 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplicati
 
 	appUUID := utils.MustNewUUID().String()
 
-	id0 := charmtesting.GenCharmID(c)
+	id0 := corecharm.GenCharmID(c)
 	uuid0 := id0.String()
 
-	id1 := charmtesting.GenCharmID(c)
+	id1 := corecharm.GenCharmID(c)
 	uuid1 := id1.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3465,7 +3464,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplicati
 func (s *charmStateSuite) TestGetCharmLocatorForLatestPendingCharmhubCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3491,7 +3490,7 @@ func (s *charmStateSuite) TestGetCharmLocatorForLatestPendingCharmhubCharm(c *tc
 func (s *charmStateSuite) TestGetCharmLocatorByIDNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	_, err := st.GetCharmLocatorByCharmID(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -3500,7 +3499,7 @@ func (s *charmStateSuite) TestGetCharmLocatorByIDNotFound(c *tc.C) {
 func (s *charmStateSuite) TestGetCharmLocatorByID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

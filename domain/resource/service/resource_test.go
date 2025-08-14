@@ -13,7 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	charmtesting "github.com/juju/juju/core/charm/testing"
+	corecharm "github.com/juju/juju/core/charm"
 	coreerrors "github.com/juju/juju/core/errors"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
@@ -889,7 +889,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	args := resource.SetRepositoryResourcesArgs{
 		ApplicationID: coreapplication.GenID(c),
-		CharmID:       charmtesting.GenCharmID(c),
+		CharmID:       corecharm.GenCharmID(c),
 		Info: []charmresource.Resource{{
 
 			Meta: charmresource.Meta{
@@ -923,7 +923,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationError(c *tc.
 	// Act
 	err = s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: coreapplication.GenID(c),
-		CharmID:       charmtesting.GenCharmID(c),
+		CharmID:       corecharm.GenCharmID(c),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
 				Name:        "my-resource",
@@ -978,7 +978,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoLastPolled
 	// Act
 	err = s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: coreapplication.GenID(c),
-		CharmID:       charmtesting.GenCharmID(c),
+		CharmID:       corecharm.GenCharmID(c),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
 				Name:        "my-resource",
@@ -1004,7 +1004,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoInfo(c *tc
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: coreapplication.GenID(c),
-		CharmID:       charmtesting.GenCharmID(c),
+		CharmID:       corecharm.GenCharmID(c),
 		Info:          nil,
 		LastPolled:    time.Now(),
 	})
@@ -1019,7 +1019,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationInvalidInfo(
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: coreapplication.GenID(c),
-		CharmID:       charmtesting.GenCharmID(c),
+		CharmID:       corecharm.GenCharmID(c),
 		Info:          []charmresource.Resource{{}, {}}, // Invalid resources
 		LastPolled:    time.Now(),
 	})

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
@@ -159,7 +158,7 @@ func insertCharmMetadata(c *tc.C, tx *sql.Tx, uuid corecharm.ID) (charm.Metadata
 }
 
 func (s *storageSuite) insertCharmWithStorage(c *tc.C, stor ...charmStorageArg) corecharm.ID {
-	uuid := charmtesting.GenCharmID(c)
+	uuid := corecharm.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
@@ -1138,7 +1137,7 @@ VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpace
 
 // newCharm creates a new charm in the model and returns the uuid for it.
 func (s *storageStatusSuite) newCharm(c *tc.C) string {
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
 VALUES (?, 0, ?, 1, 0)

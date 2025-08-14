@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
 
-	charmtesting "github.com/juju/juju/core/charm/testing"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 type modelSchemaSuite struct {
@@ -677,7 +677,7 @@ VALUES (?, ?, 'my-model', 'prod', 'caas', 'cloud-1', 'kubernetes', 'cloud-region
 func (s *modelSchemaSuite) TestTriggersForUnmodifiableTables(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 
-	id := charmtesting.GenCharmID(c)
+	id := corecharm.GenCharmID(c)
 
 	s.assertExecSQL(c, `
 INSERT INTO charm (uuid, reference_name, architecture_id, revision)

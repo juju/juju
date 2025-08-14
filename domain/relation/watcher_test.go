@@ -18,7 +18,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
@@ -54,7 +53,7 @@ func TestWatcherSuite(t *testing.T) {
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.charmUUID = charmtesting.GenCharmID(c)
+	s.charmUUID = corecharm.GenCharmID(c)
 	s.charmRelationUUID = uuid.MustNewUUID()
 	s.appUUID = coreapplication.GenID(c)
 	s.appEndpointUUID = uuid.MustNewUUID()
@@ -287,7 +286,7 @@ func (s *watcherSuite) setupSecondAppAndRelate(
 	relationUUID := relation.GenRelationUUID(c)
 	relationEndpointUUID := relation.GenEndpointUUID(c)
 
-	charmTwoUUID := charmtesting.GenCharmID(c)
+	charmTwoUUID := corecharm.GenCharmID(c)
 	charmRelationTwoUUID := uuid.MustNewUUID()
 	appTwoUUID := coreapplication.GenID(c)
 	relationEndpointTwoUUID := relation.GenEndpointUUID(c)
@@ -307,7 +306,7 @@ func (s *watcherSuite) setupSecondAppAndRelate(
 // setupSecondRelationNotFound adds a relation between new applications
 // foo and bar. Neither are the application under test.
 func (s *watcherSuite) setupSecondRelationNotFound(c *tc.C) relation.UUID {
-	charmOneUUID := charmtesting.GenCharmID(c)
+	charmOneUUID := corecharm.GenCharmID(c)
 	charmRelationOneUUID := uuid.MustNewUUID()
 	appOneUUID := coreapplication.GenID(c)
 	appEndpointOneUUID := uuid.MustNewUUID()
@@ -316,7 +315,7 @@ func (s *watcherSuite) setupSecondRelationNotFound(c *tc.C) relation.UUID {
 	s.addApplication(c, charmOneUUID, appOneUUID, "foo")
 	s.addApplicationEndpoint(c, appEndpointOneUUID, appOneUUID, charmRelationOneUUID)
 
-	charmTwoUUID := charmtesting.GenCharmID(c)
+	charmTwoUUID := corecharm.GenCharmID(c)
 	charmRelationTwoUUID := uuid.MustNewUUID()
 	appTwoUUID := coreapplication.GenID(c)
 	appEndpointTwoUUID := uuid.MustNewUUID()
@@ -568,7 +567,7 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 	config.watchedUnit1 = "watched/0"
 	config.relationUUID = relation.GenRelationUUID(c)
 
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 	watchedUUID := coreapplication.GenID(c)
 	config.otherUUID = coreapplication.GenID(c)
 	config.watched0UUID = coreunit.GenUUID(c)
@@ -619,7 +618,7 @@ func (s *watcherSuite) setupTestWatchPeerRelationUnit(c *tc.C) testWatchPeerRela
 	config.watchedUnit1 = "watched/0"
 	config.relationUUID = relation.GenRelationUUID(c)
 
-	charmUUID := charmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 	config.watchedUUID = coreapplication.GenID(c)
 	config.watched0UUID = coreunit.GenUUID(c)
 	config.watched1UUID = coreunit.GenUUID(c)

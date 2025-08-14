@@ -14,7 +14,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -94,7 +93,7 @@ VALUES (?, ?, ?, ?)
 
 // addCharm inserts a new charm into the database and returns the UUID.
 func (s *baseRelationSuite) addCharm(c *tc.C) corecharm.ID {
-	charmUUID := corecharmtesting.GenCharmID(c)
+	charmUUID := corecharm.GenCharmID(c)
 	// The UUID is also used as the reference_name as there is a unique
 	// constraint on the reference_name, revision and source_id.
 	s.query(c, `
