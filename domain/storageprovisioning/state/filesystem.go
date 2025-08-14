@@ -40,40 +40,20 @@ func (st *State) GetFilesystemTemplatesForApplication(
 	}
 
 	fsTemplateQuery, err := st.Prepare(`
-WITH
-	app_fs_template_with_type AS (	
-		SELECT asd.storage_name,
-			asd.size_mib,
-			asd.count,
-			asd.storage_type,
-			cs.read_only,
-			cs.location,
-			cs.count_max
-		FROM application_storage_directive asd
-		JOIN charm_storage cs ON asd.charm_uuid = cs.charm_uuid AND asd.storage_name = cs.name
-		WHERE application_uuid = $entityUUID.uuid
-		AND asd.storage_pool_uuid IS NULL
-	),
-	app_fs_template_from_pool AS (
-		SELECT asd.storage_name,
-			asd.size_mib,
-			asd.count,
-			sp.type AS storage_type,
-			cs.read_only,
-			cs.location,
-			cs.count_max
-		FROM application_storage_directive asd
-		JOIN storage_pool sp ON asd.storage_pool_uuid = sp.uuid
-		JOIN charm_storage cs ON asd.charm_uuid = cs.charm_uuid AND asd.storage_name = cs.name
-		WHERE application_uuid = $entityUUID.uuid
-		AND asd.storage_type IS NULL
-	),
-	app_fs_template AS (
-		SELECT * FROM app_fs_template_with_type 
-		UNION
-		SELECT * FROM app_fs_template_from_pool
-	)
-SELECT &filesystemTemplate.* FROM app_fs_template
+SELECT (asd.storage_name,
+       asd.size_mib,
+       asd.count,
+       cs.read_only,
+       cs.location,
+       cs.count_max) AS (&filesystemTemplate.*),
+       COALESCE(asd.storage_type, sp.type) AS &filesystemTemplate.storage_type
+FROM   application_storage_directive AS asd
+       JOIN charm_storage cs 
+            ON asd.charm_uuid = cs.charm_uuid
+            AND asd.storage_name = cs.name 
+       LEFT JOIN storage_pool sp ON asd.storage_pool_uuid = sp.uuid
+WHERE  asd.application_uuid = $entityUUID.uuid
+AND    asd.storage_pool_uuid IS NULL OR asd.storage_type IS NULL
 `, filesystemTemplate{}, id)
 	if err != nil {
 		return nil, errors.Capture(err)
