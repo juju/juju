@@ -19,7 +19,7 @@ If you want to go one step further, take your cloud (and the entire deployment) 
 
 The `juju` CLI client can be installed from a strictly confined snap. The strict confinement means the client cannot do malicious things. The snap means the client updates by itself. All in all, you don't need to take any action.
 
-The Juju agent binaries come in the same package as the `juju` CLI client. However, when you deploy them (e.g., to bootstrap a controller or deploy an application), they're no longer in a snap, so no longer benefit from snap protections. Also, the Juju controller agent needs root access. Juju unit agents typically need root access too, except for Kubernetes charms that support rootless access (for more on rootless charms see {ref}`harden-the-applications`).
+The Juju agent binaries come in the same package as the `juju` CLI client. However, when you deploy them (e.g., to bootstrap a controller or deploy an application), they're no longer in a snap, so snap advantages no longer apply. Also, the Juju controller agent needs root access. Juju unit agents typically need root access too, except if the charm next to which they are deployed is rootless. Rootless charms are currently supported only for Kubernetes charms. (For more on rootless charms see {ref}`harden-the-applications`). To protect the agents, you must protect the cloud resource (machine or container) they're deployed on.
 
 > See more: [Snapcraft | Snap confinement](https://snapcraft.io/docs/snap-confinement), {ref}`manage-juju`, {ref}`juju-roadmap-and-releases`
 
@@ -74,9 +74,9 @@ When you deploy (an) application(s) from a charm or a bundle, choose the charm /
 
 - Choose charms that don’t require deployment with `--trust` (i.e., access to the cloud credentials). If not possible, make sure to audit those charms.
 
-- Choose charms whose `charmcraft.yaml > containers > uid` and `gid` are not 0 (do not require root access). If not possible, make sure to audit those charms.
+- *Starting with Juju 3.6.0, for Kubernetes charms:* Choose charms whose `charmcraft.yaml > containers > uid` and `gid` are not 0 (do not require root access). If not possible, make sure to audit those charms. See more: [Charmcraft | File `charmcraft.yaml` > `containers`](https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/#containers).
 
-- *Starting with Juju 3.6:* Choose charms whose `charmcraft.yaml > charm-user` field set to `non-root`. If not possible, make sure to audit those charms.
+- *Starting with Juju 3.6.0, for Kubernetes charms:* Choose charms whose `charmcraft.yaml > charm-user` field is set to `non-root`. If not possible, make sure to audit those charms. See more: [Charmcraft | File `charmcraft.yaml` > `charm-user`](https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/#charm-user).
 
 - Choose charms that support secrets (see more:  {ref}`secret`).
 
