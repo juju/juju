@@ -16,7 +16,6 @@ import (
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	resourcestore "github.com/juju/juju/core/resource/store"
-	resourcestesting "github.com/juju/juju/core/resource/testing"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -41,7 +40,7 @@ func (s *fileResourceStoreSuite) SetUpTest(c *tc.C) {
 	fingerprint, err := charmresource.ParseFingerprint(fp)
 	c.Assert(err, tc.ErrorIsNil)
 	s.resource = coreresource.Resource{
-		UUID: resourcestesting.GenResourceUUID(c),
+		UUID: coreresource.GenUUID(c),
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "spam-resource",

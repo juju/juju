@@ -23,7 +23,6 @@ import (
 	api "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreresource "github.com/juju/juju/core/resource"
-	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	domainresource "github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -62,7 +61,7 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *tc.C) {
 	s.authErr = nil
 	s.username = "youknowwho"
 
-	s.resourceUUID = coreresourcetesting.GenResourceUUID(c)
+	s.resourceUUID = coreresource.GenUUID(c)
 
 	s.resourceName = "foo"
 	s.applicationName = "app"
@@ -323,7 +322,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *tc.C) {
 		s.resourceName,
 	).Return(s.resourceUUID, nil)
 
-	newResourceUUID := coreresourcetesting.GenResourceUUID(c)
+	newResourceUUID := coreresource.GenUUID(c)
 	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.resourceUUID).Return(newResourceUUID, nil)
 
 	res := s.resource

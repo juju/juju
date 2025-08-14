@@ -276,8 +276,8 @@ func (s *addPendingResourceSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.charmLoc, err = charms.CharmLocatorFromURL(s.curl.String())
 	c.Assert(err, tc.ErrorIsNil)
-	s.pendingResourceIDOne = resourcetesting.GenResourceUUID(c)
-	s.pendingResourceIDTwo = resourcetesting.GenResourceUUID(c)
+	s.pendingResourceIDOne = resource.GenUUID(c)
+	s.pendingResourceIDTwo = resource.GenUUID(c)
 	s.resourceNameOne = "foo"
 	s.resourceNameTwo = "bar"
 }
@@ -429,13 +429,13 @@ func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(c *tc.C, resou
 		ResourceUUID: s.pendingResourceIDTwo,
 		Revision:     resourceRevision,
 	}
-	newUUID := resourcetesting.GenResourceUUID(c)
+	newUUID := resource.GenUUID(c)
 	s.resourceService.EXPECT().UpdateResourceRevision(gomock.Any(), updateResourceArgs).Return(newUUID, nil)
 	return newUUID
 }
 
 func (s *addPendingResourceSuite) expectUpdateUploadResourceTwo(c *tc.C) resource.UUID {
-	newUUID := resourcetesting.GenResourceUUID(c)
+	newUUID := resource.GenUUID(c)
 	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.pendingResourceIDTwo).Return(newUUID, nil)
 	return newUUID
 }

@@ -18,7 +18,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
-	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	coretesting "github.com/juju/juju/core/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
@@ -226,7 +225,7 @@ func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	}
 	s.appName = "postgresql"
 	s.appID = coreapplication.GenID(c)
-	s.resourceUUID = coreresourcetesting.GenResourceUUID(c)
+	s.resourceUUID = coreresource.GenUUID(c)
 	s.resourceClient = NewMockResourceClient(ctrl)
 	s.resourceClientGetter = NewMockResourceClientGetter(ctrl)
 	s.limiter = NewMockResourceDownloadLock(ctrl)

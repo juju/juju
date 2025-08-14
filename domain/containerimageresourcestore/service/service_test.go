@@ -13,8 +13,8 @@ import (
 	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
+	coreresource "github.com/juju/juju/core/resource"
 	resourcestore "github.com/juju/juju/core/resource/store"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/domain/containerimageresourcestore"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
@@ -74,7 +74,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutJso
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
-	storageKey := resourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 	expectedUUID, err := resourcestore.NewContainerImageMetadataResourceID("expected-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	s.containerImageResourceState.EXPECT().PutContainerImageMetadata(
@@ -103,7 +103,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutYam
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
-	storageKey := resourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 	expectedUUID, err := resourcestore.NewContainerImageMetadataResourceID("expected-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	s.containerImageResourceState.EXPECT().PutContainerImageMetadata(
@@ -132,7 +132,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutEmp
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
-	storageKey := resourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 
 	_, _, _, err := store.Put(
 		c.Context(),
@@ -149,7 +149,7 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutErr
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
-	storageKey := resourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 	kaboom := errors.Errorf("kaboom")
 	s.containerImageResourceState.EXPECT().PutContainerImageMetadata(
 		gomock.Any(),
@@ -174,7 +174,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
-	storageKey := resourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 	s.containerImageResourceState.EXPECT().GetContainerImageMetadata(
 		gomock.Any(),
 		storageKey,
@@ -205,7 +205,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreGetError(c *tc.C
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
-	storageKey := resourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 	kaboom := errors.Errorf("kaboom")
 	s.containerImageResourceState.EXPECT().GetContainerImageMetadata(
 		gomock.Any(),
@@ -224,7 +224,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemove(c *tc.C) 
 
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
-	storageKey := resourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 	s.containerImageResourceState.EXPECT().RemoveContainerImageMetadata(
 		gomock.Any(),
 		storageKey,
@@ -243,7 +243,7 @@ func (s *containerImageResourceStoreSuite) TestFileResourceStoreRemoveError(c *t
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
 	kaboom := errors.Errorf("kaboom")
-	storageKey := resourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 	s.containerImageResourceState.EXPECT().RemoveContainerImageMetadata(
 		gomock.Any(),
 		storageKey,

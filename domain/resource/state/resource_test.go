@@ -22,7 +22,6 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/store"
 	resourcestoretesting "github.com/juju/juju/core/resource/store/testing"
-	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -2417,7 +2416,7 @@ func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c
 // TestDeleteResourcesAddedBeforeApplication tests the happy path for
 // DeleteResourcesAddedBeforeApplication.
 func (s *resourceSuite) TestDeleteResourcesAddedBeforeApplication(c *tc.C) {
-	resourceUUID := coreresourcetesting.GenResourceUUID(c)
+	resourceUUID := coreresource.GenUUID(c)
 	resourceName := "testResource"
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
 		_, err = tx.Exec(`
@@ -3185,7 +3184,7 @@ func (s *resourceSuite) addResourceWithOrigin(c *tc.C, resType charmresource.Typ
 
 func (s *resourceSuite) createFileResourceAndBlob(c *tc.C) (_ coreresource.UUID, _ store.ID, size int64, hash string) {
 	// Arrange: insert a resource.
-	resID := coreresourcetesting.GenResourceUUID(c)
+	resID := coreresource.GenUUID(c)
 	input := resourceData{
 		UUID:            resID.String(),
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
@@ -3210,7 +3209,7 @@ func (s *resourceSuite) createFileResourceAndBlob(c *tc.C) (_ coreresource.UUID,
 
 func (s *resourceSuite) createContainerImageResourceAndBlob(c *tc.C) (_ coreresource.UUID, _ store.ID, size int64, hash string) {
 	// Arrange: insert a resource.
-	resID := coreresourcetesting.GenResourceUUID(c)
+	resID := coreresource.GenUUID(c)
 	input := resourceData{
 		UUID:            resID.String(),
 		ApplicationUUID: s.constants.fakeApplicationUUID1,

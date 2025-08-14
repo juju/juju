@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -886,7 +885,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 		Architecture: architecture.ARM64,
 	}
 
-	resourceUUID := resourcetesting.GenResourceUUID(c)
+	resourceUUID := resource.GenUUID(c)
 	app := application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: ch,
@@ -1128,7 +1127,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourceBothT
 		AddApplicationArgs{
 			ReferenceName:     "foo",
 			ResolvedResources: ResolvedResources{ResolvedResource{Name: "testme"}},
-			PendingResources:  []resource.UUID{resourcetesting.GenResourceUUID(c)},
+			PendingResources:  []resource.UUID{resource.GenUUID(c)},
 		})
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 	// There are many places where InvalidResourceArgs are returned,

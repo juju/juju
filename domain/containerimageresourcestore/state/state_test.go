@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/tc"
 
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/store"
-	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/domain/containerimageresourcestore"
 	"github.com/juju/juju/domain/containerimageresourcestore/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -27,7 +27,7 @@ func TestContainerImageMetadataSuite(t *testing.T) {
 }
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	resourceUUID := coreresourcetesting.GenResourceUUID(c)
+	resourceUUID := coreresource.GenUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		RegistryPath: "testing@sha256:beef-deed",
 		Username:     "docker-registry",
@@ -51,7 +51,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPut(c *tc.C) {
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryName(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	resourceUUID := coreresourcetesting.GenResourceUUID(c)
+	resourceUUID := coreresource.GenUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		RegistryPath: "testing@sha256:beef-deed",
 	}
@@ -73,7 +73,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutOnlyRegistryN
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	resourceUUID := coreresourcetesting.GenResourceUUID(c)
+	resourceUUID := coreresource.GenUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		RegistryPath: "testing@sha256:beef-deed",
 		Username:     "docker-registry",
@@ -106,7 +106,7 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataPutTwice(c *tc.C
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	uuid := coreresourcetesting.GenResourceUUID(c)
+	uuid := coreresource.GenUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		StorageKey:   uuid.String(),
 		RegistryPath: "testing@sha256:beef-deed",
@@ -121,14 +121,14 @@ func (s *containerImageMetadataSuite) TestContainerImageMetadataGet(c *tc.C) {
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataGetBadUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	storageKey := coreresourcetesting.GenResourceUUID(c).String()
+	storageKey := coreresource.GenUUID(c).String()
 	_, err := st.GetContainerImageMetadata(c.Context(), storageKey)
 	c.Assert(err, tc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataRemove(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	storageKey := coreresourcetesting.GenResourceUUID(c)
+	storageKey := coreresource.GenUUID(c)
 	ociImageMetadata := containerimageresourcestore.ContainerImageMetadata{
 		StorageKey:   storageKey.String(),
 		RegistryPath: "testing@sha256:beef-deed",
@@ -151,7 +151,7 @@ WHERE storage_key = ?`, storageKey.String()).Scan()
 
 func (s *containerImageMetadataSuite) TestContainerImageMetadataRemoveBadUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	resourceUUID := coreresourcetesting.GenResourceUUID(c)
+	resourceUUID := coreresource.GenUUID(c)
 	err := st.RemoveContainerImageMetadata(c.Context(), resourceUUID.String())
 	c.Assert(err, tc.ErrorIs, errors.ContainerImageMetadataNotFound)
 }

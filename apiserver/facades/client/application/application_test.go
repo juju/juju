@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -92,7 +91,7 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	resourceUUID := testing.GenResourceUUID(c)
+	resourceUUID := resource.GenUUID(c)
 	s.expectCharm(c, "foo", map[string]charmresource.Meta{
 		"bar": {
 			Name: "bar",
@@ -169,7 +168,7 @@ func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *tc.C) {
 			Name: "bar",
 		},
 	})
-	resourceUUID := testing.GenResourceUUID(c)
+	resourceUUID := resource.GenUUID(c)
 	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
 	s.expectCreateApplicationForDeploy("foo", errors.Errorf("fail test"))
 
@@ -213,7 +212,7 @@ func (s *applicationSuite) TestDeployMismatchedResources(c *tc.C) {
 			Name: "foo",
 		},
 	})
-	resourceUUID := testing.GenResourceUUID(c)
+	resourceUUID := resource.GenUUID(c)
 	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
 
 	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{

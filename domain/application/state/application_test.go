@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreresource "github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
@@ -795,7 +794,7 @@ func (s *applicationStateSuite) addResourcesBeforeApplication(
 	resources := make([]addPendingResource, len(appResources))
 	resourceUUIDs := make([]coreresource.UUID, len(appResources))
 	for i, r := range appResources {
-		resourceUUIDs[i] = testing.GenResourceUUID(c)
+		resourceUUIDs[i] = coreresource.GenUUID(c)
 		resources[i] = addPendingResource{
 			UUID:      resourceUUIDs[i].String(),
 			Name:      r.Name,

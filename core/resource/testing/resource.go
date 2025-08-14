@@ -126,11 +126,3 @@ func newStubReadCloser(stub *testhelpers.Stub, content string) io.ReadCloser {
 		},
 	}
 }
-
-// GenResourceUUID can be used in testing for generating a resource UUID that is
-// checked for subsequent errors using the test suit's go check instance.
-func GenResourceUUID(c *tc.C) resource.UUID {
-	id, err := resource.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	return id
-}
