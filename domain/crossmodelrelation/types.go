@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package offer
+package crossmodelrelation
 
 import (
 	coreerrors "github.com/juju/juju/core/errors"

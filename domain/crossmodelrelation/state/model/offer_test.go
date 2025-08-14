@@ -16,7 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/offer/internal"
+	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"

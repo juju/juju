@@ -10,9 +10,9 @@ import (
 	"go.uber.org/mock/gomock"
 
 	usertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/domain/offer"
-	offererrors "github.com/juju/juju/domain/offer/errors"
-	"github.com/juju/juju/domain/offer/internal"
+	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -34,14 +34,14 @@ func (s *serviceSuite) TestOfferCreate(c *tc.C) {
 
 	// Arrange
 	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(offererrors.OfferNotFound)
+	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
 
 	applicationName := "test-application"
 	offerName := "test-offer"
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
 	s.controllerDBState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
-	args := offer.ApplicationOfferArgs{
+	args := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},
@@ -72,14 +72,14 @@ func (s *serviceSuite) TestOfferCreateAccessErr(c *tc.C) {
 
 	// Arrange
 	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(offererrors.OfferNotFound)
+	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
 
 	applicationName := "test-application"
 	offerName := "test-offer"
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
 	s.controllerDBState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
-	args := offer.ApplicationOfferArgs{
+	args := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},
@@ -113,14 +113,14 @@ func (s *serviceSuite) TestOfferCreateError(c *tc.C) {
 	// Arrange
 
 	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(offererrors.OfferNotFound)
+	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
 
 	applicationName := "test-application"
 	offerName := "test-offer"
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
 	s.controllerDBState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
-	args := offer.ApplicationOfferArgs{
+	args := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},
@@ -145,7 +145,7 @@ func (s *serviceSuite) TestOfferUpdate(c *tc.C) {
 	applicationName := "test-application"
 	offerName := "test-offer"
 	ownerName := usertesting.GenNewName(c, "admin")
-	createOfferArgs := offer.ApplicationOfferArgs{
+	createOfferArgs := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},

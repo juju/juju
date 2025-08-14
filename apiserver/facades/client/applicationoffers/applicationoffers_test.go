@@ -21,19 +21,19 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/offer"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
 type offerSuite struct {
-	authorizer     *MockAuthorizer
-	accessService  *MockAccessService
-	modelService   *MockModelService
-	offerService   *MockOfferService
-	removalService *MockRemovalService
+	authorizer                *MockAuthorizer
+	accessService             *MockAccessService
+	modelService              *MockModelService
+	crossModelRelationService *MockCrossModelRelationService
+	removalService            *MockRemovalService
 }
 
 func TestOfferSuite(t *testing.T) {
@@ -53,13 +53,13 @@ func (s *offerSuite) TestOffer(c *tc.C) {
 
 	applicationName := "test-application"
 	offerName := "test-offer"
-	createOfferArgs := offer.ApplicationOfferArgs{
+	createOfferArgs := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       user.NameFromTag(apiUserTag),
 	}
-	s.offerService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
 
 	one := params.AddApplicationOffer{
 		ModelTag:        modelTag.String(),
@@ -126,13 +126,13 @@ func (s *offerSuite) TestOfferOwnerViaArgs(c *tc.C) {
 
 	applicationName := "test-application"
 	offerName := "test-offer"
-	createOfferArgs := offer.ApplicationOfferArgs{
+	createOfferArgs := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       user.NameFromTag(offerOwnerTag),
 	}
-	s.offerService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
 
 	one := params.AddApplicationOffer{
 		ModelTag:        modelTag.String(),
@@ -164,9 +164,9 @@ func (s *offerSuite) TestOfferModelViaArgs(c *tc.C) {
 		authorizer:     s.authorizer,
 		accessService:  s.accessService,
 		modelService:   s.modelService,
-		offerServiceGetter: func(_ context.Context, modelUUID model.UUID) (OfferService, error) {
+		crossModelRelationServiceGetter: func(_ context.Context, modelUUID model.UUID) (CrossModelRelationService, error) {
 			c.Check(modelUUID.String(), tc.Equals, offerModelTag.Id())
-			return s.offerService, nil
+			return s.crossModelRelationService, nil
 		},
 	}
 	userTag := names.NewUserTag("fred")
@@ -175,13 +175,13 @@ func (s *offerSuite) TestOfferModelViaArgs(c *tc.C) {
 
 	applicationName := "test-application"
 	offerName := "test-offer"
-	createOfferArgs := offer.ApplicationOfferArgs{
+	createOfferArgs := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       user.NameFromTag(userTag),
 	}
-	s.offerService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
 
 	one := params.AddApplicationOffer{
 		ModelTag:        offerModelTag.String(),
@@ -212,13 +212,13 @@ func (s *offerSuite) TestOfferError(c *tc.C) {
 
 	applicationName := "test-application"
 	offerName := "test-offer"
-	createOfferArgs := offer.ApplicationOfferArgs{
+	createOfferArgs := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       user.NameFromTag(userTag),
 	}
-	s.offerService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(errors.Errorf("boom"))
+	s.crossModelRelationService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(errors.Errorf("boom"))
 
 	one := params.AddApplicationOffer{
 		ModelTag:        modelTag.String(),
@@ -273,7 +273,7 @@ func (s *offerSuite) TestModifyOfferAccess(c *tc.C) {
 
 	offerURL, _ := corecrossmodel.ParseOfferURL("model.application:db")
 	offerUUID := uuid.MustNewUUID()
-	s.offerService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 	userTag := names.NewUserTag("simon")
 	updateArgs := access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
@@ -321,7 +321,7 @@ func (s *offerSuite) TestModifyOfferAccessOfferOwner(c *tc.C) {
 	// Get the offer UUID.
 	offerURL, _ := corecrossmodel.ParseOfferURL("model.application:db")
 	offerUUID := uuid.MustNewUUID()
-	s.offerService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 
 	// authUser does not have model admin permissions.
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(modelUUID)).Return(authentication.ErrorEntityMissingPermission)
@@ -382,7 +382,7 @@ func (s *offerSuite) TestModifyOfferAccessModelAdmin(c *tc.C) {
 	// Get the offer UUID.
 	offerURL, _ := corecrossmodel.ParseOfferURL("model.application:db")
 	offerUUID := uuid.MustNewUUID()
-	s.offerService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 
 	// authUser has model admin permissions.
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(modelUUID)).Return(nil)
@@ -435,7 +435,7 @@ func (s *offerSuite) TestModifyOfferAccessPermissionDenied(c *tc.C) {
 	// Get the offer UUID.
 	offerURL, _ := corecrossmodel.ParseOfferURL("model.application:db")
 	offerUUID := uuid.MustNewUUID()
-	s.offerService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 
 	// authUser does not have model admin permissions.
 	s.expectNoModelAdminAccessPermissions(modelUUID)
@@ -504,7 +504,7 @@ func (s *offerSuite) testDestroyOffers(c *tc.C, force bool) {
 	s.setupAuthUser("simon")
 	s.setupCheckAPIUserAdmin(offerAPI.controllerUUID, names.NewModelTag(modelUUID))
 	offerUUID := uuid.MustNewUUID()
-	s.offerService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
+	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 	s.removalService.EXPECT().RemoveOffer(gomock.Any(), offerUUID, force).Return(nil)
 
 	args := params.DestroyApplicationOffers{
@@ -605,15 +605,15 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []offer.OfferFilter{
+	domainFilters := []crossmodelrelation.OfferFilter{
 		{
 			OfferName:        "hosted-db2",
-			Endpoints:        make([]offer.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		}, {
 			OfferName:        "testing",
-			Endpoints:        make([]offer.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
@@ -624,14 +624,14 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 		Source:       charm.CharmHubSource,
 		Architecture: architecture.AMD64,
 	}
-	offerDetails := []*offer.OfferDetails{
+	offerDetails := []*crossmodelrelation.OfferDetails{
 		{
 			OfferUUID:              uuid.MustNewUUID().String(),
 			OfferName:              domainFilters[0].OfferName,
 			ApplicationName:        "test-app",
 			ApplicationDescription: "testing application",
 			CharmLocator:           charmLocator,
-			Endpoints: []offer.OfferEndpoint{
+			Endpoints: []crossmodelrelation.OfferEndpoint{
 				{Name: "db"},
 			},
 		}, {
@@ -640,12 +640,12 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 			ApplicationName:        "test-app",
 			ApplicationDescription: "testing application",
 			CharmLocator:           charmLocator,
-			Endpoints: []offer.OfferEndpoint{
+			Endpoints: []crossmodelrelation.OfferEndpoint{
 				{Name: "endpoint"},
 			},
 		},
 	}
-	s.offerService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -716,20 +716,20 @@ func (s *offerSuite) TestListApplicationOffersError(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
-	domainFilters := []offer.OfferFilter{
+	domainFilters := []crossmodelrelation.OfferFilter{
 		{
 			OfferName:        "hosted-db2",
-			Endpoints:        make([]offer.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		}, {
 			OfferName:        "testing",
-			Endpoints:        make([]offer.EndpointFilterTerm, 0),
+			Endpoints:        make([]crossmodelrelation.EndpointFilterTerm, 0),
 			AllowedConsumers: make([]string, 0),
 			ConnectedUsers:   make([]string, 0),
 		},
 	}
-	s.offerService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(nil, errors.New("some error"))
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(nil, errors.New("some error"))
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -831,14 +831,14 @@ func (s *offerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.accessService = NewMockAccessService(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
 	s.modelService = NewMockModelService(ctrl)
-	s.offerService = NewMockOfferService(ctrl)
+	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 
 	c.Cleanup(func() {
 		s.accessService = nil
 		s.authorizer = nil
 		s.modelService = nil
-		s.offerService = nil
+		s.crossModelRelationService = nil
 		s.removalService = nil
 	})
 	return ctrl
@@ -879,8 +879,8 @@ func (s *offerSuite) offerAPI(c *tc.C) *OffersAPI {
 		authorizer:     s.authorizer,
 		accessService:  s.accessService,
 		modelService:   s.modelService,
-		offerServiceGetter: func(_ context.Context, _ model.UUID) (OfferService, error) {
-			return s.offerService, nil
+		crossModelRelationServiceGetter: func(_ context.Context, _ model.UUID) (CrossModelRelationService, error) {
+			return s.crossModelRelationService, nil
 		},
 		removalServiceGetter: func(_ context.Context, _ model.UUID) (RemovalService, error) {
 			return s.removalService, nil
