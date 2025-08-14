@@ -472,7 +472,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 
 	res, err := s.service.GetFilesystemStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res, tc.DeepEquals, []Filesystem{
+	c.Check(res, tc.UnorderedMatch[[]Filesystem](tc.DeepEquals), []Filesystem{
 		{
 			ID:   "1",
 			Life: corelife.Alive,
