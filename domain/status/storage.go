@@ -4,7 +4,6 @@
 package status
 
 import (
-	"github.com/juju/juju/core/storage"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -13,8 +12,7 @@ import (
 // as recorded in the storage_filesystem_status_value lookup table.
 type StorageFilesystemStatusType int
 type StorageFilesystemStatusInfo struct {
-	FilesystemUUID storage.FilesystemUUID
-	StatusInfo     StatusInfo[StorageFilesystemStatusType]
+	StatusInfo StatusInfo[StorageFilesystemStatusType]
 }
 
 const (
@@ -106,7 +104,6 @@ func FilesystemStatusTransitionValid(
 // as recorded in the storage_volume_status_value lookup table.
 type StorageVolumeStatusType int
 type StorageVolumeStatusInfo struct {
-	VolumeUUID storage.VolumeUUID
 	StatusInfo StatusInfo[StorageVolumeStatusType]
 }
 

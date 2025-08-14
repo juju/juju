@@ -68,6 +68,16 @@ type StatusService interface {
 	// GetMachineFullStatuses returns all the machine statuses for the model, indexed
 	// by machine name.
 	GetMachineFullStatuses(ctx context.Context) (map[machine.Name]statusservice.Machine, error)
+
+	// GetStorageInstanceStatuses returns all the storage instance statuses for
+	// the model.
+	GetStorageInstanceStatuses(ctx context.Context) ([]statusservice.StorageInstance, error)
+
+	// GetFilesystemStatuses returns all the filesystem statuses for the model.
+	GetFilesystemStatuses(ctx context.Context) ([]statusservice.Filesystem, error)
+
+	// GetVolumeStatuses returns all the volume statuses for the model.
+	GetVolumeStatuses(ctx context.Context) ([]statusservice.Volume, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

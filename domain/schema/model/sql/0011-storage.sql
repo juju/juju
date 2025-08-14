@@ -443,7 +443,6 @@ CREATE TABLE storage_volume_attachment_plan (
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     device_type_id INT,
-    block_device_uuid TEXT,
     -- TODO: we may change provision_scope_id to NOT NULL in the future.
     -- We leave it nullable for now to avoid too much code churn.
     provision_scope_id INT,
@@ -459,9 +458,6 @@ CREATE TABLE storage_volume_attachment_plan (
     CONSTRAINT fk_storage_volume_attachment_plan_device
     FOREIGN KEY (device_type_id)
     REFERENCES storage_volume_device_type (id),
-    CONSTRAINT fk_storage_volume_attachment_plan_block
-    FOREIGN KEY (block_device_uuid)
-    REFERENCES block_device (uuid),
     CONSTRAINT fk_storage_volume_attachment_plan_provision_scope_id
     FOREIGN KEY (provision_scope_id)
     REFERENCES storage_provision_scope (id)

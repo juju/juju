@@ -90,7 +90,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *tc.C) {
 		Info: params.VolumeInfo{
 			ProviderId: "id-1",
 			HardwareId: "serial-1",
-			Size:       1024,
+			SizeMiB:    1024,
 			Persistent: true,
 		},
 	}, {
@@ -98,7 +98,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *tc.C) {
 		Info: params.VolumeInfo{
 			ProviderId: "id-2",
 			HardwareId: "serial-2",
-			Size:       1024,
+			SizeMiB:    1024,
 		},
 	}}
 	expectedVolumeAttachments := []params.VolumeAttachment{{

@@ -216,8 +216,8 @@ type VolumeInfo struct {
 	// than 2.2 do not populate this field, so it may
 	// be omitted.
 	Pool string `json:"pool,omitempty"`
-	// Size is the size of the volume in MiB.
-	Size       uint64 `json:"size"`
+	// SizeMiB is the size of the volume in MiB.
+	SizeMiB    uint64 `json:"size"`
 	Persistent bool   `json:"persistent"`
 }
 

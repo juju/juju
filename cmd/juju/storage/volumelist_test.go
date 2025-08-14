@@ -132,7 +132,7 @@ func (s *ListSuite) TestCAASVolumeListTabular(c *tc.C) {
 				VolumeTag: "volume-0",
 				Info: params.VolumeInfo{
 					ProviderId: "provider-supplied-volume-0",
-					Size:       512,
+					SizeMiB:    512,
 				},
 				Life:   "alive",
 				Status: createTestStatus(status.Attached, "", s.mockAPI.time),
@@ -232,7 +232,7 @@ func (s *mockListAPI) ListVolumes(ctx context.Context, machines []string) ([]par
 			Info: params.VolumeInfo{
 				ProviderId: "provider-supplied-volume-0-0",
 				Pool:       "radiance",
-				Size:       512,
+				SizeMiB:    512,
 			},
 			Life:   "alive",
 			Status: createTestStatus(status.Attached, "", s.time),
@@ -268,7 +268,7 @@ func (s *mockListAPI) ListVolumes(ctx context.Context, machines []string) ([]par
 				ProviderId: "provider-supplied-volume-1",
 				HardwareId: "serial blah blah",
 				Persistent: true,
-				Size:       2048,
+				SizeMiB:    2048,
 			},
 			Status: createTestStatus(status.Attaching, "failed to attach, will retry", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
@@ -280,7 +280,7 @@ func (s *mockListAPI) ListVolumes(ctx context.Context, machines []string) ([]par
 		{
 			VolumeTag: "volume-3",
 			Info: params.VolumeInfo{
-				Size: 42,
+				SizeMiB: 42,
 			},
 			Status: createTestStatus(status.Pending, "", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
@@ -293,7 +293,7 @@ func (s *mockListAPI) ListVolumes(ctx context.Context, machines []string) ([]par
 			VolumeTag: "volume-2",
 			Info: params.VolumeInfo{
 				ProviderId: "provider-supplied-volume-2",
-				Size:       3,
+				SizeMiB:    3,
 			},
 			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
@@ -311,7 +311,7 @@ func (s *mockListAPI) ListVolumes(ctx context.Context, machines []string) ([]par
 			Info: params.VolumeInfo{
 				ProviderId: "provider-supplied-volume-4",
 				Persistent: true,
-				Size:       1024,
+				SizeMiB:    1024,
 			},
 			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{

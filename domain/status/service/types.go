@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
+	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storageprovisioning"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
@@ -83,4 +85,71 @@ type StatusHistoryRequest struct {
 	Kind   status.HistoryKind
 	Filter StatusHistoryFilter
 	Tag    string
+}
+
+// StorageInstance represents the status of a storage instance.
+type StorageInstance struct {
+	ID          string
+	Owner       *unit.Name
+	Kind        storage.StorageKind
+	Life        life.Value
+	Attachments map[unit.Name]StorageAttachment
+}
+
+// StorageAttachment represents the status of a storage attachment.
+type StorageAttachment struct {
+	Life    life.Value
+	Unit    unit.Name
+	Machine *machine.Name
+}
+
+// Filesystem represents the status of a filesystem.
+type Filesystem struct {
+	ID                 string
+	Life               life.Value
+	Status             status.StatusInfo
+	StorageID          string
+	VolumeID           *string
+	ProviderID         string
+	SizeMiB            uint64
+	MachineAttachments map[machine.Name]FilesystemAttachment
+	UnitAttachments    map[unit.Name]FilesystemAttachment
+}
+
+// Volume represents the status of a volume.
+type Volume struct {
+	ID                 string
+	Life               life.Value
+	Status             status.StatusInfo
+	StorageID          string
+	ProviderID         string
+	HardwareID         string
+	WWN                string
+	SizeMiB            uint64
+	Persistent         bool
+	MachineAttachments map[machine.Name]VolumeAttachment
+	UnitAttachments    map[unit.Name]VolumeAttachment
+}
+
+// FilesystemAttachment represents the status of a filesystem attachment.
+type FilesystemAttachment struct {
+	Life       life.Value
+	MountPoint string
+	ReadOnly   bool
+}
+
+// VolumeAttachment represents the status of a volume attachment.
+type VolumeAttachment struct {
+	Life                 life.Value
+	DeviceName           string
+	DeviceLink           string
+	BusAddress           string
+	ReadOnly             bool
+	VolumeAttachmentPlan *VolumeAttachmentPlan
+}
+
+// VolumeAttachmentPlan represents the status of a volume attachment plan.
+type VolumeAttachmentPlan struct {
+	DeviceType       storageprovisioning.PlanDeviceType
+	DeviceAttributes map[string]string
 }

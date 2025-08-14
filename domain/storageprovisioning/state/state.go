@@ -343,7 +343,7 @@ func (st *State) checkApplicationExists(
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
 func (s *State) GetStorageAttachmentIDsForUnit(ctx context.Context, unitUUID string) ([]string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -394,7 +394,7 @@ WHERE  unit_uuid = $unitUUIDRef.unit_uuid`, input, storageID{})
 func (s *State) GetStorageInstanceUUIDByID(
 	ctx context.Context, storageIDStr string,
 ) (string, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -434,7 +434,7 @@ WHERE  storage_id = $storageID.storage_id`, input, dbVal)
 // - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
 // attachment does not exist for the unit and storage instance.
 func (s *State) GetStorageAttachmentLife(ctx context.Context, unitUUID, storageInstanceUUID string) (domainlife.Life, error) {
-	db, err := s.DB()
+	db, err := s.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}

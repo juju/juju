@@ -601,7 +601,7 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 				HardwareId: v.HardwareId,
 				WWN:        v.WWN,
 				Pool:       "", // pool
-				Size:       v.Size,
+				SizeMiB:    v.Size,
 				Persistent: v.Persistent,
 			},
 		}
@@ -645,7 +645,7 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 			VolumeId:   in.Info.ProviderId,
 			HardwareId: in.Info.HardwareId,
 			WWN:        in.Info.WWN,
-			Size:       in.Info.Size,
+			Size:       in.Info.SizeMiB,
 			Persistent: in.Info.Persistent,
 		},
 	}, nil
