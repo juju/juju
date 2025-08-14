@@ -21,7 +21,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/statushistory"
@@ -72,7 +71,7 @@ func (s *storageServiceSuite) TestSetFilesystemStatus(c *tc.C) {
 
 	now := time.Now()
 
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	filesystemUUID := storageprovisioning.GenFilesystemUUID(c)
 	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
 	s.modelState.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttached,
@@ -114,7 +113,7 @@ func (s *storageServiceSuite) TestSetFilesystemStatusUUIDNotFound(c *tc.C) {
 func (s *storageServiceSuite) TestSetFilesystemStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	filesystemUUID := storageprovisioning.GenFilesystemUUID(c)
 	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
 	s.modelState.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusTypeAttached,
@@ -154,7 +153,7 @@ func (s *storageServiceSuite) TestSetVolumeStatus(c *tc.C) {
 
 	now := time.Now()
 
-	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
 	s.modelState.EXPECT().GetVolumeUUIDByID(gomock.Any(), "666").Return(volumeUUID, nil)
 	s.modelState.EXPECT().SetVolumeStatus(gomock.Any(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttached,
@@ -196,7 +195,7 @@ func (s *storageServiceSuite) TestSetVolumeStatusUUIDNotFound(c *tc.C) {
 func (s *storageServiceSuite) TestSetVolumeStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
 	s.modelState.EXPECT().GetVolumeUUIDByID(gomock.Any(), "666").Return(volumeUUID, nil)
 	s.modelState.EXPECT().SetVolumeStatus(gomock.Any(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
 		Status: status.StorageVolumeStatusTypeAttached,
@@ -350,7 +349,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := storageprovisioning.GenFilesystemUUID(c)
 	fs := []status.Filesystem{
 		{
 			UUID: fsUUID,
@@ -414,8 +413,8 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID0 := storageprovisioningtesting.GenFilesystemUUID(c)
-	fsUUID1 := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID0 := storageprovisioning.GenFilesystemUUID(c)
+	fsUUID1 := storageprovisioning.GenFilesystemUUID(c)
 	fs := []status.Filesystem{
 		{
 			UUID: fsUUID0,
@@ -533,7 +532,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
+	volUUID := storageprovisioning.GenVolumeUUID(c)
 	vol := []status.Volume{
 		{
 			UUID: volUUID,

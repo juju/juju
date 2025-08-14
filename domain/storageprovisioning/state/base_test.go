@@ -23,7 +23,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -118,7 +117,7 @@ func (s *baseSuite) newMachineWithNetNode(
 // newMachineVolume creates a new volume in the model with machine
 // provision scope. Returned is the uuid and volume id of the entity.
 func (s *baseSuite) newMachineVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
-	vsUUID := domaintesting.GenVolumeUUID(c)
+	vsUUID := storageprovisioning.GenVolumeUUID(c)
 
 	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
 
@@ -140,7 +139,7 @@ func (s *baseSuite) newMachineVolumeAttachment(
 	vsUUID storageprovisioning.VolumeUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.VolumeAttachmentUUID {
-	attachmentUUID := domaintesting.GenVolumeAttachmentUUID(c)
+	attachmentUUID := storageprovisioning.GenVolumeAttachmentUUID(c)
 
 	_, err := s.DB().ExecContext(
 		c.Context(),
@@ -161,7 +160,7 @@ VALUES (?, ?, ?, 0, 1)
 // newModelVolume creates a new volume in the model with model
 // provision scope. Return is the uuid and volume id of the entity.
 func (s *baseSuite) newModelVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
-	vsUUID := domaintesting.GenVolumeUUID(c)
+	vsUUID := storageprovisioning.GenVolumeUUID(c)
 
 	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
 
@@ -183,7 +182,7 @@ func (s *baseSuite) newModelVolumeAttachment(
 	vsUUID storageprovisioning.VolumeUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.VolumeAttachmentUUID {
-	attachmentUUID := domaintesting.GenVolumeAttachmentUUID(c)
+	attachmentUUID := storageprovisioning.GenVolumeAttachmentUUID(c)
 
 	_, err := s.DB().ExecContext(
 		c.Context(),

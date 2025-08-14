@@ -15,7 +15,6 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
 // filesystemSuite provides a set of tests for asserting the state interface
@@ -93,7 +92,7 @@ func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemNotFoundError(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	notFoundUUID := domaintesting.GenFilesystemUUID(c)
+	notFoundUUID := storageprovisioning.GenFilesystemUUID(c)
 
 	_, err := st.GetFilesystem(c.Context(), notFoundUUID)
 
@@ -139,7 +138,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachment(c *tc.C) {
 }
 
 func (s *filesystemSuite) TestGetFilesystemAttachmentNotFound(c *tc.C) {
-	notFoundUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+	notFoundUUID := storageprovisioning.GenFilesystemAttachmentUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemAttachment(
@@ -633,7 +632,7 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemAtt
 // attachment that doesn't exist returns to the caller an error satisfying
 // [storageprovisioningerrors.FilesystemAttachmentNotFound].
 func (s *filesystemSuite) TestGetFilesystemAttachmentLifeNotFound(c *tc.C) {
-	uuid := domaintesting.GenFilesystemAttachmentUUID(c)
+	uuid := storageprovisioning.GenFilesystemAttachmentUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemAttachmentLife(c.Context(), uuid)
@@ -675,7 +674,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNode(c *tc.C) {
 // for an attachment using a filesystem uuid that does not exist in the model.
 func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeFSNotFound(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
-	notFoundFS := domaintesting.GenFilesystemUUID(c)
+	notFoundFS := storageprovisioning.GenFilesystemUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
@@ -725,7 +724,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeUnrelated(c
 // attachment that doesn't exist returns to the caller an error satisfying
 // [storageprovisioningerrors.FilesystemNotFound].
 func (s *filesystemSuite) TestGetFilesystemLifeNotFound(c *tc.C) {
-	uuid := domaintesting.GenFilesystemUUID(c)
+	uuid := storageprovisioning.GenFilesystemUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemLife(c.Context(), uuid)
@@ -882,7 +881,7 @@ func (s *filesystemSuite) newMachineFilesystem(c *tc.C) (
 func (s *filesystemSuite) newMachineFilesystemWithSize(
 	c *tc.C, providerID string, size uint64,
 ) (storageprovisioning.FilesystemUUID, string) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := storageprovisioning.GenFilesystemUUID(c)
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provider_id, size_mib, provision_scope_id)
@@ -899,7 +898,7 @@ VALUES (?, ?, 0, ?, ?, 1)
 func (s *filesystemSuite) newModelFilesystem(c *tc.C) (
 	storageprovisioning.FilesystemUUID, string,
 ) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := storageprovisioning.GenFilesystemUUID(c)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
@@ -921,7 +920,7 @@ func (s *filesystemSuite) newMachineFilesystemAttachment(
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+	attachmentUUID := storageprovisioning.GenFilesystemAttachmentUUID(c)
 
 	_, err := s.DB().ExecContext(
 		c.Context(),
@@ -949,7 +948,7 @@ func (s *filesystemSuite) newModelFilesystemAttachment(
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+	attachmentUUID := storageprovisioning.GenFilesystemAttachmentUUID(c)
 
 	_, err := s.DB().ExecContext(
 		c.Context(),

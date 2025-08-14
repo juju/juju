@@ -33,7 +33,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -87,7 +86,7 @@ var (
 )
 
 func (s *storageSuite) createFilesystem(c *tc.C) storageprovisioning.FilesystemUUID {
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	filesystemUUID := storageprovisioning.GenFilesystemUUID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -107,7 +106,7 @@ VALUES (?, ?)`, filesystemUUID, 0)
 }
 
 func (s *storageSuite) createFilesystemNoStatus(c *tc.C) storageprovisioning.FilesystemUUID {
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	filesystemUUID := storageprovisioning.GenFilesystemUUID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -253,7 +252,7 @@ WHERE filesystem_uuid=?`, filesystemUUID).Scan(
 func (s *storageSuite) createVolume(c *tc.C) storageprovisioning.VolumeUUID {
 	ctx := c.Context()
 
-	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -275,7 +274,7 @@ VALUES (?, ?)`, volumeUUID, 0)
 func (s *storageSuite) createVolumeNoStatus(c *tc.C) storageprovisioning.VolumeUUID {
 	ctx := c.Context()
 
-	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -384,7 +383,7 @@ func (s *storageSuite) TestSetFilesystemStatusFilesystemNotFound(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	uuid := storageprovisioningtesting.GenFilesystemUUID(c)
+	uuid := storageprovisioning.GenFilesystemUUID(c)
 	err := s.modelState.SetFilesystemStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
 }
@@ -511,7 +510,7 @@ func (s *storageSuite) TestSetVolumeStatusVolumeNotFound(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	uuid := storageprovisioningtesting.GenVolumeUUID(c)
+	uuid := storageprovisioning.GenVolumeUUID(c)
 	err := s.modelState.SetVolumeStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.VolumeNotFound)
 }
@@ -1071,7 +1070,7 @@ func (s *storageStatusSuite) changeFilesystemAttachmentInfo(
 func (s *storageStatusSuite) newFilesystem(c *tc.C) (
 	storageprovisioning.FilesystemUUID, string,
 ) {
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := storageprovisioning.GenFilesystemUUID(c)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
@@ -1093,7 +1092,7 @@ func (s *storageStatusSuite) newFilesystemAttachment(
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	attachmentUUID := storageprovisioning.GenFilesystemAttachmentUUID(c)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem_attachment (uuid,
@@ -1181,7 +1180,7 @@ func (s *storageStatusSuite) newMachineWithNetNode(
 // newVolume creates a new volume in the model with model
 // provision scope. Return is the uuid and volume id of the entity.
 func (s *storageStatusSuite) newVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
-	vsUUID := storageprovisioningtesting.GenVolumeUUID(c)
+	vsUUID := storageprovisioning.GenVolumeUUID(c)
 
 	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
 
@@ -1203,7 +1202,7 @@ func (s *storageStatusSuite) newVolumeAttachment(
 	vsUUID storageprovisioning.VolumeUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storageprovisioning.VolumeAttachmentUUID {
-	attachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+	attachmentUUID := storageprovisioning.GenVolumeAttachmentUUID(c)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_volume_attachment (uuid,

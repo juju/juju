@@ -32,10 +32,29 @@ func NewFilesystemAttachmentUUID() (FilesystemAttachmentUUID, error) {
 	return FilesystemAttachmentUUID(u), err
 }
 
+// GenFilesystemAttachmentUUID generates a new [FilesystemAttachmentUUID] for
+// testing purposes.
+func GenFilesystemAttachmentUUID(c interface{ Fatal(...any) }) FilesystemAttachmentUUID {
+	uuid, err := NewFilesystemAttachmentUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
+}
+
 // NewFileystemUUID creates a new, valid storage filesystem identifier.
 func NewFileystemUUID() (FilesystemUUID, error) {
 	u, err := newUUID()
 	return FilesystemUUID(u), err
+}
+
+// GenFilesystemUUID generates a new [FilesystemUUID] for testing purposes.
+func GenFilesystemUUID(c interface{ Fatal(...any) }) FilesystemUUID {
+	uuid, err := NewFileystemUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
 }
 
 // NewVolumeAttachmentUUID creates a new, valid storage volume attachment
@@ -45,10 +64,29 @@ func NewVolumeAttachmentUUID() (VolumeAttachmentUUID, error) {
 	return VolumeAttachmentUUID(u), err
 }
 
+// GenVolumeAttachmentUUID generates a new [VolumeAttachmentUUID] for testing
+// purposes.
+func GenVolumeAttachmentUUID(c interface{ Fatal(...any) }) VolumeAttachmentUUID {
+	uuid, err := NewVolumeAttachmentUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
+}
+
 // NewVolumeUUID creates a new, valid storage volume identifier.
 func NewVolumeUUID() (VolumeUUID, error) {
 	u, err := newUUID()
 	return VolumeUUID(u), err
+}
+
+// GenVolumeUUID generates a new [VolumeUUID] for testing purposes.
+func GenVolumeUUID(c interface{ Fatal(...any) }) VolumeUUID {
+	uuid, err := NewVolumeUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
 }
 
 // newUUID creates a new UUID using the internal uuid package.

@@ -17,8 +17,8 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
 // volumeSuite provides a test suite for asserting the [Service] interface
@@ -274,7 +274,7 @@ func (s *volumeSuite) TestWatchVolumeAttachmentPlansNotFound(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+	vaUUID := storageprovisioning.GenVolumeAttachmentUUID(c)
 
 	s.state.EXPECT().GetVolumeAttachmentLife(c.Context(), vaUUID).Return(
 		domainlife.Alive, nil,
@@ -289,7 +289,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLife(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentLifeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+	vaUUID := storageprovisioning.GenVolumeAttachmentUUID(c)
 
 	s.state.EXPECT().GetVolumeAttachmentLife(c.Context(), vaUUID).Return(
 		-1, storageprovisioningerrors.VolumeAttachmentNotFound,
@@ -314,8 +314,8 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachine(c *tc.C) {
 	machineUUID := coremachine.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	volumeUUID := domaintesting.GenVolumeUUID(c)
-	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
+	vaUUID := storageprovisioning.GenVolumeAttachmentUUID(c)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
@@ -374,7 +374,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeAtt
 	machineUUID := coremachine.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	volumeUUID := domaintesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
@@ -391,8 +391,8 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := coreunit.GenUUID(c)
-	volumeUUID := domaintesting.GenVolumeUUID(c)
-	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
+	vaUUID := storageprovisioning.GenVolumeAttachmentUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -455,7 +455,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeAttach
 	unitUUID := coreunit.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	volumeUUID := domaintesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
 
 	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
@@ -471,7 +471,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeAttach
 func (s *volumeSuite) TestGetVolumeLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	volumeUUID := domaintesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
 
 	s.state.EXPECT().GetVolumeLife(c.Context(), volumeUUID).Return(
 		domainlife.Alive, nil,
@@ -494,7 +494,7 @@ func (s *volumeSuite) TestGetVolumeLifeNotValid(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeLifeWithVolumeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	volumeUUID := domaintesting.GenVolumeUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
 
 	s.state.EXPECT().GetVolumeLife(c.Context(), volumeUUID).Return(
 		-1, storageprovisioningerrors.VolumeNotFound,

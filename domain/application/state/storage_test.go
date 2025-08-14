@@ -25,7 +25,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	storageprovtesting "github.com/juju/juju/domain/storageprovisioning/testing"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -295,8 +295,8 @@ type filesystemAttachmentArg struct {
 func (s *baseStorageSuite) createFilesystem(c *tc.C, storageUUID domainstorage.StorageInstanceUUID, attachments ...filesystemAttachmentArg) {
 	ctx := c.Context()
 
-	filesystemUUID := storageprovtesting.GenFilesystemUUID(c)
-	attachmentUUID := storageprovtesting.GenFilesystemAttachmentUUID(c)
+	filesystemUUID := storageprovisioning.GenFilesystemUUID(c)
+	attachmentUUID := storageprovisioning.GenFilesystemAttachmentUUID(c)
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -333,8 +333,8 @@ type volumeAttachmentArg struct {
 func (s *baseStorageSuite) createVolume(c *tc.C, storageUUID domainstorage.StorageInstanceUUID, attachments ...volumeAttachmentArg) {
 	ctx := c.Context()
 
-	volumeUUID := storageprovtesting.GenVolumeUUID(c)
-	attachmentUUID := storageprovtesting.GenVolumeAttachmentUUID(c)
+	volumeUUID := storageprovisioning.GenVolumeUUID(c)
+	attachmentUUID := storageprovisioning.GenVolumeAttachmentUUID(c)
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
