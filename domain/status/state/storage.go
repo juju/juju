@@ -126,7 +126,7 @@ func (st *ModelState) GetFilesystemUUIDByID(
 	ctx context.Context,
 	id string,
 ) (storageprovisioning.FilesystemUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -292,7 +292,7 @@ func (st *ModelState) GetVolumeUUIDByID(
 	ctx context.Context,
 	id string,
 ) (storageprovisioning.VolumeUUID, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -360,7 +360,7 @@ ON CONFLICT(volume_uuid) DO UPDATE SET
 func (st *ModelState) GetStorageInstances(
 	ctx context.Context,
 ) ([]status.StorageInstance, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -410,7 +410,7 @@ LEFT JOIN charm_storage cs ON si.charm_uuid=cs.charm_uuid AND cs.name=si.storage
 func (st *ModelState) GetStorageInstanceAttachments(
 	ctx context.Context,
 ) ([]status.StorageAttachment, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -458,7 +458,7 @@ LEFT JOIN machine m ON u.net_node_uuid=m.net_node_uuid
 func (st *ModelState) GetFilesystems(
 	ctx context.Context,
 ) ([]status.Filesystem, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -521,7 +521,7 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 func (st *ModelState) GetFilesystemAttachments(
 	ctx context.Context,
 ) ([]status.FilesystemAttachment, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -578,7 +578,7 @@ LEFT JOIN unit u ON u.uuid=sa.unit_uuid
 func (st *ModelState) GetVolumes(
 	ctx context.Context,
 ) ([]status.Volume, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -636,7 +636,7 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 func (st *ModelState) GetVolumeAttachments(
 	ctx context.Context,
 ) ([]status.VolumeAttachment, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

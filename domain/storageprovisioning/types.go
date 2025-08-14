@@ -15,7 +15,7 @@ type PlanDeviceType int
 
 const (
 	// PlanDeviceTypeLocal indicates a local attachment.
-	PlanDeviceTypeLocal = iota
+	PlanDeviceTypeLocal PlanDeviceType = iota
 	// PlanDeviceTypeISCSI indicates an iscsi attachment.
 	PlanDeviceTypeISCSI
 )
