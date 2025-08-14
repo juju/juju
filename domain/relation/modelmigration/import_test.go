@@ -12,7 +12,6 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
-	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/relation"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -33,8 +32,8 @@ func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := s.expectImportRelations(c, map[int]corerelation.Key{
-		3: relationtesting.GenNewKey(c, "ubuntu:peer"),
-		7: relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info"),
+		3: corerelation.GenNewKey(c, "ubuntu:peer"),
+		7: corerelation.GenNewKey(c, "ubuntu:juju-info ntp:juju-info"),
 	})
 
 	importOp := importOperation{

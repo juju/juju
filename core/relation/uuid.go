@@ -21,6 +21,16 @@ func NewUUID() (UUID, error) {
 	return UUID(id.String()), nil
 }
 
+// GenRelationUUID can be used in testing for generating a relation UUID
+// that is checked for subsequent errors.
+func GenRelationUUID(c interface{ Fatal(...any) }) UUID {
+	id, err := NewUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return id
+}
+
 // ParseUUID returns a new UUID from the given string. If the string is not a
 // valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseUUID(value string) (UUID, error) {
@@ -59,6 +69,16 @@ func NewUnitUUID() (UnitUUID, error) {
 	return UnitUUID(id.String()), nil
 }
 
+// GenRelationUnitUUID can be used in testing for generating a relation
+// Unit UUID that is checked for subsequent.
+func GenRelationUnitUUID(c interface{ Fatal(...any) }) UnitUUID {
+	id, err := NewUnitUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return id
+}
+
 // ParseUnitUUID returns a new UUID from the given string. If the string is not a
 // valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseUnitUUID(value string) (UnitUUID, error) {
@@ -95,6 +115,16 @@ func NewEndpointUUID() (EndpointUUID, error) {
 		return EndpointUUID(""), err
 	}
 	return EndpointUUID(id.String()), nil
+}
+
+// GenEndpointUUID can be used in testing for generating an
+// endpoint UUID that is checked for subsequent errors.
+func GenEndpointUUID(c interface{ Fatal(...any) }) EndpointUUID {
+	id, err := NewEndpointUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return id
 }
 
 // ParseEndpointUUID returns a new UUID from the given string. If the string is not a

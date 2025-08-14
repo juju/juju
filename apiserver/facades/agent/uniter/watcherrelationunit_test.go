@@ -20,7 +20,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/relation"
-	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -121,7 +120,7 @@ func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitKeyNotFound(c *tc.C) 
 	unitTag := "unit-app1-0"
 
 	s.relationService.EXPECT().GetRelationUUIDByKey(
-		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return("", relationerrors.RelationNotFound)
+		gomock.Any(), relation.GenNewKey(c, "app1:ep1 app2:ep2")).Return("", relationerrors.RelationNotFound)
 
 	// Act
 	_, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
@@ -143,7 +142,7 @@ func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitKeyDomainError(c *tc.
 	domainError := errors.New("domain error")
 
 	s.relationService.EXPECT().GetRelationUUIDByKey(
-		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return("", domainError)
+		gomock.Any(), relation.GenNewKey(c, "app1:ep1 app2:ep2")).Return("", domainError)
 
 	// Act
 	_, err := s.uniter.watchOneRelationUnit(c.Context(), func(tag names.Tag) bool {
@@ -164,8 +163,8 @@ func (s *watcherRelationUnitSuite) TestWatchOneRelationUnitUUIDNotFound(c *tc.C)
 	unitTag := "unit-app1-0"
 
 	s.relationService.EXPECT().GetRelationUUIDByKey(
-		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return(
-		corerelationtesting.GenRelationUUID(c), nil)
+		gomock.Any(), relation.GenNewKey(c, "app1:ep1 app2:ep2")).Return(
+		relation.GenRelationUUID(c), nil)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unit.Name("app1/0")).Return(
 		"", applicationerrors.UnitNotFound)
@@ -189,9 +188,9 @@ func (s *watcherRelationUnitSuite) TestWatchOneRelationUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relationKey := "relation-app1.ep1#app2.ep2"
 	unitTag := "unit-app1-0"
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := relation.GenRelationUUID(c)
 	s.relationService.EXPECT().GetRelationUUIDByKey(
-		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return(relationUUID, nil)
+		gomock.Any(), relation.GenNewKey(c, "app1:ep1 app2:ep2")).Return(relationUUID, nil)
 
 	watchedUUID := unit.GenUUID(c)
 	unitUUIDByName := map[unit.Name]unit.UUID{
@@ -270,7 +269,7 @@ func (s *watcherRelationUnitSuite) TestWatchOneRelationUnit(c *tc.C) {
 func (s *watcherRelationUnitSuite) TestRelationUnitsWatcher(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := relation.GenRelationUUID(c)
 
 	appUUIDByName := map[string]coreapplication.ID{
 		"app1": coreapplication.GenID(c),

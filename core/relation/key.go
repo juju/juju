@@ -68,6 +68,16 @@ func NewKey(eids []EndpointIdentifier) (Key, error) {
 	}
 }
 
+// GenNewKey can be used in testing to generate a relation key from its string
+// representation. It is checked for errors.
+func GenNewKey(c interface{ Fatal(...any) }, keyString string) Key {
+	key, err := NewKeyFromString(keyString)
+	if err != nil {
+		c.Fatal(err)
+	}
+	return key
+}
+
 // NewKeyFromString parses a relation key string and returns a relation Key. It
 // expects a string of one of the following forms:
 //  1. "<application-name>:<requirer-endpoint-name> <application-name>:<provider-endpoint-name>"

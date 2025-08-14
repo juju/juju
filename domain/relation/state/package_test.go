@@ -18,7 +18,6 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
-	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
@@ -204,7 +203,7 @@ WHERE uuid = ?`, table), dying, uuid)
 // addRelation inserts a new relation into the database with default relation
 // and life IDs. Returns the relation UUID.
 func (s *baseRelationSuite) addRelation(c *tc.C) corerelation.UUID {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	s.query(c, `
 INSERT INTO relation (uuid, life_id, relation_id) 
 VALUES (?,0,?)
@@ -229,7 +228,7 @@ VALUES (?,?,?)
 // addRelationUnit inserts a relation unit into the database using the
 // provided UUIDs for relation. Returns the relation unit UUID.
 func (s *baseRelationSuite) addRelationUnit(c *tc.C, unitUUID coreunit.UUID, relationEndpointUUID string) corerelation.UnitUUID {
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 	s.query(c, `
 INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
 VALUES (?,?,?)
@@ -240,7 +239,7 @@ VALUES (?,?,?)
 // addRelationWithID inserts a new relation into the database with the given
 // ID, and default life ID. Returns the relation UUID.
 func (s *baseRelationSuite) addRelationWithID(c *tc.C, relationID int) corerelation.UUID {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	s.query(c, `
 INSERT INTO relation (uuid, life_id, relation_id) 
 VALUES (?,0,?)
@@ -255,7 +254,7 @@ VALUES (?,0,?)
 // addRelationWithLifeAndID inserts a new relation into the database with the
 // given details. Returns the relation UUID.
 func (s *baseRelationSuite) addRelationWithLifeAndID(c *tc.C, life corelife.Value, relationID int) corerelation.UUID {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	s.query(c, `
 INSERT INTO relation (uuid, relation_id, life_id)
 SELECT ?,  ?, id

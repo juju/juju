@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
-	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -1369,9 +1368,9 @@ func (s *uniterRelationSuite) SetUpSuite(c *tc.C) {
 func (s *uniterRelationSuite) TestRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	relKey := corerelation.GenNewKey(c, relTag.Id())
 
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	relID := 42
 
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
@@ -1416,7 +1415,7 @@ func (s *uniterRelationSuite) TestRelationUnauthorized(c *tc.C) {
 	// arrange
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relTagFail := names.NewRelationTag("foo:database wordpress:mysql")
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTagFail.Id()), "", relationerrors.RelationNotFound)
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTagFail.Id()), "", relationerrors.RelationNotFound)
 
 	// act
 	args := params.RelationUnits{
@@ -1449,7 +1448,7 @@ func (s *uniterRelationSuite) TestRelationUnauthorized(c *tc.C) {
 func (s *uniterRelationSuite) TestRelationById(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	relIDNotFound := -1
 	relID := 31
 	relIDUnexpectedAppName := 42
@@ -1507,11 +1506,11 @@ func (s *uniterRelationSuite) TestReadSettingsApplication(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	appID := coreapplication.GenID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettingsWithLeader(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
 
@@ -1536,11 +1535,11 @@ func (s *uniterRelationSuite) TestReadSettingsUnit(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
-	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
+	relUnitUUID := corerelation.GenRelationUnitUUID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetRelationUnit(relUUID, relUnitUUID, s.wordpressUnitTag.Id())
 	s.expectGetRelationUnitSettings(relUnitUUID, settings)
 
@@ -1564,7 +1563,7 @@ func (s *uniterRelationSuite) TestReadSettingsUnit(c *tc.C) {
 func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 
 	errAuthTests := []struct {
 		description string
@@ -1579,7 +1578,7 @@ func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *tc.C) {
 			description: "remote unit, valid in relation, not this call",
 			arg:         params.RelationUnit{Relation: relTag.String(), Unit: "unit-mysql-0"},
 			arrange: func() {
-				s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+				s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 			},
 		}, {
 			description: "relation tag parsing fail",
@@ -1589,7 +1588,7 @@ func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *tc.C) {
 			description: "unit arg not unit nor application",
 			arg:         params.RelationUnit{Relation: relTag.String(), Unit: "user-foo"},
 			arrange: func() {
-				s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+				s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 			},
 		},
 	}
@@ -1612,11 +1611,11 @@ func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	appID := coreapplication.GenID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettingsWithLeader(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
 
@@ -1640,7 +1639,7 @@ func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *tc.C) {
 func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 
 	errAuthTests := []struct {
 		description string
@@ -1667,7 +1666,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *tc.C) {
 			description: "remote unit tag not unit nor application kinds",
 			arg:         params.RelationUnitPair{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: "machine-2"},
 			arrange: func() {
-				s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+				s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 			},
 		},
 	}
@@ -1695,11 +1694,11 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	remoteUnitTag := names.NewUnitTag("mysql/2")
-	relUUID := relationtesting.GenRelationUUID(c)
-	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
+	relUnitUUID := corerelation.GenRelationUnitUUID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetRelationUnit(relUUID, relUnitUUID, remoteUnitTag.Id())
 	s.expectGetRelationUnitSettings(relUnitUUID, settings)
 
@@ -1729,11 +1728,11 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	remoteAppTag := names.NewApplicationTag("mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	appID := coreapplication.GenID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(remoteAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
 
@@ -1762,11 +1761,11 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	appID := coreapplication.GenID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
 
@@ -1851,7 +1850,7 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relID := 42
-	relationUUID := relationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
 	relStatus := status.StatusInfo{
 		Status: status.Joined,
@@ -1888,7 +1887,7 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relID := 42
-	relationUUID := relationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	s.expectGetRelationUUIDByID(relID, relationUUID, relationerrors.RelationNotFound)
 
 	// act
@@ -1910,7 +1909,7 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, failRelTag.Id()), "", relationerrors.RelationNotFound)
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, failRelTag.Id()), "", relationerrors.RelationNotFound)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -1938,8 +1937,8 @@ func (s *uniterRelationSuite) TestEnterScope(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
-	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	relUUID := corerelation.GenRelationUUID(c)
+	relKey := corerelation.GenNewKey(c, relTag.Id())
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	addr := "x.x.x.x"
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
@@ -1970,8 +1969,8 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
-	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	relUUID := corerelation.GenRelationUUID(c)
+	relKey := corerelation.GenNewKey(c, relTag.Id())
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	addr := "x.x.x.x"
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
@@ -2002,7 +2001,7 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
-	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, failRelTag.Id()), "",
+	s.expectGetRelationUUIDByKey(corerelation.GenNewKey(c, failRelTag.Id()), "",
 		relationerrors.RelationNotFound)
 
 	// act
@@ -2035,7 +2034,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relKey, err := corerelation.ParseKeyFromTagString(relTag.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -2125,7 +2124,7 @@ func (s *uniterRelationSuite) TestWatchUnitRelations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	unitUUID := coreunit.GenUUID(c)
 	watcherID := "watcher-id"
-	relationKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	relationKey := corerelation.GenNewKey(c, "wordpress:db mysql:db")
 	relationChanges := make(chan []string, 1)
 	change := []string{relationKey.String()}
 	relationChanges <- change
@@ -2240,7 +2239,7 @@ func (s *uniterRelationSuite) expectGetRelationDetails(c *tc.C, relUUID corerela
 		Life: life.Alive,
 		UUID: relUUID,
 		ID:   relID,
-		Key:  relationtesting.GenNewKey(c, relTag.Id()),
+		Key:  corerelation.GenNewKey(c, relTag.Id()),
 		Endpoints: []relation.Endpoint{
 			{
 				ApplicationName: "wordpress",
@@ -2271,7 +2270,7 @@ func (s *uniterRelationSuite) expectGetRelationDetailsNotFound(relUUID corerelat
 func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *tc.C, relUUID corerelation.UUID) {
 	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
 		Life: life.Alive,
-		UUID: relationtesting.GenRelationUUID(c),
+		UUID: corerelation.GenRelationUUID(c),
 		ID:   101,
 		Endpoints: []relation.Endpoint{
 			{
@@ -2326,7 +2325,7 @@ func (s *uniterRelationSuite) expectedGetRelationsStatusForUnit(c *tc.C, uuid co
 		// The caller created the tag, programing error if this fails.
 		tag, _ := names.ParseRelationTag(in.RelationTag)
 		expectedStatuses[i] = relation.RelationUnitStatus{
-			Key:       relationtesting.GenNewKey(c, tag.Id()),
+			Key:       corerelation.GenNewKey(c, tag.Id()),
 			InScope:   in.InScope,
 			Suspended: in.Suspended,
 		}
@@ -2400,11 +2399,11 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	unitTag := names.NewUnitTag("wordpress/0")
 	relTag := names.NewRelationTag("wordpress:db mysql:db")
-	relUUID := relationtesting.GenRelationUUID(c)
-	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
+	relUnitUUID := corerelation.GenRelationUnitUUID(c)
 	appSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
 	unitSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
-	relKey := relationtesting.GenNewKey(c, relTag.Id())
+	relKey := corerelation.GenNewKey(c, relTag.Id())
 	s.expectGetRelationUUIDByKey(relKey, relUUID)
 	s.expectGetRelationUnit(relUUID, relUnitUUID, unitTag.Id())
 	s.expectedSetRelationApplicationAndUnitSettings(coreunit.Name(unitTag.Id()), relUnitUUID, appSettings, unitSettings)
@@ -2477,12 +2476,12 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
 	unitUUID := coreunit.GenUUID(c)
-	relKey1 := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
-	relKey2 := relationtesting.GenNewKey(c, "wordpress:web nginx:web")
-	relUUID1 := relationtesting.GenRelationUUID(c)
-	relUUID2 := relationtesting.GenRelationUUID(c)
-	relUnitUUID1 := relationtesting.GenRelationUnitUUID(c)
-	relUnitUUID2 := relationtesting.GenRelationUnitUUID(c)
+	relKey1 := corerelation.GenNewKey(c, "wordpress:db mysql:db")
+	relKey2 := corerelation.GenNewKey(c, "wordpress:web nginx:web")
+	relUUID1 := corerelation.GenRelationUUID(c)
+	relUUID2 := corerelation.GenRelationUUID(c)
+	relUnitUUID1 := corerelation.GenRelationUnitUUID(c)
+	relUnitUUID2 := corerelation.GenRelationUnitUUID(c)
 
 	// Set up expectations
 	s.expectGetUnitUUID(unitName, unitUUID, nil)
@@ -2556,7 +2555,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationUUIDError
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
 	unitUUID := coreunit.GenUUID(c)
-	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	relKey := corerelation.GenNewKey(c, "wordpress:db mysql:db")
 	expectedErr := internalerrors.New("relation not found")
 
 	// Set up expectations
@@ -2580,8 +2579,8 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationUnitError
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
 	unitUUID := coreunit.GenUUID(c)
-	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
-	relUUID := relationtesting.GenRelationUUID(c)
+	relKey := corerelation.GenNewKey(c, "wordpress:db mysql:db")
+	relUUID := corerelation.GenRelationUUID(c)
 	expectedErr := internalerrors.New("relation unit not found")
 
 	// Set up expectations
@@ -2605,9 +2604,9 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetUnitRelationNetwo
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
 	unitUUID := coreunit.GenUUID(c)
-	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
-	relUUID := relationtesting.GenRelationUUID(c)
-	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	relKey := corerelation.GenNewKey(c, "wordpress:db mysql:db")
+	relUUID := corerelation.GenRelationUUID(c)
+	relUnitUUID := corerelation.GenRelationUnitUUID(c)
 	expectedErr := internalerrors.New("network not found")
 
 	// Set up expectations
@@ -2632,9 +2631,9 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSetRelationSettingsE
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
 	unitUUID := coreunit.GenUUID(c)
-	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
-	relUUID := relationtesting.GenRelationUUID(c)
-	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	relKey := corerelation.GenNewKey(c, "wordpress:db mysql:db")
+	relUUID := corerelation.GenRelationUUID(c)
+	relUnitUUID := corerelation.GenRelationUnitUUID(c)
 	expectedErr := internalerrors.New("failed to set settings")
 
 	// Set up expectations
@@ -2666,8 +2665,8 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSkipsRelationsNotInS
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
 	unitUUID := coreunit.GenUUID(c)
-	relKey1 := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
-	relKey2 := relationtesting.GenNewKey(c, "wordpress:web nginx:web")
+	relKey1 := corerelation.GenNewKey(c, "wordpress:db mysql:db")
+	relKey2 := corerelation.GenNewKey(c, "wordpress:web nginx:web")
 
 	// Set up expectations
 	s.expectGetUnitUUID(unitName, unitUUID, nil)
@@ -2677,8 +2676,8 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSkipsRelationsNotInS
 	}, nil)
 
 	// Only relation 2 should be processed
-	relUUID2 := relationtesting.GenRelationUUID(c)
-	relUnitUUID2 := relationtesting.GenRelationUnitUUID(c)
+	relUUID2 := corerelation.GenRelationUUID(c)
+	relUnitUUID2 := corerelation.GenRelationUnitUUID(c)
 	s.expectGetRelationUUIDByKey(relKey2, relUUID2)
 	s.expectGetRelationUnit(relUUID2, relUnitUUID2, string(unitName))
 	s.expectGetUnitRelationNetwork(unitName, relKey2, "10.0.0.2")

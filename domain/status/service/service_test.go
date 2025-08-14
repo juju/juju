@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
-	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
@@ -50,7 +49,7 @@ func TestServiceSuite(t *testing.T) {
 func (s *serviceSuite) TestGetAllRelationStatuses(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	relUUID := corerelationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	stateRelationStatus := []status.RelationStatusInfo{{
 		RelationUUID: relUUID,
 		StatusInfo: status.StatusInfo[status.RelationStatusType]{
@@ -91,7 +90,7 @@ func (s *serviceSuite) TestImportRelationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationID := 1
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	s.modelState.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
 	sts := corestatus.StatusInfo{
 		Status:  corestatus.Broken,
@@ -118,7 +117,7 @@ func (s *serviceSuite) TestImportRelationServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationID := 1
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	s.modelState.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
 	boom := errors.New("boom")
 	sts := corestatus.StatusInfo{
@@ -1331,7 +1330,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesError(c *tc.C) {
 func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 
 	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
 		map[string]status.Application{

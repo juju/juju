@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
-	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -414,7 +413,7 @@ func (s *modelStateSuite) TestImportRelationStatusRelationNotFound(c *tc.C) {
 	}
 
 	// Act:
-	err := s.state.ImportRelationStatus(c.Context(), corerelationtesting.GenRelationUUID(c), sts)
+	err := s.state.ImportRelationStatus(c.Context(), corerelation.GenRelationUUID(c), sts)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, statuserrors.RelationNotFound)
@@ -2503,7 +2502,7 @@ func (s *modelStateSuite) appStatus(now time.Time) *status.StatusInfo[status.Wor
 // addRelationWithLifeAndID inserts a new relation into the database with the
 // given details.
 func (s *modelStateSuite) addRelationWithLifeAndID(c *tc.C, life corelife.Value, relationID int) corerelation.UUID {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO relation (uuid, relation_id, life_id)

@@ -20,7 +20,6 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
-	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -761,7 +760,7 @@ func (s *addRelationSuite) addApplicationEndpointFromRelation(c *tc.C,
 	charmUUID := s.charmByApp[appUUID]
 	// todo(gfouillet) introduce proper generation for this uuid
 	charmRelationUUID := uuid.MustNewUUID()
-	relationEndpointUUID := corerelationtesting.GenEndpointUUID(c)
+	relationEndpointUUID := corerelation.GenEndpointUUID(c)
 
 	// Add relation to charm
 	s.query(c, `
@@ -1772,7 +1771,7 @@ func (s *relationSuite) TestEnterScopeUnitNotAlive(c *tc.C) {
 
 func (s *relationSuite) TestEnterScopeRelationNotFound(c *tc.C) {
 	// Arrange: Add unit to application in the relation.
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	unitName := coreunit.GenName(c, "app1/0")
 	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
@@ -1784,7 +1783,7 @@ func (s *relationSuite) TestEnterScopeRelationNotFound(c *tc.C) {
 }
 
 func (s *relationSuite) TestEnterScopeUnitNotFound(c *tc.C) {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	// Act: Try and enter scope.
 	err := s.state.EnterScope(
 		c.Context(),
@@ -1851,7 +1850,7 @@ func (s *relationSuite) TestLeaveScope(c *tc.C) {
 }
 
 func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 
 	// Act: Leave scope with the first unit.
 	err := s.state.LeaveScope(c.Context(), relationUnitUUID)
@@ -2010,7 +2009,7 @@ func (s *relationSuite) TestGetRelationEndpointScope(c *tc.C) {
 func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *tc.C) {
 	// Arrange:
 	applicationUUID := coreapplication.GenID(c)
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 
 	// Act:
 	_, err := s.state.GetRelationEndpointScope(c.Context(),
@@ -2092,7 +2091,7 @@ func (s *relationSuite) TestGetRelationApplicationSettingsEmptyList(c *tc.C) {
 
 func (s *relationSuite) TestGetRelationApplicationSettingsRelationNotFound(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 
 	// Act:
 	_, err := s.state.GetRelationApplicationSettings(c.Context(),
@@ -2616,7 +2615,7 @@ func (s *relationSuite) TestGetRelationUnitSettingsEmptyList(c *tc.C) {
 
 func (s *relationSuite) TestGetRelationUnitSettingsRelationUnitNotFound(c *tc.C) {
 	// Arrange: Add relation with one endpoint.
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 
 	// Act:
 	_, err := s.state.GetRelationUnitSettings(
@@ -3964,7 +3963,7 @@ func (s *relationSuite) TestInsertRelationUnitHappyPath(c *tc.C) {
 
 func (s *relationSuite) TestInsertRelationUnitRelationUUIDDoesNotExist(c *tc.C) {
 	// Arrange: Create a non-existent relation UUID
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 
 	// Arrange: Add a unit to an application
 	unitName := coreunit.GenName(c, "app1/0")

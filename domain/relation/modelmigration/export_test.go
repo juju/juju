@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	corerelationtesting "github.com/juju/juju/core/relation/testing"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -48,7 +48,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	data := []relation.ExportRelation{{
 		ID:  7,
-		Key: corerelationtesting.GenNewKey(c, "app1:key, app2:key"),
+		Key: corerelation.GenNewKey(c, "app1:key, app2:key"),
 		Endpoints: []relation.ExportEndpoint{{
 			ApplicationName: "fake-app-1",
 			Name:            "fake-endpoint-name-1",
@@ -81,7 +81,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		}},
 	}, {
 		ID:  8,
-		Key: corerelationtesting.GenNewKey(c, "app1:key"),
+		Key: corerelation.GenNewKey(c, "app1:key"),
 		Endpoints: []relation.ExportEndpoint{{
 			ApplicationName:     "fake-app-1",
 			Name:                "fake-endpoint-name-1",

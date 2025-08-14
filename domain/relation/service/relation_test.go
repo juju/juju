@@ -14,7 +14,6 @@ import (
 	corelease "github.com/juju/juju/core/lease"
 	corelife "github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
-	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
@@ -158,7 +157,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDByID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
-	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelationUUID := corerelation.GenRelationUUID(c)
 	relationID := 1
 
 	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(expectedRelationUUID, nil)
@@ -175,9 +174,9 @@ func (s *relationServiceSuite) TestGetRelationUUIDByKeyPeer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	key := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1")
+	key := corerelation.GenNewKey(c, "app-1:fake-endpoint-name-1")
 
-	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelationUUID := corerelation.GenRelationUUID(c)
 
 	s.state.EXPECT().GetPeerRelationUUIDByEndpointIdentifiers(
 		gomock.Any(), key.EndpointIdentifiers()[0],
@@ -195,10 +194,10 @@ func (s *relationServiceSuite) TestGetRelationUUIDByKeyRegular(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	key := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
+	key := corerelation.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
 	eids := key.EndpointIdentifiers()
 
-	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelationUUID := corerelation.GenRelationUUID(c)
 
 	s.state.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(
 		gomock.Any(), eids[0], eids[1],
@@ -223,7 +222,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationNotFound(c *tc.C)
 	// Act:
 	_, err := s.service.GetRelationUUIDByKey(
 		c.Context(),
-		corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2"),
+		corerelation.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2"),
 	)
 
 	// Assert:
@@ -279,11 +278,11 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 	}}
 
 	expectedStatuses := []relation.RelationUnitStatus{{
-		Key:       corerelationtesting.GenNewKey(c, "app-2:fake-endpoint-name-2 app-1:fake-endpoint-name-1"),
+		Key:       corerelation.GenNewKey(c, "app-2:fake-endpoint-name-2 app-1:fake-endpoint-name-1"),
 		InScope:   results[0].InScope,
 		Suspended: results[0].Suspended,
 	}, {
-		Key:       corerelationtesting.GenNewKey(c, "app-2:fake-endpoint-name-3"),
+		Key:       corerelation.GenNewKey(c, "app-2:fake-endpoint-name-3"),
 		InScope:   results[1].InScope,
 		Suspended: results[1].Suspended,
 	}}
@@ -326,9 +325,9 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnitStateError(c *tc.C) 
 func (s *relationServiceSuite) TestGetRelationUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	unitName := coreunit.GenName(c, "app1/0")
-	unitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	unitUUID := corerelation.GenRelationUnitUUID(c)
 	s.state.EXPECT().GetRelationUnit(gomock.Any(), relationUUID, unitName).Return(unitUUID, nil)
 
 	// Act
@@ -355,7 +354,7 @@ func (s *relationServiceSuite) TestGetRelationUnitRelationUUIDNotValid(c *tc.C) 
 func (s *relationServiceSuite) TestGetRelationUnitUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	unitName := coreunit.Name("not-valid-name")
 
 	// Act
@@ -368,7 +367,7 @@ func (s *relationServiceSuite) TestGetRelationUnitUnitNameNotValid(c *tc.C) {
 func (s *relationServiceSuite) TestGetRelationUnitUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	unitName := coreunit.GenName(c, "app1/0")
 	boom := errors.Errorf("boom")
 	s.state.EXPECT().GetRelationUnit(gomock.Any(), relationUUID, unitName).Return("", boom)
@@ -384,9 +383,9 @@ func (s *relationServiceSuite) TestGetRelationUnitByID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationID := 42
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	unitName := coreunit.GenName(c, "app1/0")
-	unitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	unitUUID := corerelation.GenRelationUnitUUID(c)
 	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
 	s.state.EXPECT().GetRelationUnit(gomock.Any(), relationUUID, unitName).Return(unitUUID, nil)
 
@@ -428,7 +427,7 @@ func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	relationID := 42
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	unitName := coreunit.GenName(c, "app1/0")
 	boom := errors.Errorf("boom")
 	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
@@ -524,7 +523,7 @@ func (s *relationServiceSuite) TestGetRelationDetails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 
 	endpoint1 := relation.Endpoint{
 		ApplicationName: "app-1",
@@ -547,7 +546,7 @@ func (s *relationServiceSuite) TestGetRelationDetails(c *tc.C) {
 		Life:      relationDetailsResult.Life,
 		UUID:      relationDetailsResult.UUID,
 		ID:        relationDetailsResult.ID,
-		Key:       corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1"),
+		Key:       corerelation.GenNewKey(c, "app-1:fake-endpoint-name-1"),
 		Endpoints: relationDetailsResult.Endpoints,
 	}
 
@@ -576,7 +575,7 @@ func (s *relationServiceSuite) TestEnterScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	unitName := coreunit.GenName(c, "app1/0")
 	settings := map[string]string{"ingress": "x.x.x.x"}
 	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(nil)
@@ -598,7 +597,7 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	unitName := coreunit.GenName(c, "app1/0")
 	settings := map[string]string{"ingress": "x.x.x.x"}
 	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(nil)
@@ -637,7 +636,7 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 
 	// Act.
 	err := s.service.EnterScope(c.Context(), relationUUID, "", map[string]string{}, nil)
@@ -650,7 +649,7 @@ func (s *relationServiceSuite) TestLeaveScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange.
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 
 	s.state.EXPECT().LeaveScope(gomock.Any(), relationUnitUUID).Return(nil)
 
@@ -674,7 +673,7 @@ func (s *relationServiceSuite) TestGetRelationUnitSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 	expectedSettings := map[string]string{
 		"key": "value",
 	}
@@ -702,7 +701,7 @@ func (s *relationServiceSuite) TestGetRelationApplicationSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	applicationID := coreapplication.GenID(c)
 	expectedSettings := map[string]string{
 		"key": "value",
@@ -721,7 +720,7 @@ func (s *relationServiceSuite) TestGetRelationApplicationSettingsApplicationIDNo
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 
 	// Act:
 	_, err := s.service.GetRelationApplicationSettings(c.Context(), relationUUID, "bad-uuid")
@@ -799,9 +798,9 @@ func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationError(c
 func (s *relationServiceSuite) TestImportRelations(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	key1 := corerelationtesting.GenNewKey(c, "ubuntu:peer")
+	key1 := corerelation.GenNewKey(c, "ubuntu:peer")
 	ep1 := key1.EndpointIdentifiers()
-	key2 := corerelationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info")
+	key2 := corerelation.GenNewKey(c, "ubuntu:juju-info ntp:juju-info")
 	ep2 := key2.EndpointIdentifiers()
 
 	args := relation.ImportRelationsArgs{
@@ -905,7 +904,7 @@ func (s *relationServiceSuite) TestExportRelations(c *tc.C) {
 			Name:            "ep2",
 			Role:            internalcharm.RoleProvider,
 		}},
-		Key: corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2"),
+		Key: corerelation.GenNewKey(c, "app1:ep1 app2:ep2"),
 	}})
 }
 
@@ -930,7 +929,7 @@ func (s *relationServiceSuite) TestInferRelationUUIDByEndpoints(c *tc.C) {
 	endpoint1 := "application-1"
 	endpoint2 := "application-2:endpoint-2"
 
-	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelUUID := corerelation.GenRelationUUID(c)
 
 	s.state.EXPECT().InferRelationUUIDByEndpoints(gomock.Any(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
@@ -999,7 +998,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpoints(c *tc.C) {
 	endpoint1 := "application-1"
 	endpoint2 := "application-2:endpoint-2"
 
-	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelUUID := corerelation.GenRelationUUID(c)
 
 	s.state.EXPECT().InferRelationUUIDByEndpoints(gomock.Any(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
@@ -1047,7 +1046,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalEndpointsFail(c *tc.
 func (s *relationServiceSuite) TestGetRelationUUIDForRemovalID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelUUID := corerelation.GenRelationUUID(c)
 
 	args := relation.GetRelationUUIDForRemovalArgs{
 		RelationID: 42,
@@ -1082,7 +1081,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDFail(c *tc.C) {
 func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeer(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelUUID := corerelation.GenRelationUUID(c)
 
 	args := relation.GetRelationUUIDForRemovalArgs{
 		RelationID: 42,
@@ -1100,7 +1099,7 @@ func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeer(c *tc.C) {
 func (s *relationServiceSuite) TestGetRelationUUIDForRemovalIDIsPeerFail(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	expectedRelUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelUUID := corerelation.GenRelationUUID(c)
 
 	args := relation.GetRelationUUIDForRemovalArgs{
 		RelationID: 42,
@@ -1130,7 +1129,7 @@ func (s *relationServiceSuite) expectGetPeerRelationUUIDByEndpointIdentifiers(
 	c *tc.C,
 	endpoint corerelation.EndpointIdentifier,
 ) corerelation.UUID {
-	relUUID := corerelationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	s.state.EXPECT().GetPeerRelationUUIDByEndpointIdentifiers(gomock.Any(), endpoint).Return(relUUID, nil)
 	return relUUID
 }
@@ -1140,7 +1139,7 @@ func (s *relationServiceSuite) expectSetRelationWithID(
 	ep2, ep3 corerelation.EndpointIdentifier,
 	id uint64,
 ) corerelation.UUID {
-	relUUID := corerelationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	s.state.EXPECT().SetRelationWithID(gomock.Any(), ep2, ep3, id).Return(relUUID, nil)
 	return relUUID
 }
@@ -1184,7 +1183,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 
 	// Arrange:
 	unitName := coreunit.GenName(c, "app/0")
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	applicationID := coreapplication.GenID(c)
 	s.expectWithLeader(c, unitName)
 	expectedSettings := map[string]string{
@@ -1204,7 +1203,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 	applicationID := coreapplication.GenID(c)
 
 	// Act:
@@ -1219,7 +1218,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 
 	// Arrange:
 	unitName := coreunit.GenName(c, "app/0")
-	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationUUID := corerelation.GenRelationUUID(c)
 
 	// Act:
 	_, err := s.leadershipService.GetRelationApplicationSettingsWithLeader(c.Context(), unitName, relationUUID, "bad-uuid")
@@ -1249,7 +1248,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	unitName := coreunit.GenName(c, "app/0")
 	s.expectWithLeader(c, unitName)
 
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 	appSettings := map[string]string{
 		"appKey": "appValue",
 	}
@@ -1272,7 +1271,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 
 	// Arrange:
 	unitName := coreunit.GenName(c, "app/0")
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 	unitSettings := map[string]string{
 		"unitKey": "unitValue",
 	}
@@ -1290,7 +1289,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 
 	// Arrange:
 	unitName := coreunit.GenName(c, "app/0")
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 
 	// Act:
 	err := s.leadershipService.SetRelationApplicationAndUnitSettings(c.Context(), unitName, relationUnitUUID, nil, nil)
@@ -1317,7 +1316,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 
 	// Arrange:
 	unitName := coreunit.GenName(c, "app/0")
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 	s.leaderEnsurer.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).Return(corelease.ErrNotHeld)
 	settings := map[string]string{
 		"key": "value",
@@ -1334,7 +1333,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettin
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relationUnitUUID := corerelation.GenRelationUnitUUID(c)
 	settings := map[string]string{
 		"key": "value",
 	}

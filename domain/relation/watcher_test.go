@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
-	relationtesting "github.com/juju/juju/core/relation/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -81,7 +80,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	watcher, err := svc.WatchLifeSuspendedStatus(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
+	relationKey := relation.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Act 0: change the relation life.
@@ -186,7 +185,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	watcher, err := svc.WatchLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
+	relationKey := relation.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Act 0: change the relation life.
@@ -285,13 +284,13 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 func (s *watcherSuite) setupSecondAppAndRelate(
 	c *tc.C, appNameTwo string,
 ) (relation.UUID, coreapplication.ID, corecharm.ID) {
-	relationUUID := relationtesting.GenRelationUUID(c)
-	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
+	relationUUID := relation.GenRelationUUID(c)
+	relationEndpointUUID := relation.GenEndpointUUID(c)
 
 	charmTwoUUID := charmtesting.GenCharmID(c)
 	charmRelationTwoUUID := uuid.MustNewUUID()
 	appTwoUUID := coreapplication.GenID(c)
-	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
+	relationEndpointTwoUUID := relation.GenEndpointUUID(c)
 	appEndpointTwoUUID := uuid.MustNewUUID()
 	s.addCharm(c, charmTwoUUID, appNameTwo)
 	s.addCharmRelation(c, charmTwoUUID, charmRelationTwoUUID, 1)
@@ -326,9 +325,9 @@ func (s *watcherSuite) setupSecondRelationNotFound(c *tc.C) relation.UUID {
 	s.addApplication(c, charmTwoUUID, appTwoUUID, "bar")
 	s.addApplicationEndpoint(c, appEndpointTwoUUID, appTwoUUID, charmRelationTwoUUID)
 
-	relationUUID := relationtesting.GenRelationUUID(c)
-	relationEndpointOneUUID := relationtesting.GenEndpointUUID(c)
-	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
+	relationUUID := relation.GenRelationUUID(c)
+	relationEndpointOneUUID := relation.GenEndpointUUID(c)
+	relationEndpointTwoUUID := relation.GenEndpointUUID(c)
 	s.addRelation(c, relationUUID)
 	s.addRelationEndpoint(c, relationEndpointOneUUID, relationUUID, appEndpointOneUUID)
 	s.addRelationEndpoint(c, relationEndpointTwoUUID, relationUUID, appEndpointTwoUUID)
@@ -351,7 +350,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 	// Act: insert relation_unit for watched/0 (enter scope) => no event
 	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
-			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.watched0UUID)
+			relation.GenRelationUnitUUID(c), config.otherRelationUUID, config.watched0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -367,7 +366,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 	// unit_uuid
 	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
-			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.other0UUID)
+			relation.GenRelationUnitUUID(c), config.otherRelationUUID, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String())),
@@ -388,7 +387,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 	// watched/1 unit_uuid
 	harness.AddTest(c, func(c *tc.C) {
 		s.act(c, "INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
-			relationtesting.GenRelationUnitUUID(c), config.watchedRelationUUID, config.watched1UUID)
+			relation.GenRelationUnitUUID(c), config.watchedRelationUUID, config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
@@ -417,9 +416,9 @@ func (s *watcherSuite) TestWatchRelatedUnitsSettings(c *tc.C) {
 	config := s.setupTestWatchRelationUnit(c)
 
 	// Relation units UUID
-	watchedRelUnit0UUID := relationtesting.GenRelationUnitUUID(c)
-	watchedRelUnit1UUID := relationtesting.GenRelationUnitUUID(c)
-	otherRelUnit0UUID := relationtesting.GenRelationUnitUUID(c)
+	watchedRelUnit0UUID := relation.GenRelationUnitUUID(c)
+	watchedRelUnit1UUID := relation.GenRelationUnitUUID(c)
+	otherRelUnit0UUID := relation.GenRelationUnitUUID(c)
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watched0UUID, config.relationUUID)
@@ -506,8 +505,8 @@ func (s *watcherSuite) TestWatchRelatedUnitsPeerAppSettings(c *tc.C) {
 	config := s.setupTestWatchPeerRelationUnit(c)
 
 	// Relation units UUID
-	watchedRelUnit0UUID := relationtesting.GenRelationUnitUUID(c)
-	watchedRelUnit1UUID := relationtesting.GenRelationUnitUUID(c)
+	watchedRelUnit0UUID := relation.GenRelationUnitUUID(c)
+	watchedRelUnit1UUID := relation.GenRelationUnitUUID(c)
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watched0UUID, config.relationUUID)
@@ -567,7 +566,7 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 	//   - other/0: only one unit on the second app, no need more.
 	config := testWatchRelationUnit{}
 	config.watchedUnit1 = "watched/0"
-	config.relationUUID = relationtesting.GenRelationUUID(c)
+	config.relationUUID = relation.GenRelationUUID(c)
 
 	charmUUID := charmtesting.GenCharmID(c)
 	watchedUUID := coreapplication.GenID(c)
@@ -579,8 +578,8 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 	charmRelationRequiresUUID := uuid.MustNewUUID()
 	watchedEndpointUUID := uuid.MustNewUUID()
 	otherEndpointUUID := uuid.MustNewUUID()
-	config.watchedRelationUUID = relationtesting.GenEndpointUUID(c)
-	config.otherRelationUUID = relationtesting.GenEndpointUUID(c)
+	config.watchedRelationUUID = relation.GenEndpointUUID(c)
+	config.otherRelationUUID = relation.GenEndpointUUID(c)
 	s.addCharm(c, charmUUID, "whatever")
 	s.addCharmRelation(c, charmUUID, charmRelationProviderUUID, 0)
 	s.addCharmRelation(c, charmUUID, charmRelationRequiresUUID, 1)
@@ -618,7 +617,7 @@ func (s *watcherSuite) setupTestWatchPeerRelationUnit(c *tc.C) testWatchPeerRela
 	//   - other/0 : only one unit on the second app, no need more.
 	config := testWatchPeerRelationUnit{}
 	config.watchedUnit1 = "watched/0"
-	config.relationUUID = relationtesting.GenRelationUUID(c)
+	config.relationUUID = relation.GenRelationUUID(c)
 
 	charmUUID := charmtesting.GenCharmID(c)
 	config.watchedUUID = coreapplication.GenID(c)
@@ -626,7 +625,7 @@ func (s *watcherSuite) setupTestWatchPeerRelationUnit(c *tc.C) testWatchPeerRela
 	config.watched1UUID = coreunit.GenUUID(c)
 	charmRelationPeerUUID := uuid.MustNewUUID()
 	watchedEndpointUUID := uuid.MustNewUUID()
-	config.watchedRelationUUID = relationtesting.GenEndpointUUID(c)
+	config.watchedRelationUUID = relation.GenEndpointUUID(c)
 	s.addCharm(c, charmUUID, "whatever")
 	s.addCharmRelation(c, charmUUID, charmRelationPeerUUID, 2)
 	s.addApplication(c, charmUUID, config.watchedUUID, "watched")

@@ -15,7 +15,6 @@ import (
 	changestreammock "github.com/juju/juju/core/changestream/mocks"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
@@ -44,7 +43,7 @@ func TestWatcherSuite(t *stdtesting.T) {
 func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	relUUID := testing.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	principalID := coreapplication.GenID(c)
 	subordinateID := coreapplication.GenID(c)
 	scope := charm.ScopeGlobal
@@ -69,7 +68,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *tc.C
 func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
-	relUUID := testing.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	principalID := coreapplication.GenID(c)
 	subordinateID := coreapplication.GenID(c)
 	anotherSubordinateID := coreapplication.GenID(c)
@@ -100,7 +99,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(
 func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
-	relUUID := testing.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	principalID := coreapplication.GenID(c)
 	subordinateID := coreapplication.GenID(c)
 	scope := charm.ScopeContainer
@@ -129,7 +128,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *tc.C) 
 func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
-	relUUID := testing.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	principalID := coreapplication.GenID(c)
 	subordinateID := coreapplication.GenID(c)
 	anotherID := coreapplication.GenID(c)
@@ -160,9 +159,9 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	// the subordinate nor principal application.
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	principalSubordinateRelUUID := testing.GenRelationUUID(c)
-	newSubordinateRelUUID := testing.GenRelationUUID(c)
-	unrelatedRelUUID := testing.GenRelationUUID(c)
+	principalSubordinateRelUUID := corerelation.GenRelationUUID(c)
+	newSubordinateRelUUID := corerelation.GenRelationUUID(c)
+	unrelatedRelUUID := corerelation.GenRelationUUID(c)
 	principalID := coreapplication.GenID(c)
 	subordinateID := coreapplication.GenID(c)
 

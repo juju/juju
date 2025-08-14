@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
-	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -1326,7 +1325,7 @@ options:
 }
 
 func (s *applicationSuite) expectGetRelationUUIDForRemoval(c *tc.C, args relation.GetRelationUUIDForRemovalArgs, err error) corerelation.UUID {
-	relUUID := relationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	s.relationService.EXPECT().GetRelationUUIDForRemoval(gomock.Any(), args).Return(relUUID, err)
 	return relUUID
 }

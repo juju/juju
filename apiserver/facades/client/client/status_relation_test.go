@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	corerelation "github.com/juju/juju/core/relation"
-	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/status"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
@@ -42,10 +41,10 @@ func (s *relationStatusSuite) TestFetchRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange: create a relation linked to two application
-	relUUID := corerelationtesting.GenRelationUUID(c)
+	relUUID := corerelation.GenRelationUUID(c)
 	expectedStatus := relationStatus{
 		ID:  1,
-		Key: corerelationtesting.GenNewKey(c, "sink:consumer source:provider"),
+		Key: corerelation.GenNewKey(c, "sink:consumer source:provider"),
 		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
@@ -103,12 +102,12 @@ func (s *relationStatusSuite) TestFetchRelation(c *tc.C) {
 func (s *relationStatusSuite) TestFetchRelationWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	okUUID := corerelationtesting.GenRelationUUID(c)
+	okUUID := corerelation.GenRelationUUID(c)
 
 	// Arrange: create a relation linked to two application
 	expectedStatus := relationStatus{
 		ID:  42,
-		Key: corerelationtesting.GenNewKey(c, "sink:consumer source:provider"),
+		Key: corerelation.GenNewKey(c, "sink:consumer source:provider"),
 		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
