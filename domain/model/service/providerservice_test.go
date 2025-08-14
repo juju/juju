@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	corecloud "github.com/juju/juju/core/cloud"
-	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -64,7 +63,7 @@ func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *providerServiceSuite) SetUpTest(c *tc.C) {
 	s.state = &dummyProviderState{
-		cloudUUID:      cloudtesting.GenCloudUUID(c),
+		cloudUUID:      corecloud.GenUUID(c),
 		credentialUUID: credential.UUID(uuid.MustNewUUID().String()),
 	}
 }
@@ -92,7 +91,7 @@ func (s *providerServiceSuite) TestWatchModelCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := coremodel.GenUUID(c)
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	credentialUUID := credential.UUID(uuid.MustNewUUID().String())
 	s.mockControllerState.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(cloudUUID, credentialUUID, nil)
 

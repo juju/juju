@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecloud "github.com/juju/juju/core/cloud"
-	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
@@ -89,7 +88,7 @@ func (m *stateSuite) SetUpTest(c *tc.C) {
 	// We need to generate a cloud in the database so that we can set the model
 	// cloud.
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	m.cloudUUID = cloudtesting.GenCloudUUID(c)
+	m.cloudUUID = corecloud.GenUUID(c)
 	err = cloudSt.CreateCloud(c.Context(), m.userName, m.cloudUUID.String(),
 		cloud.Cloud{
 			Name:      "my-cloud",

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	changestreammock "github.com/juju/juju/core/changestream/mocks"
-	cloudtesting "github.com/juju/juju/core/cloud/testing"
+	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -1125,7 +1125,7 @@ func (s *serviceSuite) TestWatchModelCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := coremodel.GenUUID(c)
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	credentialUUID := credential.UUID(uuid.MustNewUUID().String())
 	s.mockState.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(cloudUUID, credentialUUID, nil)
 

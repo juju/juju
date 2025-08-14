@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/cloud"
-	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -349,7 +348,7 @@ func (s *serviceSuite) TestUpdateCloudRegionDefaultsNotFoundCloud(c *tc.C) {
 func (s *serviceSuite) TestUpdateCloudRegionDefaultsNotFoundRegion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := cloud.GenUUID(c)
 
 	s.state.EXPECT().GetCloudUUID(gomock.Any(), "foo").Return(cloudUUID, nil)
 	s.state.EXPECT().UpdateCloudRegionDefaults(
@@ -402,7 +401,7 @@ func (s *serviceSuite) TestRemoveCloudRegionDefaultsCloudNotFound(c *tc.C) {
 func (s *serviceSuite) TestRemoveCloudRegionDefaultsCloudRegionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := cloud.GenUUID(c)
 	s.state.EXPECT().GetCloudUUID(gomock.Any(), "foo").Return(cloudUUID, nil)
 	s.state.EXPECT().DeleteCloudRegionDefaults(
 		gomock.Any(),
@@ -431,7 +430,7 @@ func (s *serviceSuite) TestModelDefaultsNoProviderDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := coremodel.GenUUID(c)
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := cloud.GenUUID(c)
 
 	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), modelUUID).Return(cloudUUID, nil)
 	s.state.EXPECT().CloudDefaults(gomock.Any(), cloudUUID).Return(map[string]string{}, nil)

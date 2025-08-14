@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
-	cloudtesting "github.com/juju/juju/core/cloud/testing"
+	corecloud "github.com/juju/juju/core/cloud"
 	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
@@ -68,7 +68,7 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 	err = userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).AddUser(ctx, userUUID, userName, userName.String(), false, userUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	err = cloudstate.NewState(s.TxnRunnerFactory()).CreateCloud(ctx, userName, cloudUUID.String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
 

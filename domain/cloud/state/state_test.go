@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecloud "github.com/juju/juju/core/cloud"
-	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -501,7 +500,7 @@ FROM v_permission
 }
 
 func (s *stateSuite) TestGetCloudForNonExistentID(c *tc.C) {
-	fakeID := cloudtesting.GenCloudUUID(c)
+	fakeID := corecloud.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetCloudForUUID(c.Context(), fakeID)
 	c.Check(err, tc.ErrorIs, clouderrors.NotFound)

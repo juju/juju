@@ -21,6 +21,16 @@ func NewUUID() (UUID, error) {
 	return UUID(uuid.String()), nil
 }
 
+// GenUUID can be used in testing for generating a cloud uuid that is
+// checked for subsequent errors.
+func GenUUID(c interface{ Fatal(...any) }) UUID {
+	uuid, err := NewUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
+}
+
 // String implements the stringer interface returning a string representation of
 // the cloud UUID.
 func (u UUID) String() string {

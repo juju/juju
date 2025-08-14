@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecloud "github.com/juju/juju/core/cloud"
-	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	"github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -104,7 +103,7 @@ var (
 // then read them back verbatim with the cloud's UUID.
 func (s *stateSuite) TestUpdateCloudDefaults(c *tc.C) {
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -173,7 +172,7 @@ func (s *stateSuite) TestComplexUpdateCloudDefaults(c *tc.C) {
 // cloud does not exist we will still get back an error satisfying
 // [clouderrors.NotFound].
 func (s *stateSuite) TestUpdateCloudDefaultsCloudNotFound(c *tc.C) {
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	err := NewState(s.TxnRunnerFactory()).UpdateCloudDefaults(
 		c.Context(),
 		cloudUUID,
@@ -185,7 +184,7 @@ func (s *stateSuite) TestUpdateCloudDefaultsCloudNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestCloudDefaultsUpdateForNonExistentCloud(c *tc.C) {
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	err := st.UpdateCloudDefaults(c.Context(), cloudUUID, map[string]string{
 		"wallyworld": "peachy",
@@ -197,7 +196,7 @@ func (s *stateSuite) TestCloudDefaultsUpdateForNonExistentCloud(c *tc.C) {
 // update the defaults for a cloud region that doesn't exist we get back an
 // error satisfying [clouderrors.NotFound].
 func (s *stateSuite) TestUpdateNonExistentCloudRegionDefaults(c *tc.C) {
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	err := st.UpdateCloudRegionDefaults(
 		c.Context(),
@@ -212,7 +211,7 @@ func (s *stateSuite) TestUpdateNonExistentCloudRegionDefaults(c *tc.C) {
 // of cloud that doesn't exist we get back an error satisfying
 // [clouderrors.NotFound].
 func (s *stateSuite) TestCloudDefaultsCloudNotFound(c *tc.C) {
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	_, err := NewState(s.TxnRunnerFactory()).CloudDefaults(c.Context(), cloudUUID)
 	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 }
@@ -590,7 +589,7 @@ func (s *stateSuite) TestDeleteCloudRegionDefaultsCloudNotFound(c *tc.C) {
 	)
 	c.Check(err, tc.ErrorIs, clouderrors.NotFound)
 
-	cloudUUID := cloudtesting.GenCloudUUID(c)
+	cloudUUID := corecloud.GenUUID(c)
 	err = NewState(s.TxnRunnerFactory()).DeleteCloudRegionDefaults(
 		c.Context(), cloudUUID, "noexist", []string{"foo"},
 	)
