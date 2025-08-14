@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -194,10 +193,10 @@ func (s *watcherRelationUnitSuite) TestWatchOneRelationUnit(c *tc.C) {
 	s.relationService.EXPECT().GetRelationUUIDByKey(
 		gomock.Any(), corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2")).Return(relationUUID, nil)
 
-	watchedUUID := coreunittesting.GenUnitUUID(c)
+	watchedUUID := unit.GenUUID(c)
 	unitUUIDByName := map[unit.Name]unit.UUID{
 		"app1/0": watchedUUID,
-		"app2/0": coreunittesting.GenUnitUUID(c),
+		"app2/0": unit.GenUUID(c),
 	}
 	unitUUIDs := slices.Collect(maps.Values(unitUUIDByName))
 	unitNames := slices.Collect(maps.Keys(unitUUIDByName))
@@ -278,12 +277,12 @@ func (s *watcherRelationUnitSuite) TestRelationUnitsWatcher(c *tc.C) {
 		"app2": coreapplication.GenID(c),
 	}
 
-	watchedUUID := coreunittesting.GenUnitUUID(c)
+	watchedUUID := unit.GenUUID(c)
 	unitUUIDByName := map[unit.Name]unit.UUID{
 		"app1/0": watchedUUID,
-		"app2/0": coreunittesting.GenUnitUUID(c),
-		"app1/1": coreunittesting.GenUnitUUID(c),
-		"app2/1": coreunittesting.GenUnitUUID(c),
+		"app2/0": unit.GenUUID(c),
+		"app1/1": unit.GenUUID(c),
+		"app2/1": unit.GenUUID(c),
 	}
 	appUUIDs := slices.Collect(maps.Values(appUUIDByName))
 	unitUUIDs := slices.Collect(maps.Values(unitUUIDByName))

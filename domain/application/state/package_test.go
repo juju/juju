@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreunit "github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -686,7 +685,7 @@ func (s *baseSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID coreapplica
 }
 
 func (s *baseSuite) addUnitWithLife(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID, l life.Life) coreunit.UUID {
-	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		netNodeUUID := uuid.MustNewUUID().String()
 		_, err := tx.Exec(`

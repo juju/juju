@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	domainrelation "github.com/juju/juju/domain/relation"
@@ -75,7 +74,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 
 	relationUUID, _, _ := s.setupSecondAppAndRelate(c, "two")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
 	svc := s.setupService(c, factory)
@@ -176,8 +175,8 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 
 	relationUUID, appTwoUUID, charmTwoUUID := s.setupSecondAppAndRelate(c, "two")
 
-	subordinateUnitUUID := unittesting.GenUnitUUID(c)
-	principalUnitUUID := unittesting.GenUnitUUID(c)
+	subordinateUnitUUID := coreunit.GenUUID(c)
+	principalUnitUUID := coreunit.GenUUID(c)
 	s.setCharmSubordinate(c, s.charmUUID, true)
 	s.addUnit(c, subordinateUnitUUID, "my-application/0", s.appUUID, s.charmUUID)
 	s.addUnit(c, principalUnitUUID, "two/0", appTwoUUID, charmTwoUUID)
@@ -573,9 +572,9 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 	charmUUID := charmtesting.GenCharmID(c)
 	watchedUUID := coreapplication.GenID(c)
 	config.otherUUID = coreapplication.GenID(c)
-	config.watched0UUID = unittesting.GenUnitUUID(c)
-	config.watched1UUID = unittesting.GenUnitUUID(c)
-	config.other0UUID = unittesting.GenUnitUUID(c)
+	config.watched0UUID = coreunit.GenUUID(c)
+	config.watched1UUID = coreunit.GenUUID(c)
+	config.other0UUID = coreunit.GenUUID(c)
 	charmRelationProviderUUID := uuid.MustNewUUID()
 	charmRelationRequiresUUID := uuid.MustNewUUID()
 	watchedEndpointUUID := uuid.MustNewUUID()
@@ -623,8 +622,8 @@ func (s *watcherSuite) setupTestWatchPeerRelationUnit(c *tc.C) testWatchPeerRela
 
 	charmUUID := charmtesting.GenCharmID(c)
 	config.watchedUUID = coreapplication.GenID(c)
-	config.watched0UUID = unittesting.GenUnitUUID(c)
-	config.watched1UUID = unittesting.GenUnitUUID(c)
+	config.watched0UUID = coreunit.GenUUID(c)
+	config.watched1UUID = coreunit.GenUUID(c)
 	charmRelationPeerUUID := uuid.MustNewUUID()
 	watchedEndpointUUID := uuid.MustNewUUID()
 	config.watchedRelationUUID = relationtesting.GenEndpointUUID(c)

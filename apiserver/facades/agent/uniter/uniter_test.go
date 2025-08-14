@@ -27,7 +27,6 @@ import (
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application/architecture"
@@ -99,7 +98,7 @@ func (s *uniterSuite) TestEnsureDead(c *tc.C) {
 
 	// Arrange
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.removalService.EXPECT().MarkUnitAsDead(gomock.Any(), unitUUID).Return(nil)
 	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return("", nil)
@@ -166,7 +165,7 @@ func (s *uniterSuite) TestDestroy(c *tc.C) {
 
 	// Arrange
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return("", nil)
 
@@ -232,9 +231,9 @@ func (s *uniterSuite) TestDestroyAllSubordinates(c *tc.C) {
 	principalUnitName := coreunit.Name("foo/0")
 
 	subordinateUnitName1 := coreunit.Name("bar/1")
-	subordinateUnitUUID1 := unittesting.GenUnitUUID(c)
+	subordinateUnitUUID1 := coreunit.GenUUID(c)
 	subordinateUnitName2 := coreunit.Name("bar/2")
-	subordinateUnitUUID2 := unittesting.GenUnitUUID(c)
+	subordinateUnitUUID2 := coreunit.GenUUID(c)
 
 	s.applicationService.EXPECT().GetUnitSubordinates(gomock.Any(), principalUnitName).Return([]coreunit.Name{subordinateUnitName1, subordinateUnitName2}, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), subordinateUnitName1).Return(subordinateUnitUUID1, nil)
@@ -1792,7 +1791,7 @@ func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.expectGetUnitUUID(s.wordpressUnitTag.Id(), unitUUID, nil)
 	relTagOne := names.NewRelationTag("mysql:database wordpress:mysql")
 	relTagTwo := names.NewRelationTag("redis:endpoint wordpress:endpoint")
@@ -2043,15 +2042,15 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *tc.C) {
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	watcherID := "watch1"
 	unitUUIDs := []coreunit.UUID{
-		unittesting.GenUnitUUID(c),
-		unittesting.GenUnitUUID(c),
+		coreunit.GenUUID(c),
+		coreunit.GenUUID(c),
 	}
 	appUUIDs := []coreapplication.ID{
 		coreapplication.GenID(c),
 	}
 
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
-	watchedUUID := unittesting.GenUnitUUID(c)
+	watchedUUID := coreunit.GenUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(watchedUUID, nil)
 
 	// Changes and expected results should match.
@@ -2124,7 +2123,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnitsFails(c *tc.C) {
 func (s *uniterRelationSuite) TestWatchUnitRelations(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	watcherID := "watcher-id"
 	relationKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
 	relationChanges := make(chan []string, 1)
@@ -2477,7 +2476,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworks(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	relKey1 := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
 	relKey2 := relationtesting.GenNewKey(c, "wordpress:web nginx:web")
 	relUUID1 := relationtesting.GenRelationUUID(c)
@@ -2537,7 +2536,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationsStatusEr
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	expectedErr := internalerrors.New("failed to get relations")
 
 	// Set up expectations
@@ -2556,7 +2555,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationUUIDError
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
 	expectedErr := internalerrors.New("relation not found")
 
@@ -2580,7 +2579,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationUnitError
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
 	relUUID := relationtesting.GenRelationUUID(c)
 	expectedErr := internalerrors.New("relation unit not found")
@@ -2605,7 +2604,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetUnitRelationNetwo
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
 	relUUID := relationtesting.GenRelationUUID(c)
 	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
@@ -2632,7 +2631,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSetRelationSettingsE
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	relKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
 	relUUID := relationtesting.GenRelationUUID(c)
 	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
@@ -2666,7 +2665,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSkipsRelationsNotInS
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	relKey1 := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
 	relKey2 := relationtesting.GenNewKey(c, "wordpress:web nginx:web")
 

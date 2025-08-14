@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -2305,7 +2304,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := coreapplication.GenID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
@@ -2382,7 +2381,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := coreapplication.GenID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
@@ -2452,7 +2451,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := coreapplication.GenID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
@@ -2539,7 +2538,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := coreapplication.GenID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
@@ -2571,7 +2570,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := coreapplication.GenID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{

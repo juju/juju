@@ -47,6 +47,16 @@ func NewName(name string) (Name, error) {
 	return n, n.Validate()
 }
 
+// GenName returns a new unit name object.
+// It asserts that the unit name is valid.
+func GenName(c interface{ Fatal(...any) }, name string) Name {
+	un, err := NewName(name)
+	if err != nil {
+		c.Fatal(err)
+	}
+	return un
+}
+
 // NewNameFromParts returns a new Name from the application and number parts. If
 // the name is invalid, an InvalidUnitName error will be returned.
 func NewNameFromParts(applicationName string, number int) (Name, error) {

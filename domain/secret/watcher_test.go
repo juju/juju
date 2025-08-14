@@ -17,7 +17,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -469,7 +468,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		unitName := unittesting.GenNewName(c, consumerID)
+		unitName := unit.GenName(c, consumerID)
 		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -566,7 +565,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		unitName := unittesting.GenNewName(c, consumerID)
+		unitName := unit.GenName(c, consumerID)
 		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -654,7 +653,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		unitName := unittesting.GenNewName(c, consumerID)
+		unitName := unit.GenName(c, consumerID)
 		err := st.SaveSecretRemoteConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}

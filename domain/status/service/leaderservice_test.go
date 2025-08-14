@@ -18,7 +18,6 @@ import (
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
@@ -44,7 +43,7 @@ func (s *leaderServiceSuite) TestSetRelationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := corerelationtesting.GenRelationUUID(c)
-	unitName := unittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 
 	sts := corestatus.StatusInfo{
 		Status:  corestatus.Broken,
@@ -76,7 +75,7 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := corerelationtesting.GenRelationUUID(c)
-	unitName := unittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	sts := corestatus.StatusInfo{
 		Status: corestatus.Broken,
 		Since:  ptr(time.Now()),

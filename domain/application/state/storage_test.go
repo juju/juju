@@ -17,7 +17,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -619,7 +618,7 @@ func (s *baseStorageSuite) TestAttachStorageUnitNotFound(c *tc.C) {
 	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, nil)
 
 	ctx := c.Context()
-	err := s.state.AttachStorage(ctx, storageUUID, unittesting.GenUnitUUID(c))
+	err := s.state.AttachStorage(ctx, storageUUID, coreunit.GenUUID(c))
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 

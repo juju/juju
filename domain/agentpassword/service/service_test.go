@@ -13,7 +13,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -32,7 +31,7 @@ func TestServiceSuite(t *testing.T) {
 func (s *serviceSuite) TestSetUnitPassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
@@ -49,7 +48,7 @@ func (s *serviceSuite) TestSetUnitPassword(c *tc.C) {
 func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
@@ -88,7 +87,7 @@ func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *tc.C) {
 func (s *serviceSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()
@@ -106,7 +105,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHash(c *tc.C) {
 func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 
 	unitName := unit.Name("unit/0")
 	password, err := internalpassword.RandomPassword()

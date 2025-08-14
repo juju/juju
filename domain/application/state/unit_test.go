@@ -19,7 +19,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -1058,7 +1057,7 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionMultiple(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitMachineUUID(c *tc.C) {
-	unitName := coreunittesting.GenNewName(c, "foo/666")
+	unitName := coreunit.GenName(c, "foo/666")
 	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	unitUUID := s.addUnit(c, unitName, appUUID)
 	_, machineUUID := s.addMachineToUnit(c, unitUUID)
@@ -1069,7 +1068,7 @@ func (s *unitStateSuite) TestGetUnitMachineUUID(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitMachineUUIDNotAssigned(c *tc.C) {
-	unitName := coreunittesting.GenNewName(c, "foo/666")
+	unitName := coreunit.GenName(c, "foo/666")
 	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addUnit(c, unitName, appUUID)
 
@@ -1078,14 +1077,14 @@ func (s *unitStateSuite) TestGetUnitMachineUUIDNotAssigned(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitMachineUUIDUnitNotFound(c *tc.C) {
-	unitName := coreunittesting.GenNewName(c, "foo/666")
+	unitName := coreunit.GenName(c, "foo/666")
 
 	_, err := s.state.GetUnitMachineUUID(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestGetUnitMachineUUIDIsDead(c *tc.C) {
-	unitName := coreunittesting.GenNewName(c, "foo/666")
+	unitName := coreunit.GenName(c, "foo/666")
 	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addUnitWithLife(c, unitName, appUUID, life.Dead)
 
@@ -1094,7 +1093,7 @@ func (s *unitStateSuite) TestGetUnitMachineUUIDIsDead(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitMachineName(c *tc.C) {
-	unitName := coreunittesting.GenNewName(c, "foo/666")
+	unitName := coreunit.GenName(c, "foo/666")
 	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	unitUUID := s.addUnit(c, unitName, appUUID)
 	machineName, _ := s.addMachineToUnit(c, unitUUID)
@@ -1105,7 +1104,7 @@ func (s *unitStateSuite) TestGetUnitMachineName(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitMachineNameNotAssigned(c *tc.C) {
-	unitName := coreunittesting.GenNewName(c, "foo/666")
+	unitName := coreunit.GenName(c, "foo/666")
 	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addUnit(c, unitName, appUUID)
 
@@ -1114,14 +1113,14 @@ func (s *unitStateSuite) TestGetUnitMachineNameNotAssigned(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitMachineNameUnitNotFound(c *tc.C) {
-	unitName := coreunittesting.GenNewName(c, "foo/666")
+	unitName := coreunit.GenName(c, "foo/666")
 
 	_, err := s.state.GetUnitMachineName(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestGetUnitMachineNameIsDead(c *tc.C) {
-	unitName := coreunittesting.GenNewName(c, "foo/666")
+	unitName := coreunit.GenName(c, "foo/666")
 	appUUID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addUnitWithLife(c, unitName, appUUID, life.Dead)
 
@@ -1428,7 +1427,7 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(sUnitName, tc.Equals, coreunittesting.GenNewName(c, "subordinate/0"))
+	c.Check(sUnitName, tc.Equals, coreunit.GenName(c, "subordinate/0"))
 
 	s.assertUnitPrincipal(c, pUnitName, sUnitName)
 	s.assertUnitMachinesMatch(c, pUnitName, sUnitName)
@@ -1463,7 +1462,7 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitSecondSubordinate(
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(sUnitName2, tc.Equals, coreunittesting.GenNewName(c, "subordinate/1"))
+	c.Check(sUnitName2, tc.Equals, coreunit.GenName(c, "subordinate/1"))
 
 	s.assertUnitPrincipal(c, pUnitName2, sUnitName2)
 	s.assertUnitMachinesMatch(c, pUnitName2, sUnitName2)
@@ -1497,7 +1496,7 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitTwiceToSameUnit(c 
 
 func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitWithoutMachine(c *tc.C) {
 	// Arrange:
-	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	pUnitName := coreunit.GenName(c, "foo/666")
 	pAppUUID := s.createIAASApplication(c, "principal", life.Alive)
 	s.addUnit(c, pUnitName, pAppUUID)
 
@@ -1515,7 +1514,7 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitWithoutMachine(c *
 
 func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitApplicationNotAlive(c *tc.C) {
 	// Arrange:§
-	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	pUnitName := coreunit.GenName(c, "foo/666")
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Dying)
 
@@ -1531,7 +1530,7 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitApplicationNotAliv
 
 func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitPrincipalNotFound(c *tc.C) {
 	// Arrange:
-	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	pUnitName := coreunit.GenName(c, "foo/666")
 
 	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
 
@@ -1581,9 +1580,9 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipal(c *tc.C) {
 	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
 
-	principalName := coreunittesting.GenNewName(c, "principal/0")
+	principalName := coreunit.GenName(c, "principal/0")
 
-	subName := coreunittesting.GenNewName(c, "sub/0")
+	subName := coreunit.GenName(c, "sub/0")
 
 	principalUUID := s.addUnit(c, principalName, principalAppID)
 	subUUID := s.addUnit(c, subName, subAppID)
@@ -1600,8 +1599,8 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipalSubordinateNotPrincipal(
 	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
 	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
 
-	principalName := coreunittesting.GenNewName(c, "principal/0")
-	subName := coreunittesting.GenNewName(c, "sub/0")
+	principalName := coreunit.GenName(c, "principal/0")
+	subName := coreunit.GenName(c, "sub/0")
 
 	s.addUnit(c, principalName, principalAppID)
 	s.addUnit(c, subName, subAppID)
@@ -1612,7 +1611,7 @@ func (s *unitStateSubordinateSuite) TestGetUnitPrincipalSubordinateNotPrincipal(
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitPrincipalNoUnitExists(c *tc.C) {
-	subName := coreunittesting.GenNewName(c, "sub/0")
+	subName := coreunit.GenName(c, "sub/0")
 
 	_, ok, err := s.state.GetUnitPrincipal(c.Context(), subName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1624,11 +1623,11 @@ func (s *unitStateSubordinateSuite) TestGetUnitSubordinates(c *tc.C) {
 	subAppID1 := s.createSubordinateApplication(c, "sub1", life.Alive)
 	subAppID2 := s.createSubordinateApplication(c, "sub2", life.Alive)
 
-	principalName := coreunittesting.GenNewName(c, "principal/0")
+	principalName := coreunit.GenName(c, "principal/0")
 
-	subName1 := coreunittesting.GenNewName(c, "sub1/0")
-	subName2 := coreunittesting.GenNewName(c, "sub2/0")
-	subName3 := coreunittesting.GenNewName(c, "sub2/1")
+	subName1 := coreunit.GenName(c, "sub1/0")
+	subName2 := coreunit.GenName(c, "sub2/0")
+	subName3 := coreunit.GenName(c, "sub2/1")
 
 	principalUnitUUID := s.addUnit(c, principalName, principalAppID)
 
@@ -1647,7 +1646,7 @@ func (s *unitStateSubordinateSuite) TestGetUnitSubordinates(c *tc.C) {
 
 func (s *unitStateSubordinateSuite) TestGetUnitSubordinatesEmpty(c *tc.C) {
 	principalAppID := s.createIAASApplication(c, "principal", life.Alive)
-	principalName := coreunittesting.GenNewName(c, "principal/0")
+	principalName := coreunit.GenName(c, "principal/0")
 	s.addUnit(c, principalName, principalAppID)
 
 	names, err := s.state.GetUnitSubordinates(c.Context(), principalName)
@@ -1656,7 +1655,7 @@ func (s *unitStateSubordinateSuite) TestGetUnitSubordinatesEmpty(c *tc.C) {
 }
 
 func (s *unitStateSubordinateSuite) TestGetUnitSubordinatesNotFound(c *tc.C) {
-	principalName := coreunittesting.GenNewName(c, "principal/0")
+	principalName := coreunit.GenName(c, "principal/0")
 
 	_, err := s.state.GetUnitSubordinates(c.Context(), principalName)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)

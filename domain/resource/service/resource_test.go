@@ -20,7 +20,7 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	storetesting "github.com/juju/juju/core/resource/store/testing"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	"github.com/juju/juju/domain/resource"
@@ -87,7 +87,7 @@ func (s *resourceServiceSuite) TestDeleteApplicationResourcesUnexpectedError(c *
 func (s *resourceServiceSuite) TestDeleteUnitResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().DeleteUnitResources(gomock.Any(),
 		unitUUID).Return(nil)
@@ -110,7 +110,7 @@ func (s *resourceServiceSuite) TestDeleteUnitResourcesUnexpectedError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	stateError := errors.New("unexpected error")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().DeleteUnitResources(gomock.Any(),
 		unitUUID).Return(stateError)
@@ -728,7 +728,7 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	resourceUUID := resourcetesting.GenResourceUUID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().SetUnitResource(gomock.Any(), resourceUUID, unitUUID).Return(nil)
 
@@ -739,7 +739,7 @@ func (s *resourceServiceSuite) TestSetUnitResource(c *tc.C) {
 func (s *resourceServiceSuite) TestSetUnitResourceBadResourceUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	err := s.service.SetUnitResource(c.Context(), "bad-uuid", unitUUID)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)

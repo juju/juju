@@ -15,7 +15,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -301,7 +300,7 @@ func (s *baseSuite) newUnitWithNetNode(
 	).Scan(&charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	_, err = s.DB().ExecContext(
 		c.Context(), `

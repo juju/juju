@@ -12,7 +12,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreerror "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -141,7 +141,7 @@ func (s *serviceSuite) TestGetStorageResourceTagsForApplicationInvalidApplicatio
 func (s *serviceSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetStorageAttachmentIDsForUnit(gomock.Any(), unitUUID.String()).Return(
 		[]string{"foo/1"}, nil,
@@ -164,7 +164,7 @@ func (s *serviceSuite) TestGetStorageAttachmentIDsForUnitWithNotValidUnitUUID(c 
 func (s *serviceSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetStorageAttachmentIDsForUnit(gomock.Any(), unitUUID.String()).Return(
 		nil, applicationerrors.UnitNotFound,
@@ -178,7 +178,7 @@ func (s *serviceSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.
 func (s *serviceSuite) TestGetAttachmentLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	life := domainlife.Alive
 
@@ -206,7 +206,7 @@ func (s *serviceSuite) TestGetAttachmentLifeWithNotValidUnitUUID(c *tc.C) {
 func (s *serviceSuite) TestGetAttachmentLifeWithStorageInstanceNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.state.EXPECT().GetStorageInstanceUUIDByID(gomock.Any(), "foo/1").Return(
 		"", storageprovisioningerrors.StorageInstanceNotFound,
 	)
@@ -219,7 +219,7 @@ func (s *serviceSuite) TestGetAttachmentLifeWithStorageInstanceNotFound(c *tc.C)
 func (s *serviceSuite) TestGetAttachmentLifeWithUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 
 	s.state.EXPECT().GetStorageInstanceUUIDByID(gomock.Any(), "foo/1").Return(
@@ -237,7 +237,7 @@ func (s *serviceSuite) TestGetAttachmentLifeWithUnitNotFound(c *tc.C) {
 func (s *serviceSuite) TestGetAttachmentLifeWithAttachmentNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 
 	s.state.EXPECT().GetStorageInstanceUUIDByID(gomock.Any(), "foo/1").Return(

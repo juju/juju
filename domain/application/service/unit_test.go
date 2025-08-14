@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -41,7 +40,7 @@ func TestUnitServiceSuite(t *stdtesting.T) {
 func (s *unitServiceSuite) TestGetUnitUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := unittesting.GenUnitUUID(c)
+	uuid := coreunit.GenUUID(c)
 	unitName := coreunit.Name("foo/666")
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(uuid, nil)
 
@@ -117,7 +116,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := coreapplication.GenID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().Units().Return([]caas.Unit{{
@@ -405,7 +404,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 
 	// Arrange:
 	appID := coreapplication.GenID(c)
-	unitName := unittesting.GenNewName(c, "principal/0")
+	unitName := coreunit.GenName(c, "principal/0")
 
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
 	var foundApp coreapplication.ID
@@ -432,7 +431,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitUnitAlreadyHasSubordinate(c
 
 	// Arrange:
 	appID := coreapplication.GenID(c)
-	unitName := unittesting.GenNewName(c, "principal/0")
+	unitName := coreunit.GenName(c, "principal/0")
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
 	s.state.EXPECT().AddIAASSubordinateUnit(gomock.Any(), gomock.Any()).Return("", nil, applicationerrors.UnitAlreadyHasSubordinate)
 
@@ -447,7 +446,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	appID := coreapplication.GenID(c)
-	unitName := unittesting.GenNewName(c, "principal/0")
+	unitName := coreunit.GenName(c, "principal/0")
 
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
 
@@ -466,7 +465,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitApplicationNotSubordinate(c
 
 	// Arrange:
 	appID := coreapplication.GenID(c)
-	unitName := unittesting.GenNewName(c, "principal/0")
+	unitName := coreunit.GenName(c, "principal/0")
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(false, nil)
 
 	// Act:
@@ -492,7 +491,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitBadUnitName(c *tc.C) {
 func (s *unitServiceSuite) TestAddIAASSubordinateUnitBadAppName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
-	unitName := unittesting.GenNewName(c, "principal/0")
+	unitName := coreunit.GenName(c, "principal/0")
 
 	// Act:
 	err := s.service.AddIAASSubordinateUnit(c.Context(), "bad-app-uuid", unitName)

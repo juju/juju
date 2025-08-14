@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -390,7 +390,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeAtt
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	volumeUUID := domaintesting.GenVolumeUUID(c)
 	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
@@ -423,7 +423,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithNotValid(c *
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(
 		"", applicationerrors.UnitNotFound,
@@ -437,7 +437,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithUnitNotFound
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -452,7 +452,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeNotFou
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeAttachmentNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	volumeUUID := domaintesting.GenVolumeUUID(c)

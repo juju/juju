@@ -26,7 +26,6 @@ import (
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -491,7 +490,7 @@ func (s *modelStateSuite) TestSetUnitAgentStatusNotFound(c *tc.C) {
 		Since:   ptr(time.Now()),
 	}
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	err := s.state.SetUnitAgentStatus(c.Context(), unitUUID, status)
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotFound)

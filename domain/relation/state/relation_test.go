@@ -23,7 +23,6 @@ import (
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
@@ -1456,7 +1455,7 @@ func (s *relationSuite) TestEnterScope(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
 	// Arrange: Add unit to application in the relation.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	settings := map[string]string{"ingress-address": "x.x.x.x"}
 
@@ -1511,7 +1510,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
 	// Add unit to application in the relation.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	settings := map[string]string{"ingress-address": "x.x.x.x"}
 
@@ -1583,9 +1582,9 @@ func (s *relationSuite) TestEnterScopeSubordinate(c *tc.C) {
 
 	// Arrange: Add a unit to application 1 and application 2, and make the unit
 	// of application 1 a subordinate to the unit of application 2.
-	unitName1 := coreunittesting.GenNewName(c, "app1/0")
+	unitName1 := coreunit.GenName(c, "app1/0")
 	unitUUID1 := s.addUnit(c, unitName1, s.fakeApplicationUUID1, s.fakeCharmUUID1)
-	unitName2 := coreunittesting.GenNewName(c, "app2/0")
+	unitName2 := coreunit.GenName(c, "app2/0")
 	unitUUID2 := s.addUnit(c, unitName2, s.fakeApplicationUUID2, s.fakeCharmUUID2)
 	s.setUnitSubordinate(c, unitUUID1, unitUUID2)
 
@@ -1639,9 +1638,9 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c
 	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
 
 	// Arrange: Add a unit to application 1 and application 2,
-	unitName1 := coreunittesting.GenNewName(c, "app1/0")
+	unitName1 := coreunit.GenName(c, "app1/0")
 	unitUUID1 := s.addUnit(c, unitName1, s.fakeApplicationUUID1, s.fakeCharmUUID1)
-	unitName2 := coreunittesting.GenNewName(c, "app2/0")
+	unitName2 := coreunit.GenName(c, "app2/0")
 	unitUUID2 := s.addUnit(c, unitName2, s.fakeApplicationUUID2, s.fakeCharmUUID2)
 
 	// Arrange: Make the unit of application 1 a subordinate to the unit of
@@ -1689,7 +1688,7 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValid(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add unit to application not in the relation.
-	unitName := coreunittesting.GenNewName(c, "app2/0")
+	unitName := coreunit.GenName(c, "app2/0")
 	s.addUnit(c, unitName, s.fakeApplicationUUID2, s.fakeCharmUUID2)
 
 	// Act: Enter scope.
@@ -1725,7 +1724,7 @@ func (s *relationSuite) TestEnterScopeRelationNotAlive(c *tc.C) {
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Dying, 17)
 
 	// Arrange: Add unit to application in the relation.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Enter scope.
@@ -1761,7 +1760,7 @@ func (s *relationSuite) TestEnterScopeUnitNotAlive(c *tc.C) {
 	relationUUID := s.addRelation(c)
 
 	// Arrange: Add unit to application in the relation.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	s.addUnitWithLife(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1, corelife.Dead)
 
 	// Act: Enter scope.
@@ -1774,7 +1773,7 @@ func (s *relationSuite) TestEnterScopeUnitNotAlive(c *tc.C) {
 func (s *relationSuite) TestEnterScopeRelationNotFound(c *tc.C) {
 	// Arrange: Add unit to application in the relation.
 	relationUUID := corerelationtesting.GenRelationUUID(c)
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Try and enter scope.
@@ -1790,7 +1789,7 @@ func (s *relationSuite) TestEnterScopeUnitNotFound(c *tc.C) {
 	err := s.state.EnterScope(
 		c.Context(),
 		relationUUID,
-		coreunittesting.GenNewName(c, "app1/0"),
+		coreunit.GenName(c, "app1/0"),
 		map[string]string{},
 	)
 
@@ -1829,7 +1828,7 @@ func (s *relationSuite) TestLeaveScope(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
 	// Arrange: Add a unit.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Arrange: Add a relation unit.
@@ -2501,9 +2500,9 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
 	s.addCharmMetadata(c, principalCharm, false)
 
 	// Arrange: create principal and subordinate units, then link
-	subordinateUnitName := coreunittesting.GenNewName(c, "app1/0")
+	subordinateUnitName := coreunit.GenName(c, "app1/0")
 	subordinateUnitUUID := s.addUnit(c, subordinateUnitName, subordinateAppUUID, subordinateCharm)
-	principalUnitName := coreunittesting.GenNewName(c, "app2/0")
+	principalUnitName := coreunit.GenName(c, "app2/0")
 	principalUnitUUID := s.addUnit(c, principalUnitName, principalAppUUID, principalCharm)
 	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
 
@@ -2524,7 +2523,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c
 	s.addCharmMetadata(c, principalCharm, false)
 
 	// Arrange: create principal unit
-	principalUnitName := coreunittesting.GenNewName(c, "app2/0")
+	principalUnitName := coreunit.GenName(c, "app2/0")
 	principalUnitUUID := s.addUnit(c, principalUnitName, principalAppUUID, principalCharm)
 
 	// Act
@@ -2556,7 +2555,7 @@ func (s *relationSuite) TestGetRelationUnitSettings(c *tc.C) {
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -2599,7 +2598,7 @@ func (s *relationSuite) TestGetRelationUnitSettingsEmptyList(c *tc.C) {
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -2646,7 +2645,7 @@ func (s *relationSuite) TestSetRelationUnitSettings(c *tc.C) {
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -2699,7 +2698,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *tc.C) {
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -2751,7 +2750,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToUnset(c *tc.C) {
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -2805,7 +2804,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNilMap(c *tc.C) {
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -2842,7 +2841,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -2895,7 +2894,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -2974,7 +2973,7 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) {
 	}
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -3029,7 +3028,7 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *tc.C)
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -3224,7 +3223,7 @@ func (s *relationSuite) TestNeedsSubordinateUnit(c *tc.C) {
 	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, principalApplicationID, subordinateApplicationID)
 
 	// Arrange: Add unit to the principal application.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	principalUnitUUID := s.addUnit(c, unitName, principalApplicationID, s.fakeCharmUUID1)
 
 	// Arrange: enter the principal unit into scope.
@@ -3253,7 +3252,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitGlobalScopedRelation(c *tc.C) {
 	relationUUID, principalRelationEndpointUUID, _ := s.addGlobalScopedRelation(c, principalApplicationID, subordinateApplicationID)
 
 	// Arrange: Add unit to the principal application.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	principalUnitUUID := s.addUnit(c, unitName, principalApplicationID, s.fakeCharmUUID1)
 
 	// Arrange: enter the principal unit into scope.
@@ -3279,7 +3278,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitPeerRelation(c *tc.C) {
 	relationUUID, relEndpointUUID := s.addPeerRelation(c, s.fakeCharmUUID2, subordinateApplicationID)
 
 	// Arrange: Add unit to the principal application.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	principalUnitUUID := s.addUnit(c, unitName, subordinateApplicationID, s.fakeCharmUUID1)
 
 	// Arrange: enter the principal unit into scope.
@@ -3304,7 +3303,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitAppNotSubordinate(c *tc.C) {
 	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, s.fakeApplicationUUID1, s.fakeApplicationUUID2)
 
 	// Arrange: Add unit to the principal application.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	principalUnitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Arrange: enter the principal unit into scope.
@@ -3332,12 +3331,12 @@ func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExists(c *tc.C
 	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, principalApplicationID, subordinateApplicationID)
 
 	// Arrange: Add unit to the principal application and enter into scope.
-	principalUnitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitName := coreunit.GenName(c, "app1/0")
 	principalUnitUUID := s.addUnit(c, principalUnitName, principalApplicationID, s.fakeCharmUUID1)
 	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
 
 	// Arrange: Add unit to the subordinate application and set its principal unit.
-	subordinateUnitName := coreunittesting.GenNewName(c, "app2/0")
+	subordinateUnitName := coreunit.GenName(c, "app2/0")
 	subordinateUnitUUID := s.addUnit(c, subordinateUnitName, subordinateApplicationID, s.fakeCharmUUID2)
 	s.addUnitPrincipal(c, principalUnitUUID, subordinateUnitUUID)
 
@@ -3361,12 +3360,12 @@ func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExistsButIsDyi
 	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, principalApplicationID, subordinateApplicationID)
 
 	// Arrange: Add unit to the principal application and enter into scope.
-	principalUnitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitName := coreunit.GenName(c, "app1/0")
 	principalUnitUUID := s.addUnit(c, principalUnitName, principalApplicationID, s.fakeCharmUUID1)
 	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
 
 	// Arrange: Add unit to the subordinate application and set its principal unit.
-	subordinateUnitName := coreunittesting.GenNewName(c, "app2/0")
+	subordinateUnitName := coreunit.GenName(c, "app2/0")
 	subordinateUnitUUID := s.addUnit(c, subordinateUnitName, subordinateApplicationID, s.fakeCharmUUID2)
 	s.setLife(c, "unit", subordinateUnitUUID.String(), life.Dying)
 	s.addUnitPrincipal(c, principalUnitUUID, subordinateUnitUUID)
@@ -3390,7 +3389,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitRelationNotAlive(c *tc.C) {
 	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, principalApplicationID, subordinateApplicationID)
 
 	// Arrange: Add unit to the principal application.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	principalUnitUUID := s.addUnit(c, unitName, principalApplicationID, s.fakeCharmUUID1)
 
 	// Arrange: enter the principal unit into scope.
@@ -3419,7 +3418,7 @@ func (s *relationSuite) TestNeedsSubordinateUnitRelationUnitNotFound(c *tc.C) {
 
 func (s *relationSuite) TestNeedsSubordinateUnitUnitNotAlive(c *tc.C) {
 	// Arrange: Add unit to application in the relation.
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	unitUUID := s.addUnitWithLife(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1, corelife.Dying)
 
 	// Arrange: add container scoped relation.
@@ -3556,7 +3555,7 @@ func (s *relationSuite) TestDeleteImportedRelations(c *tc.C) {
 	}
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitName := coreunit.GenName(c, "app/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
@@ -3941,7 +3940,7 @@ func (s *relationSuite) TestInsertRelationUnitHappyPath(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the application
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Insert relation unit
@@ -3968,7 +3967,7 @@ func (s *relationSuite) TestInsertRelationUnitRelationUUIDDoesNotExist(c *tc.C) 
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	// Arrange: Add a unit to an application
-	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitName := coreunit.GenName(c, "app1/0")
 	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Insert relation unit with non-existent relation UUID
@@ -4002,7 +4001,7 @@ func (s *relationSuite) TestInsertRelationUnitUnitUUIDDoesNotExist(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Create a non-existent unit UUID
-	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	// Act: Insert relation unit with non-existent unit UUID
 	db, err := s.state.DB(c.Context())

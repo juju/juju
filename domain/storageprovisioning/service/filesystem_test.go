@@ -14,7 +14,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -93,7 +92,7 @@ func (s *filesystemSuite) TestGetFilesystemForIDNotFound2(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemAttachmentForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	fsUUID := domaintesting.GenFilesystemUUID(c)
@@ -132,7 +131,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitNotValid(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return("", applicationerrors.UnitNotFound)
 	svc := NewService(s.state, s.watcherFactory)
 
@@ -142,7 +141,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitUnitNotFound(c *tc.C
 
 func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitAttachmentNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	fsUUID := domaintesting.GenFilesystemUUID(c)
@@ -171,7 +170,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitAttachmentNotFound(c
 
 func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitFilesystemNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil).AnyTimes()
@@ -576,7 +575,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnit(c *t
 	}
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetFilesystemUUIDForID(gomock.Any(), fsID).Return(fsUUID,
 		nil)

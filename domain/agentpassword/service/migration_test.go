@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/agentpassword"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
@@ -58,7 +57,7 @@ func (s *migrationServiceSuite) TestGetAllUnitPasswordHashesError(c *tc.C) {
 func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()
@@ -77,7 +76,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *tc.C) {
 func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()
@@ -95,7 +94,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *tc.C) {
 func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 
 	unitName := unit.Name("unit/0")
 	rand, err := internalpassword.RandomPassword()

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -85,7 +84,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		Protocol:     "tcp",
 	})
 
-	unit1UUID := coreunittesting.GenUnitUUID(c)
+	unit1UUID := coreunit.GenUUID(c)
 	s.portService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/1")).Return(unit1UUID, nil)
 	s.portService.EXPECT().UpdateUnitPorts(gomock.Any(), unit1UUID, network.GroupedPortRanges{
 		"endpoint-1": []network.PortRange{{
@@ -95,7 +94,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		}},
 	}, nil)
 
-	unit2UUID := coreunittesting.GenUnitUUID(c)
+	unit2UUID := coreunit.GenUUID(c)
 	s.portService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("unit/2")).Return(unit2UUID, nil)
 	s.portService.EXPECT().UpdateUnitPorts(gomock.Any(), unit2UUID, network.GroupedPortRanges{
 		"endpoint-2": []network.PortRange{{

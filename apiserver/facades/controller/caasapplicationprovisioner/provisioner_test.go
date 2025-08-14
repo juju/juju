@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application"
@@ -260,7 +259,7 @@ func (s *CAASApplicationProvisionerSuite) TestDestroyUnits(c *tc.C) {
 
 	// Arrange
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return(removal.UUID(""), nil)
 
@@ -284,7 +283,7 @@ func (s *CAASApplicationProvisionerSuite) TestDestroyUnitsForce(c *tc.C) {
 
 	// Arrange
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, true, time.Hour).Return(removal.UUID(""), nil)
 

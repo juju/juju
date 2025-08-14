@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -587,7 +586,7 @@ func (s *migrationServiceSuite) TestRemoveImportedApplication(c *tc.C) {
 func (s *migrationServiceSuite) TestGetUnitUUIDByName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := unittesting.GenUnitUUID(c)
+	uuid := unit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("foo/0")).Return(uuid, nil)
 
@@ -635,7 +634,7 @@ func (s *migrationServiceSuite) TestGetApplicationUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := coreapplication.GenID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 
 	units := []application.ExportUnit{
 		{

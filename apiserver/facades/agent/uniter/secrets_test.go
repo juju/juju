@@ -18,7 +18,7 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
@@ -397,7 +397,7 @@ func (s *UniterSecretsSuite) TestUpdateTrackedRevisions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretService.EXPECT().GetConsumedRevision(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), true, false, nil).
+	s.secretService.EXPECT().GetConsumedRevision(gomock.Any(), uri, coreunit.GenName(c, "mariadb/0"), true, false, nil).
 		Return(668, nil)
 	result, err := s.facade.updateTrackedRevisions(c.Context(), []string{uri.ID})
 	c.Assert(err, tc.ErrorIsNil)

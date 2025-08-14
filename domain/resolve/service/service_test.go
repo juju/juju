@@ -11,7 +11,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	resolve "github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 )
@@ -36,7 +35,7 @@ func (s *serviceSuite) TestUnitResolveModeRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return(resolve.ResolveModeRetryHooks, nil)
@@ -50,7 +49,7 @@ func (s *serviceSuite) TestUnitResolveModeNoHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return(resolve.ResolveModeNoHooks, nil)
@@ -84,7 +83,7 @@ func (s *serviceSuite) TestUnitResolveModeNotResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return(resolve.ResolveMode(""), resolveerrors.UnitNotResolved)
@@ -97,7 +96,7 @@ func (s *serviceSuite) TestResolveUnitRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().ResolveUnit(gomock.Any(), unitUUID, resolve.ResolveModeRetryHooks).Return(nil)
@@ -110,7 +109,7 @@ func (s *serviceSuite) TestResolveUnitNoRetryHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().ResolveUnit(gomock.Any(), unitUUID, resolve.ResolveModeNoHooks).Return(nil)
@@ -143,7 +142,7 @@ func (s *serviceSuite) TestResolveUnitNotInErrorState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().ResolveUnit(gomock.Any(), unitUUID, resolve.ResolveModeRetryHooks).Return(resolveerrors.UnitNotInErrorState)
@@ -183,7 +182,7 @@ func (s *serviceSuite) TestClearResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().ClearResolved(gomock.Any(), unitUUID).Return(nil)

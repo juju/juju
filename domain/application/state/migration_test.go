@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -556,7 +555,7 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
-	sub := unittesting.GenNewName(c, "foo/666")
+	sub := coreunit.GenName(c, "foo/666")
 	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)
 	subAppID := s.createIAASApplication(c, "foo", life.Alive)
 
@@ -574,7 +573,7 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
-	sub := unittesting.GenNewName(c, "foo/666")
+	sub := coreunit.GenName(c, "foo/666")
 	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)
 	subAppID := s.createIAASApplication(c, "foo", life.Alive)
 

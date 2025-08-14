@@ -21,7 +21,6 @@ import (
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	coretesting "github.com/juju/juju/core/testing"
 	coreunit "github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -220,7 +219,7 @@ func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	if includeUnit {
 		s.unitName = "postgresql/0"
-		s.unitUUID = coreunittesting.GenUnitUUID(c)
+		s.unitUUID = coreunit.GenUUID(c)
 	} else {
 		s.unitName = ""
 		s.unitUUID = ""

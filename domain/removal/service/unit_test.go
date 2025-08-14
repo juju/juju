@@ -11,8 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/leadership"
-	unit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	removal "github.com/juju/juju/domain/removal"
@@ -31,7 +30,7 @@ func TestUnitSuite(t *testing.T) {
 func (s *unitSuite) TestRemoveUnitNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uUUID := unittesting.GenUnitUUID(c)
+	uUUID := coreunit.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -54,7 +53,7 @@ func (s *unitSuite) TestRemoveUnitNoForceSuccess(c *tc.C) {
 func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uUUID := unittesting.GenUnitUUID(c)
+	uUUID := coreunit.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -72,7 +71,7 @@ func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 func (s *unitSuite) TestRemoveUnitForceWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uUUID := unittesting.GenUnitUUID(c)
+	uUUID := coreunit.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -95,7 +94,7 @@ func (s *unitSuite) TestRemoveUnitForceWaitSuccess(c *tc.C) {
 func (s *unitSuite) TestRemoveUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uUUID := unittesting.GenUnitUUID(c)
+	uUUID := coreunit.GenUUID(c)
 
 	s.modelState.EXPECT().UnitExists(gomock.Any(), uUUID.String()).Return(false, nil)
 
@@ -162,7 +161,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnit(c *tc.C) {
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
-	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
+	s.revoker.EXPECT().RevokeLeadership("foo", coreunit.Name("foo/0")).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
@@ -178,7 +177,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitError(c *tc.C) {
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
 
-	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
+	s.revoker.EXPECT().RevokeLeadership("foo", coreunit.Name("foo/0")).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
@@ -193,7 +192,7 @@ func (s *unitSuite) TestExecuteJobForUnitRevokingUnitError(c *tc.C) {
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 
-	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(errors.Errorf("the front fell off"))
+	s.revoker.EXPECT().RevokeLeadership("foo", coreunit.Name("foo/0")).Return(errors.Errorf("the front fell off"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
@@ -210,7 +209,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitClaimNotHeldError(c *tc.
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
-	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(leadership.ErrClaimNotHeld)
+	s.revoker.EXPECT().RevokeLeadership("foo", coreunit.Name("foo/0")).Return(leadership.ErrClaimNotHeld)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
@@ -219,7 +218,7 @@ func (s *unitSuite) TestExecuteJobForUnitDyingDeleteUnitClaimNotHeldError(c *tc.
 func (s *unitSuite) TestMarkUnitAsDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uUUID := unittesting.GenUnitUUID(c)
+	uUUID := coreunit.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
@@ -232,7 +231,7 @@ func (s *unitSuite) TestMarkUnitAsDead(c *tc.C) {
 func (s *unitSuite) TestMarkUnitAsDeadUnitDoesNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uUUID := unittesting.GenUnitUUID(c)
+	uUUID := coreunit.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(false, nil)
@@ -244,7 +243,7 @@ func (s *unitSuite) TestMarkUnitAsDeadUnitDoesNotExist(c *tc.C) {
 func (s *unitSuite) TestMarkUnitAsDeadError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uUUID := unittesting.GenUnitUUID(c)
+	uUUID := coreunit.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(false, errors.Errorf("the front fell off"))
@@ -260,6 +259,6 @@ func newUnitJob(c *tc.C) removal.Job {
 	return removal.Job{
 		UUID:        jUUID,
 		RemovalType: removal.UnitJob,
-		EntityUUID:  unittesting.GenUnitUUID(c).String(),
+		EntityUUID:  coreunit.GenUUID(c).String(),
 	}
 }

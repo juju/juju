@@ -12,7 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -176,7 +176,7 @@ func (s *stateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
 // that does not exist returns a [applicationerrors.UnitNotFound] error to the
 // caller.
 func (s *stateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetUnitNetNodeUUID(c.Context(), unitUUID)
@@ -227,7 +227,7 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.C) {
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentIDsForUnit(c.Context(), unitUUID.String())
@@ -268,7 +268,7 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetAttachmentLifeWithUnitNotFound(c *tc.C) {
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())

@@ -13,7 +13,6 @@ import (
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/charm"
@@ -324,7 +323,7 @@ VALUES (?, ?, ?, ?, ?)
 func (s *containerSuite) addUnit(
 	c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID, charmUUID corecharm.ID, nodeUUID string,
 ) coreunit.UUID {
-	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.query(c, `
 INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
 VALUES (?, ?, ?, ?, ?, ?)

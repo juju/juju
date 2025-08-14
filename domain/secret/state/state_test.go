@@ -15,7 +15,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -3676,7 +3676,7 @@ func (s *stateSuite) prepareWatchForConsumedSecrets(c *tc.C, ctx context.Context
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		unitName := unittesting.GenNewName(c, consumerID)
+		unitName := coreunit.GenName(c, consumerID)
 		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -3742,7 +3742,7 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *tc.C, ctx context.C
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		unitName := unittesting.GenNewName(c, consumerID)
+		unitName := coreunit.GenName(c, consumerID)
 		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -3801,7 +3801,7 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		unitName := unittesting.GenNewName(c, consumerID)
+		unitName := coreunit.GenName(c, consumerID)
 		err := st.SaveSecretRemoteConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}

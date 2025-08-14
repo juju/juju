@@ -13,7 +13,6 @@ import (
 
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -89,7 +88,7 @@ func (s *storageProviderSuite) GetStorageRegistry(
 func (s *storageSuite) TestAttachStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 	storageUUID := storagetesting.GenStorageInstanceUUID(c)
 	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
@@ -102,7 +101,7 @@ func (s *storageSuite) TestAttachStorage(c *tc.C) {
 func (s *storageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 	storageUUID := storagetesting.GenStorageInstanceUUID(c)
 	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
@@ -124,7 +123,7 @@ func (s *storageSuite) TestAttachStorageValidate(c *tc.C) {
 func (s *storageSuite) TestAddStorageToUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 	stor := internalstorage.Directive{}
 	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
 	s.mockState.EXPECT().AddStorageForUnit(gomock.Any(), corestorage.Name("pgdata"), unitUUID, stor).Return([]corestorage.ID{"pgdata/0"}, nil)
@@ -146,7 +145,7 @@ func (s *storageSuite) TestAddStorageForUnitValidate(c *tc.C) {
 func (s *storageSuite) TestDetachStorageForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 	storageUUID := storagetesting.GenStorageInstanceUUID(c)
 	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)

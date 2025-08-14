@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -1296,7 +1295,7 @@ func (s *storageStatusSuite) newUnitWithNetNode(
 	).Scan(&charmUUID, &appName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := unit.GenUUID(c)
 	unitID := fmt.Sprintf("%s/%d", appName, s.nextSequenceNumber(c, appName))
 
 	_, err = s.DB().Exec(`

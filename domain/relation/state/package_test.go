@@ -21,7 +21,6 @@ import (
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -273,7 +272,7 @@ WHERE value = ?
 // addUnit adds a new unit to the specified application in the database with
 // the given UUID and name. Returns the unit uuid.
 func (s *baseRelationSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID, charmUUID corecharm.ID) coreunit.UUID {
-	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	netNodeUUID := uuid.MustNewUUID().String()
 	s.query(c, `
 INSERT INTO net_node (uuid) 
@@ -292,7 +291,7 @@ VALUES (?, ?, ?, ?, ?, ?)
 // the given UUID, name and life. Returns the unit uuid.
 func (s *baseRelationSuite) addUnitWithLife(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID,
 	charmUUID corecharm.ID, life corelife.Value) coreunit.UUID {
-	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	netNodeUUID := uuid.MustNewUUID().String()
 	s.query(c, `
 INSERT INTO net_node (uuid) 

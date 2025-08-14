@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -75,7 +75,7 @@ func (s *unitStateSuite) expectGetState(c *tc.C, name string) (map[string]string
 	expStorageState := "storage testing"
 	expSecretState := "secret testing"
 
-	unitName := unittesting.GenNewName(c, name)
+	unitName := coreunit.GenName(c, name)
 
 	s.unitStateService.EXPECT().GetState(gomock.Any(), unitName).Return(unitstate.RetrievedUnitState{
 		CharmState:    expCharmState,

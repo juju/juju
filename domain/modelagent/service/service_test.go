@@ -15,7 +15,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -149,7 +148,7 @@ func (s *serviceSuite) TestGetUnitTargetAgentVersion(c *tc.C) {
 		Arch:   "amd64",
 	}
 
-	uuid := unittesting.GenUnitUUID(c)
+	uuid := coreunit.GenUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(uuid, nil)
 	s.state.EXPECT().GetUnitTargetAgentVersion(gomock.Any(), uuid).Return(ver, nil)
 
@@ -384,7 +383,7 @@ func (s *serviceSuite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 
 	// UnitNotFound error location 2.
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(
 		unitUUID, nil,
@@ -416,7 +415,7 @@ func (s *serviceSuite) TestSetReportedUnitAgentVersionNotFound(c *tc.C) {
 func (s *serviceSuite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(
 		coreunit.UUID(unitUUID.String()), nil,
@@ -448,7 +447,7 @@ func (s *serviceSuite) TestSetReportedUnitAgentVersionDead(c *tc.C) {
 func (s *serviceSuite) TestSetReportedUnitAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(
 		coreunit.UUID(unitUUID.String()), nil,
@@ -553,7 +552,7 @@ func (s *serviceSuite) TestGetMachineReportedAgentVersion(c *tc.C) {
 func (s *serviceSuite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitName := unittesting.GenNewName(c, "foo/0")
+	unitName := coreunit.GenName(c, "foo/0")
 
 	// First test of UnitNotFound when translating from name to uuid.
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(
@@ -565,7 +564,7 @@ func (s *serviceSuite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 
 	// Section test of UnitNotFound when using the uuid to fetch the running
 	// version.
-	uuid := unittesting.GenUnitUUID(c)
+	uuid := coreunit.GenUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(uuid, nil)
 	s.state.EXPECT().GetUnitRunningAgentBinaryVersion(gomock.Any(), uuid).Return(
 		coreagentbinary.Version{}, applicationerrors.UnitNotFound,
@@ -581,8 +580,8 @@ func (s *serviceSuite) TestGetUnitReportedAgentVersionUnitNotFound(c *tc.C) {
 func (s *serviceSuite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitName := unittesting.GenNewName(c, "foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitName := coreunit.GenName(c, "foo/0")
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitRunningAgentBinaryVersion(gomock.Any(), unitUUID).Return(
@@ -599,8 +598,8 @@ func (s *serviceSuite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *tc
 func (s *serviceSuite) TestGetUnitReportedAgentVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitName := unittesting.GenNewName(c, "foo/0")
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitName := coreunit.GenName(c, "foo/0")
+	unitUUID := coreunit.GenUUID(c)
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitRunningAgentBinaryVersion(gomock.Any(), unitUUID).Return(

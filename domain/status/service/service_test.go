@@ -19,7 +19,6 @@ import (
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
@@ -304,7 +303,7 @@ func (s *serviceSuite) TestSetWorkloadUnitStatus(c *tc.C) {
 
 	now := time.Now()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.modelState.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
@@ -439,7 +438,7 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatus(c *tc.C) {
 
 	now := time.Now()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.modelState.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.UnitAgentStatusType]{
@@ -487,7 +486,7 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithAllocatingPresence(c 
 
 	now := time.Now()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.modelState.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.UnitAgentStatusType]{
@@ -535,7 +534,7 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *tc.C) {
 
 	now := time.Now()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.modelState.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.UnitAgentStatusType]{
@@ -581,7 +580,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatus(c *tc.C) {
 
 	now := time.Now()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.modelState.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
 		status.UnitStatusInfo[status.WorkloadStatusType]{
@@ -614,7 +613,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusUnitInvalidName(c *tc.C) {
 func (s *serviceSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
 
 	_, err := s.modelService.GetUnitWorkloadStatus(c.Context(), coreunit.Name("foo/666"))
@@ -624,7 +623,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 func (s *serviceSuite) TestGetUnitWorkloadStatusUnitInvalidWorkloadStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.modelState.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("boom"))
 
@@ -635,7 +634,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusUnitInvalidWorkloadStatus(c *tc.
 func (s *serviceSuite) TestSetUnitWorkloadStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	now := time.Now()
 
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
@@ -672,7 +671,7 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusInvalidName(c *tc.C) {
 func (s *serviceSuite) TestSetUnitWorkloadStatusUnitFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	now := time.Now()
 
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
@@ -689,7 +688,7 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusUnitFound(c *tc.C) {
 func (s *serviceSuite) TestSetUnitWorkloadStatusInvalidStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	now := time.Now()
 
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
@@ -712,7 +711,7 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusInvalidStatus(c *tc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	now := time.Now()
 
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
@@ -791,7 +790,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusInvalidName(c *tc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatusUnitFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	now := time.Now()
 
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
@@ -808,7 +807,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusUnitFound(c *tc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatusInvalidStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	now := time.Now()
 
 	s.modelState.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/charm"
@@ -392,7 +391,7 @@ func (s *linkLayerBaseSuite) setLinkLayerDeviceParent(c *tc.C, childUUID string,
 
 // addUnit inserts a new unit record into the database and returns the generated unit UUID.
 func (s *linkLayerBaseSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
 		unitUUID, unitUUID, life.Alive, appUUID, charmUUID, nodeUUID)
 	return unitUUID

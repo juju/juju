@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
@@ -710,7 +709,7 @@ WHERE machine_uuid = ?
 // running agent binary version for a unit that doesn't exist we get back
 // an error that satisfies [applicationerrors.UnitNotFound].
 func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUnitNotFound(c *tc.C) {
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.SetUnitRunningAgentBinaryVersion(
@@ -809,7 +808,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUpdate(c *tc.C) {
 // running unit agent binary version for a unit that doesn't exist we get
 // [applicationerrors.UnitNotFound] error.
 func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionUnitNotFound(c *tc.C) {
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunit.GenUUID(c)
 	_, err := NewState(s.TxnRunnerFactory()).GetUnitRunningAgentBinaryVersion(
 		c.Context(), unitUUID,
 	)

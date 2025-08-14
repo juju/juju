@@ -14,7 +14,6 @@ import (
 
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -72,7 +71,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 		},
 	}
 
-	s.unitName = unittesting.GenNewName(c, "app/0")
+	s.unitName = coreunit.GenName(c, "app/0")
 	unitArgs := []application.AddIAASUnitArg{{}}
 
 	ctx := c.Context()
