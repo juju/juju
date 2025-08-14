@@ -12,7 +12,7 @@ jobs:
       channel: ${{ steps.check.outputs.channel }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Check
         id: check
         run: |
@@ -45,7 +45,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Remove LXD
         if: env.RUN_TEST == 'RUN'

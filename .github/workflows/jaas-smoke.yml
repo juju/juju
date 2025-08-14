@@ -16,7 +16,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, aws, large]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # We can't use docker snap, because it is confined to /home and we are checking out the repository under /opt
       - name: Install docker via apt
         run: |
@@ -41,7 +41,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
 
       - name: Checkout juju
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
         uses: actions/setup-go@v5

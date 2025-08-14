@@ -19,7 +19,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup LXD
         if: matrix.cloud == 'localhost'
@@ -100,7 +100,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup LXD
         uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
