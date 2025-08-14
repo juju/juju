@@ -349,27 +349,19 @@ func (st *State) GetFilesystemAttachmentIDs(
 	// share a netnode with a machine. If units are for machines they share a
 	// netnode.
 	q := `
-SELECT &filesystemAttachmentIDs.* FROM (
-    SELECT sfa.uuid,
-           sf.filesystem_id,
-           m.name AS machine_name,
-           NULL AS unit_name
-    FROM   storage_filesystem_attachment sfa
-    JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
-    JOIN   machine m ON sfa.net_node_uuid = m.net_node_uuid
-    WHERE  sfa.uuid IN ($filesystemAttachmentUUIDs[:])
-    UNION
-    SELECT     sfa.uuid,
-               sf.filesystem_id,
-               NULL AS machine_name,
-               u.name AS unit_name
-    FROM       storage_filesystem_attachment sfa
-    JOIN       storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
-    LEFT JOIN  machine m ON sfa.net_node_uuid == m.net_node_uuid
-    JOIN       unit u ON sfa.net_node_uuid = u.net_node_uuid
-    WHERE      sfa.uuid IN ($filesystemAttachmentUUIDs[:])
-    AND        m.net_node_uuid IS NULL
-)
+SELECT DISTINCT
+       (sfa.uuid, sf.filesystem_id) AS (&filesystemAttachmentIDs.*),
+       m.name AS &filesystemAttachmentIDs.machine_name,
+       u.name AS &filesystemAttachmentIDs.unit_name
+FROM   storage_filesystem_attachment sfa
+       JOIN storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+       LEFT JOIN machine m ON sfa.net_node_uuid = m.net_node_uuid
+       -- Only join units when there is no machine.
+       LEFT JOIN unit u 
+           ON sfa.net_node_uuid = u.net_node_uuid
+           AND m.net_node_uuid IS NULL
+WHERE sfa.uuid IN ($filesystemAttachmentUUIDs[:])
+AND   (m.net_node_uuid IS NOT NULL OR u.net_node_uuid IS NOT NULL)
 `
 
 	uuidToIDsStmt, err := st.Prepare(q, filesystemAttachmentIDs{}, uuidInputs)
