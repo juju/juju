@@ -15,7 +15,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -1318,7 +1317,7 @@ func (s *applicationEndpointStateSuite) addSpaceReturningName(c *tc.C, name stri
 // addSpace ensures a space with the given name exists in the database,
 // creating it if necessary, and returns its name.
 func (s *applicationEndpointStateSuite) addSpace(c *tc.C, name string) network.SpaceUUID {
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := network.GenSpaceUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO space (uuid, name)

@@ -16,7 +16,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -192,7 +191,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmMergesEndpointBindings(
 	newCharm, finish := s.createCharm(c, createCharmArgs{})
 	defer finish()
 
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := network.GenSpaceUUID(c)
 	spaceName := network.SpaceName("beta")
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

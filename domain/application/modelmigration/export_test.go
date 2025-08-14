@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -422,7 +421,7 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 
 	// Arrange:
 	charmUUID := corecharm.GenCharmID(c)
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := network.GenSpaceUUID(c)
 
 	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",

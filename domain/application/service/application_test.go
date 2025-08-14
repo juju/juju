@@ -23,7 +23,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	machine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -1142,7 +1141,7 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationsBoundToSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := network.GenSpaceUUID(c)
 	s.state.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID.String()).Return([]string{"foo", "bar"}, nil)
 
 	apps, err := s.service.GetApplicationsBoundToSpace(c.Context(), spaceUUID)
@@ -1153,7 +1152,7 @@ func (s *applicationServiceSuite) TestGetApplicationsBoundToSpace(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationsBoundToSpaceErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := network.GenSpaceUUID(c)
 	s.state.EXPECT().GetApplicationsBoundToSpace(gomock.Any(), spaceUUID.String()).Return(nil, errors.Errorf("boom"))
 
 	_, err := s.service.GetApplicationsBoundToSpace(c.Context(), spaceUUID)

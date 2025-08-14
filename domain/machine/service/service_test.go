@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	networktesting "github.com/juju/juju/core/network/testing"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -840,7 +840,7 @@ func (s *serviceSuite) TestGetMachineBaseNotFound(c *tc.C) {
 func (s *serviceSuite) TestCountMachinesInSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceID := networktesting.GenSpaceUUID(c)
+	spaceID := corenetwork.GenSpaceUUID(c)
 	s.state.EXPECT().CountMachinesInSpace(gomock.Any(), spaceID.String()).Return(int64(42), nil)
 
 	count, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
@@ -852,7 +852,7 @@ func (s *serviceSuite) TestCountMachinesInSpace(c *tc.C) {
 func (s *serviceSuite) TestCountMachinesInSpaceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceID := networktesting.GenSpaceUUID(c)
+	spaceID := corenetwork.GenSpaceUUID(c)
 	s.state.EXPECT().CountMachinesInSpace(gomock.Any(), spaceID.String()).Return(int64(0), errors.Errorf("boom"))
 
 	count, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).

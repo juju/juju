@@ -29,6 +29,16 @@ func NewSpaceUUID() (SpaceUUID, error) {
 	return SpaceUUID(uuid.String()), nil
 }
 
+// GenSpaceUUID can be used in testing for generating a space uuid that is
+// checked for subsequent errors.
+func GenSpaceUUID(c interface{ Fatal(...any) }) SpaceUUID {
+	uuid, err := NewSpaceUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
+}
+
 // ParseSpaceUUID returns a new SpaceUUID from the given string. If the string is not a valid
 // uuid an error satisfying [errors.NotValid] will be returned.
 func ParseSpaceUUID(value string) (SpaceUUID, error) {

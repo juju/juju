@@ -12,7 +12,6 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
@@ -150,7 +149,7 @@ func (s *spaceSuite) TestUpdateSpaceName(c *tc.C) {
 func (s *spaceSuite) TestUpdateSpaceNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceID := networktesting.GenSpaceUUID(c)
+	spaceID := network.GenSpaceUUID(c)
 	s.st.EXPECT().UpdateSpace(gomock.Any(), spaceID, network.SpaceName("newname")).
 		Return(errors.Errorf("space %q: %w", spaceID, networkerrors.SpaceNotFound))
 
@@ -173,7 +172,7 @@ func (s *spaceSuite) TestRetrieveSpaceByID(c *tc.C) {
 func (s *spaceSuite) TestRetrieveSpaceByIDNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 	s.st.EXPECT().GetSpace(gomock.Any(), spUUID).
 		Return(nil, errors.Errorf("space %q: %w", spUUID, networkerrors.SpaceNotFound))
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).Space(c.Context(), spUUID)
@@ -757,7 +756,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesWithNoDeltas(c *tc.C) {
 func (s *spaceSuite) TestDeleteProviderSpaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := network.GenSpaceUUID(c)
 	s.st.EXPECT().RemoveSpace(gomock.Any(), network.SpaceName("1"), false, false).
 		Return(domainnetwork.RemoveSpaceViolations{}, nil)
 
@@ -841,7 +840,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesContainsConstraintsSpace(c *tc.C) {
 func (s *spaceSuite) TestProviderSpacesRun(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := network.GenSpaceUUID(c)
 	res := []network.SpaceInfo{
 		{
 			ID:         spaceUUID,

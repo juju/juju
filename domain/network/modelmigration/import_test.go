@@ -14,7 +14,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/network/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -115,7 +114,7 @@ func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
 func (s *importSuite) TestImportSpaceWithSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 
 	model := description.NewModel(description.ModelArgs{})
 	model.AddSpace(description.SpaceArgs{

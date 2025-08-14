@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
@@ -1248,7 +1247,7 @@ func (s *importSuite) TestImportExposedEndpointsFrom36(c *tc.C) {
 		Name: "beta",
 	})
 
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(spUUID, nil)
 
 	s.importService.EXPECT().ImportIAASApplication(
@@ -1280,7 +1279,7 @@ func (s *importSuite) TestImportExposedEndpointsFrom40(c *tc.C) {
 		Type: coremodel.IAAS.String(),
 	})
 
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := network.GenSpaceUUID(c)
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
@@ -1448,9 +1447,9 @@ func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 
-	spaceUUID0 := networktesting.GenSpaceUUID(c)
-	spaceUUID1 := networktesting.GenSpaceUUID(c)
-	spaceUUID2 := networktesting.GenSpaceUUID(c)
+	spaceUUID0 := network.GenSpaceUUID(c)
+	spaceUUID1 := network.GenSpaceUUID(c)
+	spaceUUID2 := network.GenSpaceUUID(c)
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",

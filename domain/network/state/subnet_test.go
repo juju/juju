@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -20,7 +19,7 @@ import (
 func (s *stateSuite) TestUpsertSubnets(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 	err := st.AddSpace(c.Context(), spUUID, "space0", "provider-space-id-1", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -106,7 +105,7 @@ func (s *stateSuite) TestAddSubnet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -184,7 +183,7 @@ func (s *stateSuite) TestAddSubnet(c *tc.C) {
 func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -223,7 +222,7 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *tc.C) {
 func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -355,7 +354,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a space with subnet base.
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 	err = st.AddSpace(c.Context(), spUUID, "space0", "provider-space-id", []string{subnetUUID0.String()})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -489,7 +488,7 @@ func (s *stateSuite) TestUpdateSubnet(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
-	spUUID := networktesting.GenSpaceUUID(c)
+	spUUID := network.GenSpaceUUID(c)
 	err := st.AddSpace(c.Context(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -509,7 +508,7 @@ func (s *stateSuite) TestUpdateSubnet(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	newSpIUUID := networktesting.GenSpaceUUID(c)
+	newSpIUUID := network.GenSpaceUUID(c)
 	err = st.AddSpace(c.Context(), newSpIUUID, "space1", "bar", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
