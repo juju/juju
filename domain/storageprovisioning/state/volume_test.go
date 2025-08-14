@@ -11,7 +11,6 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 )
@@ -597,7 +596,7 @@ func (s *volumeSuite) TestInitialWatchStatementMachineProvisionedVolumeAttachmen
 // attachment that doesn't exist returns to the caller an error satisfying
 // [storageprovisioningerrors.VolumeAttachmentNotFound].
 func (s *volumeSuite) TestGetVolumeAttachmentLifeNotFound(c *tc.C) {
-	uuid := storageprovisioning.GenVolumeAttachmentUUID(c)
+	uuid := domainstorageprovisioning.GenVolumeAttachmentUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetVolumeAttachmentLife(c.Context(), uuid)
@@ -639,7 +638,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeNetNode(c *tc.C) {
 // for an attachment using a volume uuid that does not exist in the model.
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeNetNodeFSNotFound(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
-	notFoundFS := storageprovisioning.GenVolumeUUID(c)
+	notFoundFS := domainstorageprovisioning.GenVolumeUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetVolumeAttachmentUUIDForVolumeNetNode(
@@ -689,7 +688,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeNetNodeUnrelated(c *tc
 // attachment that doesn't exist returns to the caller an error satisfying
 // [storageprovisioningerrors.VolumeNotFound].
 func (s *volumeSuite) TestGetVolumeLifeNotFound(c *tc.C) {
-	uuid := storageprovisioning.GenVolumeUUID(c)
+	uuid := domainstorageprovisioning.GenVolumeUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetVolumeLife(c.Context(), uuid)
