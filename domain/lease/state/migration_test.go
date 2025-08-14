@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -23,7 +23,7 @@ func TestMigrationSuite(t *testing.T) {
 }
 
 func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
@@ -32,7 +32,7 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *tc.C) 
 }
 
 func (s *migrationSuite) TestGetApplicationLeadershipForModel(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 
@@ -52,7 +52,7 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
 }
 
 func (s *migrationSuite) TestGetApplicationLeadershipForModelSingularControllerType(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 
@@ -79,7 +79,7 @@ VALUES ('2', 0, ?, 'controller', 'abc', date('now'), date('now', '+1 day'))
 }
 
 func (s *migrationSuite) TestGetApplicationLeadershipForModelExpired(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 

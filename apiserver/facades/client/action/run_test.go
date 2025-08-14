@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -82,7 +82,7 @@ func (s *runSuite) setupMocks(c *tc.C) *gomock.Controller {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	s.client, err = action.NewActionAPI(auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

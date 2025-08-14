@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
@@ -29,7 +29,7 @@ func TestModelSuite(t *testing.T) {
 func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := modeltesting.GenModelUUID(c)
+	mUUID := coremodel.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -66,7 +66,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 func (s *modelSuite) TestRemoveModelControllerModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := modeltesting.GenModelUUID(c)
+	mUUID := coremodel.GenUUID(c)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -78,7 +78,7 @@ func (s *modelSuite) TestRemoveModelControllerModel(c *tc.C) {
 func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := modeltesting.GenModelUUID(c)
+	mUUID := coremodel.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -115,7 +115,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 func (s *modelSuite) TestRemoveModelForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := modeltesting.GenModelUUID(c)
+	mUUID := coremodel.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -138,7 +138,7 @@ func (s *modelSuite) TestRemoveModelForceNoWaitSuccess(c *tc.C) {
 func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := modeltesting.GenModelUUID(c)
+	mUUID := coremodel.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -166,7 +166,7 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 func (s *modelSuite) TestRemoveModelNotFoundInModelButInController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := modeltesting.GenModelUUID(c)
+	mUUID := coremodel.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -188,7 +188,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInModelButInController(c *tc.C) {
 func (s *modelSuite) TestRemoveModelNotFoundInControllerButInModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := modeltesting.GenModelUUID(c)
+	mUUID := coremodel.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -210,7 +210,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInControllerButInModel(c *tc.C) {
 func (s *modelSuite) TestRemoveModelNotFoundInBothControllerAndModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := modeltesting.GenModelUUID(c)
+	mUUID := coremodel.GenUUID(c)
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -437,6 +437,6 @@ func newModelJob(c *tc.C) removal.Job {
 	return removal.Job{
 		UUID:        jUUID,
 		RemovalType: removal.ModelJob,
-		EntityUUID:  modeltesting.GenModelUUID(c).String(),
+		EntityUUID:  coremodel.GenUUID(c).String(),
 	}
 }

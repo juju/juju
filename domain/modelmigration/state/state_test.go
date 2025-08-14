@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment"
@@ -43,7 +42,7 @@ func (s *migrationSuite) SetUpTest(c *tc.C) {
 	runner := s.TxnRunnerFactory()
 	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:               id,
 		AgentStream:        modelagent.AgentStreamReleased,

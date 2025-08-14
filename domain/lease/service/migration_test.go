@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -27,7 +27,7 @@ func TestMigrationSuite(t *testing.T) {
 func (s *migrationSuite) TestMigrationService(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	s.state.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), modelUUID).Return(map[string]string{
 		"foo": "bar",
@@ -44,7 +44,7 @@ func (s *migrationSuite) TestMigrationService(c *tc.C) {
 func (s *migrationSuite) TestMigrationServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	s.state.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), modelUUID).Return(map[string]string{
 		"foo": "bar",

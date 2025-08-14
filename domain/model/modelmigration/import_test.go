@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/modelmigration"
 	modelmigrationtesting "github.com/juju/juju/core/modelmigration/testing"
 	coreuser "github.com/juju/juju/core/user"
@@ -106,7 +105,7 @@ func (i *importSuite) TestModelOwnerNoExist(c *tc.C) {
 		userService:        i.userService,
 	}
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -127,7 +126,7 @@ func (i *importSuite) TestModelOwnerNoExist(c *tc.C) {
 // - If no agent stream is specified in the model's config then a default stream
 // of [agentbinary.AgentStreamReleased] is used.
 func (i *importSuite) TestModelCreate(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	userUUID, err := coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -209,7 +208,7 @@ func (i *importSuite) TestModelCreate(c *tc.C) {
 // the model being imported has their agent stream set in model config that this
 // value is used when creating the model.
 func (i *importSuite) TestModelCreateWithAgentStream(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	userUUID, err := coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -287,7 +286,7 @@ func (i *importSuite) TestModelCreateWithAgentStream(c *tc.C) {
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailure(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	userUUID, err := coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -372,7 +371,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *tc.C) {
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	userUUID, err := coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -451,7 +450,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *tc
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyModel(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	userUUID, err := coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -534,7 +533,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 func (i *importSuite) TestImportModelConstraintsNoOperations(c *tc.C) {
 	defer i.setupMocks(c).Finish()
 
-	newUUID := modeltesting.GenModelUUID(c)
+	newUUID := coremodel.GenUUID(c)
 	importOp := importModelConstraintsOperation{
 		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}
@@ -562,7 +561,7 @@ func (i *importSuite) TestImportModelConstraintsNoOperations(c *tc.C) {
 func (i *importSuite) TestImportModelConstraints(c *tc.C) {
 	defer i.setupMocks(c).Finish()
 
-	newUUID := modeltesting.GenModelUUID(c)
+	newUUID := coremodel.GenUUID(c)
 	importOp := importModelConstraintsOperation{
 		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
 	}

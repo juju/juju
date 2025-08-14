@@ -14,7 +14,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	instance "github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/environs/config"
@@ -121,7 +121,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 		AgentBinaryService:      s.agentBinaryService,
 	}
 
-	modelID := modeltesting.GenModelUUID(c)
+	modelID := coremodel.GenUUID(c)
 
 	icfg, err := InstanceConfig(c.Context(), controllerUUID.String(), modelID, services, "0", "nonce", "")
 	c.Check(err, tc.ErrorIsNil)

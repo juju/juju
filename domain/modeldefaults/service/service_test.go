@@ -14,7 +14,6 @@ import (
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/environs"
 )
@@ -30,7 +29,7 @@ func TestServiceSuite(t *testing.T) {
 }
 
 func (s *serviceSuite) SetUpTest(c *tc.C) {
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = coremodel.GenUUID(c)
 }
 
 func (s *serviceSuite) modelConfigProviderFunc(c *tc.C) ModelConfigProviderFunc {
@@ -431,7 +430,7 @@ func (s *serviceSuite) TestRemoveCloudRegionDefaultsCloudRegionNotFound(c *tc.C)
 func (s *serviceSuite) TestModelDefaultsNoProviderDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	cloudUUID := cloudtesting.GenCloudUUID(c)
 
 	s.state.EXPECT().GetModelCloudUUID(gomock.Any(), modelUUID).Return(cloudUUID, nil)

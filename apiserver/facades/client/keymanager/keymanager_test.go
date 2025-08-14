@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	coressh "github.com/juju/juju/core/ssh"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -68,7 +67,7 @@ func genListPublicKey(c *tc.C, keys []string) []coressh.PublicKey {
 
 func (s *keyManagerSuite) SetUpTest(c *tc.C) {
 	s.apiUser = names.NewUserTag("admin")
-	s.modelID = modeltesting.GenModelUUID(c)
+	s.modelID = coremodel.GenUUID(c)
 	s.controllerUUID = "controller"
 }
 

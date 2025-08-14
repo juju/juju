@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
@@ -158,7 +157,7 @@ func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomoc
 // then cast it into a tag. This function does not setup any preconditions in
 // testing states.
 func generateModelUUIDAndTag(c *tc.C) (coremodel.UUID, names.ModelTag) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	return modelUUID, names.NewModelTag(modelUUID.String())
 }
 
@@ -172,7 +171,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedCloudName string,
 	expectedCloudRegion string,
 ) coremodel.UUID {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	adminName := usertesting.GenNewName(c, "admin")
 	adminUUID := usertesting.GenUserUUID(c)
 
@@ -763,9 +762,9 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	userUUID := usertesting.GenUserUUID(c)
 	userTag := names.NewUserTag("non-admin")
 
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelUUIDNeverAccessed := modeltesting.GenModelUUID(c)
-	modelUUIDNotExist := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
+	modelUUIDNeverAccessed := coremodel.GenUUID(c)
+	modelUUIDNotExist := coremodel.GenUUID(c)
 
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
@@ -812,9 +811,9 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 
 	defer s.setUpAPIWithUser(c, userTag).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelUUIDNeverAccessed := modeltesting.GenModelUUID(c)
-	modelUUIDNotExist := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
+	modelUUIDNeverAccessed := coremodel.GenUUID(c)
+	modelUUIDNotExist := coremodel.GenUUID(c)
 
 	now := time.Now()
 	s.accessService.EXPECT().GetUserUUIDByName(gomock.Any(), user.NameFromTag(userTag)).Return(userUUID, nil)
@@ -1007,7 +1006,7 @@ func (s *modelManagerStateSuite) TestModifyModelAccessFailedPermissionDenied(c *
 
 	userTag := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, userTag)
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	modelTag := names.NewModelTag(modelUUID.String())
 
 	args := params.ModifyModelAccessRequest{Changes: []params.ModifyModelAccess{

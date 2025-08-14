@@ -20,7 +20,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -73,7 +72,7 @@ func (m *stateSuite) SetUpTest(c *tc.C) {
 
 	// We need to generate a user in the database so that we can set the model
 	// owner.
-	m.uuid = modeltesting.GenModelUUID(c)
+	m.uuid = coremodel.GenUUID(c)
 	m.userName = usertesting.GenNewName(c, "test-user")
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -220,7 +219,7 @@ func (m *stateSuite) TestModelCloudInfo(c *tc.C) {
 // will be used for so we have made a special case to continuously test this.
 func (m *stateSuite) TestModelCloudInfoController(c *tc.C) {
 	st := NewState(m.TxnRunnerFactory())
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	// We need to first inject a model that does not have a cloud credential set
 	err := st.Create(
@@ -263,7 +262,7 @@ func (m *stateSuite) TestModelCloudInfoController(c *tc.C) {
 // TestModelCloudInfoNotFound is testing that if we pass a model
 // that doesn't exist we get back a [modelerrors.NotFound] error.
 func (m *stateSuite) TestModelCloudInfoNotFound(c *tc.C) {
-	noExistModelUUID := modeltesting.GenModelUUID(c)
+	noExistModelUUID := coremodel.GenUUID(c)
 	st := NewState(m.TxnRunnerFactory())
 	cloudName, regionName, err := st.GetModelCloudInfo(c.Context(), noExistModelUUID)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
@@ -287,7 +286,7 @@ func (m *stateSuite) TestGetModelCloudAndCredentialNotFound(c *tc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	_, _, err := st.GetModelCloudAndCredential(
 		c.Context(),
-		modeltesting.GenModelUUID(c),
+		coremodel.GenUUID(c),
 	)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
@@ -321,7 +320,7 @@ func (m *stateSuite) TestGetModel(c *tc.C) {
 func (m *stateSuite) TestGetModelSeedInformationNotActivated(c *tc.C) {
 	runner := m.TxnRunnerFactory()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	modelSt := NewState(runner)
 	err := modelSt.Create(
@@ -401,7 +400,7 @@ func (m *stateSuite) TestGetModelSeedInformationActivated(c *tc.C) {
 func (m *stateSuite) TestGetModelSeedInformationNotFound(c *tc.C) {
 	runner := m.TxnRunnerFactory()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	modelSt := NewState(runner)
 	_, err := modelSt.GetModelSeedInformation(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
@@ -410,7 +409,7 @@ func (m *stateSuite) TestGetModelSeedInformationNotFound(c *tc.C) {
 func (m *stateSuite) TestGetModelNotFound(c *tc.C) {
 	runner := m.TxnRunnerFactory()
 	modelSt := NewState(runner)
-	_, err := modelSt.GetModel(c.Context(), modeltesting.GenModelUUID(c))
+	_, err := modelSt.GetModel(c.Context(), coremodel.GenUUID(c))
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -446,7 +445,7 @@ func (m *stateSuite) TestCreateModelWithExisting(c *tc.C) {
 // exists we get back a [modelerrors.AlreadyExists] error.
 func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	err := modelSt.Create(
 		c.Context(),
 		testUUID,
@@ -465,7 +464,7 @@ func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *tc.C) {
 
 func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	err := modelSt.Create(
 		c.Context(),
 		testUUID,
@@ -484,7 +483,7 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *tc.C) {
 
 func (m *stateSuite) TestCreateWithEmptyRegion(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	err := modelSt.Create(
 		c.Context(),
 		testUUID,
@@ -517,7 +516,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
 
 	err := modelSt.Create(
 		c.Context(),
-		modeltesting.GenModelUUID(c),
+		coremodel.GenUUID(c),
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
 			Cloud:       "my-cloud",
@@ -535,7 +534,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	err = modelSt.Create(
 		c.Context(),
 		testUUID,
@@ -566,7 +565,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *tc.C) {
 func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDifferentCloudNames(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 
-	controllerUUID := modeltesting.GenModelUUID(c)
+	controllerUUID := coremodel.GenUUID(c)
 
 	err := modelSt.Create(
 		c.Context(),
@@ -595,7 +594,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelInfo.CloudRegion, tc.Equals, "my-region")
 
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	err = modelSt.Create(
 		c.Context(),
 		testUUID,
@@ -632,7 +631,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 // is returned.
 func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	err := modelSt.Create(
 		c.Context(),
 		testUUID,
@@ -658,7 +657,7 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelSt := NewState(m.TxnRunnerFactory())
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	err = modelSt.Create(
 		c.Context(),
 		testUUID,
@@ -679,7 +678,7 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
 // created for the owning user when a model is created.
 func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	ctx := c.Context()
 	err := modelSt.Create(
 		ctx,
@@ -712,7 +711,7 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *tc.C) {
 
 func (m *stateSuite) TestCreateModelWithInvalidCloud(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	testUUID := modeltesting.GenModelUUID(c)
+	testUUID := coremodel.GenUUID(c)
 	err := modelSt.Create(
 		c.Context(),
 		testUUID,
@@ -812,7 +811,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	m.uuid = modeltesting.GenModelUUID(c)
+	m.uuid = coremodel.GenUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err = modelSt.Create(
 		c.Context(),
@@ -893,7 +892,7 @@ WHERE model_uuid = ?
 }
 
 func (m *stateSuite) TestDeleteModelNotFound(c *tc.C) {
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Delete(c.Context(), uuid)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
@@ -902,7 +901,7 @@ func (m *stateSuite) TestDeleteModelNotFound(c *tc.C) {
 // TestListModelUUIDs is testing that once we have created several models calling
 // list returns all the models created.
 func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
-	uuid1 := modeltesting.GenModelUUID(c)
+	uuid1 := coremodel.GenUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
 		c.Context(),
@@ -926,7 +925,7 @@ func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
 	err = modelSt.Activate(c.Context(), uuid1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	uuid2 := modeltesting.GenModelUUID(c)
+	uuid2 := coremodel.GenUUID(c)
 	err = modelSt.Create(
 		c.Context(),
 		uuid2,
@@ -967,7 +966,7 @@ func (m *stateSuite) TestListModelUUIDs(c *tc.C) {
 // namespace of a model that doesn't exist we get back a [modelerrors.NotFound]
 // error.
 func (m *stateSuite) TestRegisterModelNamespaceNotFound(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	var namespace string
 	err := m.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -983,7 +982,7 @@ func (m *stateSuite) TestRegisterModelNamespaceNotFound(c *tc.C) {
 // database namespace and the model doesn't exist we get back a
 // [modelerrors.NotFound] error.
 func (m *stateSuite) TestNamespaceForModelNoModel(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	st := NewState(m.TxnRunnerFactory())
 	namespace, err := st.NamespaceForModel(c.Context(), modelUUID)
@@ -1028,7 +1027,7 @@ func (m *stateSuite) TestListUserModelUUIDsUserNotFound(c *tc.C) {
 func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
 	// Make the first model that is not owned by the user we will be testing
 	// with.
-	modelUUID1 := modeltesting.GenModelUUID(c)
+	modelUUID1 := coremodel.GenUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
 		c.Context(),
@@ -1066,7 +1065,7 @@ func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	// Make second model owned by the test user.
-	modelUUID2 := modeltesting.GenModelUUID(c)
+	modelUUID2 := coremodel.GenUUID(c)
 	err = modelSt.Create(
 		c.Context(),
 		modelUUID2,
@@ -1151,7 +1150,7 @@ func (m *stateSuite) TestAllModels(c *tc.C) {
 // secret backend that doesn't exist during model creation we back an error that
 // satisfies [secretbackenderrors.NotFound]
 func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *tc.C) {
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
 		c.Context(),
@@ -1217,7 +1216,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *tc.C) {
 	st := NewState(m.TxnRunnerFactory())
 
 	// Create a "broken" model
-	modelID := modeltesting.GenModelUUID(c)
+	modelID := coremodel.GenUUID(c)
 	err := st.Create(
 		c.Context(),
 		modelID,
@@ -1241,7 +1240,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *tc.C) {
 	// Suppose that model creation failed after the Create function was called,
 	// and so the model was never activated. Now, the user tries to create a
 	// new model with exactly the same name and owner.
-	newModelID := modeltesting.GenModelUUID(c)
+	newModelID := coremodel.GenUUID(c)
 	err = st.Create(
 		c.Context(),
 		newModelID,
@@ -1272,7 +1271,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *tc.C) {
 // for the model that is the controller.
 func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	// We need to first inject a model that does not have a cloud credential set
 	err := modelSt.Create(
@@ -1336,7 +1335,7 @@ func (m *stateSuite) TestIsControllerModelDDL(c *tc.C) {
 // model established in this test.
 func (m *stateSuite) TestGetControllerModel(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	// We need to first inject a model that does not have a cloud credential set
 	err := modelSt.Create(
@@ -1437,7 +1436,7 @@ func (m *stateSuite) TestGetUserModelSummaryModelNotFound(c *tc.C) {
 	_, err := modelSt.GetUserModelSummary(
 		c.Context(),
 		m.userUUID,
-		modeltesting.GenModelUUID(c),
+		coremodel.GenUUID(c),
 	)
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
@@ -1484,7 +1483,7 @@ func (m *stateSuite) TestGetModelSummary(c *tc.C) {
 // summary on a model that doesn't exist we get a [modelerrors.NotFound] error.
 func (m *stateSuite) TestGetModelSummaryModelNotFound(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	_, err := modelSt.GetModelSummary(c.Context(), modeltesting.GenModelUUID(c))
+	_, err := modelSt.GetModelSummary(c.Context(), coremodel.GenUUID(c))
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -1540,7 +1539,7 @@ func (s *stateSuite) TestGetModelUsersModelNotFound(c *tc.C) {
 
 func (s *stateSuite) TestGetModelStateModelNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 
 	_, err := st.GetModelState(c.Context(), uuid)
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
@@ -1643,7 +1642,7 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *tc.C) {
 
 	for _, test := range testCases {
 		modelState := NewState(m.TxnRunnerFactory())
-		modelUUID := modeltesting.GenModelUUID(c)
+		modelUUID := coremodel.GenUUID(c)
 
 		// Create model with empty credentials
 		modelCreationArgs := model.GlobalModelCreationArgs{
@@ -1712,7 +1711,7 @@ func (m *stateSuite) createTestModel(c *tc.C, modelSt *State, name string, creat
 func (m *stateSuite) createTestModelWithoutActivation(
 	c *tc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	err := modelSt.Create(
 		c.Context(),
 		modelUUID,
@@ -1816,7 +1815,7 @@ func (s *stateSuite) TestCloudSupportsAuthTypeCloudNotFound(c *tc.C) {
 // back the uuid of the controller model.
 func (s *stateSuite) TestGetControllerModelUUID(c *tc.C) {
 	modelSt := NewState(s.TxnRunnerFactory())
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	err := modelSt.Create(
 		c.Context(),
@@ -1927,7 +1926,7 @@ UPDATE model SET life_id = 1 WHERE uuid = ?
 func (s *stateSuite) TestGetModelLifeNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	_, err := st.GetModelLife(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
@@ -1950,7 +1949,7 @@ func (s *stateSuite) TestCheckModelExists(c *tc.C) {
 }
 
 func (s *stateSuite) TestCheckModelDoesNotExist(c *tc.C) {
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	exists, err := st.CheckModelExists(c.Context(), uuid)
 	c.Check(err, tc.ErrorIsNil)
@@ -1958,7 +1957,7 @@ func (s *stateSuite) TestCheckModelDoesNotExist(c *tc.C) {
 }
 
 func (s *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	err := st.Create(
 		c.Context(),
@@ -1988,7 +1987,7 @@ func (s *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 func (s *stateSuite) TestHasValidCredentialModelNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 	_, err := st.HasValidCredential(c.Context(), uuid)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }

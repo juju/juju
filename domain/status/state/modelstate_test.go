@@ -20,7 +20,6 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
@@ -66,7 +65,7 @@ func (s *modelStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetModelStatusInfo(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := model.GenUUID(c)
 	controllerUUID, err := uuid.NewUUID()
 	c.Check(err, tc.ErrorIsNil)
 

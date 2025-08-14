@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentbinary"
@@ -56,7 +55,7 @@ func TestAddMachineManagerSuite(t *testing.T) {
 
 func (s *AddMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = coremodel.GenUUID(c)
 	s.controllerUUID = uuid.MustNewUUID().String()
 }
 
@@ -184,7 +183,7 @@ func (s *DestroyMachineManagerSuite) TestStub(c *tc.C) {
 func (s *DestroyMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = coremodel.GenUUID(c)
 	s.controllerUUID = uuid.MustNewUUID().String()
 }
 
@@ -431,7 +430,7 @@ func (s *ProvisioningMachineManagerSuite) SetUpTest(c *tc.C) {
 func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerUUID = uuid.MustNewUUID().String()
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = coremodel.GenUUID(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
@@ -39,7 +38,7 @@ func TestCredentialValidatorSuite(t *testing.T) {
 	tc.Run(t, &CredentialValidatorSuite{})
 }
 func (s *CredentialValidatorSuite) SetupTest(c *tc.C) {
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = coremodel.GenUUID(c)
 }
 
 func (s *CredentialValidatorSuite) setUpMocks(c *tc.C) *gomock.Controller {

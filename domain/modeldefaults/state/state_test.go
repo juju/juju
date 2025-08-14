@@ -15,7 +15,6 @@ import (
 	corecloud "github.com/juju/juju/core/cloud"
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -79,7 +78,7 @@ func (s *stateSuite) TestModelMetadataDefaults(c *tc.C) {
 // metadata defaults for a model that doesn't exist we get back a
 // [modelerrors.NotFound] error.
 func (s *stateSuite) TestModelMetadataDefaultsNoModel(c *tc.C) {
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := model.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	defaults, err := st.ModelMetadataDefaults(c.Context(), uuid)
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
@@ -396,7 +395,7 @@ func (s *stateSuite) TestModelCloudRegionDefaultsNone(c *tc.C) {
 // defaults for a models cloud region and the model does not exist we get back a
 // [modelerrors.NotFound] error.
 func (s *stateSuite) TestModelCloudRegionDefaultsNoModel(c *tc.C) {
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := model.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	defaults, err := st.ModelCloudRegionDefaults(c.Context(), uuid)
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)

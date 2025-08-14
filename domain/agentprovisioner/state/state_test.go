@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/model"
 	statemodel "github.com/juju/juju/domain/model/state/model"
@@ -107,7 +106,7 @@ func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *tc.C) {
 // TestModelID tests that State.ModelID works as expected.
 func (s *suite) TestModelID(c *tc.C) {
 	// Create model info.
-	modelID := modeltesting.GenModelUUID(c)
+	modelID := coremodel.GenUUID(c)
 	modelSt := statemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := modelSt.Create(c.Context(), model.ModelDetailArgs{
 		UUID:               modelID,

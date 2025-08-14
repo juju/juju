@@ -13,7 +13,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -84,7 +83,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.charmRepository = NewMockRepository(ctrl)
 	s.charmRepositoryFactory = NewMockRepositoryFactory(ctrl)
 
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = model.GenUUID(c)
 
 	return ctrl
 }

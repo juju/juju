@@ -13,7 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
 	"github.com/juju/juju/domain/application"
@@ -237,8 +237,8 @@ func (s *modelStateSuite) TestMatchesModelPasswordHashInvalidPassword(c *tc.C) {
 // made in the DDL or [State.MatchesModelPasswordHash] needs to be updated to
 // handle this case safely.
 func (s *modelStateSuite) TestCannotHaveTwoModels(c *tc.C) {
-	modelUUID1 := modeltesting.GenModelUUID(c)
-	modelUUID2 := modeltesting.GenModelUUID(c)
+	modelUUID1 := coremodel.GenUUID(c)
+	modelUUID2 := coremodel.GenUUID(c)
 	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -612,7 +612,7 @@ func (s *modelStateSuite) createApplication(c *tc.C, controller bool) coreapplic
 // information in the database along with a record for the model in the
 // model_agent table.
 func (s *modelStateSuite) createModel(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 

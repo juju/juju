@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	accessstate "github.com/juju/juju/domain/access/state"
@@ -91,7 +90,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	modelFn := modelbootstrap.CreateGlobalModelRecord(
 		modelUUID,
 		model.GlobalModelCreationArgs{

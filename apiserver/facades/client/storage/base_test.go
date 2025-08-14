@@ -15,7 +15,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
@@ -71,7 +70,7 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.poolsInUse = []string{}
 
 	s.controllerUUID = uuid.MustNewUUID().String()
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = coremodel.GenUUID(c)
 	s.api = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID,
 		s.blockDeviceGetter,

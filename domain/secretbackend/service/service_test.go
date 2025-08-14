@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -304,7 +303,7 @@ func (s *serviceSuite) TestBackendSummaryInfoForModel(c *tc.C) {
 			}, nil
 		},
 	)
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	s.mockState.EXPECT().ListSecretBackendsForModel(gomock.Any(), modelUUID, false).Return([]*secretbackend.SecretBackend{
 		{
 			ID:          vaultBackendID,
@@ -1455,7 +1454,7 @@ func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{}, modelerrors.NotFound)
@@ -1469,7 +1468,7 @@ func (s *serviceSuite) TestGetModelSecretBackendCAAS(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
@@ -1486,7 +1485,7 @@ func (s *serviceSuite) TestGetModelSecretBackendIAAS(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
@@ -1503,7 +1502,7 @@ func (s *serviceSuite) TestGetModelSecretBackendCAASAuto(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
@@ -1520,7 +1519,7 @@ func (s *serviceSuite) TestGetModelSecretBackendIAASAuto(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
@@ -1536,7 +1535,7 @@ func (s *serviceSuite) TestGetModelSecretBackendIAASAuto(c *tc.C) {
 func (s *serviceSuite) TestSetModelSecretBackendFailedEmptyBackendName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	err := svc.SetModelSecretBackend(c.Context(), "")
@@ -1546,7 +1545,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedEmptyBackendName(c *tc.C) 
 func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameKubernetes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	err := svc.SetModelSecretBackend(c.Context(), "kubernetes")
@@ -1557,7 +1556,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameKubernetes(c *
 func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameInternal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	err := svc.SetModelSecretBackend(c.Context(), "internal")
@@ -1569,7 +1568,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedUnkownModelType(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return("bad-type", nil)
@@ -1582,7 +1581,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return("", modelerrors.NotFound)
@@ -1596,7 +1595,7 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *t
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return(coremodel.CAAS, nil)
@@ -1611,7 +1610,7 @@ func (s *serviceSuite) TestSetModelSecretBackend(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(nil)
@@ -1624,7 +1623,7 @@ func (s *serviceSuite) TestSetModelSecretBackendCAASAuto(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return(coremodel.CAAS, nil)
@@ -1638,7 +1637,7 @@ func (s *serviceSuite) TestSetModelSecretBackendIAASAuto(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
 	s.mockState.EXPECT().GetModelType(gomock.Any(), modelUUID).Return(coremodel.IAAS, nil)

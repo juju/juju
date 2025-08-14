@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/model"
@@ -191,7 +190,7 @@ func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {
 	runner := s.TxnRunnerFactory()
 	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 	cid := uuid.MustNewUUID()
 	args := model.ModelDetailArgs{
 		UUID:               id,

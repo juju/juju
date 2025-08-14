@@ -12,7 +12,6 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -77,7 +76,7 @@ func (s *serviceSuite) SetUpTest(c *tc.C) {
 	uri, err := url.Parse("gh:tlm")
 	c.Check(err, tc.ErrorIsNil)
 	s.subjectURI = uri
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = model.GenUUID(c)
 }
 
 // TestAddKeysForInvalidUser is asserting that if we pass in an invalid user id
@@ -121,7 +120,7 @@ func (s *serviceSuite) TestAddKeysForNonExistentUser(c *tc.C) {
 func (s *serviceSuite) TestAddKeysForNonExistentModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	badModelId := modeltesting.GenModelUUID(c)
+	badModelId := model.GenUUID(c)
 
 	keyInfo, err := ssh.ParsePublicKey(testingPublicKeys[0])
 	c.Assert(err, tc.ErrorIsNil)

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
@@ -59,7 +58,7 @@ func TestWorkerSuite(t *stdtesting.T) {
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.adminUserID = usertesting.GenUserUUID(c)
 	s.controllerModel = coremodel.Model{
-		UUID: modeltesting.GenModelUUID(c),
+		UUID: coremodel.GenUUID(c),
 	}
 }
 

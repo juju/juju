@@ -18,7 +18,6 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -56,7 +55,7 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.machineName = machine.Name("0")
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = model.GenUUID(c)
 	s.controllerUUID = coretesting.ControllerTag.Id()
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{

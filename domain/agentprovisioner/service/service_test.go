@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/containermanager"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
@@ -55,7 +55,7 @@ func (s *suite) TestContainerManagerConfigForType(c *tc.C) {
 		config.ContainerImageMetadataDefaultsDisabledKey: "true",
 		config.ContainerImageStreamKey:                   "released",
 	}, nil)
-	modelID := modeltesting.GenModelUUID(c)
+	modelID := coremodel.GenUUID(c)
 	s.state.EXPECT().ModelID(gomock.Any()).Return(modelID, nil)
 
 	service := NewService(s.state, s.providerGetter)

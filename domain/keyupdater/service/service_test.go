@@ -12,7 +12,6 @@ import (
 
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -42,7 +41,7 @@ var (
 )
 
 func (s *serviceSuite) SetUpTest(c *tc.C) {
-	s.modelId = modeltesting.GenModelUUID(c)
+	s.modelId = model.GenUUID(c)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

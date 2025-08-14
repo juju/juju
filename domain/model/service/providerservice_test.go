@@ -15,7 +15,6 @@ import (
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/testhelpers"
@@ -73,7 +72,7 @@ func (s *providerServiceSuite) SetUpTest(c *tc.C) {
 func (s *providerServiceSuite) TestModel(c *tc.C) {
 	svc := NewProviderService(s.state, s.state, nil)
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 	model := coremodel.ModelInfo{
 		UUID:        id,
 		Name:        "my-awesome-model",
@@ -92,7 +91,7 @@ func (s *providerServiceSuite) TestModel(c *tc.C) {
 func (s *providerServiceSuite) TestWatchModelCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	cloudUUID := cloudtesting.GenCloudUUID(c)
 	credentialUUID := credential.UUID(uuid.MustNewUUID().String())
 	s.mockControllerState.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(cloudUUID, credentialUUID, nil)

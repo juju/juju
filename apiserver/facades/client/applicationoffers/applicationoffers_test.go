@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
@@ -160,7 +159,7 @@ func (s *offerSuite) TestOfferModelViaArgs(c *tc.C) {
 	offerModelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	offerAPI := &OffersAPI{
 		controllerUUID: uuid.MustNewUUID().String(),
-		modelUUID:      modeltesting.GenModelUUID(c),
+		modelUUID:      model.GenUUID(c),
 		authorizer:     s.authorizer,
 		accessService:  s.accessService,
 		modelService:   s.modelService,
@@ -266,7 +265,7 @@ func (s *offerSuite) TestModifyOfferAccess(c *tc.C) {
 	authUserTag := names.NewUserTag("admin")
 	s.authorizer.EXPECT().GetAuthTag().Return(authUserTag)
 	modelInfo := model.Model{
-		UUID: modeltesting.GenModelUUID(c),
+		UUID: model.GenUUID(c),
 	}
 	qualifier := model.QualifierFromUserTag(authUserTag)
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "model", qualifier).Return(modelInfo, nil)
@@ -601,7 +600,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	foundModel := model.Model{
 		Name:      modelName,
 		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
-		UUID:      modeltesting.GenModelUUID(c),
+		UUID:      model.GenUUID(c),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
@@ -712,7 +711,7 @@ func (s *offerSuite) TestListApplicationOffersError(c *tc.C) {
 	foundModel := model.Model{
 		Name:      modelName,
 		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
-		UUID:      modeltesting.GenModelUUID(c),
+		UUID:      model.GenUUID(c),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
@@ -766,7 +765,7 @@ func (s *offerSuite) TestListApplicationOffersPermission(c *tc.C) {
 	modelName := "prod"
 	foundModel := model.Model{
 		Name: modelName,
-		UUID: modeltesting.GenModelUUID(c),
+		UUID: model.GenUUID(c),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.QualifierFromUserTag(adminTag)).Return(foundModel, nil)
 	s.authorizer.EXPECT().EntityHasPermission(gomock.Any(), adminTag, permission.AdminAccess, names.NewModelTag(foundModel.UUID.String())).Return(authentication.ErrorEntityMissingPermission)
@@ -857,7 +856,7 @@ func (s *offerSuite) setupCheckAPIUserAdmin(controllerUUID string, modelTag name
 
 func (s *offerSuite) expectGetModelByNameAndQualifier(c *tc.C, authUserTag names.UserTag, modelName string) string {
 	modelInfo := model.Model{
-		UUID: modeltesting.GenModelUUID(c),
+		UUID: model.GenUUID(c),
 	}
 	qualifier := model.QualifierFromUserTag(authUserTag)
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, qualifier).Return(modelInfo, nil)
@@ -875,7 +874,7 @@ func (s *offerSuite) expectNotSuperuser() {
 func (s *offerSuite) offerAPI(c *tc.C) *OffersAPI {
 	return &OffersAPI{
 		controllerUUID: uuid.MustNewUUID().String(),
-		modelUUID:      modeltesting.GenModelUUID(c),
+		modelUUID:      model.GenUUID(c),
 		authorizer:     s.authorizer,
 		accessService:  s.accessService,
 		modelService:   s.modelService,

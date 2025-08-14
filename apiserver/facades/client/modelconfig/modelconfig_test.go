@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -49,7 +48,7 @@ func TestModelconfigSuite(t *testing.T) {
 
 func (s *modelconfigSuite) SetUpTest(c *tc.C) {
 	s.controllerUUID = uuid.MustNewUUID().String()
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = coremodel.GenUUID(c)
 }
 
 func (s *modelconfigSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -287,7 +286,7 @@ func (s *modelconfigSuite) TestBlockChangesModelSet(c *tc.C) {
 }
 
 func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
 		config.NameKey:   "test-model",
@@ -310,7 +309,7 @@ func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *tc.C) {
 }
 
 func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
 		config.NameKey:   "test-model",
@@ -344,7 +343,7 @@ func (s *modelconfigSuite) TestModelSetNoWriteAccess(c *tc.C) {
 }
 
 func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
 		config.NameKey:   "test-model",

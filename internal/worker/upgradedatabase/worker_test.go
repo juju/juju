@@ -19,7 +19,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/testing"
 	upgrade "github.com/juju/juju/core/upgrade"
@@ -553,7 +552,7 @@ func (s *workerSuite) TestUpgradeModels(c *tc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade.
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	s.expectListModelIDs([]coremodel.UUID{modelUUID})
 	s.expectModelDBUpgrade(c, modelUUID)
 
@@ -608,7 +607,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade.
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	s.expectListModelIDs([]coremodel.UUID{modelUUID})
 	txnRunner := s.expectModelDBUpgrade(c, modelUUID)
 

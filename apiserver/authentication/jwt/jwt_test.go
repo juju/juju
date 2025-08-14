@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/testing"
 )
@@ -28,7 +27,7 @@ func TestLoginTokenSuite(t *stdtesting.T) {
 }
 
 func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	modelTag := names.NewModelTag(modelUUID.String())
 	applicationOfferTag := names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")
 	tok, err := EncodedJWT(JWTParams{

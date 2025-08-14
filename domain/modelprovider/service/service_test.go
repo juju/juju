@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelprovider"
 	"github.com/juju/juju/environs/cloudspec"
@@ -56,7 +56,7 @@ func (s *serviceSuite) TestGetCloudSpec(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	st := NewMockState(ctrl)
 	st.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(&testCloud, "test-region", &testCredential, nil)
 
@@ -82,7 +82,7 @@ func (s *serviceSuite) TestGetCloudSpecNoCredential(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	st := NewMockState(ctrl)
 	st.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(&testCloud, "test-region", nil, nil)
 
@@ -106,7 +106,7 @@ func (s *serviceSuite) TestGetCloudSpecModelNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	st := NewMockState(ctrl)
 	st.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(nil, "", nil, modelerrors.NotFound)
 
@@ -119,7 +119,7 @@ func (s *serviceSuite) TestGetCloudSpecForSSH(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	st := NewMockState(ctrl)
 	st.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(&testCloud, "test-region", &testCredential, nil)
 
@@ -153,7 +153,7 @@ func (s *serviceSuite) TestGetCloudSpecForSSHNotSupported(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	st := NewMockState(ctrl)
 
 	svc := NewService(modelUUID, st, loggertesting.WrapCheckLog(c), func(ctx context.Context) (ProviderWithSecretToken, error) {

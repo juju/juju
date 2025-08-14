@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/modelagent"
@@ -44,7 +44,7 @@ func (s *controllerModelStateSuite) checkModelAgentStream(
 // seedControllerModel establishes a controller's model information in the
 // database.
 func (s *controllerModelStateSuite) seedControllerModel(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -59,7 +59,7 @@ VALUES            (?, ?, "test-model", "iaas", "test-cloud", "ec2", "testq", tru
 
 // seedModel establishes a non controller model's information in the database.
 func (s *controllerModelStateSuite) seedModel(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 

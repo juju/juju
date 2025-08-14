@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -57,7 +57,7 @@ func (s *controllerStateSuite) setInitialControllerTargetVersion(
 ) {
 	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	_, err = s.DB().Exec("INSERT INTO controller (uuid, model_uuid, target_version) VALUES (?, ?, ?)", controllerUUID.String(), modelUUID.String(), version)
 	c.Assert(err, tc.ErrorIsNil)

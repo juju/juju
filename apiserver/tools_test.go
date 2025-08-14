@@ -20,7 +20,7 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	"github.com/juju/juju/internal/tools"
@@ -222,7 +222,7 @@ func (s *toolsSuite) TestUploadAgentBinary(c *tc.C) {
 	req := httptest.NewRequest(http.MethodPost, "https://[2001:0DB8::1]/tools?binaryVersion=4.0.0-ubuntu-amd64", body)
 	req.Header.Add("Content-Type", "application/x-tar-gz")
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	ctx := httpcontext.SetContextModelUUID(req.Context(), modelUUID)
 	req = req.WithContext(ctx)
 

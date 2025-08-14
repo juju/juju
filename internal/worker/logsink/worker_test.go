@@ -17,8 +17,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	model "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -36,7 +36,7 @@ func TestWorkerSuite(t *testing.T) {
 func (s *workerSuite) TestKilledGetLogger(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -53,7 +53,7 @@ func (s *workerSuite) TestKilledGetLogger(c *tc.C) {
 func (s *workerSuite) TestKilledGetLoggerContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -70,7 +70,7 @@ func (s *workerSuite) TestKilledGetLoggerContext(c *tc.C) {
 func (s *workerSuite) TestGetLogWriter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -88,7 +88,7 @@ func (s *workerSuite) TestGetLogWriter(c *tc.C) {
 func (s *workerSuite) TestGetLogWriterIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -111,7 +111,7 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *tc.C) {
 func (s *workerSuite) TestGetLoggerContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -130,7 +130,7 @@ func (s *workerSuite) TestGetLoggerContext(c *tc.C) {
 func (s *workerSuite) TestGetLoggerContextIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -153,7 +153,7 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *tc.C) {
 func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)

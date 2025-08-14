@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -33,7 +33,7 @@ func TestAgentPresenceSuite(t *testing.T) {
 func (s *AgentPresenceSuite) TestLoginForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
 	s.modelService.EXPECT().StatusService().Return(s.statusService)
@@ -46,7 +46,7 @@ func (s *AgentPresenceSuite) TestLoginForUnit(c *tc.C) {
 func (s *AgentPresenceSuite) TestLoginForMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
 
@@ -60,7 +60,7 @@ func (s *AgentPresenceSuite) TestLoginForMachine(c *tc.C) {
 func (s *AgentPresenceSuite) TestLoginForUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 
 	observer := s.newObserver(c)
 	observer.Login(c.Context(), names.NewUserTag("bob"), names.NewModelTag("bar"), uuid, false, "user data")
@@ -69,7 +69,7 @@ func (s *AgentPresenceSuite) TestLoginForUser(c *tc.C) {
 func (s *AgentPresenceSuite) TestLeaveForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
 	s.modelService.EXPECT().StatusService().Return(s.statusService).Times(2)
@@ -84,7 +84,7 @@ func (s *AgentPresenceSuite) TestLeaveForUnit(c *tc.C) {
 func (s *AgentPresenceSuite) TestLeaveForUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := modeltesting.GenModelUUID(c)
+	uuid := coremodel.GenUUID(c)
 
 	observer := s.newObserver(c)
 	observer.Login(c.Context(), names.NewUserTag("bob"), names.NewModelTag("bar"), uuid, false, "user data")

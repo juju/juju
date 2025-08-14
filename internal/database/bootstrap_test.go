@@ -14,7 +14,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/database"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
@@ -80,7 +80,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(c.Context(), mgr, modeltesting.GenModelUUID(c), loggertesting.WrapCheckLog(c), check)
+	err := BootstrapDqlite(c.Context(), mgr, coremodel.GenUUID(c), loggertesting.WrapCheckLog(c), check)
 	c.Assert(err, tc.ErrorIsNil)
 
 }

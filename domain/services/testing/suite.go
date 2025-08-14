@@ -18,7 +18,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
@@ -338,13 +337,13 @@ func (s *DomainServicesSuite) NoopLeaseManager(c *tc.C) lease.LeaseManager {
 func (s *DomainServicesSuite) SetUpTest(c *tc.C) {
 	s.ControllerModelSuite.SetUpTest(c)
 	if s.ControllerModelUUID == "" {
-		s.ControllerModelUUID = modeltesting.GenModelUUID(c)
+		s.ControllerModelUUID = model.GenUUID(c)
 	}
 	if s.ControllerConfig == nil {
 		s.ControllerConfig = jujutesting.FakeControllerConfig()
 	}
 	if s.DefaultModelUUID == "" {
-		s.DefaultModelUUID = modeltesting.GenModelUUID(c)
+		s.DefaultModelUUID = model.GenUUID(c)
 	}
 	s.SeedControllerConfig(c)
 	s.SeedAdminUser(c)

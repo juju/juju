@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -267,7 +266,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 		Owner: s.userName,
 		Name:  "my-cloud-credential",
 	}
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	err = st.Create(
 		c.Context(),
 		modelUUID,

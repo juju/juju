@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -64,7 +64,7 @@ func (s *APIBaseSuite) SetupMocks(c *tc.C, supportSpaces bool, providerSpaces bo
 	s.NetworkService.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
 
 	s.API = &API{
-		modelTag:                names.NewModelTag(modeltesting.GenModelUUID(c).String()),
+		modelTag:                names.NewModelTag(coremodel.GenUUID(c).String()),
 		check:                   s.blockChecker,
 		auth:                    s.authorizer,
 		controllerConfigService: s.ControllerConfigService,

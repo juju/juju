@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
@@ -94,7 +93,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := model.GenUUID(c)
 	modelFn := modelbootstrap.CreateGlobalModelRecord(modelUUID, domainmodel.GlobalModelCreationArgs{
 		Cloud: cloudName,
 		Credential: credential.Key{

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/model"
@@ -77,7 +76,7 @@ func (s *migrationServiceSuite) TestImportModel(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	modelID := modeltesting.GenModelUUID(c)
+	modelID := coremodel.GenUUID(c)
 
 	svc := s.newService(c)
 	activator, err := svc.ImportModel(c.Context(), model.ModelImportArgs{
@@ -111,7 +110,7 @@ func (s *migrationServiceSuite) TestDeleteModel(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 
 	svc := s.newService(c)
 	activator, err := svc.ImportModel(c.Context(), model.ModelImportArgs{

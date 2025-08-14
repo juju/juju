@@ -12,7 +12,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	permission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	statusservice "github.com/juju/juju/domain/status/service"
@@ -194,7 +193,7 @@ func (s *statusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.statusService = NewMockStatusService(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
 
-	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.modelUUID = model.GenUUID(c)
 
 	return ctrl
 }

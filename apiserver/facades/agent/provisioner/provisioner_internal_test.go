@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -44,7 +44,7 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *tc.C) {
 		agentProvisionerService: s.agentProvisionerService,
 	}
 
-	modelID := modeltesting.GenModelUUID(c)
+	modelID := coremodel.GenUUID(c)
 	s.agentProvisionerService.EXPECT().ContainerManagerConfigForType(gomock.Any(), instance.LXD).
 		Return(containermanager.Config{
 			ModelID:                  modelID,

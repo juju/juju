@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	coreusertesting "github.com/juju/juju/core/user/testing"
@@ -556,7 +556,7 @@ func FuzzGetUser(f *testing.F) {
 // TestUpdateLastModelLogin tests the happy path for UpdateLastModelLogin.
 func (s *userServiceSuite) TestUpdateLastModelLogin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	s.state.EXPECT().UpdateLastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID, gomock.Any())
 
 	err := s.service().UpdateLastModelLogin(c.Context(), coreusertesting.GenNewName(c, "name"), modelUUID)
@@ -566,7 +566,7 @@ func (s *userServiceSuite) TestUpdateLastModelLogin(c *tc.C) {
 // TestUpdateLastModelLogin tests a bad username for UpdateLastModelLogin.
 func (s *userServiceSuite) TestUpdateLastModelLoginBadUsername(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	err := s.service().UpdateLastModelLogin(c.Context(), user.Name{}, modelUUID)
 	c.Assert(err, tc.ErrorIs, usererrors.UserNameNotValid)
 }
@@ -574,7 +574,7 @@ func (s *userServiceSuite) TestUpdateLastModelLoginBadUsername(c *tc.C) {
 // TestSetLastModelLogin tests the happy path for SetLastModelLogin.
 func (s *userServiceSuite) TestSetLastModelLogin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	lastLogin := time.Now()
 	s.state.EXPECT().UpdateLastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID, lastLogin)
 
@@ -585,7 +585,7 @@ func (s *userServiceSuite) TestSetLastModelLogin(c *tc.C) {
 // TestSetLastModelLogin tests a bad username for SetLastModelLogin.
 func (s *userServiceSuite) TestSetLastModelLoginBadUsername(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	err := s.service().SetLastModelLogin(c.Context(), user.Name{}, modelUUID, time.Time{})
 	c.Assert(err, tc.ErrorIs, usererrors.UserNameNotValid)
 }
@@ -593,7 +593,7 @@ func (s *userServiceSuite) TestSetLastModelLoginBadUsername(c *tc.C) {
 // TestLastModelLogin tests the happy path for LastModelLogin.
 func (s *userServiceSuite) TestLastModelLogin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	t := time.Now()
 	s.state.EXPECT().LastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID).Return(t, nil)
 

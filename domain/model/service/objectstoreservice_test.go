@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -43,7 +42,7 @@ func (s *objectStoreServiceSuite) SetUpTest(c *tc.C) {
 func (s *objectStoreServiceSuite) TestModel(c *tc.C) {
 	svc := NewObjectStoreService(s.state, nil)
 
-	id := modeltesting.GenModelUUID(c)
+	id := coremodel.GenUUID(c)
 	model := coremodel.ModelInfo{
 		UUID:        id,
 		Name:        "my-awesome-model",

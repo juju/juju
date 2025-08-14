@@ -14,7 +14,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -174,7 +173,7 @@ func (s *stateSuite) TestAddPublicKeyForUserOnNotFoundModel(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	badModelId := modeltesting.GenModelUUID(c)
+	badModelId := model.GenUUID(c)
 
 	err := state.AddPublicKeysForUser(c.Context(), badModelId, s.userId, keysToAdd)
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
@@ -271,7 +270,7 @@ func (s *stateSuite) TestEnsurePublicKeyForUserOnNotFoundModel(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	badModelId := modeltesting.GenModelUUID(c)
+	badModelId := model.GenUUID(c)
 
 	err := state.EnsurePublicKeysForUser(c.Context(), badModelId, s.userId, keysToAdd)
 	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
@@ -402,7 +401,7 @@ func (s *stateSuite) TestDeletePublicKeysForNonExistentModel(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	badModelId := modeltesting.GenModelUUID(c)
+	badModelId := model.GenUUID(c)
 
 	err := state.DeletePublicKeysForUser(c.Context(), badModelId, s.userId, []string{
 		keysToAdd[0].Comment,
@@ -479,7 +478,7 @@ func (s *stateSuite) TestGetAllUserPublicKeysEmpty(c *tc.C) {
 // user public keys on a model that does not exist we get back a
 // [modelerrors.NotFound] error.
 func (s *stateSuite) TestGetAllUserPublicKeysModelNotFound(c *tc.C) {
-	badModelUUID := modeltesting.GenModelUUID(c)
+	badModelUUID := model.GenUUID(c)
 	_, err := NewState(s.TxnRunnerFactory()).GetAllUsersPublicKeys(
 		c.Context(),
 		badModelUUID,

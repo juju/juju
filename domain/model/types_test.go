@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/constraints"
@@ -177,7 +177,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
 					Qualifier:  "prod",
 					AdminUsers: adminUsers,
 				},
-				UUID: modeltesting.GenModelUUID(c),
+				UUID: coremodel.GenUUID(c),
 			},
 		},
 		{

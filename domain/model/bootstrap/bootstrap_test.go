@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
-	modeltesting "github.com/juju/juju/core/model/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
@@ -103,7 +103,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 
 func (s *bootstrapSuite) TestUUIDIsRespected(c *tc.C) {
 	fn := CreateGlobalModelRecord(
-		modeltesting.GenModelUUID(c),
+		coremodel.GenUUID(c),
 		model.GlobalModelCreationArgs{
 			Cloud: s.cloudName,
 			Credential: credential.Key{
@@ -122,7 +122,7 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *tc.C) {
 
 func (s *bootstrapSuite) TestCreateModelDetails(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	args := model.GlobalModelCreationArgs{
 		Cloud: s.cloudName,
@@ -180,7 +180,7 @@ FROM agent_version`, v)
 // isn't supported by the cloud then an error satisfying
 // [modelerrors.CredentialNotValid] is returned.
 func (s *bootstrapSuite) TestCreateModelUnsupportedCredential(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
 		Name:      "test-cloud",
@@ -208,7 +208,7 @@ func (s *bootstrapSuite) TestCreateModelUnsupportedCredential(c *tc.C) {
 // TestCreateModelWithEmptyCredential is asserting that we can create models
 // with empty cloud credentials when the cloud supports it.
 func (s *bootstrapSuite) TestCreateModelWithEmptyCredential(c *tc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
 		Name:      "test-cloud",
@@ -247,7 +247,7 @@ type dbReadOnlyModel struct {
 
 func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	args := model.GlobalModelCreationArgs{
 		Cloud: s.cloudName,
@@ -303,7 +303,7 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 // [modelerrors.NotFound].
 func (s *bootstrapSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
 	state := statemodel.NewState(func(ctx context.Context) (database.TxnRunner, error) {
-		return s.ModelTxnRunner(c, modeltesting.GenModelUUID(c).String()), nil
+		return s.ModelTxnRunner(c, coremodel.GenUUID(c).String()), nil
 	}, loggertesting.WrapCheckLog(c))
 
 	err := state.SetModelConstraints(c.Context(), constraints.Constraints{
@@ -319,7 +319,7 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
 // the database.
 func (s *bootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	args := model.GlobalModelCreationArgs{
 		Cloud: s.cloudName,
@@ -363,7 +363,7 @@ func (s *bootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 // [networkerrors.SpaceNotFound] and that no changes are made to the database.
 func (s *bootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	args := model.GlobalModelCreationArgs{
 		Cloud: s.cloudName,

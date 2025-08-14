@@ -14,7 +14,6 @@ import (
 	credentialtesting "github.com/juju/juju/core/credential/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
@@ -413,7 +412,7 @@ func (s *serviceSuite) TestCheckAndRevokeCredentialInvalidID(c *tc.C) {
 // an error satisfying [modelerrors.NotValid].
 func (s *serviceSuite) TestInvalidateModelCloudCredentialNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	s.state.EXPECT().InvalidateModelCloudCredential(
 		gomock.Any(),
@@ -434,7 +433,7 @@ func (s *serviceSuite) TestInvalidateModelCloudCredentialNotFound(c *tc.C) {
 // [credentialerrors.ModelCredentialNotSet].
 func (s *serviceSuite) TestInvalidateModelCloudCredentialNotSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	s.state.EXPECT().InvalidateModelCloudCredential(
 		gomock.Any(),
@@ -469,7 +468,7 @@ func (s *serviceSuite) TestInvalidateModelCloudCredenntialInvalidModelUUID(c *tc
 // cloud credential associated with a model.
 func (s *serviceSuite) TestInvalidateModelCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	s.state.EXPECT().InvalidateModelCloudCredential(
 		gomock.Any(),
@@ -490,7 +489,7 @@ func (s *serviceSuite) TestInvalidateModelCloudCredential(c *tc.C) {
 func (s *serviceSuite) TestModelCredentialStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 	credentialKey := corecredential.Key{
 		Cloud: "cirrus",
 		Owner: usertesting.GenNewName(c, "bob"),
@@ -521,7 +520,7 @@ func (s *serviceSuite) TestModelCredentialStatus(c *tc.C) {
 func (s *serviceSuite) TestModelCredentialStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	s.state.EXPECT().GetModelCredentialStatus(gomock.Any(), modelUUID).Return(
 		corecredential.Key{}, false, modelerrors.NotFound,
@@ -536,7 +535,7 @@ func (s *serviceSuite) TestModelCredentialStatusNotFound(c *tc.C) {
 func (s *serviceSuite) TestModelCredentialStatusNotSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := modeltesting.GenModelUUID(c)
+	modelUUID := coremodel.GenUUID(c)
 
 	s.state.EXPECT().GetModelCredentialStatus(gomock.Any(), modelUUID).Return(
 		corecredential.Key{}, false, credentialerrors.ModelCredentialNotSet,
