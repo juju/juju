@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -268,7 +268,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(true, nil)
 
@@ -294,7 +294,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{Arch: &arch}, nil)
@@ -320,7 +320,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{}, nil)
@@ -349,7 +349,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{}, nil)

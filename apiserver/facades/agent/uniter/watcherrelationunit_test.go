@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreapplication "github.com/juju/juju/core/application"
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/unit"
@@ -275,8 +274,8 @@ func (s *watcherRelationUnitSuite) TestRelationUnitsWatcher(c *tc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	appUUIDByName := map[string]coreapplication.ID{
-		"app1": coreapplicationtesting.GenApplicationUUID(c),
-		"app2": coreapplicationtesting.GenApplicationUUID(c),
+		"app1": coreapplication.GenID(c),
+		"app2": coreapplication.GenID(c),
 	}
 
 	watchedUUID := coreunittesting.GenUnitUUID(c)

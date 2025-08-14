@@ -21,6 +21,16 @@ func NewID() (ID, error) {
 	return ID(uuid.String()), nil
 }
 
+// GenID can be used in testing for generating an application id that is checked
+// for subsequent errors.
+func GenID(c interface{ Fatal(...any) }) ID {
+	uuid, err := NewID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
+}
+
 // ParseID returns a new ID from the given string. If the string is not a valid
 // uuid an error satisfying [errors.NotValid] will be returned.
 func ParseID(value string) (ID, error) {

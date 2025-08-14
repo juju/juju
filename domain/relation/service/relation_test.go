@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corelease "github.com/juju/juju/core/lease"
 	corelife "github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
@@ -447,8 +446,8 @@ func (s *relationServiceSuite) TestGetRelationUnitChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	appUUIDs := []coreapplication.ID{
-		coreapplicationtesting.GenApplicationUUID(c),
-		coreapplicationtesting.GenApplicationUUID(c),
+		coreapplication.GenID(c),
+		coreapplication.GenID(c),
 	}
 	unitUUIDS := []coreunit.UUID{
 		coreunittesting.GenUnitUUID(c),
@@ -496,9 +495,9 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *tc.C
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	appUUIDs := []coreapplication.ID{
-		coreapplicationtesting.GenApplicationUUID(c),
+		coreapplication.GenID(c),
 		coreapplication.ID("not-valid-uuid"),
-		coreapplicationtesting.GenApplicationUUID(c),
+		coreapplication.GenID(c),
 	}
 
 	// Act
@@ -605,7 +604,7 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 	settings := map[string]string{"ingress": "x.x.x.x"}
 	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(nil)
 
-	subAppID := coreapplicationtesting.GenApplicationUUID(c)
+	subAppID := coreapplication.GenID(c)
 	s.state.EXPECT().NeedsSubordinateUnit(gomock.Any(), relationUUID, unitName).Return(&subAppID, nil)
 	s.subordinateCreator.EXPECT().CreateSubordinate(gomock.Any(), subAppID, unitName).Return(nil)
 
@@ -705,7 +704,7 @@ func (s *relationServiceSuite) TestGetRelationApplicationSettings(c *tc.C) {
 
 	// Arrange:
 	relationUUID := corerelationtesting.GenRelationUUID(c)
-	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	applicationID := coreapplication.GenID(c)
 	expectedSettings := map[string]string{
 		"key": "value",
 	}
@@ -736,7 +735,7 @@ func (s *relationServiceSuite) TestGetRelationApplicationSettingsRelationUUIDNot
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	applicationID := coreapplication.GenID(c)
 
 	// Act:
 	_, err := s.service.GetRelationApplicationSettings(c.Context(), "bad-uuid", applicationID)
@@ -759,7 +758,7 @@ func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplication(c *tc.
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	appID := coreapplicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	expected := []relation.GoalStateRelationData{
 		{Status: status.Joined},
 		{Status: status.Joining},
@@ -788,7 +787,7 @@ func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationError(c
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	appID := coreapplicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	s.state.EXPECT().GetGoalStateRelationDataForApplication(gomock.Any(), appID).Return(nil, relationerrors.RelationNotFound)
 
 	// Act
@@ -1148,7 +1147,7 @@ func (s *relationServiceSuite) expectSetRelationWithID(
 }
 
 func (s *relationServiceSuite) expectGetApplicationIDByName(c *tc.C, name string) coreapplication.ID {
-	appID := coreapplicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), name).Return(appID, nil)
 	return appID
 }
@@ -1187,7 +1186,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 	// Arrange:
 	unitName := coreunittesting.GenNewName(c, "app/0")
 	relationUUID := corerelationtesting.GenRelationUUID(c)
-	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	applicationID := coreapplication.GenID(c)
 	s.expectWithLeader(c, unitName)
 	expectedSettings := map[string]string{
 		"key": "value",
@@ -1207,7 +1206,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 
 	// Arrange:
 	relationUUID := corerelationtesting.GenRelationUUID(c)
-	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	applicationID := coreapplication.GenID(c)
 
 	// Act:
 	_, err := s.leadershipService.GetRelationApplicationSettingsWithLeader(c.Context(), "", relationUUID, applicationID)
@@ -1235,7 +1234,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 
 	// Arrange:
 	unitName := coreunittesting.GenNewName(c, "app/0")
-	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	applicationID := coreapplication.GenID(c)
 
 	// Act:
 	_, err := s.leadershipService.GetRelationApplicationSettingsWithLeader(c.Context(), unitName, "bad-uuid", applicationID)

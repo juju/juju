@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	corelife "github.com/juju/juju/core/life"
@@ -74,7 +73,7 @@ func (s *baseRelationSuite) query(c *tc.C, query string, args ...any) {
 // addApplication adds a new application to the database with the specified
 // charm UUID and application name. It returns the application UUID.
 func (s *baseRelationSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName string) coreapplication.ID {
-	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	s.query(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
 VALUES (?, ?, ?, ?, ?)

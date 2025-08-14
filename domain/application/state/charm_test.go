@@ -14,7 +14,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
@@ -3526,7 +3526,7 @@ func (s *charmStateSuite) TestGetCharmIDByApplicationIDNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.getCharmIDByApplicationID(c.Context(), tx, applicationtesting.GenApplicationUUID(c))
+		_, err := st.getCharmIDByApplicationID(c.Context(), tx, coreapplication.GenID(c))
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)

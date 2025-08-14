@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api/common/charms"
 	coreapplication "github.com/juju/juju/core/application"
-	testingapplication "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
@@ -79,8 +78,8 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	app1UUID := testingapplication.GenApplicationUUID(c)
-	app2UUID := testingapplication.GenApplicationUUID(c)
+	app1UUID := coreapplication.GenID(c)
+	app2UUID := coreapplication.GenID(c)
 
 	sent := make(chan struct{})
 	go func() {
@@ -177,7 +176,7 @@ func (s *workerSuite) TestV1CharmSkipsProcessing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	app1UUID := testingapplication.GenApplicationUUID(c)
+	app1UUID := coreapplication.GenID(c)
 
 	sent := make(chan struct{})
 	go func() {
@@ -226,7 +225,7 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	app1UUID := testingapplication.GenApplicationUUID(c)
+	app1UUID := coreapplication.GenID(c)
 
 	sent := make(chan struct{})
 	go func() {

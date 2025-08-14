@@ -18,7 +18,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -100,7 +99,7 @@ func (s *workerSuite) TestWorkerStart(c *tc.C) {
 func (s *workerSuite) TestWorkerCreatesAsyncWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := application.GenID(c)
 
 	changes := make(chan []string)
 
@@ -142,7 +141,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppID(c *tc.C) {
 
 	// Using the same App ID should not cause a new worker to be created.
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := application.GenID(c)
 
 	changes := make(chan []string)
 
@@ -209,7 +208,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithSameAppIDOverTwoChangeSet(
 
 	// Using the same App ID should not cause a new worker to be created.
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := application.GenID(c)
 
 	changes := make(chan []string)
 
@@ -269,7 +268,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *tc.C) {
 
 	var apps [3]application.ID
 	for i := range apps {
-		apps[i] = applicationtesting.GenApplicationUUID(c)
+		apps[i] = application.GenID(c)
 	}
 
 	changes := make(chan []string)

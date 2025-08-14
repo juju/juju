@@ -16,7 +16,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -968,7 +967,7 @@ func (s *applicationStateSuite) TestIsControllerApplicationFalse(c *tc.C) {
 	c.Assert(isController, tc.IsFalse)
 
 	// Non-existing application:
-	missingAppID := applicationtesting.GenApplicationUUID(c)
+	missingAppID := coreapplication.GenID(c)
 	isController, err = s.state.IsControllerApplication(c.Context(), missingAppID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 	c.Assert(isController, tc.IsFalse)
@@ -995,7 +994,7 @@ func (s *applicationStateSuite) TestGetApplicationLife(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *tc.C) {
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	_, err := s.state.GetApplicationLife(c.Context(), appID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -1301,7 +1300,7 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersionNull(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c *tc.C) {
-	_, err := s.state.GetCharmModifiedVersion(c.Context(), applicationtesting.GenApplicationUUID(c))
+	_, err := s.state.GetCharmModifiedVersion(c.Context(), coreapplication.GenID(c))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1679,7 +1678,7 @@ func (s *applicationStateSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 	})
 
 	_, err = s.state.GetAllUnitLifeForApplication(c.Context(),
-		applicationtesting.GenApplicationUUID(c))
+		coreapplication.GenID(c))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1962,7 +1961,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	_, err = s.state.GetCharmByApplicationID(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -2107,7 +2106,7 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfo(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoNoApplication(c *tc.C) {
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	_, err := s.state.GetAsyncCharmDownloadInfo(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -2344,7 +2343,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 	_, _, err := s.state.GetApplicationConfigAndSettings(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2429,7 +2428,7 @@ func (s *applicationStateSuite) TestGetApplicationConfigWithDefaults(c *tc.C) {
 
 func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 	_, err := s.state.GetApplicationConfigWithDefaults(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2491,7 +2490,7 @@ func (s *applicationStateSuite) TestGetApplicationTrustSettingNoRow(c *tc.C) {
 
 func (s *applicationStateSuite) TestGetApplicationTrustSettingNoApplication(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 	_, err := s.state.GetApplicationTrustSetting(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2507,14 +2506,14 @@ func (s *applicationStateSuite) TestGetApplicationConfigHash(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationConfigHashNotFound(c *tc.C) {
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 	_, err := s.state.GetApplicationConfigHash(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsNoApplication(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
@@ -2763,7 +2762,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 
 func (s *applicationStateSuite) TestUnsetApplicationConfigKeysApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 	err := s.state.UnsetApplicationConfigKeys(c.Context(), id, []string{"a"})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2850,7 +2849,7 @@ func (s *applicationStateSuite) TestGetCharmConfigByApplicationID(c *tc.C) {
 
 func (s *applicationStateSuite) TestGetCharmConfigByApplicationIDApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 	_, _, err := s.state.GetCharmConfigByApplicationID(c.Context(), id)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -2885,7 +2884,7 @@ func (s *applicationStateSuite) TestGetApplicationName(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationNameNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationName(c.Context(), applicationtesting.GenApplicationUUID(c))
+	_, err := s.state.GetApplicationName(c.Context(), coreapplication.GenID(c))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

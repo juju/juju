@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
 	changestreammock "github.com/juju/juju/core/changestream/mocks"
 	"github.com/juju/juju/core/life"
@@ -46,8 +45,8 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationScopeGlobal(c *tc.C
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
+	principalID := coreapplication.GenID(c)
+	subordinateID := coreapplication.GenID(c)
 	scope := charm.ScopeGlobal
 
 	s.expectGetRelationEndpointScope(relUUID, subordinateID, scope, nil)
@@ -71,9 +70,9 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
-	anotherSubordinateID := applicationtesting.GenApplicationUUID(c)
+	principalID := coreapplication.GenID(c)
+	subordinateID := coreapplication.GenID(c)
+	anotherSubordinateID := coreapplication.GenID(c)
 	scope := charm.ScopeContainer
 	otherAppData := relation.OtherApplicationForWatcher{
 		ApplicationID: anotherSubordinateID,
@@ -102,8 +101,8 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *tc.C) 
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
+	principalID := coreapplication.GenID(c)
+	subordinateID := coreapplication.GenID(c)
 	scope := charm.ScopeContainer
 	otherAppData := relation.OtherApplicationForWatcher{
 		ApplicationID: principalID,
@@ -131,9 +130,9 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *tc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
 	relUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
-	anotherID := applicationtesting.GenApplicationUUID(c)
+	principalID := coreapplication.GenID(c)
+	subordinateID := coreapplication.GenID(c)
+	anotherID := coreapplication.GenID(c)
 	scope := charm.ScopeContainer
 	otherAppData := relation.OtherApplicationForWatcher{
 		ApplicationID: anotherID,
@@ -164,8 +163,8 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	principalSubordinateRelUUID := testing.GenRelationUUID(c)
 	newSubordinateRelUUID := testing.GenRelationUUID(c)
 	unrelatedRelUUID := testing.GenRelationUUID(c)
-	principalID := applicationtesting.GenApplicationUUID(c)
-	subordinateID := applicationtesting.GenApplicationUUID(c)
+	principalID := coreapplication.GenID(c)
+	subordinateID := coreapplication.GenID(c)
 
 	currentRelData := relation.RelationLifeSuspendedData{
 		EndpointIdentifiers: []corerelation.EndpointIdentifier{

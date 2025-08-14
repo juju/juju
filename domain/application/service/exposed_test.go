@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -38,7 +37,7 @@ func (s *exposedServiceSuite) TestApplicationExposedNotFound(c *tc.C) {
 func (s *exposedServiceSuite) TestApplicationExposed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().IsApplicationExposed(gomock.Any(), applicationUUID).Return(true, nil)
 
@@ -59,7 +58,7 @@ func (s *exposedServiceSuite) TestExposedEndpointsNotFound(c *tc.C) {
 func (s *exposedServiceSuite) TestExposedEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	expected := map[string]application.ExposedEndpoint{
 		"endpoint0": {
@@ -88,7 +87,7 @@ func (s *exposedServiceSuite) TestUnsetExposeSettingsNotFound(c *tc.C) {
 func (s *exposedServiceSuite) TestUnsetExposeSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	exposedEndpoints := set.NewStrings("endpoint0", "endpoint1")
 	s.state.EXPECT().UnsetExposeSettings(gomock.Any(), applicationUUID, exposedEndpoints).Return(nil)
@@ -116,7 +115,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *tc.C) {
 func (s *exposedServiceSuite) TestMergeExposeSettingsEndpointsExistError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().EndpointsExist(gomock.Any(), applicationUUID, set.NewStrings("endpoint0", "endpoint1")).Return(errors.New("boom"))
 
@@ -134,7 +133,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsEndpointsExistError(c *tc.C
 func (s *exposedServiceSuite) TestMergeExposeSettingsSpacesNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().EndpointsExist(gomock.Any(), applicationUUID, set.NewStrings("endpoint0", "endpoint1")).Return(nil)
 	s.state.EXPECT().SpacesExist(gomock.Any(), set.NewStrings("space0", "space1")).Return(errors.New("one or more of the provided spaces \\[space0 space1\\] do not exist"))
@@ -153,7 +152,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsSpacesNotExist(c *tc.C) {
 func (s *exposedServiceSuite) TestMergeExposeSettingsEmptyEndpointsList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().EndpointsExist(gomock.Any(), applicationUUID, set.NewStrings()).Return(nil)
 	s.state.EXPECT().SpacesExist(gomock.Any(), set.NewStrings()).Return(nil)
@@ -170,7 +169,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsEmptyEndpointsList(c *tc.C)
 func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().EndpointsExist(gomock.Any(), applicationUUID, set.NewStrings("endpoint1")).Return(nil)
 	s.state.EXPECT().SpacesExist(gomock.Any(), set.NewStrings("space0", "space1")).Return(nil)
@@ -197,7 +196,7 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *tc.C) {
 func (s *exposedServiceSuite) TestMergeExposeSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().EndpointsExist(gomock.Any(), applicationUUID, set.NewStrings("endpoint0", "endpoint1")).Return(nil)
 	s.state.EXPECT().SpacesExist(gomock.Any(), set.NewStrings("space0", "space1")).Return(nil)

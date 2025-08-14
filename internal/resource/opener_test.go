@@ -17,7 +17,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	coretesting "github.com/juju/juju/core/testing"
@@ -227,7 +226,7 @@ func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 		s.unitUUID = ""
 	}
 	s.appName = "postgresql"
-	s.appID = coreapplicationtesting.GenApplicationUUID(c)
+	s.appID = coreapplication.GenID(c)
 	s.resourceUUID = coreresourcetesting.GenResourceUUID(c)
 	s.resourceClient = NewMockResourceClient(ctrl)
 	s.resourceClientGetter = NewMockResourceClientGetter(ctrl)

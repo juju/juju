@@ -16,7 +16,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/apiserver/internal/charms/mocks"
-	applicationtesting "github.com/juju/juju/core/application/testing"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -59,7 +59,7 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *tc.C) {
 	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
 	locator := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1, Architecture: architecture.AMD64}
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "fuu").Return(id, nil)
 	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, locator, nil)
@@ -92,7 +92,7 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfoMinimal(c *tc.C) {
 	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil, nil)
 	locator := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1, Architecture: architecture.AMD64}
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "fuu").Return(id, nil)
 	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, locator, nil)

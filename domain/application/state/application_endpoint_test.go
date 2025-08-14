@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
@@ -53,7 +52,7 @@ func (s *applicationEndpointStateSuite) SetUpTest(c *tc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Arrange suite context, same for all tests:
-	s.appID = applicationtesting.GenApplicationUUID(c)
+	s.appID = coreapplication.GenID(c)
 	s.charmUUID = charmtesting.GenCharmID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

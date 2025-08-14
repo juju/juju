@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -54,7 +53,7 @@ func (s *appWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.appName = "app1"
-	s.appUUID = applicationtesting.GenApplicationUUID(c)
+	s.appUUID = coreapplication.GenID(c)
 	s.applicationChanges = make(chan struct{})
 	s.portsChanges = make(chan struct{})
 }

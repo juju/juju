@@ -16,7 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -39,7 +38,7 @@ func TestAsyncWorkerSuite(t *stdtesting.T) {
 func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := application.GenID(c)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -89,7 +88,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := application.GenID(c)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -146,7 +145,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := application.GenID(c)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -196,7 +195,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownloadAndFails(c *tc.C) {
 func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := application.GenID(c)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})
@@ -233,7 +232,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *tc.C) {
 func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := application.GenID(c)
 	charmID := charmtesting.GenCharmID(c)
 
 	done := make(chan struct{})

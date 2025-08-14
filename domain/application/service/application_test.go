@@ -15,7 +15,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
@@ -66,7 +65,7 @@ func TestApplicationStorageSuite(t *testing.T) {
 func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -100,7 +99,7 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationID(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationName(gomock.Any(), id).Return("foo", nil)
 
@@ -112,7 +111,7 @@ func (s *applicationServiceSuite) TestGetApplicationName(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationNameNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationName(gomock.Any(), id).Return("", applicationerrors.ApplicationNotFound)
 
@@ -123,7 +122,7 @@ func (s *applicationServiceSuite) TestGetApplicationNameNotFound(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationIDByName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
 
@@ -168,7 +167,7 @@ func (s *applicationServiceSuite) TestGetCharmLocatorByApplicationName(c *tc.C) 
 func (s *applicationServiceSuite) TestGetApplicationIDByUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expectedAppID := applicationtesting.GenApplicationUUID(c)
+	expectedAppID := coreapplication.GenID(c)
 	unitName := coreunit.Name("foo")
 	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(expectedAppID, nil)
 
@@ -180,7 +179,7 @@ func (s *applicationServiceSuite) TestGetApplicationIDByUnitName(c *tc.C) {
 func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	s.state.EXPECT().GetCharmModifiedVersion(gomock.Any(), appUUID).Return(42, nil)
 
 	obtained, err := s.service.GetCharmModifiedVersion(c.Context(), appUUID)
@@ -191,7 +190,7 @@ func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *tc.C) {
 func (s *applicationServiceSuite) TestGetAsyncCharmDownloadInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
@@ -227,7 +226,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *tc.C) {
 	actions, err := encodeActions(ch.Actions())
 	c.Assert(err, tc.ErrorIsNil)
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
@@ -273,7 +272,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadInvalidApplicationID(c
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
@@ -301,7 +300,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *tc
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
@@ -332,7 +331,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *t
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
@@ -363,7 +362,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *tc.C) {
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
@@ -405,7 +404,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *tc.C)
 	actions, err := encodeActions(ch.Actions())
 	c.Assert(err, tc.ErrorIsNil)
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	info := application.CharmDownloadInfo{
@@ -460,7 +459,7 @@ func (s *applicationServiceSuite) TestGetApplicationsForRevisionUpdater(c *tc.C)
 func (s *applicationServiceSuite) TestGetApplicationConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
@@ -482,7 +481,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfig(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationConfigWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
@@ -500,7 +499,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithError(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, nil)
@@ -515,7 +514,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
@@ -534,7 +533,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) 
 func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
@@ -550,7 +549,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(
 func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsNoConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).
 		Return(map[string]application.ApplicationConfig{}, nil)
@@ -563,7 +562,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsNoConfig(c
 func (s *applicationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{
@@ -587,7 +586,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigInvalidApplicationID(c
 func (s *applicationServiceSuite) TestGetApplicationTrustSetting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationTrustSetting(gomock.Any(), appUUID).Return(true, nil)
@@ -609,7 +608,7 @@ func (s *applicationServiceSuite) TestGetApplicationTrustSettingNotFound(c *tc.C
 func (s *applicationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), id).Return(application.CharmOrigin{
@@ -628,7 +627,7 @@ func (s *applicationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationCharmOriginGetApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, errors.Errorf("boom"))
 
@@ -646,7 +645,7 @@ func (s *applicationServiceSuite) TestGetApplicationCharmOriginInvalidID(c *tc.C
 func (s *applicationServiceSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().UnsetApplicationConfigKeys(gomock.Any(), appUUID, []string{"a", "b"}).Return(nil)
 
@@ -657,7 +656,7 @@ func (s *applicationServiceSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 func (s *applicationServiceSuite) TestUnsetApplicationConfigKeysNoValues(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	err := s.service.UnsetApplicationConfigKeys(c.Context(), appUUID, []string{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -673,7 +672,7 @@ func (s *applicationServiceSuite) TestUnsetApplicationConfigKeysInvalidApplicati
 func (s *applicationServiceSuite) TestUpdateApplicationConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{
@@ -702,7 +701,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfig(c *tc.C) {
 func (s *applicationServiceSuite) TestUpdateApplicationConfigRemoveTrust(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{
@@ -731,7 +730,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigRemoveTrust(c *tc.C
 func (s *applicationServiceSuite) TestUpdateApplicationConfigNoTrust(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{
@@ -757,7 +756,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoTrust(c *tc.C) {
 func (s *applicationServiceSuite) TestUpdateApplicationConfigNoCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(
 		"",
@@ -775,7 +774,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoCharmConfig(c *tc
 func (s *applicationServiceSuite) TestUpdateApplicationConfigWithNoCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{},
@@ -791,7 +790,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigWithNoCharmConfig(c
 func (s *applicationServiceSuite) TestUpdateApplicationConfigInvalidOptionType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{
@@ -812,7 +811,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigInvalidOptionType(c
 func (s *applicationServiceSuite) TestUpdateApplicationConfigInvalidTrustType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{
 		Options: map[string]applicationcharm.Option{
@@ -833,7 +832,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigInvalidTrustType(c 
 func (s *applicationServiceSuite) TestUpdateApplicationConfigNoConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{}, nil)
 	s.state.EXPECT().UpdateApplicationConfigAndSettings(
@@ -856,7 +855,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigInvalidApplicationI
 func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	charmUUID := charmtesting.GenCharmID(c)
 
 	appConfig := map[string]application.ApplicationConfig{
@@ -935,7 +934,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigInvalidID(c *t
 func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	appConfig := map[string]application.ApplicationConfig{
 		"foo": {
@@ -1127,7 +1126,7 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindingsNotFound(c *
 func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]network.SpaceUUID{
@@ -1165,7 +1164,7 @@ func (s *applicationServiceSuite) TestGetApplicationsBoundToSpaceErrors(c *tc.C)
 func (s *applicationServiceSuite) TestGetApplicationEndpointNames(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationEndpointNames(gomock.Any(), appID).Return([]string{"foo", "bar"}, nil)
 
 	eps, err := s.service.GetApplicationEndpointNames(c.Context(), appID)
@@ -1176,7 +1175,7 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointNames(c *tc.C) {
 func (s *applicationServiceSuite) TestGetApplicationEndpointNamesAppNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationEndpointNames(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.GetApplicationEndpointNames(c.Context(), appID)
@@ -1186,7 +1185,7 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointNamesAppNotFound(c *
 func (s *applicationServiceSuite) TestMergeApplicationEndpointBindings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	bindings := map[string]network.SpaceName{
 		"foo": "alpha",
 		"bar": "beta",
@@ -1204,7 +1203,7 @@ func (s *applicationServiceSuite) TestMergeApplicationEndpointBindings(c *tc.C) 
 func (s *applicationServiceSuite) TestMergeApplicationEndpointBindingsForce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	bindings := map[string]network.SpaceName{
 		"foo": "alpha",
 		"bar": "beta",
@@ -1222,7 +1221,7 @@ func (s *applicationServiceSuite) TestMergeApplicationEndpointBindingsForce(c *t
 func (s *applicationServiceSuite) TestMergeApplicationEndpointBindingsInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	bindings := map[string]network.SpaceName{
 		"foo": "alpha",
 		"bar": "beta",
@@ -1280,7 +1279,7 @@ func (s *applicationServiceSuite) TestGetDeviceConstraints(c *tc.C) {
 func (s *applicationServiceSuite) TestIsControllerApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 
 	s.state.EXPECT().IsControllerApplication(gomock.Any(), id).Return(false, nil)
 	isController, err := s.service.IsControllerApplication(c.Context(), id)
@@ -1296,7 +1295,7 @@ func (s *applicationServiceSuite) TestIsControllerApplication(c *tc.C) {
 func (s *applicationWatcherServiceSuite) TestGetMachinesForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetMachinesForApplication(gomock.Any(), appUUID.String()).Return([]string{"0", "1"}, nil)
@@ -1329,7 +1328,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// that the mapper correctly orders the results based on changes emitted by
 	// the watcher.
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), []coreapplication.ID{appID}).Return([]coreapplication.ID{
 		appID,
@@ -1372,7 +1371,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	appIDs := make([]coreapplication.ID, 4)
 	for i := range appIDs {
-		appIDs[i] = applicationtesting.GenApplicationUUID(c)
+		appIDs[i] = coreapplication.GenID(c)
 	}
 
 	changes := make([]changestream.ChangeEvent, len(appIDs))
@@ -1412,7 +1411,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	appIDs := make([]coreapplication.ID, 10)
 	for i := range appIDs {
-		appIDs[i] = applicationtesting.GenApplicationUUID(c)
+		appIDs[i] = coreapplication.GenID(c)
 	}
 
 	changes := make([]changestream.ChangeEvent, len(appIDs))
@@ -1454,7 +1453,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	appIDs := make([]coreapplication.ID, 10)
 	for i := range appIDs {
-		appIDs[i] = applicationtesting.GenApplicationUUID(c)
+		appIDs[i] = coreapplication.GenID(c)
 	}
 
 	changes := make([]changestream.ChangeEvent, len(appIDs))

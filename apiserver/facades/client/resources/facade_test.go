@@ -13,7 +13,6 @@ import (
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/apiserver/internal/charms"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -272,7 +271,7 @@ type addPendingResourceSuite struct {
 
 func (s *addPendingResourceSuite) SetUpTest(c *tc.C) {
 	s.appTag = names.NewApplicationTag("testapp")
-	s.appUUID = testing.GenApplicationUUID(c)
+	s.appUUID = coreapplication.GenID(c)
 	s.curl = charm.MustParseURL("testcharm")
 	var err error
 	s.charmLoc, err = charms.CharmLocatorFromURL(s.curl.String())

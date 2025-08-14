@@ -15,7 +15,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	corelife "github.com/juju/juju/core/life"
@@ -1925,7 +1924,7 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatusWrongApp(c *
 	_, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
 		c.Context(),
 		relationUUID,
-		coreapplicationtesting.GenApplicationUUID(c),
+		coreapplication.GenID(c),
 	)
 
 	// Assert:
@@ -2011,7 +2010,7 @@ func (s *relationSuite) TestGetRelationEndpointScope(c *tc.C) {
 
 func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *tc.C) {
 	// Arrange:
-	applicationUUID := coreapplicationtesting.GenApplicationUUID(c)
+	applicationUUID := coreapplication.GenID(c)
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	// Act:
@@ -3196,7 +3195,7 @@ func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *tc.C) {
 
 func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *tc.C) {
 	// Arrange:
-	appID := coreapplicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	// Act:
 	_, err := s.state.ApplicationRelationsInfo(c.Context(), appID)

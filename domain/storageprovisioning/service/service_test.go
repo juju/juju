@@ -10,7 +10,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerror "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -89,7 +88,7 @@ func (s *serviceSuite) TestWatchMachineCloudInstanceDead(c *tc.C) {
 func (s *serviceSuite) TestGetStorageResourceTagsForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	ri := storageprovisioning.ResourceTagInfo{
 		BaseResourceTags: "a=x b=y juju-drop-me=bad",
@@ -117,7 +116,7 @@ func (s *serviceSuite) TestGetStorageResourceTagsForApplication(c *tc.C) {
 func (s *serviceSuite) TestGetStorageResourceTagsForApplicationErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetStorageResourceTagInfoForApplication(gomock.Any(),
 		appUUID, "resource-tags").Return(storageprovisioning.ResourceTagInfo{},

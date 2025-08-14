@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
@@ -117,7 +116,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	app := NewMockApplication(ctrl)
@@ -184,7 +183,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
+	appUUID := coreapplication.GenID(c)
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().Units().Return([]caas.Unit{}, nil)
@@ -204,7 +203,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	unitName := coreunit.Name("foo/666")
 	now := time.Now()
 
@@ -272,7 +271,7 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
+	id := coreapplication.GenID(c)
 	s.state.EXPECT().GetApplicationLifeByName(gomock.Any(), "foo").Return(id, life.Dying, nil)
 
 	err := s.service.UpdateCAASUnit(c.Context(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
@@ -340,7 +339,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "foo"
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	unitNames := []coreunit.Name{"foo/666", "foo/667"}
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
@@ -364,7 +363,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "foo"
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
 	s.state.EXPECT().GetUnitNamesForApplication(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationIsDead)
@@ -405,7 +404,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	unitName := unittesting.GenNewName(c, "principal/0")
 
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
@@ -432,7 +431,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitUnitAlreadyHasSubordinate(c
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	unitName := unittesting.GenNewName(c, "principal/0")
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
 	s.state.EXPECT().AddIAASSubordinateUnit(gomock.Any(), gomock.Any()).Return("", nil, applicationerrors.UnitAlreadyHasSubordinate)
@@ -447,7 +446,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitUnitAlreadyHasSubordinate(c
 func (s *unitServiceSuite) TestAddIAASSubordinateUnitServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	unitName := unittesting.GenNewName(c, "principal/0")
 
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
@@ -466,7 +465,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitApplicationNotSubordinate(c
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 	unitName := unittesting.GenNewName(c, "principal/0")
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(false, nil)
 
@@ -481,7 +480,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitBadUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	// Act:
 	err := s.service.AddIAASSubordinateUnit(c.Context(), appID, "bad-name")
@@ -690,7 +689,7 @@ func (s *unitServiceSuite) TestGetUnitSubordinatesError(c *tc.C) {
 func (s *unitServiceSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	allUnitDomainLife := map[string]int{
 		"foo/0": 0,
@@ -712,7 +711,7 @@ func (s *unitServiceSuite) TestGetAllUnitLifeForApplication(c *tc.C) {
 func (s *unitServiceSuite) TestGetAllUnitLifeForApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	boom := errors.New("boom")
 	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).
@@ -726,7 +725,7 @@ func (s *unitServiceSuite) TestGetAllUnitLifeForApplicationError(c *tc.C) {
 func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	expectedResult := map[coreunit.Name]string{
 		"test/4": "foo",
@@ -743,7 +742,7 @@ func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplication(c *tc.C
 func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
+	appID := coreapplication.GenID(c)
 
 	s.state.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appID).
 		Return(nil, errors.New("nope"))
