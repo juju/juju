@@ -17,7 +17,9 @@ If you want to go one step further, take your cloud (and the entire deployment) 
 
 ## Harden the client and the agent binaries
 
-When you install Juju (= the `juju` CLI client + the Juju agent binaries) on Linux, you're installing it from a strictly confined snap. Snaps update by themselves. In short, nothing you need to do here!
+The `juju` CLI client can be installed from a strictly confined snap. The strict confinement means the client cannot do malicious things. The snap means the client updates by itself. All in all, you don't need to take any action.
+
+The Juju agent binaries come in the same package as the `juju` CLI client. However, when you deploy them (e.g., to bootstrap a controller or deploy an application), they're no longer in a snap, so no longer benefit from snap protections.
 
 > See more: [Snapcraft | Snap confinement](https://snapcraft.io/docs/snap-confinement), {ref}`manage-juju`, {ref}`juju-roadmap-and-releases`
 
