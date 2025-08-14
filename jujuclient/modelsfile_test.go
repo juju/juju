@@ -101,6 +101,47 @@ func (s *ModelsFileSuite) TestParseModels(c *tc.C) {
 	c.Assert(models, tc.DeepEquals, testControllerModels)
 }
 
+const testLegacyModelsYAML = `
+controllers:
+  ctrl:
+    models:
+      admin/amodel:
+        uuid: ghi
+        type: iaas
+  kontroll:
+    models:
+      admin@external/admin:
+        uuid: abc
+        type: iaas
+      admin@external/my-model:
+        uuid: def
+        type: iaas
+    current-model: admin@external/my-model
+    previous-model: admin@external/admin
+`
+
+var transformedControllerModels = map[string]*jujuclient.ControllerModels{
+	"kontroll": {
+		Models: map[string]jujuclient.ModelDetails{
+			"admin-external/admin":    kontrollAdminModelDetails,
+			"admin-external/my-model": kontrollMyModelModelDetails,
+		},
+		CurrentModel:  "admin-external/my-model",
+		PreviousModel: "admin-external/admin",
+	},
+	"ctrl": {
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/amodel": ctrlAdminModelDetails,
+		},
+	},
+}
+
+func (s *ModelsFileSuite) TestParseModelsTransformsUserNames(c *tc.C) {
+	models, err := jujuclient.ParseModels([]byte(testLegacyModelsYAML))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(models, tc.DeepEquals, transformedControllerModels)
+}
+
 func (s *ModelsFileSuite) TestParseModelMetadataError(c *tc.C) {
 	models, err := jujuclient.ParseModels([]byte("fail me now"))
 	c.Assert(err, tc.ErrorMatches,

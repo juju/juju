@@ -36,9 +36,9 @@ import (
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/loginprovider"
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/cmd"
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -524,11 +524,11 @@ one of them:
 	userModelNames := make(set.Strings)
 	otherModelNames := make(set.Strings)
 	for _, model := range models {
-		if model.Qualifier.String() == userName {
+		if model.Qualifier == coremodel.QualifierFromUserTag(user) {
 			userModelNames.Add(model.Name)
 			continue
 		}
-		modelName := common.OwnerQualifiedModelName(model.Name, model.Qualifier.String(), user)
+		modelName := jujuclient.QualifyModelName(model.Qualifier.String(), model.Name)
 		otherModelNames.Add(modelName)
 	}
 	for _, modelName := range userModelNames.SortedValues() {

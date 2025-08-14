@@ -67,7 +67,10 @@ func (c *Client) Offer(ctx context.Context, modelUUID, application string, endpo
 // ListOffers gets all remote applications that have been offered from this Juju model.
 // Each returned application satisfies at least one of the the specified filters.
 func (c *Client) ListOffers(ctx context.Context, filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error) {
-	var paramsFilter params.OfferFilters
+	var (
+		filtersArg   any
+		paramsFilter params.OfferFilters
+	)
 	for _, f := range filters {
 		filterTerm := params.OfferFilter{
 			ModelQualifier:      f.ModelQualifier.String(),
@@ -91,9 +94,13 @@ func (c *Client) ListOffers(ctx context.Context, filters ...crossmodel.Applicati
 		}
 		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}
+	filtersArg = paramsFilter
+	if c.BestAPIVersion() < 6 {
+		filtersArg = filtersToLegacyFilters(paramsFilter)
+	}
 
 	offers := params.QueryApplicationOffersResultsV5{}
-	err := c.facade.FacadeCall(ctx, "ListApplicationOffers", paramsFilter, &offers)
+	err := c.facade.FacadeCall(ctx, "ListApplicationOffers", filtersArg, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -239,7 +246,11 @@ func (c *Client) FindApplicationOffers(ctx context.Context, filters ...crossmode
 	if len(filters) == 0 {
 		return nil, errors.New("at least one filter must be specified")
 	}
-	var paramsFilter params.OfferFilters
+
+	var (
+		filtersArg   any
+		paramsFilter params.OfferFilters
+	)
 	for _, f := range filters {
 		filterTerm := params.OfferFilter{
 			OfferName:      f.OfferName,
@@ -254,9 +265,13 @@ func (c *Client) FindApplicationOffers(ctx context.Context, filters ...crossmode
 		}
 		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}
+	filtersArg = paramsFilter
+	if c.BestAPIVersion() < 6 {
+		filtersArg = filtersToLegacyFilters(paramsFilter)
+	}
 
 	offers := params.QueryApplicationOffersResultsV5{}
-	err := c.facade.FacadeCall(ctx, "FindApplicationOffers", paramsFilter, &offers)
+	err := c.facade.FacadeCall(ctx, "FindApplicationOffers", filtersArg, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

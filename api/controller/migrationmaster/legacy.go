@@ -1,0 +1,52 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package migrationmaster
+
+import (
+	"context"
+
+	"github.com/juju/description/v10"
+	"github.com/juju/errors"
+	"github.com/juju/names/v6"
+
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
+)
+
+// modelInfoCompat return basic information about the model to migrated
+// but adapts the result to convert a model owner into a model qualifier.
+func (c *Client) modelInfoCompat(ctx context.Context) (migration.ModelInfo, error) {
+	var info params.MigrationModelInfoLegacy
+	err := c.caller.FacadeCall(ctx, "ModelInfo", nil, &info)
+	if err != nil {
+		return migration.ModelInfo{}, errors.Trace(err)
+	}
+
+	owner, err := names.ParseUserTag(info.OwnerTag)
+	if err != nil {
+		return migration.ModelInfo{}, errors.Trace(err)
+	}
+
+	// The model description is marshalled into YAML (description package does
+	// not support JSON) to prevent potential issues with
+	// marshalling/unmarshalling on the target API controller.
+	var modelDescription description.Model
+	if bytes := info.ModelDescription; len(bytes) > 0 {
+		var err error
+		modelDescription, err = description.Deserialize(info.ModelDescription)
+		if err != nil {
+			return migration.ModelInfo{}, errors.Annotate(err, "failed to marshal model description")
+		}
+	}
+
+	return migration.ModelInfo{
+		UUID:                   info.UUID,
+		Name:                   info.Name,
+		Qualifier:              model.QualifierFromUserTag(owner),
+		AgentVersion:           info.AgentVersion,
+		ControllerAgentVersion: info.ControllerAgentVersion,
+		ModelDescription:       modelDescription,
+	}, nil
+}

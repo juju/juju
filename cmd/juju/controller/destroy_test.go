@@ -65,7 +65,7 @@ type fakeDestroyAPI struct {
 	testhelpers.Stub
 	cloud        environscloudspec.CloudSpec
 	blocks       []params.ModelBlockInfo
-	envStatus    map[string]base.ModelStatus
+	modelStatus  map[string]base.ModelStatus
 	allModels    []base.UserModel
 	hostedConfig []apicontroller.HostedConfig
 }
@@ -113,7 +113,7 @@ func (f *fakeDestroyAPI) ModelStatus(_ context.Context, tags ...names.ModelTag) 
 	f.MethodCall(f, "ModelStatus", tags)
 	status := make([]base.ModelStatus, len(tags))
 	for i, tag := range tags {
-		status[i] = f.envStatus[tag.Id()]
+		status[i] = f.modelStatus[tag.Id()]
 	}
 	return status, f.NextErr()
 }
@@ -156,8 +156,8 @@ func createBootstrapInfo(c *tc.C, name string) map[string]interface{} {
 func (s *baseDestroySuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.api = &fakeDestroyAPI{
-		cloud:     testing.FakeCloudSpec(),
-		envStatus: map[string]base.ModelStatus{},
+		cloud:       testing.FakeCloudSpec(),
+		modelStatus: map[string]base.ModelStatus{},
 	}
 	s.apierror = nil
 	s.controllerModelConfigAPI = &fakeModelConfigAPI{}
@@ -223,7 +223,7 @@ func (s *baseDestroySuite) SetUpTest(c *tc.C) {
 			Qualifier: "prod",
 			UUID:      uuid,
 		})
-		s.api.envStatus[model.modelUUID] = base.ModelStatus{
+		s.api.modelStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               life.Dead,
 			HostedMachineCount: 0,
@@ -365,7 +365,7 @@ func (s *DestroySuite) TestDestroyWithModelTimeoutNoForce(c *tc.C) {
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *tc.C) {
 	var haveFilesystem bool
-	for uuid, status := range s.api.envStatus {
+	for uuid, status := range s.api.modelStatus {
 		status.Life = life.Alive
 		status.Volumes = append(status.Volumes, base.Volume{Detachable: true})
 		if !haveFilesystem {
@@ -374,7 +374,7 @@ func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *tc
 				status.Filesystems, base.Filesystem{Detachable: true},
 			)
 		}
-		s.api.envStatus[uuid] = status
+		s.api.modelStatus[uuid] = status
 	}
 
 	s.api.SetErrors(
@@ -418,9 +418,9 @@ func (s *DestroySuite) TestFailedDestroyController(c *tc.C) {
 }
 
 func (s *DestroySuite) TestDestroyControllerAliveModels(c *tc.C) {
-	for uuid, status := range s.api.envStatus {
+	for uuid, status := range s.api.modelStatus {
 		status.Life = life.Alive
-		s.api.envStatus[uuid] = status
+		s.api.modelStatus[uuid] = status
 	}
 	s.api.SetErrors(
 		errors.New("cannot destroy controller \"test1\""),
